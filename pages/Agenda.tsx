@@ -3,14 +3,16 @@ import { MOCK_APPOINTMENTS, MOCK_PATIENTS, MOCK_USERS } from '../constants';
 import { Appointment, AppointmentType, AppointmentModality, UserRole } from '../types';
 import { 
   ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin, 
-  Calendar as CalendarIcon, MoreVertical, X, Check, Lock, User, Link as LinkIcon, Search
+  Calendar as CalendarIcon, MoreVertical, X, Check, Lock, User, Link as LinkIcon, Search, ExternalLink
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useNavigate } from 'react-router-dom';
 
 type ViewMode = 'day' | 'week' | 'month';
 
 export const Agenda: React.FC = () => {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>(MOCK_APPOINTMENTS);
@@ -83,6 +85,11 @@ export const Agenda: React.FC = () => {
         patientId: ''
     });
     setIsModalOpen(true);
+  };
+
+  const handleJoinRoom = (e: React.MouseEvent, appointmentId: string) => {
+      e.stopPropagation();
+      navigate(`/meeting/${appointmentId}`);
   };
 
   const handleSaveAppointment = () => {
@@ -253,7 +260,7 @@ export const Agenda: React.FC = () => {
                                 return (
                                     <div 
                                         key={apt.id}
-                                        className={`absolute left-1 right-1 rounded-xl p-2.5 border shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all z-0 overflow-hidden ${apt.color} flex flex-col`}
+                                        className={`absolute left-1 right-1 rounded-xl p-2.5 border shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all z-0 overflow-hidden ${apt.color} flex flex-col group/event`}
                                         style={{ top: `${top}px`, height: `${height - 4}px` }}
                                     >
                                         <div className="flex items-start justify-between mb-1">
@@ -270,6 +277,17 @@ export const Agenda: React.FC = () => {
                                             <div className="text-xs opacity-80 truncate mt-0.5 flex items-center gap-1">
                                                 <User size={10} /> {apt.psychologistName}
                                             </div>
+                                        )}
+                                        
+                                        {/* Join Room Button for Online Appts */}
+                                        {apt.modality === 'online' && (
+                                            <button 
+                                                onClick={(e) => handleJoinRoom(e, apt.id)}
+                                                className="absolute bottom-2 right-2 bg-emerald-500 text-white p-1.5 rounded-lg shadow-sm opacity-0 group-hover/event:opacity-100 transition-opacity hover:bg-emerald-600"
+                                                title={t('agenda.join')}
+                                            >
+                                                <ExternalLink size={14} />
+                                            </button>
                                         )}
                                     </div>
                                 );
@@ -304,8 +322,9 @@ export const Agenda: React.FC = () => {
                               </div>
                               <div className="space-y-1.5">
                                   {dayEvents.map(ev => (
-                                      <div key={ev.id} className={`text-[10px] font-bold px-2 py-1 rounded-md truncate border ${ev.color}`}>
-                                          {ev.title}
+                                      <div key={ev.id} className={`text-[10px] font-bold px-2 py-1 rounded-md truncate border flex items-center justify-between ${ev.color}`}>
+                                          <span>{ev.title}</span>
+                                          {ev.modality === 'online' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
                                       </div>
                                   ))}
                               </div>
@@ -459,6 +478,11 @@ export const Agenda: React.FC = () => {
                                             title={t('agenda.generateLink')}
                                         >
                                             <Video size={20} />
+                                        </button>
+                                    </div>
+                                    <div className="mt-3 flex justify-end">
+                                        <button className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1">
+                                            {t('agenda.join')} <ExternalLink size={12} />
                                         </button>
                                     </div>
                                 </div>

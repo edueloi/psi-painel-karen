@@ -4,14 +4,16 @@ import {
   User, Mail, Phone, Building, Briefcase, Clock, MapPin, 
   Camera, Save, BadgeCheck, Shield, Globe, Award, Stethoscope
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const Profile: React.FC = () => {
+  const { t } = useLanguage();
   const [user, setUser] = useState({
-    name: 'Dr. Roberto Silva',
-    email: 'roberto.silva@psiclinica.com',
+    name: 'Karen Gomes',
+    email: 'karen.gomes@psiclinica.com',
     role: UserRole.PSYCHOLOGIST,
     phone: '(11) 99999-8888',
-    crp: '06/123456',
+    crp: '06/172315',
     specialty: 'Psicologia Clínica & Neuropsicologia',
     companyName: 'Clínica Mente Saudável',
     address: 'Av. Paulista, 1000 - Sala 42, São Paulo - SP',
@@ -19,14 +21,15 @@ export const Profile: React.FC = () => {
     avatarUrl: ''
   });
 
+  // Using translation keys for day names
   const [schedule, setSchedule] = useState([
-    { day: 'Segunda-feira', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Terça-feira', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Quarta-feira', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Quinta-feira', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Sexta-feira', active: true, start: '08:00', end: '17:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Sábado', active: false, start: '09:00', end: '13:00', lunchStart: '', lunchEnd: '' },
-    { day: 'Domingo', active: false, start: '', end: '', lunchStart: '', lunchEnd: '' },
+    { dayKey: 'monday', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { dayKey: 'tuesday', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { dayKey: 'wednesday', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { dayKey: 'thursday', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { dayKey: 'friday', active: true, start: '08:00', end: '17:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { dayKey: 'saturday', active: false, start: '09:00', end: '13:00', lunchStart: '', lunchEnd: '' },
+    { dayKey: 'sunday', active: false, start: '', end: '', lunchStart: '', lunchEnd: '' },
   ]);
 
   const toggleDay = (index: number) => {
@@ -39,8 +42,8 @@ export const Profile: React.FC = () => {
     // Logic to save
     const btn = document.getElementById('save-btn');
     if(btn) {
-        btn.innerHTML = '<span class="flex items-center gap-2">Salvo com Sucesso!</span>';
-        setTimeout(() => btn.innerHTML = '<span class="flex items-center gap-2"><svg...></span> Salvar Alterações', 2000);
+        btn.innerHTML = `<span class="flex items-center gap-2">${t('profile.saved')}</span>`;
+        setTimeout(() => btn.innerHTML = `<span class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></span> ${t('profile.save')}`, 2000);
     }
   };
 
@@ -57,7 +60,7 @@ export const Profile: React.FC = () => {
         {/* Cover Actions */}
         <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <button className="bg-black/30 hover:bg-black/50 backdrop-blur text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-white/10">
-                <Camera size={14} /> Alterar Capa
+                <Camera size={14} /> {t('profile.changeCover')}
             </button>
         </div>
       </div>
@@ -82,7 +85,7 @@ export const Profile: React.FC = () => {
                                     <Camera className="text-white w-8 h-8" />
                                 </div>
                             </div>
-                            <div className="absolute bottom-2 right-2 p-2 bg-emerald-500 border-4 border-white rounded-full" title="Online"></div>
+                            <div className="absolute bottom-2 right-2 p-2 bg-emerald-500 border-4 border-white rounded-full" title={t('profile.online')}></div>
                         </div>
                         
                         <h2 className="text-2xl font-display font-bold text-slate-800 mb-1">{user.name}</h2>
@@ -106,7 +109,7 @@ export const Profile: React.FC = () => {
                                     <Mail size={18} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Email Profissional</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t('profile.professionalEmail')}</p>
                                     <p className="text-sm font-semibold text-slate-700 truncate">{user.email}</p>
                                 </div>
                             </div>
@@ -116,7 +119,7 @@ export const Profile: React.FC = () => {
                                     <Phone size={18} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Contato</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t('profile.contact')}</p>
                                     <p className="text-sm font-semibold text-slate-700">{user.phone}</p>
                                 </div>
                             </div>
@@ -126,7 +129,7 @@ export const Profile: React.FC = () => {
                                     <MapPin size={18} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Localização</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t('profile.location')}</p>
                                     <p className="text-sm font-semibold text-slate-700 leading-snug">{user.address}</p>
                                 </div>
                             </div>
@@ -146,14 +149,14 @@ export const Profile: React.FC = () => {
                                 <BadgeCheck className="text-emerald-400" size={24} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg">Conta Verificada</h3>
-                                <p className="text-xs text-slate-400">Todos os documentos validados</p>
+                                <h3 className="font-bold text-lg">{t('profile.verified')}</h3>
+                                <p className="text-xs text-slate-400">{t('profile.verifiedDesc')}</p>
                             </div>
                         </div>
                         <div className="w-full bg-white/10 rounded-full h-1.5 mb-2">
                             <div className="bg-emerald-400 h-1.5 rounded-full w-full shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
                         </div>
-                        <p className="text-[10px] text-slate-400 text-right">Validade: Indeterminada</p>
+                        <p className="text-[10px] text-slate-400 text-right">{t('profile.validity')}</p>
                     </div>
                 </div>
             </div>
@@ -168,15 +171,15 @@ export const Profile: React.FC = () => {
                             <Briefcase size={24} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-slate-800">Sobre o Profissional</h3>
-                            <p className="text-sm text-slate-500">Informações visíveis no seu perfil público</p>
+                            <h3 className="text-xl font-bold text-slate-800">{t('profile.about')}</h3>
+                            <p className="text-sm text-slate-500">{t('profile.publicInfo')}</p>
                         </div>
                     </div>
 
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2 group">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">Nome da Clínica/Empresa</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">{t('profile.companyName')}</label>
                                 <div className="relative">
                                     <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                                     <input 
@@ -189,7 +192,7 @@ export const Profile: React.FC = () => {
                             </div>
                             
                             <div className="space-y-2 group">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">Registro Profissional</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">{t('profile.registry')}</label>
                                 <div className="relative">
                                     <Shield size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                                     <input 
@@ -203,7 +206,7 @@ export const Profile: React.FC = () => {
                         </div>
 
                         <div className="space-y-2 group">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">Biografia</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">{t('profile.bio')}</label>
                             <div className="relative">
                                 <textarea 
                                     value={user.bio}
@@ -226,26 +229,26 @@ export const Profile: React.FC = () => {
                                 <Clock size={24} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-slate-800">Horários de Atendimento</h3>
-                                <p className="text-sm text-slate-500">Configure sua disponibilidade semanal</p>
+                                <h3 className="text-xl font-bold text-slate-800">{t('profile.schedule')}</h3>
+                                <p className="text-sm text-slate-500">{t('profile.scheduleDesc')}</p>
                             </div>
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                            <Globe size={14} /> Fuso Horário: Brasília (GMT-3)
+                            <Globe size={14} /> {t('profile.timezone')}
                         </div>
                     </div>
 
                     <div className="space-y-3">
                         <div className="grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center px-4 pb-2">
-                            <div className="col-span-4 md:col-span-3 text-left">Dia da Semana</div>
-                            <div className="col-span-4 md:col-span-4">Expediente</div>
-                            <div className="hidden md:block col-span-4">Pausa / Almoço</div>
-                            <div className="col-span-4 md:col-span-1">Status</div>
+                            <div className="col-span-4 md:col-span-3 text-left">{t('profile.day')}</div>
+                            <div className="col-span-4 md:col-span-4">{t('profile.workHours')}</div>
+                            <div className="hidden md:block col-span-4">{t('profile.break')}</div>
+                            <div className="col-span-4 md:col-span-1">{t('profile.status')}</div>
                         </div>
 
                         {schedule.map((day, index) => (
                             <div 
-                                key={day.day} 
+                                key={day.dayKey} 
                                 className={`
                                     relative grid grid-cols-12 gap-4 items-center p-4 rounded-2xl border transition-all duration-300
                                     ${day.active 
@@ -256,7 +259,7 @@ export const Profile: React.FC = () => {
                                 {/* Day Name */}
                                 <div className="col-span-4 md:col-span-3 flex items-center gap-3">
                                     <div className={`w-2 h-8 rounded-full ${day.active ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
-                                    <span className="font-bold text-sm text-slate-700">{day.day}</span>
+                                    <span className="font-bold text-sm text-slate-700">{t(`days.${day.dayKey}`)}</span>
                                 </div>
                                 
                                 {/* Work Hours */}
@@ -264,7 +267,7 @@ export const Profile: React.FC = () => {
                                     <div className="relative group/time">
                                         <input type="time" disabled={!day.active} value={day.start} className="w-20 p-2 text-center text-sm font-bold bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 focus:bg-white outline-none transition-all disabled:bg-transparent" />
                                     </div>
-                                    <span className="text-slate-300 font-bold">às</span>
+                                    <span className="text-slate-300 font-bold">{t('profile.to')}</span>
                                     <div className="relative group/time">
                                         <input type="time" disabled={!day.active} value={day.end} className="w-20 p-2 text-center text-sm font-bold bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 focus:bg-white outline-none transition-all disabled:bg-transparent" />
                                     </div>
@@ -298,7 +301,7 @@ export const Profile: React.FC = () => {
                         onClick={handleSave}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-indigo-900/20 hover:shadow-indigo-900/40 hover:-translate-y-1 transition-all flex items-center gap-3 text-lg"
                     >
-                        <Save size={20} /> Salvar Alterações
+                        <Save size={20} /> {t('profile.save')}
                     </button>
                 </div>
 

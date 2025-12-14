@@ -81,12 +81,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) =
                       {user?.avatar ? (
                           <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
                       ) : (
-                          <span className="font-bold text-indigo-700 text-sm">{user?.name?.charAt(0) || 'D'}</span>
+                          <span className="font-bold text-indigo-700 text-sm">{user?.name?.charAt(0) || 'K'}</span>
                       )}
                   </div>
               </div>
               <div className="text-right hidden md:block">
-                  <p className="text-sm font-bold text-slate-700 leading-none group-hover:text-indigo-700 transition-colors">{user?.name || 'Dr. Silva'}</p>
+                  <p className="text-sm font-bold text-slate-700 leading-none group-hover:text-indigo-700 transition-colors">{user?.name || 'Karen Gomes'}</p>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">{user?.role || 'Psicólogo'}</p>
               </div>
               <ChevronDown size={14} className={`text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />

@@ -1,9 +1,12 @@
+
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck } from 'lucide-react';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone } from 'lucide-react';
 
 export const NAV_ITEMS = [
   { label: 'Dashboard', path: '/', icon: <Activity size={20} /> },
   { label: 'Agenda', path: '/agenda', icon: <Calendar size={20} /> },
+  { label: 'Sala Virtual', path: '/virtual-rooms', icon: <Video size={20} /> },
+  { label: 'Vincular Bot', path: '/bot', icon: <Smartphone size={20} /> },
   { label: 'Comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },
   { label: 'Pacientes', path: '/patients', icon: <Users size={20} /> },
   { label: 'Profissionais', path: '/professionals', icon: <UserCheck size={20} /> },
@@ -20,22 +23,22 @@ export const NAV_ITEMS = [
 ];
 
 export const MOCK_USERS = [
-  { id: '1', name: 'Dr. Silva', email: 'dr.silva@clinic.com', role: UserRole.PSYCHOLOGIST },
+  { id: '1', name: 'Karen Gomes', email: 'karen.gomes@clinic.com', role: UserRole.PSYCHOLOGIST },
   { id: '2', name: 'Ana Recepção', email: 'ana@clinic.com', role: UserRole.SECRETARY },
 ];
 
 export const MOCK_PROFESSIONALS: Professional[] = [
   {
     id: '1',
-    name: 'Dr. Roberto Silva',
-    email: 'roberto.silva@clinic.com',
+    name: 'Karen Gomes',
+    email: 'karen.gomes@clinic.com',
     phone: '(11) 99999-8888',
     cpfCnpj: '123.456.789-00',
-    profession: 'Psicólogo',
-    registrationNumber: '06/123456',
+    profession: 'Psicóloga Clínica e TCC',
+    registrationNumber: '06/172315',
     color: '#6366f1',
     role: UserRole.ADMIN,
-    commissionRate: 70,
+    commissionRate: 100,
     hasAgenda: true,
     isThirdParty: false,
     active: true
@@ -186,7 +189,7 @@ export const MOCK_APPOINTMENTS: Appointment[] = [
     patientId: '1',
     patientName: 'Carlos Oliveira',
     psychologistId: '1',
-    psychologistName: 'Dr. Silva',
+    psychologistName: 'Karen Gomes',
     title: 'Carlos Oliveira',
     start: setTime(10),
     end: setTime(11),
@@ -200,7 +203,7 @@ export const MOCK_APPOINTMENTS: Appointment[] = [
     patientId: '2',
     patientName: 'Mariana Souza',
     psychologistId: '1',
-    psychologistName: 'Dr. Silva',
+    psychologistName: 'Karen Gomes',
     title: 'Mariana Souza',
     start: setTime(14),
     end: setTime(15),
@@ -213,7 +216,7 @@ export const MOCK_APPOINTMENTS: Appointment[] = [
   {
     id: '3',
     psychologistId: '1',
-    psychologistName: 'Dr. Silva',
+    psychologistName: 'Karen Gomes',
     title: 'Almoço',
     start: setTime(12),
     end: setTime(13),

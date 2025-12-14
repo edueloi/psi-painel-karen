@@ -1,10 +1,12 @@
 import React from 'react';
 import { MOCK_PATIENTS, MOCK_APPOINTMENTS } from '../constants';
-import { Users, Calendar, DollarSign, Activity, ArrowUp, Clock, CheckCircle } from 'lucide-react';
+import { Users, Calendar, DollarSign, Activity, ArrowUp, Clock, CheckCircle, Video } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useNavigate } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const nextAppointment = MOCK_APPOINTMENTS.find(a => a.status === 'scheduled');
 
   const formattedDate = new Date().toLocaleDateString(
@@ -18,7 +20,7 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
            <h1 className="font-display font-bold text-3xl text-slate-800">
-             {t('dashboard.welcome')}, Dr. Silva <span className="text-2xl">👋</span>
+             {t('dashboard.welcome')}, Karen Gomes <span className="text-2xl">👋</span>
            </h1>
            <p className="text-slate-500 mt-1">{t('dashboard.subtitle')}</p>
         </div>
@@ -115,8 +117,17 @@ export const Dashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="hidden sm:flex">
-                    <button className="p-2 rounded-full text-slate-400 hover:bg-white hover:text-indigo-600 hover:shadow-md transition-all">
+                <div className="flex items-center gap-2">
+                    {app.modality === 'online' && app.status !== 'completed' && (
+                        <button 
+                            onClick={() => navigate(`/meeting/${app.id}`)}
+                            className="p-2 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors shadow-sm"
+                            title={t('dashboard.enterRoom')}
+                        >
+                            <Video size={20} />
+                        </button>
+                    )}
+                    <button className="hidden sm:flex p-2 rounded-full text-slate-400 hover:bg-white hover:text-indigo-600 hover:shadow-md transition-all">
                         <CheckCircle size={20} />
                     </button>
                 </div>
@@ -159,9 +170,19 @@ export const Dashboard: React.FC = () => {
                                 <p className="text-xs text-slate-500">Particular</p>
                              </div>
                         </div>
-                        <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 p-2 rounded-lg">
-                            <Clock size={16} className="mr-2 text-orange-500" />
-                            {t('dashboard.inMinutes').replace('{minutes}', '15')}
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 p-2 rounded-lg flex-1">
+                                <Clock size={16} className="mr-2 text-orange-500" />
+                                {t('dashboard.inMinutes').replace('{minutes}', '15')}
+                            </div>
+                            {nextAppointment.modality === 'online' && (
+                                <button 
+                                    onClick={() => navigate(`/meeting/${nextAppointment.id}`)}
+                                    className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 shadow-md"
+                                >
+                                    <Video size={18} />
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

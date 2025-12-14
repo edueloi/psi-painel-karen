@@ -24,6 +24,9 @@ import { Help } from './pages/Help';
 import { Professionals } from './pages/Professionals';
 import { FormBuilder } from './components/Forms/FormBuilder';
 import { ExternalForm } from './pages/ExternalForm';
+import { MeetingRoom } from './pages/MeetingRoom';
+import { VirtualRooms } from './pages/VirtualRooms';
+import { BotIntegration } from './pages/BotIntegration';
 import { MOCK_USERS } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 
@@ -98,6 +101,9 @@ const AppRoutes: React.FC = () => {
         } />
         
         <Route path="/f/:hash" element={<ExternalForm />} />
+        
+        {/* Meeting Room is standalone, no sidebar */}
+        <Route path="/meeting/:id" element={isAuthenticated ? <MeetingRoom /> : <Navigate to="/login" />} />
 
         {/* Protected Routes */}
         <Route path="/*" element={
@@ -107,6 +113,8 @@ const AppRoutes: React.FC = () => {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/patients" element={<Patients />} />
                 <Route path="/agenda" element={<Agenda />} />
+                <Route path="/virtual-rooms" element={<VirtualRooms />} />
+                <Route path="/bot" element={<BotIntegration />} />
                 <Route path="/documents" element={<Documents />} />
                 
                 {/* Services & Packages Module */}

@@ -50,6 +50,28 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     if (currentStep > 0) setCurrentStep(prev => prev - 1);
   };
 
+  // Helper to map Enum values to Translations
+  const maritalOptions = [
+      { value: MaritalStatus.SINGLE, label: t('marital.single') },
+      { value: MaritalStatus.MARRIED, label: t('marital.married') },
+      { value: MaritalStatus.DIVORCED, label: t('marital.divorced') },
+      { value: MaritalStatus.WIDOWED, label: t('marital.widowed') },
+      { value: MaritalStatus.COHABITING, label: t('marital.cohabiting') },
+      { value: MaritalStatus.SEPARATED, label: t('marital.separated') },
+  ];
+
+  const educationOptions = [
+      { value: EducationLevel.PRIMARY_INC, label: t('education.primaryInc') },
+      { value: EducationLevel.PRIMARY_COM, label: t('education.primaryCom') },
+      { value: EducationLevel.SECONDARY_INC, label: t('education.secondaryInc') },
+      { value: EducationLevel.SECONDARY_COM, label: t('education.secondaryCom') },
+      { value: EducationLevel.HIGHER_INC, label: t('education.higherInc') },
+      { value: EducationLevel.HIGHER_COM, label: t('education.higherCom') },
+      { value: EducationLevel.POST_GRAD, label: t('education.postGrad') },
+      { value: EducationLevel.MASTER, label: t('education.master') },
+      { value: EducationLevel.DOCTORATE, label: t('education.doctorate') },
+  ];
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 0: // Basic
@@ -172,8 +194,8 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 onChange={e => updateField('maritalStatus', e.target.value)}
               >
                 <option value="">Selecione...</option>
-                {Object.values(MaritalStatus).map(status => (
-                  <option key={status} value={status}>{status}</option>
+                {maritalOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </div>
@@ -185,8 +207,8 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 onChange={e => updateField('education', e.target.value)}
               >
                 <option value="">Selecione...</option>
-                {Object.values(EducationLevel).map(level => (
-                  <option key={level} value={level}>{level}</option>
+                {educationOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </div>
