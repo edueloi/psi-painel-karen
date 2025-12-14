@@ -31,7 +31,7 @@ export const VirtualRooms: React.FC = () => {
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
       
       {/* --- HERO SECTION --- */}
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-indigo-900/20 border border-slate-800">
+      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-indigo-900/20 border border-slate-800 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 opacity-90"></div>
         <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
         
@@ -42,7 +42,7 @@ export const VirtualRooms: React.FC = () => {
                     <span>Sala Virtual</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('rooms.title')}</h1>
-                <p className="text-indigo-100/70 text-lg leading-relaxed max-w-xl">
+                <p className="text-indigo-200 text-lg leading-relaxed max-w-xl">
                     {t('rooms.subtitle')}
                 </p>
             </div>

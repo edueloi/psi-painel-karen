@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { MOCK_PROFESSIONALS } from '../constants';
 import { Professional, UserRole } from '../types';
@@ -84,7 +85,7 @@ export const Professionals: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-indigo-900/20 border border-slate-800">
+      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-indigo-900/20 border border-slate-800 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 opacity-90"></div>
         <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
             <div className="max-w-2xl">
@@ -93,7 +94,7 @@ export const Professionals: React.FC = () => {
                     <span>{t('professionals.management')}</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('professionals.title')}</h1>
-                <p className="text-indigo-100/70 text-lg leading-relaxed max-w-xl">{t('professionals.subtitle')}</p>
+                <p className="text-indigo-200 text-lg leading-relaxed max-w-xl">{t('professionals.subtitle')}</p>
             </div>
             <div className="flex bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
                 <button onClick={() => setActiveTab('team')} className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${activeTab === 'team' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>

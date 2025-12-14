@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Smartphone, CheckCircle, AlertCircle, Clock, Calendar, DollarSign, Gift, User, FileText, Bell } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -40,7 +41,7 @@ export const BotIntegration: React.FC = () => {
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
       
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-emerald-900/20 border border-slate-800">
+      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-emerald-900/20 border border-slate-800 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 via-slate-900 to-slate-950 opacity-90"></div>
         <div className="absolute right-0 top-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none"></div>
         
@@ -51,7 +52,7 @@ export const BotIntegration: React.FC = () => {
                     <span>WhatsApp Bot</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('bot.title')}</h1>
-                <p className="text-emerald-100/70 text-lg leading-relaxed max-w-xl">
+                <p className="text-emerald-200 text-lg leading-relaxed max-w-xl">
                     {t('bot.subtitle')}
                 </p>
             </div>

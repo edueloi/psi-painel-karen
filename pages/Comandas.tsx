@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MOCK_COMANDAS, MOCK_SERVICES, MOCK_PACKAGES, MOCK_PATIENTS } from '../constants';
 import { Comanda, ComandaStatus } from '../types';
@@ -150,7 +151,7 @@ export const Comandas: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-emerald-900/20 border border-slate-800">
+      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-emerald-900/20 border border-slate-800 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 via-slate-900 to-slate-950 opacity-90"></div>
         <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
             <div className="max-w-2xl">
@@ -159,7 +160,7 @@ export const Comandas: React.FC = () => {
                     <span>{t('comandas.finance')}</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('comandas.title')}</h1>
-                <p className="text-emerald-100/70 text-lg leading-relaxed max-w-xl">{t('comandas.subtitle')}</p>
+                <p className="text-emerald-200 text-lg leading-relaxed max-w-xl">{t('comandas.subtitle')}</p>
             </div>
             <div className="flex bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
                 <button onClick={() => setActiveTab('aberta')} className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${activeTab === 'aberta' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>

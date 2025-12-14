@@ -66,7 +66,7 @@ export const FormsList: React.FC = () => {
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
       
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-blue-900/20 border border-slate-800">
+      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-blue-900/20 border border-slate-800 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-slate-900 to-indigo-950 opacity-90"></div>
         <div className="absolute -right-32 -top-32 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="absolute left-10 bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
@@ -78,7 +78,7 @@ export const FormsList: React.FC = () => {
                     <span>Gestão de Formulários</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">Meus Formulários</h1>
-                <p className="text-blue-100/70 text-lg leading-relaxed max-w-xl">
+                <p className="text-blue-200 text-lg leading-relaxed max-w-xl">
                     Gerencie seus questionários, acompanhe respostas e compartilhe links seguros com seus pacientes em um único lugar.
                 </p>
             </div>
