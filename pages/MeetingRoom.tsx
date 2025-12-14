@@ -25,13 +25,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   const isCompanionMode = searchParams.get('companion') === 'true';
 
   // --- States ---
-  const [hasJoined, setHasJoined] = useState(isCompanionMode); // Auto-join if companion
+  const [hasJoined, setHasJoined] = useState(isCompanionMode); 
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [screenShare, setScreenShare] = useState(false);
   const [activeSidePanel, setActiveSidePanel] = useState<'chat' | 'whiteboard' | 'none'>(
     isCompanionMode ? 'whiteboard' : 'none'
   );
+  
+  // Simulation State for "Remote User"
+  const [remoteUserConnected, setRemoteUserConnected] = useState(false);
+
   const [messages, setMessages] = useState<{sender: string, text: string, time: string}[]>([
     { sender: 'System', text: 'Sala segura criada (Criptografia ponta-a-ponta).', time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }
   ]);
@@ -71,7 +75,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
 
   // --- Initialize Media ---
   useEffect(() => {
-    // If companion mode, we don't need camera/mic initially, just the whiteboard functionality
     if (isCompanionMode) return;
 
     const initMedia = async () => {
@@ -83,11 +86,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
         
         localStreamRef.current = stream;
         
-        // Attach to lobby video if not joined yet
         if (!hasJoined && lobbyVideoRef.current) {
             lobbyVideoRef.current.srcObject = stream;
         } 
-        // Attach to main video if already joined (should be handled by toggle effect, but safe to keep)
         else if (hasJoined && localVideoRef.current) {
             localVideoRef.current.srcObject = stream;
         }
@@ -112,6 +113,21 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
           localVideoRef.current.srcObject = localStreamRef.current;
       }
   }, [hasJoined, isCompanionMode]);
+
+  // --- Simulate Remote Connection ---
+  useEffect(() => {
+      if (hasJoined && !isCompanionMode) {
+          const timeout = setTimeout(() => {
+              setRemoteUserConnected(true);
+              setMessages(prev => [...prev, { 
+                  sender: 'System', 
+                  text: isGuest ? 'O Profissional entrou na sala.' : 'O Paciente entrou na sala.', 
+                  time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+              }]);
+          }, 4000); // 4 seconds to simulate connection
+          return () => clearTimeout(timeout);
+      }
+  }, [hasJoined, isCompanionMode, isGuest]);
 
   const setupAudioAnalysis = (stream: MediaStream) => {
     try {
@@ -259,11 +275,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Prevent scrolling when drawing on touch devices
-    if ('touches' in e) {
-        // e.preventDefault(); // Note: Passive event listeners might block this in React 18, managed via style touch-action: none
-    }
-
     let x, y;
     if ('touches' in e) {
         const pos = getTouchPos(canvas, e);
@@ -317,16 +328,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                   </button>
               </div>
               <div className="flex-1 relative overflow-hidden bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
-                  <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/90 p-2 rounded-xl border border-slate-200 shadow-sm">
-                      {['#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b'].map(color => (
-                          <button 
-                            key={color}
-                            onClick={() => setDrawColor(color)} 
-                            className={`w-8 h-8 rounded-full border-2 transition-transform ${drawColor === color ? 'border-slate-800 scale-110' : 'border-transparent'}`} 
-                            style={{ backgroundColor: color }}
-                          />
-                      ))}
-                  </div>
+                  {/* ... canvas code ... */}
                   <canvas 
                       ref={canvasRef}
                       width={window.innerWidth} 
@@ -340,6 +342,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                       onTouchEnd={() => setIsDrawing(false)}
                       className="touch-none block cursor-crosshair"
                   />
+                  {/* Floating Color Picker for Companion */}
+                  <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/90 p-2 rounded-xl border border-slate-200 shadow-sm">
+                      {['#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b'].map(color => (
+                          <button 
+                            key={color}
+                            onClick={() => setDrawColor(color)} 
+                            className={`w-8 h-8 rounded-full border-2 transition-transform ${drawColor === color ? 'border-slate-800 scale-110' : 'border-transparent'}`} 
+                            style={{ backgroundColor: color }}
+                          />
+                      ))}
+                  </div>
               </div>
           </div>
       );
@@ -528,14 +541,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
     <div className="fixed inset-0 bg-[#0f1115] text-white overflow-hidden font-sans flex flex-col">
       
       {/* --- HEADER --- */}
-      <header className="h-16 px-6 flex items-center justify-between bg-[#0f1115]/90 backdrop-blur-md z-50 border-b border-white/5">
+      <header className="h-16 px-4 md:px-6 flex items-center justify-between bg-[#0f1115]/90 backdrop-blur-md z-50 border-b border-white/5">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
              <Clock size={16} className="text-emerald-400" />
              <span className="font-mono font-bold text-sm tracking-wide">{formatTime(elapsedTime)}</span>
           </div>
-          <div className="h-6 w-px bg-white/10"></div>
-          <div>
+          <div className="h-6 w-px bg-white/10 hidden sm:block"></div>
+          <div className="hidden sm:block">
              <h1 className="font-bold text-lg leading-none">
                  {isGuest 
                     ? `Atendimento: ${appointment?.psychologistName || 'Profissional'}` 
@@ -549,19 +562,21 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
         
         <div className="flex items-center gap-3">
            {!isGuest && (
-               <button 
-                    onClick={() => setShowLinkDeviceModal(true)}
-                    className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg text-xs font-bold transition-all border border-indigo-500/30"
-               >
-                   <Tablet size={14} /> Lousa no Tablet
-               </button>
+               <>
+                   <button 
+                        onClick={() => setShowLinkDeviceModal(true)}
+                        className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg text-xs font-bold transition-all border border-indigo-500/30"
+                   >
+                       <Tablet size={14} /> Lousa no Tablet
+                   </button>
+                   <button onClick={() => setShowSettingsModal(true)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Configurações">
+                      <Settings size={20} />
+                   </button>
+                   <button className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Layout">
+                      <Layout size={20} />
+                   </button>
+               </>
            )}
-           <button onClick={() => setShowSettingsModal(true)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Configurações">
-              <Settings size={20} />
-           </button>
-           <button className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Layout">
-              <Layout size={20} />
-           </button>
         </div>
       </header>
 
@@ -569,25 +584,34 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       <main className="flex-1 flex relative overflow-hidden">
         
         {/* CENTER CONTENT */}
-        <div className="flex-1 relative flex items-center justify-center p-4">
+        <div className="flex-1 relative flex items-center justify-center p-2 md:p-4">
            
            {/* Remote Participant Area (Or Screen Share) */}
            <div className="w-full h-full max-w-6xl max-h-[85vh] relative flex items-center justify-center">
               
               {screenShare ? (
                  <video ref={screenShareRef} autoPlay muted playsInline className="w-full h-full object-contain rounded-2xl shadow-2xl bg-black" />
+              ) : remoteUserConnected ? (
+                 // SIMULATED REMOTE VIDEO
+                 <div className="relative w-full h-full bg-[#1e2025] rounded-[24px] md:rounded-[32px] overflow-hidden shadow-2xl border border-white/5">
+                     <img 
+                        src={isGuest ? "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=1000&auto=format&fit=crop" : "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1000&auto=format&fit=crop"} 
+                        alt="Remote User" 
+                        className="w-full h-full object-cover opacity-90"
+                     />
+                     <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl text-white text-sm font-bold flex items-center gap-2">
+                         {isGuest ? 'Dra. Karen Gomes' : 'Paciente'} <MicIcon size={14} className="text-emerald-400" />
+                     </div>
+                 </div>
               ) : (
-                 <div className="relative w-full h-full bg-[#181a1f] rounded-[32px] border border-white/5 flex flex-col items-center justify-center shadow-2xl overflow-hidden group">
-                    {/* Placeholder for Remote Video */}
-                    <div className="relative z-10 flex flex-col items-center">
-                       <div className="w-48 h-48 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center mb-8 shadow-[0_0_60px_rgba(0,0,0,0.3)] border-4 border-white/5 relative">
-                          <User size={80} className="text-slate-400" />
-                          <div className="absolute bottom-3 right-3 p-3 bg-emerald-500 rounded-full border-4 border-[#181a1f] shadow-lg">
-                             <MicIcon size={20} className="text-white" />
-                          </div>
+                 <div className="relative w-full h-full bg-[#181a1f] rounded-[24px] md:rounded-[32px] border border-white/5 flex flex-col items-center justify-center shadow-2xl overflow-hidden group">
+                    {/* Placeholder for Remote Video Waiting */}
+                    <div className="relative z-10 flex flex-col items-center text-center px-4">
+                       <div className="w-32 h-32 md:w-48 md:h-48 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center mb-6 md:mb-8 shadow-[0_0_60px_rgba(0,0,0,0.3)] border-4 border-white/5 relative animate-pulse">
+                          <User size={60} className="text-slate-400 md:w-20 md:h-20" />
                        </div>
-                       <h2 className="text-3xl font-display font-bold text-slate-200">{t('meeting.waiting')}</h2>
-                       <p className="text-slate-500 mt-2 text-lg">
+                       <h2 className="text-2xl md:text-3xl font-display font-bold text-slate-200">{t('meeting.waiting')}</h2>
+                       <p className="text-slate-500 mt-2 text-sm md:text-lg">
                            {isGuest ? 'Aguardando o profissional...' : 'O paciente entrará em breve...'}
                        </p>
                     </div>
@@ -599,51 +623,41 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
 
               {/* Captions Overlay */}
               {captionsOn && (
-                 <div className="absolute bottom-10 left-0 right-0 flex justify-center z-20 pointer-events-none">
-                    <div className="bg-black/70 backdrop-blur-md px-8 py-4 rounded-2xl border border-white/10 text-lg font-medium text-center max-w-2xl shadow-xl">
-                       {transcript || <span className="text-slate-400 italic text-base flex items-center gap-2"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce"></div> {t('meeting.listening')}</span>}
+                 <div className="absolute bottom-10 left-0 right-0 flex justify-center z-20 pointer-events-none px-4">
+                    <div className="bg-black/70 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 text-base md:text-lg font-medium text-center max-w-2xl shadow-xl">
+                       {transcript || <span className="text-slate-400 italic flex items-center gap-2 justify-center"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce"></div> {t('meeting.listening')}</span>}
                     </div>
                  </div>
               )}
            </div>
 
-           {/* PIP (Local User) */}
-           <div className="absolute bottom-8 right-8 w-72 aspect-video bg-[#1e2025] rounded-2xl overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-30 group cursor-move hover:scale-105 transition-all duration-300">
+           {/* PIP (Local User) - Adjusted for Mobile */}
+           <div className="absolute top-4 right-4 w-28 md:w-72 aspect-video md:top-auto md:bottom-8 md:right-8 bg-[#1e2025] rounded-xl md:rounded-2xl overflow-hidden border border-white/10 shadow-2xl z-30 group cursor-move transition-all duration-300">
               {cameraOn ? (
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
               ) : (
                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 relative">
-                    <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center text-xl font-bold shadow-lg">
+                    <div className="w-8 h-8 md:w-16 md:h-16 rounded-full bg-indigo-600 flex items-center justify-center text-xs md:text-xl font-bold shadow-lg">
                         {isGuest ? (guestName.charAt(0) || 'G') : 'You'}
                     </div>
-                    {/* Audio Pulse Visualizer when cam is off but mic is on */}
                     {micOn && (
                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-20 h-20 rounded-full border-2 border-indigo-500/30 animate-ping"></div>
+                          <div className="w-12 h-12 md:w-20 md:h-20 rounded-full border-2 border-indigo-500/30 animate-ping"></div>
                        </div>
                     )}
                  </div>
               )}
               
-              <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-2">
-                 {t('meeting.you')} {!micOn && <MicOff size={10} className="text-red-400" />}
+              <div className="absolute bottom-1 left-1 md:bottom-3 md:left-3 bg-black/60 backdrop-blur-sm px-2 py-0.5 md:px-3 md:py-1 rounded md:rounded-lg text-[8px] md:text-xs font-bold flex items-center gap-1 md:gap-2">
+                 {t('meeting.you')} {!micOn && <MicOff size={8} className="text-red-400 md:w-3 md:h-3" />}
               </div>
-
-              {/* Audio Bar Visualizer (Mini) */}
-              {micOn && (
-                 <div className="absolute top-3 right-3 flex gap-0.5 h-3 items-end">
-                    {[1,2,3,4,5].map(i => (
-                        <div key={i} className="w-1 bg-emerald-500 rounded-full transition-all duration-75" style={{ height: `${Math.max(20, audioLevel * (i * 0.8))}%` }}></div>
-                    ))}
-                 </div>
-              )}
            </div>
 
         </div>
 
         {/* SIDE PANEL */}
         {activeSidePanel !== 'none' && (
-           <div className="w-[400px] bg-[#181a1f] border-l border-white/5 flex flex-col shadow-2xl relative z-40 animate-[slideLeft_0.3s_ease-out]">
+           <div className="absolute inset-0 z-50 md:static md:w-[400px] bg-[#181a1f] border-l border-white/5 flex flex-col shadow-2xl animate-[slideLeft_0.3s_ease-out]">
               <div className="h-16 flex items-center justify-between px-6 border-b border-white/5">
                  <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2 text-slate-300">
                     {activeSidePanel === 'chat' ? <MessageSquare size={16} className="text-indigo-400" /> : <PenTool size={16} className="text-indigo-400" />}
@@ -689,6 +703,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                        </div>
                     </>
                  ) : (
+                    // Whiteboard only for non-guests or specifically allowed
                     <div className="flex flex-col h-full bg-white">
                         <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                             <div className="flex gap-2">
@@ -741,12 +756,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       </main>
 
       {/* --- FOOTER CONTROLS --- */}
-      <footer className="h-24 flex items-center justify-center gap-4 relative z-50 pointer-events-none">
-         <div className="pointer-events-auto bg-[#181a1f]/90 backdrop-blur-xl border border-white/10 p-2 rounded-[2rem] shadow-2xl flex items-center gap-2 mb-6 transform hover:scale-[1.02] transition-transform duration-300">
+      <footer className="h-24 flex items-center justify-center gap-4 relative z-50 pointer-events-none px-4">
+         <div className="pointer-events-auto bg-[#181a1f]/90 backdrop-blur-xl border border-white/10 p-2 rounded-[2rem] shadow-2xl flex items-center gap-2 mb-6 transform hover:scale-[1.02] transition-transform duration-300 overflow-x-auto max-w-full">
             
             <button 
                onClick={toggleMic}
-               className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${micOn ? 'bg-[#252830] hover:bg-[#2d313a] text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
+               className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${micOn ? 'bg-[#252830] hover:bg-[#2d313a] text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
                title={micOn ? "Desativar Microfone" : "Ativar Microfone"}
             >
                {micOn ? <Mic size={24} /> : <MicOff size={24} />}
@@ -754,43 +769,48 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
 
             <button 
                onClick={toggleCam}
-               className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${cameraOn ? 'bg-[#252830] hover:bg-[#2d313a] text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
+               className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${cameraOn ? 'bg-[#252830] hover:bg-[#2d313a] text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
                title={cameraOn ? "Desativar Câmera" : "Ativar Câmera"}
             >
                {cameraOn ? <Video size={24} /> : <VideoOff size={24} />}
             </button>
 
-            <div className="w-px h-8 bg-white/10 mx-1"></div>
+            <div className="w-px h-8 bg-white/10 mx-1 shrink-0"></div>
 
-            <button 
-               onClick={() => setCaptionsOn(!captionsOn)}
-               className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${captionsOn ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-[#252830] hover:bg-[#2d313a] text-slate-300'}`}
-               title="Legendas"
-            >
-               <Subtitles size={24} />
-            </button>
+            {/* Hidden for Guests */}
+            {!isGuest && (
+                <>
+                    <button 
+                    onClick={() => setCaptionsOn(!captionsOn)}
+                    className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${captionsOn ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-[#252830] hover:bg-[#2d313a] text-slate-300'}`}
+                    title="Legendas"
+                    >
+                    <Subtitles size={24} />
+                    </button>
 
-            <button 
-               onClick={toggleScreenShare}
-               className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${screenShare ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' : 'bg-[#252830] hover:bg-[#2d313a] text-slate-300'}`}
-               title="Compartilhar Tela"
-            >
-               {screenShare ? <MonitorUp size={24} /> : <ScreenShare size={24} />}
-            </button>
+                    <button 
+                    onClick={toggleScreenShare}
+                    className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${screenShare ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' : 'bg-[#252830] hover:bg-[#2d313a] text-slate-300'}`}
+                    title="Compartilhar Tela"
+                    >
+                    {screenShare ? <MonitorUp size={24} /> : <ScreenShare size={24} />}
+                    </button>
 
-            <button 
-               onClick={() => setActiveSidePanel(activeSidePanel === 'whiteboard' ? 'none' : 'whiteboard')}
-               className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${activeSidePanel === 'whiteboard' ? 'bg-indigo-600 text-white' : 'bg-[#252830] hover:bg-[#2d313a] text-slate-300'}`}
-               title="Lousa Interativa"
-            >
-               <PenTool size={24} />
-            </button>
+                    <button 
+                    onClick={() => setActiveSidePanel(activeSidePanel === 'whiteboard' ? 'none' : 'whiteboard')}
+                    className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${activeSidePanel === 'whiteboard' ? 'bg-indigo-600 text-white' : 'bg-[#252830] hover:bg-[#2d313a] text-slate-300'}`}
+                    title="Lousa Interativa"
+                    >
+                    <PenTool size={24} />
+                    </button>
 
-            <div className="w-px h-8 bg-white/10 mx-1"></div>
+                    <div className="w-px h-8 bg-white/10 mx-1 shrink-0"></div>
+                </>
+            )}
 
             <button 
                onClick={() => setActiveSidePanel(activeSidePanel === 'chat' ? 'none' : 'chat')}
-               className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 relative ${activeSidePanel === 'chat' ? 'bg-indigo-600 text-white' : 'bg-[#252830] hover:bg-[#2d313a] text-slate-300'}`}
+               className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 relative ${activeSidePanel === 'chat' ? 'bg-indigo-600 text-white' : 'bg-[#252830] hover:bg-[#2d313a] text-slate-300'}`}
                title="Chat"
             >
                <MessageSquare size={24} />
@@ -801,7 +821,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
 
             <button 
                onClick={() => setShowEndModal(true)}
-               className="w-20 h-14 rounded-[1.2rem] bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-900/40 ml-2 transition-all hover:scale-105 active:scale-95"
+               className="w-20 h-14 shrink-0 rounded-[1.2rem] bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-900/40 ml-2 transition-all hover:scale-105 active:scale-95"
                title="Encerrar"
             >
                <PhoneOff size={28} />
