@@ -100,8 +100,9 @@ export interface Patient {
   psychologistId: string; // To link to specific doctor
 }
 
-export type AppointmentType = 'consulta' | 'bloqueio';
+export type AppointmentType = 'consulta' | 'bloqueio' | 'pessoal';
 export type AppointmentModality = 'online' | 'presencial';
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'confirmed';
 
 export interface Appointment {
   id: string;
@@ -112,12 +113,18 @@ export interface Appointment {
   title: string;
   start: Date;
   end: Date;
-  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+  status: AppointmentStatus;
   type: AppointmentType;
   modality: AppointmentModality;
   meetingUrl?: string;
   notes?: string;
   color?: string;
+  
+  // Recurrence Logic
+  recurrence?: 'none' | 'weekly' | 'biweekly' | 'monthly';
+  recurrenceEndType?: 'count' | 'date'; // 'count' = X times, 'date' = until Y date
+  recurrenceEndValue?: string | number; // Holds the count (e.g., 10) or date string
+  recurrenceGroupId?: string; // To link series together
 }
 
 export interface Document {
@@ -245,9 +252,13 @@ export interface Comanda {
   createdAt: string;
 }
 
+export type ProductType = 'physical' | 'digital';
+
 export interface Product {
   id: string;
   name: string;
+  type: ProductType;
+  imageUrl?: string;
   brand: string;
   category: string;
   price: number;

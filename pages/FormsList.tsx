@@ -1,28 +1,59 @@
+
 import React, { useState } from 'react';
-import { MOCK_FORMS } from '../constants';
+import { MOCK_FORMS, MOCK_PATIENTS } from '../constants';
 import { ClinicalForm } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Plus, ClipboardList, Link as LinkIcon, ChartPie, Pen, Trash2, CheckCircle, FileText, MoreVertical, LayoutTemplate 
+  Search, Plus, ClipboardList, Link as LinkIcon, ChartPie, Pen, Trash2, CheckCircle, Share2, LayoutTemplate, Users, Copy, Send
 } from 'lucide-react';
 
 export const FormsList: React.FC = () => {
   const navigate = useNavigate();
   const [forms, setForms] = useState<ClinicalForm[]>(MOCK_FORMS);
   const [searchTerm, setSearchTerm] = useState('');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  
+  // Share Modal States
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [selectedForm, setSelectedForm] = useState<ClinicalForm | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const filteredForms = forms.filter(f => 
     f.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     f.hash.includes(searchTerm.toLowerCase())
   );
 
-  const handleCopyLink = (hash: string, id: string) => {
-    const baseUrl = window.location.origin + window.location.pathname + '#/f/' + hash;
-    navigator.clipboard.writeText(baseUrl).then(() => {
-        setCopiedId(id);
-        setTimeout(() => setCopiedId(null), 2000);
+  const handleOpenShare = (form: ClinicalForm) => {
+      setSelectedForm(form);
+      setSelectedPatientId(''); // Reset patient selection
+      setCopiedLink(false);
+      setIsShareModalOpen(true);
+  };
+
+  const getShareLink = () => {
+      if (!selectedForm) return '';
+      let url = `${window.location.origin}${window.location.pathname}#/f/${selectedForm.hash}`;
+      if (selectedPatientId) {
+          url += `?p=${selectedPatientId}`;
+      }
+      return url;
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(getShareLink()).then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
     });
+  };
+
+  const handleWhatsAppShare = () => {
+      const link = getShareLink();
+      const patient = MOCK_PATIENTS.find(p => p.id === selectedPatientId);
+      const message = patient 
+        ? `Olá ${patient.name}, por favor preencha este formulário: ${link}`
+        : `Olá, por favor preencha este formulário: ${link}`;
+      
+      window.open(`https://wa.me/${patient?.phone?.replace(/\D/g, '') || ''}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleDelete = (id: string) => {
@@ -67,7 +98,6 @@ export const FormsList: React.FC = () => {
       {/* Toolbar */}
       <div className="flex flex-col gap-6 sticky top-0 bg-slate-50/95 backdrop-blur z-20 py-4 -my-4 px-1">
         <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-             {/* Category Tabs Mock - Keeping consistent with layout */}
              <div className="overflow-x-auto w-full lg:w-auto pb-2 -mb-2 no-scrollbar">
                 <div className="flex gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-max shadow-sm">
                     {['Todos', 'Ativos', 'Arquivados'].map(cat => (
@@ -86,7 +116,6 @@ export const FormsList: React.FC = () => {
                 </div>
             </div>
 
-            {/* Search Bar */}
             <div className="relative w-full lg:max-w-md group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5 group-focus-within:text-blue-500 transition-colors" />
                 <input 
@@ -128,18 +157,10 @@ export const FormsList: React.FC = () => {
                         
                         <div className="relative">
                             <button 
-                                onClick={() => handleCopyLink(form.hash, form.id)}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                    copiedId === form.id 
-                                    ? 'bg-emerald-100 text-emerald-700' 
-                                    : 'bg-slate-50 text-slate-500 hover:bg-blue-50 hover:text-blue-600'
-                                }`}
+                                onClick={() => handleOpenShare(form)}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-slate-50 text-slate-500 hover:bg-blue-50 hover:text-blue-600"
                             >
-                                {copiedId === form.id ? (
-                                    <><CheckCircle size={14} /> Copiado</>
-                                ) : (
-                                    <><LinkIcon size={14} /> Link</>
-                                )}
+                                <Share2 size={14} /> Compartilhar
                             </button>
                         </div>
                     </div>
@@ -187,6 +208,96 @@ export const FormsList: React.FC = () => {
             ))
         )}
       </div>
+
+      {/* SHARE MODAL */}
+      {isShareModalOpen && selectedForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+              <div className="bg-white w-full max-w-lg rounded-[28px] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden">
+                  <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                      <h3 className="text-xl font-display font-bold text-slate-800">Compartilhar Formulário</h3>
+                      <p className="text-sm text-slate-500 mt-1">{selectedForm.title}</p>
+                  </div>
+                  
+                  <div className="p-6 space-y-6">
+                      {/* Tabs Mock */}
+                      <div className="flex bg-slate-100 p-1 rounded-xl">
+                          <button 
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${!selectedPatientId ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                            onClick={() => setSelectedPatientId('')}
+                          >
+                              Link Público
+                          </button>
+                          <button 
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${selectedPatientId ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                            onClick={() => setSelectedPatientId(MOCK_PATIENTS[0]?.id)}
+                          >
+                              Vincular a Paciente
+                          </button>
+                      </div>
+
+                      {/* Content */}
+                      <div className="space-y-4">
+                          {selectedPatientId || selectedPatientId !== '' ? (
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Selecione o Paciente</label>
+                                  <select 
+                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+                                    value={selectedPatientId}
+                                    onChange={(e) => setSelectedPatientId(e.target.value)}
+                                  >
+                                      {MOCK_PATIENTS.map(p => (
+                                          <option key={p.id} value={p.id}>{p.name}</option>
+                                      ))}
+                                  </select>
+                                  <p className="text-xs text-indigo-600 mt-2 bg-indigo-50 p-2 rounded-lg flex items-center gap-2">
+                                      <CheckCircle size={14} />
+                                      O paciente não precisará preencher os dados de identificação.
+                                  </p>
+                              </div>
+                          ) : (
+                              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-sm text-slate-500">
+                                  <p>Este é um link público genérico. Qualquer pessoa que acessar deverá preencher seus dados de identificação (Nome, E-mail e Telefone) antes de responder.</p>
+                              </div>
+                          )}
+
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Link de Acesso</label>
+                              <div className="flex gap-2">
+                                  <input 
+                                    type="text" 
+                                    readOnly 
+                                    value={getShareLink()} 
+                                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm text-slate-600 outline-none"
+                                  />
+                                  <button 
+                                    onClick={handleCopyLink}
+                                    className={`p-3 rounded-xl font-bold transition-all flex items-center justify-center ${copiedLink ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                                    title="Copiar Link"
+                                  >
+                                      {copiedLink ? <CheckCircle size={20} /> : <Copy size={20} />}
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-between gap-3">
+                      <button 
+                        onClick={handleWhatsAppShare}
+                        className="px-6 py-3 rounded-xl font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center gap-2"
+                      >
+                          <Send size={18} /> Enviar via WhatsApp
+                      </button>
+                      <button 
+                        onClick={() => setIsShareModalOpen(false)}
+                        className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors"
+                      >
+                          Fechar
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

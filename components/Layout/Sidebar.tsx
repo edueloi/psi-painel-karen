@@ -1,9 +1,8 @@
 
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NAV_SECTIONS } from '../../constants';
-import { X, LogOut, BrainCircuit, Sparkles, ExternalLink } from 'lucide-react';
+import { X, LogOut, BrainCircuit } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface SidebarProps {
@@ -94,30 +93,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
            </nav>
         </div>
 
-        {/* Bottom Banner & Logout */}
-        <div className="p-4 bg-slate-50/50 space-y-4 flex-shrink-0">
-           {/* Pro Banner */}
-           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 text-white shadow-lg group cursor-pointer">
-              <div className="absolute top-0 right-0 -mr-4 -mt-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors"></div>
-              
-              <div className="relative z-10 flex items-start gap-3">
-                 <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
-                    <Sparkles size={16} className="text-yellow-300" />
-                 </div>
-                 <div>
-                    <h4 className="font-bold text-sm leading-tight mb-1">{t('nav.premium')}</h4>
-                    <p className="text-[10px] text-slate-300 leading-relaxed mb-3">{t('nav.premium.desc')}</p>
-                    <button className="text-[10px] font-bold bg-white text-slate-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-indigo-50 transition-colors">
-                       {t('nav.upgrade')} <ExternalLink size={10} />
-                    </button>
-                 </div>
-              </div>
-           </div>
-
-           {/* Mobile Logout (Desktop uses Topbar) */}
+        {/* Bottom Logout (Mobile Only) */}
+        <div className="p-4 bg-slate-50/50 space-y-4 flex-shrink-0 lg:hidden">
            <button 
               onClick={onLogout}
-              className="lg:hidden w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-red-100 text-red-600 bg-red-50 font-bold hover:bg-red-100 transition-colors"
+              className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-red-100 text-red-600 bg-red-50 font-bold hover:bg-red-100 transition-colors"
            >
               <LogOut size={18} /> {t('nav.logout')}
            </button>

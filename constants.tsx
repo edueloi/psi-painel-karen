@@ -1,5 +1,4 @@
 
-
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional } from './types';
 import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen } from 'lucide-react';
 
@@ -435,9 +434,83 @@ export const MOCK_COMANDAS: Comanda[] = [
 ];
 
 export const MOCK_PRODUCTS: Product[] = [
-  { id: 'p1', name: 'Livro: Ansiedade Cotidiana', brand: 'Editora Psi', category: 'Livros', price: 49.90, cost: 25.00, stock: 12, minStock: 5, salesCount: 45 },
-  { id: 'p2', name: 'Kit Baralho das Emoções', brand: 'Terapia Criativa', category: 'Materiais', price: 85.00, cost: 40.00, stock: 3, minStock: 5, salesCount: 120 },
-  { id: 'p3', name: 'Óleo Essencial Lavanda', brand: 'Natural Life', category: 'Aromaterapia', price: 35.00, cost: 15.00, stock: 20, minStock: 8, expirationDate: '2023-12-15', salesCount: 30 },
-  { id: 'p4', name: 'Caderno de Anotações', brand: 'Papelaria Fina', category: 'Papelaria', price: 25.00, cost: 10.00, stock: 50, minStock: 10, salesCount: 15 },
-  { id: 'p5', name: 'Suplemento Vitamina D', brand: 'VitaHealth', category: 'Suplementos', price: 60.00, cost: 30.00, stock: 2, minStock: 5, expirationDate: '2023-10-01', salesCount: 8 },
+  { 
+    id: 'p1', 
+    name: 'Livro: Ansiedade Cotidiana', 
+    brand: 'Editora Psi', 
+    category: 'Livros', 
+    price: 49.90, 
+    cost: 25.00, 
+    stock: 12, 
+    minStock: 5, 
+    salesCount: 45,
+    type: 'physical',
+    imageUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=300&auto=format&fit=crop'
+  },
+  { 
+    id: 'p2', 
+    name: 'Kit Baralho das Emoções', 
+    brand: 'Terapia Criativa', 
+    category: 'Materiais', 
+    price: 85.00, 
+    cost: 40.00, 
+    stock: 3, 
+    minStock: 5, 
+    salesCount: 120,
+    type: 'physical',
+    imageUrl: 'https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=300&auto=format&fit=crop'
+  },
+  { 
+    id: 'p3', 
+    name: 'Óleo Essencial Lavanda', 
+    brand: 'Natural Life', 
+    category: 'Aromaterapia', 
+    price: 35.00, 
+    cost: 15.00, 
+    stock: 20, 
+    minStock: 8, 
+    expirationDate: '2023-12-15', 
+    salesCount: 30,
+    type: 'physical',
+    imageUrl: 'https://images.unsplash.com/photo-1608528577891-9b7662b92e63?q=80&w=300&auto=format&fit=crop'
+  },
+  { 
+    id: 'p4', 
+    name: 'E-book: Guia do Sono', 
+    brand: 'Autoral', 
+    category: 'Digital', 
+    price: 29.90, 
+    cost: 0.00, 
+    stock: 9999, 
+    minStock: 0, 
+    salesCount: 200,
+    type: 'digital',
+    imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=300&auto=format&fit=crop'
+  },
+  { 
+    id: 'p5', 
+    name: 'Caderno de Anotações', 
+    brand: 'Papelaria Fina', 
+    category: 'Papelaria', 
+    price: 25.00, 
+    cost: 10.00, 
+    stock: 50, 
+    minStock: 10, 
+    salesCount: 15,
+    type: 'physical'
+  },
+  { 
+    id: 'p6', 
+    name: 'Suplemento Vitamina D', 
+    brand: 'VitaHealth', 
+    category: 'Suplementos', 
+    price: 60.00, 
+    cost: 30.00, 
+    stock: 2, 
+    minStock: 5, 
+    expirationDate: '2023-10-01', 
+    salesCount: 8,
+    type: 'physical',
+    imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=300&auto=format&fit=crop'
+  },
 ];
