@@ -1,16 +1,25 @@
+
 import React, { useState, useMemo } from 'react';
 import { MOCK_DOCUMENTS, DOCUMENT_CATEGORIES } from '../constants';
 import { Document } from '../types';
 import { 
   FileText, FileImage, FileSpreadsheet, File, Download, Trash2, 
-  Search, Plus, CloudUpload, X, FolderOpen, HardDrive, Clock, MoreVertical, FileCode, Film, Music
+  Search, Plus, CloudUpload, X, FolderOpen, HardDrive, Clock, MoreVertical, FileCode, Film, Music,
+  Settings, Edit3, Check
 } from 'lucide-react';
 
 export const Documents: React.FC = () => {
+  const [categories, setCategories] = useState<string[]>(DOCUMENT_CATEGORIES);
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCUMENTS);
+
+  // Category Management States
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
 
   // --- Logic & Stats ---
 
@@ -23,6 +32,44 @@ export const Documents: React.FC = () => {
   const handleDelete = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este documento?')) {
       setDocuments(prev => prev.filter(d => d.id !== id));
+    }
+  };
+
+  // --- Category Logic ---
+  const handleAddCategory = () => {
+    if (newCategoryName.trim() && !categories.includes(newCategoryName.trim())) {
+      setCategories([...categories, newCategoryName.trim()]);
+      setNewCategoryName('');
+    }
+  };
+
+  const handleEditCategory = (index: number) => {
+    const newName = editingCategoryName.trim();
+    if (newName && !categories.includes(newName)) {
+      const oldName = categories[index];
+      const newCats = [...categories];
+      newCats[index] = newName;
+      setCategories(newCats);
+      
+      // Update documents linked to this category
+      setDocuments(prev => prev.map(d => d.category === oldName ? { ...d, category: newName } : d));
+      
+      // Update active tab if needed
+      if (activeCategory === oldName) setActiveCategory(newName);
+      
+      setEditingCategoryIndex(null);
+      setEditingCategoryName('');
+    }
+  };
+
+  const handleDeleteCategory = (index: number) => {
+    const catToDelete = categories[index];
+    if (catToDelete === 'Todos') return; 
+    
+    if (confirm(`Excluir categoria "${catToDelete}"?`)) {
+       const newCats = categories.filter((_, i) => i !== index);
+       setCategories(newCats);
+       if (activeCategory === catToDelete) setActiveCategory('Todos');
     }
   };
 
@@ -150,13 +197,13 @@ export const Documents: React.FC = () => {
               </div>
               <div className="mt-4 flex gap-2 overflow-hidden">
                  {/* Mini visualization of categories */}
-                 {DOCUMENT_CATEGORIES.slice(1, 5).map((cat, i) => (
+                 {categories.slice(1, 5).map((cat, i) => (
                     <div key={cat} className="h-1.5 flex-1 rounded-full bg-slate-100" title={cat}>
                         <div className={`h-full rounded-full w-2/3 ${['bg-blue-400', 'bg-purple-400', 'bg-amber-400', 'bg-rose-400'][i]}`}></div>
                     </div>
                  ))}
               </div>
-              <p className="text-xs text-slate-400 mt-2">Distribuídos em {DOCUMENT_CATEGORIES.length - 1} categorias</p>
+              <p className="text-xs text-slate-400 mt-2">Distribuídos em {categories.length - 1} categorias</p>
           </div>
 
            {/* Recent Activity Card */}
@@ -192,9 +239,9 @@ export const Documents: React.FC = () => {
         {/* Search & Categories Layout */}
         <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
             {/* Category Tabs */}
-            <div className="overflow-x-auto w-full lg:w-auto pb-2 -mb-2 no-scrollbar">
+            <div className="overflow-x-auto w-full lg:w-auto pb-2 -mb-2 no-scrollbar flex items-center gap-2">
                 <div className="flex gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-max shadow-sm">
-                    {DOCUMENT_CATEGORIES.map(cat => (
+                    {categories.map(cat => (
                         <button
                             key={cat}
                             onClick={() => setActiveCategory(cat)}
@@ -209,6 +256,13 @@ export const Documents: React.FC = () => {
                         </button>
                     ))}
                 </div>
+                <button 
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm shrink-0"
+                    title="Gerenciar Categorias"
+                >
+                    <Settings size={20} />
+                </button>
             </div>
 
             {/* Search Bar */}
@@ -298,6 +352,65 @@ export const Documents: React.FC = () => {
         )}
       </div>
 
+      {/* --- CATEGORY MANAGER MODAL --- */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+            <div className="bg-white w-full max-w-md rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
+                    <h3 className="text-xl font-display font-bold text-slate-800">Gerenciar Categorias</h3>
+                    <button onClick={() => setIsCategoryModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><X size={20} /></button>
+                </div>
+                
+                <div className="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-3">
+                    {/* Add New */}
+                    <div className="flex gap-2 mb-4">
+                        <input 
+                            type="text" 
+                            placeholder="Nova Categoria..." 
+                            className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-teal-400 text-sm font-medium"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                        />
+                        <button onClick={handleAddCategory} className="p-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"><Plus size={20} /></button>
+                    </div>
+
+                    {/* List */}
+                    <div className="space-y-2">
+                        {categories.map((cat, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
+                                {editingCategoryIndex === idx ? (
+                                    <div className="flex items-center gap-2 flex-1">
+                                        <input 
+                                            type="text" 
+                                            autoFocus
+                                            className="flex-1 p-1.5 rounded-lg border border-indigo-200 outline-none text-sm font-bold text-slate-700"
+                                            value={editingCategoryName}
+                                            onChange={(e) => setEditingCategoryName(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleEditCategory(idx)}
+                                        />
+                                        <button onClick={() => handleEditCategory(idx)} className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200"><Check size={16} /></button>
+                                        <button onClick={() => setEditingCategoryIndex(null)} className="p-1.5 bg-slate-200 text-slate-500 rounded-lg hover:bg-slate-300"><X size={16} /></button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span className={`text-sm font-medium ${cat === 'Todos' ? 'text-slate-400 italic' : 'text-slate-700'}`}>{cat}</span>
+                                        {cat !== 'Todos' && (
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors"><Edit3 size={16} /></button>
+                                                <button onClick={() => handleDeleteCategory(idx)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"><Trash2 size={16} /></button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* --- NEW DOCUMENT MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
@@ -321,7 +434,7 @@ export const Documents: React.FC = () => {
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Categoria</label>
                         <select className="w-full p-4 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-400 outline-none transition-all font-medium text-slate-600">
-                            {DOCUMENT_CATEGORIES.filter(c => c !== 'Todos').map(c => (
+                            {categories.filter(c => c !== 'Todos').map(c => (
                                 <option key={c} value={c}>{c}</option>
                             ))}
                         </select>

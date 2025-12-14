@@ -11,7 +11,7 @@ interface PatientFormWizardProps {
   onCancel: () => void;
 }
 
-export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialData = {}, onSave, onCancel }) => {
+export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialData = {} as Partial<Patient>, onSave, onCancel }) => {
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Partial<Patient>>({
