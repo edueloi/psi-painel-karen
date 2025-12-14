@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { BrainCircuit, ArrowRight, Activity, Calendar, Users } from 'lucide-react';
+import { BrainCircuit, ArrowRight, Activity, Calendar, Users, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useNavigate } from 'react-router-dom';
 
 interface LoginProps {
   onLogin: (role?: string) => void;
@@ -9,8 +10,10 @@ interface LoginProps {
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const { language, setLanguage, t } = useLanguage();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -92,7 +95,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         className="w-full px-4 py-3.5 pl-11 bg-slate-50 border-2 border-slate-200 rounded-xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 placeholder:text-slate-400 text-slate-900 font-semibold"
                     />
                     <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                        <Mail size={20} />
                     </div>
                   </div>
                 </div>
@@ -101,15 +104,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{t('login.password')}</label>
                   <div className="relative">
                     <input 
-                        type="password" 
+                        type={showPassword ? "text" : "password"} 
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••" 
-                        className="w-full px-4 py-3.5 pl-11 bg-slate-50 border-2 border-slate-200 rounded-xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 placeholder:text-slate-400 text-slate-900 font-semibold"
+                        className="w-full px-4 py-3.5 pl-11 pr-11 bg-slate-50 border-2 border-slate-200 rounded-xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 placeholder:text-slate-400 text-slate-900 font-semibold"
                     />
                     <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <Lock size={20} />
                     </div>
+                    <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors focus:outline-none"
+                    >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
                   </div>
                 </div>
 
@@ -118,7 +128,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                         <span className="text-slate-500 group-hover:text-slate-700 transition-colors">{t('login.remember')}</span>
                     </label>
-                    <button type="button" className="text-indigo-600 font-bold hover:text-indigo-700 hover:underline">{t('login.forgot')}</button>
+                    <button 
+                      type="button" 
+                      onClick={() => navigate('/forgot-password')}
+                      className="text-indigo-600 font-bold hover:text-indigo-700 hover:underline"
+                    >
+                      {t('login.forgot')}
+                    </button>
                 </div>
 
                 <button 

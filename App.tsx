@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-d
 import { Sidebar } from './components/Layout/Sidebar';
 import { Topbar } from './components/Layout/Topbar';
 import { Login } from './components/Auth/Login';
+import { ForgotPassword } from './components/Auth/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
 import { Agenda } from './pages/Agenda';
@@ -102,6 +103,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/login" element={
           authStatus !== 'GUEST' ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
         } />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         
         <Route path="/f/:hash" element={<ExternalForm />} />
         
