@@ -29,6 +29,13 @@ export const translations = {
     'nav.premium': 'Conta Premium',
     'nav.premium.desc': 'Acesse recursos exclusivos de IA.',
 
+    // Navigation Groups
+    'nav.group.general': 'Geral',
+    'nav.group.clinical': 'Clínico',
+    'nav.group.management': 'Gestão',
+    'nav.group.financial': 'Financeiro & Relatórios',
+    'nav.group.system': 'Sistema',
+
     // Case Studies (NEW)
     'cases.title': 'Estudo de Caso & Supervisão',
     'cases.subtitle': 'Organize casos clínicos, planeje supervisões e acompanhe o progresso em quadros visuais.',
@@ -679,6 +686,13 @@ export const translations = {
     'nav.bot': 'Link Bot', // NEW
     'nav.cases': 'Case Studies', // NEW
     
+    // Navigation Groups
+    'nav.group.general': 'General',
+    'nav.group.clinical': 'Clinical',
+    'nav.group.management': 'Management',
+    'nav.group.financial': 'Finance & Reports',
+    'nav.group.system': 'System',
+
     // Case Studies
     'cases.title': 'Case Studies & Supervision',
     'cases.subtitle': 'Organize clinical cases, plan supervision and track progress on visual boards.',
@@ -1073,6 +1087,13 @@ export const translations = {
     'nav.bot': 'Vincular Bot',
     'nav.cases': 'Estudios de Caso', // NEW
     
+    // Navigation Groups
+    'nav.group.general': 'General',
+    'nav.group.clinical': 'Clínico',
+    'nav.group.management': 'Gestión',
+    'nav.group.financial': 'Finanzas e Informes',
+    'nav.group.system': 'Sistema',
+
     'cases.title': 'Estudios de Caso y Supervisión',
     'cases.subtitle': 'Organice casos clínicos, planifique supervisiones y siga el progreso en tableros visuales.',
     'cases.boards': 'Mis Tableros',

@@ -1,7 +1,8 @@
 
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { NAV_ITEMS } from '../../constants';
+import { NAV_SECTIONS } from '../../constants';
 import { X, LogOut, BrainCircuit, Sparkles, ExternalLink } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -14,28 +15,6 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) => {
   const location = useLocation();
   const { t } = useLanguage();
-
-  // Helper to get translated label
-  const getLabel = (path: string, defaultLabel: string) => {
-    switch(path) {
-        case '/': return t('nav.dashboard');
-        case '/agenda': return t('nav.agenda');
-        case '/comandas': return t('nav.comandas');
-        case '/patients': return t('nav.patients');
-        case '/professionals': return t('nav.professionals');
-        case '/products': return t('nav.products');
-        case '/best-clients': return t('nav.bestClients');
-        case '/performance': return t('nav.performance');
-        case '/records': return t('nav.records');
-        case '/services': return t('nav.services');
-        case '/documents': return t('nav.documents');
-        case '/forms': return t('nav.forms');
-        case '/messages': return t('nav.messages');
-        case '/finance': return t('nav.finance');
-        case '/settings': return t('nav.settings');
-        default: return defaultLabel;
-    }
-  };
 
   return (
     <>
@@ -54,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
         `}
       >
         {/* Header Logo */}
-        <div className="h-24 flex items-center px-8 border-b border-slate-50">
+        <div className="h-24 flex items-center px-8 border-b border-slate-50 flex-shrink-0">
            <div className="flex items-center gap-3 group cursor-pointer">
               <div className="relative">
                 <div className="absolute inset-0 bg-indigo-500 blur-lg opacity-20 group-hover:opacity-40 transition-opacity rounded-full"></div>
@@ -73,42 +52,50 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
         </div>
 
         {/* Navigation Items */}
-        <div className="flex-1 overflow-y-auto py-8 px-4 space-y-1 custom-scrollbar">
-           
-           <nav className="space-y-1.5">
-              {NAV_ITEMS.map((item) => {
-                const isActive = item.path === '/' 
-                  ? location.pathname === '/' 
-                  : location.pathname.startsWith(item.path);
+        <div className="flex-1 overflow-y-auto py-6 px-4 custom-scrollbar">
+           <nav className="space-y-6">
+              {NAV_SECTIONS.map((section, index) => (
+                <div key={index}>
+                  <h3 className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                    {t(section.title)}
+                  </h3>
+                  <div className="space-y-1">
+                    {section.items.map((item) => {
+                      const isActive = item.path === '/' 
+                        ? location.pathname === '/' 
+                        : location.pathname.startsWith(item.path);
 
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => window.innerWidth < 1024 && onClose()}
-                    className={`
-                      relative flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 group overflow-hidden
-                      ${isActive 
-                        ? 'bg-indigo-50 text-indigo-700 shadow-sm' 
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}
-                    `}
-                  >
-                    {isActive && (
-                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-600 rounded-r-full"></div>
-                    )}
-                    
-                    <span className={`transition-colors duration-300 ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
-                      {item.icon}
-                    </span>
-                    <span className="relative z-10">{getLabel(item.path, item.label)}</span>
-                  </Link>
-                );
-              })}
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => window.innerWidth < 1024 && onClose()}
+                          className={`
+                            relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300 group overflow-hidden
+                            ${isActive 
+                              ? 'bg-indigo-50 text-indigo-700 shadow-sm' 
+                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}
+                          `}
+                        >
+                          {isActive && (
+                             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-600 rounded-r-full"></div>
+                          )}
+                          
+                          <span className={`transition-colors duration-300 ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                            {item.icon}
+                          </span>
+                          <span className="relative z-10">{t(item.label)}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
            </nav>
         </div>
 
         {/* Bottom Banner & Logout */}
-        <div className="p-4 bg-slate-50/50 space-y-4">
+        <div className="p-4 bg-slate-50/50 space-y-4 flex-shrink-0">
            {/* Pro Banner */}
            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 text-white shadow-lg group cursor-pointer">
               <div className="absolute top-0 right-0 -mr-4 -mt-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors"></div>

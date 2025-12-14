@@ -1,26 +1,57 @@
 
+
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional } from './types';
 import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen } from 'lucide-react';
 
-export const NAV_ITEMS = [
-  { label: 'Dashboard', path: '/', icon: <Activity size={20} /> },
-  { label: 'Agenda', path: '/agenda', icon: <Calendar size={20} /> },
-  { label: 'Sala Virtual', path: '/virtual-rooms', icon: <Video size={20} /> },
-  { label: 'Estudo de Caso', path: '/cases', icon: <BookOpen size={20} /> }, // NEW
-  { label: 'Vincular Bot', path: '/bot', icon: <Smartphone size={20} /> },
-  { label: 'Comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },
-  { label: 'Pacientes', path: '/patients', icon: <Users size={20} /> },
-  { label: 'Profissionais', path: '/professionals', icon: <UserCheck size={20} /> },
-  { label: 'Produtos', path: '/products', icon: <Package size={20} /> },
-  { label: 'Melhores Clientes', path: '/best-clients', icon: <Trophy size={20} /> },
-  { label: 'Performance', path: '/performance', icon: <BarChart2 size={20} /> },
-  { label: 'Prontuários', path: '/records', icon: <FileText size={20} /> },
-  { label: 'Serviços/Pacotes', path: '/services', icon: <Briefcase size={20} /> },
-  { label: 'Documentos', path: '/documents', icon: <FolderOpen size={20} /> },
-  { label: 'Formulários', path: '/forms', icon: <ClipboardList size={20} /> },
-  { label: 'Mensagens', path: '/messages', icon: <MessageCircle size={20} /> },
-  { label: 'Financeiro', path: '/finance', icon: <DollarSign size={20} /> },
-  { label: 'Configurações', path: '/settings', icon: <Settings size={20} /> },
+export const NAV_SECTIONS = [
+  {
+    title: 'nav.group.general',
+    items: [
+      { label: 'nav.dashboard', path: '/', icon: <Activity size={20} /> },
+      { label: 'nav.agenda', path: '/agenda', icon: <Calendar size={20} /> },
+      { label: 'nav.meeting', path: '/virtual-rooms', icon: <Video size={20} /> },
+      { label: 'nav.cases', path: '/cases', icon: <BookOpen size={20} /> },
+      { label: 'nav.bot', path: '/bot', icon: <Smartphone size={20} /> },
+    ]
+  },
+  {
+    title: 'nav.group.clinical',
+    items: [
+      { label: 'nav.patients', path: '/patients', icon: <Users size={20} /> },
+      { label: 'nav.records', path: '/records', icon: <FileText size={20} /> },
+      { label: 'nav.documents', path: '/documents', icon: <FolderOpen size={20} /> },
+      { label: 'nav.forms', path: '/forms', icon: <ClipboardList size={20} /> },
+    ]
+  },
+  {
+    title: 'nav.group.management',
+    items: [
+      { label: 'nav.professionals', path: '/professionals', icon: <UserCheck size={20} /> },
+      { label: 'nav.services', path: '/services', icon: <Briefcase size={20} /> },
+      { label: 'nav.products', path: '/products', icon: <Package size={20} /> },
+      { label: 'nav.comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },
+    ]
+  },
+  {
+    title: 'nav.group.communication',
+    items: [
+      { label: 'nav.messages', path: '/messages', icon: <MessageCircle size={20} /> },
+    ]
+  },
+  {
+    title: 'nav.group.financial',
+    items: [
+      { label: 'nav.finance', path: '/finance', icon: <DollarSign size={20} /> },
+      { label: 'nav.bestClients', path: '/best-clients', icon: <Trophy size={20} /> },
+      { label: 'nav.performance', path: '/performance', icon: <BarChart2 size={20} /> },
+    ]
+  },
+  {
+    title: 'nav.group.system',
+    items: [
+      { label: 'nav.settings', path: '/settings', icon: <Settings size={20} /> },
+    ]
+  }
 ];
 
 export const MOCK_USERS = [
