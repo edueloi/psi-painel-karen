@@ -30,7 +30,7 @@ import { MeetingRoom } from './pages/MeetingRoom';
 import { VirtualRooms } from './pages/VirtualRooms';
 import { BotIntegration } from './pages/BotIntegration';
 import { CaseStudies } from './pages/CaseStudies';
-import { SuperAdmin } from './pages/SuperAdmin'; // NEW IMPORT
+import { SuperAdmin } from './pages/SuperAdmin'; 
 import { MOCK_USERS } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 
@@ -107,8 +107,8 @@ const AppRoutes: React.FC = () => {
         
         <Route path="/f/:hash" element={<ExternalForm />} />
         
-        {/* Meeting Room is standalone, no sidebar */}
-        <Route path="/meeting/:id" element={authStatus !== 'GUEST' ? <MeetingRoom /> : <Navigate to="/login" />} />
+        {/* Meeting Room is standalone, NO sidebar, Accessible by GUEST or USER */}
+        <Route path="/meeting/:id" element={<MeetingRoom isGuest={authStatus === 'GUEST'} />} />
 
         {/* Protected Routes */}
         <Route path="/*" element={

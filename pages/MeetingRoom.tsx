@@ -6,12 +6,16 @@ import {
   MessageSquare, PenTool, X, Send, Paperclip, 
   Eraser, Download, Clock, User, Subtitles, MonitorUp, 
   Layout, Mic as MicIcon, FileText, Smartphone, QrCode, Share2, Tablet, Settings,
-  Copy, Check, Info
+  Copy, Check, Info, ChevronDown, Volume2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MOCK_APPOINTMENTS } from '../constants';
 
-export const MeetingRoom: React.FC = () => {
+interface MeetingRoomProps {
+  isGuest?: boolean;
+}
+
+export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -35,9 +39,11 @@ export const MeetingRoom: React.FC = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLinkDeviceModal, setShowLinkDeviceModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0); 
   const [lobbyTab, setLobbyTab] = useState<'info' | 'companion'>('info');
   const [copied, setCopied] = useState(false);
+  const [guestName, setGuestName] = useState('');
 
   // Captions
   const [captionsOn, setCaptionsOn] = useState(false);
@@ -279,7 +285,7 @@ export const MeetingRoom: React.FC = () => {
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
-    setMessages([...messages, { sender: 'Você', text: newMessage, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) }]);
+    setMessages([...messages, { sender: isGuest ? guestName || 'Convidado' : 'Você', text: newMessage, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) }]);
     setNewMessage('');
   };
 
@@ -287,6 +293,14 @@ export const MeetingRoom: React.FC = () => {
       const url = new URL(window.location.href);
       url.searchParams.set('companion', 'true');
       return url.toString();
+  };
+
+  const handleJoin = () => {
+      if (isGuest && !guestName.trim()) {
+          alert("Por favor, digite seu nome para entrar.");
+          return;
+      }
+      setHasJoined(true);
   };
 
   // --- RENDER: COMPANION MODE (TABLET/PHONE) ---
@@ -340,7 +354,9 @@ export const MeetingRoom: React.FC = () => {
                   {/* Left Column: Video Preview */}
                   <div className="flex flex-col justify-center animate-[fadeIn_0.5s_ease-out]">
                       <h1 className="text-3xl font-display font-bold mb-2 text-slate-900">Sala de Espera</h1>
-                      <p className="text-slate-500 mb-6">{appointment?.title || 'Consulta'} - {appointment?.patientName || 'Paciente'}</p>
+                      <p className="text-slate-500 mb-6">
+                          {isGuest ? 'Você foi convidado para uma reunião' : `${appointment?.title || 'Consulta'} - ${appointment?.patientName || 'Paciente'}`}
+                      </p>
                       
                       <div className="relative w-full aspect-video bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-200 shadow-2xl mb-6 group ring-4 ring-white">
                           {cameraOn ? (
@@ -373,6 +389,15 @@ export const MeetingRoom: React.FC = () => {
                               >
                                   {cameraOn ? <Video size={20} /> : <VideoOff size={20} />}
                               </button>
+                              
+                              {/* Settings Button in Lobby */}
+                              <button 
+                                  onClick={() => setShowSettingsModal(true)}
+                                  className="p-3 rounded-xl bg-slate-800/80 text-white hover:bg-slate-700 border border-white/10"
+                                  title="Configurações"
+                              >
+                                  <Settings size={20} />
+                              </button>
                           </div>
                       </div>
                   </div>
@@ -380,82 +405,118 @@ export const MeetingRoom: React.FC = () => {
                   {/* Right Column: Controls & Info */}
                   <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100 flex flex-col h-full animate-[slideUpFade_0.5s_ease-out]">
                       
-                      {/* Tabs */}
-                      <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
-                          <button 
-                            onClick={() => setLobbyTab('info')}
-                            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${lobbyTab === 'info' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                          >
-                              <Info size={16} /> Detalhes
-                          </button>
-                          <button 
-                            onClick={() => setLobbyTab('companion')}
-                            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${lobbyTab === 'companion' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                          >
-                              <Tablet size={16} /> Lousa
-                          </button>
-                      </div>
-
-                      <div className="flex-1 overflow-y-auto custom-scrollbar">
-                          {lobbyTab === 'info' ? (
-                              <div className="space-y-6">
+                      {isGuest ? (
+                          // GUEST VIEW
+                          <div className="flex flex-col justify-center h-full space-y-6">
+                              <div className="text-center">
+                                  <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
+                                      <User size={32} />
+                                  </div>
+                                  <h2 className="text-xl font-bold text-slate-800">Identificação</h2>
+                                  <p className="text-sm text-slate-500 mt-1">Como você gostaria de ser chamado?</p>
+                              </div>
+                              
+                              <div className="space-y-4">
                                   <div>
-                                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Link da Reunião</label>
-                                      <div className="flex gap-2">
-                                          <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm text-slate-600 truncate font-mono select-all">
-                                              {meetingUrl}
+                                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Seu Nome</label>
+                                      <input 
+                                          type="text" 
+                                          value={guestName}
+                                          onChange={(e) => setGuestName(e.target.value)}
+                                          placeholder="Digite seu nome..."
+                                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 font-medium text-slate-700"
+                                      />
+                                  </div>
+                                  <button 
+                                      onClick={handleJoin}
+                                      disabled={!guestName.trim()}
+                                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95"
+                                  >
+                                      Entrar na Sala
+                                  </button>
+                              </div>
+                          </div>
+                      ) : (
+                          // HOST VIEW
+                          <>
+                              {/* Tabs */}
+                              <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
+                                  <button 
+                                    onClick={() => setLobbyTab('info')}
+                                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${lobbyTab === 'info' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                  >
+                                      <Info size={16} /> Detalhes
+                                  </button>
+                                  <button 
+                                    onClick={() => setLobbyTab('companion')}
+                                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${lobbyTab === 'companion' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                  >
+                                      <Tablet size={16} /> Lousa
+                                  </button>
+                              </div>
+
+                              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                  {lobbyTab === 'info' ? (
+                                      <div className="space-y-6">
+                                          <div>
+                                              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Link da Reunião</label>
+                                              <div className="flex gap-2">
+                                                  <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm text-slate-600 truncate font-mono select-all">
+                                                      {meetingUrl}
+                                                  </div>
+                                                  <button 
+                                                    onClick={handleCopyLink}
+                                                    className={`p-3 rounded-xl transition-all flex-shrink-0 ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                                  >
+                                                      {copied ? <Check size={18} /> : <Copy size={18} />}
+                                                  </button>
+                                              </div>
+                                              <p className="text-xs text-slate-400 mt-2">Compartilhe este link com o paciente.</p>
                                           </div>
-                                          <button 
-                                            onClick={handleCopyLink}
-                                            className={`p-3 rounded-xl transition-all flex-shrink-0 ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                                          >
-                                              {copied ? <Check size={18} /> : <Copy size={18} />}
-                                          </button>
-                                      </div>
-                                      <p className="text-xs text-slate-400 mt-2">Compartilhe este link com o paciente.</p>
-                                  </div>
 
-                                  <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 flex items-start gap-3">
-                                      <Info size={18} className="text-indigo-500 mt-0.5 flex-shrink-0" />
-                                      <div className="text-xs text-indigo-800 leading-relaxed">
-                                          <span className="font-bold block mb-1">Pronto para começar?</span>
-                                          Verifique se seus dispositivos estão funcionando corretamente na pré-visualização ao lado.
+                                          <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 flex items-start gap-3">
+                                              <Info size={18} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+                                              <div className="text-xs text-indigo-800 leading-relaxed">
+                                                  <span className="font-bold block mb-1">Pronto para começar?</span>
+                                                  Verifique se seus dispositivos estão funcionando corretamente na pré-visualização ao lado.
+                                              </div>
+                                          </div>
                                       </div>
-                                  </div>
+                                  ) : (
+                                      <div className="space-y-6 text-center">
+                                          <div className="bg-white border-2 border-dashed border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center">
+                                              <QrCode size={120} className="text-slate-800 mb-4" />
+                                              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Escaneie para conectar</p>
+                                          </div>
+                                          
+                                          <div>
+                                              <p className="text-sm text-slate-600 mb-3">Ou use o link direto no outro dispositivo:</p>
+                                              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500 break-all font-mono text-left">
+                                                  {getCompanionUrl()}
+                                              </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-2 justify-center text-xs text-purple-600 bg-purple-50 p-2 rounded-lg">
+                                              <Tablet size={14} /> 
+                                              <span>Use seu tablet como segunda tela</span>
+                                          </div>
+                                      </div>
+                                  )}
                               </div>
-                          ) : (
-                              <div className="space-y-6 text-center">
-                                  <div className="bg-white border-2 border-dashed border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center">
-                                      <QrCode size={120} className="text-slate-800 mb-4" />
-                                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Escaneie para conectar</p>
-                                  </div>
-                                  
-                                  <div>
-                                      <p className="text-sm text-slate-600 mb-3">Ou use o link direto no outro dispositivo:</p>
-                                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500 break-all font-mono text-left">
-                                          {getCompanionUrl()}
-                                      </div>
-                                  </div>
 
-                                  <div className="flex items-center gap-2 justify-center text-xs text-purple-600 bg-purple-50 p-2 rounded-lg">
-                                      <Tablet size={14} /> 
-                                      <span>Use seu tablet como segunda tela</span>
-                                  </div>
+                              <div className="pt-6 mt-6 border-t border-slate-100 space-y-3">
+                                  <button 
+                                      onClick={() => setHasJoined(true)}
+                                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                                  >
+                                      Entrar na Sala <Share2 size={18} className="opacity-50" />
+                                  </button>
+                                  <button onClick={() => navigate('/agenda')} className="w-full py-3 text-slate-500 hover:bg-slate-50 rounded-xl font-bold text-sm transition-colors">
+                                      Voltar para Agenda
+                                  </button>
                               </div>
-                          )}
-                      </div>
-
-                      <div className="pt-6 mt-6 border-t border-slate-100 space-y-3">
-                          <button 
-                              onClick={() => setHasJoined(true)}
-                              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
-                          >
-                              Entrar na Sala <Share2 size={18} className="opacity-50" />
-                          </button>
-                          <button onClick={() => navigate('/agenda')} className="w-full py-3 text-slate-500 hover:bg-slate-50 rounded-xl font-bold text-sm transition-colors">
-                              Voltar para Agenda
-                          </button>
-                      </div>
+                          </>
+                      )}
                   </div>
               </div>
           </div>
@@ -475,7 +536,11 @@ export const MeetingRoom: React.FC = () => {
           </div>
           <div className="h-6 w-px bg-white/10"></div>
           <div>
-             <h1 className="font-bold text-lg leading-none">{appointment?.patientName || t('meeting.patient')}</h1>
+             <h1 className="font-bold text-lg leading-none">
+                 {isGuest 
+                    ? `Atendimento: ${appointment?.psychologistName || 'Profissional'}` 
+                    : (appointment?.patientName || t('meeting.patient'))}
+             </h1>
              <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Em atendimento
              </p>
@@ -483,13 +548,15 @@ export const MeetingRoom: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3">
-           <button 
-                onClick={() => setShowLinkDeviceModal(true)}
-                className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg text-xs font-bold transition-all border border-indigo-500/30"
-           >
-               <Tablet size={14} /> Lousa no Tablet
-           </button>
-           <button className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Configurações">
+           {!isGuest && (
+               <button 
+                    onClick={() => setShowLinkDeviceModal(true)}
+                    className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg text-xs font-bold transition-all border border-indigo-500/30"
+               >
+                   <Tablet size={14} /> Lousa no Tablet
+               </button>
+           )}
+           <button onClick={() => setShowSettingsModal(true)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Configurações">
               <Settings size={20} />
            </button>
            <button className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Layout">
@@ -511,7 +578,7 @@ export const MeetingRoom: React.FC = () => {
                  <video ref={screenShareRef} autoPlay muted playsInline className="w-full h-full object-contain rounded-2xl shadow-2xl bg-black" />
               ) : (
                  <div className="relative w-full h-full bg-[#181a1f] rounded-[32px] border border-white/5 flex flex-col items-center justify-center shadow-2xl overflow-hidden group">
-                    {/* Placeholder for Patient Video */}
+                    {/* Placeholder for Remote Video */}
                     <div className="relative z-10 flex flex-col items-center">
                        <div className="w-48 h-48 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center mb-8 shadow-[0_0_60px_rgba(0,0,0,0.3)] border-4 border-white/5 relative">
                           <User size={80} className="text-slate-400" />
@@ -520,7 +587,9 @@ export const MeetingRoom: React.FC = () => {
                           </div>
                        </div>
                        <h2 className="text-3xl font-display font-bold text-slate-200">{t('meeting.waiting')}</h2>
-                       <p className="text-slate-500 mt-2 text-lg">O paciente entrará em breve...</p>
+                       <p className="text-slate-500 mt-2 text-lg">
+                           {isGuest ? 'Aguardando o profissional...' : 'O paciente entrará em breve...'}
+                       </p>
                     </div>
 
                     {/* Ambient Animation */}
@@ -544,7 +613,9 @@ export const MeetingRoom: React.FC = () => {
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
               ) : (
                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 relative">
-                    <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center text-xl font-bold shadow-lg">You</div>
+                    <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center text-xl font-bold shadow-lg">
+                        {isGuest ? (guestName.charAt(0) || 'G') : 'You'}
+                    </div>
                     {/* Audio Pulse Visualizer when cam is off but mic is on */}
                     {micOn && (
                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -588,8 +659,8 @@ export const MeetingRoom: React.FC = () => {
                     <>
                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                           {messages.map((msg, i) => (
-                             <div key={i} className={`flex flex-col ${msg.sender === 'Você' ? 'items-end' : 'items-start'}`}>
-                                <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${msg.sender === 'Você' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#252830] text-slate-200 rounded-tl-none border border-white/5'}`}>
+                             <div key={i} className={`flex flex-col ${msg.sender === (isGuest ? guestName || 'Convidado' : 'Você') ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${msg.sender === (isGuest ? guestName || 'Convidado' : 'Você') ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#252830] text-slate-200 rounded-tl-none border border-white/5'}`}>
                                    {msg.text}
                                 </div>
                                 <span className="text-[10px] text-slate-500 mt-1 px-1">{msg.time}</span>
@@ -609,10 +680,12 @@ export const MeetingRoom: React.FC = () => {
                                 <Send size={16} />
                              </button>
                           </form>
-                          <div className="flex gap-4 mt-3 px-1">
-                             <button className="text-slate-400 hover:text-indigo-400 text-xs font-bold flex items-center gap-1.5 transition-colors"><Paperclip size={14} /> Anexar</button>
-                             <button className="text-slate-400 hover:text-indigo-400 text-xs font-bold flex items-center gap-1.5 transition-colors"><FileText size={14} /> Prontuário</button>
-                          </div>
+                          {!isGuest && (
+                              <div className="flex gap-4 mt-3 px-1">
+                                 <button className="text-slate-400 hover:text-indigo-400 text-xs font-bold flex items-center gap-1.5 transition-colors"><Paperclip size={14} /> Anexar</button>
+                                 <button className="text-slate-400 hover:text-indigo-400 text-xs font-bold flex items-center gap-1.5 transition-colors"><FileText size={14} /> Prontuário</button>
+                              </div>
+                          )}
                        </div>
                     </>
                  ) : (
@@ -727,6 +800,78 @@ export const MeetingRoom: React.FC = () => {
          </div>
       </footer>
 
+      {/* --- SETTINGS MODAL --- */}
+      {showSettingsModal && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+              <div className="bg-[#181a1f] border border-white/10 w-full max-w-lg rounded-[2rem] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden">
+                  <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                          <Settings size={20} /> Configurações
+                      </h3>
+                      <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+                  </div>
+                  
+                  <div className="p-6 space-y-6">
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                              <Video size={14} /> Câmera
+                          </label>
+                          <div className="relative">
+                              <select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none">
+                                  <option>FaceTime HD Camera (Built-in)</option>
+                                  <option>External Webcam</option>
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                          </div>
+                      </div>
+
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                              <Mic size={14} /> Microfone
+                          </label>
+                          <div className="relative">
+                              <select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none">
+                                  <option>MacBook Pro Microphone (Built-in)</option>
+                                  <option>AirPods Pro</option>
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                          </div>
+                          {/* Mic Test Visualizer */}
+                          <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-[#252830] h-2 rounded-full overflow-hidden">
+                                  <div className="h-full bg-emerald-500 w-[60%] animate-pulse"></div>
+                              </div>
+                              <span className="text-xs text-emerald-400 font-bold">Bom</span>
+                          </div>
+                      </div>
+
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                              <Volume2 size={14} /> Saída de Áudio
+                          </label>
+                          <div className="relative">
+                              <select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none">
+                                  <option>MacBook Pro Speakers</option>
+                                  <option>AirPods Pro</option>
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                          </div>
+                          <button className="text-xs text-indigo-400 font-bold hover:underline">Testar Som</button>
+                      </div>
+                  </div>
+
+                  <div className="p-6 border-t border-white/10 flex justify-end">
+                      <button 
+                          onClick={() => setShowSettingsModal(false)}
+                          className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors"
+                      >
+                          Concluído
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* --- MODAL: LINK DEVICE (COMPANION) --- */}
       {showLinkDeviceModal && (
          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
@@ -783,7 +928,7 @@ export const MeetingRoom: React.FC = () => {
                      Cancelar
                   </button>
                   <button 
-                     onClick={() => { cleanupMedia(); navigate('/virtual-rooms'); }}
+                     onClick={() => { cleanupMedia(); navigate(isGuest ? '/' : '/virtual-rooms'); }}
                      className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors"
                   >
                      Encerrar
