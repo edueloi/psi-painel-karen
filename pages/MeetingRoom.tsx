@@ -6,7 +6,7 @@ import {
   MessageSquare, PenTool, X, Send, Paperclip, 
   Eraser, Download, Clock, User, Subtitles, MonitorUp, 
   Layout, Mic as MicIcon, FileText, Smartphone, QrCode, Share2, Tablet, Settings,
-  Copy, Check, Info, ChevronDown, Volume2
+  Copy, Check, Info, ChevronDown, Volume2, Link as LinkIcon
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MOCK_APPOINTMENTS } from '../constants';
@@ -701,11 +701,20 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                                     />
                                 ))}
                             </div>
-                            <div className="flex gap-1 bg-white rounded-lg border border-slate-200 p-0.5">
+                            <div className="flex items-center gap-1 bg-white rounded-lg border border-slate-200 p-0.5">
+                                {!isGuest && (
+                                    <button 
+                                        onClick={() => setShowLinkDeviceModal(true)} 
+                                        className="p-1.5 hover:bg-indigo-50 text-indigo-500 rounded" 
+                                        title="Conectar Dispositivo"
+                                    >
+                                        <Tablet size={16} />
+                                    </button>
+                                )}
+                                <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
                                 <button onClick={() => {const ctx = canvasRef.current?.getContext('2d'); ctx?.clearRect(0,0,400,600)}} className="p-1.5 hover:bg-slate-100 rounded text-slate-600" title={t('meeting.clearBoard')}>
                                     <Eraser size={16} />
                                 </button>
-                                <div className="w-px h-full bg-slate-200 mx-0.5"></div>
                                 <button className="p-1.5 hover:bg-slate-100 rounded text-slate-600">
                                     <Download size={16} />
                                 </button>
