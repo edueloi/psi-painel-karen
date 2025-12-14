@@ -1,4 +1,5 @@
 
+
 export type Language = 'pt' | 'en' | 'es';
 
 export const translations = {
@@ -21,13 +22,35 @@ export const translations = {
     'nav.finance': 'Financeiro',
     'nav.settings': 'Configurações',
     'nav.meeting': 'Sala Virtual',
-    'nav.bot': 'Vincular Bot', // NEW
+    'nav.bot': 'Vincular Bot', 
+    'nav.cases': 'Estudo de Caso', // NEW
     'nav.logout': 'Sair',
     'nav.upgrade': 'Fazer Upgrade',
     'nav.premium': 'Conta Premium',
     'nav.premium.desc': 'Acesse recursos exclusivos de IA.',
 
-    // Bot Integration (NEW)
+    // Case Studies (NEW)
+    'cases.title': 'Estudo de Caso & Supervisão',
+    'cases.subtitle': 'Organize casos clínicos, planeje supervisões e acompanhe o progresso em quadros visuais.',
+    'cases.boards': 'Meus Quadros',
+    'cases.newBoard': 'Novo Quadro',
+    'cases.history': 'Atividade Recente',
+    'cases.newCard': 'Novo Cartão',
+    'cases.addColumn': 'Adicionar Coluna',
+    'cases.selectPatient': 'Vincular Paciente',
+    'cases.cardTitle': 'Título do Cartão',
+    'cases.tags': 'Etiquetas (sep. por vírgula)',
+    'cases.desc': 'Descrição do Caso',
+    'cases.moved': 'moveu',
+    'cases.from': 'de',
+    'cases.to': 'para',
+    'cases.created': 'criou o cartão',
+    'cases.boardName': 'Nome do Quadro',
+    'cases.create': 'Criar',
+    'cases.cancel': 'Cancelar',
+    'cases.noBoards': 'Nenhum quadro criado.',
+
+    // Bot Integration
     'bot.title': 'Assistente Virtual WhatsApp',
     'bot.subtitle': 'Automatize a comunicação com seus pacientes e receba alertas em tempo real.',
     'bot.connect': 'Conectar Dispositivo',
@@ -654,6 +677,29 @@ export const translations = {
     // ... (Existing EN Translations)
     'nav.meeting': 'Virtual Room',
     'nav.bot': 'Link Bot', // NEW
+    'nav.cases': 'Case Studies', // NEW
+    
+    // Case Studies
+    'cases.title': 'Case Studies & Supervision',
+    'cases.subtitle': 'Organize clinical cases, plan supervision and track progress on visual boards.',
+    'cases.boards': 'My Boards',
+    'cases.newBoard': 'New Board',
+    'cases.history': 'Recent Activity',
+    'cases.newCard': 'New Card',
+    'cases.addColumn': 'Add Column',
+    'cases.selectPatient': 'Link Patient',
+    'cases.cardTitle': 'Card Title',
+    'cases.tags': 'Tags (comma sep.)',
+    'cases.desc': 'Case Description',
+    'cases.moved': 'moved',
+    'cases.from': 'from',
+    'cases.to': 'to',
+    'cases.created': 'created card',
+    'cases.boardName': 'Board Name',
+    'cases.create': 'Create',
+    'cases.cancel': 'Cancel',
+    'cases.noBoards': 'No boards created.',
+
     'bot.title': 'WhatsApp Virtual Assistant',
     'bot.subtitle': 'Automate communication with your patients and receive real-time alerts.',
     'bot.connect': 'Connect Device',
@@ -1024,7 +1070,29 @@ export const translations = {
   es: {
     // ... (Existing ES Translations)
     'nav.meeting': 'Sala Virtual',
-    'nav.bot': 'Vincular Bot', // NEW
+    'nav.bot': 'Vincular Bot',
+    'nav.cases': 'Estudios de Caso', // NEW
+    
+    'cases.title': 'Estudios de Caso y Supervisión',
+    'cases.subtitle': 'Organice casos clínicos, planifique supervisiones y siga el progreso en tableros visuales.',
+    'cases.boards': 'Mis Tableros',
+    'cases.newBoard': 'Nuevo Tablero',
+    'cases.history': 'Actividad Reciente',
+    'cases.newCard': 'Nueva Tarjeta',
+    'cases.addColumn': 'Añadir Columna',
+    'cases.selectPatient': 'Vincular Paciente',
+    'cases.cardTitle': 'Título de la Tarjeta',
+    'cases.tags': 'Etiquetas (sep. por coma)',
+    'cases.desc': 'Descripción del Caso',
+    'cases.moved': 'movió',
+    'cases.from': 'de',
+    'cases.to': 'a',
+    'cases.created': 'creó la tarjeta',
+    'cases.boardName': 'Nombre del Tablero',
+    'cases.create': 'Crear',
+    'cases.cancel': 'Cancelar',
+    'cases.noBoards': 'Ningún tablero creado.',
+
     'bot.title': 'Asistente Virtual WhatsApp',
     'bot.subtitle': 'Automatice la comunicación con sus pacientes y reciba alertas.',
     'bot.connect': 'Conectar Dispositivo',
@@ -1302,7 +1370,7 @@ export const translations = {
     'comandas.freq.unique': 'Única',
     'comandas.freq.weekly': 'Semanal',
     'comandas.freq.biweekly': 'Quincenal',
-    'comandas.freq.monthly': 'Mensual',
+    'comandas.freq.monthly': 'Mensal',
     'comandas.days.monday': 'Lunes',
     'comandas.days.tuesday': 'Martes',
     'comandas.days.wednesday': 'Miércoles',

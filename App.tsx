@@ -27,6 +27,7 @@ import { ExternalForm } from './pages/ExternalForm';
 import { MeetingRoom } from './pages/MeetingRoom';
 import { VirtualRooms } from './pages/VirtualRooms';
 import { BotIntegration } from './pages/BotIntegration';
+import { CaseStudies } from './pages/CaseStudies';
 import { MOCK_USERS } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 
@@ -59,7 +60,7 @@ const MainLayout: React.FC<{ children: React.ReactNode, onLogout: () => void }> 
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative">
-          <div className="max-w-7xl mx-auto pb-10">
+          <div className="max-w-7xl mx-auto pb-10 h-full">
             {children}
           </div>
         </main>
@@ -115,6 +116,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="/agenda" element={<Agenda />} />
                 <Route path="/virtual-rooms" element={<VirtualRooms />} />
                 <Route path="/bot" element={<BotIntegration />} />
+                <Route path="/cases" element={<CaseStudies />} />
                 <Route path="/documents" element={<Documents />} />
                 
                 {/* Services & Packages Module */}

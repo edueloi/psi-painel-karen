@@ -1,11 +1,12 @@
 
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone } from 'lucide-react';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen } from 'lucide-react';
 
 export const NAV_ITEMS = [
   { label: 'Dashboard', path: '/', icon: <Activity size={20} /> },
   { label: 'Agenda', path: '/agenda', icon: <Calendar size={20} /> },
   { label: 'Sala Virtual', path: '/virtual-rooms', icon: <Video size={20} /> },
+  { label: 'Estudo de Caso', path: '/cases', icon: <BookOpen size={20} /> }, // NEW
   { label: 'Vincular Bot', path: '/bot', icon: <Smartphone size={20} /> },
   { label: 'Comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },
   { label: 'Pacientes', path: '/patients', icon: <Users size={20} /> },

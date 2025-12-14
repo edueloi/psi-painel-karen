@@ -1,30 +1,39 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { 
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, 
   MessageSquare, PenTool, X, Send, Paperclip, 
   Eraser, Download, Clock, User, Subtitles, MonitorUp, 
-  MoreVertical, Settings, ChevronRight, Layout, Mic as MicIcon, FileText
+  Layout, Mic as MicIcon, FileText, Smartphone, QrCode, Share2, Tablet, Settings
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MOCK_APPOINTMENTS } from '../constants';
 
 export const MeetingRoom: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
   
+  // --- Mode Check ---
+  const isCompanionMode = searchParams.get('companion') === 'true';
+
   // --- States ---
+  const [hasJoined, setHasJoined] = useState(isCompanionMode); // Auto-join if companion
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [screenShare, setScreenShare] = useState(false);
-  const [activeSidePanel, setActiveSidePanel] = useState<'chat' | 'whiteboard' | 'none'>('none');
+  const [activeSidePanel, setActiveSidePanel] = useState<'chat' | 'whiteboard' | 'none'>(
+    isCompanionMode ? 'whiteboard' : 'none'
+  );
   const [messages, setMessages] = useState<{sender: string, text: string, time: string}[]>([
     { sender: 'System', text: 'Sala segura criada (Criptografia ponta-a-ponta).', time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }
   ]);
   const [newMessage, setNewMessage] = useState('');
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showLinkDeviceModal, setShowLinkDeviceModal] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0); 
 
   // Captions
@@ -33,6 +42,7 @@ export const MeetingRoom: React.FC = () => {
   
   // --- Refs ---
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const lobbyVideoRef = useRef<HTMLVideoElement>(null);
   const screenShareRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -40,9 +50,7 @@ export const MeetingRoom: React.FC = () => {
   // Audio Analysis
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const recognitionRef = useRef<any>(null);
 
   // Canvas
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,6 +61,9 @@ export const MeetingRoom: React.FC = () => {
 
   // --- Initialize Media ---
   useEffect(() => {
+    // If companion mode, we don't need camera/mic initially, just the whiteboard functionality
+    if (isCompanionMode) return;
+
     const initMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -62,15 +73,19 @@ export const MeetingRoom: React.FC = () => {
         
         localStreamRef.current = stream;
         
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        // Attach to lobby video if not joined yet
+        if (!hasJoined && lobbyVideoRef.current) {
+            lobbyVideoRef.current.srcObject = stream;
+        } 
+        // Attach to main video if already joined (should be handled by toggle effect, but safe to keep)
+        else if (hasJoined && localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
         }
 
         setupAudioAnalysis(stream);
 
       } catch (err) {
         console.error("Error accessing media:", err);
-        alert("Não foi possível acessar câmera ou microfone. Verifique as permissões.");
         setCameraOn(false);
         setMicOn(false);
       }
@@ -79,7 +94,14 @@ export const MeetingRoom: React.FC = () => {
     initMedia();
 
     return () => cleanupMedia();
-  }, []);
+  }, [hasJoined, isCompanionMode]);
+
+  // Handle Video Element Ref Update when joining
+  useEffect(() => {
+      if (hasJoined && !isCompanionMode && localStreamRef.current && localVideoRef.current) {
+          localVideoRef.current.srcObject = localStreamRef.current;
+      }
+  }, [hasJoined, isCompanionMode]);
 
   const setupAudioAnalysis = (stream: MediaStream) => {
     try {
@@ -92,7 +114,6 @@ export const MeetingRoom: React.FC = () => {
       
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
-      sourceRef.current = source;
 
       visualizeAudio();
     } catch (e) {
@@ -121,7 +142,6 @@ export const MeetingRoom: React.FC = () => {
     screenStreamRef.current?.getTracks().forEach(track => track.stop());
     audioContextRef.current?.close();
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    if (recognitionRef.current) recognitionRef.current.stop();
   };
 
   // --- Toggle Functions ---
@@ -148,18 +168,14 @@ export const MeetingRoom: React.FC = () => {
 
   const toggleScreenShare = async () => {
     if (screenShare) {
-      // Stop sharing
       screenStreamRef.current?.getTracks().forEach(t => t.stop());
       screenStreamRef.current = null;
       setScreenShare(false);
     } else {
-      // Start sharing
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         screenStreamRef.current = stream;
         setScreenShare(true);
-
-        // Handle native "Stop Sharing" UI
         stream.getVideoTracks()[0].onended = () => {
           setScreenShare(false);
           screenStreamRef.current = null;
@@ -170,18 +186,18 @@ export const MeetingRoom: React.FC = () => {
     }
   };
 
-  // Update screen share video element
   useEffect(() => {
     if (screenShare && screenShareRef.current && screenStreamRef.current) {
       screenShareRef.current.srcObject = screenStreamRef.current;
     }
   }, [screenShare]);
 
-  // --- Timer ---
   useEffect(() => {
-    const timer = setInterval(() => setElapsedTime(prev => prev + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (hasJoined && !isCompanionMode) {
+        const timer = setInterval(() => setElapsedTime(prev => prev + 1), 1000);
+        return () => clearInterval(timer);
+    }
+  }, [hasJoined, isCompanionMode]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -189,29 +205,64 @@ export const MeetingRoom: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // --- Whiteboard ---
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // --- Whiteboard & Touch Support ---
+  const getTouchPos = (canvasDom: HTMLCanvasElement, touchEvent: React.TouchEvent) => {
+    const rect = canvasDom.getBoundingClientRect();
+    return {
+      x: touchEvent.touches[0].clientX - rect.left,
+      y: touchEvent.touches[0].clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     setIsDrawing(true);
-    const rect = canvas.getBoundingClientRect();
+    
+    let x, y;
+    if ('touches' in e) {
+        const pos = getTouchPos(canvas, e);
+        x = pos.x;
+        y = pos.y;
+    } else {
+        const rect = canvas.getBoundingClientRect();
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
+    }
+
     ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.moveTo(x, y);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
+    
+    // Prevent scrolling when drawing on touch devices
+    if ('touches' in e) {
+        // e.preventDefault(); // Note: Passive event listeners might block this in React 18, managed via style touch-action: none
+    }
+
+    let x, y;
+    if ('touches' in e) {
+        const pos = getTouchPos(canvas, e);
+        x = pos.x;
+        y = pos.y;
+    } else {
+        const rect = canvas.getBoundingClientRect();
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
+    }
+
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.strokeStyle = drawColor;
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.lineTo(x, y);
     ctx.stroke();
   };
 
@@ -222,6 +273,140 @@ export const MeetingRoom: React.FC = () => {
     setNewMessage('');
   };
 
+  const getCompanionUrl = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('companion', 'true');
+      return url.toString();
+  };
+
+  // --- RENDER: COMPANION MODE (TABLET/PHONE) ---
+  if (isCompanionMode) {
+      return (
+          <div className="fixed inset-0 bg-white flex flex-col font-sans">
+              <div className="h-14 bg-slate-900 flex items-center justify-between px-4 text-white shrink-0">
+                  <div className="flex items-center gap-2">
+                      <Tablet size={20} />
+                      <span className="font-bold text-sm">Lousa Companion</span>
+                  </div>
+                  <button onClick={() => {const ctx = canvasRef.current?.getContext('2d'); ctx?.clearRect(0,0, canvasRef.current?.width || 0, canvasRef.current?.height || 0)}} className="p-2 hover:bg-white/10 rounded-full">
+                      <Eraser size={20} />
+                  </button>
+              </div>
+              <div className="flex-1 relative overflow-hidden bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
+                  <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/90 p-2 rounded-xl border border-slate-200 shadow-sm">
+                      {['#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b'].map(color => (
+                          <button 
+                            key={color}
+                            onClick={() => setDrawColor(color)} 
+                            className={`w-8 h-8 rounded-full border-2 transition-transform ${drawColor === color ? 'border-slate-800 scale-110' : 'border-transparent'}`} 
+                            style={{ backgroundColor: color }}
+                          />
+                      ))}
+                  </div>
+                  <canvas 
+                      ref={canvasRef}
+                      width={window.innerWidth} 
+                      height={window.innerHeight - 56}
+                      onMouseDown={startDrawing}
+                      onMouseMove={draw}
+                      onMouseUp={() => setIsDrawing(false)}
+                      onMouseLeave={() => setIsDrawing(false)}
+                      onTouchStart={startDrawing}
+                      onTouchMove={draw}
+                      onTouchEnd={() => setIsDrawing(false)}
+                      className="touch-none block cursor-crosshair"
+                  />
+              </div>
+          </div>
+      );
+  }
+
+  // --- RENDER: LOBBY (PRE-FLIGHT) ---
+  if (!hasJoined) {
+      return (
+          <div className="fixed inset-0 bg-[#0f1115] text-white flex items-center justify-center font-sans p-4">
+              <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-10">
+                  <div className="flex flex-col items-center">
+                      <h1 className="text-3xl font-display font-bold mb-2">Preparar para entrar</h1>
+                      <p className="text-slate-400 mb-8 text-center">{appointment?.title || 'Consulta'} - {appointment?.patientName}</p>
+                      
+                      <div className="relative w-full max-w-lg aspect-video bg-[#1e2025] rounded-2xl overflow-hidden border border-white/10 shadow-2xl mb-6 group">
+                          {cameraOn ? (
+                              <video ref={lobbyVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
+                          ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                  <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-slate-500">
+                                      <VideoOff size={32} />
+                                  </div>
+                              </div>
+                          )}
+                          
+                          {/* Audio Visualizer Overlay */}
+                          <div className="absolute bottom-4 left-4 flex gap-1 h-4 items-end">
+                              {[1,2,3].map(i => (
+                                  <div key={i} className={`w-1.5 rounded-full transition-all duration-75 ${micOn ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ height: micOn ? `${Math.max(20, audioLevel * (i * 0.5))}%` : '4px' }}></div>
+                              ))}
+                          </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                          <button 
+                              onClick={toggleMic}
+                              className={`p-4 rounded-full transition-all ${micOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-500/20 text-red-500 border border-red-500/50'}`}
+                          >
+                              {micOn ? <Mic size={24} /> : <MicOff size={24} />}
+                          </button>
+                          <button 
+                              onClick={toggleCam}
+                              className={`p-4 rounded-full transition-all ${cameraOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-500/20 text-red-500 border border-red-500/50'}`}
+                          >
+                              {cameraOn ? <Video size={24} /> : <VideoOff size={24} />}
+                          </button>
+                      </div>
+                  </div>
+
+                  <div className="flex flex-col justify-center items-center lg:items-start">
+                      <h2 className="text-xl font-bold mb-6">Configurações da Sala</h2>
+                      
+                      <div className="w-full space-y-4 mb-8">
+                          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                              <div className="flex items-center gap-3">
+                                  <Mic size={20} className="text-indigo-400" />
+                                  <div className="text-sm">
+                                      <p className="font-bold">Microfone Padrão</p>
+                                      <p className="text-slate-400 text-xs">Default Audio Input</p>
+                                  </div>
+                              </div>
+                              <span className="text-emerald-500 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">Ativo</span>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                              <div className="flex items-center gap-3">
+                                  <Video size={20} className="text-indigo-400" />
+                                  <div className="text-sm">
+                                      <p className="font-bold">Câmera Principal</p>
+                                      <p className="text-slate-400 text-xs">FaceTime HD Camera</p>
+                                  </div>
+                              </div>
+                              <span className="text-emerald-500 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">Ativo</span>
+                          </div>
+                      </div>
+
+                      <button 
+                          onClick={() => setHasJoined(true)}
+                          className="w-full lg:w-auto px-10 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-95"
+                      >
+                          Entrar na Sala Agora
+                      </button>
+                      <button onClick={() => navigate('/agenda')} className="mt-4 text-slate-500 hover:text-slate-300 text-sm">
+                          Voltar para Agenda
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // --- RENDER: MAIN MEETING ROOM ---
   return (
     <div className="fixed inset-0 bg-[#0f1115] text-white overflow-hidden font-sans flex flex-col">
       
@@ -242,6 +427,12 @@ export const MeetingRoom: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3">
+           <button 
+                onClick={() => setShowLinkDeviceModal(true)}
+                className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg text-xs font-bold transition-all border border-indigo-500/30"
+           >
+               <Tablet size={14} /> Lousa no Tablet
+           </button>
            <button className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Configurações">
               <Settings size={20} />
            </button>
@@ -479,6 +670,43 @@ export const MeetingRoom: React.FC = () => {
             </button>
          </div>
       </footer>
+
+      {/* --- MODAL: LINK DEVICE (COMPANION) --- */}
+      {showLinkDeviceModal && (
+         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+            <div className="bg-[#181a1f] border border-white/10 p-8 rounded-[2rem] max-w-md w-full text-center shadow-2xl animate-[slideUpFade_0.3s_ease-out]">
+               <div className="flex justify-between items-center mb-6">
+                   <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                       <Tablet size={20} className="text-indigo-400" />
+                       Vincular Dispositivo
+                   </h3>
+                   <button onClick={() => setShowLinkDeviceModal(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+               </div>
+               
+               <div className="bg-white p-6 rounded-xl mb-6 flex flex-col items-center">
+                   <QrCode size={160} className="text-slate-900" />
+                   <p className="text-slate-500 text-xs mt-2 font-mono">Scan to join as companion</p>
+               </div>
+
+               <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                   Abra a câmera do seu tablet ou celular e escaneie o código para usar como 
+                   <span className="text-indigo-400 font-bold"> Lousa Interativa</span>.
+               </p>
+
+               <div className="flex items-center gap-2 bg-white/5 p-3 rounded-xl border border-white/10 text-xs text-slate-300 font-mono mb-6 break-all">
+                   <span className="truncate">{getCompanionUrl()}</span>
+                   <button className="p-2 hover:bg-white/10 rounded-lg shrink-0" title="Copiar"><Share2 size={14} /></button>
+               </div>
+
+               <button 
+                  onClick={() => setShowLinkDeviceModal(false)}
+                  className="w-full py-3.5 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/30 transition-colors"
+               >
+                  Concluído
+               </button>
+            </div>
+         </div>
+      )}
 
       {/* --- CONFIRMATION MODAL --- */}
       {showEndModal && (
