@@ -3,6 +3,7 @@ import { Patient, MaritalStatus, EducationLevel, PaymentType } from '../../types
 import { INSURANCE_PROVIDERS } from '../../constants';
 import { Button } from '../UI/Button';
 import { ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface PatientFormWizardProps {
   initialData?: Partial<Patient>;
@@ -10,16 +11,8 @@ interface PatientFormWizardProps {
   onCancel: () => void;
 }
 
-const STEPS = [
-  { id: 'basic', title: 'Dados Pessoais', icon: <User size={18} /> },
-  { id: 'address', title: 'Endereço', icon: <MapPin size={18} /> },
-  { id: 'social', title: 'Estado Civil/Educ.', icon: <Heart size={18} /> },
-  { id: 'family', title: 'Família', icon: <Users size={18} /> },
-  { id: 'financial', title: 'Convênio/Finan.', icon: <CreditCard size={18} /> },
-  { id: 'docs', title: 'Documentos', icon: <FileText size={18} /> },
-];
-
 export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialData = {}, onSave, onCancel }) => {
+  const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Partial<Patient>>({
     active: true,
@@ -28,6 +21,15 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     hasChildren: false,
     ...initialData
   });
+
+  const STEPS = [
+    { id: 'basic', title: t('wizard.step1'), icon: <User size={18} /> },
+    { id: 'address', title: t('wizard.step2'), icon: <MapPin size={18} /> },
+    { id: 'social', title: t('wizard.step3'), icon: <Heart size={18} /> },
+    { id: 'family', title: t('wizard.step4'), icon: <Users size={18} /> },
+    { id: 'financial', title: t('wizard.step5'), icon: <CreditCard size={18} /> },
+    { id: 'docs', title: t('wizard.step6'), icon: <FileText size={18} /> },
+  ];
 
   const updateField = (field: keyof Patient, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -63,13 +65,13 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   )}
                 </div>
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-xs rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  Alterar Foto
+                  {t('wizard.photo')}
                 </div>
               </div>
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Nome Completo</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.name')}</label>
               <input 
                 type="text" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -79,7 +81,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.email')}</label>
               <input 
                 type="email" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -88,7 +90,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">WhatsApp / Celular</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.phone')}</label>
               <input 
                 type="tel" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -97,7 +99,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">CPF</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.cpf')}</label>
               <input 
                 type="text" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -112,7 +114,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
         return (
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4 animate-fadeIn">
             <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-medium text-slate-700">CEP</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.zip')}</label>
               <input 
                 type="text" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -121,7 +123,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
             </div>
             <div className="md:col-span-4 space-y-2">
-               <label className="text-sm font-medium text-slate-700">Rua / Logradouro</label>
+               <label className="text-sm font-medium text-slate-700">{t('wizard.street')}</label>
               <input 
                 type="text" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -130,7 +132,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
             </div>
             <div className="md:col-span-1 space-y-2">
-              <label className="text-sm font-medium text-slate-700">Número</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.number')}</label>
               <input 
                 type="text" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -139,7 +141,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
             </div>
             <div className="md:col-span-3 space-y-2">
-              <label className="text-sm font-medium text-slate-700">Bairro</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.neighborhood')}</label>
               <input 
                 type="text" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -148,7 +150,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
             </div>
             <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-medium text-slate-700">Cidade</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.city')}</label>
               <input 
                 type="text" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -163,7 +165,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
         return (
           <div className="grid grid-cols-1 gap-6 animate-fadeIn">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Estado Civil</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.marital')}</label>
               <select 
                 className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
                 value={formData.maritalStatus || ''}
@@ -176,7 +178,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Escolaridade</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.education')}</label>
               <select 
                 className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
                 value={formData.education || ''}
@@ -189,7 +191,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Profissão</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.profession')}</label>
               <input 
                 type="text" 
                 className="w-full p-2.5 border border-slate-300 rounded-lg"
@@ -211,12 +213,12 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 checked={formData.hasChildren || false}
                 onChange={e => updateField('hasChildren', e.target.checked)}
               />
-              <label htmlFor="hasChildren" className="text-sm font-medium text-slate-700">Possui filhos?</label>
+              <label htmlFor="hasChildren" className="text-sm font-medium text-slate-700">{t('wizard.hasChildren')}</label>
             </div>
             
             {formData.hasChildren && (
               <div className="pl-8 space-y-2">
-                <label className="text-sm font-medium text-slate-700">Quantos?</label>
+                <label className="text-sm font-medium text-slate-700">{t('wizard.howMany')}</label>
                 <input 
                   type="number" 
                   className="w-32 p-2 border border-slate-300 rounded-lg"
@@ -227,16 +229,16 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             )}
             
             <div className="border-t border-slate-200 my-4 pt-4">
-              <h4 className="text-sm font-bold text-slate-800 mb-3">Cônjuge</h4>
+              <h4 className="text-sm font-bold text-slate-800 mb-3">{t('wizard.spouse')}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input 
-                  type="text" placeholder="Nome do Cônjuge"
+                  type="text" placeholder={t('wizard.spouseName')}
                   className="p-2.5 border border-slate-300 rounded-lg"
                   value={formData.spouseName || ''}
                   onChange={e => updateField('spouseName', e.target.value)}
                 />
                 <input 
-                  type="tel" placeholder="Contato do Cônjuge"
+                  type="tel" placeholder={t('wizard.spouseContact')}
                   className="p-2.5 border border-slate-300 rounded-lg"
                   value={formData.spouseContact || ''}
                   onChange={e => updateField('spouseContact', e.target.value)}
@@ -250,7 +252,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
         return (
           <div className="space-y-6 animate-fadeIn">
              <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Tipo de Atendimento</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.paymentType')}</label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-lg flex-1 hover:bg-slate-50 transition-colors">
                   <input 
@@ -261,7 +263,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                     onChange={() => updateField('paymentType', PaymentType.PRIVATE)}
                     className="text-primary-600 focus:ring-primary-500"
                   />
-                  <span>Particular</span>
+                  <span>{t('wizard.private')}</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-lg flex-1 hover:bg-slate-50 transition-colors">
                   <input 
@@ -272,7 +274,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                     onChange={() => updateField('paymentType', PaymentType.INSURANCE)}
                     className="text-primary-600 focus:ring-primary-500"
                   />
-                  <span>Convênio</span>
+                  <span>{t('wizard.insurance')}</span>
                 </label>
               </div>
             </div>
@@ -280,7 +282,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             {formData.paymentType === PaymentType.INSURANCE && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Operadora</label>
+                  <label className="text-sm font-medium text-slate-700">{t('wizard.provider')}</label>
                   <select 
                     className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
                     value={formData.insuranceProvider || ''}
@@ -293,7 +295,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Número da Carteirinha</label>
+                  <label className="text-sm font-medium text-slate-700">{t('wizard.card')}</label>
                   <input 
                     type="text" 
                     className="w-full p-2.5 border border-slate-300 rounded-lg"
@@ -305,10 +307,10 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Status do Paciente</label>
+              <label className="text-sm font-medium text-slate-700">{t('wizard.status')}</label>
               <div className="flex items-center gap-3">
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${formData.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {formData.active ? 'ATIVO' : 'INATIVO'}
+                  {formData.active ? t('common.active') : t('common.inactive')}
                 </span>
                 <button 
                   onClick={() => updateField('active', !formData.active)}
@@ -326,8 +328,8 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
           <div className="space-y-4 animate-fadeIn">
             <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-slate-500 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
               <FileText className="h-10 w-10 mb-2 text-slate-400" />
-              <p className="font-medium">Clique para anexar documentos</p>
-              <p className="text-xs mt-1">RG, CPF, Comprovante de Residência, Encaminhamentos</p>
+              <p className="font-medium">{t('wizard.upload')}</p>
+              <p className="text-xs mt-1">{t('wizard.uploadDesc')}</p>
             </div>
             <div className="text-xs text-slate-500 italic">
               * Nesta demonstração, o upload é apenas visual.
@@ -346,10 +348,10 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       <div className="bg-slate-50 border-b border-slate-200 p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-800">
-            {initialData.id ? 'Editar Paciente' : 'Novo Paciente'}
+            {initialData.id ? t('wizard.edit') : t('wizard.new')}
           </h2>
           <span className="text-xs font-medium bg-primary-100 text-primary-700 px-2 py-1 rounded">
-             Passo {currentStep + 1} de {STEPS.length}
+             {t('wizard.step')} {currentStep + 1} {t('wizard.of')} {STEPS.length}
           </span>
         </div>
         
@@ -361,7 +363,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
           />
         </div>
         
-        {/* Step Icons (Optional for larger screens) */}
+        {/* Step Icons */}
         <div className="hidden md:flex justify-between mt-4">
           {STEPS.map((step, idx) => (
             <div 
@@ -386,16 +388,16 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       {/* Footer Actions */}
       <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
         <Button variant="ghost" onClick={currentStep === 0 ? onCancel : handlePrev}>
-          {currentStep === 0 ? 'Cancelar' : <><ChevronLeft className="mr-1 h-4 w-4" /> Anterior</>}
+          {currentStep === 0 ? t('wizard.cancel') : <><ChevronLeft className="mr-1 h-4 w-4" /> {t('wizard.prev')}</>}
         </Button>
         
         {currentStep === STEPS.length - 1 ? (
           <Button variant="primary" onClick={() => onSave(formData)}>
-            <Save className="mr-2 h-4 w-4" /> Salvar Paciente
+            <Save className="mr-2 h-4 w-4" /> {t('wizard.save')}
           </Button>
         ) : (
           <Button variant="primary" onClick={handleNext}>
-            Próximo <ChevronRight className="ml-1 h-4 w-4" />
+            {t('wizard.next')} <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         )}
       </div>

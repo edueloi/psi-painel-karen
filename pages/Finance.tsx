@@ -4,8 +4,7 @@ import {
   Wallet, PieChart, ArrowUpRight, ArrowDownRight, Filter, Download, 
   Banknote, Smartphone, Receipt
 } from 'lucide-react';
-
-// --- MOCK DATA HELPERS ---
+import { useLanguage } from '../contexts/LanguageContext';
 
 const PAYMENT_METHODS = [
   { id: 'pix', label: 'Pix', icon: <Smartphone size={16} />, color: 'bg-emerald-500' },
@@ -22,16 +21,13 @@ const generateDailyData = (year: number, month: number) => {
   const data = [];
 
   for (let i = 1; i <= daysInMonth; i++) {
-    // Randomize somewhat realistic data
     const isWeekend = new Date(year, month, i).getDay() % 6 === 0;
     const baseRevenue = isWeekend ? 0 : Math.floor(Math.random() * 2000) + 500;
     const baseExpense = Math.floor(Math.random() * 800) + 100;
 
-    // Simulate payment method distribution for this day's revenue
     const methods = PAYMENT_METHODS.reduce((acc, method) => {
         let amount = 0;
         if (baseRevenue > 0) {
-            // Rough distribution
             const pct = Math.random();
             amount = Math.floor(baseRevenue * (pct / PAYMENT_METHODS.length)); 
         }
@@ -55,26 +51,24 @@ const formatCurrency = (value: number) => {
 };
 
 export const Finance: React.FC = () => {
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily'>('dashboard');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'year'>('month');
 
-  // --- DERIVED DATA ---
   const currentMonthData = useMemo(() => {
     return generateDailyData(currentDate.getFullYear(), currentDate.getMonth());
   }, [currentDate]);
 
   const yearData = useMemo(() => {
-      // Generate summary for 12 months for the chart
       return Array.from({ length: 12 }, (_, i) => {
           const monthDays = generateDailyData(currentDate.getFullYear(), i);
           const totalRev = monthDays.reduce((acc, d) => acc + d.revenue, 0);
           const totalExp = monthDays.reduce((acc, d) => acc + d.expense, 0);
-          return { month: i, label: new Date(2023, i, 1).toLocaleDateString('pt-BR', { month: 'short' }), revenue: totalRev, expense: totalExp };
+          return { month: i, label: new Date(2023, i, 1).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'short' }), revenue: totalRev, expense: totalExp };
       });
-  }, [currentDate.getFullYear()]);
+  }, [currentDate.getFullYear(), language]);
 
-  // Aggregates based on Period Filter (Mock Logic)
   const stats = useMemo(() => {
       let dataSubset = currentMonthData;
       
@@ -82,16 +76,12 @@ export const Finance: React.FC = () => {
           const today = new Date().getDate();
           dataSubset = currentMonthData.filter(d => d.day === today);
       } else if (periodFilter === 'week') {
-          // Simplification: first 7 days
           dataSubset = currentMonthData.slice(0, 7);
       } 
-      // 'month' uses full currentMonthData
-      // 'year' would use yearData, handled separately for charts
 
       const totalRevenue = dataSubset.reduce((acc, d) => acc + d.revenue, 0);
       const totalExpense = dataSubset.reduce((acc, d) => acc + d.expense, 0);
       
-      // Aggregate Payment Methods
       const methodTotals: Record<string, number> = {};
       PAYMENT_METHODS.forEach(m => methodTotals[m.id] = 0);
       
@@ -101,7 +91,6 @@ export const Finance: React.FC = () => {
           });
       });
 
-      // Best/Worst (from Year Data)
       const sortedMonths = [...yearData].sort((a, b) => b.revenue - a.revenue);
       const bestMonth = sortedMonths[0];
       const worstMonth = sortedMonths[sortedMonths.length - 1];
@@ -120,8 +109,6 @@ export const Finance: React.FC = () => {
 
   const maxChartValue = Math.max(...yearData.map(d => Math.max(d.revenue, d.expense)));
 
-  // --- RENDERERS ---
-
   const renderDashboard = () => (
     <div className="space-y-6 animate-fadeIn">
        {/* Filters */}
@@ -133,7 +120,7 @@ export const Finance: React.FC = () => {
                        onClick={() => setPeriodFilter(p as any)}
                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${periodFilter === p ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                    >
-                       {p === 'today' ? 'Hoje' : p === 'week' ? 'Semana' : p === 'month' ? 'Mês' : 'Ano'}
+                       {t(`finance.${p}`)}
                    </button>
                ))}
            </div>
@@ -141,7 +128,7 @@ export const Finance: React.FC = () => {
                <Calendar size={16} />
                {periodFilter === 'year' 
                  ? currentDate.getFullYear() 
-                 : currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                 : currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
            </div>
        </div>
 
@@ -153,11 +140,11 @@ export const Finance: React.FC = () => {
                        <TrendingUp size={24} />
                    </div>
                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full flex items-center gap-1">
-                       <ArrowUpRight size={12} /> Entradas
+                       <ArrowUpRight size={12} /> {t('finance.income')}
                    </span>
                </div>
                <div>
-                   <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Receita Total</span>
+                   <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('finance.totalRevenue')}</span>
                    <h3 className="text-3xl font-display font-bold text-slate-800 mt-1">{formatCurrency(stats.revenue)}</h3>
                </div>
            </div>
@@ -168,11 +155,11 @@ export const Finance: React.FC = () => {
                        <TrendingDown size={24} />
                    </div>
                    <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-full flex items-center gap-1">
-                       <ArrowDownRight size={12} /> Saídas
+                       <ArrowDownRight size={12} /> {t('finance.expense')}
                    </span>
                </div>
                <div>
-                   <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Despesas</span>
+                   <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('finance.expenses')}</span>
                    <h3 className="text-3xl font-display font-bold text-slate-800 mt-1">{formatCurrency(stats.expense)}</h3>
                </div>
            </div>
@@ -183,11 +170,11 @@ export const Finance: React.FC = () => {
                        <DollarSign size={24} />
                    </div>
                    <span className="text-xs font-bold text-white/90 bg-white/10 px-2 py-1 rounded-full border border-white/20">
-                       Resultado
+                       {t('finance.result')}
                    </span>
                </div>
                <div>
-                   <span className="text-indigo-100 text-xs font-bold uppercase tracking-wider">Lucro Líquido</span>
+                   <span className="text-indigo-100 text-xs font-bold uppercase tracking-wider">{t('finance.netProfit')}</span>
                    <h3 className="text-3xl font-display font-bold text-white mt-1">{formatCurrency(stats.balance)}</h3>
                </div>
            </div>
@@ -198,10 +185,10 @@ export const Finance: React.FC = () => {
            {/* Main Chart */}
            <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                <div className="flex justify-between items-center mb-8">
-                   <h3 className="font-bold text-lg text-slate-800">Comparativo Anual</h3>
+                   <h3 className="font-bold text-lg text-slate-800">{t('finance.balance')}</h3>
                    <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-wider">
-                      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Receita</div>
-                      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-rose-400"></span> Despesa</div>
+                      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {t('finance.income')}</div>
+                      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-rose-400"></span> {t('finance.expense')}</div>
                    </div>
                </div>
                
@@ -228,13 +215,13 @@ export const Finance: React.FC = () => {
 
            {/* Payment Methods Breakdown */}
            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-               <h3 className="font-bold text-lg text-slate-800 mb-6">Formas de Pagamento</h3>
+               <h3 className="font-bold text-lg text-slate-800 mb-6">{t('finance.methods')}</h3>
                <div className="space-y-4">
                    {PAYMENT_METHODS.map(method => {
                        const amount = stats.methods[method.id] || 0;
                        const percentage = stats.revenue > 0 ? (amount / stats.revenue) * 100 : 0;
                        
-                       if (amount === 0) return null; // Hide unused methods in dashboard view
+                       if (amount === 0) return null;
 
                        return (
                            <div key={method.id}>
@@ -262,7 +249,7 @@ export const Finance: React.FC = () => {
                    <TrendingUp size={24} />
                </div>
                <div>
-                   <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide">Melhor Mês</p>
+                   <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide">{t('finance.bestMonth')}</p>
                    <p className="font-bold text-slate-800">{stats.bestMonth.label} <span className="text-xs text-slate-500 font-normal">({formatCurrency(stats.bestMonth.revenue)})</span></p>
                </div>
            </div>
@@ -272,7 +259,7 @@ export const Finance: React.FC = () => {
                    <TrendingDown size={24} />
                </div>
                <div>
-                   <p className="text-xs font-bold text-rose-700 uppercase tracking-wide">Pior Mês</p>
+                   <p className="text-xs font-bold text-rose-700 uppercase tracking-wide">{t('finance.worstMonth')}</p>
                    <p className="font-bold text-slate-800">{stats.worstMonth.label} <span className="text-xs text-slate-500 font-normal">({formatCurrency(stats.worstMonth.revenue)})</span></p>
                </div>
            </div>
@@ -282,7 +269,7 @@ export const Finance: React.FC = () => {
                    <PieChart size={24} />
                </div>
                <div>
-                   <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">Média Mensal</p>
+                   <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">{t('finance.avgMonthly')}</p>
                    <p className="font-bold text-slate-800">{formatCurrency(stats.avgRevenue)}</p>
                </div>
            </div>
@@ -295,7 +282,7 @@ export const Finance: React.FC = () => {
         {/* Table Controls */}
         <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
             <div className="flex items-center gap-4">
-                <h3 className="font-display font-bold text-lg text-slate-800">Fluxo de Caixa Diário</h3>
+                <h3 className="font-display font-bold text-lg text-slate-800">{t('finance.daily')}</h3>
                 <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
                     <button 
                         onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}
@@ -304,7 +291,7 @@ export const Finance: React.FC = () => {
                         <TrendingDown className="rotate-90" size={16} />
                     </button>
                     <span className="px-4 text-sm font-bold text-slate-700 capitalize">
-                        {currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                        {currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
                     </span>
                     <button 
                         onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}
@@ -315,17 +302,17 @@ export const Finance: React.FC = () => {
                 </div>
             </div>
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all">
-                <Download size={16} /> Exportar CSV
+                <Download size={16} /> {t('finance.export')}
             </button>
         </div>
 
         {/* Table Header */}
         <div className="grid grid-cols-12 gap-4 p-4 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-            <div className="col-span-2">Data</div>
-            <div className="col-span-3 text-right">Entradas</div>
-            <div className="col-span-3 text-right">Saídas</div>
-            <div className="col-span-2 text-right">Saldo</div>
-            <div className="col-span-2 text-center">Status</div>
+            <div className="col-span-2">{t('finance.table.date')}</div>
+            <div className="col-span-3 text-right">{t('finance.table.in')}</div>
+            <div className="col-span-3 text-right">{t('finance.table.out')}</div>
+            <div className="col-span-2 text-right">{t('finance.table.balance')}</div>
+            <div className="col-span-2 text-center">{t('finance.table.status')}</div>
         </div>
 
         {/* Table Body */}
@@ -334,10 +321,10 @@ export const Finance: React.FC = () => {
                 <div key={day.day} className="grid grid-cols-12 gap-4 p-4 border-b border-slate-100 items-center hover:bg-slate-50 transition-colors group">
                     <div className="col-span-2 flex flex-col">
                         <span className="font-bold text-slate-700 text-sm">
-                            {day.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                            {day.date.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { day: '2-digit', month: '2-digit' })}
                         </span>
                         <span className="text-xs text-slate-400 capitalize">
-                            {day.date.toLocaleDateString('pt-BR', { weekday: 'short' })}
+                            {day.date.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'short' })}
                         </span>
                     </div>
                     <div className="col-span-3 text-right font-medium text-emerald-600">
@@ -351,24 +338,15 @@ export const Finance: React.FC = () => {
                     </div>
                     <div className="col-span-2 flex justify-center">
                         {day.balance > 0 ? (
-                            <span className="px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase rounded-md border border-emerald-100">Positivo</span>
+                            <span className="px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase rounded-md border border-emerald-100">+</span>
                         ) : day.balance < 0 ? (
-                            <span className="px-2 py-1 bg-rose-50 text-rose-600 text-[10px] font-bold uppercase rounded-md border border-rose-100">Negativo</span>
+                            <span className="px-2 py-1 bg-rose-50 text-rose-600 text-[10px] font-bold uppercase rounded-md border border-rose-100">-</span>
                         ) : (
-                            <span className="px-2 py-1 bg-slate-100 text-slate-400 text-[10px] font-bold uppercase rounded-md">Neutro</span>
+                            <span className="px-2 py-1 bg-slate-100 text-slate-400 text-[10px] font-bold uppercase rounded-md">-</span>
                         )}
                     </div>
                 </div>
             ))}
-        </div>
-
-        {/* Table Footer (Totals) */}
-        <div className="grid grid-cols-12 gap-4 p-4 bg-slate-100 border-t border-slate-200 font-bold text-slate-800 text-sm">
-            <div className="col-span-2 uppercase text-xs tracking-wider pt-1">Total Mensal</div>
-            <div className="col-span-3 text-right text-emerald-700">{formatCurrency(currentMonthData.reduce((acc, d) => acc + d.revenue, 0))}</div>
-            <div className="col-span-3 text-right text-rose-700">-{formatCurrency(currentMonthData.reduce((acc, d) => acc + d.expense, 0))}</div>
-            <div className="col-span-2 text-right text-indigo-700">{formatCurrency(currentMonthData.reduce((acc, d) => acc + d.balance, 0))}</div>
-            <div className="col-span-2"></div>
         </div>
     </div>
   );
@@ -384,11 +362,11 @@ export const Finance: React.FC = () => {
             <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-indigo-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
                     <DollarSign size={14} />
-                    <span>Controle Financeiro</span>
+                    <span>{t('finance.title')}</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">Fluxo de Caixa</h1>
+                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('finance.title')}</h1>
                 <p className="text-indigo-100/70 text-lg leading-relaxed max-w-xl">
-                    Monitore a saúde financeira da sua clínica com relatórios detalhados de receitas, despesas e lucratividade.
+                    {t('finance.subtitle')}
                 </p>
             </div>
 
@@ -397,13 +375,13 @@ export const Finance: React.FC = () => {
                     onClick={() => setActiveTab('dashboard')}
                     className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                 >
-                    <PieChart size={18} /> Dashboard
+                    <PieChart size={18} /> {t('finance.dashboard')}
                 </button>
                 <button 
                     onClick={() => setActiveTab('daily')}
                     className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${activeTab === 'daily' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                 >
-                    <Filter size={18} /> Fluxo Diário
+                    <Filter size={18} /> {t('finance.daily')}
                 </button>
             </div>
         </div>

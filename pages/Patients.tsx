@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { MOCK_PATIENTS } from '../constants';
 import { Patient } from '../types';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
-import { Button } from '../components/UI/Button';
 import { Plus, Search, Filter, Edit2, Trash2, Eye, MapPin, Phone } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const Patients: React.FC = () => {
+  const { t } = useLanguage();
   const [view, setView] = useState<'list' | 'form'>('list');
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Partial<Patient> | undefined>(undefined);
@@ -32,7 +33,7 @@ export const Patients: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este paciente?')) {
+    if (window.confirm(t('common.delete') + '?')) {
       setPatients(prev => prev.filter(p => p.id !== id));
     }
   };
@@ -59,15 +60,15 @@ export const Patients: React.FC = () => {
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display font-bold text-3xl text-slate-800">Meus Pacientes</h1>
-          <p className="text-slate-500 mt-1">Gerencie prontuários, documentos e dados cadastrais.</p>
+          <h1 className="font-display font-bold text-3xl text-slate-800">{t('patients.title')}</h1>
+          <p className="text-slate-500 mt-1">{t('patients.subtitle')}</p>
         </div>
         <button 
             onClick={handleAddNew}
             className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all hover:scale-105"
         >
           <Plus size={20} />
-          <span>Novo Paciente</span>
+          <span>{t('patients.new')}</span>
         </button>
       </div>
 
@@ -77,7 +78,7 @@ export const Patients: React.FC = () => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
           <input 
             type="text" 
-            placeholder="Buscar por nome, CPF ou telefone..." 
+            placeholder={t('patients.searchPlaceholder')}
             className="w-full pl-12 pr-4 py-3.5 border-none rounded-xl bg-transparent focus:bg-slate-50 focus:ring-0 text-slate-700 placeholder:text-slate-400 transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -85,7 +86,7 @@ export const Patients: React.FC = () => {
         </div>
         <button className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 flex items-center gap-2 transition-colors">
           <Filter size={18} />
-          <span>Filtros</span>
+          <span>{t('patients.filters')}</span>
         </button>
       </div>
 
@@ -110,7 +111,7 @@ export const Patients: React.FC = () => {
                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                        patient.active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
                    }`}>
-                      {patient.active ? 'Ativo' : 'Inativo'}
+                      {patient.active ? t('patients.active') : t('patients.inactive')}
                    </span>
                 </div>
              </div>
@@ -121,13 +122,13 @@ export const Patients: React.FC = () => {
                     <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
                         <Phone size={16} />
                     </div>
-                    <span className="font-medium">{patient.phone || 'Sem contato'}</span>
+                    <span className="font-medium">{patient.phone || '-'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-slate-600">
                     <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
                         <MapPin size={16} />
                     </div>
-                    <span className="font-medium truncate">{patient.address.city ? `${patient.address.city}/${patient.address.state}` : 'Endereço n/d'}</span>
+                    <span className="font-medium truncate">{patient.address.city ? `${patient.address.city}/${patient.address.state}` : '-'}</span>
                 </div>
              </div>
              
@@ -165,8 +166,8 @@ export const Patients: React.FC = () => {
             <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                 <Search size={24} className="opacity-50" />
             </div>
-            <p className="text-lg font-bold text-slate-600">Nenhum paciente encontrado</p>
-            <p className="text-sm">Tente mudar os filtros ou adicione um novo paciente.</p>
+            <p className="text-lg font-bold text-slate-600">{t('patients.noResults')}</p>
+            <p className="text-sm">{t('patients.noResultsDesc')}</p>
           </div>
         )}
       </div>

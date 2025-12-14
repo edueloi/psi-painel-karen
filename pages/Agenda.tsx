@@ -5,10 +5,12 @@ import {
   ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin, 
   Calendar as CalendarIcon, MoreVertical, X, Check, Lock, User, Link as LinkIcon, Search
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type ViewMode = 'day' | 'week' | 'month';
 
 export const Agenda: React.FC = () => {
+  const { t, language } = useLanguage();
   const [view, setView] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>(MOCK_APPOINTMENTS);
@@ -23,11 +25,16 @@ export const Agenda: React.FC = () => {
     psychologistId: MOCK_USERS[0].id // Default to first doctor
   });
 
-  // Calendar Logic
+  const weekDays = language === 'pt' 
+    ? ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+    : language === 'es'
+    ? ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // Calendar Logic (unchanged)
   const startHour = 8;
   const endHour = 19;
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour);
-  const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   const getStartOfWeek = (date: Date) => {
     const d = new Date(date);
@@ -81,16 +88,15 @@ export const Agenda: React.FC = () => {
   const handleSaveAppointment = () => {
     if (!formData.start || !formData.end || !formData.title) return;
     
-    // Find Psychologist Name
     const psych = MOCK_USERS.find(u => u.id === formData.psychologistId);
     
     const newAppt: Appointment = {
         id: Math.random().toString(36).substr(2, 9),
         start: formData.start,
         end: formData.end,
-        title: formData.type === 'bloqueio' ? 'Bloqueio de Agenda' : formData.title,
+        title: formData.type === 'bloqueio' ? 'Bloqueio' : formData.title,
         patientId: formData.patientId || '',
-        patientName: formData.title, // Simplified for mock
+        patientName: formData.title,
         psychologistId: formData.psychologistId!,
         psychologistName: psych?.name || 'Profissional',
         status: 'scheduled',
@@ -132,13 +138,13 @@ export const Agenda: React.FC = () => {
                 <CalendarIcon size={24} />
              </div>
              <h2 className="text-2xl font-display font-bold text-slate-800 capitalize">
-                {currentDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}
+                {currentDate.toLocaleString(language === 'pt' ? 'pt-BR' : language === 'es' ? 'es-ES' : 'en-US', { month: 'long', year: 'numeric' })}
              </h2>
           </div>
           
           <div className="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200">
             <button onClick={handlePrev} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg text-slate-500 hover:text-indigo-600 transition-all"><ChevronLeft size={20} /></button>
-            <button onClick={() => setCurrentDate(new Date())} className="px-4 text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-600">Hoje</button>
+            <button onClick={() => setCurrentDate(new Date())} className="px-4 text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-600">{t('agenda.today')}</button>
             <button onClick={handleNext} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg text-slate-500 hover:text-indigo-600 transition-all"><ChevronRight size={20} /></button>
           </div>
         </div>
@@ -149,19 +155,19 @@ export const Agenda: React.FC = () => {
                     onClick={() => setView('day')}
                     className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${view === 'day' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                    Dia
+                    {t('agenda.day')}
                 </button>
                 <button 
                     onClick={() => setView('week')}
                     className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${view === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                    Semana
+                    {t('agenda.week')}
                 </button>
                 <button 
                     onClick={() => setView('month')}
                     className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${view === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                    Mês
+                    {t('agenda.month')}
                 </button>
             </div>
             
@@ -173,7 +179,7 @@ export const Agenda: React.FC = () => {
                 }}
                 className="ml-auto md:ml-0 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all hover:scale-105 active:scale-95"
             >
-                <Plus size={18} /> <span className="hidden sm:inline">Agendar</span>
+                <Plus size={18} /> <span className="hidden sm:inline">{t('agenda.schedule')}</span>
             </button>
         </div>
       </div>
@@ -186,7 +192,7 @@ export const Agenda: React.FC = () => {
             <div className="flex min-h-[800px]">
                 {/* Time Column */}
                 <div className="w-16 flex-shrink-0 border-r border-slate-200 bg-white sticky left-0 z-10">
-                    <div className="h-14 border-b border-slate-200 bg-slate-50"></div> {/* Header spacer */}
+                    <div className="h-14 border-b border-slate-200 bg-slate-50"></div>
                     {hours.map(hour => (
                     <div key={hour} className="h-24 border-b border-slate-100 text-xs font-medium text-slate-400 text-right pr-3 pt-2 relative">
                         <span className="-translate-y-1/2 block">{hour}:00</span>
@@ -241,7 +247,7 @@ export const Agenda: React.FC = () => {
                                 const startH = apt.start.getHours() + apt.start.getMinutes()/60;
                                 const endH = apt.end.getHours() + apt.end.getMinutes()/60;
                                 const duration = endH - startH;
-                                const top = (startH - startHour) * 96 + 56; // 96px per hour + 56px header
+                                const top = (startH - startHour) * 96 + 56;
                                 const height = duration * 96;
 
                                 return (
@@ -249,7 +255,6 @@ export const Agenda: React.FC = () => {
                                         key={apt.id}
                                         className={`absolute left-1 right-1 rounded-xl p-2.5 border shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all z-0 overflow-hidden ${apt.color} flex flex-col`}
                                         style={{ top: `${top}px`, height: `${height - 4}px` }}
-                                        onClick={(e) => { e.stopPropagation(); alert('Detalhes do agendamento (TODO)'); }}
                                     >
                                         <div className="flex items-start justify-between mb-1">
                                             <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 flex items-center gap-1">
@@ -317,7 +322,7 @@ export const Agenda: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
             <div className="bg-white w-full max-w-lg rounded-[24px] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden flex flex-col">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
-                    <h3 className="text-xl font-display font-bold text-slate-800">Novo Agendamento</h3>
+                    <h3 className="text-xl font-display font-bold text-slate-800">{t('agenda.new')}</h3>
                     <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors">
                         <X size={20} />
                     </button>
@@ -331,24 +336,24 @@ export const Agenda: React.FC = () => {
                             onClick={() => setFormData({...formData, type: 'consulta'})}
                             className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.type === 'consulta' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}
                         >
-                            Consulta
+                            {t('agenda.consultation')}
                         </button>
                         <button 
                             onClick={() => setFormData({...formData, type: 'bloqueio'})}
                             className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.type === 'bloqueio' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500'}`}
                         >
-                            Bloqueio
+                            {t('agenda.block')}
                         </button>
                     </div>
 
                     {formData.type === 'consulta' && (
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Paciente</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('agenda.patient')}</label>
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                 <input 
                                     type="text" 
-                                    placeholder="Buscar paciente..." 
+                                    placeholder={t('common.search')} 
                                     value={formData.title}
                                     onChange={(e) => setFormData({...formData, title: e.target.value})}
                                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all font-medium"
@@ -359,7 +364,7 @@ export const Agenda: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Data</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('agenda.date')}</label>
                             <input 
                                 type="date" 
                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium text-slate-600"
@@ -368,7 +373,7 @@ export const Agenda: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Horário</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('agenda.time')}</label>
                             <div className="flex items-center gap-2">
                                 <input 
                                     type="time" 
@@ -398,7 +403,7 @@ export const Agenda: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Profissional</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('agenda.professional')}</label>
                         <div className="relative">
                             <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                             <select 
@@ -417,32 +422,32 @@ export const Agenda: React.FC = () => {
                     {formData.type === 'consulta' && (
                         <>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Modalidade</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('agenda.modality')}</label>
                                 <div className="grid grid-cols-2 gap-4">
                                     <button 
                                         onClick={() => setFormData({...formData, modality: 'presencial'})}
                                         className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold transition-all ${formData.modality === 'presencial' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-100 text-slate-500 hover:bg-slate-50'}`}
                                     >
-                                        <MapPin size={18} /> Presencial
+                                        <MapPin size={18} /> {t('agenda.presential')}
                                     </button>
                                     <button 
                                         onClick={() => setFormData({...formData, modality: 'online'})}
                                         className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold transition-all ${formData.modality === 'online' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-100 text-slate-500 hover:bg-slate-50'}`}
                                     >
-                                        <Video size={18} /> Online
+                                        <Video size={18} /> {t('agenda.online')}
                                     </button>
                                 </div>
                             </div>
 
                             {formData.modality === 'online' && (
                                 <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 animate-fadeIn">
-                                    <label className="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">Sala Virtual</label>
+                                    <label className="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">{t('agenda.link')}</label>
                                     <div className="flex gap-2">
                                         <div className="relative flex-1">
                                             <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400" size={16} />
                                             <input 
                                                 type="text" 
-                                                placeholder="Link da reunião..." 
+                                                placeholder="Link..." 
                                                 value={formData.meetingUrl || ''}
                                                 onChange={(e) => setFormData({...formData, meetingUrl: e.target.value})}
                                                 className="w-full pl-10 pr-4 py-3 bg-white border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-100 outline-none text-emerald-800 placeholder:text-emerald-300 font-medium"
@@ -451,7 +456,7 @@ export const Agenda: React.FC = () => {
                                         <button 
                                             onClick={generateMeetingLink}
                                             className="px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all shadow-sm shadow-emerald-200"
-                                            title="Gerar Link Automático"
+                                            title={t('agenda.generateLink')}
                                         >
                                             <Video size={20} />
                                         </button>
@@ -467,13 +472,13 @@ export const Agenda: React.FC = () => {
                         onClick={() => setIsModalOpen(false)} 
                         className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors"
                     >
-                        Cancelar
+                        {t('agenda.cancel')}
                     </button>
                     <button 
                         onClick={handleSaveAppointment}
                         className="px-8 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all flex items-center gap-2"
                     >
-                        <Check size={18} /> Confirmar
+                        <Check size={18} /> {t('agenda.confirm')}
                     </button>
                 </div>
             </div>
