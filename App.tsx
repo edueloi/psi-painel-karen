@@ -21,9 +21,11 @@ import { Profile } from './pages/Profile';
 import { Settings } from './pages/Settings';
 import { Privacy } from './pages/Privacy';
 import { Help } from './pages/Help';
+import { Professionals } from './pages/Professionals';
 import { FormBuilder } from './components/Forms/FormBuilder';
 import { ExternalForm } from './pages/ExternalForm';
 import { MOCK_USERS } from './constants';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 const MainLayout: React.FC<{ children: React.ReactNode, onLogout: () => void }> = ({ children, onLogout }) => {
   // Initialize open on desktop, closed on mobile
@@ -76,7 +78,7 @@ const FormBuilderWrapper: React.FC = () => {
     );
 };
 
-const App: React.FC = () => {
+const AppRoutes: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const handleLogin = () => {
@@ -114,6 +116,9 @@ const App: React.FC = () => {
                 {/* Inventory & Products Module */}
                 <Route path="/products" element={<Products />} />
 
+                {/* Team & Professionals */}
+                <Route path="/professionals" element={<Professionals />} />
+
                 <Route path="/best-clients" element={<BestClients />} />
                 <Route path="/performance" element={<Performance />} />
                 <Route path="/finance" element={<Finance />} />
@@ -144,6 +149,14 @@ const App: React.FC = () => {
         } />
       </Routes>
     </HashRouter>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <LanguageProvider>
+      <AppRoutes />
+    </LanguageProvider>
   );
 };
 

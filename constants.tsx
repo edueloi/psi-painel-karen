@@ -1,11 +1,12 @@
-import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package } from 'lucide-react';
+import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional } from './types';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck } from 'lucide-react';
 
 export const NAV_ITEMS = [
   { label: 'Dashboard', path: '/', icon: <Activity size={20} /> },
   { label: 'Agenda', path: '/agenda', icon: <Calendar size={20} /> },
   { label: 'Comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },
   { label: 'Pacientes', path: '/patients', icon: <Users size={20} /> },
+  { label: 'Profissionais', path: '/professionals', icon: <UserCheck size={20} /> },
   { label: 'Produtos', path: '/products', icon: <Package size={20} /> },
   { label: 'Melhores Clientes', path: '/best-clients', icon: <Trophy size={20} /> },
   { label: 'Performance', path: '/performance', icon: <BarChart2 size={20} /> },
@@ -21,6 +22,53 @@ export const NAV_ITEMS = [
 export const MOCK_USERS = [
   { id: '1', name: 'Dr. Silva', email: 'dr.silva@clinic.com', role: UserRole.PSYCHOLOGIST },
   { id: '2', name: 'Ana Recepção', email: 'ana@clinic.com', role: UserRole.SECRETARY },
+];
+
+export const MOCK_PROFESSIONALS: Professional[] = [
+  {
+    id: '1',
+    name: 'Dr. Roberto Silva',
+    email: 'roberto.silva@clinic.com',
+    phone: '(11) 99999-8888',
+    cpfCnpj: '123.456.789-00',
+    profession: 'Psicólogo',
+    registrationNumber: '06/123456',
+    color: '#6366f1',
+    role: UserRole.ADMIN,
+    commissionRate: 70,
+    hasAgenda: true,
+    isThirdParty: false,
+    active: true
+  },
+  {
+    id: '2',
+    name: 'Dra. Julia Santos',
+    email: 'julia.santos@clinic.com',
+    phone: '(11) 98888-7777',
+    cpfCnpj: '222.333.444-55',
+    profession: 'Neuropsicóloga',
+    registrationNumber: '06/654321',
+    color: '#ec4899',
+    role: UserRole.PSYCHOLOGIST,
+    commissionRate: 50,
+    hasAgenda: true,
+    isThirdParty: true,
+    active: true
+  },
+  {
+    id: '3',
+    name: 'Ana Costa',
+    email: 'ana.costa@clinic.com',
+    phone: '(11) 97777-6666',
+    cpfCnpj: '999.888.777-66',
+    profession: 'Secretária',
+    color: '#64748b',
+    role: UserRole.SECRETARY,
+    commissionRate: 0,
+    hasAgenda: false,
+    isThirdParty: false,
+    active: true
+  }
 ];
 
 export const INSURANCE_PROVIDERS = [

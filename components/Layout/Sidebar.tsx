@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NAV_ITEMS } from '../../constants';
 import { X, LogOut, BrainCircuit, Sparkles, ExternalLink } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,6 +13,29 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) => {
   const location = useLocation();
+  const { t } = useLanguage();
+
+  // Helper to get translated label
+  const getLabel = (path: string, defaultLabel: string) => {
+    switch(path) {
+        case '/': return t('nav.dashboard');
+        case '/agenda': return t('nav.agenda');
+        case '/comandas': return t('nav.comandas');
+        case '/patients': return t('nav.patients');
+        case '/professionals': return t('nav.professionals');
+        case '/products': return t('nav.products');
+        case '/best-clients': return t('nav.bestClients');
+        case '/performance': return t('nav.performance');
+        case '/records': return t('nav.records');
+        case '/services': return t('nav.services');
+        case '/documents': return t('nav.documents');
+        case '/forms': return t('nav.forms');
+        case '/messages': return t('nav.messages');
+        case '/finance': return t('nav.finance');
+        case '/settings': return t('nav.settings');
+        default: return defaultLabel;
+    }
+  };
 
   return (
     <>
@@ -49,9 +74,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
 
         {/* Navigation Items */}
         <div className="flex-1 overflow-y-auto py-8 px-4 space-y-1 custom-scrollbar">
-           <div className="px-4 mb-4 text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">
-              Principal
-           </div>
            
            <nav className="space-y-1.5">
               {NAV_ITEMS.map((item) => {
@@ -78,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                     <span className={`transition-colors duration-300 ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
                       {item.icon}
                     </span>
-                    <span className="relative z-10">{item.label}</span>
+                    <span className="relative z-10">{getLabel(item.path, item.label)}</span>
                   </Link>
                 );
               })}
@@ -96,10 +118,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                     <Sparkles size={16} className="text-yellow-300" />
                  </div>
                  <div>
-                    <h4 className="font-bold text-sm leading-tight mb-1">Conta Premium</h4>
-                    <p className="text-[10px] text-slate-300 leading-relaxed mb-3">Acesse recursos exclusivos de IA e automação.</p>
+                    <h4 className="font-bold text-sm leading-tight mb-1">{t('nav.premium')}</h4>
+                    <p className="text-[10px] text-slate-300 leading-relaxed mb-3">{t('nav.premium.desc')}</p>
                     <button className="text-[10px] font-bold bg-white text-slate-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-indigo-50 transition-colors">
-                       Fazer Upgrade <ExternalLink size={10} />
+                       {t('nav.upgrade')} <ExternalLink size={10} />
                     </button>
                  </div>
               </div>
@@ -110,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
               onClick={onLogout}
               className="lg:hidden w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-red-100 text-red-600 bg-red-50 font-bold hover:bg-red-100 transition-colors"
            >
-              <LogOut size={18} /> Sair
+              <LogOut size={18} /> {t('nav.logout')}
            </button>
         </div>
       </aside>

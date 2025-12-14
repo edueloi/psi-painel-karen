@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { MOCK_USERS } from '../constants';
 import { UserRole } from '../types';
 import { 
   User, Mail, Phone, Building, Briefcase, Clock, MapPin, 
-  Camera, Save, BadgeCheck, Calendar, Shield
+  Camera, Save, BadgeCheck, Shield, Globe, Award, Stethoscope
 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -15,24 +14,20 @@ export const Profile: React.FC = () => {
     crp: '06/123456',
     specialty: 'Psicologia Clínica & Neuropsicologia',
     companyName: 'Clínica Mente Saudável',
-    address: 'Av. Paulista, 1000 - Sala 42',
-    bio: 'Especialista em Terapia Cognitivo-Comportamental com 10 anos de experiência.',
+    address: 'Av. Paulista, 1000 - Sala 42, São Paulo - SP',
+    bio: 'Especialista em Terapia Cognitivo-Comportamental com foco em transtornos de ansiedade e desenvolvimento pessoal. Atuo há mais de 10 anos transformando vidas através da psicologia baseada em evidências.',
     avatarUrl: ''
   });
 
   const [schedule, setSchedule] = useState([
-    { day: 'Segunda', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Terça', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Quarta', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Quinta', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { day: 'Sexta', active: true, start: '08:00', end: '17:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { day: 'Segunda-feira', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { day: 'Terça-feira', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { day: 'Quarta-feira', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { day: 'Quinta-feira', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    { day: 'Sexta-feira', active: true, start: '08:00', end: '17:00', lunchStart: '12:00', lunchEnd: '13:00' },
     { day: 'Sábado', active: false, start: '09:00', end: '13:00', lunchStart: '', lunchEnd: '' },
     { day: 'Domingo', active: false, start: '', end: '', lunchStart: '', lunchEnd: '' },
   ]);
-
-  const handleSave = () => {
-    alert('Perfil atualizado com sucesso!');
-  };
 
   const toggleDay = (index: number) => {
     const newSchedule = [...schedule];
@@ -40,174 +35,268 @@ export const Profile: React.FC = () => {
     setSchedule(newSchedule);
   };
 
+  const handleSave = () => {
+    // Logic to save
+    const btn = document.getElementById('save-btn');
+    if(btn) {
+        btn.innerHTML = '<span class="flex items-center gap-2">Salvo com Sucesso!</span>';
+        setTimeout(() => btn.innerHTML = '<span class="flex items-center gap-2"><svg...></span> Salvar Alterações', 2000);
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
+    <div className="animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
       
-      {/* Header / Cover */}
-      <div className="relative h-48 rounded-[26px] bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 overflow-hidden shadow-lg">
+      {/* Cover Image Area */}
+      <div className="relative h-64 w-full bg-slate-900 overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-800 opacity-90"></div>
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-        <div className="absolute bottom-4 right-6 text-white/80 text-sm font-medium flex items-center gap-2">
-            <Shield size={16} /> Perfil Verificado
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-indigo-500 rounded-full blur-[120px] opacity-40"></div>
+        <div className="absolute top-10 right-10 w-64 h-64 bg-purple-500 rounded-full blur-[100px] opacity-30"></div>
+        
+        {/* Cover Actions */}
+        <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <button className="bg-black/30 hover:bg-black/50 backdrop-blur text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-white/10">
+                <Camera size={14} /> Alterar Capa
+            </button>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 -mt-20 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-24 relative z-10">
+        <div className="flex flex-col lg:flex-row gap-8">
             
-            {/* Left Column: Avatar & Basic Info */}
-            <div className="space-y-6">
-                <div className="bg-white rounded-[24px] p-6 shadow-xl border border-slate-100 flex flex-col items-center text-center">
-                    <div className="relative mb-4 group cursor-pointer">
-                        <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-slate-100 flex items-center justify-center overflow-hidden">
-                            {user.avatarUrl ? (
-                                <img src={user.avatarUrl} className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-4xl font-bold text-indigo-300">{user.name.charAt(0)}</span>
-                            )}
+            {/* Left Column: Identity Card */}
+            <div className="lg:w-1/3 flex-shrink-0 space-y-6">
+                
+                {/* Main Profile Card */}
+                <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
+                    <div className="p-8 flex flex-col items-center text-center">
+                        <div className="relative mb-6">
+                            <div className="w-40 h-40 rounded-full border-[6px] border-white shadow-2xl bg-slate-100 flex items-center justify-center overflow-hidden cursor-pointer group relative">
+                                {user.avatarUrl ? (
+                                    <img src={user.avatarUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                ) : (
+                                    <span className="text-5xl font-bold text-indigo-300">{user.name.charAt(0)}</span>
+                                )}
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <Camera className="text-white w-8 h-8" />
+                                </div>
+                            </div>
+                            <div className="absolute bottom-2 right-2 p-2 bg-emerald-500 border-4 border-white rounded-full" title="Online"></div>
                         </div>
-                        <div className="absolute bottom-0 right-0 p-2 bg-indigo-600 rounded-full text-white shadow-md group-hover:scale-110 transition-transform">
-                            <Camera size={18} />
+                        
+                        <h2 className="text-2xl font-display font-bold text-slate-800 mb-1">{user.name}</h2>
+                        <p className="text-slate-500 font-medium flex items-center gap-1.5 justify-center mb-4">
+                            <Stethoscope size={16} className="text-indigo-500" />
+                            {user.specialty}
+                        </p>
+
+                        <div className="flex flex-wrap justify-center gap-2 mb-8">
+                            <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-full uppercase tracking-wide border border-slate-200">
+                                CRP {user.crp}
+                            </span>
+                            <span className="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full uppercase tracking-wide border border-amber-100 flex items-center gap-1">
+                                <Award size={12} /> Premium
+                            </span>
+                        </div>
+
+                        <div className="w-full space-y-4 text-left">
+                            <div className="group flex items-center gap-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
+                                <div className="w-10 h-10 rounded-xl bg-white text-indigo-600 flex items-center justify-center shadow-sm">
+                                    <Mail size={18} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Email Profissional</p>
+                                    <p className="text-sm font-semibold text-slate-700 truncate">{user.email}</p>
+                                </div>
+                            </div>
+
+                            <div className="group flex items-center gap-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
+                                <div className="w-10 h-10 rounded-xl bg-white text-indigo-600 flex items-center justify-center shadow-sm">
+                                    <Phone size={18} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Contato</p>
+                                    <p className="text-sm font-semibold text-slate-700">{user.phone}</p>
+                                </div>
+                            </div>
+
+                            <div className="group flex items-center gap-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
+                                <div className="w-10 h-10 rounded-xl bg-white text-indigo-600 flex items-center justify-center shadow-sm">
+                                    <MapPin size={18} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Localização</p>
+                                    <p className="text-sm font-semibold text-slate-700 leading-snug">{user.address}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <h2 className="text-2xl font-bold text-slate-800">{user.name}</h2>
-                    <p className="text-slate-500 font-medium">{user.specialty}</p>
-                    <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider">
-                        CRP: {user.crp}
-                    </div>
-
-                    <div className="w-full border-t border-slate-100 my-6"></div>
-
-                    <div className="w-full space-y-4">
-                        <div className="flex items-center gap-3 text-sm text-slate-600">
-                            <div className="p-2 rounded-lg bg-slate-50 text-slate-400"><Mail size={16} /></div>
-                            <span className="truncate">{user.email}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-slate-600">
-                            <div className="p-2 rounded-lg bg-slate-50 text-slate-400"><Phone size={16} /></div>
-                            <span>{user.phone}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-slate-600">
-                            <div className="p-2 rounded-lg bg-slate-50 text-slate-400"><MapPin size={16} /></div>
-                            <span className="truncate text-left">{user.address}</span>
-                        </div>
-                    </div>
+                    {/* Decorative Bottom Pattern */}
+                    <div className="h-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
                 </div>
 
-                <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-[24px] p-6 text-white shadow-lg">
-                    <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-                        <BadgeCheck size={20} className="text-yellow-400" /> Assinatura Pro
-                    </h3>
-                    <p className="text-indigo-100 text-sm mb-4">Sua conta tem acesso total a todos os recursos premium.</p>
-                    <div className="w-full bg-white/20 rounded-full h-1.5 mb-2">
-                        <div className="bg-white h-1.5 rounded-full w-3/4"></div>
+                {/* Status Card */}
+                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+                                <BadgeCheck className="text-emerald-400" size={24} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">Conta Verificada</h3>
+                                <p className="text-xs text-slate-400">Todos os documentos validados</p>
+                            </div>
+                        </div>
+                        <div className="w-full bg-white/10 rounded-full h-1.5 mb-2">
+                            <div className="bg-emerald-400 h-1.5 rounded-full w-full shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
+                        </div>
+                        <p className="text-[10px] text-slate-400 text-right">Validade: Indeterminada</p>
                     </div>
-                    <p className="text-[10px] text-indigo-200">Renova em 12/12/2024</p>
                 </div>
             </div>
 
-            {/* Right Column: Forms */}
-            <div className="lg:col-span-2 space-y-6">
+            {/* Right Column: Forms & Settings */}
+            <div className="lg:w-2/3 space-y-8 pb-10">
                 
-                {/* Professional Info */}
-                <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-sm">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                {/* Bio & Company Section */}
+                <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
                             <Briefcase size={24} />
                         </div>
-                        <h3 className="text-xl font-bold text-slate-800">Dados Profissionais</h3>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800">Sobre o Profissional</h3>
+                            <p className="text-sm text-slate-500">Informações visíveis no seu perfil público</p>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome da Empresa</label>
-                            <div className="relative">
-                                <Building size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input 
-                                    type="text" 
-                                    value={user.companyName}
-                                    onChange={e => setUser({...user, companyName: e.target.value})}
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-100 outline-none text-slate-700 font-medium"
-                                />
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2 group">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">Nome da Clínica/Empresa</label>
+                                <div className="relative">
+                                    <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                                    <input 
+                                        type="text" 
+                                        value={user.companyName}
+                                        onChange={e => setUser({...user, companyName: e.target.value})}
+                                        className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-slate-700 font-medium transition-all"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2 group">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">Registro Profissional</label>
+                                <div className="relative">
+                                    <Shield size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                                    <input 
+                                        type="text" 
+                                        value={user.crp}
+                                        onChange={e => setUser({...user, crp: e.target.value})}
+                                        className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-slate-700 font-medium transition-all"
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Registro Profissional (CRP/CRM)</label>
-                            <input 
-                                type="text" 
-                                value={user.crp}
-                                onChange={e => setUser({...user, crp: e.target.value})}
-                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-100 outline-none text-slate-700 font-medium"
-                            />
-                        </div>
-                        <div className="col-span-full space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Biografia Profissional</label>
-                            <textarea 
-                                value={user.bio}
-                                onChange={e => setUser({...user, bio: e.target.value})}
-                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-100 outline-none text-slate-700 font-medium resize-none h-24"
-                            />
-                            <p className="text-xs text-slate-400 text-right">Será exibida no seu perfil público de agendamento.</p>
+
+                        <div className="space-y-2 group">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider group-focus-within:text-indigo-600 transition-colors">Biografia</label>
+                            <div className="relative">
+                                <textarea 
+                                    value={user.bio}
+                                    onChange={e => setUser({...user, bio: e.target.value})}
+                                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-slate-700 font-medium transition-all resize-none h-32 leading-relaxed"
+                                />
+                                <div className="absolute bottom-3 right-3 text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-100 shadow-sm">
+                                    {user.bio.length} chars
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Work Schedule */}
-                <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                {/* Schedule Section */}
+                <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
                                 <Clock size={24} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-slate-800">Expediente de Trabalho</h3>
-                                <p className="text-xs text-slate-500">Defina seus horários disponíveis para a agenda.</p>
+                                <h3 className="text-xl font-bold text-slate-800">Horários de Atendimento</h3>
+                                <p className="text-sm text-slate-500">Configure sua disponibilidade semanal</p>
                             </div>
+                        </div>
+                        <div className="hidden md:flex items-center gap-2 text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                            <Globe size={14} /> Fuso Horário: Brasília (GMT-3)
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-12 gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider text-center mb-2">
-                            <div className="col-span-3 text-left pl-2">Dia</div>
-                            <div className="col-span-4">Horário</div>
-                            <div className="col-span-4">Intervalo</div>
-                            <div className="col-span-1"></div>
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center px-4 pb-2">
+                            <div className="col-span-4 md:col-span-3 text-left">Dia da Semana</div>
+                            <div className="col-span-4 md:col-span-4">Expediente</div>
+                            <div className="hidden md:block col-span-4">Pausa / Almoço</div>
+                            <div className="col-span-4 md:col-span-1">Status</div>
                         </div>
 
                         {schedule.map((day, index) => (
-                            <div key={day.day} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-xl transition-colors ${day.active ? 'bg-slate-50' : 'bg-transparent opacity-60'}`}>
-                                <div className="col-span-3 flex items-center gap-3">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={day.active} 
-                                        onChange={() => toggleDay(index)}
-                                        className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                    />
-                                    <span className={`font-bold text-sm ${day.active ? 'text-slate-700' : 'text-slate-400'}`}>{day.day}</span>
+                            <div 
+                                key={day.day} 
+                                className={`
+                                    relative grid grid-cols-12 gap-4 items-center p-4 rounded-2xl border transition-all duration-300
+                                    ${day.active 
+                                        ? 'bg-white border-slate-200 shadow-sm hover:border-indigo-200 hover:shadow-md' 
+                                        : 'bg-slate-50 border-transparent opacity-60 grayscale'}
+                                `}
+                            >
+                                {/* Day Name */}
+                                <div className="col-span-4 md:col-span-3 flex items-center gap-3">
+                                    <div className={`w-2 h-8 rounded-full ${day.active ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
+                                    <span className="font-bold text-sm text-slate-700">{day.day}</span>
                                 </div>
                                 
-                                <div className="col-span-4 flex items-center gap-2">
-                                    <input type="time" disabled={!day.active} value={day.start} className="w-full p-2 rounded-lg border border-slate-200 text-xs text-center disabled:bg-slate-100" />
-                                    <span className="text-slate-400">-</span>
-                                    <input type="time" disabled={!day.active} value={day.end} className="w-full p-2 rounded-lg border border-slate-200 text-xs text-center disabled:bg-slate-100" />
+                                {/* Work Hours */}
+                                <div className="col-span-4 md:col-span-4 flex items-center justify-center gap-2">
+                                    <div className="relative group/time">
+                                        <input type="time" disabled={!day.active} value={day.start} className="w-20 p-2 text-center text-sm font-bold bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 focus:bg-white outline-none transition-all disabled:bg-transparent" />
+                                    </div>
+                                    <span className="text-slate-300 font-bold">às</span>
+                                    <div className="relative group/time">
+                                        <input type="time" disabled={!day.active} value={day.end} className="w-20 p-2 text-center text-sm font-bold bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 focus:bg-white outline-none transition-all disabled:bg-transparent" />
+                                    </div>
                                 </div>
 
-                                <div className="col-span-4 flex items-center gap-2">
-                                    <input type="time" disabled={!day.active} value={day.lunchStart} className="w-full p-2 rounded-lg border border-slate-200 text-xs text-center disabled:bg-slate-100" />
-                                    <span className="text-slate-400">-</span>
-                                    <input type="time" disabled={!day.active} value={day.lunchEnd} className="w-full p-2 rounded-lg border border-slate-200 text-xs text-center disabled:bg-slate-100" />
+                                {/* Lunch Hours (Hidden on Mobile) */}
+                                <div className="hidden md:flex col-span-4 items-center justify-center gap-2">
+                                    <input type="time" disabled={!day.active} value={day.lunchStart} className="w-16 p-1.5 text-center text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 outline-none disabled:bg-transparent" />
+                                    <span className="text-slate-300">-</span>
+                                    <input type="time" disabled={!day.active} value={day.lunchEnd} className="w-16 p-1.5 text-center text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 outline-none disabled:bg-transparent" />
                                 </div>
-                                <div className="col-span-1"></div>
+
+                                {/* Toggle Switch */}
+                                <div className="col-span-4 md:col-span-1 flex justify-end">
+                                    <button 
+                                        onClick={() => toggleDay(index)}
+                                        className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${day.active ? 'bg-indigo-500' : 'bg-slate-300'}`}
+                                    >
+                                        <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ${day.active ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex justify-end pt-4">
+                {/* Floating Save Bar */}
+                <div className="sticky bottom-4 z-20 flex justify-end">
                     <button 
+                        id="save-btn"
                         onClick={handleSave}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:-translate-y-1 transition-all flex items-center gap-2"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-indigo-900/20 hover:shadow-indigo-900/40 hover:-translate-y-1 transition-all flex items-center gap-3 text-lg"
                     >
                         <Save size={20} /> Salvar Alterações
                     </button>

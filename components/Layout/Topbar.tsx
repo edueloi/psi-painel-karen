@@ -1,7 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Menu, Bell, Search, Settings, LogOut, User as UserIcon, ChevronDown, HelpCircle, Shield } from 'lucide-react';
 import { User } from '../../types';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -13,6 +15,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) =
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -47,7 +50,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) =
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-indigo-500 transition-colors" />
           <input 
             type="text" 
-            placeholder="Pesquisar pacientes, prontuários ou agenda..." 
+            placeholder={t('topbar.search')}
             className="w-full h-11 pl-11 pr-4 rounded-full bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-100 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm text-slate-600 placeholder:text-slate-400 transition-all shadow-sm"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-focus-within:flex items-center gap-1">
@@ -93,7 +96,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) =
            {isDropdownOpen && (
               <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden origin-top-right animate-[slideUpFade_0.2s_ease-out]">
                  <div className="p-4 border-b border-slate-50 bg-slate-50/50">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Conta Conectada</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('topbar.connected')}</p>
                     <div className="flex items-center gap-3">
                        <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
                           {user?.name?.charAt(0)}
@@ -107,16 +110,16 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) =
 
                  <div className="p-2 space-y-1">
                     <button onClick={() => handleNavigate('/profile')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
-                       <UserIcon size={16} /> Meu Perfil
+                       <UserIcon size={16} /> {t('topbar.profile')}
                     </button>
                     <button onClick={() => handleNavigate('/settings')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
-                       <Settings size={16} /> Configurações
+                       <Settings size={16} /> {t('topbar.settings')}
                     </button>
                     <button onClick={() => handleNavigate('/privacy')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
-                       <Shield size={16} /> Privacidade
+                       <Shield size={16} /> {t('topbar.privacy')}
                     </button>
                     <button onClick={() => handleNavigate('/help')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
-                       <HelpCircle size={16} /> Ajuda e Suporte
+                       <HelpCircle size={16} /> {t('topbar.help')}
                     </button>
                  </div>
 
@@ -125,7 +128,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) =
                        onClick={() => { setIsDropdownOpen(false); onLogout && onLogout(); }}
                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
                     >
-                       <LogOut size={16} /> Sair da conta
+                       <LogOut size={16} /> {t('topbar.logout')}
                     </button>
                  </div>
               </div>

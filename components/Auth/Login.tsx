@@ -1,11 +1,15 @@
+
 import React from 'react';
 import { BrainCircuit, ArrowRight, Activity, Calendar, Users } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface LoginProps {
   onLogin: () => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
+  const { language, setLanguage, t } = useLanguage();
+
   return (
     <div className="relative w-full h-screen overflow-hidden flex font-sans">
       {/* BACKGROUND ANIMADO */}
@@ -18,6 +22,31 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       {/* PARTICULAS (Bokehs) - Suavizadas */}
       <div className="fixed w-[40vw] h-[40vw] rounded-full blur-[100px] opacity-20 z-[-1] bg-indigo-600 top-[-10%] left-[-10%] animate-[float_20s_infinite_ease-in-out_alternate]"></div>
       <div className="fixed w-[40vw] h-[40vw] rounded-full blur-[100px] opacity-20 z-[-1] bg-purple-600 bottom-[-10%] right-[-10%] animate-[float_20s_infinite_ease-in-out_alternate] delay-[-5s]"></div>
+
+      {/* LANGUAGE SELECTOR - ABSOLUTE POSITION */}
+      <div className="absolute top-6 right-6 z-30 flex gap-3">
+        <button 
+            onClick={() => setLanguage('pt')} 
+            className={`w-10 h-10 rounded-full border-2 overflow-hidden transition-all transform hover:scale-110 ${language === 'pt' ? 'border-white shadow-lg scale-110' : 'border-white/30 opacity-70 hover:opacity-100'}`}
+            title="Português"
+        >
+            <img src="https://flagcdn.com/br.svg" alt="Português" className="w-full h-full object-cover" />
+        </button>
+        <button 
+            onClick={() => setLanguage('en')} 
+            className={`w-10 h-10 rounded-full border-2 overflow-hidden transition-all transform hover:scale-110 ${language === 'en' ? 'border-white shadow-lg scale-110' : 'border-white/30 opacity-70 hover:opacity-100'}`}
+            title="English"
+        >
+            <img src="https://flagcdn.com/us.svg" alt="English" className="w-full h-full object-cover" />
+        </button>
+        <button 
+            onClick={() => setLanguage('es')} 
+            className={`w-10 h-10 rounded-full border-2 overflow-hidden transition-all transform hover:scale-110 ${language === 'es' ? 'border-white shadow-lg scale-110' : 'border-white/30 opacity-70 hover:opacity-100'}`}
+            title="Español"
+        >
+            <img src="https://flagcdn.com/es.svg" alt="Español" className="w-full h-full object-cover" />
+        </button>
+      </div>
 
       {/* CONTAINER PRINCIPAL */}
       <div className="w-full h-full grid grid-cols-1 lg:grid-cols-[480px_1fr]">
@@ -32,14 +61,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
             
             <div className="text-center mb-10">
-              <h1 className="font-display font-bold text-slate-900 text-3xl mb-3 tracking-tight">Bem-vindo(a)</h1>
-              <p className="text-slate-500 text-base leading-relaxed">Acesse o PsiManager Pro para gerenciar sua clínica com excelência.</p>
+              <h1 className="font-display font-bold text-slate-900 text-3xl mb-3 tracking-tight">{t('login.welcome')}</h1>
+              <p className="text-slate-500 text-base leading-relaxed">{t('login.subtitle')}</p>
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); onLogin(); }}>
               <div className="space-y-5">
                 <div className="relative group">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">E-mail</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{t('login.email')}</label>
                   <div className="relative">
                     <input 
                         type="email" 
@@ -53,7 +82,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
 
                 <div className="relative group">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Senha</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{t('login.password')}</label>
                   <div className="relative">
                     <input 
                         type="password" 
@@ -69,16 +98,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="flex items-center justify-between text-sm pt-1">
                     <label className="flex items-center gap-2 cursor-pointer group">
                         <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
-                        <span className="text-slate-500 group-hover:text-slate-700 transition-colors">Lembrar de mim</span>
+                        <span className="text-slate-500 group-hover:text-slate-700 transition-colors">{t('login.remember')}</span>
                     </label>
-                    <button type="button" className="text-indigo-600 font-bold hover:text-indigo-700 hover:underline">Esqueceu a senha?</button>
+                    <button type="button" className="text-indigo-600 font-bold hover:text-indigo-700 hover:underline">{t('login.forgot')}</button>
                 </div>
 
                 <button 
                   type="submit"
                   className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-xl shadow-lg shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 mt-4"
                 >
-                  <span>Entrar no Sistema</span>
+                  <span>{t('login.submit')}</span>
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </div>
@@ -106,7 +135,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="relative z-10">
                     <div className="mb-10 space-y-2">
                         <h2 className="font-display font-bold text-4xl leading-tight">
-                            Gestão Simplificada para sua Clínica
+                            {t('login.footer')}
                         </h2>
                         <p className="text-indigo-200 text-lg leading-relaxed">
                             Otimize seu tempo e foque no que realmente importa: seus pacientes.
@@ -119,8 +148,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                 <Activity size={24} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg">Dashboard Intuitivo</h3>
-                                <p className="text-sm text-slate-300">Métricas em tempo real</p>
+                                <h3 className="font-bold text-lg">{t('login.feature1.title')}</h3>
+                                <p className="text-sm text-slate-300">{t('login.feature1.desc')}</p>
                             </div>
                         </div>
 
@@ -129,8 +158,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                 <Calendar size={24} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg">Agenda Inteligente</h3>
-                                <p className="text-sm text-slate-300">Organização completa</p>
+                                <h3 className="font-bold text-lg">{t('login.feature2.title')}</h3>
+                                <p className="text-sm text-slate-300">{t('login.feature2.desc')}</p>
                             </div>
                         </div>
 
@@ -139,8 +168,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                 <Users size={24} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg">Prontuário Eletrônico</h3>
-                                <p className="text-sm text-slate-300">Segurança total dos dados</p>
+                                <h3 className="font-bold text-lg">{t('login.feature3.title')}</h3>
+                                <p className="text-sm text-slate-300">{t('login.feature3.desc')}</p>
                             </div>
                         </div>
                     </div>

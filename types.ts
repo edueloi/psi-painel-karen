@@ -13,6 +13,23 @@ export interface User {
   avatar?: string;
 }
 
+export interface Professional {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  cpfCnpj?: string;
+  profession: string; // e.g. Psicólogo, Nutricionista
+  registrationNumber?: string; // CRP/CRM
+  color: string;
+  role: UserRole;
+  commissionRate: number; // Percentage 0-100
+  hasAgenda: boolean;
+  isThirdParty: boolean; // Prestador terceiro
+  active: boolean;
+  avatarUrl?: string;
+}
+
 export enum MaritalStatus {
   SINGLE = 'Solteiro(a)',
   MARRIED = 'Casado(a)',
