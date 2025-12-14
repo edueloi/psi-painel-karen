@@ -6,7 +6,7 @@ import {
   MessageSquare, PenTool, X, Send, Paperclip, 
   Eraser, Download, Clock, User, Subtitles, MonitorUp, 
   Layout, Mic as MicIcon, FileText, Smartphone, QrCode, Share2, Tablet, Settings,
-  Copy, Check, Info, ChevronDown, Volume2, Link as LinkIcon
+  Copy, Check, Info, ChevronDown, Volume2, Link as LinkIcon, UserPlus, ShieldAlert
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MOCK_APPOINTMENTS } from '../constants';
@@ -14,6 +14,11 @@ import { MOCK_APPOINTMENTS } from '../constants';
 interface MeetingRoomProps {
   isGuest?: boolean;
 }
+
+type ConnectionStatus = 'idle' | 'waiting_approval' | 'connected';
+
+// Helper for coordinates
+type Point = { x: number, y: number };
 
 export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +31,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
 
   // --- States ---
   const [hasJoined, setHasJoined] = useState(isCompanionMode); 
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(isCompanionMode ? 'connected' : 'idle');
+  
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [screenShare, setScreenShare] = useState(false);
@@ -33,7 +40,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
     isCompanionMode ? 'whiteboard' : 'none'
   );
   
-  // Simulation State for "Remote User"
+  // Host: Simulation State for Incoming Request
+  const [incomingRequest, setIncomingRequest] = useState<{name: string, id: string} | null>(null);
   const [remoteUserConnected, setRemoteUserConnected] = useState(false);
 
   const [messages, setMessages] = useState<{sender: string, text: string, time: string}[]>([
@@ -59,6 +67,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   const screenShareRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   
   // Audio Analysis
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -69,9 +78,75 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawColor, setDrawColor] = useState('#000000');
+  const lastPointRef = useRef<Point | null>(null);
 
   const appointment = MOCK_APPOINTMENTS.find(a => a.id === id);
   const meetingUrl = window.location.href.split('?')[0];
+
+  // --- BROADCAST CHANNEL (Real-time Sync between tabs) ---
+  useEffect(() => {
+    // Unique channel per meeting ID
+    const channel = new BroadcastChannel(`meeting_room_${id}`);
+    broadcastChannelRef.current = channel;
+
+    channel.onmessage = (event) => {
+        const { type, payload } = event.data;
+
+        switch (type) {
+            case 'REQUEST_ENTRY':
+                // Only host listens to this
+                if (!isGuest && !isCompanionMode) {
+                    setIncomingRequest({ name: payload.name, id: payload.id });
+                    // Play notification sound logic here
+                }
+                break;
+
+            case 'ADMIT_GUEST':
+                // Guest listens to this
+                if (isGuest && connectionStatus === 'waiting_approval') {
+                    setConnectionStatus('connected');
+                    setRemoteUserConnected(true);
+                }
+                // Host updates their UI too (if multiple host tabs)
+                if (!isGuest) {
+                    setIncomingRequest(null);
+                    setRemoteUserConnected(true);
+                }
+                break;
+            
+            case 'DENY_GUEST':
+                if (isGuest) {
+                    alert("Sua entrada foi negada pelo anfitrião.");
+                    setConnectionStatus('idle');
+                    setHasJoined(false);
+                }
+                if (!isGuest) setIncomingRequest(null);
+                break;
+
+            case 'DRAW_START':
+                // Remote drawing start
+                remoteDrawStart(payload);
+                break;
+
+            case 'DRAW_MOVE':
+                // Remote drawing move
+                remoteDrawMove(payload);
+                break;
+            
+            case 'CLEAR_BOARD':
+                const ctx = canvasRef.current?.getContext('2d');
+                if (ctx && canvasRef.current) {
+                    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                }
+                break;
+        }
+    };
+
+    return () => {
+        channel.close();
+    };
+  }, [id, isGuest, isCompanionMode, connectionStatus]);
+
 
   // --- Initialize Media ---
   useEffect(() => {
@@ -114,20 +189,39 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       }
   }, [hasJoined, isCompanionMode]);
 
-  // --- Simulate Remote Connection ---
+  // --- Simulate Remote Connection (Fallback if Broadcast not used) ---
   useEffect(() => {
-      if (hasJoined && !isCompanionMode) {
+      if (hasJoined && !isGuest && !isCompanionMode && !remoteUserConnected) {
+          // Keep existing simulation as fallback or for demo feel
           const timeout = setTimeout(() => {
-              setRemoteUserConnected(true);
-              setMessages(prev => [...prev, { 
-                  sender: 'System', 
-                  text: isGuest ? 'O Profissional entrou na sala.' : 'O Paciente entrou na sala.', 
-                  time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
-              }]);
-          }, 4000); // 4 seconds to simulate connection
+              if (!incomingRequest && !remoteUserConnected) {
+                  // Only simulate if no real request via broadcast happened
+                  setIncomingRequest({ 
+                      name: appointment?.patientName || 'Carlos Oliveira (Simulado)', 
+                      id: 'simulated-guest' 
+                  });
+              }
+          }, 3000);
           return () => clearTimeout(timeout);
       }
-  }, [hasJoined, isCompanionMode, isGuest]);
+  }, [hasJoined, isGuest, isCompanionMode, remoteUserConnected]);
+
+
+  const handleAdmitGuest = () => {
+      broadcastChannelRef.current?.postMessage({ type: 'ADMIT_GUEST' });
+      setRemoteUserConnected(true);
+      setIncomingRequest(null);
+      setMessages(prev => [...prev, { 
+          sender: 'System', 
+          text: `${incomingRequest?.name} entrou na sala.`, 
+          time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+      }]);
+  };
+
+  const handleDenyGuest = () => {
+      broadcastChannelRef.current?.postMessage({ type: 'DENY_GUEST' });
+      setIncomingRequest(null);
+  };
 
   const setupAudioAnalysis = (stream: MediaStream) => {
     try {
@@ -225,11 +319,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   }, [screenShare]);
 
   useEffect(() => {
-    if (hasJoined && !isCompanionMode) {
+    if (hasJoined && !isCompanionMode && connectionStatus === 'connected') {
         const timer = setInterval(() => setElapsedTime(prev => prev + 1), 1000);
         return () => clearInterval(timer);
     }
-  }, [hasJoined, isCompanionMode]);
+  }, [hasJoined, isCompanionMode, connectionStatus]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -237,13 +331,28 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // --- Whiteboard & Touch Support ---
-  const getTouchPos = (canvasDom: HTMLCanvasElement, touchEvent: React.TouchEvent) => {
-    const rect = canvasDom.getBoundingClientRect();
-    return {
-      x: touchEvent.touches[0].clientX - rect.left,
-      y: touchEvent.touches[0].clientY - rect.top
-    };
+  // --- Whiteboard Logic ---
+  
+  // Helpers
+  const getCoordinates = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      let clientX, clientY;
+      
+      if ('touches' in e) {
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+      } else {
+          clientX = (e as React.MouseEvent).clientX;
+          clientY = (e as React.MouseEvent).clientY;
+      }
+
+      return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+      };
   };
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -251,46 +360,92 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    setIsDrawing(true);
     
-    let x, y;
-    if ('touches' in e) {
-        const pos = getTouchPos(canvas, e);
-        x = pos.x;
-        y = pos.y;
-    } else {
-        const rect = canvas.getBoundingClientRect();
-        x = e.clientX - rect.left;
-        y = e.clientY - rect.top;
-    }
+    setIsDrawing(true);
+    const pos = getCoordinates(e, canvas);
+    lastPointRef.current = pos;
 
     ctx.beginPath();
-    ctx.moveTo(x, y);
+    ctx.moveTo(pos.x, pos.y);
+    
+    // Broadcast
+    broadcastChannelRef.current?.postMessage({
+        type: 'DRAW_START',
+        payload: { x: pos.x, y: pos.y, color: drawColor }
+    });
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (!isDrawing || !lastPointRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    let x, y;
-    if ('touches' in e) {
-        const pos = getTouchPos(canvas, e);
-        x = pos.x;
-        y = pos.y;
-    } else {
-        const rect = canvas.getBoundingClientRect();
-        x = e.clientX - rect.left;
-        y = e.clientY - rect.top;
-    }
+    const pos = getCoordinates(e, canvas);
 
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.strokeStyle = drawColor;
-    ctx.lineTo(x, y);
+    
+    ctx.beginPath();
+    ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+    ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
+
+    // Broadcast
+    broadcastChannelRef.current?.postMessage({
+        type: 'DRAW_MOVE',
+        payload: { 
+            startX: lastPointRef.current.x, 
+            startY: lastPointRef.current.y, 
+            endX: pos.x, 
+            endY: pos.y, 
+            color: drawColor 
+        }
+    });
+
+    lastPointRef.current = pos;
+  };
+
+  const stopDrawing = () => {
+      setIsDrawing(false);
+      lastPointRef.current = null;
+  };
+
+  // Remote Drawing Handlers
+  const remoteDrawStart = (data: { x: number, y: number, color: string }) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      ctx.beginPath();
+      ctx.moveTo(data.x, data.y);
+  };
+
+  const remoteDrawMove = (data: { startX: number, startY: number, endX: number, endY: number, color: string }) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = data.color;
+      
+      ctx.beginPath();
+      ctx.moveTo(data.startX, data.startY);
+      ctx.lineTo(data.endX, data.endY);
+      ctx.stroke();
+  };
+
+  const clearCanvas = () => {
+      const ctx = canvasRef.current?.getContext('2d');
+      if (ctx && canvasRef.current) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+          broadcastChannelRef.current?.postMessage({ type: 'CLEAR_BOARD' });
+      }
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -311,7 +466,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
           alert("Por favor, digite seu nome para entrar.");
           return;
       }
+      
       setHasJoined(true);
+      
+      if (isGuest) {
+          setConnectionStatus('waiting_approval');
+          // Request entry via broadcast
+          broadcastChannelRef.current?.postMessage({
+              type: 'REQUEST_ENTRY',
+              payload: { name: guestName, id: 'guest-' + Date.now() }
+          });
+      } else {
+          setConnectionStatus('connected');
+      }
   };
 
   // --- RENDER: COMPANION MODE (TABLET/PHONE) ---
@@ -323,26 +490,24 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                       <Tablet size={20} />
                       <span className="font-bold text-sm">Lousa Companion</span>
                   </div>
-                  <button onClick={() => {const ctx = canvasRef.current?.getContext('2d'); ctx?.clearRect(0,0, canvasRef.current?.width || 0, canvasRef.current?.height || 0)}} className="p-2 hover:bg-white/10 rounded-full">
+                  <button onClick={clearCanvas} className="p-2 hover:bg-white/10 rounded-full">
                       <Eraser size={20} />
                   </button>
               </div>
               <div className="flex-1 relative overflow-hidden bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
-                  {/* ... canvas code ... */}
                   <canvas 
                       ref={canvasRef}
                       width={window.innerWidth} 
                       height={window.innerHeight - 56}
                       onMouseDown={startDrawing}
                       onMouseMove={draw}
-                      onMouseUp={() => setIsDrawing(false)}
-                      onMouseLeave={() => setIsDrawing(false)}
+                      onMouseUp={stopDrawing}
+                      onMouseLeave={stopDrawing}
                       onTouchStart={startDrawing}
                       onTouchMove={draw}
-                      onTouchEnd={() => setIsDrawing(false)}
+                      onTouchEnd={stopDrawing}
                       className="touch-none block cursor-crosshair"
                   />
-                  {/* Floating Color Picker for Companion */}
                   <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/90 p-2 rounded-xl border border-slate-200 shadow-sm">
                       {['#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b'].map(color => (
                           <button 
@@ -353,6 +518,28 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                           />
                       ))}
                   </div>
+              </div>
+          </div>
+      );
+  }
+
+  // --- RENDER: WAITING ROOM (GUEST) ---
+  if (hasJoined && connectionStatus === 'waiting_approval') {
+      return (
+          <div className="fixed inset-0 bg-[#0f1115] text-white flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
+              <div className="relative w-32 h-32 mb-8">
+                  <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
+                  <div className="relative w-full h-full bg-slate-800 rounded-full flex items-center justify-center border-4 border-slate-700">
+                      <User size={64} className="text-slate-400" />
+                  </div>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">Aguardando permissão</h2>
+              <p className="text-slate-400 text-lg max-w-md mb-8">
+                  Você está na sala de espera. O anfitrião permitirá sua entrada em breve.
+              </p>
+              <div className="flex items-center gap-2 text-sm text-slate-500 bg-white/5 px-4 py-2 rounded-full border border-white/10">
+                  <ShieldAlert size={14} />
+                  <span>Conexão Segura Criptografada</span>
               </div>
           </div>
       );
@@ -403,7 +590,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                                   {cameraOn ? <Video size={20} /> : <VideoOff size={20} />}
                               </button>
                               
-                              {/* Settings Button in Lobby */}
                               <button 
                                   onClick={() => setShowSettingsModal(true)}
                                   className="p-3 rounded-xl bg-slate-800/80 text-white hover:bg-slate-700 border border-white/10"
@@ -445,7 +631,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                                       disabled={!guestName.trim()}
                                       className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95"
                                   >
-                                      Entrar na Sala
+                                      Pedir para Entrar
                                   </button>
                               </div>
                           </div>
@@ -519,7 +705,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
 
                               <div className="pt-6 mt-6 border-t border-slate-100 space-y-3">
                                   <button 
-                                      onClick={() => setHasJoined(true)}
+                                      onClick={handleJoin}
                                       className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
                                   >
                                       Entrar na Sala <Share2 size={18} className="opacity-50" />
@@ -540,6 +726,35 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   return (
     <div className="fixed inset-0 bg-[#0f1115] text-white overflow-hidden font-sans flex flex-col">
       
+      {/* --- INCOMING REQUEST ALERT (HOST ONLY) --- */}
+      {incomingRequest && !isGuest && (
+          <div className="absolute top-20 right-4 z-[100] animate-[slideLeft_0.3s_ease-out] w-full max-w-sm">
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-slate-800 font-bold text-lg">
+                      {incomingRequest.name.charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                      <h4 className="font-bold text-sm text-white">{incomingRequest.name}</h4>
+                      <p className="text-xs text-slate-300">Solicitando entrada...</p>
+                  </div>
+                  <div className="flex gap-2">
+                      <button 
+                        onClick={handleDenyGuest}
+                        className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors" title="Negar"
+                      >
+                          <X size={18} />
+                      </button>
+                      <button 
+                        onClick={handleAdmitGuest}
+                        className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors" title="Admitir"
+                      >
+                          <Check size={18} />
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* --- HEADER --- */}
       <header className="h-16 px-4 md:px-6 flex items-center justify-between bg-[#0f1115]/90 backdrop-blur-md z-50 border-b border-white/5">
         <div className="flex items-center gap-4">
@@ -593,7 +808,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                  <video ref={screenShareRef} autoPlay muted playsInline className="w-full h-full object-contain rounded-2xl shadow-2xl bg-black" />
               ) : remoteUserConnected ? (
                  // SIMULATED REMOTE VIDEO
-                 <div className="relative w-full h-full bg-[#1e2025] rounded-[24px] md:rounded-[32px] overflow-hidden shadow-2xl border border-white/5">
+                 <div className="relative w-full h-full bg-[#1e2025] rounded-[24px] md:rounded-[32px] overflow-hidden shadow-2xl border border-white/5 animate-[fadeIn_0.5s_ease-out]">
                      <img 
                         src={isGuest ? "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=1000&auto=format&fit=crop" : "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1000&auto=format&fit=crop"} 
                         alt="Remote User" 
@@ -727,7 +942,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                                     </button>
                                 )}
                                 <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
-                                <button onClick={() => {const ctx = canvasRef.current?.getContext('2d'); ctx?.clearRect(0,0,400,600)}} className="p-1.5 hover:bg-slate-100 rounded text-slate-600" title={t('meeting.clearBoard')}>
+                                <button onClick={clearCanvas} className="p-1.5 hover:bg-slate-100 rounded text-slate-600" title={t('meeting.clearBoard')}>
                                     <Eraser size={16} />
                                 </button>
                                 <button className="p-1.5 hover:bg-slate-100 rounded text-slate-600">
@@ -742,8 +957,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                                 height={800}
                                 onMouseDown={startDrawing}
                                 onMouseMove={draw}
-                                onMouseUp={() => setIsDrawing(false)}
-                                onMouseLeave={() => setIsDrawing(false)}
+                                onMouseUp={stopDrawing}
+                                onMouseLeave={stopDrawing}
                                 className="w-full h-full"
                             />
                         </div>
@@ -758,7 +973,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       {/* --- FOOTER CONTROLS --- */}
       <footer className="h-24 flex items-center justify-center gap-4 relative z-50 pointer-events-none px-4">
          <div className="pointer-events-auto bg-[#181a1f]/90 backdrop-blur-xl border border-white/10 p-2 rounded-[2rem] shadow-2xl flex items-center gap-2 mb-6 transform hover:scale-[1.02] transition-transform duration-300 overflow-x-auto max-w-full">
-            
+            {/* ... controls ... */}
             <button 
                onClick={toggleMic}
                className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${micOn ? 'bg-[#252830] hover:bg-[#2d313a] text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
@@ -829,9 +1044,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
          </div>
       </footer>
 
-      {/* --- SETTINGS MODAL --- */}
+      {/* ... (Other Modals - Settings, LinkDevice, End - kept same) ... */}
       {showSettingsModal && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+              {/* ... settings modal content ... */}
               <div className="bg-[#181a1f] border border-white/10 w-full max-w-lg rounded-[2rem] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden">
                   <div className="p-6 border-b border-white/10 flex justify-between items-center">
                       <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -901,9 +1117,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
           </div>
       )}
 
-      {/* --- MODAL: LINK DEVICE (COMPANION) --- */}
       {showLinkDeviceModal && (
          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+            {/* ... link device modal content ... */}
             <div className="bg-[#181a1f] border border-white/10 p-8 rounded-[2rem] max-w-md w-full text-center shadow-2xl animate-[slideUpFade_0.3s_ease-out]">
                <div className="flex justify-between items-center mb-6">
                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -930,7 +1146,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
 
                <button 
                   onClick={() => setShowLinkDeviceModal(false)}
-                  className="w-full py-3.5 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/30 transition-colors"
+                  className="w-full py-3.5 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-50 shadow-lg shadow-indigo-900/30 transition-colors"
                >
                   Concluído
                </button>
@@ -938,9 +1154,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
          </div>
       )}
 
-      {/* --- CONFIRMATION MODAL --- */}
       {showEndModal && (
          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+            {/* ... end modal content ... */}
             <div className="bg-[#181a1f] border border-white/10 p-8 rounded-[2rem] max-w-sm w-full text-center shadow-2xl animate-[slideUpFade_0.3s_ease-out]">
                <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
                   <PhoneOff size={36} />
