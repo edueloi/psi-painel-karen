@@ -5,7 +5,8 @@ import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, 
   MessageSquare, PenTool, X, Send, Paperclip, 
   Eraser, Download, Clock, User, Subtitles, MonitorUp, 
-  Layout, Mic as MicIcon, FileText, Smartphone, QrCode, Share2, Tablet, Settings
+  Layout, Mic as MicIcon, FileText, Smartphone, QrCode, Share2, Tablet, Settings,
+  Copy, Check, Info
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MOCK_APPOINTMENTS } from '../constants';
@@ -35,6 +36,8 @@ export const MeetingRoom: React.FC = () => {
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLinkDeviceModal, setShowLinkDeviceModal] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0); 
+  const [lobbyTab, setLobbyTab] = useState<'info' | 'companion'>('info');
+  const [copied, setCopied] = useState(false);
 
   // Captions
   const [captionsOn, setCaptionsOn] = useState(false);
@@ -58,6 +61,7 @@ export const MeetingRoom: React.FC = () => {
   const [drawColor, setDrawColor] = useState('#000000');
 
   const appointment = MOCK_APPOINTMENTS.find(a => a.id === id);
+  const meetingUrl = window.location.href.split('?')[0];
 
   // --- Initialize Media ---
   useEffect(() => {
@@ -184,6 +188,12 @@ export const MeetingRoom: React.FC = () => {
         console.error("Error sharing screen:", err);
       }
     }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(meetingUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   useEffect(() => {
@@ -324,82 +334,128 @@ export const MeetingRoom: React.FC = () => {
   // --- RENDER: LOBBY (PRE-FLIGHT) ---
   if (!hasJoined) {
       return (
-          <div className="fixed inset-0 bg-[#0f1115] text-white flex items-center justify-center font-sans p-4">
-              <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-10">
-                  <div className="flex flex-col items-center">
-                      <h1 className="text-3xl font-display font-bold mb-2">Preparar para entrar</h1>
-                      <p className="text-slate-400 mb-8 text-center">{appointment?.title || 'Consulta'} - {appointment?.patientName}</p>
+          <div className="fixed inset-0 bg-slate-50 text-slate-800 flex items-center justify-center font-sans p-4 overflow-y-auto">
+              <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8 my-auto h-auto min-h-[600px]">
+                  
+                  {/* Left Column: Video Preview */}
+                  <div className="flex flex-col justify-center animate-[fadeIn_0.5s_ease-out]">
+                      <h1 className="text-3xl font-display font-bold mb-2 text-slate-900">Sala de Espera</h1>
+                      <p className="text-slate-500 mb-6">{appointment?.title || 'Consulta'} - {appointment?.patientName || 'Paciente'}</p>
                       
-                      <div className="relative w-full max-w-lg aspect-video bg-[#1e2025] rounded-2xl overflow-hidden border border-white/10 shadow-2xl mb-6 group">
+                      <div className="relative w-full aspect-video bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-200 shadow-2xl mb-6 group ring-4 ring-white">
                           {cameraOn ? (
                               <video ref={lobbyVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
                           ) : (
                               <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-slate-500">
+                                  <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 animate-pulse">
                                       <VideoOff size={32} />
                                   </div>
                               </div>
                           )}
                           
                           {/* Audio Visualizer Overlay */}
-                          <div className="absolute bottom-4 left-4 flex gap-1 h-4 items-end">
+                          <div className="absolute bottom-6 left-6 flex gap-1 h-6 items-end">
                               {[1,2,3].map(i => (
-                                  <div key={i} className={`w-1.5 rounded-full transition-all duration-75 ${micOn ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ height: micOn ? `${Math.max(20, audioLevel * (i * 0.5))}%` : '4px' }}></div>
+                                  <div key={i} className={`w-2 rounded-full transition-all duration-75 ${micOn ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-red-500'}`} style={{ height: micOn ? `${Math.max(20, audioLevel * (i * 0.8))}%` : '4px' }}></div>
                               ))}
                           </div>
-                      </div>
 
-                      <div className="flex items-center gap-4">
-                          <button 
-                              onClick={toggleMic}
-                              className={`p-4 rounded-full transition-all ${micOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-500/20 text-red-500 border border-red-500/50'}`}
-                          >
-                              {micOn ? <Mic size={24} /> : <MicOff size={24} />}
-                          </button>
-                          <button 
-                              onClick={toggleCam}
-                              className={`p-4 rounded-full transition-all ${cameraOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-500/20 text-red-500 border border-red-500/50'}`}
-                          >
-                              {cameraOn ? <Video size={24} /> : <VideoOff size={24} />}
-                          </button>
+                          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/50 backdrop-blur-md p-2 rounded-2xl border border-white/10">
+                              <button 
+                                  onClick={toggleMic}
+                                  className={`p-3 rounded-xl transition-all ${micOn ? 'bg-white text-slate-900 hover:bg-slate-200' : 'bg-red-500 text-white'}`}
+                              >
+                                  {micOn ? <Mic size={20} /> : <MicOff size={20} />}
+                              </button>
+                              <button 
+                                  onClick={toggleCam}
+                                  className={`p-3 rounded-xl transition-all ${cameraOn ? 'bg-white text-slate-900 hover:bg-slate-200' : 'bg-red-500 text-white'}`}
+                              >
+                                  {cameraOn ? <Video size={20} /> : <VideoOff size={20} />}
+                              </button>
+                          </div>
                       </div>
                   </div>
 
-                  <div className="flex flex-col justify-center items-center lg:items-start">
-                      <h2 className="text-xl font-bold mb-6">Configurações da Sala</h2>
+                  {/* Right Column: Controls & Info */}
+                  <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100 flex flex-col h-full animate-[slideUpFade_0.5s_ease-out]">
                       
-                      <div className="w-full space-y-4 mb-8">
-                          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
-                              <div className="flex items-center gap-3">
-                                  <Mic size={20} className="text-indigo-400" />
-                                  <div className="text-sm">
-                                      <p className="font-bold">Microfone Padrão</p>
-                                      <p className="text-slate-400 text-xs">Default Audio Input</p>
-                                  </div>
-                              </div>
-                              <span className="text-emerald-500 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">Ativo</span>
-                          </div>
-                          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
-                              <div className="flex items-center gap-3">
-                                  <Video size={20} className="text-indigo-400" />
-                                  <div className="text-sm">
-                                      <p className="font-bold">Câmera Principal</p>
-                                      <p className="text-slate-400 text-xs">FaceTime HD Camera</p>
-                                  </div>
-                              </div>
-                              <span className="text-emerald-500 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">Ativo</span>
-                          </div>
+                      {/* Tabs */}
+                      <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
+                          <button 
+                            onClick={() => setLobbyTab('info')}
+                            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${lobbyTab === 'info' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >
+                              <Info size={16} /> Detalhes
+                          </button>
+                          <button 
+                            onClick={() => setLobbyTab('companion')}
+                            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${lobbyTab === 'companion' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >
+                              <Tablet size={16} /> Lousa
+                          </button>
                       </div>
 
-                      <button 
-                          onClick={() => setHasJoined(true)}
-                          className="w-full lg:w-auto px-10 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-95"
-                      >
-                          Entrar na Sala Agora
-                      </button>
-                      <button onClick={() => navigate('/agenda')} className="mt-4 text-slate-500 hover:text-slate-300 text-sm">
-                          Voltar para Agenda
-                      </button>
+                      <div className="flex-1 overflow-y-auto custom-scrollbar">
+                          {lobbyTab === 'info' ? (
+                              <div className="space-y-6">
+                                  <div>
+                                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Link da Reunião</label>
+                                      <div className="flex gap-2">
+                                          <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm text-slate-600 truncate font-mono select-all">
+                                              {meetingUrl}
+                                          </div>
+                                          <button 
+                                            onClick={handleCopyLink}
+                                            className={`p-3 rounded-xl transition-all flex-shrink-0 ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                          >
+                                              {copied ? <Check size={18} /> : <Copy size={18} />}
+                                          </button>
+                                      </div>
+                                      <p className="text-xs text-slate-400 mt-2">Compartilhe este link com o paciente.</p>
+                                  </div>
+
+                                  <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 flex items-start gap-3">
+                                      <Info size={18} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+                                      <div className="text-xs text-indigo-800 leading-relaxed">
+                                          <span className="font-bold block mb-1">Pronto para começar?</span>
+                                          Verifique se seus dispositivos estão funcionando corretamente na pré-visualização ao lado.
+                                      </div>
+                                  </div>
+                              </div>
+                          ) : (
+                              <div className="space-y-6 text-center">
+                                  <div className="bg-white border-2 border-dashed border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center">
+                                      <QrCode size={120} className="text-slate-800 mb-4" />
+                                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Escaneie para conectar</p>
+                                  </div>
+                                  
+                                  <div>
+                                      <p className="text-sm text-slate-600 mb-3">Ou use o link direto no outro dispositivo:</p>
+                                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500 break-all font-mono text-left">
+                                          {getCompanionUrl()}
+                                      </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 justify-center text-xs text-purple-600 bg-purple-50 p-2 rounded-lg">
+                                      <Tablet size={14} /> 
+                                      <span>Use seu tablet como segunda tela</span>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+
+                      <div className="pt-6 mt-6 border-t border-slate-100 space-y-3">
+                          <button 
+                              onClick={() => setHasJoined(true)}
+                              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                          >
+                              Entrar na Sala <Share2 size={18} className="opacity-50" />
+                          </button>
+                          <button onClick={() => navigate('/agenda')} className="w-full py-3 text-slate-500 hover:bg-slate-50 rounded-xl font-bold text-sm transition-colors">
+                              Voltar para Agenda
+                          </button>
+                      </div>
                   </div>
               </div>
           </div>
