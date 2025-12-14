@@ -1,14 +1,28 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { BrainCircuit, ArrowRight, Activity, Calendar, Users } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (role?: string) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const { language, setLanguage, t } = useLanguage();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      // SUPER ADMIN CHECK
+      if (email === 'admin@develoi.com' && password === 'Edu@06051992') {
+          onLogin('SUPER_ADMIN');
+      } else {
+          // Regular Login
+          onLogin('USER');
+      }
+  };
 
   return (
     <div className="relative w-full h-screen overflow-hidden flex font-sans">
@@ -65,13 +79,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <p className="text-slate-500 text-base leading-relaxed">{t('login.subtitle')}</p>
             </div>
 
-            <form onSubmit={(e) => { e.preventDefault(); onLogin(); }}>
+            <form onSubmit={handleSubmit}>
               <div className="space-y-5">
                 <div className="relative group">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{t('login.email')}</label>
                   <div className="relative">
                     <input 
                         type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="seu@email.com" 
                         className="w-full px-4 py-3.5 pl-11 bg-slate-50 border-2 border-slate-200 rounded-xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 placeholder:text-slate-400 text-slate-900 font-semibold"
                     />
@@ -86,6 +102,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <div className="relative">
                     <input 
                         type="password" 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••" 
                         className="w-full px-4 py-3.5 pl-11 bg-slate-50 border-2 border-slate-200 rounded-xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 placeholder:text-slate-400 text-slate-900 font-semibold"
                     />

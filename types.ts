@@ -13,6 +13,31 @@ export interface User {
   avatar?: string;
 }
 
+// --- SUPER ADMIN TYPES ---
+export interface Tenant {
+  id: string;
+  name: string;
+  email: string;
+  initialPassword?: string; // Only for display upon creation
+  planDurationMonths: number; // 1, 2, 3, 12...
+  monthlyPrice: number;
+  totalValue: number; // monthlyPrice * planDurationMonths
+  startDate: string;
+  expiryDate: string;
+  status: 'active' | 'expired' | 'pending';
+}
+
+export interface GlobalResource {
+  id: string;
+  title: string;
+  category: string;
+  type: 'pdf' | 'doc' | 'image';
+  size: string;
+  date: string;
+  public: boolean; // Visible to all tenants
+}
+// -------------------------
+
 export interface Professional {
   id: string;
   name: string;

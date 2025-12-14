@@ -1,86 +1,20 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PsiManager Pro</title>
+
+    <!-- Tailwind via CDN (rápido) -->
     <script src="https://cdn.tailwindcss.com"></script>
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <style>
-      :root {
-        /* Default Theme (Indigo) */
-        --c-50: #eef2ff;
-        --c-100: #e0e7ff;
-        --c-200: #c7d2fe;
-        --c-300: #a5b4fc;
-        --c-400: #818cf8;
-        --c-500: #6366f1;
-        --c-600: #4f46e5;
-        --c-700: #4338ca;
-        --c-800: #3730a3;
-        --c-900: #312e81;
 
-        --bg-page: #f8fafc;
-        --bg-card: #ffffff;
-        --text-main: #0f172a;
-        --text-muted: #64748b;
-        --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      }
-
-      body {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: var(--bg-page);
-        color: var(--text-main);
-      }
-
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 99px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-
-      /* Animations */
-      @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-      }
-      
-      @keyframes slideUpFade {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-      }
-
-      /* Utility classes for visual style */
-      .glass-effect {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.5);
-      }
-      
-      .card-hover {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .card-hover:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-hover);
-      }
-    </style>
-
+    <!-- Tailwind Config para suportar as variáveis de tema do React -->
     <script>
       tailwind.config = {
         theme: {
@@ -102,7 +36,7 @@
                 800: 'var(--c-800)',
                 900: 'var(--c-900)',
               },
-              // Remapping indigo to use primary variables for existing components using indigo classes
+              // Remapeando indigo para usar variáveis primárias onde necessário
               indigo: {
                 50: 'var(--c-50)',
                 100: 'var(--c-100)',
@@ -115,11 +49,65 @@
                 800: 'var(--c-800)',
                 900: 'var(--c-900)',
               }
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUpFade: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              slideLeft: {
+                '0%': { transform: 'translateX(100%)' },
+                '100%': { transform: 'translateX(0)' },
+              },
+              scaleIn: {
+                '0%': { transform: 'scale(0.9)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              }
+            },
+            animation: {
+              fadeIn: 'fadeIn 0.3s ease-out',
+              slideUpFade: 'slideUpFade 0.4s ease-out',
+              slideLeft: 'slideLeft 0.3s ease-out',
+              scaleIn: 'scaleIn 0.2s ease-out',
             }
           }
         }
       }
     </script>
+
+    <style>
+      :root {
+        --bg-page: #f8fafc;
+        --bg-card: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+
+        /* Cores do Tema Padrão (Indigo) - Necessário para o App */
+        --c-50: #eef2ff;
+        --c-100: #e0e7ff;
+        --c-200: #c7d2fe;
+        --c-300: #a5b4fc;
+        --c-400: #818cf8;
+        --c-500: #6366f1;
+        --c-600: #4f46e5;
+        --c-700: #4338ca;
+        --c-800: #3730a3;
+        --c-900: #312e81;
+      }
+      body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-page); color: var(--text-main); }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -132,7 +120,10 @@
 }
 </script>
 </head>
-  <body class="bg-slate-50 text-slate-800 antialiased overflow-hidden">
+  <body class="bg-slate-50 text-slate-800 antialiased">
     <div id="root"></div>
+
+    <!-- ENTRY do Vite/React -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

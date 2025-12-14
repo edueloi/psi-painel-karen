@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Layout/Sidebar';
@@ -28,6 +29,7 @@ import { MeetingRoom } from './pages/MeetingRoom';
 import { VirtualRooms } from './pages/VirtualRooms';
 import { BotIntegration } from './pages/BotIntegration';
 import { CaseStudies } from './pages/CaseStudies';
+import { SuperAdmin } from './pages/SuperAdmin'; // NEW IMPORT
 import { MOCK_USERS } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 
@@ -83,14 +85,14 @@ const FormBuilderWrapper: React.FC = () => {
 };
 
 const AppRoutes: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authStatus, setAuthStatus] = useState<'GUEST' | 'USER' | 'SUPER_ADMIN'>('GUEST');
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
+  const handleLogin = (role: string = 'USER') => {
+    setAuthStatus(role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'USER');
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    setAuthStatus('GUEST');
   };
 
   return (
@@ -98,17 +100,23 @@ const AppRoutes: React.FC = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={
-          isAuthenticated ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
+          authStatus !== 'GUEST' ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
         } />
         
         <Route path="/f/:hash" element={<ExternalForm />} />
         
         {/* Meeting Room is standalone, no sidebar */}
-        <Route path="/meeting/:id" element={isAuthenticated ? <MeetingRoom /> : <Navigate to="/login" />} />
+        <Route path="/meeting/:id" element={authStatus !== 'GUEST' ? <MeetingRoom /> : <Navigate to="/login" />} />
 
         {/* Protected Routes */}
         <Route path="/*" element={
-          isAuthenticated ? (
+          authStatus === 'GUEST' ? (
+            <Navigate to="/login" replace />
+          ) : authStatus === 'SUPER_ADMIN' ? (
+            // SUPER ADMIN LAYOUT ROUTE
+            <SuperAdmin onLogout={handleLogout} />
+          ) : (
+            // REGULAR USER MAIN LAYOUT
             <MainLayout onLogout={handleLogout}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
@@ -153,8 +161,6 @@ const AppRoutes: React.FC = () => {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </MainLayout>
-          ) : (
-            <Navigate to="/login" replace />
           )
         } />
       </Routes>

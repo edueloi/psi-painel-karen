@@ -1,5 +1,5 @@
 
-import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional } from './types';
+import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource } from './types';
 import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen } from 'lucide-react';
 
 export const NAV_SECTIONS = [
@@ -57,6 +57,65 @@ export const MOCK_USERS = [
   { id: '1', name: 'Karen Gomes', email: 'karen.gomes@clinic.com', role: UserRole.PSYCHOLOGIST },
   { id: '2', name: 'Ana Recepção', email: 'ana@clinic.com', role: UserRole.SECRETARY },
 ];
+
+// --- MOCK DATA FOR SUPER ADMIN ---
+export const MOCK_TENANTS: Tenant[] = [
+  {
+    id: 't1',
+    name: 'Clínica Bem Viver',
+    email: 'contato@bemviver.com',
+    planDurationMonths: 12,
+    monthlyPrice: 79.90,
+    totalValue: 958.80,
+    startDate: '2023-01-15',
+    expiryDate: '2024-01-15',
+    status: 'active'
+  },
+  {
+    id: 't2',
+    name: 'Dr. João Psicologia',
+    email: 'joao@psi.com',
+    planDurationMonths: 1,
+    monthlyPrice: 89.90,
+    totalValue: 89.90,
+    startDate: '2023-09-01',
+    expiryDate: '2023-10-01',
+    status: 'active'
+  },
+  {
+    id: 't3',
+    name: 'Espaço Terapêutico Solar',
+    email: 'financeiro@solar.com',
+    planDurationMonths: 6,
+    monthlyPrice: 75.00,
+    totalValue: 450.00,
+    startDate: '2023-03-10',
+    expiryDate: '2023-09-10',
+    status: 'expired'
+  }
+];
+
+export const MOCK_GLOBAL_RESOURCES: GlobalResource[] = [
+  { id: 'g1', title: 'Modelo de Anamnese Padrão', category: 'Clínico', type: 'pdf', size: '1.2 MB', date: '2023-08-01', public: true },
+  { id: 'g2', title: 'Contrato Terapêutico Editável', category: 'Administrativo', type: 'doc', size: '0.5 MB', date: '2023-08-01', public: true },
+  { id: 'g3', title: 'Guia de Uso do Sistema', category: 'Tutoriais', type: 'pdf', size: '3.5 MB', date: '2023-09-10', public: true },
+];
+
+export const MOCK_GLOBAL_FORMS: ClinicalForm[] = [
+  {
+    id: 'gf1',
+    title: 'Anamnese Padrão (Global)',
+    description: 'Modelo base para anamnese adulta disponibilizado pelo sistema.',
+    createdAt: '2023-01-01',
+    questions: [
+       { id: 'q1', type: 'text', text: 'Nome Completo', required: true },
+       { id: 'q2', type: 'textarea', text: 'Histórico Clínico', required: true }
+    ],
+    responseCount: 0,
+    hash: 'global-anamnese-std'
+  }
+];
+// ---------------------------------
 
 export const MOCK_PROFESSIONALS: Professional[] = [
   {
