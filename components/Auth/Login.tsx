@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { BrainCircuit, ArrowRight, Mail, Lock, Eye, EyeOff, CheckCircle2, Loader2, Globe } from 'lucide-react';
+import { BrainCircuit, ArrowRight, Mail, Lock, Eye, EyeOff, CheckCircle2, Loader2, Globe, ShieldCheck, Zap, BarChart3, Calendar } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -70,10 +70,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 {/* Text Reveal */}
                 <div className="space-y-3 animate-[slideUpFade_0.8s_ease-out_0.3s_both]">
                     <h1 className="text-4xl md:text-6xl font-display font-bold text-white tracking-tight">
-                        Bem-vindo, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">Doutor(a)</span>
+                        Bem-vindo ao <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">PsiManager</span>
                     </h1>
                     <p className="text-slate-400 text-lg md:text-xl font-light">
-                        Preparando seu ambiente clínico seguro...
+                        Preparando seu ambiente de trabalho...
                     </p>
                 </div>
 
@@ -118,34 +118,65 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       </div>
 
       {/* LEFT SIDE: VISUAL / BRANDING */}
-      <div className="hidden lg:flex w-[55%] relative bg-slate-900 items-center justify-center overflow-hidden">
+      <div className="hidden lg:flex w-[55%] relative bg-slate-900 items-center justify-center overflow-hidden px-16">
           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-overlay"></div>
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-purple-950/90"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/95 via-slate-900/95 to-purple-950/95"></div>
           
           {/* Animated Shapes */}
-          <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/20 rounded-full blur-[120px] animate-[pulse_8s_infinite_ease-in-out]"></div>
-          <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px] animate-[pulse_10s_infinite_ease-in-out_reverse]"></div>
+          <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[120px] animate-[pulse_8s_infinite_ease-in-out]"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-500/10 rounded-full blur-[120px] animate-[pulse_10s_infinite_ease-in-out_reverse]"></div>
 
-          <div className="relative z-10 max-w-xl px-12 text-white">
-              <div className="w-20 h-20 bg-gradient-to-tr from-white/10 to-white/5 border border-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center mb-8 shadow-2xl">
-                  <BrainCircuit size={40} className="text-indigo-300" />
-              </div>
-              <h1 className="text-5xl font-display font-bold leading-tight mb-6">
-                  Gestão Inteligente para <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">Psicólogos Modernos</span>.
-              </h1>
-              <p className="text-lg text-indigo-100/80 leading-relaxed border-l-4 border-indigo-500 pl-6">
-                  "O PsiManager Pro transformou a maneira como organizo meus atendimentos. Segurança e praticidade em um só lugar."
-              </p>
-              
-              <div className="mt-12 flex items-center gap-4 text-sm font-medium text-indigo-200/60">
-                  <div className="flex -space-x-3">
-                      {[1,2,3,4].map(i => (
-                          <div key={i} className="w-10 h-10 rounded-full border-2 border-slate-900 bg-slate-700 flex items-center justify-center text-xs text-white">
-                              User
-                          </div>
-                      ))}
+          <div className="relative z-10 w-full max-w-xl">
+              {/* Main Headline */}
+              <div className="mb-12">
+                  <div className="w-16 h-16 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-center mb-8 shadow-2xl shadow-indigo-500/20">
+                      <BrainCircuit size={32} className="text-indigo-300" />
                   </div>
-                  <p>Junte-se a +2.000 profissionais</p>
+                  <h1 className="text-5xl font-display font-bold leading-[1.1] mb-6 text-white tracking-tight">
+                      O Futuro do seu <br/>
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">Consultório Digital</span>.
+                  </h1>
+                  <p className="text-lg text-slate-300 font-light leading-relaxed max-w-md">
+                      Automatize o operacional, garanta segurança total e foque no que realmente importa: seus pacientes.
+                  </p>
+              </div>
+
+              {/* Feature Grid */}
+              <div className="grid grid-cols-1 gap-4">
+                  
+                  {/* Feature 1 */}
+                  <div className="group flex items-center gap-5 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-indigo-500/30 backdrop-blur-sm transition-all duration-300 cursor-default">
+                      <div className="p-3 bg-indigo-500/20 text-indigo-300 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                          <ShieldCheck size={24} />
+                      </div>
+                      <div>
+                          <h3 className="font-bold text-white text-base mb-0.5">Segurança & LGPD</h3>
+                          <p className="text-sm text-slate-400 font-medium">Prontuários criptografados de ponta a ponta.</p>
+                      </div>
+                  </div>
+
+                  {/* Feature 2 */}
+                  <div className="group flex items-center gap-5 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-purple-500/30 backdrop-blur-sm transition-all duration-300 cursor-default">
+                      <div className="p-3 bg-purple-500/20 text-purple-300 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                          <Zap size={24} />
+                      </div>
+                      <div>
+                          <h3 className="font-bold text-white text-base mb-0.5">IA Integrada</h3>
+                          <p className="text-sm text-slate-400 font-medium">Assistente Aurora para insights clínicos.</p>
+                      </div>
+                  </div>
+
+                  {/* Feature 3 */}
+                  <div className="group flex items-center gap-5 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-emerald-500/30 backdrop-blur-sm transition-all duration-300 cursor-default">
+                      <div className="p-3 bg-emerald-500/20 text-emerald-300 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                          <BarChart3 size={24} />
+                      </div>
+                      <div>
+                          <h3 className="font-bold text-white text-base mb-0.5">Gestão Completa</h3>
+                          <p className="text-sm text-slate-400 font-medium">Financeiro, Agenda e Telemedicina em um só lugar.</p>
+                      </div>
+                  </div>
+
               </div>
           </div>
       </div>
