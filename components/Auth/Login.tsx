@@ -12,9 +12,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   
-  // Form States - Pre-filled for Demo convenience
-  const [email, setEmail] = useState('psi@psimanager.com');
-  const [password, setPassword] = useState('123456');
+  // Form States - Empty for production feel
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
   // Transition States
@@ -73,7 +73,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         Bem-vindo ao <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">PsiManager</span>
                     </h1>
                     <p className="text-slate-400 text-lg md:text-xl font-light">
-                        Preparando seu ambiente de trabalho...
+                        Preparando seu ambiente clínico seguro...
                     </p>
                 </div>
 
