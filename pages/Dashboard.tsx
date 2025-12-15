@@ -1,8 +1,10 @@
+
 import React from 'react';
 import { MOCK_PATIENTS, MOCK_APPOINTMENTS } from '../constants';
 import { Users, Calendar, DollarSign, Activity, ArrowUp, Clock, CheckCircle, Video } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
+import { AuroraAssistant } from '../components/AI/AuroraAssistant';
 
 export const Dashboard: React.FC = () => {
   const { t, language } = useLanguage();
@@ -189,6 +191,9 @@ export const Dashboard: React.FC = () => {
             )}
         </div>
       </div>
+
+      {/* --- AI ASSISTANT --- */}
+      <AuroraAssistant />
     </div>
   );
 };
