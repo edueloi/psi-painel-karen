@@ -5,7 +5,7 @@ import { Tenant, GlobalResource, ClinicalForm, FormQuestion } from '../types';
 import { 
   LayoutDashboard, Users, FolderOpen, LogOut, Search, Plus, 
   Trash2, ShieldCheck, DollarSign, Calendar, UploadCloud, 
-  FileText, CheckCircle, AlertTriangle, Eye, X, ChevronRight, ClipboardList, Edit3
+  FileText, CheckCircle, AlertTriangle, Eye, X, ChevronRight, ClipboardList, Edit3, Building, Lock, User
 } from 'lucide-react';
 import { FormBuilder } from '../components/Forms/FormBuilder';
 
@@ -32,8 +32,11 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
   const [newTenant, setNewTenant] = useState<Partial<Tenant>>({
       planDurationMonths: 1,
-      monthlyPrice: 79.90
+      monthlyPrice: 79.90,
+      status: 'active'
   });
+  // Separate state for the Initial User Data inside the tenant creation
+  const [adminUser, setAdminUser] = useState({ name: '', email: '', password: '' });
 
   // States for File Modal
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
@@ -52,17 +55,18 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
   };
 
   const handleSaveTenant = () => {
-      if (!newTenant.name || !newTenant.email) return alert('Preencha nome e email.');
+      if (!newTenant.name || !adminUser.email || !adminUser.password) return alert('Preencha os dados da empresa e do admin.');
       
       const now = new Date();
       const expiry = new Date(now);
       expiry.setMonth(expiry.getMonth() + (newTenant.planDurationMonths || 1));
 
+      // In a real backend, you would send { tenantData, adminUserData } together in one transaction
       const tenant: Tenant = {
           id: Math.random().toString(36).substr(2, 9),
-          name: newTenant.name,
-          email: newTenant.email,
-          initialPassword: newTenant.initialPassword,
+          name: newTenant.name, // Company Name
+          email: adminUser.email, // Contact Email
+          initialPassword: adminUser.password, // For display
           planDurationMonths: newTenant.planDurationMonths || 1,
           monthlyPrice: newTenant.monthlyPrice || 79.90,
           totalValue: calculatePlanTotal(),
@@ -74,12 +78,12 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
       setTenants([tenant, ...tenants]);
       setIsTenantModalOpen(false);
       setNewTenant({ planDurationMonths: 1, monthlyPrice: 79.90 });
+      setAdminUser({ name: '', email: '', password: '' });
   };
 
   const handleSaveFile = () => {
       if (!newFile.title) return alert('Preencha o título.');
       
-      // Handle new category creation inside the flow if needed, but handled by UI state
       let category = newFile.category || 'Modelos';
       if (isAddingCategory && newCategoryName) {
           category = newCategoryName;
@@ -92,8 +96,8 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
           id: Math.random().toString(36).substr(2, 9),
           title: newFile.title,
           category: category,
-          type: 'pdf', // Mock
-          size: '1.0 MB', // Mock
+          type: 'pdf', 
+          size: '1.0 MB',
           date: new Date().toISOString().split('T')[0],
           public: true
       };
@@ -153,7 +157,6 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
       return { active, totalRevenue, expiringSoon };
   }, [tenants]);
 
-  // --- RENDER FORM BUILDER OVERLAY ---
   if (isFormBuilderOpen) {
       const initialFormData = editingFormId ? forms.find(f => f.id === editingFormId) : undefined;
       return (
@@ -166,8 +169,6 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
           </div>
       );
   }
-
-  // --- MAIN RENDER ---
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex font-sans">
@@ -197,7 +198,7 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
                 onClick={() => setActiveTab('tenants')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'tenants' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
               >
-                  <Users size={18} /> Usuários (Tenants)
+                  <Users size={18} /> Clientes (Tenants)
               </button>
               <button 
                 onClick={() => setActiveTab('files')}
@@ -309,8 +310,8 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
               <div className="max-w-6xl mx-auto animate-fadeIn">
                   <div className="flex justify-between items-center mb-8">
                       <div>
-                          <h2 className="text-2xl font-bold text-white">Gestão de Usuários</h2>
-                          <p className="text-slate-400 mt-1">Crie e gerencie o acesso dos compradores do sistema.</p>
+                          <h2 className="text-2xl font-bold text-white">Gestão de Clientes</h2>
+                          <p className="text-slate-400 mt-1">Crie empresas (Tenants) e o primeiro usuário Admin.</p>
                       </div>
                       <button 
                         onClick={() => setIsTenantModalOpen(true)}
@@ -325,7 +326,7 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
                           <table className="w-full text-left">
                               <thead>
                                   <tr className="bg-slate-900/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700">
-                                      <th className="px-6 py-4">Cliente / Email</th>
+                                      <th className="px-6 py-4">Empresa / Admin</th>
                                       <th className="px-6 py-4">Plano</th>
                                       <th className="px-6 py-4">Valor Total</th>
                                       <th className="px-6 py-4">Validade</th>
@@ -337,9 +338,9 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
                                   {tenants.map(tenant => (
                                       <tr key={tenant.id} className="hover:bg-slate-700/30 transition-colors">
                                           <td className="px-6 py-4">
-                                              <p className="font-bold text-white">{tenant.name}</p>
-                                              <p className="text-xs text-slate-400">{tenant.email}</p>
-                                              {tenant.initialPassword && <p className="text-[10px] text-yellow-500 mt-1">Senha: {tenant.initialPassword}</p>}
+                                              <p className="font-bold text-white flex items-center gap-2"><Building size={14} className="text-indigo-400"/> {tenant.name}</p>
+                                              <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5"><User size={12} /> {tenant.email}</p>
+                                              {tenant.initialPassword && <p className="text-[10px] text-yellow-500 mt-1 bg-yellow-500/10 inline-block px-1.5 rounded">Senha: {tenant.initialPassword}</p>}
                                           </td>
                                           <td className="px-6 py-4 text-slate-300">
                                               {tenant.planDurationMonths === 12 ? 'Anual' : `${tenant.planDurationMonths} Meses`}
@@ -372,7 +373,7 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
               </div>
           )}
 
-          {/* FILES VIEW */}
+          {/* FILES VIEW (Resto do código mantido igual) */}
           {activeTab === 'files' && (
               <div className="max-w-6xl mx-auto animate-fadeIn">
                   <div className="flex justify-between items-center mb-8">
@@ -412,7 +413,7 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
               </div>
           )}
 
-          {/* FORMS VIEW */}
+          {/* FORMS VIEW (Resto do código mantido igual) */}
           {activeTab === 'forms' && (
               <div className="max-w-6xl mx-auto animate-fadeIn">
                   <div className="flex justify-between items-center mb-8">
@@ -466,55 +467,72 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
           {/* --- MODAL: NEW TENANT --- */}
           {isTenantModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-                  <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl p-6">
+                  <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl p-6">
                       <div className="flex justify-between items-center mb-6">
                           <h3 className="text-xl font-bold text-white">Novo Cliente (Tenant)</h3>
                           <button onClick={() => setIsTenantModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
                       </div>
                       
-                      <div className="space-y-4">
-                          <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Nome do Cliente</label>
-                              <input type="text" className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-indigo-500" value={newTenant.name || ''} onChange={e => setNewTenant({...newTenant, name: e.target.value})} />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Email de Acesso</label>
-                              <input type="email" className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-indigo-500" value={newTenant.email || ''} onChange={e => setNewTenant({...newTenant, email: e.target.value})} />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Senha Inicial</label>
-                              <input type="text" className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-indigo-500" placeholder="Ex: Mudar123" value={newTenant.initialPassword || ''} onChange={e => setNewTenant({...newTenant, initialPassword: e.target.value})} />
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Duração (Meses)</label>
-                                  <select 
-                                    className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-indigo-500"
-                                    value={newTenant.planDurationMonths}
-                                    onChange={e => setNewTenant({...newTenant, planDurationMonths: parseInt(e.target.value)})}
-                                  >
-                                      <option value={1}>1 Mês</option>
-                                      <option value={3}>3 Meses</option>
-                                      <option value={6}>6 Meses</option>
-                                      <option value={12}>1 Ano</option>
-                                  </select>
-                              </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Valor Mensal (R$)</label>
-                                  <input type="number" className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-indigo-500" value={newTenant.monthlyPrice} onChange={e => setNewTenant({...newTenant, monthlyPrice: parseFloat(e.target.value)})} />
+                      <div className="space-y-6">
+                          {/* Company Data */}
+                          <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
+                              <h4 className="text-sm font-bold text-indigo-400 uppercase mb-4 flex items-center gap-2"><Building size={16} /> Dados da Empresa</h4>
+                              <div className="space-y-4">
+                                  <div>
+                                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Nome da Clínica / Empresa</label>
+                                      <input type="text" className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white outline-none focus:border-indigo-500 transition-colors" placeholder="Ex: Clínica Bem Viver" value={newTenant.name || ''} onChange={e => setNewTenant({...newTenant, name: e.target.value})} />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                          <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Plano (Meses)</label>
+                                          <select 
+                                            className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white outline-none focus:border-indigo-500"
+                                            value={newTenant.planDurationMonths}
+                                            onChange={e => setNewTenant({...newTenant, planDurationMonths: parseInt(e.target.value)})}
+                                          >
+                                              <option value={1}>1 Mês</option>
+                                              <option value={3}>3 Meses</option>
+                                              <option value={6}>6 Meses</option>
+                                              <option value={12}>1 Ano</option>
+                                          </select>
+                                      </div>
+                                      <div>
+                                          <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Mensalidade (R$)</label>
+                                          <input type="number" className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white outline-none focus:border-indigo-500" value={newTenant.monthlyPrice} onChange={e => setNewTenant({...newTenant, monthlyPrice: parseFloat(e.target.value)})} />
+                                      </div>
+                                  </div>
                               </div>
                           </div>
 
-                          <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                              <span className="text-sm font-bold text-slate-400">Total do Plano</span>
-                              <span className="text-xl font-bold text-emerald-400">{formatCurrency(calculatePlanTotal())}</span>
+                          {/* Initial Admin User */}
+                          <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
+                              <h4 className="text-sm font-bold text-emerald-400 uppercase mb-4 flex items-center gap-2"><Lock size={16} /> Acesso Admin Inicial</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="md:col-span-2">
+                                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Email do Responsável</label>
+                                      <input type="email" className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white outline-none focus:border-emerald-500 transition-colors" placeholder="admin@clinica.com" value={adminUser.email} onChange={e => setAdminUser({...adminUser, email: e.target.value})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Nome do Responsável</label>
+                                      <input type="text" className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white outline-none focus:border-emerald-500" placeholder="Dr. João" value={adminUser.name} onChange={e => setAdminUser({...adminUser, name: e.target.value})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Senha Temporária</label>
+                                      <input type="text" className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white outline-none focus:border-emerald-500" placeholder="Ex: Mudar123" value={adminUser.password} onChange={e => setAdminUser({...adminUser, password: e.target.value})} />
+                                  </div>
+                              </div>
                           </div>
-                      </div>
 
-                      <div className="mt-6 flex justify-end gap-3">
-                          <button onClick={() => setIsTenantModalOpen(false)} className="px-4 py-2 rounded-lg text-slate-400 hover:bg-slate-800">Cancelar</button>
-                          <button onClick={handleSaveTenant} className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg">Criar Acesso</button>
+                          <div className="flex justify-between items-center pt-2">
+                              <div className="text-right">
+                                  <span className="text-xs text-slate-500 block">Total do Contrato</span>
+                                  <span className="text-xl font-bold text-white">{formatCurrency(calculatePlanTotal())}</span>
+                              </div>
+                              <div className="flex gap-3">
+                                  <button onClick={() => setIsTenantModalOpen(false)} className="px-4 py-2 rounded-lg text-slate-400 hover:bg-slate-800">Cancelar</button>
+                                  <button onClick={handleSaveTenant} className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg">Criar Acesso</button>
+                              </div>
+                          </div>
                       </div>
                   </div>
               </div>
