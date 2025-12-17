@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { MOCK_FORMS, MOCK_PATIENTS } from '../constants';
-import { ClinicalForm } from '../types';
+import { MOCK_FORMS, MOCK_PATIENTS, MOCK_USERS } from '../constants';
+import { ClinicalForm, UserRole } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Plus, ClipboardList, Link as LinkIcon, ChartPie, Pen, Trash2, CheckCircle, Share2, LayoutTemplate, Users, Copy, Send
+  Search, Plus, ClipboardList, Link as LinkIcon, ChartPie, Pen, Trash2, CheckCircle, Share2, LayoutTemplate, Users, Copy, Send, Lock
 } from 'lucide-react';
 
 export const FormsList: React.FC = () => {
@@ -17,6 +17,9 @@ export const FormsList: React.FC = () => {
   const [selectedForm, setSelectedForm] = useState<ClinicalForm | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Mock Current User (In real app, get from Context)
+  const currentUser = MOCK_USERS[0]; 
 
   const filteredForms = forms.filter(f => 
     f.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -151,8 +154,8 @@ export const FormsList: React.FC = () => {
                     
                     {/* Top: Icon & Actions */}
                     <div className="flex items-start justify-between mb-4">
-                        <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 text-blue-600 font-display font-bold text-xl">
-                            {form.title.charAt(0)}
+                        <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center shrink-0 font-display font-bold text-xl ${form.isGlobal ? 'bg-purple-50 border-purple-100 text-purple-600' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                            {form.isGlobal ? <Lock size={20} /> : form.title.charAt(0)}
                         </div>
                         
                         <div className="relative">
@@ -168,8 +171,8 @@ export const FormsList: React.FC = () => {
                     {/* Content */}
                     <div className="flex-1 mb-4">
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="inline-block px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 border border-slate-100 text-[10px] font-bold uppercase tracking-wider">
-                                Questionário
+                            <span className={`inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${form.isGlobal ? 'bg-purple-100 border-purple-200 text-purple-700' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                                {form.isGlobal ? 'Modelo Global' : 'Personalizado'}
                             </span>
                         </div>
                         <h3 className="font-bold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors" title={form.title}>
@@ -194,15 +197,23 @@ export const FormsList: React.FC = () => {
 
                     {/* Hover Action Overlay */}
                     <div className="absolute inset-x-0 bottom-0 p-4 bg-white/95 backdrop-blur-sm rounded-b-2xl border-t border-blue-100 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 flex gap-2">
-                        <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors">
-                            <Pen size={16} /> Editar
-                        </button>
-                        <button 
-                            onClick={() => handleDelete(form.id)}
-                            className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-                        >
-                            <Trash2 size={16} />
-                        </button>
+                        {form.isGlobal ? (
+                            <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-slate-500 font-bold text-xs cursor-not-allowed">
+                                <Lock size={16} /> Protegido
+                            </button>
+                        ) : (
+                            <>
+                                <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors">
+                                    <Pen size={16} /> Editar
+                                </button>
+                                <button 
+                                    onClick={() => handleDelete(form.id)}
+                                    className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             ))

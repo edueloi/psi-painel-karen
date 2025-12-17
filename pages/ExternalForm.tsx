@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { MOCK_FORMS, MOCK_PROFESSIONALS, MOCK_PATIENTS } from '../constants';
-import { ClinicalForm, Patient, Professional } from '../types';
-import { CheckCircle, AlertCircle, ChevronDown, User, Phone, Mail, ShieldCheck, ArrowRight, Calendar, MapPin } from 'lucide-react';
+import { ClinicalForm, Patient, Professional, InterpretationRule } from '../types';
+import { CheckCircle, AlertCircle, ChevronDown, User, Phone, Mail, ShieldCheck, ArrowRight, Calendar, MapPin, Calculator, Info } from 'lucide-react';
 
 export const ExternalForm: React.FC = () => {
   const { hash } = useParams<{ hash: string }>();
@@ -17,9 +17,13 @@ export const ExternalForm: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
+  const [scoreResult, setScoreResult] = useState<{ total: number, interpretation?: InterpretationRule } | null>(null);
   
   // Form Data
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  // Store values of selected options separately to calculate score
+  const [answerValues, setAnswerValues] = useState<Record<string, number>>({});
+
   const [identification, setIdentification] = useState({
     name: '',
     email: '',
@@ -47,6 +51,18 @@ export const ExternalForm: React.FC = () => {
     }, 800);
   }, [hash, patientId]);
 
+  const calculateScore = () => {
+      let total = 0;
+      Object.values(answerValues).forEach(val => total += val);
+      
+      let interpretation = undefined;
+      if (form?.interpretations) {
+          interpretation = form.interpretations.find(rule => total >= rule.minScore && total <= rule.maxScore);
+      }
+      
+      return { total, interpretation };
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -56,6 +72,8 @@ export const ExternalForm: React.FC = () => {
         return;
     }
 
+    const result = calculateScore();
+    setScoreResult(result);
     setSubmitted(true);
     
     const submissionData = {
@@ -63,14 +81,30 @@ export const ExternalForm: React.FC = () => {
         patientId: patient?.id || 'guest',
         patientData: patient ? null : identification,
         answers: answers,
+        score: result.total,
+        interpretationId: result.interpretation?.id,
         submittedAt: new Date().toISOString()
     };
     
     console.log("Form Submitted:", submissionData);
   };
 
-  const handleInputChange = (questionId: string, value: any) => {
+  const handleInputChange = (questionId: string, value: any, scoreValue: number = 0) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
+    setAnswerValues(prev => ({ ...prev, [questionId]: scoreValue }));
+  };
+
+  const handleCheckboxChange = (questionId: string, value: string, score: number, checked: boolean) => {
+      const currentAnswer = (answers[questionId] as string[]) || [];
+      const currentScore = (answerValues[questionId] as number) || 0;
+
+      if (checked) {
+          setAnswers(prev => ({ ...prev, [questionId]: [...currentAnswer, value] }));
+          setAnswerValues(prev => ({ ...prev, [questionId]: currentScore + score }));
+      } else {
+          setAnswers(prev => ({ ...prev, [questionId]: currentAnswer.filter(v => v !== value) }));
+          setAnswerValues(prev => ({ ...prev, [questionId]: currentScore - score }));
+      }
   };
 
   if (loading) {
@@ -111,6 +145,17 @@ export const ExternalForm: React.FC = () => {
                 <h2 className="text-3xl font-display font-bold text-slate-800 mb-4">Recebido com Sucesso!</h2>
                 <p className="text-slate-500 mb-8 text-lg leading-relaxed">Suas respostas foram enviadas para <strong>{professional.name}</strong> de forma segura.</p>
                 
+                {scoreResult && scoreResult.interpretation && (
+                    <div className={`p-6 rounded-2xl border mb-6 text-left ${scoreResult.interpretation.color}`}>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold uppercase tracking-widest opacity-70">Resultado</span>
+                            <span className="font-mono font-bold text-xl">{scoreResult.total} pts</span>
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">{scoreResult.interpretation.resultTitle}</h3>
+                        <p className="text-sm opacity-90 leading-relaxed">{scoreResult.interpretation.description}</p>
+                    </div>
+                )}
+
                 <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-6">
                     <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-2">Protocolo</p>
                     <p className="font-mono text-slate-700 font-bold tracking-widest">#REQ-{Math.floor(Math.random() * 10000)}</p>
@@ -168,6 +213,13 @@ export const ExternalForm: React.FC = () => {
                     </span>
                     <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-800 mb-4 leading-tight">{form.title}</h1>
                     <p className="text-slate-500 text-lg leading-relaxed max-w-2xl">{form.description}</p>
+                    
+                    {form.interpretations && form.interpretations.length > 0 && (
+                        <div className="mt-6 flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg w-fit">
+                            <Calculator size={14} />
+                            <span>Este questionário gera um resultado automático ao final.</span>
+                        </div>
+                    )}
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
@@ -283,23 +335,42 @@ export const ExternalForm: React.FC = () => {
                                         />
                                     )}
 
-                                    {(q.type === 'radio' || q.type === 'checkbox') && (
+                                    {q.type === 'radio' && (
                                         <div className="space-y-3">
                                             {q.options?.map((opt, i) => (
                                                 <label key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-transparent hover:border-indigo-200 hover:bg-white cursor-pointer transition-all group/opt shadow-sm hover:shadow-md">
                                                     <div className="relative flex items-center justify-center">
                                                         <input 
-                                                            type={q.type} 
+                                                            type="radio" 
                                                             name={q.id} 
-                                                            value={opt}
+                                                            value={opt.label}
                                                             className="peer appearance-none w-6 h-6 border-2 border-slate-300 rounded-full checked:border-indigo-600 checked:bg-indigo-600 transition-all cursor-pointer"
-                                                            required={q.required && q.type === 'radio'}
-                                                            onChange={(e) => handleInputChange(q.id, e.target.value)}
+                                                            required={q.required}
+                                                            onChange={(e) => handleInputChange(q.id, e.target.value, opt.value)}
                                                         />
-                                                        {q.type === 'radio' && <div className="absolute w-2.5 h-2.5 bg-white rounded-full opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></div>}
-                                                        {q.type === 'checkbox' && <CheckCircle size={16} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />}
+                                                        <div className="absolute w-2.5 h-2.5 bg-white rounded-full opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></div>
                                                     </div>
-                                                    <span className="text-slate-700 group-hover/opt:text-indigo-800 font-medium text-lg">{opt}</span>
+                                                    <span className="text-slate-700 group-hover/opt:text-indigo-800 font-medium text-lg">{opt.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {q.type === 'checkbox' && (
+                                        <div className="space-y-3">
+                                            {q.options?.map((opt, i) => (
+                                                <label key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-transparent hover:border-indigo-200 hover:bg-white cursor-pointer transition-all group/opt shadow-sm hover:shadow-md">
+                                                    <div className="relative flex items-center justify-center">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            name={q.id} 
+                                                            value={opt.label}
+                                                            className="peer appearance-none w-6 h-6 border-2 border-slate-300 rounded-md checked:border-indigo-600 checked:bg-indigo-600 transition-all cursor-pointer"
+                                                            onChange={(e) => handleCheckboxChange(q.id, opt.label, opt.value, e.target.checked)}
+                                                        />
+                                                        <CheckCircle size={16} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
+                                                    </div>
+                                                    <span className="text-slate-700 group-hover/opt:text-indigo-800 font-medium text-lg">{opt.label}</span>
                                                 </label>
                                             ))}
                                         </div>
@@ -310,11 +381,14 @@ export const ExternalForm: React.FC = () => {
                                             <select 
                                                 required={q.required}
                                                 className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all appearance-none cursor-pointer text-lg text-slate-700 shadow-sm"
-                                                onChange={(e) => handleInputChange(q.id, e.target.value)}
+                                                onChange={(e) => {
+                                                    const selectedOption = q.options?.find(o => o.label === e.target.value);
+                                                    handleInputChange(q.id, e.target.value, selectedOption?.value || 0);
+                                                }}
                                             >
                                                 <option value="">Selecione uma opção...</option>
                                                 {q.options?.map((opt, i) => (
-                                                    <option key={i} value={opt}>{opt}</option>
+                                                    <option key={i} value={opt.label}>{opt.label}</option>
                                                 ))}
                                             </select>
                                             <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">

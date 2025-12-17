@@ -185,12 +185,26 @@ export interface FormStats {
 
 export type QuestionType = 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'select';
 
+export interface FormOption {
+  label: string;
+  value: number; // Score associated with this option
+}
+
 export interface FormQuestion {
   id: string;
   type: QuestionType;
   text: string;
   required: boolean;
-  options?: string[];
+  options?: FormOption[]; // Updated to support scores
+}
+
+export interface InterpretationRule {
+  id: string;
+  minScore: number;
+  maxScore: number;
+  resultTitle: string; // e.g., "Depressão Moderada"
+  description: string; // Clinical description
+  color: string; // e.g., "bg-red-100 text-red-700"
 }
 
 export interface ClinicalForm {
@@ -199,6 +213,8 @@ export interface ClinicalForm {
   description: string;
   createdAt: string;
   questions: FormQuestion[];
+  interpretations?: InterpretationRule[]; // Logic for results
+  isGlobal?: boolean; // If true, it comes from Super Admin and cannot be deleted by tenant
   responseCount: number;
   hash: string;
 }

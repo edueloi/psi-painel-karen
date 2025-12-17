@@ -1,13 +1,14 @@
+
 import React, { useState } from 'react';
-import { FormQuestion, QuestionType } from '../../types';
+import { FormQuestion, QuestionType, FormOption, InterpretationRule } from '../../types';
 import { 
-  Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, FileSignature, Wand2, Settings, Eye, ArrowLeft
+  Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, FileSignature, Wand2, Settings, Eye, ArrowLeft, Calculator, Target, Palette
 } from 'lucide-react';
 import { Button } from '../UI/Button';
 
 interface FormBuilderProps {
-  initialData?: { title: string; description: string; questions: FormQuestion[] };
-  onSave: (data: { title: string; description: string; questions: FormQuestion[] }) => void;
+  initialData?: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[] };
+  onSave: (data: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[] }) => void;
   onCancel: () => void;
 }
 
@@ -21,12 +22,49 @@ const QUESTION_TYPES: { type: QuestionType; label: string; icon: React.ReactNode
 ];
 
 export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, onCancel }) => {
-  const [activeTab, setActiveTab] = useState<'editor' | 'settings'>('editor');
+  const [activeTab, setActiveTab] = useState<'editor' | 'logic' | 'settings'>('editor');
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [questions, setQuestions] = useState<FormQuestion[]>(initialData?.questions || []);
+  const [interpretations, setInterpretations] = useState<InterpretationRule[]>(initialData?.interpretations || []);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
 
+  // --- Logic Helpers ---
+  const calculateMaxScore = () => {
+      return questions.reduce((acc, q) => {
+          if ((q.type === 'radio' || q.type === 'select') && q.options) {
+              const maxOption = Math.max(...q.options.map(o => o.value || 0));
+              return acc + maxOption;
+          }
+          if (q.type === 'checkbox' && q.options) {
+              const sumOptions = q.options.reduce((sum, o) => sum + (o.value || 0), 0);
+              return acc + sumOptions;
+          }
+          return acc;
+      }, 0);
+  };
+
+  const addInterpretation = () => {
+      const newRule: InterpretationRule = {
+          id: Math.random().toString(36).substr(2, 5),
+          minScore: 0,
+          maxScore: 10,
+          resultTitle: '',
+          description: '',
+          color: 'bg-slate-100 text-slate-800'
+      };
+      setInterpretations([...interpretations, newRule]);
+  };
+
+  const updateInterpretation = (id: string, field: keyof InterpretationRule, value: any) => {
+      setInterpretations(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
+  };
+
+  const deleteInterpretation = (id: string) => {
+      setInterpretations(prev => prev.filter(i => i.id !== id));
+  };
+
+  // --- Question Helpers ---
   const addQuestion = () => {
     const newId = Math.random().toString(36).substr(2, 9);
     const newQuestion: FormQuestion = {
@@ -34,7 +72,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
       type: 'text',
       text: '',
       required: false,
-      options: ['Opção 1']
+      options: [{ label: 'Opção 1', value: 0 }]
     };
     setQuestions([...questions, newQuestion]);
     setActiveQuestionId(newId);
@@ -53,17 +91,17 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
   const addOption = (questionId: string) => {
     setQuestions(questions.map(q => {
       if (q.id === questionId) {
-        return { ...q, options: [...(q.options || []), `Opção ${(q.options?.length || 0) + 1}`] };
+        return { ...q, options: [...(q.options || []), { label: `Opção ${(q.options?.length || 0) + 1}`, value: 0 }] };
       }
       return q;
     }));
   };
 
-  const updateOption = (questionId: string, index: number, value: string) => {
+  const updateOption = (questionId: string, index: number, field: keyof FormOption, value: any) => {
     setQuestions(questions.map(q => {
       if (q.id === questionId && q.options) {
         const newOptions = [...q.options];
-        newOptions[index] = value;
+        newOptions[index] = { ...newOptions[index], [field]: value };
         return { ...q, options: newOptions };
       }
       return q;
@@ -98,189 +136,330 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
           </div>
         </div>
 
+        {/* Tab Switcher in Header */}
+        <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button 
+                onClick={() => setActiveTab('editor')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'editor' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+                Editor
+            </button>
+            <button 
+                onClick={() => setActiveTab('logic')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'logic' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+                <Calculator size={14} /> Cálculo & Resultados
+            </button>
+        </div>
+
         <div className="flex gap-3">
-           <Button variant="ghost" size="sm" className="hidden sm:flex">
-             <Eye size={16} className="mr-2" /> Visualizar
-           </Button>
-           <Button variant="primary" size="sm" onClick={() => onSave({ title, description, questions })}>
+           <Button variant="primary" size="sm" onClick={() => onSave({ title, description, questions, interpretations })}>
              <Save size={16} className="mr-2" /> Salvar
            </Button>
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Tools (Desktop) */}
-        <div className="w-16 md:w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col hidden md:flex">
-           <div className="p-4 border-b border-slate-100">
-             <button 
-               onClick={addQuestion}
-               className="w-full flex items-center justify-center md:justify-start gap-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 p-3 rounded-xl font-bold transition-all"
-             >
-               <Plus size={20} />
-               <span className="hidden md:inline">Adicionar</span>
-             </button>
-           </div>
-           
-           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-             <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:block">Estrutura</div>
-             {questions.map((q, idx) => (
-               <button
-                 key={q.id}
-                 onClick={() => {
-                    setActiveQuestionId(q.id);
-                    document.getElementById(`q-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                 }}
-                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${activeQuestionId === q.id ? 'bg-slate-100 text-indigo-600 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}
-               >
-                 <span className="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-xs font-bold shrink-0">{idx + 1}</span>
-                 <span className="truncate hidden md:block">{q.text || 'Sem título'}</span>
-               </button>
-             ))}
-           </div>
-        </div>
-
-        {/* Main Canvas */}
-        <div className="flex-1 overflow-y-auto bg-slate-100/50 p-4 md:p-8 scroll-smooth">
-          <div className="max-w-3xl mx-auto space-y-6 pb-20">
-            
-            {/* Header Card */}
-            <div className="bg-white rounded-t-lg rounded-b-xl border-t-8 border-t-indigo-600 shadow-sm p-6 md:p-8">
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Título do Formulário"
-                className="w-full text-3xl font-display font-bold text-slate-800 placeholder:text-slate-300 border-none focus:ring-0 p-0 bg-transparent mb-2"
-              />
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Descrição do formulário"
-                className="w-full text-slate-600 placeholder:text-slate-400 border-none focus:ring-0 p-0 bg-transparent resize-none"
-                rows={2}
-              />
-            </div>
-
-            {/* Questions */}
-            {questions.map((q, index) => (
-              <div 
-                key={q.id} 
-                id={`q-${q.id}`}
-                onClick={() => setActiveQuestionId(q.id)}
-                className={`bg-white rounded-xl shadow-sm border transition-all duration-200 overflow-hidden ${
-                  activeQuestionId === q.id 
-                    ? 'border-indigo-500 ring-4 ring-indigo-500/10 scale-[1.01]' 
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                {/* Drag Handle (Visual only for now) */}
-                <div className="h-6 bg-slate-50 border-b border-slate-100 flex items-center justify-center cursor-move text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors">
-                   <GripVertical size={14} />
-                </div>
-
-                <div className="p-6">
-                  <div className="flex flex-col md:flex-row gap-4 mb-4">
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={q.text}
-                        onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
-                        placeholder="Pergunta"
-                        className={`w-full p-4 bg-slate-50 border-b-2 border-slate-200 focus:border-indigo-500 focus:bg-white outline-none transition-colors font-medium text-lg ${activeQuestionId === q.id ? 'bg-white' : ''}`}
-                      />
-                    </div>
-                    <div className="w-full md:w-48 shrink-0">
-                      <div className="relative">
-                        <select
-                          value={q.type}
-                          onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg appearance-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 font-medium text-sm"
-                        >
-                          {QUESTION_TYPES.map(t => (
-                            <option key={t.type} value={t.type}>{t.label}</option>
-                          ))}
-                        </select>
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                          {QUESTION_TYPES.find(t => t.type === q.type)?.icon}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Options Area */}
-                  {['radio', 'checkbox', 'select'].includes(q.type) && (
-                    <div className="pl-4 space-y-3 mb-6">
-                      {q.options?.map((opt, optIdx) => (
-                        <div key={optIdx} className="flex items-center gap-3 group">
-                          <div className={`w-4 h-4 rounded border-2 border-slate-300 ${q.type === 'radio' ? 'rounded-full' : 'rounded-sm'}`}></div>
-                          <input
-                            type="text"
-                            value={opt}
-                            onChange={(e) => updateOption(q.id, optIdx, e.target.value)}
-                            className="flex-1 bg-transparent border-b border-transparent focus:border-slate-300 outline-none py-1 text-slate-700 hover:border-slate-200 transition-colors"
-                          />
-                          <button 
-                            onClick={() => removeOption(q.id, optIdx)}
-                            className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-2"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      ))}
-                      <button 
-                        onClick={() => addOption(q.id)}
-                        className="flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 mt-2 px-1"
-                      >
-                        <Plus size={16} /> Adicionar opção
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Footer Actions */}
-                  <div className="flex items-center justify-end gap-6 pt-4 border-t border-slate-50 mt-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-600 select-none">
-                      <div className={`w-10 h-5 rounded-full relative transition-colors ${q.required ? 'bg-indigo-600' : 'bg-slate-200'}`}>
-                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all ${q.required ? 'left-6' : 'left-1'}`}></div>
-                      </div>
-                      <input 
-                        type="checkbox" 
-                        className="hidden" 
-                        checked={q.required}
-                        onChange={(e) => updateQuestion(q.id, 'required', e.target.checked)}
-                      />
-                      Obrigatória
-                    </label>
-                    <div className="h-6 w-px bg-slate-200"></div>
+        
+        {/* --- TAB: EDITOR --- */}
+        {activeTab === 'editor' && (
+            <>
+                {/* Sidebar Tools (Desktop) */}
+                <div className="w-16 md:w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col hidden md:flex">
+                <div className="p-4 border-b border-slate-100">
                     <button 
-                      onClick={(e) => removeQuestion(q.id, e)}
-                      className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all"
-                      title="Excluir pergunta"
+                    onClick={addQuestion}
+                    className="w-full flex items-center justify-center md:justify-start gap-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 p-3 rounded-xl font-bold transition-all"
                     >
-                      <Trash2 size={18} />
+                    <Plus size={20} />
+                    <span className="hidden md:inline">Adicionar Pergunta</span>
                     </button>
-                  </div>
                 </div>
-              </div>
-            ))}
-            
-            {/* Mobile Add Button */}
-            <button 
-               onClick={addQuestion}
-               className="w-full py-4 bg-white border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 md:hidden"
-            >
-                <Plus size={20} />
-                Adicionar Pergunta
-            </button>
-            
-            {/* Empty State Help */}
-            {questions.length === 0 && (
-                <div className="text-center py-10 text-slate-400">
-                    <Wand2 size={48} className="mx-auto mb-4 opacity-50" />
-                    <p>Seu formulário está vazio. <br/> Adicione perguntas para começar.</p>
+                
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:block">Estrutura</div>
+                    {questions.map((q, idx) => (
+                    <button
+                        key={q.id}
+                        onClick={() => {
+                            setActiveQuestionId(q.id);
+                            document.getElementById(`q-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${activeQuestionId === q.id ? 'bg-slate-100 text-indigo-600 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                        <span className="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-xs font-bold shrink-0">{idx + 1}</span>
+                        <span className="truncate hidden md:block">{q.text || 'Sem título'}</span>
+                    </button>
+                    ))}
                 </div>
-            )}
-          </div>
-        </div>
+                </div>
+
+                {/* Main Canvas */}
+                <div className="flex-1 overflow-y-auto bg-slate-100/50 p-4 md:p-8 scroll-smooth">
+                <div className="max-w-3xl mx-auto space-y-6 pb-20">
+                    
+                    {/* Header Card */}
+                    <div className="bg-white rounded-t-lg rounded-b-xl border-t-8 border-t-indigo-600 shadow-sm p-6 md:p-8">
+                    <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Título do Formulário"
+                        className="w-full text-3xl font-display font-bold text-slate-800 placeholder:text-slate-300 border-none focus:ring-0 p-0 bg-transparent mb-2"
+                    />
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Descrição do formulário"
+                        className="w-full text-slate-600 placeholder:text-slate-400 border-none focus:ring-0 p-0 bg-transparent resize-none"
+                        rows={2}
+                    />
+                    </div>
+
+                    {/* Questions */}
+                    {questions.map((q, index) => (
+                    <div 
+                        key={q.id} 
+                        id={`q-${q.id}`}
+                        onClick={() => setActiveQuestionId(q.id)}
+                        className={`bg-white rounded-xl shadow-sm border transition-all duration-200 overflow-hidden ${
+                        activeQuestionId === q.id 
+                            ? 'border-indigo-500 ring-4 ring-indigo-500/10 scale-[1.01]' 
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                    >
+                        {/* Drag Handle (Visual only for now) */}
+                        <div className="h-6 bg-slate-50 border-b border-slate-100 flex items-center justify-center cursor-move text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors">
+                        <GripVertical size={14} />
+                        </div>
+
+                        <div className="p-6">
+                        <div className="flex flex-col md:flex-row gap-4 mb-4">
+                            <div className="flex-1">
+                            <input
+                                type="text"
+                                value={q.text}
+                                onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
+                                placeholder="Pergunta"
+                                className={`w-full p-4 bg-slate-50 border-b-2 border-slate-200 focus:border-indigo-500 focus:bg-white outline-none transition-colors font-medium text-lg ${activeQuestionId === q.id ? 'bg-white' : ''}`}
+                            />
+                            </div>
+                            <div className="w-full md:w-48 shrink-0">
+                            <div className="relative">
+                                <select
+                                value={q.type}
+                                onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg appearance-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 font-medium text-sm"
+                                >
+                                {QUESTION_TYPES.map(t => (
+                                    <option key={t.type} value={t.type}>{t.label}</option>
+                                ))}
+                                </select>
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                                {QUESTION_TYPES.find(t => t.type === q.type)?.icon}
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+
+                        {/* Options Area */}
+                        {['radio', 'checkbox', 'select'].includes(q.type) && (
+                            <div className="pl-4 space-y-3 mb-6">
+                                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase px-1">
+                                    <span>Opção</span>
+                                    <span>Pontos (Score)</span>
+                                </div>
+                                {q.options?.map((opt, optIdx) => (
+                                    <div key={optIdx} className="flex items-center gap-3 group">
+                                    <div className={`w-4 h-4 rounded border-2 border-slate-300 ${q.type === 'radio' ? 'rounded-full' : 'rounded-sm'}`}></div>
+                                    <input
+                                        type="text"
+                                        value={opt.label}
+                                        onChange={(e) => updateOption(q.id, optIdx, 'label', e.target.value)}
+                                        className="flex-1 bg-transparent border-b border-transparent focus:border-slate-300 outline-none py-1 text-slate-700 hover:border-slate-200 transition-colors"
+                                    />
+                                    {/* Score Input */}
+                                    <div className="w-20 relative">
+                                        <input
+                                            type="number"
+                                            value={opt.value}
+                                            onChange={(e) => updateOption(q.id, optIdx, 'value', parseInt(e.target.value) || 0)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-center font-bold text-indigo-600 focus:border-indigo-500 outline-none"
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={() => removeOption(q.id, optIdx)}
+                                        className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-2"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                    </div>
+                                ))}
+                                <button 
+                                    onClick={() => addOption(q.id)}
+                                    className="flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 mt-2 px-1"
+                                >
+                                    <Plus size={16} /> Adicionar opção
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Footer Actions */}
+                        <div className="flex items-center justify-end gap-6 pt-4 border-t border-slate-50 mt-2">
+                            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-600 select-none">
+                            <div className={`w-10 h-5 rounded-full relative transition-colors ${q.required ? 'bg-indigo-600' : 'bg-slate-200'}`}>
+                                <div className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all ${q.required ? 'left-6' : 'left-1'}`}></div>
+                            </div>
+                            <input 
+                                type="checkbox" 
+                                className="hidden" 
+                                checked={q.required}
+                                onChange={(e) => updateQuestion(q.id, 'required', e.target.checked)}
+                            />
+                            Obrigatória
+                            </label>
+                            <div className="h-6 w-px bg-slate-200"></div>
+                            <button 
+                            onClick={(e) => removeQuestion(q.id, e)}
+                            className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all"
+                            title="Excluir pergunta"
+                            >
+                            <Trash2 size={18} />
+                            </button>
+                        </div>
+                        </div>
+                    </div>
+                    ))}
+                    
+                    {/* Mobile Add Button */}
+                    <button 
+                    onClick={addQuestion}
+                    className="w-full py-4 bg-white border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 md:hidden"
+                    >
+                        <Plus size={20} />
+                        Adicionar Pergunta
+                    </button>
+                    
+                    {/* Empty State Help */}
+                    {questions.length === 0 && (
+                        <div className="text-center py-10 text-slate-400">
+                            <Wand2 size={48} className="mx-auto mb-4 opacity-50" />
+                            <p>Seu formulário está vazio. <br/> Adicione perguntas para começar.</p>
+                        </div>
+                    )}
+                </div>
+                </div>
+            </>
+        )}
+
+        {/* --- TAB: LOGIC & CALCULATION --- */}
+        {activeTab === 'logic' && (
+            <div className="flex-1 overflow-y-auto bg-slate-100/50 p-4 md:p-8">
+                <div className="max-w-4xl mx-auto space-y-8">
+                    <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+                        <div className="flex items-start gap-4 mb-6">
+                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                                <Calculator size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800">Simulador de Pontuação</h3>
+                                <p className="text-slate-500 text-sm">O sistema soma automaticamente os valores atribuídos às opções.</p>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 text-center">
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Pontuação Máxima Possível</p>
+                            <p className="text-4xl font-display font-bold text-indigo-600">{calculateMaxScore()} pontos</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex items-center gap-3">
+                                <Target size={24} className="text-indigo-600" />
+                                <h3 className="text-xl font-bold text-slate-800">Regras de Interpretação</h3>
+                            </div>
+                            <button onClick={addInterpretation} className="flex items-center gap-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors">
+                                <Plus size={16} /> Nova Regra
+                            </button>
+                        </div>
+
+                        {interpretations.length === 0 ? (
+                            <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-xl">
+                                <p className="text-slate-400">Nenhuma regra definida. O resultado mostrará apenas a soma total.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {interpretations.map((rule, idx) => (
+                                    <div key={rule.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center font-bold text-slate-500 text-sm">{idx + 1}</div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-slate-600">De</span>
+                                                <input 
+                                                    type="number" 
+                                                    value={rule.minScore} 
+                                                    onChange={e => updateInterpretation(rule.id, 'minScore', parseInt(e.target.value))}
+                                                    className="w-16 p-2 rounded-lg border border-slate-300 text-center font-bold outline-none focus:border-indigo-500"
+                                                />
+                                                <span className="text-sm font-bold text-slate-600">até</span>
+                                                <input 
+                                                    type="number" 
+                                                    value={rule.maxScore} 
+                                                    onChange={e => updateInterpretation(rule.id, 'maxScore', parseInt(e.target.value))}
+                                                    className="w-16 p-2 rounded-lg border border-slate-300 text-center font-bold outline-none focus:border-indigo-500"
+                                                />
+                                                <span className="text-sm font-bold text-slate-600">pontos</span>
+                                            </div>
+                                            <div className="flex-1"></div>
+                                            <button onClick={() => deleteInterpretation(rule.id)} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={18} /></button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Título do Resultado</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Ex: Sono Preservado"
+                                                    value={rule.resultTitle}
+                                                    onChange={e => updateInterpretation(rule.id, 'resultTitle', e.target.value)}
+                                                    className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 font-medium"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Cor do Card</label>
+                                                <select 
+                                                    value={rule.color}
+                                                    onChange={e => updateInterpretation(rule.id, 'color', e.target.value)}
+                                                    className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 bg-white"
+                                                >
+                                                    <option value="bg-slate-100 text-slate-800">Cinza (Neutro)</option>
+                                                    <option value="bg-emerald-100 text-emerald-800">Verde (Positivo)</option>
+                                                    <option value="bg-blue-100 text-blue-800">Azul (Informativo)</option>
+                                                    <option value="bg-amber-100 text-amber-800">Amarelo (Atenção)</option>
+                                                    <option value="bg-red-100 text-red-800">Vermelho (Crítico)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Descrição Clínica / Orientação</label>
+                                            <textarea 
+                                                rows={2}
+                                                placeholder="Texto que aparecerá na conclusão..."
+                                                value={rule.description}
+                                                onChange={e => updateInterpretation(rule.id, 'description', e.target.value)}
+                                                className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 resize-none"
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+
       </div>
     </div>
   );

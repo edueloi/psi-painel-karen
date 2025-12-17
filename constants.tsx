@@ -107,12 +107,54 @@ export const MOCK_GLOBAL_FORMS: ClinicalForm[] = [
     title: 'Anamnese Padrão (Global)',
     description: 'Modelo base para anamnese adulta disponibilizado pelo sistema.',
     createdAt: '2023-01-01',
+    isGlobal: true,
     questions: [
-       { id: 'q1', type: 'text', text: 'Nome Completo', required: true },
-       { id: 'q2', type: 'textarea', text: 'Histórico Clínico', required: true }
+       { id: 'q1', type: 'text', text: 'Nome Completo', required: true, options: [] },
+       { id: 'q2', type: 'textarea', text: 'Histórico Clínico', required: true, options: [] }
     ],
     responseCount: 0,
     hash: 'global-anamnese-std'
+  },
+  {
+    id: 'gf2',
+    title: 'Questionário de Qualidade do Sono (QQS)',
+    description: 'Avaliação clínica para triagem de distúrbios do sono. Considere as últimas duas semanas.',
+    createdAt: '2023-10-01',
+    isGlobal: true,
+    responseCount: 150,
+    hash: 'qqs-global',
+    interpretations: [
+        { id: 'i1', minScore: 0, maxScore: 9, resultTitle: 'Sono Preservado', description: 'O paciente não apresenta indicativos significativos de distúrbios do sono.', color: 'bg-emerald-100 text-emerald-800' },
+        { id: 'i2', minScore: 10, maxScore: 19, resultTitle: 'Alterações Leves', description: 'Sinais iniciais de prejuízo no sono. Recomendado monitoramento e higiene do sono.', color: 'bg-blue-100 text-blue-800' },
+        { id: 'i3', minScore: 20, maxScore: 29, resultTitle: 'Prejuízo Moderado', description: 'Impacto notável na qualidade de vida. Sugere-se investigação clínica.', color: 'bg-amber-100 text-amber-800' },
+        { id: 'i4', minScore: 30, maxScore: 40, resultTitle: 'Prejuízo Significativo', description: 'Altamente sugestivo de distúrbio do sono severo. Necessária intervenção imediata.', color: 'bg-red-100 text-red-800' },
+    ],
+    questions: [
+        { 
+            id: 'q1', type: 'radio', text: 'Tenho dificuldade para iniciar o sono', required: true, 
+            options: [
+                { label: 'Nunca (0)', value: 0 }, { label: 'Raramente (1)', value: 1 }, { label: 'Às vezes (2)', value: 2 }, { label: 'Frequentemente (3)', value: 3 }, { label: 'Sempre (4)', value: 4 }
+            ]
+        },
+        { 
+            id: 'q2', type: 'radio', text: 'Acordo durante a noite e demoro para voltar a dormir', required: true, 
+            options: [
+                { label: 'Nunca (0)', value: 0 }, { label: 'Raramente (1)', value: 1 }, { label: 'Às vezes (2)', value: 2 }, { label: 'Frequentemente (3)', value: 3 }, { label: 'Sempre (4)', value: 4 }
+            ]
+        },
+        { 
+            id: 'q3', type: 'radio', text: 'Acordo cansado(a), mesmo dormindo várias horas', required: true, 
+            options: [
+                { label: 'Nunca (0)', value: 0 }, { label: 'Raramente (1)', value: 1 }, { label: 'Às vezes (2)', value: 2 }, { label: 'Frequentemente (3)', value: 3 }, { label: 'Sempre (4)', value: 4 }
+            ]
+        },
+        { 
+            id: 'q4', type: 'radio', text: 'Meu sono interfere no meu humor durante o dia', required: true, 
+            options: [
+                { label: 'Nunca (0)', value: 0 }, { label: 'Raramente (1)', value: 1 }, { label: 'Às vezes (2)', value: 2 }, { label: 'Frequentemente (3)', value: 3 }, { label: 'Sempre (4)', value: 4 }
+            ]
+        },
+    ]
   }
 ];
 // ---------------------------------
@@ -334,10 +376,11 @@ export const MOCK_FORMS: ClinicalForm[] = [
     createdAt: '2023-08-15',
     responseCount: 64,
     hash: 'ana-adulto-23',
+    isGlobal: false,
     questions: [
-        { id: 'q1', type: 'text', text: 'Nome Completo', required: true },
-        { id: 'q2', type: 'textarea', text: 'Qual o principal motivo da consulta?', required: true },
-        { id: 'q3', type: 'radio', text: 'Já fez terapia antes?', required: true, options: ['Sim', 'Não'] },
+        { id: 'q1', type: 'text', text: 'Nome Completo', required: true, options: [] },
+        { id: 'q2', type: 'textarea', text: 'Qual o principal motivo da consulta?', required: true, options: [] },
+        { id: 'q3', type: 'radio', text: 'Já fez terapia antes?', required: true, options: [{label: 'Sim', value: 0}, {label: 'Não', value: 0}] },
     ]
   },
   {
@@ -347,22 +390,13 @@ export const MOCK_FORMS: ClinicalForm[] = [
     createdAt: '2023-09-01',
     responseCount: 32,
     hash: 'sono-semanal',
+    isGlobal: false,
     questions: [
-        { id: 'q1', type: 'number', text: 'Quantas horas você dormiu?', required: true },
-        { id: 'q2', type: 'select', text: 'Qualidade do sono', required: true, options: ['Ruim', 'Regular', 'Bom', 'Ótimo'] },
+        { id: 'q1', type: 'number', text: 'Quantas horas você dormiu?', required: true, options: [] },
+        { id: 'q2', type: 'select', text: 'Qualidade do sono', required: true, options: [{label: 'Ruim', value: 0}, {label: 'Regular', value: 1}, {label: 'Bom', value: 2}, {label: 'Ótimo', value: 3}] },
     ]
   },
-  {
-    id: '3',
-    title: 'Termo de Consentimento',
-    description: 'Aceite das políticas de privacidade e sigilo.',
-    createdAt: '2023-07-20',
-    responseCount: 12,
-    hash: 'termo-sigilo',
-    questions: [
-        { id: 'q1', type: 'checkbox', text: 'Li e concordo com os termos', required: true, options: ['Sim, concordo'] },
-    ]
-  }
+  ...MOCK_GLOBAL_FORMS
 ];
 
 export const MOCK_MESSAGE_TEMPLATES: MessageTemplate[] = [
@@ -518,58 +552,5 @@ export const MOCK_PRODUCTS: Product[] = [
     salesCount: 120,
     type: 'physical',
     imageUrl: 'https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=300&auto=format&fit=crop'
-  },
-  { 
-    id: 'p3', 
-    name: 'Óleo Essencial Lavanda', 
-    brand: 'Natural Life', 
-    category: 'Aromaterapia', 
-    price: 35.00, 
-    cost: 15.00, 
-    stock: 20, 
-    minStock: 8, 
-    expirationDate: '2023-12-15', 
-    salesCount: 30,
-    type: 'physical',
-    imageUrl: 'https://images.unsplash.com/photo-1608528577891-9b7662b92e63?q=80&w=300&auto=format&fit=crop'
-  },
-  { 
-    id: 'p4', 
-    name: 'E-book: Guia do Sono', 
-    brand: 'Autoral', 
-    category: 'Digital', 
-    price: 29.90, 
-    cost: 0.00, 
-    stock: 9999, 
-    minStock: 0, 
-    salesCount: 200,
-    type: 'digital',
-    imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=300&auto=format&fit=crop'
-  },
-  { 
-    id: 'p5', 
-    name: 'Caderno de Anotações', 
-    brand: 'Papelaria Fina', 
-    category: 'Papelaria', 
-    price: 25.00, 
-    cost: 10.00, 
-    stock: 50, 
-    minStock: 10, 
-    salesCount: 15,
-    type: 'physical'
-  },
-  { 
-    id: 'p6', 
-    name: 'Suplemento Vitamina D', 
-    brand: 'VitaHealth', 
-    category: 'Suplementos', 
-    price: 60.00, 
-    cost: 30.00, 
-    stock: 2, 
-    minStock: 5, 
-    expirationDate: '2023-10-01', 
-    salesCount: 8,
-    type: 'physical',
-    imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=300&auto=format&fit=crop'
   },
 ];
