@@ -24,25 +24,13 @@ export const translations = {
     'nav.meeting': 'Sala Virtual',
     'nav.bot': 'Vincular Bot', 
     'nav.cases': 'Estudo de Caso', 
-    'nav.neuro': 'Neurodesenvolvimento', 
+    'nav.neuro': 'Neurodesenvolvimento',
+    'nav.tools': 'Caixa de Ferramentas', // NEW
     'nav.logout': 'Sair',
     'nav.upgrade': 'Fazer Upgrade',
     'nav.premium': 'Conta Premium',
     'nav.premium.desc': 'Acesse recursos exclusivos de IA.',
 
-    // Meeting Room Assessments
-    'meeting.assessments': 'Avaliações',
-    'meeting.sendTest': 'Enviar para Paciente',
-    'meeting.monitoring': 'Monitorando Respostas...',
-    'meeting.waitingForStart': 'Aguardando início...',
-    'meeting.patientView': 'Visão do Paciente',
-    'meeting.hostView': 'Painel do Terapeuta',
-    'meeting.formSent': 'Formulário enviado com sucesso.',
-    'meeting.patientSolving': 'O paciente está preenchendo agora.',
-    'meeting.testComplete': 'Teste Finalizado',
-    'meeting.resultCalculated': 'Resultado Calculado',
-    'meeting.closeTest': 'Encerrar Aplicação',
-    
     // Navigation Groups
     'nav.group.general': 'Geral',
     'nav.group.clinical': 'Clínico',
@@ -50,7 +38,42 @@ export const translations = {
     'nav.group.financial': 'Financeiro & Relatórios',
     'nav.group.system': 'Sistema',
 
-    // PEI / Neuro
+    // Clinical Tools
+    'tools.title': 'Caixa de Ferramentas Clínicas',
+    'tools.subtitle': 'Recursos digitais para TCC, Terapia do Esquema e Psicanálise.',
+    'tools.tcc': 'TCC (Cognitiva)',
+    'tools.schema': 'Terapia do Esquema',
+    'tools.psycho': 'Psicanálise',
+    
+    // TCC
+    'tcc.rpd': 'Registro de Pensamentos (RPD)',
+    'tcc.situation': 'Situação (Gatilho)',
+    'tcc.thought': 'Pensamento Automático',
+    'tcc.emotion': 'Emoção & Intensidade (0-10)',
+    'tcc.distortion': 'Distorção Cognitiva',
+    'tcc.response': 'Resposta Racional',
+    'tcc.addEntry': 'Adicionar Registro',
+    'tcc.distortions.allOrNothing': 'Tudo ou Nada',
+    'tcc.distortions.catastrophizing': 'Catastrofização',
+    'tcc.distortions.emotionalReasoning': 'Raciocínio Emocional',
+    'tcc.distortions.personalization': 'Personalização',
+    
+    // Schema
+    'schema.map': 'Mapeamento de Esquemas',
+    'schema.modes': 'Modos Esquemáticos',
+    'schema.domains': 'Domínios',
+    'schema.active': 'Ativo',
+    'schema.score': 'Intensidade',
+    
+    // Psychoanalysis
+    'psycho.dreams': 'Análise de Sonhos',
+    'psycho.association': 'Associação Livre',
+    'psycho.manifest': 'Conteúdo Manifesto (Relato)',
+    'psycho.latent': 'Conteúdo Latente / Associações',
+    'psycho.interpretation': 'Interpretação / Hipótese',
+    'psycho.saveDream': 'Arquivar Sonho',
+
+    // ... (rest of translations)
     'pei.title': 'Neurodesenvolvimento & Inclusão',
     'pei.subtitle': 'Dashboard completo para TEA, TDAH e Neurodiversidade. Monitore PEI, sensorial e comportamento.',
     'pei.patient': 'Paciente',

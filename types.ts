@@ -375,3 +375,33 @@ export interface PEI {
   sensoryProfile?: SensoryProfile; // NEW
   abcRecords?: ABCRecord[]; // NEW
 }
+
+// --- CLINICAL TOOLS TYPES ---
+export interface RPDRecord {
+    id: string;
+    date: string;
+    situation: string;
+    thought: string;
+    emotion: string;
+    intensity: number; // 0-10
+    distortion: string;
+    response: string;
+    outcome?: string;
+}
+
+export interface SchemaItem {
+    id: string;
+    name: string;
+    domain: string;
+    active: boolean;
+    intensity: number; // 0-10
+}
+
+export interface DreamEntry {
+    id: string;
+    date: string;
+    title: string;
+    manifestContent: string;
+    associations: string;
+    interpretation: string;
+}

@@ -32,6 +32,7 @@ import { VirtualRooms } from './pages/VirtualRooms';
 import { BotIntegration } from './pages/BotIntegration';
 import { CaseStudies } from './pages/CaseStudies';
 import { PEI } from './pages/PEI'; 
+import { ClinicalTools } from './pages/ClinicalTools'; // NEW
 import { SuperAdmin } from './pages/SuperAdmin'; 
 import { MOCK_USERS } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -130,6 +131,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="/bot" element={<BotIntegration />} />
                 <Route path="/cases" element={<CaseStudies />} />
                 <Route path="/pei" element={<PEI />} /> 
+                <Route path="/clinical-tools" element={<ClinicalTools />} /> 
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/doc-generator" element={<DocGenerator />} />
                 
