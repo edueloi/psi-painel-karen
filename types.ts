@@ -267,21 +267,31 @@ export interface ComandaItem {
   total: number;
 }
 
+export interface ComandaSession {
+  id: string;
+  number: number; // e.g. Session 1 of 10
+  date: string; // ISO String
+  status: 'pending' | 'completed' | 'canceled';
+  notes?: string;
+}
+
 export interface Comanda {
   id: string;
   description: string;
   patientId: string;
   patientName: string;
-  startDate: string;
-  endDate?: string; // For filtering
+  startDate: string; // Data inicial para cálculo das sessões
+  
   status: ComandaStatus;
   type: ComandaType;
   
   // Service Specifics
   frequency?: Frequency;
-  recurrenceDay?: string; // e.g. "Segunda-feira"
   
   items: ComandaItem[];
+  
+  // New: Session Tracking
+  sessions: ComandaSession[];
   
   // Financials
   subtotal: number;

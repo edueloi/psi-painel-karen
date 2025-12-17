@@ -508,9 +508,15 @@ export const MOCK_COMANDAS: Comanda[] = [
     status: 'aberta',
     type: 'servico',
     frequency: 'semanal',
-    recurrenceDay: 'Quarta-feira',
     items: [
         { id: 'i1', serviceId: '1', serviceName: 'Terapia Individual', quantity: 4, unitPrice: 350.00, total: 1400.00 }
+    ],
+    // MOCK SESSIONS
+    sessions: [
+        { id: 's1', number: 1, date: '2023-09-06T10:00:00', status: 'completed' },
+        { id: 's2', number: 2, date: '2023-09-13T10:00:00', status: 'completed' },
+        { id: 's3', number: 3, date: '2023-09-20T10:00:00', status: 'pending' },
+        { id: 's4', number: 4, date: '2023-09-27T10:00:00', status: 'pending' },
     ],
     subtotal: 1400.00,
     discountType: 'percentage',
@@ -525,12 +531,14 @@ export const MOCK_COMANDAS: Comanda[] = [
     patientId: '2',
     patientName: 'Mariana Souza',
     startDate: '2023-07-15',
-    endDate: '2023-10-15',
     status: 'fechada',
     type: 'pacote',
     items: [
         { id: 'i2', serviceId: '2', serviceName: 'Terapia Online', quantity: 12, unitPrice: 300.00, total: 3600.00 }
     ],
+    sessions: Array.from({length: 12}, (_, i) => ({
+        id: `s${i+10}`, number: i+1, date: '2023-07-15', status: 'completed'
+    })),
     subtotal: 3600.00,
     discountType: 'fixed',
     discountValue: 400.00,
