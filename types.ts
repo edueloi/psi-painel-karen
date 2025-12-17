@@ -1,4 +1,5 @@
 
+
 export enum UserRole {
   ADMIN = 'ADMIN',
   PSYCHOLOGIST = 'PSYCHOLOGIST',
@@ -146,6 +147,9 @@ export interface Appointment {
   notes?: string;
   color?: string;
   
+  // Added duration_minutes to fix error in Agenda.tsx on line 130
+  duration_minutes?: number;
+
   // Recurrence Logic
   recurrence?: 'none' | 'weekly' | 'biweekly' | 'monthly';
   recurrenceEndType?: 'count' | 'date'; // 'count' = X times, 'date' = until Y date
@@ -374,6 +378,29 @@ export interface PEI {
   goals: ClinicalGoal[];
   sensoryProfile?: SensoryProfile; // NEW
   abcRecords?: ABCRecord[]; // NEW
+}
+
+// --- ASSESSMENT TYPES ---
+export interface AssessmentQuestion {
+  id: string;
+  text: string;
+  riskAnswer?: string;
+}
+
+export interface AssessmentOption {
+  label: string;
+  value: number | string;
+}
+
+export interface Assessment {
+  id: string;
+  name: string;
+  description: string;
+  type: 'risk' | 'sum';
+  cutoff?: number;
+  questions: AssessmentQuestion[];
+  options?: AssessmentOption[];
+  color?: string;
 }
 
 // --- CLINICAL TOOLS TYPES ---

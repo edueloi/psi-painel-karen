@@ -1,175 +1,81 @@
 
-import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Topbar } from './components/Layout/Topbar';
 import { Login } from './components/Auth/Login';
-import { ForgotPassword } from './components/Auth/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
 import { Agenda } from './pages/Agenda';
-import { Documents } from './pages/Documents';
-import { DocGenerator } from './pages/DocGenerator'; // NEW
-import { Forms } from './pages/Forms';
-import { FormsList } from './pages/FormsList';
-import { Records } from './pages/Records';
-import { Messages } from './pages/Messages';
-import { Services } from './pages/Services';
-import { Comandas } from './pages/Comandas';
-import { Products } from './pages/Products';
-import { BestClients } from './pages/BestClients';
-import { Performance } from './pages/Performance';
-import { Finance } from './pages/Finance';
-import { Profile } from './pages/Profile';
-import { Settings } from './pages/Settings';
-import { Privacy } from './pages/Privacy';
-import { Help } from './pages/Help';
 import { Professionals } from './pages/Professionals';
-import { FormBuilder } from './components/Forms/FormBuilder';
-import { ExternalForm } from './pages/ExternalForm';
-import { MeetingRoom } from './pages/MeetingRoom';
-import { VirtualRooms } from './pages/VirtualRooms';
-import { BotIntegration } from './pages/BotIntegration';
-import { CaseStudies } from './pages/CaseStudies';
-import { PEI } from './pages/PEI'; 
-import { ClinicalTools } from './pages/ClinicalTools'; // NEW
-import { SuperAdmin } from './pages/SuperAdmin'; 
-import { Users } from './pages/Users';
-import { MOCK_USERS } from './constants';
+import { Permissions } from './pages/Permissions';
+import { SuperAdmin } from './pages/SuperAdmin';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 
-const MainLayout: React.FC<{ children: React.ReactNode, onLogout: () => void }> = ({ children, onLogout }) => {
-  // Initialize open on desktop, closed on mobile
-  const [isSidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
-  const user = MOCK_USERS[0]; // Mock user
-
-  const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
+const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { logout, user } = useAuth();
+  const [isSidebarOpen, setSidebarOpen] = React.useState(() => window.innerWidth >= 1024);
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-800 font-sans overflow-hidden">
-      {/* Sidebar - Fixed Position */}
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
-        onLogout={onLogout}
-      />
-      
-      {/* Content Wrapper - Adjusts margin on desktop when sidebar is open */}
-      <div 
-        className={`flex-1 flex flex-col min-w-0 h-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isSidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-0'}`}
-      >
-        {/* Top Navbar */}
-        <Topbar 
-            onMenuClick={toggleSidebar} 
-            user={user}
-            onLogout={onLogout} 
-        />
-
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative">
-          <div className="max-w-7xl mx-auto pb-10 h-full">
-            {children}
-          </div>
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={logout} />
+      <div className={`flex-1 flex flex-col min-w-0 h-full transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-0'}`}>
+        <Topbar onMenuClick={() => setSidebarOpen(!isSidebarOpen)} user={user as any} onLogout={logout} />
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="max-w-7xl mx-auto pb-10">{children}</div>
         </main>
       </div>
     </div>
   );
 };
 
-const FormBuilderWrapper: React.FC = () => {
-    const navigate = useNavigate();
-    return (
-        <FormBuilder 
-            onSave={(data) => {
-                console.log('Saved:', data);
-                navigate('/forms/list');
-            }}
-            onCancel={() => navigate('/forms')}
-        />
-    );
+const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[] }> = ({ children, allowedRoles }) => {
+  const { isAuthenticated, user } = useAuth();
+  
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <MainLayout>{children}</MainLayout>;
 };
-
-import { jwtDecode } from 'jwt-decode';
-import { User } from './types';
-
-// ... (imports remain the same)
-
 
 const AppRoutes: React.FC = () => {
-  const [authStatus, setAuthStatus] = useState<'GUEST' | 'USER' | 'SUPER_ADMIN'>('GUEST');
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const decodedUser: User & { exp: number } = jwtDecode(token);
-        // Check if token is expired
-        if (decodedUser.exp * 1000 > Date.now()) {
-          setUser(decodedUser);
-          setAuthStatus(decodedUser.role.toUpperCase() === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'USER');
-        } else {
-          // Token is expired
-          localStorage.removeItem('token');
-        }
-      } catch (error) {
-        console.error("Invalid token", error);
-        localStorage.removeItem('token');
-      }
-    }
-  }, []);
-
-  const handleLogin = (token: string) => {
-    try {
-      localStorage.setItem('token', token);
-      const decodedUser: User = jwtDecode(token);
-      setUser(decodedUser);
-      const userRole = (decodedUser.role || '').toUpperCase();
-      
-      if (userRole === 'SUPER_ADMIN') {
-        setAuthStatus('SUPER_ADMIN');
-      } else {
-        setAuthStatus('USER');
-      }
-    } catch (error) {
-       console.error("Failed to decode token on login", error);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    setAuthStatus('GUEST');
-  };
+  const { isSuperAdmin } = useAuth();
 
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/login" element={
-          authStatus !== 'GUEST' ? <Navigate to="/" replace /> : <Login onLogin={(token) => handleLogin(token)} />
-        } />
-        {/* ... other public routes */}
-        <Route path="/*" element={
-          authStatus === 'GUEST' ? (
-            <Navigate to="/login" replace />
-          ) : authStatus === 'SUPER_ADMIN' ? (
-            <SuperAdmin onLogout={handleLogout} />
-          ) : (
-            <MainLayout user={user} onLogout={handleLogout}>
-              {/* ... nested routes */}
-            </MainLayout>
-          )
-        } />
-      </Routes>
-    </HashRouter>
+    <Routes>
+      <Route path="/login" element={<Login onLogin={() => {}} />} />
+      
+      {/* Rotas de Super Admin */}
+      <Route path="/master" element={
+        <ProtectedRoute allowedRoles={['super_admin']}>
+          <SuperAdmin onLogout={() => {}} />
+        </ProtectedRoute>
+      } />
+
+      {/* Rotas Comuns de Clínica */}
+      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+      <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+      <Route path="/professionals" element={<ProtectedRoute allowedRoles={['admin']}><Professionals /></ProtectedRoute>} />
+      <Route path="/permissions" element={<ProtectedRoute allowedRoles={['admin']}><Permissions /></ProtectedRoute>} />
+      
+      {/* Redirecionamento Inicial conforme cargo */}
+      <Route path="*" element={isSuperAdmin ? <Navigate to="/master" /> : <Navigate to="/" />} />
+    </Routes>
   );
 };
-
 
 const App: React.FC = () => {
   return (
     <LanguageProvider>
-      <AppRoutes />
+      <AuthProvider>
+        <HashRouter>
+          <AppRoutes />
+        </HashRouter>
+      </AuthProvider>
     </LanguageProvider>
   );
 };
