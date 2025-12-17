@@ -25,7 +25,7 @@ export const translations = {
     'nav.bot': 'Vincular Bot', 
     'nav.cases': 'Estudo de Caso', 
     'nav.neuro': 'Neurodesenvolvimento',
-    'nav.tools': 'Caixa de Ferramentas', // NEW
+    'nav.tools': 'Caixa de Ferramentas',
     'nav.logout': 'Sair',
     'nav.upgrade': 'Fazer Upgrade',
     'nav.premium': 'Conta Premium',
@@ -47,12 +47,17 @@ export const translations = {
     
     // TCC
     'tcc.rpd': 'Registro de Pensamentos (RPD)',
+    'tcc.coping': 'Cartões de Enfrentamento',
     'tcc.situation': 'Situação (Gatilho)',
     'tcc.thought': 'Pensamento Automático',
     'tcc.emotion': 'Emoção & Intensidade (0-10)',
     'tcc.distortion': 'Distorção Cognitiva',
     'tcc.response': 'Resposta Racional',
     'tcc.addEntry': 'Adicionar Registro',
+    'tcc.addCard': 'Novo Cartão',
+    'tcc.cardFront': 'Situação / Pensamento Difícil',
+    'tcc.cardBack': 'Estratégia / Pensamento Alternativo',
+    'tcc.flip': 'Virar Cartão',
     'tcc.distortions.allOrNothing': 'Tudo ou Nada',
     'tcc.distortions.catastrophizing': 'Catastrofização',
     'tcc.distortions.emotionalReasoning': 'Raciocínio Emocional',
@@ -64,18 +69,24 @@ export const translations = {
     'schema.domains': 'Domínios',
     'schema.active': 'Ativo',
     'schema.score': 'Intensidade',
+    'schema.childModes': 'Modos Criança',
+    'schema.parentModes': 'Modos Pais',
+    'schema.copingModes': 'Modos de Enfrentamento',
+    'schema.healthyModes': 'Modos Saudáveis',
     
     // Psychoanalysis
     'psycho.dreams': 'Análise de Sonhos',
     'psycho.association': 'Associação Livre',
+    'psycho.signifiers': 'Rastreio de Significantes',
     'psycho.manifest': 'Conteúdo Manifesto (Relato)',
     'psycho.latent': 'Conteúdo Latente / Associações',
     'psycho.interpretation': 'Interpretação / Hipótese',
     'psycho.saveDream': 'Arquivar Sonho',
+    'psycho.addSignifier': 'Adicionar Significante',
 
-    // ... (rest of translations)
+    // PEI / Sensory
     'pei.title': 'Neurodesenvolvimento & Inclusão',
-    'pei.subtitle': 'Dashboard completo para TEA, TDAH e Neurodiversidade. Monitore PEI, sensorial e comportamento.',
+    'pei.subtitle': 'Dashboard completo para TEA, TDAH e Neurodiversidade.',
     'pei.patient': 'Paciente',
     'pei.selectPatient': 'Selecione um paciente',
     'pei.goals': 'Metas e Programas',
@@ -96,29 +107,24 @@ export const translations = {
     'pei.notes': 'Obs.',
     'pei.save': 'Salvar Lançamento',
     
-    // Neuro Tabs
     'pei.tab.goals': 'PEI & Metas',
     'pei.tab.abc': 'Registro ABC',
-    'pei.tab.sensory': 'Perfil Sensorial',
+    'pei.tab.sensory': 'Matriz Sensorial',
     'pei.tab.assessments': 'Escalas & Rastreio',
 
-    // Goal Form
-    'pei.goal.title': 'Título do Programa/Meta',
-    'pei.goal.desc': 'Descrição Operacional',
-    'pei.goal.area': 'Área (Ex: Social, Verbal)',
-    'pei.goal.target': 'Critério de Alta (%)',
-    'pei.goal.initial': 'Nível Inicial (%)',
-    'pei.goal.save': 'Salvar Programa',
-
-    // Sensory
     'pei.sensory.visual': 'Visual',
     'pei.sensory.auditory': 'Auditivo',
     'pei.sensory.tactile': 'Tátil',
     'pei.sensory.vestibular': 'Vestibular',
+    'pei.sensory.proprioceptive': 'Proprioceptivo',
     'pei.sensory.oral': 'Oral',
     'pei.sensory.social': 'Social',
-    'pei.sensory.seeking': 'Busca Sensorial',
-    'pei.sensory.avoiding': 'Evitação',
+    'pei.sensory.seeking': 'Busca (Seeker)',
+    'pei.sensory.avoiding': 'Evitação (Avoider)',
+    'pei.sensory.register': 'Registro / Perfil',
+    'pei.sensory.diet': 'Estratégias / Dieta Sensorial',
+    'pei.sensory.hypo': 'Hipossensível',
+    'pei.sensory.hyper': 'Hipersensível',
 
     // ABC
     'pei.abc.title': 'Novo Registro ABC',

@@ -6,7 +6,7 @@ import {
   BrainCircuit, Plus, Search, ChevronDown, CheckCircle, TrendingUp, 
   Target, Calendar, Activity, ArrowRight, User, List, Layers, ClipboardCheck, 
   AlertTriangle, Radar, Eye, Volume2, Hand, Footprints, Smile, MessageSquare,
-  Clock, FileText, ChevronRight, X, Save, ArrowLeft
+  Clock, FileText, ChevronRight, X, Save, ArrowLeft, Zap, Box, Brain
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -381,64 +381,132 @@ const ABCTab: React.FC<{ pei: PEIType, onAdd: (abc: ABCRecord) => void }> = ({ p
     );
 };
 
-// 3. Sensory Profile (Visual)
+// 3. Sensory Profile (Enhanced: Interactive & Diet)
 const SensoryTab: React.FC<{ pei: PEIType }> = ({ pei }) => {
     const { t } = useLanguage();
-    const sp = pei.sensoryProfile;
+    const [profile, setProfile] = useState(pei.sensoryProfile || {
+        auditory: 50, visual: 50, tactile: 50, vestibular: 50, oral: 50, social: 50,
+        proprioceptive: 50, lastAssessmentDate: new Date().toISOString()
+    });
+    const [diet, setDiet] = useState<Record<string, string>>({}); // Stores strategies per sense
 
-    if (!sp) return <div className="text-center py-10 text-slate-400">Perfil sensorial não configurado.</div>;
+    const updateProfile = (key: string, value: number) => {
+        setProfile(prev => ({...prev, [key]: value}));
+    };
 
-    // Helper for bars
-    const renderBar = (label: string, value: number, icon: React.ReactNode, colorClass: string) => (
-        <div className="mb-4 group">
-            <div className="flex justify-between items-end mb-1">
-                <div className="flex items-center gap-2 text-slate-700 font-bold text-sm">
-                    <div className={`p-1.5 rounded-lg ${colorClass.replace('bg-', 'bg-').replace('500', '100')} ${colorClass.replace('bg-', 'text-').replace('500', '600')}`}>
-                        {icon}
-                    </div>
-                    {label}
-                </div>
-                <div className="text-xs font-bold text-slate-500">
-                    {value < 35 ? t('pei.sensory.avoiding') : value > 65 ? t('pei.sensory.seeking') : 'Padrão'}
-                </div>
-            </div>
-            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden relative">
-                {/* Zones */}
-                <div className="absolute left-0 w-[35%] h-full bg-blue-500/10 border-r border-white/50"></div>
-                <div className="absolute right-0 w-[35%] h-full bg-red-500/10 border-l border-white/50"></div>
-                
-                {/* Value Bar */}
-                <div 
-                    className={`h-full rounded-full transition-all duration-1000 ${colorClass}`} 
-                    style={{ width: `${value}%` }}
-                ></div>
-            </div>
-        </div>
-    );
+    const updateDiet = (key: string, text: string) => {
+        setDiet(prev => ({...prev, [key]: text}));
+    };
+
+    const sensoryTypes = [
+        { key: 'auditory', label: t('pei.sensory.auditory'), icon: <Volume2 size={18}/>, color: 'text-purple-600', bg: 'bg-purple-100', accent: 'accent-purple-600' },
+        { key: 'visual', label: t('pei.sensory.visual'), icon: <Eye size={18}/>, color: 'text-blue-600', bg: 'bg-blue-100', accent: 'accent-blue-600' },
+        { key: 'tactile', label: t('pei.sensory.tactile'), icon: <Hand size={18}/>, color: 'text-emerald-600', bg: 'bg-emerald-100', accent: 'accent-emerald-600' },
+        { key: 'vestibular', label: t('pei.sensory.vestibular'), icon: <Footprints size={18}/>, color: 'text-orange-600', bg: 'bg-orange-100', accent: 'accent-orange-600' },
+        { key: 'oral', label: t('pei.sensory.oral'), icon: <Smile size={18}/>, color: 'text-pink-600', bg: 'bg-pink-100', accent: 'accent-pink-600' },
+        { key: 'social', label: t('pei.sensory.social'), icon: <MessageSquare size={18}/>, color: 'text-indigo-600', bg: 'bg-indigo-100', accent: 'accent-indigo-600' },
+    ];
+
+    const getStatus = (value: number) => {
+        if (value < 35) return { text: t('pei.sensory.hypo') + ' / ' + t('pei.sensory.seeking'), color: 'text-blue-600 font-bold' };
+        if (value > 65) return { text: t('pei.sensory.hyper') + ' / ' + t('pei.sensory.avoiding'), color: 'text-red-600 font-bold' };
+        return { text: 'Regulado / Padrão', color: 'text-slate-400' };
+    };
 
     return (
-        <div className="animate-fadeIn grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                <h3 className="font-bold text-slate-800 text-lg mb-6 flex items-center gap-2">
-                    <Activity size={20} className="text-purple-500" /> Mapeamento Sensorial
-                </h3>
-                
-                {renderBar(t('pei.sensory.auditory'), sp.auditory, <Volume2 size={14} />, 'bg-purple-500')}
-                {renderBar(t('pei.sensory.visual'), sp.visual, <Eye size={14} />, 'bg-blue-500')}
-                {renderBar(t('pei.sensory.tactile'), sp.tactile, <Hand size={14} />, 'bg-emerald-500')}
-                {renderBar(t('pei.sensory.vestibular'), sp.vestibular, <Footprints size={14} />, 'bg-orange-500')}
-                {renderBar(t('pei.sensory.oral'), sp.oral, <Smile size={14} />, 'bg-pink-500')}
-                {renderBar(t('pei.sensory.social'), sp.social, <MessageSquare size={14} />, 'bg-indigo-500')}
+        <div className="animate-fadeIn space-y-8">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div>
+                    <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                        <Activity size={20} className="text-indigo-500" /> {t('pei.tab.sensory')}
+                    </h3>
+                    <p className="text-sm text-slate-500">Mapeamento do perfil sensorial e estratégias de regulação (Dieta Sensorial).</p>
+                </div>
+                <div className="flex gap-2">
+                    <button className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-200">{t('common.save')}</button>
+                </div>
             </div>
 
-            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 flex flex-col justify-center items-center text-center">
-                <Radar size={64} className="text-slate-300 mb-4" />
-                <h4 className="font-bold text-slate-700 mb-2">Resumo do Perfil</h4>
-                <p className="text-sm text-slate-500 max-w-xs leading-relaxed">
-                    O paciente apresenta <strong>busca sensorial vestibular</strong> significativa e <strong>hipersensibilidade auditiva</strong>. Recomenda-se ambiente controlado e pausas de movimento.
-                </p>
-                <div className="mt-6 text-xs text-slate-400">
-                    Última avaliação: {new Date(sp.lastAssessmentDate).toLocaleDateString()}
+            {/* Matrix */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Sliders Area */}
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                    <h4 className="font-bold text-slate-700 mb-6 uppercase text-xs tracking-wider border-b border-slate-100 pb-2">{t('pei.sensory.register')}</h4>
+                    <div className="space-y-6">
+                        {sensoryTypes.map(s => {
+                            // @ts-ignore
+                            const val = profile[s.key] as number;
+                            const status = getStatus(val);
+                            
+                            return (
+                                <div key={s.key} className="group">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${s.bg} ${s.color}`}>{s.icon}</div>
+                                            <span className="font-bold text-slate-700">{s.label}</span>
+                                        </div>
+                                        <span className={`text-xs ${status.color}`}>{status.text}</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0" max="100" 
+                                        value={val}
+                                        onChange={(e) => updateProfile(s.key, parseInt(e.target.value))}
+                                        className={`w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer ${s.accent}`} 
+                                    />
+                                    <div className="flex justify-between text-[10px] text-slate-400 mt-1 uppercase font-bold">
+                                        <span>Busca</span>
+                                        <span>Neutro</span>
+                                        <span>Evitação</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Sensory Diet / Strategies */}
+                <div className="space-y-6">
+                    <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100 flex items-center gap-4">
+                        <div className="p-3 bg-white rounded-full text-indigo-600 shadow-sm"><Zap size={24} /></div>
+                        <div>
+                            <h4 className="font-bold text-indigo-900">{t('pei.sensory.diet')}</h4>
+                            <p className="text-xs text-indigo-700/80">Registre atividades regulatórias para cada sistema sensorial alterado.</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm max-h-[600px] overflow-y-auto custom-scrollbar">
+                        {sensoryTypes.filter(s => {
+                            // Only show inputs for non-neutral senses
+                            // @ts-ignore
+                            const val = profile[s.key];
+                            return val < 40 || val > 60;
+                        }).length === 0 ? (
+                            <div className="text-center py-10 text-slate-400">
+                                <CheckCircle size={48} className="mx-auto mb-2 opacity-20" />
+                                <p>Nenhuma alteração significativa detectada para sugerir dieta.</p>
+                            </div>
+                        ) : (
+                            sensoryTypes.filter(s => {
+                                // @ts-ignore
+                                const val = profile[s.key];
+                                return val < 40 || val > 60;
+                            }).map(s => (
+                                <div key={s.key} className="mb-6 last:mb-0">
+                                    <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${s.bg.replace('bg-', 'bg-').replace('100', '500')}`}></span>
+                                        Estratégias para: {s.label}
+                                    </label>
+                                    <textarea 
+                                        className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-indigo-300 outline-none transition-all resize-none h-24"
+                                        placeholder={`Ex: Atividades para regular ${s.label.toLowerCase()}...`}
+                                        value={diet[s.key] || ''}
+                                        onChange={(e) => updateDiet(s.key, e.target.value)}
+                                    />
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

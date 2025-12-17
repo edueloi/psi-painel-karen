@@ -4,7 +4,8 @@ import { MOCK_PATIENTS } from '../constants';
 import { 
   Boxes, ChevronDown, Plus, Save, Brain, LayoutGrid, Feather, 
   ArrowRight, Activity, Smile, Frown, Meh, AlertTriangle, Cloud, 
-  Moon, Edit3, Trash2, CheckCircle, BrainCircuit, X
+  Moon, Edit3, Trash2, CheckCircle, BrainCircuit, X, Zap, RotateCcw,
+  Thermometer, Tag, FileText, BarChart
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { RPDRecord, SchemaItem, DreamEntry } from '../types';
@@ -31,6 +32,18 @@ const SCHEMAS_LIST = [
     { id: 's18', name: 'Punição', domain: 'Supervigilância e Inibição' },
 ];
 
+const SCHEMA_MODES = [
+    { id: 'm1', name: 'Criança Vulnerável', category: 'Criança', color: 'bg-indigo-100 text-indigo-700' },
+    { id: 'm2', name: 'Criança Zangada', category: 'Criança', color: 'bg-red-100 text-red-700' },
+    { id: 'm3', name: 'Criança Impulsiva', category: 'Criança', color: 'bg-orange-100 text-orange-700' },
+    { id: 'm4', name: 'Criança Feliz', category: 'Criança', color: 'bg-emerald-100 text-emerald-700' },
+    { id: 'm5', name: 'Pais Punitivos', category: 'Pais', color: 'bg-slate-200 text-slate-700' },
+    { id: 'm6', name: 'Pais Exigentes', category: 'Pais', color: 'bg-slate-200 text-slate-700' },
+    { id: 'm7', name: 'Protetor Desligado', category: 'Enfrentamento', color: 'bg-blue-100 text-blue-700' },
+    { id: 'm8', name: 'Supercompensador', category: 'Enfrentamento', color: 'bg-amber-100 text-amber-700' },
+    { id: 'm9', name: 'Adulto Saudável', category: 'Saudável', color: 'bg-green-100 text-green-800' },
+];
+
 const COGNITIVE_DISTORTIONS = [
     { id: 'd1', label: 'tcc.distortions.allOrNothing', desc: 'Pensar em extremos (8 ou 80).' },
     { id: 'd2', label: 'tcc.distortions.catastrophizing', desc: 'Esperar sempre o pior cenário.' },
@@ -42,8 +55,13 @@ const COGNITIVE_DISTORTIONS = [
 
 const TCCPanel = () => {
     const { t } = useLanguage();
+    const [activeSubTab, setActiveSubTab] = useState<'rpd' | 'cards'>('rpd');
     const [records, setRecords] = useState<RPDRecord[]>([]);
     const [newRPD, setNewRPD] = useState<Partial<RPDRecord>>({ intensity: 5 });
+    
+    // Coping Cards State
+    const [cards, setCards] = useState<{id: string, front: string, back: string, flipped: boolean}[]>([]);
+    const [newCard, setNewCard] = useState({ front: '', back: '' });
 
     const handleSaveRPD = () => {
         if (!newRPD.thought || !newRPD.situation) return;
@@ -56,116 +74,138 @@ const TCCPanel = () => {
         setNewRPD({ intensity: 5 });
     };
 
+    const handleAddCard = () => {
+        if(!newCard.front || !newCard.back) return;
+        setCards([...cards, { id: Math.random().toString(36), front: newCard.front, back: newCard.back, flipped: false }]);
+        setNewCard({ front: '', back: '' });
+    };
+
+    const flipCard = (id: string) => {
+        setCards(prev => prev.map(c => c.id === id ? { ...c, flipped: !c.flipped } : c));
+    };
+
     return (
         <div className="space-y-6 animate-fadeIn">
-            {/* Input Card */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
-                    <BrainCircuit className="text-indigo-600" /> {t('tcc.rpd')}
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('tcc.situation')}</label>
-                            <textarea 
-                                className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 h-24 resize-none focus:bg-white focus:border-indigo-500 transition-colors"
-                                placeholder="Onde? Quando? O que aconteceu?"
-                                value={newRPD.situation || ''}
-                                onChange={e => setNewRPD({...newRPD, situation: e.target.value})}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('tcc.emotion')}</label>
-                            <div className="flex gap-2 items-center">
-                                <input 
-                                    type="text" 
-                                    className="flex-1 p-3 rounded-xl border border-slate-200"
-                                    placeholder="Ex: Raiva, Medo"
-                                    value={newRPD.emotion || ''}
-                                    onChange={e => setNewRPD({...newRPD, emotion: e.target.value})}
-                                />
-                                <input 
-                                    type="number" min="0" max="10"
-                                    className="w-16 p-3 rounded-xl border border-slate-200 text-center font-bold"
-                                    value={newRPD.intensity}
-                                    onChange={e => setNewRPD({...newRPD, intensity: parseInt(e.target.value)})}
-                                />
+            {/* Sub-Tabs */}
+            <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+                <button onClick={() => setActiveSubTab('rpd')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeSubTab === 'rpd' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>{t('tcc.rpd')}</button>
+                <button onClick={() => setActiveSubTab('cards')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeSubTab === 'cards' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>{t('tcc.coping')}</button>
+            </div>
+
+            {/* RPD CONTENT */}
+            {activeSubTab === 'rpd' && (
+                <>
+                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                            <BrainCircuit className="text-indigo-600" /> {t('tcc.rpd')}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('tcc.situation')}</label>
+                                    <textarea className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 h-24 resize-none focus:bg-white focus:border-indigo-500 transition-colors" placeholder="Onde? Quando? O que aconteceu?" value={newRPD.situation || ''} onChange={e => setNewRPD({...newRPD, situation: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('tcc.emotion')}</label>
+                                    <div className="flex gap-2 items-center">
+                                        <input type="text" className="flex-1 p-3 rounded-xl border border-slate-200" placeholder="Ex: Raiva, Medo" value={newRPD.emotion || ''} onChange={e => setNewRPD({...newRPD, emotion: e.target.value})} />
+                                        <input type="number" min="0" max="10" className="w-16 p-3 rounded-xl border border-slate-200 text-center font-bold" value={newRPD.intensity} onChange={e => setNewRPD({...newRPD, intensity: parseInt(e.target.value)})} />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('tcc.thought')}</label>
+                                    <textarea className="w-full p-3 rounded-xl border-2 border-indigo-100 bg-white h-24 resize-none focus:border-indigo-500" placeholder="O que passou pela sua cabeça?" value={newRPD.thought || ''} onChange={e => setNewRPD({...newRPD, thought: e.target.value})} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('tcc.distortion')}</label>
+                                        <select className="w-full p-3 rounded-xl border border-slate-200 bg-white" value={newRPD.distortion} onChange={e => setNewRPD({...newRPD, distortion: e.target.value})}>
+                                            <option value="">Selecione...</option>
+                                            {COGNITIVE_DISTORTIONS.map(d => (<option key={d.id} value={d.label}>{t(d.label)}</option>))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">&nbsp;</label>
+                                        <button onClick={handleSaveRPD} className="w-full p-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md transition-colors flex justify-center items-center gap-2"><Plus size={18} /> {t('tcc.addEntry')}</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('tcc.thought')}</label>
-                            <textarea 
-                                className="w-full p-3 rounded-xl border-2 border-indigo-100 bg-white h-24 resize-none focus:border-indigo-500"
-                                placeholder="O que passou pela sua cabeça?"
-                                value={newRPD.thought || ''}
-                                onChange={e => setNewRPD({...newRPD, thought: e.target.value})}
-                            />
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('tcc.distortion')}</label>
-                                <select 
-                                    className="w-full p-3 rounded-xl border border-slate-200 bg-white"
-                                    value={newRPD.distortion}
-                                    onChange={e => setNewRPD({...newRPD, distortion: e.target.value})}
-                                >
-                                    <option value="">Selecione...</option>
-                                    {COGNITIVE_DISTORTIONS.map(d => (
-                                        <option key={d.id} value={d.label}>{t(d.label)}</option>
-                                    ))}
-                                </select>
+                        {records.map(rec => (
+                            <div key={rec.id} className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 relative overflow-hidden group">
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
+                                <div className="flex-1">
+                                    <div className="flex justify-between mb-2">
+                                        <span className="text-xs font-bold text-slate-400">{new Date(rec.date).toLocaleDateString()}</span>
+                                        {rec.distortion && <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{t(rec.distortion)}</span>}
+                                    </div>
+                                    <p className="font-bold text-slate-800 mb-1">"{rec.thought}"</p>
+                                    <p className="text-sm text-slate-600">Situação: {rec.situation}</p>
+                                </div>
+                                <div className="flex items-center gap-4 border-l border-slate-100 pl-4">
+                                    <div className="text-center">
+                                        <span className="block text-xs font-bold text-slate-400 uppercase">Emoção</span>
+                                        <span className="block font-bold text-slate-700">{rec.emotion}</span>
+                                    </div>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${rec.intensity > 7 ? 'bg-red-500' : rec.intensity > 4 ? 'bg-amber-500' : 'bg-emerald-500'}`}>{rec.intensity}</div>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">&nbsp;</label>
-                                <button 
-                                    onClick={handleSaveRPD}
-                                    className="w-full p-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md transition-colors flex justify-center items-center gap-2"
-                                >
-                                    <Plus size={18} /> {t('tcc.addEntry')}
-                                </button>
-                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {/* COPING CARDS CONTENT */}
+            {activeSubTab === 'cards' && (
+                <div className="space-y-8 animate-fadeIn">
+                    <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100 flex flex-col md:flex-row gap-6 items-end">
+                        <div className="flex-1 w-full space-y-3">
+                            <label className="block text-xs font-bold text-indigo-800 uppercase">{t('tcc.addCard')}</label>
+                            <input type="text" placeholder={t('tcc.cardFront')} className="w-full p-3 rounded-xl border border-indigo-200 outline-none" value={newCard.front} onChange={e => setNewCard({...newCard, front: e.target.value})} />
+                            <textarea placeholder={t('tcc.cardBack')} className="w-full p-3 rounded-xl border border-indigo-200 outline-none resize-none h-20" value={newCard.back} onChange={e => setNewCard({...newCard, back: e.target.value})} />
                         </div>
+                        <button onClick={handleAddCard} className="w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md">Criar</button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {cards.map(card => (
+                            <div key={card.id} className="relative h-64 perspective-1000 group cursor-pointer" onClick={() => flipCard(card.id)}>
+                                <div className={`relative w-full h-full transition-transform duration-500 transform-style-3d ${card.flipped ? 'rotate-y-180' : ''}`}>
+                                    {/* Front */}
+                                    <div className="absolute w-full h-full bg-white rounded-2xl p-6 border border-slate-200 shadow-sm backface-hidden flex flex-col items-center justify-center text-center">
+                                        <AlertTriangle size={32} className="text-amber-500 mb-4" />
+                                        <p className="font-bold text-slate-800 text-lg leading-snug">{card.front}</p>
+                                        <p className="text-xs text-slate-400 mt-4 uppercase font-bold tracking-widest">{t('tcc.flip')}</p>
+                                    </div>
+                                    {/* Back */}
+                                    <div className="absolute w-full h-full bg-indigo-600 rounded-2xl p-6 shadow-lg backface-hidden rotate-y-180 flex flex-col items-center justify-center text-center text-white">
+                                        <CheckCircle size={32} className="text-indigo-200 mb-4" />
+                                        <p className="font-medium text-lg leading-relaxed">{card.back}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {cards.length === 0 && (
+                            <div className="col-span-full py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                                <p>Nenhum cartão criado.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
-
-            {/* History List */}
-            <div className="space-y-4">
-                {records.map(rec => (
-                    <div key={rec.id} className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 relative overflow-hidden group">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
-                        <div className="flex-1">
-                            <div className="flex justify-between mb-2">
-                                <span className="text-xs font-bold text-slate-400">{new Date(rec.date).toLocaleDateString()}</span>
-                                {rec.distortion && <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{t(rec.distortion)}</span>}
-                            </div>
-                            <p className="font-bold text-slate-800 mb-1">"{rec.thought}"</p>
-                            <p className="text-sm text-slate-600">Situação: {rec.situation}</p>
-                        </div>
-                        <div className="flex items-center gap-4 border-l border-slate-100 pl-4">
-                            <div className="text-center">
-                                <span className="block text-xs font-bold text-slate-400 uppercase">Emoção</span>
-                                <span className="block font-bold text-slate-700">{rec.emotion}</span>
-                            </div>
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${rec.intensity > 7 ? 'bg-red-500' : rec.intensity > 4 ? 'bg-amber-500' : 'bg-emerald-500'}`}>
-                                {rec.intensity}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            )}
         </div>
     );
 };
 
 const SchemaPanel = () => {
     const { t } = useLanguage();
+    const [activeSubTab, setActiveSubTab] = useState<'schemas' | 'modes'>('schemas');
     const [activeSchemas, setActiveSchemas] = useState<Record<string, SchemaItem>>({});
+    const [activeModes, setActiveModes] = useState<Record<string, number>>({}); // id -> intensity
 
     const toggleSchema = (schema: any) => {
         const current = activeSchemas[schema.id];
@@ -189,58 +229,105 @@ const SchemaPanel = () => {
         });
     };
 
+    const toggleMode = (modeId: string) => {
+        if (activeModes[modeId]) {
+            const newModes = { ...activeModes };
+            delete newModes[modeId];
+            setActiveModes(newModes);
+        } else {
+            setActiveModes({ ...activeModes, [modeId]: 5 });
+        }
+    };
+
+    const updateModeIntensity = (modeId: string, val: number) => {
+        setActiveModes(prev => ({ ...prev, [modeId]: val }));
+    };
+
     return (
         <div className="space-y-8 animate-fadeIn">
-            {/* Selected / Active */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
-                    <LayoutGrid className="text-rose-500" /> Esquemas Ativos
-                </h3>
-                {Object.keys(activeSchemas).length === 0 ? (
-                    <p className="text-slate-400 text-sm text-center py-4">Clique nos esquemas abaixo para ativá-los.</p>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {Object.values(activeSchemas).map(s => (
-                            <div key={s.id} className="p-4 bg-rose-50 rounded-xl border border-rose-100 flex items-center justify-between">
-                                <div>
-                                    <h4 className="font-bold text-rose-900 text-sm">{s.name}</h4>
-                                    <p className="text-xs text-rose-700/70">{s.domain}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input 
-                                        type="range" min="1" max="10" 
-                                        className="w-24 accent-rose-600"
-                                        value={s.intensity}
-                                        onChange={e => updateIntensity(s.id, parseInt(e.target.value))}
-                                    />
-                                    <span className="font-bold text-rose-800 w-6 text-center">{s.intensity}</span>
-                                    <button onClick={() => toggleSchema(s)} className="p-1 hover:bg-rose-200 rounded text-rose-700 ml-2"><X size={14}/></button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+            <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+                <button onClick={() => setActiveSubTab('schemas')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeSubTab === 'schemas' ? 'bg-white shadow text-rose-600' : 'text-slate-500'}`}>Esquemas</button>
+                <button onClick={() => setActiveSubTab('modes')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeSubTab === 'modes' ? 'bg-white shadow text-rose-600' : 'text-slate-500'}`}>Modos (Estados)</button>
             </div>
 
-            {/* List */}
-            <div>
-                <h3 className="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wide">Biblioteca de Esquemas</h3>
-                <div className="flex flex-wrap gap-2">
-                    {SCHEMAS_LIST.map(s => (
-                        <button
-                            key={s.id}
-                            onClick={() => toggleSchema(s)}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
-                                activeSchemas[s.id] 
-                                    ? 'bg-rose-600 text-white border-rose-600 shadow-md transform scale-105' 
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600'
-                            }`}
-                        >
-                            {s.name}
-                        </button>
-                    ))}
+            {/* SCHEMAS CONTENT */}
+            {activeSubTab === 'schemas' && (
+                <div className="space-y-6">
+                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                            <LayoutGrid className="text-rose-500" /> Esquemas Ativos
+                        </h3>
+                        {Object.keys(activeSchemas).length === 0 ? (
+                            <p className="text-slate-400 text-sm text-center py-4">Clique nos esquemas abaixo para ativá-los.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {Object.values(activeSchemas).map(s => (
+                                    <div key={s.id} className="p-4 bg-rose-50 rounded-xl border border-rose-100 flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-bold text-rose-900 text-sm">{s.name}</h4>
+                                            <p className="text-xs text-rose-700/70">{s.domain}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input type="range" min="1" max="10" className="w-24 accent-rose-600" value={s.intensity} onChange={e => updateIntensity(s.id, parseInt(e.target.value))} />
+                                            <span className="font-bold text-rose-800 w-6 text-center">{s.intensity}</span>
+                                            <button onClick={() => toggleSchema(s)} className="p-1 hover:bg-rose-200 rounded text-rose-700 ml-2"><X size={14}/></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wide">Biblioteca de Esquemas</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {SCHEMAS_LIST.map(s => (
+                                <button key={s.id} onClick={() => toggleSchema(s)} className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${activeSchemas[s.id] ? 'bg-rose-600 text-white border-rose-600 shadow-md transform scale-105' : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600'}`}>{s.name}</button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {/* MODES CONTENT */}
+            {activeSubTab === 'modes' && (
+                <div className="space-y-6 animate-fadeIn">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {SCHEMA_MODES.map(mode => {
+                            const isActive = !!activeModes[mode.id];
+                            return (
+                                <div key={mode.id} className={`p-4 rounded-2xl border transition-all cursor-pointer ${isActive ? 'bg-white border-slate-300 shadow-md ring-2 ring-indigo-500/20' : 'bg-slate-50 border-slate-100 hover:border-slate-300'}`} onClick={() => toggleMode(mode.id)}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${mode.color}`}>{mode.category}</span>
+                                        {isActive && <CheckCircle size={16} className="text-indigo-600" />}
+                                    </div>
+                                    <h4 className="font-bold text-slate-800">{mode.name}</h4>
+                                    
+                                    {isActive && (
+                                        <div className="mt-4 pt-4 border-t border-slate-100" onClick={e => e.stopPropagation()}>
+                                            <div className="flex items-center gap-2">
+                                                <Thermometer size={14} className="text-slate-400" />
+                                                <input 
+                                                    type="range" min="0" max="10" 
+                                                    value={activeModes[mode.id]} 
+                                                    onChange={e => updateModeIntensity(mode.id, parseInt(e.target.value))}
+                                                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                                />
+                                                <span className="text-sm font-bold w-6 text-right">{activeModes[mode.id]}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {Object.keys(activeModes).length > 0 && (
+                        <div className="bg-slate-800 text-white p-4 rounded-xl flex justify-between items-center shadow-lg">
+                            <span className="font-bold text-sm">Modos ativos nesta sessão: {Object.keys(activeModes).length}</span>
+                            <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold transition-colors">Salvar Registro de Modos</button>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
@@ -249,8 +336,12 @@ const PsychoPanel = () => {
     const { t } = useLanguage();
     const [dreams, setDreams] = useState<DreamEntry[]>([]);
     const [newDream, setNewDream] = useState<Partial<DreamEntry>>({});
-    const [activeTab, setActiveTab] = useState<'dream' | 'free'>('dream');
+    const [activeTab, setActiveTab] = useState<'dream' | 'free' | 'signifiers'>('dream');
     const [freeText, setFreeText] = useState('');
+    
+    // Signifiers
+    const [signifiers, setSignifiers] = useState<{id: string, text: string, count: number}[]>([]);
+    const [newSignifier, setNewSignifier] = useState('');
 
     const handleSaveDream = () => {
         if (!newDream.title) return;
@@ -262,21 +353,23 @@ const PsychoPanel = () => {
         setNewDream({});
     };
 
+    const addSignifier = () => {
+        if(!newSignifier.trim()) return;
+        const exists = signifiers.find(s => s.text.toLowerCase() === newSignifier.toLowerCase());
+        if(exists) {
+            setSignifiers(prev => prev.map(s => s.id === exists.id ? {...s, count: s.count + 1} : s));
+        } else {
+            setSignifiers([...signifiers, { id: Math.random().toString(36), text: newSignifier, count: 1 }]);
+        }
+        setNewSignifier('');
+    };
+
     return (
         <div className="space-y-6 animate-fadeIn">
-            <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
-                <button 
-                    onClick={() => setActiveTab('dream')}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'dream' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}
-                >
-                    {t('psycho.dreams')}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('free')}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'free' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}
-                >
-                    {t('psycho.association')}
-                </button>
+            <div className="flex bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
+                <button onClick={() => setActiveTab('dream')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'dream' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>{t('psycho.dreams')}</button>
+                <button onClick={() => setActiveTab('free')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'free' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>{t('psycho.association')}</button>
+                <button onClick={() => setActiveTab('signifiers')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'signifiers' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>{t('psycho.signifiers')}</button>
             </div>
 
             {activeTab === 'dream' && (
@@ -287,53 +380,20 @@ const PsychoPanel = () => {
                             <h3 className="font-bold text-slate-800 text-lg">Novo Registro Onírico</h3>
                         </div>
                         <div className="space-y-4">
-                            <input 
-                                type="text" 
-                                placeholder="Título / Tema Central"
-                                className="w-full p-3 border-b-2 border-slate-100 focus:border-purple-500 outline-none font-bold text-lg bg-transparent"
-                                value={newDream.title || ''}
-                                onChange={e => setNewDream({...newDream, title: e.target.value})}
-                            />
-                            <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">{t('psycho.manifest')}</label>
-                                <textarea 
-                                    className="w-full p-3 rounded-xl bg-slate-50 border-none outline-none h-32 resize-none"
-                                    placeholder="Descrição literal do sonho..."
-                                    value={newDream.manifestContent || ''}
-                                    onChange={e => setNewDream({...newDream, manifestContent: e.target.value})}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">{t('psycho.latent')}</label>
-                                <textarea 
-                                    className="w-full p-3 rounded-xl bg-purple-50/50 border-none outline-none h-24 resize-none"
-                                    placeholder="Associações, sentimentos, resíduos diurnos..."
-                                    value={newDream.associations || ''}
-                                    onChange={e => setNewDream({...newDream, associations: e.target.value})}
-                                />
-                            </div>
-                            <button onClick={handleSaveDream} className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors">
-                                {t('psycho.saveDream')}
-                            </button>
+                            <input type="text" placeholder="Título / Tema Central" className="w-full p-3 border-b-2 border-slate-100 focus:border-purple-500 outline-none font-bold text-lg bg-transparent" value={newDream.title || ''} onChange={e => setNewDream({...newDream, title: e.target.value})} />
+                            <div><label className="block text-xs font-bold text-slate-400 uppercase mb-1">{t('psycho.manifest')}</label><textarea className="w-full p-3 rounded-xl bg-slate-50 border-none outline-none h-32 resize-none" placeholder="Descrição literal do sonho..." value={newDream.manifestContent || ''} onChange={e => setNewDream({...newDream, manifestContent: e.target.value})} /></div>
+                            <div><label className="block text-xs font-bold text-slate-400 uppercase mb-1">{t('psycho.latent')}</label><textarea className="w-full p-3 rounded-xl bg-purple-50/50 border-none outline-none h-24 resize-none" placeholder="Associações, sentimentos, resíduos diurnos..." value={newDream.associations || ''} onChange={e => setNewDream({...newDream, associations: e.target.value})} /></div>
+                            <button onClick={handleSaveDream} className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors">{t('psycho.saveDream')}</button>
                         </div>
                     </div>
-
                     <div className="space-y-4">
                         {dreams.map(dream => (
                             <div key={dream.id} className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                                <div className="flex justify-between mb-2">
-                                    <h4 className="font-bold text-slate-800">{dream.title}</h4>
-                                    <span className="text-xs text-slate-400">{new Date(dream.date).toLocaleDateString()}</span>
-                                </div>
+                                <div className="flex justify-between mb-2"><h4 className="font-bold text-slate-800">{dream.title}</h4><span className="text-xs text-slate-400">{new Date(dream.date).toLocaleDateString()}</span></div>
                                 <p className="text-sm text-slate-600 line-clamp-3 italic">"{dream.manifestContent}"</p>
                             </div>
                         ))}
-                        {dreams.length === 0 && (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
-                                <Cloud className="mb-2 opacity-30" size={48} />
-                                <p>Nenhum sonho registrado.</p>
-                            </div>
-                        )}
+                        {dreams.length === 0 && (<div className="h-full flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl"><Cloud className="mb-2 opacity-30" size={48} /><p>Nenhum sonho registrado.</p></div>)}
                     </div>
                 </div>
             )}
@@ -342,14 +402,28 @@ const PsychoPanel = () => {
                 <div className="bg-amber-50 rounded-2xl p-8 border border-amber-100 shadow-sm relative min-h-[500px]">
                     <Feather className="absolute top-8 right-8 text-amber-200 opacity-50" size={64} />
                     <h3 className="font-serif font-bold text-2xl text-amber-900 mb-6 italic">Associação Livre</h3>
-                    <textarea 
-                        className="w-full h-[400px] bg-transparent border-none outline-none text-amber-900 text-lg leading-relaxed font-serif resize-none placeholder:text-amber-800/30"
-                        placeholder="Comece a escrever o que vier à mente, sem censura..."
-                        value={freeText}
-                        onChange={e => setFreeText(e.target.value)}
-                    />
-                    <div className="absolute bottom-4 right-6 text-xs text-amber-800/50">
-                        {freeText.length} caracteres
+                    <textarea className="w-full h-[400px] bg-transparent border-none outline-none text-amber-900 text-lg leading-relaxed font-serif resize-none placeholder:text-amber-800/30" placeholder="Comece a escrever o que vier à mente, sem censura..." value={freeText} onChange={e => setFreeText(e.target.value)} />
+                    <div className="absolute bottom-4 right-6 text-xs text-amber-800/50">{freeText.length} caracteres</div>
+                </div>
+            )}
+
+            {activeTab === 'signifiers' && (
+                <div className="space-y-6">
+                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                        <div className="flex gap-4">
+                            <input type="text" placeholder="Palavra ou termo recorrente..." className="flex-1 p-3 bg-slate-50 rounded-xl border-none outline-none focus:ring-2 focus:ring-amber-200" value={newSignifier} onChange={e => setNewSignifier(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSignifier()} />
+                            <button onClick={addSignifier} className="px-6 py-2 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors">{t('psycho.addSignifier')}</button>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                        {signifiers.map(sig => (
+                            <div key={sig.id} className="group relative bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-300 transition-all">
+                                <span className="text-lg font-serif italic text-slate-800">{sig.text}</span>
+                                <span className="absolute -top-2 -right-2 bg-amber-100 text-amber-800 text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded-full border border-white shadow-sm">{sig.count}</span>
+                                <button onClick={() => setSignifiers(prev => prev.filter(s => s.id !== sig.id))} className="absolute inset-0 bg-red-50/90 flex items-center justify-center rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity text-red-500"><Trash2 size={18} /></button>
+                            </div>
+                        ))}
+                         {signifiers.length === 0 && <p className="text-slate-400 w-full text-center py-10">Nenhum significante rastreado ainda.</p>}
                     </div>
                 </div>
             )}
