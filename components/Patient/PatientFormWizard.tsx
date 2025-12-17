@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Patient, MaritalStatus, EducationLevel, PaymentType } from '../../types';
 import { INSURANCE_PROVIDERS } from '../../constants';
@@ -19,6 +20,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     paymentType: PaymentType.PRIVATE,
     address: { street: '', number: '', neighborhood: '', city: '', state: '', zipCode: '' },
     hasChildren: false,
+    needsReimbursement: false,
     ...initialData
   });
 
@@ -327,6 +329,22 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 </div>
               </div>
             )}
+
+            {/* NEW: Reimbursement Toggle */}
+            <div className="space-y-2">
+                <label className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl cursor-pointer hover:border-indigo-200 transition-colors">
+                    <input 
+                        type="checkbox" 
+                        className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+                        checked={formData.needsReimbursement || false}
+                        onChange={e => updateField('needsReimbursement', e.target.checked)}
+                    />
+                    <div>
+                        <span className="block text-sm font-bold text-slate-700">{t('wizard.needsReimbursement')}</span>
+                        <span className="block text-xs text-slate-500">Habilita emissão rápida de recibos detalhados para seguradoras.</span>
+                    </div>
+                </label>
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">{t('wizard.status')}</label>

@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   DollarSign, TrendingUp, TrendingDown, Calendar, CreditCard, 
   Wallet, PieChart, ArrowUpRight, ArrowDownRight, Filter, Download, 
-  Banknote, Smartphone, Receipt
+  Banknote, Smartphone, Receipt, FileText, Briefcase, Calculator, BookOpen, AlertCircle
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -52,7 +53,7 @@ const formatCurrency = (value: number) => {
 
 export const Finance: React.FC = () => {
   const { t, language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'daily'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'tax'>('dashboard');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'year'>('month');
 
@@ -108,6 +109,136 @@ export const Finance: React.FC = () => {
   }, [currentMonthData, periodFilter, yearData]);
 
   const maxChartValue = Math.max(...yearData.map(d => Math.max(d.revenue, d.expense)));
+
+  // --- CARNÊ LEÃO SIMULATION LOGIC ---
+  const taxSimulation = useMemo(() => {
+      // Mock data taken from stats for the current month view
+      const grossIncome = stats.revenue;
+      
+      // Expenses categorization mock
+      const deductibleExpenses = stats.expense * 0.6; // Assuming 60% are deductible (Rent, CRP, Utilities)
+      const nonDeductibleExpenses = stats.expense * 0.4;
+
+      const taxBase = Math.max(0, grossIncome - deductibleExpenses);
+      
+      // Simple Progressive Tax Table (Brazil 2023/2024 approximation)
+      let tax = 0;
+      if (taxBase <= 2259.20) {
+          tax = 0;
+      } else if (taxBase <= 2826.65) {
+          tax = (taxBase * 0.075) - 169.44;
+      } else if (taxBase <= 3751.05) {
+          tax = (taxBase * 0.15) - 381.44;
+      } else if (taxBase <= 4664.68) {
+          tax = (taxBase * 0.225) - 662.77;
+      } else {
+          tax = (taxBase * 0.275) - 896.00;
+      }
+      
+      tax = Math.max(0, tax);
+      const effectiveRate = grossIncome > 0 ? (tax / grossIncome) * 100 : 0;
+
+      return { grossIncome, deductibleExpenses, nonDeductibleExpenses, taxBase, tax, effectiveRate };
+  }, [stats]);
+
+  const renderTaxHelper = () => (
+      <div className="space-y-8 animate-fadeIn">
+          
+          <div className="bg-slate-900 rounded-[24px] p-8 text-white shadow-xl shadow-indigo-900/20 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none"></div>
+              <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+                  <div className="flex items-center gap-4">
+                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+                          <Calculator size={32} className="text-emerald-400" />
+                      </div>
+                      <div>
+                          <h2 className="text-2xl font-bold">{t('finance.tax.carneLeao')}</h2>
+                          <p className="text-slate-300 text-sm max-w-md">
+                              Simulação automática baseada nos recebimentos e despesas lançados no mês atual.
+                          </p>
+                      </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-end">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{t('finance.tax.estimatedTax')}</p>
+                      <div className="text-4xl font-display font-bold text-emerald-400">{formatCurrency(taxSimulation.tax)}</div>
+                      <p className="text-xs text-emerald-200/70 mt-1 bg-emerald-900/30 px-2 py-1 rounded">
+                          {t('finance.tax.effectiveRate')}: {taxSimulation.effectiveRate.toFixed(2)}%
+                      </p>
+                  </div>
+              </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left: Bookkeeping Summary */}
+              <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-6 flex flex-col h-full">
+                  <div className="flex items-center justify-between mb-6">
+                      <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                          <BookOpen size={20} className="text-indigo-600" /> {t('finance.tax.bookkeeping')}
+                      </h3>
+                      <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-md">{currentDate.toLocaleString('default', { month: 'long' })}</span>
+                  </div>
+
+                  <div className="space-y-4 flex-1">
+                      <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-slate-600 font-medium">{t('finance.tax.taxableIncome')}</span>
+                          <span className="text-lg font-bold text-emerald-600">{formatCurrency(taxSimulation.grossIncome)}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-4 rounded-xl bg-amber-50 border border-amber-100">
+                          <span className="text-amber-800 font-medium">{t('finance.tax.deductibleExpenses')}</span>
+                          <span className="text-lg font-bold text-amber-600">-{formatCurrency(taxSimulation.deductibleExpenses)}</span>
+                      </div>
+                      <div className="px-2 text-xs text-slate-400 flex gap-2">
+                          <AlertCircle size={14} className="shrink-0" />
+                          {t('finance.tax.deductibleTip')}
+                      </div>
+                      <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 border border-slate-100 opacity-70">
+                          <span className="text-slate-500 font-medium">Despesas Não Dedutíveis</span>
+                          <span className="text-lg font-bold text-slate-500">{formatCurrency(taxSimulation.nonDeductibleExpenses)}</span>
+                      </div>
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-slate-100">
+                      <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-800 uppercase text-sm tracking-wider">{t('finance.tax.taxBase')}</span>
+                          <span className="text-2xl font-bold text-indigo-700">{formatCurrency(taxSimulation.taxBase)}</span>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Right: Actions & Export */}
+              <div className="space-y-6">
+                  <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-6">
+                      <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                          <FileText size={20} className="text-blue-600" /> Exportação Contábil
+                      </h3>
+                      <p className="text-slate-500 text-sm mb-6">
+                          Gere relatórios prontos para envio ao seu contador ou para importação no programa da Receita Federal.
+                      </p>
+                      
+                      <div className="space-y-3">
+                          <button className="w-full py-4 flex items-center justify-between px-6 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all group">
+                              <span className="font-bold text-slate-700 group-hover:text-indigo-700">Relatório Mensal (PDF)</span>
+                              <Download size={20} className="text-slate-400 group-hover:text-indigo-500" />
+                          </button>
+                          <button className="w-full py-4 flex items-center justify-between px-6 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 rounded-xl transition-all group">
+                              <span className="font-bold text-slate-700 group-hover:text-emerald-700">{t('finance.tax.dmed')} (CSV)</span>
+                              <Download size={20} className="text-slate-400 group-hover:text-emerald-500" />
+                          </button>
+                      </div>
+                  </div>
+
+                  <div className="bg-indigo-600 rounded-[24px] p-6 text-white shadow-lg shadow-indigo-200">
+                      <h4 className="font-bold text-lg mb-2">Precisa de ajuda com o Carnê-Leão?</h4>
+                      <p className="text-indigo-100 text-sm mb-4">Nossa IA pode analisar seus lançamentos e sugerir categorias dedutíveis.</p>
+                      <button className="w-full py-3 bg-white text-indigo-700 font-bold rounded-xl hover:bg-indigo-50 transition-colors">
+                          Analisar Lançamentos
+                      </button>
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
 
   const renderDashboard = () => (
     <div className="space-y-6 animate-fadeIn">
@@ -370,25 +501,33 @@ export const Finance: React.FC = () => {
                 </p>
             </div>
 
-            <div className="flex bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+            <div className="flex bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-x-auto no-scrollbar">
                 <button 
                     onClick={() => setActiveTab('dashboard')}
-                    className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                 >
                     <PieChart size={18} /> {t('finance.dashboard')}
                 </button>
                 <button 
                     onClick={() => setActiveTab('daily')}
-                    className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${activeTab === 'daily' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'daily' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                 >
                     <Filter size={18} /> {t('finance.daily')}
+                </button>
+                <button 
+                    onClick={() => setActiveTab('tax')}
+                    className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'tax' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                >
+                    <Calculator size={18} /> {t('finance.fiscal')}
                 </button>
             </div>
         </div>
       </div>
 
-      {/* Content */}
-      {activeTab === 'dashboard' ? renderDashboard() : renderDailyFlow()}
+      {/* Content Switch */}
+      {activeTab === 'dashboard' && renderDashboard()}
+      {activeTab === 'daily' && renderDailyFlow()}
+      {activeTab === 'tax' && renderTaxHelper()}
     </div>
   );
 };

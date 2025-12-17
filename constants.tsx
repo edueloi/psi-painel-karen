@@ -1,5 +1,6 @@
-import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen } from 'lucide-react';
+
+import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource, PEI } from './types';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck } from 'lucide-react';
 
 export const NAV_SECTIONS = [
   {
@@ -8,7 +9,6 @@ export const NAV_SECTIONS = [
       { label: 'nav.dashboard', path: '/', icon: <Activity size={20} /> },
       { label: 'nav.agenda', path: '/agenda', icon: <Calendar size={20} /> },
       { label: 'nav.meeting', path: '/virtual-rooms', icon: <Video size={20} /> },
-      { label: 'nav.cases', path: '/cases', icon: <BookOpen size={20} /> },
       { label: 'nav.bot', path: '/bot', icon: <Smartphone size={20} /> },
     ]
   },
@@ -16,7 +16,9 @@ export const NAV_SECTIONS = [
     title: 'nav.group.clinical',
     items: [
       { label: 'nav.patients', path: '/patients', icon: <Users size={20} /> },
+      { label: 'nav.pei', path: '/pei', icon: <BookCheck size={20} /> }, // NEW
       { label: 'nav.records', path: '/records', icon: <FileText size={20} /> },
+      { label: 'nav.cases', path: '/cases', icon: <BookOpen size={20} /> },
       { label: 'nav.documents', path: '/documents', icon: <FolderOpen size={20} /> },
       { label: 'nav.forms', path: '/forms', icon: <ClipboardList size={20} /> },
     ]
@@ -55,6 +57,69 @@ export const NAV_SECTIONS = [
 export const MOCK_USERS = [
   { id: '1', name: 'Karen Gomes', email: 'karen.gomes@clinic.com', role: UserRole.PSYCHOLOGIST },
   { id: '2', name: 'Ana Recepção', email: 'ana@clinic.com', role: UserRole.SECRETARY },
+];
+
+// --- MOCK DATA FOR PEI ---
+export const MOCK_PEIS: PEI[] = [
+  {
+    id: 'pei1',
+    patientId: '1',
+    patientName: 'Carlos Oliveira',
+    therapistId: '1',
+    startDate: '2023-01-10',
+    reviewDate: '2023-12-10',
+    goals: [
+      {
+        id: 'g1',
+        area: 'Comunicação',
+        title: 'Mando (Pedidos) - Itens preferidos',
+        description: 'Pedir itens usando frase de 2 palavras.',
+        status: 'acquisition',
+        startDate: '2023-01-15',
+        currentValue: 45,
+        targetValue: 80,
+        history: [
+          { date: '2023-01-20', value: 10 },
+          { date: '2023-02-20', value: 25 },
+          { date: '2023-03-20', value: 45 },
+        ]
+      },
+      {
+        id: 'g2',
+        area: 'Social',
+        title: 'Contato Visual sob demanda',
+        description: 'Olhar para o interlocutor quando chamado pelo nome.',
+        status: 'maintenance',
+        startDate: '2023-01-10',
+        currentValue: 90,
+        targetValue: 90,
+        history: [
+          { date: '2023-01-10', value: 50 },
+          { date: '2023-02-10', value: 90 },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'pei2',
+    patientId: '2',
+    patientName: 'Mariana Souza',
+    therapistId: '1',
+    startDate: '2023-06-01',
+    reviewDate: '2023-12-01',
+    goals: [
+      {
+        id: 'g3',
+        area: 'Autonomia',
+        title: 'Vestir-se sozinha',
+        status: 'acquisition',
+        startDate: '2023-06-05',
+        currentValue: 30,
+        targetValue: 100,
+        history: []
+      }
+    ]
+  }
 ];
 
 // --- MOCK DATA FOR SUPER ADMIN ---

@@ -121,6 +121,7 @@ export interface Patient {
   paymentType: PaymentType;
   insuranceProvider?: string;
   insuranceNumber?: string;
+  needsReimbursement?: boolean; // NEW: Reembolso indicator
 
   psychologistId: string; // To link to specific doctor
 }
@@ -319,4 +320,36 @@ export interface Product {
   expirationDate?: string;
   barcode?: string;
   salesCount: number; // For "top sellers" analytics
+}
+
+// --- PEI / ABA TYPES ---
+export type GoalStatus = 'acquisition' | 'maintenance' | 'generalization' | 'completed';
+
+export interface GoalDataPoint {
+  date: string;
+  value: number; // Percentage or Count
+  notes?: string;
+}
+
+export interface ClinicalGoal {
+  id: string;
+  area: string; // e.g., 'Comunicação', 'Motor', 'Social'
+  title: string; // e.g., 'Contato Visual ao chamar nome'
+  description?: string;
+  status: GoalStatus;
+  startDate: string;
+  targetDate?: string;
+  currentValue: number; // Last recorded %
+  targetValue: number; // e.g., 80%
+  history: GoalDataPoint[];
+}
+
+export interface PEI {
+  id: string;
+  patientId: string;
+  patientName: string;
+  therapistId: string;
+  startDate: string;
+  reviewDate: string;
+  goals: ClinicalGoal[];
 }

@@ -1,12 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { MOCK_COMANDAS, MOCK_SERVICES, MOCK_PACKAGES, MOCK_PATIENTS } from '../constants';
-import { Comanda, ComandaItem, ComandaStatus, ComandaSession } from '../types';
+import { MOCK_COMANDAS, MOCK_SERVICES, MOCK_PACKAGES, MOCK_PATIENTS, MOCK_PROFESSIONALS } from '../constants';
+import { Comanda, ComandaItem, ComandaStatus, ComandaSession, Patient, Professional } from '../types';
 import { 
   ShoppingBag, Search, Plus, Filter, Edit3, Trash2, Calendar, User, 
   Receipt, DollarSign, CheckCircle, Clock, Archive, X, ChevronDown, Package, Layers,
   LayoutGrid, List as ListIcon, Send, CreditCard, AlertCircle, Printer, MoreHorizontal, ArrowRight,
-  CalendarCheck, Repeat, PlayCircle
+  CalendarCheck, Repeat, PlayCircle, FileText, BadgeCheck, FileCheck
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -23,6 +23,13 @@ export const Comandas: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingComanda, setEditingComanda] = useState<Partial<Comanda> | null>(null);
+  
+  // Receipt/Document Modal
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<Comanda | null>(null);
+  const [docType, setDocType] = useState<'simple' | 'reimbursement' | 'declaration' | 'attestation'>('simple');
+  const [docPatient, setDocPatient] = useState<Patient | undefined>(undefined);
+  const [docProfessional, setDocProfessional] = useState<Professional>(MOCK_PROFESSIONALS[0]);
   
   // Modal Sub-tabs
   const [activeModalTab, setActiveModalTab] = useState<'items' | 'sessions'>('items');
@@ -119,6 +126,31 @@ export const Comandas: React.FC = () => {
       }
   };
 
+  const handleGenerateReceipt = (comanda: Comanda) => {
+      setReceiptData(comanda);
+      const patient = MOCK_PATIENTS.find(p => p.id === comanda.patientId);
+      setDocPatient(patient);
+      // Determine default doc type based on patient preference
+      setDocType(patient?.needsReimbursement ? 'reimbursement' : 'simple');
+      setIsReceiptOpen(true);
+  };
+
+  const handlePrintReceipt = () => {
+      const content = document.getElementById('receipt-content');
+      if (content) {
+          const printWindow = window.open('', '', 'height=600,width=800');
+          if(printWindow) {
+              printWindow.document.write('<html><head><title>Documento</title>');
+              printWindow.document.write('<style>body { font-family: serif; padding: 20px; }</style>');
+              printWindow.document.write('</head><body >');
+              printWindow.document.write(content.innerHTML);
+              printWindow.document.write('</body></html>');
+              printWindow.document.close();
+              printWindow.print();
+          }
+      }
+  };
+
   const generateSessions = (startDate: string, count: number, frequency: 'unica' | 'semanal' | 'quinzenal' | 'mensal') => {
       const sessions: ComandaSession[] = [];
       let currentDate = new Date(startDate);
@@ -157,14 +189,10 @@ export const Comandas: React.FC = () => {
 
       const newItems = [...(editingComanda.items || []), newItem];
       
-      // AUTO-GENERATE SESSIONS LOGIC
-      // If adding items, we might want to regenerate or append sessions.
-      // For simplicity in this demo, if it's the *first* item or specific logic, we generate sessions.
-      // Let's prompt user or auto-do it if sessions are empty.
       let newSessions = editingComanda.sessions || [];
       if (newSessions.length === 0 && editingComanda.startDate) {
           newSessions = generateSessions(editingComanda.startDate, selectedQty, editingComanda.frequency || 'semanal');
-          setActiveModalTab('sessions'); // Switch tab to show user
+          setActiveModalTab('sessions'); 
       }
 
       setEditingComanda(prev => ({
@@ -230,7 +258,6 @@ export const Comandas: React.FC = () => {
       const progress = Math.min((comanda.paidValue / comanda.totalValue) * 100, 100) || 0;
       const remaining = comanda.totalValue - comanda.paidValue;
       
-      // Session Progress
       const completedSessions = comanda.sessions?.filter(s => s.status === 'completed').length || 0;
       const totalSessions = comanda.sessions?.length || 0;
       const sessionProgress = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
@@ -252,13 +279,17 @@ export const Comandas: React.FC = () => {
                           <p className="text-xs text-slate-500">{comanda.description}</p>
                       </div>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); handleShareWhatsApp(comanda); }} className="text-slate-400 hover:text-emerald-600 p-1">
-                      <Send size={16} />
-                  </button>
+                  <div className="flex gap-1">
+                      <button onClick={(e) => { e.stopPropagation(); handleGenerateReceipt(comanda); }} className="text-slate-400 hover:text-indigo-600 p-1" title={t('comandas.receipt')}>
+                          <Printer size={16} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleShareWhatsApp(comanda); }} className="text-slate-400 hover:text-emerald-600 p-1">
+                          <Send size={16} />
+                      </button>
+                  </div>
               </div>
 
               <div className="space-y-2 mb-3">
-                  {/* Items Summary */}
                   {comanda.items.slice(0, 1).map((item, idx) => (
                       <div key={idx} className="flex justify-between text-xs text-slate-600">
                           <span>{item.quantity}x {item.serviceName}</span>
@@ -266,7 +297,6 @@ export const Comandas: React.FC = () => {
                       </div>
                   ))}
                   
-                  {/* Session Tracker Mini */}
                   {totalSessions > 0 && (
                       <div className="mt-2 pt-2 border-t border-slate-50">
                           <div className="flex justify-between text-[10px] text-slate-500 mb-1">
@@ -294,6 +324,141 @@ export const Comandas: React.FC = () => {
               </div>
           </div>
       );
+  };
+
+  // --- DOC GENERATOR TEMPLATES ---
+  const renderDocContent = () => {
+      if (!receiptData || !docProfessional) return null;
+      
+      const today = new Date().toLocaleDateString('pt-BR', {day:'numeric', month:'long', year:'numeric'});
+
+      switch(docType) {
+          case 'reimbursement': // Recibo Completo (IR/Convênio)
+              return (
+                  <div id="receipt-content" className="bg-white p-8 shadow-sm w-full max-w-2xl text-slate-800 font-serif border border-slate-200 mx-auto">
+                      <div className="text-center mb-8">
+                          <h2 className="font-bold text-2xl uppercase mb-1">{docProfessional.name}</h2>
+                          <p className="text-sm text-slate-600">{docProfessional.profession} - CRP {docProfessional.registrationNumber}</p>
+                          <p className="text-xs text-slate-500 mt-1">CPF/CNPJ: {docProfessional.cpfCnpj}</p>
+                          <p className="text-xs text-slate-500">Rua das Flores, 123 - Sala 42 - Centro, SP</p>
+                      </div>
+                      
+                      <div className="border-b-2 border-slate-800 mb-8"></div>
+                      
+                      <h1 className="text-center font-bold text-3xl mb-8 uppercase tracking-widest">Recibo</h1>
+                      
+                      <p className="mb-6 leading-loose text-justify">
+                          Recebi de <strong>{docPatient?.name || receiptData.patientName}</strong>, inscrito(a) no CPF sob nº <strong>{docPatient?.cpf || '___________'}</strong>, 
+                          a importância de <strong>{formatCurrency(receiptData.paidValue)}</strong>, referente a serviços profissionais de psicologia prestados.
+                      </p>
+                      
+                      <div className="mb-8 bg-slate-50 p-4 border border-slate-200 rounded-lg">
+                          <p className="font-bold mb-2 border-b border-slate-200 pb-1 text-sm uppercase">Discriminação dos Serviços:</p>
+                          <ul className="list-none space-y-2 text-sm text-slate-700">
+                              {receiptData.items.map((item, idx) => (
+                                  <li key={idx} className="flex justify-between">
+                                      <span>{item.quantity}x {item.serviceName} (Sessão de Psicoterapia)</span>
+                                      <span className="font-mono">{formatCurrency(item.total)}</span>
+                                  </li>
+                              ))}
+                          </ul>
+                      </div>
+                      
+                      <p className="text-right mb-16">São Paulo, {today}</p>
+                      
+                      <div className="text-center">
+                          <div className="border-t border-slate-400 w-1/2 mx-auto mb-2"></div>
+                          <p className="font-bold">{docProfessional.name}</p>
+                          <p className="text-xs text-slate-500">Assinatura do Profissional</p>
+                      </div>
+                  </div>
+              );
+
+          case 'declaration': // Declaração de Pagamento Anual
+              return (
+                  <div id="receipt-content" className="bg-white p-8 shadow-sm w-full max-w-2xl text-slate-800 font-serif border border-slate-200 mx-auto">
+                      <div className="text-center mb-8">
+                          <h2 className="font-bold text-2xl uppercase mb-1">Declaração de Pagamentos</h2>
+                      </div>
+                      
+                      <p className="mb-6 leading-loose text-justify">
+                          Declaramos para os devidos fins de comprovação junto à Receita Federal que o(a) Sr(a). <strong>{docPatient?.name || receiptData.patientName}</strong>, 
+                          CPF nº <strong>{docPatient?.cpf || '___________'}</strong>, efetuou pagamentos a este consultório no ano de <strong>{new Date().getFullYear()}</strong> 
+                          totalizando o valor abaixo discriminado, referente a tratamentos psicológicos.
+                      </p>
+
+                      <div className="mb-8 text-center py-6 bg-slate-50 border border-slate-200 rounded-lg">
+                          <p className="text-sm uppercase text-slate-500 font-bold mb-1">Valor Total Pago</p>
+                          <p className="text-3xl font-bold text-slate-800">{formatCurrency(receiptData.paidValue)}</p>
+                      </div>
+                      
+                      <p className="text-right mb-16">São Paulo, {today}</p>
+                      
+                      <div className="text-center">
+                          <div className="border-t border-slate-400 w-1/2 mx-auto mb-2"></div>
+                          <p className="font-bold">{docProfessional.name}</p>
+                          <p className="text-xs text-slate-500">CRP {docProfessional.registrationNumber} | CPF {docProfessional.cpfCnpj}</p>
+                      </div>
+                  </div>
+              );
+
+          case 'attestation': // Atestado Psicológico
+              return (
+                  <div id="receipt-content" className="bg-white p-8 shadow-sm w-full max-w-2xl text-slate-800 font-serif border border-slate-200 mx-auto">
+                      <div className="text-center mb-10">
+                          <h2 className="font-bold text-xl uppercase mb-1">{docProfessional.name}</h2>
+                          <p className="text-sm text-slate-600">Psicólogo(a) Clínico - CRP {docProfessional.registrationNumber}</p>
+                      </div>
+                      
+                      <h1 className="text-center font-bold text-2xl mb-10 uppercase tracking-widest underline decoration-double underline-offset-4">Atestado Psicológico</h1>
+                      
+                      <p className="mb-6 leading-loose text-justify text-lg">
+                          Atesto, para os devidos fins, que <strong>{docPatient?.name || receiptData.patientName}</strong> 
+                          encontra-se em acompanhamento psicológico sob meus cuidados profissionais.
+                      </p>
+                      
+                      <p className="mb-6 leading-loose text-justify text-lg">
+                          O(A) paciente compareceu à consulta no dia <strong>{new Date().toLocaleDateString()}</strong>, 
+                          no período das <strong>09:00 às 10:00</strong>.
+                      </p>
+
+                      <div className="mb-10 p-4 border-l-4 border-slate-300 bg-slate-50 italic text-slate-600">
+                          "Solicita-se a dispensa de suas atividades laborais/escolares pelo período de ____ dias por motivos de saúde."
+                      </div>
+                      
+                      <p className="text-right mb-20">São Paulo, {today}</p>
+                      
+                      <div className="text-center">
+                          <div className="border-t border-slate-800 w-1/2 mx-auto mb-2"></div>
+                          <p className="font-bold text-lg">{docProfessional.name}</p>
+                          <p className="text-sm text-slate-600">CRP {docProfessional.registrationNumber}</p>
+                      </div>
+                  </div>
+              );
+
+          default: // Simples
+              return (
+                  <div id="receipt-content" className="bg-white p-8 shadow-sm w-full max-w-sm text-sm text-slate-800 font-serif border border-slate-200 mx-auto">
+                      <div className="text-center mb-6">
+                          <h2 className="font-bold text-xl uppercase mb-1">Clínica PsiManager</h2>
+                          <p className="text-xs text-slate-500">Recibo de Pagamento</p>
+                      </div>
+                      <div className="border-b-2 border-slate-800 mb-6"></div>
+                      <p className="mb-4 leading-relaxed">
+                          Recebemos de <strong>{receiptData.patientName}</strong> a importância de <strong>{formatCurrency(receiptData.paidValue)}</strong>.
+                      </p>
+                      <div className="mb-6">
+                          <ul className="list-disc pl-4 space-y-1 text-xs text-slate-600">
+                              {receiptData.items.map((item, idx) => (
+                                  <li key={idx}>{item.quantity}x {item.serviceName}</li>
+                              ))}
+                          </ul>
+                      </div>
+                      <p className="text-right mb-8">{today}</p>
+                      <div className="text-center text-xs text-slate-400">Documento sem valor fiscal</div>
+                  </div>
+              );
+      }
   };
 
   return (
@@ -420,8 +585,8 @@ export const Comandas: React.FC = () => {
                                   </span>
                               </td>
                               <td className="px-6 py-4 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => handleGenerateReceipt(c)} className="p-2 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg"><Printer size={16} /></button>
                                   <button onClick={() => handleOpenModal(c)} className="p-2 bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-lg"><Edit3 size={16} /></button>
-                                  <button onClick={() => handleShareWhatsApp(c)} className="p-2 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg"><Send size={16} /></button>
                                   <button onClick={() => handleDelete(c.id)} className="p-2 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg"><Trash2 size={16} /></button>
                               </td>
                           </tr>
@@ -431,7 +596,67 @@ export const Comandas: React.FC = () => {
           </div>
       )}
 
-      {/* --- MODAL PDV (Therapy Style) --- */}
+      {/* --- DOCUMENT GENERATOR MODAL --- */}
+      {isReceiptOpen && receiptData && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+              <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+                  
+                  {/* Left Sidebar: Settings */}
+                  <div className="w-full md:w-72 bg-slate-50 border-r border-slate-200 flex flex-col">
+                      <div className="p-4 border-b border-slate-200">
+                          <h3 className="font-bold text-slate-800 flex items-center gap-2"><FileText size={18} /> {t('comandas.receiptTitle')}</h3>
+                      </div>
+                      
+                      <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+                          <div>
+                              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Tipo de Documento</label>
+                              <div className="space-y-2">
+                                  {[
+                                      { id: 'simple', label: t('comandas.type.simple'), icon: <Receipt size={16}/> },
+                                      { id: 'reimbursement', label: t('comandas.type.reimbursement'), icon: <BadgeCheck size={16}/> },
+                                      { id: 'declaration', label: t('comandas.type.declaration'), icon: <FileCheck size={16}/> },
+                                      { id: 'attestation', label: t('comandas.type.attestation'), icon: <FileText size={16}/> },
+                                  ].map((type) => (
+                                      <button 
+                                        key={type.id}
+                                        onClick={() => setDocType(type.id as any)}
+                                        className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${docType === type.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'}`}
+                                      >
+                                          {type.icon} {type.label}
+                                      </button>
+                                  ))}
+                              </div>
+                          </div>
+
+                          {docPatient?.needsReimbursement && docType !== 'reimbursement' && (
+                              <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-800 flex gap-2">
+                                  <AlertCircle size={16} className="shrink-0" />
+                                  <span>Paciente possui indicação de Reembolso. Sugerimos usar o recibo completo.</span>
+                              </div>
+                          )}
+                      </div>
+
+                      <div className="p-4 border-t border-slate-200">
+                          <button onClick={handlePrintReceipt} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg flex items-center justify-center gap-2">
+                              <Printer size={18} /> {t('comandas.print')} / PDF
+                          </button>
+                          <button onClick={() => setIsReceiptOpen(false)} className="w-full py-2 text-slate-500 font-bold hover:bg-slate-200 rounded-lg mt-2 text-sm">
+                              {t('comandas.close')}
+                          </button>
+                      </div>
+                  </div>
+                  
+                  {/* Right Preview */}
+                  <div className="flex-1 bg-slate-200 p-8 overflow-y-auto flex justify-center">
+                      <div className="shadow-2xl h-fit">
+                          {renderDocContent()}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- MODAL EDIT COMANDA (Existing) --- */}
       {isModalOpen && editingComanda && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
               <div className="bg-white w-full max-w-5xl h-[85vh] rounded-[24px] shadow-2xl overflow-hidden flex flex-col md:flex-row">
