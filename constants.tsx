@@ -1,4 +1,3 @@
-
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource } from './types';
 import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen } from 'lucide-react';
 
@@ -377,202 +376,140 @@ export const MOCK_FORM_STATS: FormStats = {
   totalForms: 12,
   totalResponses: 148,
   mostUsed: {
-    title: 'Anamnese Adulto Inicial',
-    responseCount: 64
+    title: 'Anamnese Adulto',
+    responseCount: 45
   }
 };
 
 export const MOCK_FORMS: ClinicalForm[] = [
   {
-    id: '1',
+    id: 'f1',
     title: 'Anamnese Adulto Inicial',
-    description: 'Questionário completo para primeira consulta com pacientes adultos.',
-    createdAt: '2023-08-15',
-    responseCount: 64,
-    hash: 'ana-adulto-23',
-    isGlobal: false,
-    questions: [
-        { id: 'q1', type: 'text', text: 'Nome Completo', required: true, options: [] },
-        { id: 'q2', type: 'textarea', text: 'Qual o principal motivo da consulta?', required: true, options: [] },
-        { id: 'q3', type: 'radio', text: 'Já fez terapia antes?', required: true, options: [{label: 'Sim', value: 0}, {label: 'Não', value: 0}] },
-    ]
+    description: 'Questionário completo para novos pacientes adultos.',
+    createdAt: '2023-01-15',
+    questions: [],
+    responseCount: 45,
+    hash: 'anamnese-adulto-123'
   },
   {
-    id: '2',
+    id: 'f2',
     title: 'Diário de Sono Semanal',
-    description: 'Registro diário da qualidade do sono.',
-    createdAt: '2023-09-01',
-    responseCount: 32,
-    hash: 'sono-semanal',
-    isGlobal: false,
-    questions: [
-        { id: 'q1', type: 'number', text: 'Quantas horas você dormiu?', required: true, options: [] },
-        { id: 'q2', type: 'select', text: 'Qualidade do sono', required: true, options: [{label: 'Ruim', value: 0}, {label: 'Regular', value: 1}, {label: 'Bom', value: 2}, {label: 'Ótimo', value: 3}] },
-    ]
-  },
-  ...MOCK_GLOBAL_FORMS
+    description: 'Acompanhamento da qualidade do sono.',
+    createdAt: '2023-02-10',
+    questions: [],
+    responseCount: 30,
+    hash: 'diario-sono-456'
+  }
 ];
 
 export const MOCK_MESSAGE_TEMPLATES: MessageTemplate[] = [
   {
-    id: '1',
-    title: 'Confirmação de Agendamento',
+    id: 'mt1',
+    title: 'Lembrete de Consulta',
+    content: 'Olá {{nome_paciente}}, passando para lembrar da nossa consulta amanhã às {{horario}}. Confirma?',
     category: 'Lembrete',
-    content: 'Olá {{nome_paciente}}, tudo bem? Passando para confirmar sua consulta de {{servico}} agendada para {{data_agendamento}} às {{horario}} com {{nome_profissional}}. Por favor, confirme sua presença.',
-    lastUsed: '2023-10-01'
+    lastUsed: '2023-10-05'
   },
   {
-    id: '2',
-    title: 'Cobrança Pendente',
+    id: 'mt2',
+    title: 'Cobrança em Aberto',
+    content: 'Olá {{nome_paciente}}, consta em nosso sistema uma pendência no valor de {{valor_total}}. Podemos enviar o boleto?',
     category: 'Financeiro',
-    content: 'Olá {{nome_paciente}}, notamos que o pagamento referente ao serviço {{servico}} no valor de R$ {{valor_total}} ainda está pendente. Segue o link para regularização.',
-    lastUsed: '2023-09-28'
-  },
-  {
-    id: '3',
-    title: 'Feliz Aniversário',
-    category: 'Aniversário',
-    content: 'Parabéns {{nome_paciente}}! A Clínica PsiManager deseja a você um feliz aniversário, muita saúde e paz. Conte sempre conosco!',
-    lastUsed: '2023-09-25'
+    lastUsed: '2023-09-20'
   }
 ];
 
 export const MOCK_SERVICES: Service[] = [
   {
-    id: '1',
+    id: 's1',
     name: 'Terapia Individual',
-    category: 'Psicoterapia',
+    category: 'Psicologia',
     duration: 50,
-    price: 350.00,
-    cost: 50.00,
+    price: 150,
+    cost: 0,
     color: '#6366f1',
     modality: 'presencial',
-    description: 'Sessão padrão de psicoterapia individual.'
+    description: 'Sessão padrão de terapia individual.'
   },
   {
-    id: '2',
+    id: 's2',
     name: 'Terapia Online',
-    category: 'Psicoterapia',
+    category: 'Psicologia',
     duration: 50,
-    price: 300.00,
-    cost: 20.00,
+    price: 150,
+    cost: 0,
     color: '#10b981',
     modality: 'online',
-    description: 'Atendimento via Google Meet.'
-  },
-  {
-    id: '3',
-    name: 'Avaliação Neuropsicológica',
-    category: 'Avaliação',
-    duration: 90,
-    price: 500.00,
-    cost: 100.00,
-    color: '#f59e0b',
-    modality: 'presencial',
-    description: 'Sessão de aplicação de testes.'
+    description: 'Sessão de terapia via videochamada.'
   }
 ];
 
 export const MOCK_PACKAGES: ServicePackage[] = [
   {
     id: 'p1',
-    name: 'Pacote Mensal - 4 Sessões',
-    description: 'Pacote com desconto para acompanhamento semanal.',
+    name: 'Pacote Mensal (4 Sessões)',
+    description: '4 sessões de terapia individual com desconto.',
     items: [
-      { serviceId: '1', quantity: 4 }
+      { serviceId: 's1', quantity: 4 }
     ],
     discountType: 'percentage',
     discountValue: 10,
-    totalPrice: 1260.00 // (350 * 4) - 10%
-  },
-  {
-    id: 'p2',
-    name: 'Pacote Trimestral Online',
-    description: '12 sessões online com desconto especial.',
-    items: [
-      { serviceId: '2', quantity: 12 }
-    ],
-    discountType: 'fixed',
-    discountValue: 400,
-    totalPrice: 3200.00 // (300 * 12) - 400
+    totalPrice: 540
   }
 ];
 
 export const MOCK_COMANDAS: Comanda[] = [
   {
     id: 'c1',
-    description: 'Terapia Mensal - Setembro',
+    description: 'Pacote Mensal - Outubro',
     patientId: '1',
     patientName: 'Carlos Oliveira',
-    startDate: '2023-09-01',
+    startDate: '2023-10-01',
     status: 'aberta',
-    type: 'servico',
+    type: 'pacote',
     frequency: 'semanal',
     items: [
-        { id: 'i1', serviceId: '1', serviceName: 'Terapia Individual', quantity: 4, unitPrice: 350.00, total: 1400.00 }
+      { id: 'ci1', serviceId: 's1', serviceName: 'Terapia Individual', quantity: 4, unitPrice: 150, total: 600 }
     ],
-    // MOCK SESSIONS
     sessions: [
-        { id: 's1', number: 1, date: '2023-09-06T10:00:00', status: 'completed' },
-        { id: 's2', number: 2, date: '2023-09-13T10:00:00', status: 'completed' },
-        { id: 's3', number: 3, date: '2023-09-20T10:00:00', status: 'pending' },
-        { id: 's4', number: 4, date: '2023-09-27T10:00:00', status: 'pending' },
+      { id: 'ses1', number: 1, date: '2023-10-05T10:00:00', status: 'completed' },
+      { id: 'ses2', number: 2, date: '2023-10-12T10:00:00', status: 'pending' },
+      { id: 'ses3', number: 3, date: '2023-10-19T10:00:00', status: 'pending' },
+      { id: 'ses4', number: 4, date: '2023-10-26T10:00:00', status: 'pending' }
     ],
-    subtotal: 1400.00,
+    subtotal: 600,
     discountType: 'percentage',
-    discountValue: 0,
-    totalValue: 1400.00,
-    paidValue: 350.00,
-    createdAt: '2023-08-30'
-  },
-  {
-    id: 'c2',
-    description: 'Pacote Trimestral',
-    patientId: '2',
-    patientName: 'Mariana Souza',
-    startDate: '2023-07-15',
-    status: 'fechada',
-    type: 'pacote',
-    items: [
-        { id: 'i2', serviceId: '2', serviceName: 'Terapia Online', quantity: 12, unitPrice: 300.00, total: 3600.00 }
-    ],
-    sessions: Array.from({length: 12}, (_, i) => ({
-        id: `s${i+10}`, number: i+1, date: '2023-07-15', status: 'completed'
-    })),
-    subtotal: 3600.00,
-    discountType: 'fixed',
-    discountValue: 400.00,
-    totalValue: 3200.00,
-    paidValue: 3200.00,
-    createdAt: '2023-07-10'
+    discountValue: 10,
+    totalValue: 540,
+    paidValue: 270,
+    createdAt: '2023-10-01'
   }
 ];
 
 export const MOCK_PRODUCTS: Product[] = [
-  { 
-    id: 'p1', 
-    name: 'Livro: Ansiedade Cotidiana', 
-    brand: 'Editora Psi', 
-    category: 'Livros', 
-    price: 49.90, 
-    cost: 25.00, 
-    stock: 12, 
-    minStock: 5, 
-    salesCount: 45,
+  {
+    id: 'prod1',
+    name: 'Livro: Vencendo a Ansiedade',
     type: 'physical',
-    imageUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=300&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=800',
+    brand: 'Editora Psi',
+    category: 'Livros',
+    price: 49.90,
+    cost: 25.00,
+    stock: 12,
+    minStock: 5,
+    salesCount: 45
   },
-  { 
-    id: 'p2', 
-    name: 'Kit Baralho das Emoções', 
-    brand: 'Terapia Criativa', 
-    category: 'Materiais', 
-    price: 85.00, 
-    cost: 40.00, 
-    stock: 3, 
-    minStock: 5, 
-    salesCount: 120,
-    type: 'physical',
-    imageUrl: 'https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=300&auto=format&fit=crop'
-  },
+  {
+    id: 'prod2',
+    name: 'E-book: Guia de Relaxamento',
+    type: 'digital',
+    brand: 'Autoral',
+    category: 'Materiais Digitais',
+    price: 29.90,
+    cost: 0,
+    stock: 999, // Digital
+    minStock: 0,
+    salesCount: 120
+  }
 ];
