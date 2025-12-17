@@ -234,6 +234,7 @@ export const MOCK_PATIENTS: Patient[] = [
     paymentType: PaymentType.PRIVATE,
     psychologistId: '1',
     hasChildren: false,
+    birthDate: '1985-10-12', // Matches mock month for birthday widget
     address: {
       street: 'Rua das Flores',
       number: '123',
@@ -255,8 +256,21 @@ export const MOCK_PATIENTS: Patient[] = [
     psychologistId: '1',
     hasChildren: true,
     numberOfChildren: 2,
+    birthDate: '1990-05-20',
     address: { street: '', number: '', neighborhood: '', city: '', state: '', zipCode: '' },
     maritalStatus: MaritalStatus.MARRIED
+  },
+  {
+    id: '3',
+    name: 'Fernanda Lima',
+    phone: '(31) 98888-1111',
+    active: true,
+    paymentType: PaymentType.PRIVATE,
+    psychologistId: '1',
+    hasChildren: false,
+    birthDate: new Date().toISOString().split('T')[0], // Birthday today for demo
+    address: { street: '', number: '', neighborhood: '', city: 'Belo Horizonte', state: 'MG', zipCode: '' },
+    maritalStatus: MaritalStatus.SINGLE
   }
 ];
 
