@@ -9,6 +9,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
 import { Agenda } from './pages/Agenda';
 import { Documents } from './pages/Documents';
+import { DocGenerator } from './pages/DocGenerator'; // NEW
 import { Forms } from './pages/Forms';
 import { FormsList } from './pages/FormsList';
 import { Records } from './pages/Records';
@@ -30,7 +31,7 @@ import { MeetingRoom } from './pages/MeetingRoom';
 import { VirtualRooms } from './pages/VirtualRooms';
 import { BotIntegration } from './pages/BotIntegration';
 import { CaseStudies } from './pages/CaseStudies';
-import { PEI } from './pages/PEI'; // NEW
+import { PEI } from './pages/PEI'; 
 import { SuperAdmin } from './pages/SuperAdmin'; 
 import { MOCK_USERS } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -130,6 +131,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="/cases" element={<CaseStudies />} />
                 <Route path="/pei" element={<PEI />} /> 
                 <Route path="/documents" element={<Documents />} />
+                <Route path="/doc-generator" element={<DocGenerator />} />
                 
                 {/* Services & Packages Module */}
                 <Route path="/services" element={<Services />} />

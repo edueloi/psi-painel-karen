@@ -1,6 +1,6 @@
 
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource, PEI } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck } from 'lucide-react';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer } from 'lucide-react';
 
 export const NAV_SECTIONS = [
   {
@@ -16,7 +16,7 @@ export const NAV_SECTIONS = [
     title: 'nav.group.clinical',
     items: [
       { label: 'nav.patients', path: '/patients', icon: <Users size={20} /> },
-      { label: 'nav.pei', path: '/pei', icon: <BookCheck size={20} /> }, // NEW
+      { label: 'nav.neuro', path: '/pei', icon: <BrainCircuit size={20} /> }, 
       { label: 'nav.records', path: '/records', icon: <FileText size={20} /> },
       { label: 'nav.cases', path: '/cases', icon: <BookOpen size={20} /> },
       { label: 'nav.documents', path: '/documents', icon: <FolderOpen size={20} /> },
@@ -33,17 +33,18 @@ export const NAV_SECTIONS = [
     ]
   },
   {
-    title: 'nav.group.communication',
-    items: [
-      { label: 'nav.messages', path: '/messages', icon: <MessageCircle size={20} /> },
-    ]
-  },
-  {
     title: 'nav.group.financial',
     items: [
       { label: 'nav.finance', path: '/finance', icon: <DollarSign size={20} /> },
+      { label: 'nav.docGen', path: '/doc-generator', icon: <Printer size={20} /> }, // NEW ITEM
       { label: 'nav.bestClients', path: '/best-clients', icon: <Trophy size={20} /> },
       { label: 'nav.performance', path: '/performance', icon: <BarChart2 size={20} /> },
+    ]
+  },
+  {
+    title: 'nav.group.communication',
+    items: [
+      { label: 'nav.messages', path: '/messages', icon: <MessageCircle size={20} /> },
     ]
   },
   {
@@ -98,6 +99,19 @@ export const MOCK_PEIS: PEI[] = [
           { date: '2023-02-10', value: 90 },
         ]
       }
+    ],
+    sensoryProfile: {
+        auditory: 80, // High sensitivity
+        visual: 40,
+        tactile: 60,
+        vestibular: 30, // Seeking
+        oral: 50,
+        social: 20,
+        lastAssessmentDate: '2023-08-15'
+    },
+    abcRecords: [
+        { id: 'abc1', date: '2023-10-01T14:30:00', antecedent: 'Negado acesso ao tablet', behavior: 'Jogou-se no chão', consequence: 'Ignorado (extinção)', intensity: 'medium', duration: '5 min' },
+        { id: 'abc2', date: '2023-10-03T09:15:00', antecedent: 'Barulho alto na rua', behavior: 'Tapou os ouvidos e gritou', consequence: 'Levado para sala sensorial', intensity: 'high', duration: '10 min' }
     ]
   },
   {
@@ -118,9 +132,133 @@ export const MOCK_PEIS: PEI[] = [
         targetValue: 100,
         history: []
       }
-    ]
+    ],
+    sensoryProfile: {
+        auditory: 30,
+        visual: 30,
+        tactile: 30,
+        vestibular: 80,
+        oral: 40,
+        social: 60,
+        lastAssessmentDate: '2023-09-01'
+    }
   }
 ];
+
+// --- NEURO ASSESSMENTS DATA ---
+export interface AssessmentQuestion {
+    id: string;
+    text: string;
+    riskAnswer?: 'Sim' | 'Não'; 
+}
+
+export interface AssessmentOption {
+    label: string;
+    value: number;
+}
+
+export interface Assessment {
+    id: string;
+    name: string;
+    description: string;
+    type: 'risk' | 'score'; 
+    questions: AssessmentQuestion[];
+    options?: AssessmentOption[]; 
+    cutoff?: number; 
+    color?: string;
+}
+
+export const ASSESSMENTS_DATA: Record<string, Assessment> = {
+    'mchat': {
+        id: 'mchat',
+        name: 'M-CHAT-R/F',
+        description: 'Modified Checklist for Autism in Toddlers (16-30 meses).',
+        type: 'risk',
+        cutoff: 3,
+        color: 'bg-blue-500',
+        questions: [
+            { id: 'q1', text: 'Se você apontar para algo do outro lado da sala, seu filho olha?', riskAnswer: 'Não' },
+            { id: 'q2', text: 'Você já se perguntou se seu filho é surdo?', riskAnswer: 'Sim' }, // Reversed
+            { id: 'q3', text: 'Seu filho brinca de faz-de-conta? (Ex: dar comidinha p/ boneca)', riskAnswer: 'Não' },
+            { id: 'q4', text: 'Seu filho gosta de subir nas coisas? (Móveis, brinquedos)', riskAnswer: 'Não' },
+            { id: 'q5', text: 'Seu filho faz movimentos incomuns com os dedos perto dos olhos?', riskAnswer: 'Sim' }, // Reversed
+            { id: 'q6', text: 'Seu filho aponta com um dedo para pedir algo?', riskAnswer: 'Não' },
+            { id: 'q7', text: 'Seu filho aponta com um dedo para mostrar algo interessante?', riskAnswer: 'Não' },
+            { id: 'q8', text: 'Seu filho se interessa por outras crianças?', riskAnswer: 'Não' },
+            { id: 'q9', text: 'Seu filho mostra coisas para você trazendo ou segurando?', riskAnswer: 'Não' },
+            { id: 'q10', text: 'Seu filho responde quando você o chama pelo nome?', riskAnswer: 'Não' },
+            { id: 'q11', text: 'Se você sorri para seu filho, ele sorri de volta?', riskAnswer: 'Não' },
+            { id: 'q12', text: 'Seu filho fica chateado com barulhos comuns do dia a dia?', riskAnswer: 'Sim' }, // Reversed
+            { id: 'q13', text: 'Seu filho consegue andar?', riskAnswer: 'Não' },
+            { id: 'q14', text: 'Seu filho olha para você quando você fala com ele?', riskAnswer: 'Não' },
+            { id: 'q15', text: 'Seu filho tenta copiar o que você faz?', riskAnswer: 'Não' },
+            { id: 'q16', text: 'Se você vira a cabeça para olhar algo, ele olha também?', riskAnswer: 'Não' },
+            { id: 'q17', text: 'Seu filho tenta fazer você olhar para algo?', riskAnswer: 'Não' },
+            { id: 'q18', text: 'Seu filho entende quando você diz para ele fazer algo?', riskAnswer: 'Não' },
+            { id: 'q19', text: 'Se algo novo acontece, ele olha para o seu rosto?', riskAnswer: 'Não' },
+            { id: 'q20', text: 'Seu filho gosta de movimento/balanço?', riskAnswer: 'Não' },
+        ]
+    },
+    'snap': {
+        id: 'snap',
+        name: 'SNAP-IV',
+        description: 'Swanson, Nolan, and Pelham - IV (Sintomas de TDAH).',
+        type: 'score',
+        cutoff: 18, 
+        color: 'bg-orange-500',
+        options: [
+            { label: 'Nem um pouco', value: 0 },
+            { label: 'Só um pouco', value: 1 },
+            { label: 'Bastante', value: 2 },
+            { label: 'Demais', value: 3 },
+        ],
+        questions: [
+            { id: 's1', text: 'Não consegue prestar muita atenção a detalhes ou comete erros por descuido.' },
+            { id: 's2', text: 'Tem dificuldade de manter a atenção em tarefas ou atividades de lazer.' },
+            { id: 's3', text: 'Parece não ouvir quando falam diretamente com ele(a).' },
+            { id: 's4', text: 'Não segue instruções até o fim e não termina deveres (sem ser por oposição).' },
+            { id: 's5', text: 'Tem dificuldade para organizar tarefas e atividades.' },
+            { id: 's6', text: 'Evita, não gosta ou reluta em envolver-se em tarefas que exigem esforço mental.' },
+            { id: 's7', text: 'Perde coisas necessárias para tarefas ou atividades.' },
+            { id: 's8', text: 'Distrai-se com estímulos externos.' },
+            { id: 's9', text: 'É esquecido(a) em atividades do dia a dia.' },
+            { id: 's10', text: 'Mexe com as mãos ou pés ou se remexe na cadeira.' },
+            { id: 's11', text: 'Sai do lugar em sala de aula ou em outras situações.' },
+            { id: 's12', text: 'Corre ou sobe nas coisas em situações inapropriadas.' },
+            { id: 's13', text: 'Tem dificuldade em brincar ou envolver-se silenciosamente em atividades de lazer.' },
+            { id: 's14', text: 'Está "a mil" ou age como se estivesse "ligado na tomada".' },
+            { id: 's15', text: 'Fala demais.' },
+            { id: 's16', text: 'Responde as perguntas de forma precipitada antes de serem terminadas.' },
+            { id: 's17', text: 'Tem dificuldade de esperar sua vez.' },
+            { id: 's18', text: 'Interrompe ou se mete em assuntos de outros.' }
+        ]
+    },
+    'ata': {
+        id: 'ata',
+        name: 'Escala ATA',
+        description: 'Escala de Avaliação de Traços Autísticos.',
+        type: 'score',
+        color: 'bg-emerald-500',
+        options: [
+            { label: 'Sem dificuldade (0)', value: 0 },
+            { label: 'Leve (1)', value: 1 },
+            { label: 'Acentuado (2)', value: 2 },
+        ],
+        cutoff: 15,
+        questions: [
+            { id: 'a1', text: 'Dificuldade na Interação Social' },
+            { id: 'a2', text: 'Falta de Contato Visual' },
+            { id: 'a3', text: 'Isolamento / Retraimento' },
+            { id: 'a4', text: 'Não busca consolo quando machucado' },
+            { id: 'a5', text: 'Ausência de sorriso social' },
+            { id: 'a6', text: 'Não imita gestos ou ações' },
+            { id: 'a7', text: 'Não aponta para pedir' },
+            { id: 'a8', text: 'Atraso na fala' },
+            { id: 'a9', text: 'Ecolalia' },
+            { id: 'a10', text: 'Uso estereotipado de objetos' }
+        ]
+    }
+};
 
 // --- MOCK DATA FOR SUPER ADMIN ---
 export const MOCK_TENANTS: Tenant[] = [
@@ -294,6 +432,7 @@ export const MOCK_PATIENTS: Patient[] = [
     phone: '(11) 99999-8888',
     whatsapp: '(11) 99999-8888',
     email: 'carlos.o@email.com',
+    cpf: '123.456.789-00',
     active: true,
     paymentType: PaymentType.PRIVATE,
     psychologistId: '1',
@@ -315,6 +454,7 @@ export const MOCK_PATIENTS: Patient[] = [
     name: 'Mariana Souza',
     phone: '(21) 98888-7777',
     active: true,
+    cpf: '987.654.321-11',
     paymentType: PaymentType.INSURANCE,
     insuranceProvider: 'Unimed',
     psychologistId: '1',

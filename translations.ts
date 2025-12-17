@@ -16,6 +16,7 @@ export const translations = {
     'nav.records': 'Prontuários',
     'nav.services': 'Serviços/Pacotes',
     'nav.documents': 'Documentos',
+    'nav.docGen': 'Emissor de Docs',
     'nav.forms': 'Formulários',
     'nav.messages': 'Mensagens',
     'nav.finance': 'Financeiro',
@@ -23,12 +24,25 @@ export const translations = {
     'nav.meeting': 'Sala Virtual',
     'nav.bot': 'Vincular Bot', 
     'nav.cases': 'Estudo de Caso', 
-    'nav.pei': 'PEI / Metas', 
+    'nav.neuro': 'Neurodesenvolvimento', 
     'nav.logout': 'Sair',
     'nav.upgrade': 'Fazer Upgrade',
     'nav.premium': 'Conta Premium',
     'nav.premium.desc': 'Acesse recursos exclusivos de IA.',
 
+    // Meeting Room Assessments
+    'meeting.assessments': 'Avaliações',
+    'meeting.sendTest': 'Enviar para Paciente',
+    'meeting.monitoring': 'Monitorando Respostas...',
+    'meeting.waitingForStart': 'Aguardando início...',
+    'meeting.patientView': 'Visão do Paciente',
+    'meeting.hostView': 'Painel do Terapeuta',
+    'meeting.formSent': 'Formulário enviado com sucesso.',
+    'meeting.patientSolving': 'O paciente está preenchendo agora.',
+    'meeting.testComplete': 'Teste Finalizado',
+    'meeting.resultCalculated': 'Resultado Calculado',
+    'meeting.closeTest': 'Encerrar Aplicação',
+    
     // Navigation Groups
     'nav.group.general': 'Geral',
     'nav.group.clinical': 'Clínico',
@@ -36,11 +50,11 @@ export const translations = {
     'nav.group.financial': 'Financeiro & Relatórios',
     'nav.group.system': 'Sistema',
 
-    // PEI (NEW)
-    'pei.title': 'Plano de Ensino Individualizado (PEI)',
-    'pei.subtitle': 'Acompanhe metas, programas e evolução gráfica de pacientes TEA/Neurodiversos.',
+    // PEI / Neuro
+    'pei.title': 'Neurodesenvolvimento & Inclusão',
+    'pei.subtitle': 'Dashboard completo para TEA, TDAH e Neurodiversidade. Monitore PEI, sensorial e comportamento.',
     'pei.patient': 'Paciente',
-    'pei.selectPatient': 'Selecione um paciente para ver o PEI',
+    'pei.selectPatient': 'Selecione um paciente',
     'pei.goals': 'Metas e Programas',
     'pei.status': 'Status',
     'pei.acquisition': 'Aquisição',
@@ -58,8 +72,77 @@ export const translations = {
     'pei.value': 'Valor (%)',
     'pei.notes': 'Obs.',
     'pei.save': 'Salvar Lançamento',
+    
+    // Neuro Tabs
+    'pei.tab.goals': 'PEI & Metas',
+    'pei.tab.abc': 'Registro ABC',
+    'pei.tab.sensory': 'Perfil Sensorial',
+    'pei.tab.assessments': 'Escalas & Rastreio',
 
-    // Receipt (NEW)
+    // Goal Form
+    'pei.goal.title': 'Título do Programa/Meta',
+    'pei.goal.desc': 'Descrição Operacional',
+    'pei.goal.area': 'Área (Ex: Social, Verbal)',
+    'pei.goal.target': 'Critério de Alta (%)',
+    'pei.goal.initial': 'Nível Inicial (%)',
+    'pei.goal.save': 'Salvar Programa',
+
+    // Sensory
+    'pei.sensory.visual': 'Visual',
+    'pei.sensory.auditory': 'Auditivo',
+    'pei.sensory.tactile': 'Tátil',
+    'pei.sensory.vestibular': 'Vestibular',
+    'pei.sensory.oral': 'Oral',
+    'pei.sensory.social': 'Social',
+    'pei.sensory.seeking': 'Busca Sensorial',
+    'pei.sensory.avoiding': 'Evitação',
+
+    // ABC
+    'pei.abc.title': 'Novo Registro ABC',
+    'pei.abc.subtitle': 'Análise de contingências (Antecedente - Comportamento - Consequência)',
+    'pei.abc.antecedent': 'Antecedente (O que aconteceu antes?)',
+    'pei.abc.behavior': 'Comportamento (O que o paciente fez?)',
+    'pei.abc.consequence': 'Consequência (O que aconteceu depois?)',
+    'pei.abc.intensity': 'Intensidade',
+    'pei.abc.duration': 'Duração (min)',
+    'pei.abc.new': 'Novo Registro Comportamental',
+    'pei.abc.save': 'Salvar Registro ABC',
+    'pei.abc.date': 'Data e Hora do Ocorrido',
+
+    // Assessments
+    'pei.assessments.available': 'Escalas Disponíveis',
+    'pei.assessments.mchat': 'M-CHAT-R/F (Autismo)',
+    'pei.assessments.snap': 'SNAP-IV (TDAH)',
+    'pei.assessments.ata': 'Escala ATA',
+    'pei.assessments.start': 'Iniciar Aplicação',
+    'pei.assessments.back': 'Voltar para Lista',
+    'pei.assessments.calculate': 'Calcular Resultado',
+    'pei.assessments.result': 'Resultado da Avaliação',
+    'pei.assessments.score': 'Pontuação Total',
+    'pei.assessments.interpretation': 'Interpretação Clínica',
+    'pei.assessments.saveToRecord': 'Salvar no Prontuário',
+
+    // ... (keep all other translations)
+    'docGen.title': 'Emissor de Documentos',
+    'docGen.subtitle': 'Gere recibos para reembolso, atestados e declarações com validade jurídica.',
+    'docGen.selectPatient': 'Selecione o Paciente',
+    'docGen.docType': 'Tipo de Documento',
+    'docGen.config': 'Configuração do Documento',
+    'docGen.preview': 'Visualização A4',
+    'docGen.print': 'Imprimir / Salvar PDF',
+    'docGen.type.receipt': 'Recibo Financeiro (Reembolso)',
+    'docGen.type.attestation': 'Atestado Psicológico',
+    'docGen.type.declaration': 'Declaração de Comparecimento',
+    'docGen.type.hours': 'Declaração de Horas (Convênio)',
+    'docGen.field.value': 'Valor Total (R$)',
+    'docGen.field.sessions': 'Qtd. Sessões',
+    'docGen.field.date': 'Data do Documento',
+    'docGen.field.period': 'Período (Início/Fim)',
+    'docGen.field.cid': 'CID-10 (Opcional)',
+    'docGen.field.obs': 'Observações Adicionais',
+    'docGen.field.reason': 'Motivo/Finalidade',
+    'docGen.warning.cid': 'Atenção: A inclusão do CID requer autorização do paciente.',
+
     'comandas.receipt': 'Emitir Documento',
     'comandas.receiptTitle': 'Documentos Financeiros',
     'comandas.emit': 'Gerar PDF',
@@ -71,7 +154,6 @@ export const translations = {
     'comandas.type.attestation': 'Atestado Psicológico',
     'comandas.type.attendance': 'Declaração de Comparecimento',
 
-    // Finance & Tax (UPDATED)
     'finance.title': 'Fluxo de Caixa',
     'finance.subtitle': 'Monitore a saúde financeira da sua clínica.',
     'finance.dashboard': 'Dashboard',
@@ -99,7 +181,6 @@ export const translations = {
     'finance.table.balance': 'Saldo',
     'finance.table.status': 'Status',
     
-    // Tax Helper Specifics
     'finance.tax.carneLeao': 'Simulador Carnê-Leão',
     'finance.tax.taxableIncome': 'Rendimento Tributável',
     'finance.tax.deductibleExpenses': 'Despesas Dedutíveis (Livro Caixa)',
@@ -110,7 +191,6 @@ export const translations = {
     'finance.tax.bookkeeping': 'Livro Caixa',
     'finance.tax.deductibleTip': 'Aluguel, Condomínio, Luz, Internet, CRP e Materiais de escritório são dedutíveis para psicólogos autônomos.',
 
-    // ... (keep all other translations)
     'cases.title': 'Estudo de Caso & Supervisão',
     'cases.subtitle': 'Organize casos clínicos, planeje supervisões e acompanhe o progresso em quadros visuais.',
     'cases.boards': 'Meus Quadros',
@@ -131,7 +211,6 @@ export const translations = {
     'cases.cancel': 'Cancelar',
     'cases.noBoards': 'Nenhum quadro criado.',
 
-    // Bot Integration
     'bot.title': 'Assistente Virtual WhatsApp',
     'bot.subtitle': 'Automatize a comunicação com seus pacientes e receba alertas em tempo real.',
     'bot.connect': 'Conectar Dispositivo',
@@ -154,7 +233,6 @@ export const translations = {
     'bot.financialAlert': 'Alerta de Pagamento Recebido',
     'bot.saveConfig': 'Salvar Configurações do Bot',
 
-    // Virtual Rooms Page
     'rooms.title': 'Salas Virtuais',
     'rooms.subtitle': 'Gerencie seus atendimentos online, crie links instantâneos e veja seu histórico.',
     'rooms.instant': 'Nova Reunião',
@@ -169,7 +247,6 @@ export const translations = {
     'rooms.startNow': 'Iniciar Agora',
     'rooms.noUpcoming': 'Nenhuma sala agendada para hoje.',
 
-    // Meeting Room Updates
     'meeting.captions': 'Legendas Automáticas',
     'meeting.captionsOn': 'Legendas Ativadas',
     'meeting.captionsOff': 'Legendas Desativadas',
@@ -194,7 +271,6 @@ export const translations = {
     'meeting.uploadDoc': 'Enviar Documento',
     'meeting.duration': 'Duração',
     
-    // ... keep existing translations ...
     'login.welcome': 'Bem-vindo(a)',
     'login.subtitle': 'Acesse o PsiManager Pro para gerenciar sua clínica com excelência.',
     'login.email': 'E-mail',
@@ -218,7 +294,6 @@ export const translations = {
     'topbar.logout': 'Sair da conta',
     'topbar.connected': 'Conta Conectada',
 
-    // Dashboard
     'dashboard.welcome': 'Olá',
     'dashboard.subtitle': 'Aqui está o resumo da sua clínica hoje.',
     'dashboard.today': 'Hoje',
@@ -236,7 +311,6 @@ export const translations = {
     'dashboard.inMinutes': 'Em {minutes} minutos',
     'dashboard.enterRoom': 'Entrar na Sala',
 
-    // Patients & Wizard
     'patients.title': 'Meus Pacientes',
     'patients.subtitle': 'Gerencie prontuários, documentos e dados cadastrais.',
     'patients.new': 'Novo Paciente',
@@ -288,7 +362,6 @@ export const translations = {
     'wizard.uploadDesc': 'RG, CPF, Comprovante de Residência, Encaminhamentos',
     'wizard.needsReimbursement': 'Necessita Recibo para Reembolso',
     
-    // Dropdowns Translations
     'marital.single': 'Solteiro(a)',
     'marital.married': 'Casado(a)',
     'marital.divorced': 'Divorciado(a)',
@@ -321,7 +394,71 @@ export const translations = {
     'theme.trust': 'Confiança',
     'theme.creative': 'Criativo',
 
-    // ... (keep all other translations)
+    'agenda.day': 'Dia',
+    'agenda.week': 'Semana',
+    'agenda.month': 'Mês',
+    'agenda.today': 'Hoje',
+    'agenda.schedule': 'Agendar',
+    'agenda.new': 'Novo Agendamento',
+    'agenda.type': 'Tipo',
+    'agenda.consultation': 'Consulta',
+    'agenda.block': 'Bloqueio',
+    'agenda.patient': 'Paciente',
+    'agenda.date': 'Data',
+    'agenda.time': 'Horário',
+    'agenda.professional': 'Profissional',
+    'agenda.modality': 'Modalidade',
+    'agenda.presential': 'Presencial',
+    'agenda.online': 'Online',
+    'agenda.link': 'Sala Virtual',
+    'agenda.generateLink': 'Gerar Link',
+    'agenda.cancel': 'Cancelar',
+    'agenda.confirm': 'Confirmar',
+    'agenda.join': 'Entrar na Sala',
+
+    'comandas.title': 'Comandas & Pedidos',
+    'comandas.subtitle': 'Gerencie vendas, pacotes e controle os recebimentos.',
+    'comandas.finance': 'Gestão Financeira',
+    'comandas.open': 'Abertas',
+    'comandas.closed': 'Fechadas',
+    'comandas.search': 'Buscar por cliente, descrição...',
+    'comandas.new': 'Nova Comanda',
+    'comandas.edit': 'Editar Comanda',
+    'comandas.details': 'Detalhes',
+    'comandas.paid': 'Pago',
+    'comandas.total': 'Total',
+    'comandas.remaining': 'Restante',
+    'comandas.subtotal': 'Subtotal',
+    'comandas.discount': 'Desconto',
+    'comandas.desc': 'Descrição',
+    'comandas.patient': 'Paciente',
+    'comandas.type': 'Tipo',
+    'comandas.service': 'Serviço',
+    'comandas.package': 'Pacote',
+    'comandas.addItems': 'Adicionar Serviços',
+    'comandas.selectPackage': 'Selecionar Pacote',
+    'comandas.frequency': 'Frequência',
+    'comandas.recurrenceDay': 'Dia da Recorrência',
+    'comandas.markClosed': 'Marcar como Fechada/Finalizada',
+    'comandas.save': 'Salvar Comanda',
+    'comandas.items': 'Itens',
+    'comandas.noItems': 'Nenhum item adicionado.',
+    'comandas.config': 'Configurações da Comanda',
+    'comandas.fillError': 'Preencha o paciente e a descrição.',
+    'comandas.selectService': 'Selecione um serviço...',
+    'comandas.selectPrePackage': 'Selecione um pacote pré-definido...',
+    'comandas.noResults': 'Nenhuma comanda encontrada.',
+    'comandas.freq.unique': 'Única',
+    'comandas.freq.weekly': 'Semanal',
+    'comandas.freq.biweekly': 'Quinzenal',
+    'comandas.freq.monthly': 'Mensal',
+    'comandas.days.monday': 'Segunda-feira',
+    'comandas.days.tuesday': 'Terça-feira',
+    'comandas.days.wednesday': 'Quarta-feira',
+    'comandas.days.thursday': 'Quinta-feira',
+    'comandas.days.friday': 'Sexta-feira',
+    'comandas.na': 'N/A',
+
     'professionals.title': 'Profissionais & Comissões',
     'professionals.subtitle': 'Gerencie o acesso da sua equipe e controle o repasse financeiro.',
     'professionals.team': 'Equipe',
@@ -353,7 +490,6 @@ export const translations = {
     'professionals.role.admin': 'Administrador',
     'professionals.role.secretary': 'Secretário(a)',
 
-    // --- PRODUCTS ---
     'products.title': 'Produtos e Estoque',
     'products.subtitle': 'Controle o inventário de materiais terapêuticos e vendas.',
     'products.management': 'Gestão de Materiais',
@@ -387,7 +523,6 @@ export const translations = {
     'products.newCategory': '+ Criar Nova Categoria',
     'products.productName': 'Nome do Produto',
 
-    // --- SERVICES & PACKAGES ---
     'services.title': 'Serviços e Pacotes',
     'services.subtitle': 'Configure os tipos de atendimentos, valores e pacotes.',
     'services.management': 'Gestão Comercial',
@@ -415,7 +550,6 @@ export const translations = {
     'services.color': 'Cor na Agenda',
     'services.category': 'Categoria',
     
-    // --- RECORDS ---
     'records.title': 'Registros Clínicos',
     'records.subtitle': 'Gerencie evoluções e documentos clínicos com segurança.',
     'records.electronic': 'Prontuário Eletrônico',
@@ -429,7 +563,6 @@ export const translations = {
     'records.documents': 'Docs. Administrativos',
     'records.generateDoc': 'Gerar Documento',
 
-    // --- DOCUMENTS ---
     'documents.title': 'Biblioteca Digital',
     'documents.subtitle': 'Centralize contratos e arquivos com segurança.',
     'documents.management': 'Gestão de Arquivos',
@@ -452,7 +585,6 @@ export const translations = {
     'documents.clearFilters': 'Limpar filtros',
     'documents.fillError': 'Documento salvo com sucesso! (Demo)',
 
-    // --- MESSAGES ---
     'messages.title': 'Mensagens Pré-definidas',
     'messages.subtitle': 'Crie modelos inteligentes com variáveis dinâmicas.',
     'messages.communication': 'Comunicação',
@@ -467,7 +599,6 @@ export const translations = {
     'messages.variables': 'Use as variáveis abaixo para personalizar',
     'messages.fillError': 'Preencha o título e o conteúdo da mensagem.',
 
-    // --- FORMS ---
     'forms.title': 'Visão Geral dos Formulários',
     'forms.subtitle': 'Acompanhe métricas de engajamento dos pacientes.',
     'forms.clinicalPanel': 'Painel clínico',
@@ -512,7 +643,6 @@ export const translations = {
     'forms.fields': 'campos',
     'forms.responses': 'resp.',
 
-    // --- BEST CLIENTS & PERFORMANCE ---
     'ranking.title': 'Ranking de Clientes',
     'ranking.subtitle': 'Identifique seus pacientes mais valiosos.',
     'ranking.intelligence': 'Inteligência de Mercado',
@@ -542,7 +672,6 @@ export const translations = {
     'performance.revenueVsExpense': 'Receitas vs. Despesas no período',
     'performance.profitMargin': 'Margem de Lucro',
 
-    // --- PROFILE, PRIVACY, HELP ---
     'profile.about': 'Sobre o Profissional',
     'profile.publicInfo': 'Informações visíveis no seu perfil público',
     'profile.companyName': 'Nome da Clínica/Empresa',
@@ -610,7 +739,6 @@ export const translations = {
     'help.webPlatform': 'Plataforma Web',
     'help.apiData': 'API / Dados',
 
-    // Settings
     'settings.title': 'Configurações',
     'settings.subtitle': 'Personalize sua experiência no PsiManager Pro.',
     'settings.menu.general': 'Geral',
@@ -648,7 +776,6 @@ export const translations = {
     'settings.advanced.title': 'Configuração Avançada',
     'settings.advanced.desc': 'Esta seção contém configurações sensíveis ou requer um plano Enterprise para acesso completo.',
 
-    // Common
     'common.save': 'Salvar',
     'common.cancel': 'Cancelar',
     'common.edit': 'Editar',

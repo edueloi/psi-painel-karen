@@ -322,7 +322,7 @@ export interface Product {
   salesCount: number; // For "top sellers" analytics
 }
 
-// --- PEI / ABA TYPES ---
+// --- PEI / ABA / NEURODEVELOPMENT TYPES ---
 export type GoalStatus = 'acquisition' | 'maintenance' | 'generalization' | 'completed';
 
 export interface GoalDataPoint {
@@ -344,6 +344,26 @@ export interface ClinicalGoal {
   history: GoalDataPoint[];
 }
 
+export interface SensoryProfile {
+  auditory: number; // 0-100
+  visual: number;
+  tactile: number;
+  vestibular: number;
+  oral: number;
+  social: number;
+  lastAssessmentDate: string;
+}
+
+export interface ABCRecord {
+  id: string;
+  date: string; // ISO DateTime
+  antecedent: string;
+  behavior: string;
+  consequence: string;
+  intensity: 'low' | 'medium' | 'high';
+  duration?: string; // e.g. "5 min"
+}
+
 export interface PEI {
   id: string;
   patientId: string;
@@ -352,4 +372,6 @@ export interface PEI {
   startDate: string;
   reviewDate: string;
   goals: ClinicalGoal[];
+  sensoryProfile?: SensoryProfile; // NEW
+  abcRecords?: ABCRecord[]; // NEW
 }
