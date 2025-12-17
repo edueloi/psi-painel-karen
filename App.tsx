@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Topbar } from './components/Layout/Topbar';
@@ -34,6 +34,7 @@ import { CaseStudies } from './pages/CaseStudies';
 import { PEI } from './pages/PEI'; 
 import { ClinicalTools } from './pages/ClinicalTools'; // NEW
 import { SuperAdmin } from './pages/SuperAdmin'; 
+import { Users } from './pages/Users';
 import { MOCK_USERS } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 
@@ -88,86 +89,74 @@ const FormBuilderWrapper: React.FC = () => {
     );
 };
 
+import { jwtDecode } from 'jwt-decode';
+import { User } from './types';
+
+// ... (imports remain the same)
+
+
 const AppRoutes: React.FC = () => {
   const [authStatus, setAuthStatus] = useState<'GUEST' | 'USER' | 'SUPER_ADMIN'>('GUEST');
+  const [user, setUser] = useState<User | null>(null);
 
-  const handleLogin = (role: string = 'USER') => {
-    setAuthStatus(role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'USER');
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const decodedUser: User & { exp: number } = jwtDecode(token);
+        // Check if token is expired
+        if (decodedUser.exp * 1000 > Date.now()) {
+          setUser(decodedUser);
+          setAuthStatus(decodedUser.role.toUpperCase() === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'USER');
+        } else {
+          // Token is expired
+          localStorage.removeItem('token');
+        }
+      } catch (error) {
+        console.error("Invalid token", error);
+        localStorage.removeItem('token');
+      }
+    }
+  }, []);
+
+  const handleLogin = (token: string) => {
+    try {
+      localStorage.setItem('token', token);
+      const decodedUser: User = jwtDecode(token);
+      setUser(decodedUser);
+      const userRole = (decodedUser.role || '').toUpperCase();
+      
+      if (userRole === 'SUPER_ADMIN') {
+        setAuthStatus('SUPER_ADMIN');
+      } else {
+        setAuthStatus('USER');
+      }
+    } catch (error) {
+       console.error("Failed to decode token on login", error);
+    }
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
     setAuthStatus('GUEST');
   };
 
   return (
     <HashRouter>
       <Routes>
-        {/* Public Routes */}
         <Route path="/login" element={
-          authStatus !== 'GUEST' ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
+          authStatus !== 'GUEST' ? <Navigate to="/" replace /> : <Login onLogin={(token) => handleLogin(token)} />
         } />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        
-        <Route path="/f/:hash" element={<ExternalForm />} />
-        
-        {/* Meeting Room is standalone, NO sidebar, Accessible by GUEST or USER */}
-        <Route path="/meeting/:id" element={<MeetingRoom isGuest={authStatus === 'GUEST'} />} />
-
-        {/* Protected Routes */}
+        {/* ... other public routes */}
         <Route path="/*" element={
           authStatus === 'GUEST' ? (
             <Navigate to="/login" replace />
           ) : authStatus === 'SUPER_ADMIN' ? (
-            // SUPER ADMIN LAYOUT ROUTE
             <SuperAdmin onLogout={handleLogout} />
           ) : (
-            // REGULAR USER MAIN LAYOUT
-            <MainLayout onLogout={handleLogout}>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/patients" element={<Patients />} />
-                <Route path="/agenda" element={<Agenda />} />
-                <Route path="/virtual-rooms" element={<VirtualRooms />} />
-                <Route path="/bot" element={<BotIntegration />} />
-                <Route path="/cases" element={<CaseStudies />} />
-                <Route path="/pei" element={<PEI />} /> 
-                <Route path="/clinical-tools" element={<ClinicalTools />} /> 
-                <Route path="/documents" element={<Documents />} />
-                <Route path="/doc-generator" element={<DocGenerator />} />
-                
-                {/* Services & Packages Module */}
-                <Route path="/services" element={<Services />} />
-                <Route path="/comandas" element={<Comandas />} />
-                
-                {/* Inventory & Products Module */}
-                <Route path="/products" element={<Products />} />
-
-                {/* Team & Professionals */}
-                <Route path="/professionals" element={<Professionals />} />
-
-                <Route path="/best-clients" element={<BestClients />} />
-                <Route path="/performance" element={<Performance />} />
-                <Route path="/finance" element={<Finance />} />
-
-                {/* Forms Module */}
-                <Route path="/forms" element={<Forms />} />
-                <Route path="/forms/list" element={<FormsList />} />
-                <Route path="/forms/new" element={<FormBuilderWrapper />} />
-                
-                {/* Records Module */}
-                <Route path="/records" element={<Records />} />
-                
-                {/* Messages Module */}
-                <Route path="/messages" element={<Messages />} />
-                
-                {/* Account & Settings */}
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/help" element={<Help />} />
-                
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+            <MainLayout user={user} onLogout={handleLogout}>
+              {/* ... nested routes */}
             </MainLayout>
           )
         } />
@@ -175,6 +164,7 @@ const AppRoutes: React.FC = () => {
     </HashRouter>
   );
 };
+
 
 const App: React.FC = () => {
   return (

@@ -1,8 +1,10 @@
 
 import React, { useState } from 'react';
-import { BrainCircuit, ArrowRight, Mail, Lock, Eye, EyeOff, CheckCircle2, Loader2, Globe, ShieldCheck, Zap, BarChart3, Calendar } from 'lucide-react';
+import { BrainCircuit, ArrowRight, Mail, Lock, Eye, EyeOff, CheckCircle2, Loader2, Globe, ShieldCheck, Zap, BarChart3, Calendar, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+import api from '../../api';
 
 interface LoginProps {
   onLogin: (role?: string) => void;
@@ -21,28 +23,41 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false); // Spinner no botão
   const [showSuccessTransition, setShowSuccessTransition] = useState(false); // Tela de boas-vindas
 
-  const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      
-      // 1. Inicia estado de carregamento no botão
-      setIsLoggingIn(true);
+  const [error, setError] = useState('');
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setError(''); // Limpa erros anteriores
 
-      // Simulação de delay de rede (validação)
-      setTimeout(() => {
-          // 2. Se validado com sucesso, ativa a tela de transição (Boas-vindas)
-          setShowSuccessTransition(true);
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { token } = response.data;
 
-          // 3. Aguarda a animação de boas-vindas terminar antes de trocar a rota
-          setTimeout(() => {
-              // SUPER ADMIN CHECK (Hardcoded for Demo)
-              if (email === 'admin@develoi.com' && password === 'Edu@06051992') {
-                  onLogin('SUPER_ADMIN');
-              } else {
-                  // Aceita qualquer outro login como USUÁRIO para fins de demonstração (sem backend)
-                  onLogin('USER');
-              }
-          }, 3500); // Tempo da animação de boas-vindas
-      }, 1000);
+      // 1. Armazena o token
+      localStorage.setItem('token', token);
+
+      // 2. Ativa a transição de sucesso
+      setShowSuccessTransition(true);
+
+      // 3. Decodifica o token para obter o role
+      const decodedToken: { role: string } = jwtDecode(token);
+      const userRole = decodedToken.role.toUpperCase();
+
+      // 4. Aguarda a animação e então atualiza o estado principal
+            setTimeout(() => {
+                onLogin(token);
+            }, 3500);
+
+    } catch (err: any) {
+      // Se falhar, exibe o erro
+      if (err.response && err.response.data && err.response.data.error) {
+        setError(err.response.data.error);
+      } else {
+        setError('Ocorreu um erro inesperado. Tente novamente.');
+      }
+      setIsLoggingIn(false); // Para o spinner
+    }
   };
 
   // --- TELA DE TRANSIÇÃO (BOAS-VINDAS) ---
@@ -198,6 +213,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <h2 className="text-3xl font-display font-bold text-slate-900 mb-2">{t('login.welcome')}</h2>
                   <p className="text-slate-500">{t('login.subtitle')}</p>
               </div>
+
+              {error && (
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg flex items-center">
+                  <AlertTriangle className="mr-3" />
+                  <span>{error}</span>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-6">
                   

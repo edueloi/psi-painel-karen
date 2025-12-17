@@ -1,28 +1,73 @@
 
-import React, { useState, useMemo } from 'react';
-import { MOCK_PATIENTS } from '../constants';
-import { Patient } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import api from '../api';
+import { Patient, PaymentType } from '../types';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { 
   Plus, Search, Filter, Edit3, Trash2, Eye, MapPin, Phone, 
-  Users, Activity, UserCheck, UserX, CreditCard, MoreHorizontal 
+  Users, Activity, UserCheck, UserX, CreditCard, MoreHorizontal, Loader2, AlertTriangle
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const Patients: React.FC = () => {
   const { t } = useLanguage();
   const [view, setView] = useState<'list' | 'form'>('list');
-  const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Partial<Patient> | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const mapApiToPatient = (apiPatient: any): Patient => ({
+    id: apiPatient.id,
+    name: apiPatient.full_name,
+    email: apiPatient.email,
+    phone: apiPatient.whatsapp || apiPatient.phone,
+    whatsapp: apiPatient.whatsapp,
+    cpf: apiPatient.cpf_cnpj,
+    active: apiPatient.status === 'ativo',
+    // Mocking some data that is not in the backend yet
+    paymentType: apiPatient.convenio ? PaymentType.INSURANCE : PaymentType.PRIVATE,
+    insuranceProvider: apiPatient.convenio_name,
+    address: {
+      street: apiPatient.street || '',
+      number: apiPatient.house_number || '',
+      neighborhood: apiPatient.neighborhood || '',
+      city: apiPatient.city || '',
+      state: apiPatient.state || '',
+      zipCode: '', // not in backend
+    },
+    // Add other fields from your Patient type, possibly with default values
+    psychologistId: '', // not in backend
+    hasChildren: apiPatient.has_children,
+    birthDate: '',
+  });
+
+  const fetchPatients = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get('/patients');
+      const mappedPatients = response.data.map(mapApiToPatient);
+      setPatients(mappedPatients);
+    } catch (err) {
+      setError('Falha ao carregar pacientes.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
 
   // --- Stats Logic ---
   const stats = useMemo(() => {
     const total = patients.length;
     const active = patients.filter(p => p.active).length;
     const inactive = total - active;
-    // Mocking "new this month"
-    const newThisMonth = Math.floor(total * 0.1); 
+    const newThisMonth = patients.filter(p => p.id && new Date(p.id.substring(0, 8), 16) > new Date(new Date().setDate(new Date().getDate() - 30))).length;
 
     return { total, active, inactive, newThisMonth };
   }, [patients]);
@@ -37,19 +82,46 @@ export const Patients: React.FC = () => {
     setView('form');
   };
 
-  const handleSave = (data: Partial<Patient>) => {
-    if (data.id) {
-      setPatients(prev => prev.map(p => p.id === data.id ? { ...p, ...data } as Patient : p));
-    } else {
-      const newPatient = { ...data, id: Math.random().toString(36).substr(2, 9) } as Patient;
-      setPatients(prev => [...prev, newPatient]);
+  const handleSave = async (data: Partial<Patient>) => {
+    const patientData = {
+        full_name: data.name,
+        email: data.email,
+        whatsapp: data.whatsapp || data.phone,
+        cpf_cnpj: data.cpf,
+        street: data.address?.street,
+        house_number: data.address?.number,
+        neighborhood: data.address?.neighborhood,
+        city: data.address?.city,
+        state: data.address?.state,
+        status: data.active ? 'ativo' : 'inativo',
+        convenio: data.paymentType === 'Convênio',
+        convenio_name: data.insuranceProvider,
+        // map other fields
+    };
+
+    try {
+        if (data.id) {
+            await api.put(`/patients/${data.id}`, patientData);
+        } else {
+            await api.post('/patients', patientData);
+        }
+        await fetchPatients(); // Recarrega a lista
+        setView('list');
+    } catch (error) {
+        console.error("Failed to save patient", error);
+        setError("Falha ao salvar paciente.");
     }
-    setView('list');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm(t('common.delete') + '?')) {
-      setPatients(prev => prev.filter(p => p.id !== id));
+        try {
+            await api.delete(`/patients/${id}`);
+            await fetchPatients(); // Recarrega a lista
+        } catch (error) {
+            console.error("Failed to delete patient", error);
+            setError("Falha ao remover paciente.");
+        }
     }
   };
 
@@ -69,6 +141,23 @@ export const Patients: React.FC = () => {
         />
       </div>
     );
+  }
+  
+  if (loading) {
+    return (
+        <div className="flex justify-center items-center h-64">
+            <Loader2 className="animate-spin text-indigo-600" size={48} />
+        </div>
+    );
+  }
+
+  if (error) {
+      return (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg flex items-center">
+            <AlertTriangle className="mr-3" />
+            <span>{error}</span>
+        </div>
+      )
   }
 
   return (

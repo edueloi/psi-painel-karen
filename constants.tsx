@@ -1,6 +1,6 @@
 
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource, PEI } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes } from 'lucide-react';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, Lock } from 'lucide-react';
 
 export const NAV_SECTIONS = [
   {
@@ -28,6 +28,7 @@ export const NAV_SECTIONS = [
     title: 'nav.group.management',
     items: [
       { label: 'nav.professionals', path: '/professionals', icon: <UserCheck size={20} /> },
+      { label: 'nav.users', path: '/users', icon: <Lock size={20} /> },
       { label: 'nav.services', path: '/services', icon: <Briefcase size={20} /> },
       { label: 'nav.products', path: '/products', icon: <Package size={20} /> },
       { label: 'nav.comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },

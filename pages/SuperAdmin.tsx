@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { MOCK_TENANTS, MOCK_GLOBAL_RESOURCES, DOCUMENT_CATEGORIES, MOCK_GLOBAL_FORMS } from '../constants';
+import React, { useState, useMemo, useEffect } from 'react';
+import { DOCUMENT_CATEGORIES, MOCK_GLOBAL_RESOURCES, MOCK_GLOBAL_FORMS } from '../constants';
 import { Tenant, GlobalResource, ClinicalForm, FormQuestion } from '../types';
 import { 
   LayoutDashboard, Users, FolderOpen, LogOut, Search, Plus, 
@@ -8,6 +8,7 @@ import {
   FileText, CheckCircle, AlertTriangle, Eye, X, ChevronRight, ClipboardList, Edit3, Building, Lock, User
 } from 'lucide-react';
 import { FormBuilder } from '../components/Forms/FormBuilder';
+import api from '../api';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -19,7 +20,19 @@ interface SuperAdminProps {
 
 export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'files' | 'forms'>('dashboard');
-  const [tenants, setTenants] = useState<Tenant[]>(MOCK_TENANTS);
+    const [tenants, setTenants] = useState<Tenant[]>([]);
+    // Carregar tenants reais do backend ao montar
+    useEffect(() => {
+        const fetchTenants = async () => {
+            try {
+                const response = await api.get('/tenants');
+                setTenants(response.data);
+            } catch (error) {
+                console.error('Erro ao buscar tenants do backend:', error);
+            }
+        };
+        fetchTenants();
+    }, []);
   const [files, setFiles] = useState<GlobalResource[]>(MOCK_GLOBAL_RESOURCES);
   const [forms, setForms] = useState<ClinicalForm[]>(MOCK_GLOBAL_FORMS);
   
@@ -54,31 +67,48 @@ export const SuperAdmin: React.FC<SuperAdminProps> = ({ onLogout }) => {
       return (newTenant.monthlyPrice || 0) * (newTenant.planDurationMonths || 1);
   };
 
-  const handleSaveTenant = () => {
-      if (!newTenant.name || !adminUser.email || !adminUser.password) return alert('Preencha os dados da empresa e do admin.');
-      
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+
+  const handleSaveTenant = async () => {
+    if (!newTenant.name || !adminUser.email || !adminUser.password || !adminUser.name) {
+      return alert('Preencha todos os campos da empresa e do admin.');
+    }
+
+    try {
+      const response = await api.post('/auth/signup/super-admin', {
+        company_name: newTenant.name,
+        admin_name: adminUser.name,
+        admin_email: adminUser.email,
+        password: adminUser.password
+      });
+
       const now = new Date();
       const expiry = new Date(now);
       expiry.setMonth(expiry.getMonth() + (newTenant.planDurationMonths || 1));
 
-      // In a real backend, you would send { tenantData, adminUserData } together in one transaction
+      // Use the response and form data to build the new tenant object for the UI
       const tenant: Tenant = {
-          id: Math.random().toString(36).substr(2, 9),
-          name: newTenant.name, // Company Name
-          email: adminUser.email, // Contact Email
-          initialPassword: adminUser.password, // For display
-          planDurationMonths: newTenant.planDurationMonths || 1,
-          monthlyPrice: newTenant.monthlyPrice || 79.90,
-          totalValue: calculatePlanTotal(),
-          startDate: now.toISOString().split('T')[0],
-          expiryDate: expiry.toISOString().split('T')[0],
-          status: 'active'
+        id: response.data.tenant_id.toString(),
+        name: newTenant.name,
+        email: adminUser.email,
+        initialPassword: adminUser.password, // Show the password used for creation
+        planDurationMonths: newTenant.planDurationMonths || 1,
+        monthlyPrice: newTenant.monthlyPrice || 79.90,
+        totalValue: calculatePlanTotal(),
+        startDate: now.toISOString().split('T')[0],
+        expiryDate: expiry.toISOString().split('T')[0],
+        status: 'active'
       };
 
       setTenants([tenant, ...tenants]);
       setIsTenantModalOpen(false);
-      setNewTenant({ planDurationMonths: 1, monthlyPrice: 79.90 });
+      setNewTenant({ planDurationMonths: 1, monthlyPrice: 79.90, status: 'active' });
       setAdminUser({ name: '', email: '', password: '' });
+      
+    } catch (error) {
+      console.error("Failed to create tenant", error);
+      alert('Falha ao criar o tenant. Verifique o console para mais detalhes.');
+    }
   };
 
   const handleSaveFile = () => {
