@@ -1,39 +1,46 @@
-
 import React, { useState, useMemo } from 'react';
 import { MOCK_PRODUCTS } from '../constants';
-import { Product, ProductType } from '../types';
+import { Product } from '../types';
 import { 
   Package, Search, Plus, Filter, Edit3, Trash2, AlertTriangle, 
-  BarChart, Archive, Tag, DollarSign, Calendar, AlertOctagon,
+  BarChart, Archive, DollarSign, Calendar, AlertOctagon,
   TrendingUp, Box, CheckCircle, Barcode, X, Image, UploadCloud, BookOpen
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-};
-
 export const Products: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  
+  // Helper de formatação de moeda
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', { 
+        style: 'currency', 
+        currency: 'BRL' 
+    }).format(value);
+  };
+
   const [activeTab, setActiveTab] = useState<'list' | 'dashboard'>('list');
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  
+  // 'ALL' é o valor interno para "Todos", o label visual vem do t()
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<Product>>({});
   const [newCategory, setNewCategory] = useState('');
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
 
+  // Categorias dinâmicas baseadas nos produtos
   const categories = useMemo(() => {
       const cats = Array.from(new Set(products.map(p => p.category)));
-      return [t('common.all'), ...cats];
+      return ['ALL', ...cats];
   }, [products]);
 
   const filteredProducts = products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             p.category.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === t('common.all') || p.category === selectedCategory;
+      const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
       return matchesSearch && matchesCategory;
   });
 
@@ -76,7 +83,7 @@ export const Products: React.FC = () => {
       } else {
           setEditingProduct({
               name: '',
-              category: categories.length > 1 ? categories[1] : 'Geral',
+              category: categories.length > 1 && categories[1] !== 'ALL' ? categories[1] : t('products.category.general'),
               price: 0,
               cost: 0,
               stock: 0,
@@ -123,7 +130,6 @@ export const Products: React.FC = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-          // In a real app, this would upload to server. Here we use FileReader for preview.
           const reader = new FileReader();
           reader.onloadend = () => {
               setEditingProduct(prev => ({ ...prev, imageUrl: reader.result as string }));
@@ -223,11 +229,11 @@ export const Products: React.FC = () => {
                           <div className="absolute top-2 right-2">
                               {product.type === 'digital' ? (
                                   <span className="bg-white/90 backdrop-blur text-purple-600 px-2 py-1 rounded-lg text-[10px] font-bold uppercase shadow-sm border border-purple-100 flex items-center gap-1">
-                                      <BookOpen size={10} /> Digital
+                                      <BookOpen size={10} /> {t('products.type.digital')}
                                   </span>
                               ) : (
                                   <span className="bg-white/90 backdrop-blur text-indigo-600 px-2 py-1 rounded-lg text-[10px] font-bold uppercase shadow-sm border border-indigo-100 flex items-center gap-1">
-                                      <Box size={10} /> Físico
+                                      <Box size={10} /> {t('products.type.physical')}
                                   </span>
                               )}
                           </div>
@@ -246,7 +252,7 @@ export const Products: React.FC = () => {
                               </div>
                               <div className={`p-2 rounded-xl text-center border ${isLowStock ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
                                   <div className="text-[9px] uppercase font-bold opacity-70">
-                                      {product.type === 'digital' ? 'Disponível' : t('products.inventory')}
+                                      {product.type === 'digital' ? t('products.stock.available') : t('products.inventory')}
                                   </div>
                                   <div className="font-bold">
                                       {product.type === 'digital' ? '∞' : `${product.stock} un`}
@@ -310,7 +316,7 @@ export const Products: React.FC = () => {
                 </div>
                 <div className="relative group min-w-[150px]">
                      <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-sm rounded-2xl px-4 py-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm cursor-pointer">
-                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        {categories.map(cat => <option key={cat} value={cat}>{cat === 'ALL' ? t('common.all') : cat}</option>)}
                      </select>
                      <Filter size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
@@ -344,13 +350,13 @@ export const Products: React.FC = () => {
                                     onClick={() => setEditingProduct({...editingProduct, type: 'physical'})}
                                     className={`flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${editingProduct.type === 'physical' ? 'bg-white shadow text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
                                 >
-                                    <Box size={16} /> Físico
+                                    <Box size={16} /> {t('products.type.physical')}
                                 </button>
                                 <button 
                                     onClick={() => setEditingProduct({...editingProduct, type: 'digital'})}
                                     className={`flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${editingProduct.type === 'digital' ? 'bg-white shadow text-purple-600' : 'text-slate-500 hover:text-slate-700'}`}
                                 >
-                                    <BookOpen size={16} /> Digital
+                                    <BookOpen size={16} /> {t('products.type.digital')}
                                 </button>
                             </div>
 
@@ -360,7 +366,7 @@ export const Products: React.FC = () => {
                                     <>
                                         <img src={editingProduct.imageUrl} className="w-full h-full object-cover" />
                                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <span className="text-white font-bold text-sm">Alterar Foto</span>
+                                            <span className="text-white font-bold text-sm">{t('products.image.change')}</span>
                                         </div>
                                     </>
                                 ) : (
@@ -368,8 +374,8 @@ export const Products: React.FC = () => {
                                         <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                                             <Image size={32} />
                                         </div>
-                                        <p className="text-sm font-bold text-slate-600">Arraste uma foto</p>
-                                        <p className="text-xs text-slate-400 mt-1">ou clique para selecionar</p>
+                                        <p className="text-sm font-bold text-slate-600">{t('products.image.drag')}</p>
+                                        <p className="text-xs text-slate-400 mt-1">{t('products.image.click')}</p>
                                     </div>
                                 )}
                                 <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
@@ -380,18 +386,18 @@ export const Products: React.FC = () => {
                         <div className="flex-1 space-y-6">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('products.productName')}</label>
-                                <input type="text" className="w-full p-3.5 rounded-xl border border-slate-200 outline-none font-medium text-slate-700 focus:ring-2 focus:ring-indigo-100 text-lg" value={editingProduct.name || ''} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder="Ex: Livro Terapia Cognitiva" />
+                                <input type="text" className="w-full p-3.5 rounded-xl border border-slate-200 outline-none font-medium text-slate-700 focus:ring-2 focus:ring-indigo-100 text-lg" value={editingProduct.name || ''} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder={t('products.placeholder.name')} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('products.category')}</label>
                                     {showNewCategoryInput ? (
-                                        <div className="flex gap-2"><input type="text" className="flex-1 p-3 rounded-xl border border-indigo-300 outline-none font-medium text-slate-700 focus:ring-2 focus:ring-indigo-100 bg-indigo-50/30" placeholder="Nova categoria..." value={newCategory} onChange={e => setNewCategory(e.target.value)} autoFocus /><button onClick={() => setShowNewCategoryInput(false)} className="p-3 bg-slate-100 rounded-xl hover:bg-slate-200"><X size={18} /></button></div>
+                                        <div className="flex gap-2"><input type="text" className="flex-1 p-3 rounded-xl border border-indigo-300 outline-none font-medium text-slate-700 focus:ring-2 focus:ring-indigo-100 bg-indigo-50/30" placeholder={t('products.placeholder.category')} value={newCategory} onChange={e => setNewCategory(e.target.value)} autoFocus /><button onClick={() => setShowNewCategoryInput(false)} className="p-3 bg-slate-100 rounded-xl hover:bg-slate-200"><X size={18} /></button></div>
                                     ) : (
                                         <div className="relative">
                                             <select className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none font-medium text-slate-700 appearance-none focus:ring-2 focus:ring-indigo-100" value={editingProduct.category || ''} onChange={e => {if(e.target.value === 'new') setShowNewCategoryInput(true); else setEditingProduct({...editingProduct, category: e.target.value});}}>
-                                                {categories.filter(c => c !== t('common.all')).map(c => <option key={c} value={c}>{c}</option>)}
+                                                {categories.filter(c => c !== 'ALL').map(c => <option key={c} value={c}>{c}</option>)}
                                                 <option value="new" className="font-bold text-indigo-600">{t('products.newCategory')}</option>
                                             </select>
                                         </div>
@@ -432,10 +438,10 @@ export const Products: React.FC = () => {
                             {/* Digital Specific Info */}
                             {editingProduct.type === 'digital' && (
                                 <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100 animate-[fadeIn_0.3s_ease-out]">
-                                    <h4 className="font-bold text-purple-800 mb-2 flex items-center gap-2"><UploadCloud size={18} /> Arquivo Digital</h4>
-                                    <p className="text-xs text-purple-600 mb-4">Upload do arquivo (PDF, ZIP, EPUB) que será enviado ao cliente após a compra.</p>
+                                    <h4 className="font-bold text-purple-800 mb-2 flex items-center gap-2"><UploadCloud size={18} /> {t('products.digital.title')}</h4>
+                                    <p className="text-xs text-purple-600 mb-4">{t('products.digital.desc')}</p>
                                     <div className="border-2 border-dashed border-purple-200 rounded-xl p-4 text-center bg-white cursor-pointer hover:border-purple-400 transition-colors">
-                                        <p className="text-sm font-bold text-purple-600">Clique para selecionar arquivo</p>
+                                        <p className="text-sm font-bold text-purple-600">{t('products.digital.select')}</p>
                                     </div>
                                 </div>
                             )}

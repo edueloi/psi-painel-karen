@@ -1,21 +1,23 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { Menu, Bell, Search, Settings, LogOut, User as UserIcon, ChevronDown, HelpCircle, Shield } from 'lucide-react';
 import { User } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 
+
 interface TopbarProps {
-  onMenuClick: () => void;
-  user?: Partial<User>;
-  onLogout?: () => void;
+   onMenuClick: () => void;
+   onLogout?: () => void;
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const { t } = useLanguage();
+export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
+   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+   const dropdownRef = useRef<HTMLDivElement>(null);
+   const navigate = useNavigate();
+   const { t } = useLanguage();
+   const { user } = useAuth();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -78,17 +80,22 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) =
            >
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-0.5 shadow-md shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
                   <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                      {user?.avatar ? (
+                       {user?.avatar ? (
                           <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-                      ) : (
-                          <span className="font-bold text-indigo-700 text-sm">{user?.name?.charAt(0) || 'K'}</span>
-                      )}
+                       ) : (
+                          <span className="font-bold text-indigo-700 text-sm">{user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}</span>
+                       )}
                   </div>
               </div>
-              <div className="text-right hidden md:block">
-                  <p className="text-sm font-bold text-slate-700 leading-none group-hover:text-indigo-700 transition-colors">{user?.name || 'Karen Gomes'}</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">{user?.role || 'Psicólogo'}</p>
-              </div>
+                     <div className="text-right hidden md:block">
+                           <p className="text-sm font-bold text-slate-700 leading-none group-hover:text-indigo-700 transition-colors">{user?.name || 'Usuário'}</p>
+                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">
+                              {user?.role === 'super_admin' && 'Super Admin'}
+                              {user?.role === 'admin' && 'Administrador'}
+                              {user?.role === 'profissional' && 'Profissional'}
+                              {user?.role === 'secretario' && 'Secretário'}
+                           </p>
+                     </div>
               <ChevronDown size={14} className={`text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
            </button>
 
@@ -99,11 +106,17 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, user, onLogout }) =
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('topbar.connected')}</p>
                     <div className="flex items-center gap-3">
                        <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                          {user?.name?.charAt(0)}
+                          {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
                        </div>
                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-800 truncate">{user?.name}</p>
-                          <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                                       <p className="font-bold text-slate-800 truncate">{user?.name}</p>
+                                       <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">
+                                          {user?.role === 'super_admin' && 'Super Admin'}
+                                          {user?.role === 'admin' && 'Administrador'}
+                                          {user?.role === 'profissional' && 'Profissional'}
+                                          {user?.role === 'secretario' && 'Secretário'}
+                                       </p>
                        </div>
                     </div>
                  </div>

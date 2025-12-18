@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { api } from '../services/api';
 
 interface AuthUser {
   user_id: number;
@@ -40,24 +41,37 @@ const decodeToken = (token: string | null): AuthUser | null => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('psi_token'));
-  const [user, setUser] = useState<AuthUser | null>(() => decodeToken(localStorage.getItem('psi_token')));
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  // Busca perfil completo do usuário
+  const fetchUserProfile = async (decoded: AuthUser) => {
+    try {
+      const data = await api.get(`/users/${decoded.user_id}`);
+      setUser({ ...decoded, name: data.name, email: data.email });
+    } catch (e) {
+      setUser(decoded); // fallback só com id/role
+    }
+  };
 
   useEffect(() => {
     if (token) {
       const decoded = decodeToken(token);
       if (decoded) {
-        setUser(decoded);
+        fetchUserProfile(decoded);
       } else {
         logout();
       }
+    } else {
+      setUser(null);
     }
+    // eslint-disable-next-line
   }, [token]);
 
   const login = (newToken: string) => {
     localStorage.setItem('psi_token', newToken);
     setToken(newToken);
     const decoded = decodeToken(newToken);
-    setUser(decoded);
+    if (decoded) fetchUserProfile(decoded);
   };
 
   const logout = () => {
