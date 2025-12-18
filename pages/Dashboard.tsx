@@ -33,10 +33,7 @@ export const Dashboard: React.FC = () => {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   
-  // --- STATE: CUSTOMIZATION ---
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
-  
-  // Order of widgets in the main grid columns (mock implementation for visual order)
   const [widgetOrder, setWidgetOrder] = useState<WidgetId[]>(['stats', 'nextAppointment', 'birthdays', 'shortcuts', 'news', 'insight']);
   const [visibleWidgets, setVisibleWidgets] = useState<Record<WidgetId, boolean>>({
       stats: true,
@@ -47,7 +44,6 @@ export const Dashboard: React.FC = () => {
       birthdays: true
   });
 
-  // --- STATE: SHORTCUTS ---
   const [shortcuts, setShortcuts] = useState<Shortcut[]>([
       { id: 'crp', title: 'Portal CRP', url: 'https://site.cfp.org.br/', icon: 'globe', color: 'bg-blue-600', isSystem: true },
       { id: 'spotify', title: 'Playlist Relax', url: 'https://open.spotify.com/genre/focus-page', icon: 'music', color: 'bg-emerald-500', isSystem: true },
@@ -56,7 +52,6 @@ export const Dashboard: React.FC = () => {
   const [newShortcut, setNewShortcut] = useState({ title: '', url: '', color: 'bg-indigo-600' });
   const [isAddingShortcut, setIsAddingShortcut] = useState(false);
 
-  // --- LOGIC ---
   const today = new Date();
   const todaysAppointments = MOCK_APPOINTMENTS.filter(a => 
     a.start.getDate() === today.getDate() &&
@@ -85,11 +80,10 @@ export const Dashboard: React.FC = () => {
       return 'Boa noite';
   };
 
-  const getBirthdays = () => {
+  const birthdays = useMemo(() => {
       const currentMonth = today.getMonth();
       return MOCK_PATIENTS.filter(p => {
           if (!p.birthDate) return false;
-          // Handle string or Date object if MOCK data varies
           const d = new Date(p.birthDate);
           return d.getMonth() === currentMonth;
       }).sort((a, b) => {
@@ -97,17 +91,12 @@ export const Dashboard: React.FC = () => {
           const dayB = new Date(b.birthDate!).getDate();
           return dayA - dayB;
       });
-  };
-
-  const birthdays = useMemo(() => getBirthdays(), []);
+  }, []);
 
   const handleAddShortcut = () => {
       if (!newShortcut.title || !newShortcut.url) return;
-      
       let finalUrl = newShortcut.url;
-      if (!/^https?:\/\//i.test(finalUrl)) {
-          finalUrl = 'https://' + finalUrl;
-      }
+      if (!/^https?:\/\//i.test(finalUrl)) finalUrl = 'https://' + finalUrl;
 
       setShortcuts([...shortcuts, {
           id: Math.random().toString(36),
@@ -121,9 +110,7 @@ export const Dashboard: React.FC = () => {
       setIsAddingShortcut(false);
   };
 
-  const removeShortcut = (id: string) => {
-      setShortcuts(shortcuts.filter(s => s.id !== id));
-  };
+  const removeShortcut = (id: string) => setShortcuts(shortcuts.filter(s => s.id !== id));
 
   const renderIcon = (iconName: string, size = 20) => {
       if (iconName === 'globe') return <Globe size={size} />;
@@ -134,21 +121,16 @@ export const Dashboard: React.FC = () => {
   const moveWidget = (id: WidgetId, direction: 'up' | 'down') => {
       const index = widgetOrder.indexOf(id);
       if (index === -1) return;
-      
       const newOrder = [...widgetOrder];
-      if (direction === 'up' && index > 0) {
-          [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
-      } else if (direction === 'down' && index < newOrder.length - 1) {
-          [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-      }
+      if (direction === 'up' && index > 0) [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
+      else if (direction === 'down' && index < newOrder.length - 1) [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
       setWidgetOrder(newOrder);
   };
 
   // --- WIDGET COMPONENTS ---
-
   const InsightWidget = () => (
     <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-xl p-5 text-white shadow-xl shadow-indigo-200 relative overflow-hidden group mb-6">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-white/20 transition-colors"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-4">
             <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-lg border border-white/20">
                 <Sparkles size={20} className="text-yellow-300" />
@@ -157,13 +139,6 @@ export const Dashboard: React.FC = () => {
                 <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-100 mb-0.5">Resumo Inteligente</h3>
                 <p className="text-base font-medium leading-relaxed">{dailySummary}</p>
             </div>
-            {nextAppointment && (
-                <div className="bg-white/10 backdrop-blur-md rounded-lg p-3 min-w-[180px] border border-white/10">
-                    <p className="text-[10px] text-indigo-100 font-bold uppercase mb-1">Próximo: {nextAppointment.start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
-                    <p className="font-bold truncate text-sm">{nextAppointment.title.replace('Consulta - ', '')}</p>
-                    <p className="text-[10px] opacity-80 mt-0.5 capitalize">{nextAppointment.modality}</p>
-                </div>
-            )}
         </div>
     </div>
   );
@@ -178,14 +153,9 @@ export const Dashboard: React.FC = () => {
         ].map((stat, i) => (
             <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:border-indigo-100 transition-all hover:-translate-y-0.5 group">
                 <div className="flex justify-between items-start mb-2">
-                    <div className={`p-2 bg-${stat.color}-50 rounded-lg text-${stat.color}-600 group-hover:scale-105 transition-transform`}>
+                    <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
                         {stat.icon}
                     </div>
-                    {stat.trend && (
-                        <span className="flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                            {stat.trend.includes('%') && <ArrowUp size={8} className="mr-0.5" />} {stat.trend}
-                        </span>
-                    )}
                 </div>
                 <h3 className="text-xl font-display font-bold text-slate-800">{stat.val}</h3>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{stat.label}</p>
@@ -205,7 +175,6 @@ export const Dashboard: React.FC = () => {
                 {t('dashboard.viewAgenda')}
             </button>
         </div>
-        
         <div className="p-3 space-y-2 flex-1 overflow-y-auto max-h-[400px] custom-scrollbar">
             {todaysAppointments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-slate-400">
@@ -215,40 +184,12 @@ export const Dashboard: React.FC = () => {
             ) : (
                 todaysAppointments.map(app => (
                 <div key={app.id} className="flex items-center p-3 rounded-lg border border-slate-100 hover:border-indigo-200 hover:bg-slate-50/50 transition-all duration-300 group">
-                    <div className="w-12 flex flex-col items-center justify-center mr-3 border-r border-slate-100 pr-3 group-hover:border-slate-200 transition-colors">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">
-                        {app.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </span>
-                    <div className="h-3 w-px bg-slate-200 my-0.5"></div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">
-                        {app.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </span>
+                    <div className="w-12 flex flex-col items-center justify-center mr-3 border-r border-slate-100 pr-3">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{app.start.getHours()}:{app.start.getMinutes().toString().padStart(2,'0')}</span>
                     </div>
-                    
                     <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-slate-800 text-sm truncate">{app.title.replace('Consulta - ', '')}</h4>
-                    <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${
-                            app.modality === 'online' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'
-                        }`}>
-                        {app.modality}
-                        </span>
-                    </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {app.modality === 'online' && app.status !== 'completed' && (
-                            <button 
-                                onClick={() => navigate(`/meeting/${app.id}`)}
-                                className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition-colors"
-                                title={t('dashboard.enterRoom')}
-                            >
-                                <Video size={14} />
-                            </button>
-                        )}
-                        <button className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all">
-                            <CheckCircle size={14} />
-                        </button>
+                        <h4 className="font-bold text-slate-800 text-sm truncate">{app.patient_name}</h4>
+                        <span className="text-[9px] font-bold text-indigo-500 uppercase">{app.modality}</span>
                     </div>
                 </div>
                 ))
@@ -257,143 +198,8 @@ export const Dashboard: React.FC = () => {
     </div>
   );
 
-  const BirthdaysWidget = () => (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col mt-6">
-          <div className="p-5 border-b border-slate-50 flex items-center justify-between">
-              <h3 className="font-display font-bold text-base text-slate-800 flex items-center gap-2">
-                  <Cake size={18} className="text-pink-500" />
-                  Aniversariantes do Mês
-              </h3>
-              <span className="text-[10px] font-bold bg-pink-50 text-pink-600 px-2 py-0.5 rounded-md">{birthdays.length}</span>
-          </div>
-          <div className="p-4 flex gap-3 overflow-x-auto no-scrollbar">
-              {birthdays.length === 0 ? (
-                  <div className="w-full text-center py-6 text-slate-400 text-xs">Nenhum aniversariante este mês.</div>
-              ) : (
-                  birthdays.map(p => {
-                      const day = new Date(p.birthDate!).getDate();
-                      const isToday = day === today.getDate();
-                      return (
-                          <div key={p.id} className="flex flex-col items-center min-w-[70px] group">
-                              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold mb-1.5 border-2 transition-all ${isToday ? 'border-pink-500 shadow-sm scale-105' : 'border-slate-100 group-hover:border-pink-200'}`}>
-                                  {p.photoUrl ? (
-                                      <img src={p.photoUrl} className="w-full h-full rounded-full object-cover" />
-                                  ) : (
-                                      <span className="text-slate-400">{p.name.charAt(0)}</span>
-                                  )}
-                              </div>
-                              <span className="text-[10px] font-bold text-slate-700 truncate max-w-full">{p.name.split(' ')[0]}</span>
-                              <span className={`text-[9px] font-bold px-1.5 rounded ${isToday ? 'bg-pink-500 text-white' : 'text-slate-400'}`}>Dia {day}</span>
-                          </div>
-                      );
-                  })
-              )}
-          </div>
-      </div>
-  );
-
-  const ShortcutsWidget = () => (
-    <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm h-full">
-        <h3 className="font-bold text-slate-800 mb-3 text-xs uppercase tracking-wide flex items-center justify-between">
-            Acesso Rápido
-            <button onClick={() => setIsAddingShortcut(true)} className="text-slate-400 hover:text-indigo-600 transition-colors p-1 hover:bg-slate-50 rounded"><Plus size={14}/></button>
-        </h3>
-        
-        <div className="grid grid-cols-2 gap-2">
-            {shortcuts.map(s => (
-                <div key={s.id} className="relative group">
-                    <a 
-                        href={s.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-50 hover:bg-white hover:shadow-sm border border-slate-100 transition-all text-center h-full group/card"
-                    >
-                        <div className={`w-8 h-8 ${s.color} rounded-full flex items-center justify-center text-white mb-1.5 shadow-sm group-hover/card:scale-110 transition-transform`}>
-                            {renderIcon(s.icon, 16)}
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-700 leading-tight">{s.title}</span>
-                    </a>
-                    {!s.isSystem && (
-                        <button 
-                            onClick={(e) => { e.preventDefault(); removeShortcut(s.id); }}
-                            className="absolute -top-1.5 -right-1.5 bg-white text-red-500 rounded-full p-0.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-slate-100"
-                        >
-                            <X size={10} />
-                        </button>
-                    )}
-                </div>
-            ))}
-        </div>
-
-        {isAddingShortcut && (
-            <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 animate-[fadeIn_0.2s_ease-out] relative">
-                <button onClick={() => setIsAddingShortcut(false)} className="absolute top-2 right-2 text-slate-400 hover:text-slate-600"><X size={12}/></button>
-                <h4 className="text-[10px] font-bold text-slate-500 mb-2">Novo Atalho</h4>
-                <div className="space-y-2">
-                    <input 
-                        type="text" placeholder="Nome" 
-                        className="w-full p-1.5 rounded-md text-xs border border-slate-200 outline-none focus:border-indigo-400"
-                        value={newShortcut.title}
-                        onChange={e => setNewShortcut({...newShortcut, title: e.target.value})}
-                    />
-                    <input 
-                        type="text" placeholder="URL" 
-                        className="w-full p-1.5 rounded-md text-xs border border-slate-200 outline-none focus:border-indigo-400"
-                        value={newShortcut.url}
-                        onChange={e => setNewShortcut({...newShortcut, url: e.target.value})}
-                    />
-                    <div className="flex gap-1.5 items-center">
-                        <label className="text-[10px] text-slate-400">Cor:</label>
-                        {['bg-indigo-600', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500'].map(c => (
-                            <button 
-                                key={c}
-                                onClick={() => setNewShortcut({...newShortcut, color: c})}
-                                className={`w-3.5 h-3.5 rounded-full ${c} ${newShortcut.color === c ? 'ring-2 ring-offset-1 ring-slate-300' : ''}`}
-                            />
-                        ))}
-                    </div>
-                    <button onClick={handleAddShortcut} className="w-full mt-1 text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1.5 rounded font-bold transition-colors">
-                        Adicionar
-                    </button>
-                </div>
-            </div>
-        )}
-    </div>
-  );
-
-  const NewsWidget = () => (
-    <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm relative overflow-hidden h-full mt-6">
-        <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-2">
-                <Newspaper size={14} className="text-blue-500" /> Atualizações & CRP
-            </h3>
-        </div>
-        
-        <div className="space-y-3">
-            {CRP_NEWS.map(news => (
-                <div key={news.id} className="group cursor-pointer">
-                    <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${news.color} mb-0.5 inline-block`}>{news.tag}</span>
-                            <h4 className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors leading-snug">{news.title}</h4>
-                            <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><Clock size={8} /> {news.date}</p>
-                        </div>
-                        <ExternalLink size={12} className="text-slate-300 group-hover:text-blue-500 transition-colors mt-1" />
-                    </div>
-                    <div className="h-px w-full bg-slate-50 mt-2 group-last:hidden"></div>
-                </div>
-            ))}
-        </div>
-        <button className="w-full mt-3 py-1.5 text-[10px] font-bold text-slate-500 hover:bg-slate-50 rounded-lg transition-colors border border-dashed border-slate-200">
-            Ver todas as notícias
-        </button>
-    </div>
-  );
-
   return (
     <div className="space-y-6 md:space-y-8 animate-[fadeIn_0.5s_ease-out] pb-20 relative">
-      
-      {/* --- HEADER & ACTIONS --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <h1 className="font-display font-bold text-2xl md:text-3xl text-slate-900">
@@ -401,15 +207,11 @@ export const Dashboard: React.FC = () => {
             </h1>
             <p className="text-slate-500 text-sm capitalize">{formattedDate}</p>
         </div>
-        
         <div className="flex gap-3">
-            <button 
-                onClick={() => setIsCustomizeOpen(true)}
-                className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 h-10 rounded-lg font-bold text-sm shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all"
-            >
+            <button onClick={() => setIsCustomizeOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 h-10 rounded-lg font-bold text-sm shadow-sm hover:bg-slate-50 transition-all">
                 <Settings2 size={16} /> <span className="hidden sm:inline">Personalizar</span>
             </button>
-            <button onClick={() => navigate('/patients')} className="flex items-center gap-2 bg-indigo-600 text-white px-4 h-10 rounded-lg font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all">
+            <button onClick={() => navigate('/patients')} className="flex items-center gap-2 bg-indigo-600 text-white px-4 h-10 rounded-lg font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
                 <Plus size={16} /> <span className="hidden sm:inline">{t('patients.new')}</span>
             </button>
         </div>
@@ -421,86 +223,24 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
               {visibleWidgets.nextAppointment && <NextAppointmentWidget />}
-              {visibleWidgets.birthdays && <BirthdaysWidget />}
           </div>
-          <div>
-              {visibleWidgets.shortcuts && <ShortcutsWidget />}
-              {visibleWidgets.news && <NewsWidget />}
+          <div className="space-y-6">
+              {visibleWidgets.shortcuts && (
+                <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                    <h3 className="font-bold text-slate-800 mb-3 text-xs uppercase tracking-wide">Acesso Rápido</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                        {shortcuts.map(s => (
+                            <a key={s.id} href={s.url} target="_blank" rel="noopener" className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-50 hover:bg-white border border-slate-100 transition-all text-center">
+                                <div className={`w-8 h-8 ${s.color} rounded-full flex items-center justify-center text-white mb-1.5`}>{renderIcon(s.icon, 16)}</div>
+                                <span className="text-[10px] font-bold text-slate-700">{s.title}</span>
+                            </a>
+                        ))}
+                    </div>
+                </div>
+              )}
           </div>
       </div>
-
-      {/* --- AI ASSISTANT --- */}
       <AuroraAssistant />
-
-      {/* --- CUSTOMIZE MODAL (POPOVER) --- */}
-      {isCustomizeOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-              <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-[slideUpFade_0.3s_ease-out] flex flex-col max-h-[80vh]">
-                  <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                      <div>
-                          <h3 className="font-display font-bold text-base text-slate-800 flex items-center gap-2">
-                              <Layout size={16} className="text-indigo-600" /> Personalizar
-                          </h3>
-                          <p className="text-[10px] text-slate-500">Arraste ou oculte widgets do seu painel.</p>
-                      </div>
-                      <button onClick={() => setIsCustomizeOpen(false)} className="p-1.5 hover:bg-slate-200 rounded-full text-slate-500"><X size={16} /></button>
-                  </div>
-                  
-                  <div className="p-4 space-y-2 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
-                      {widgetOrder.map((id, index) => {
-                          const labels: Record<WidgetId, string> = {
-                              stats: 'Estatísticas',
-                              nextAppointment: 'Próximos Agendamentos',
-                              shortcuts: 'Acesso Rápido',
-                              news: 'Notícias CRP',
-                              insight: 'Resumo IA',
-                              birthdays: 'Aniversariantes'
-                          };
-                          const icons: Record<WidgetId, React.ReactNode> = {
-                              stats: <Activity size={14}/>,
-                              nextAppointment: <Calendar size={14}/>,
-                              shortcuts: <LinkIcon size={14}/>,
-                              news: <Newspaper size={14}/>,
-                              insight: <Sparkles size={14}/>,
-                              birthdays: <Cake size={14}/>
-                          };
-
-                          return (
-                              <div key={id} className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all ${visibleWidgets[id] ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-100 border-transparent opacity-60'}`}>
-                                  <div className="p-1.5 bg-slate-100 rounded-md text-slate-500 cursor-grab active:cursor-grabbing">
-                                      <GripVertical size={14} />
-                                  </div>
-                                  <div className={`p-1.5 rounded-md ${visibleWidgets[id] ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-400'}`}>
-                                      {icons[id]}
-                                  </div>
-                                  <span className="flex-1 font-bold text-xs text-slate-700">{labels[id]}</span>
-                                  
-                                  {/* Reorder Buttons (Simplified for this version) */}
-                                  <div className="flex flex-col gap-0.5 mr-2">
-                                      <button onClick={() => moveWidget(id, 'up')} disabled={index === 0} className="text-slate-400 hover:text-indigo-600 disabled:opacity-30"><ChevronUp size={10}/></button>
-                                      <button onClick={() => moveWidget(id, 'down')} disabled={index === widgetOrder.length - 1} className="text-slate-400 hover:text-indigo-600 disabled:opacity-30"><ChevronDown size={10}/></button>
-                                  </div>
-
-                                  <div className="h-4 w-px bg-slate-100 mx-1"></div>
-
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                      <input type="checkbox" checked={visibleWidgets[id]} onChange={() => setVisibleWidgets({...visibleWidgets, [id]: !visibleWidgets[id]})} className="sr-only peer" />
-                                      <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                  </label>
-                              </div>
-                          );
-                      })}
-                  </div>
-
-                  <div className="p-4 bg-white border-t border-slate-100 text-center flex justify-end">
-                      <button onClick={() => setIsCustomizeOpen(false)} className="px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow-sm hover:bg-indigo-700 transition-all flex items-center gap-2 text-xs">
-                          <Check size={14} /> Concluir
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
     </div>
   );
 };

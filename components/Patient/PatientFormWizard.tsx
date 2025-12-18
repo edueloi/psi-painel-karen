@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Patient, MaritalStatus, EducationLevel, PaymentType } from '../../types';
+import { Patient, MaritalStatus, EducationLevel } from '../../types';
 import { INSURANCE_PROVIDERS } from '../../constants';
 import { Button } from '../UI/Button';
-import { ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText } from 'lucide-react';
+/* Added CheckCircle to imports */
+import { ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, CheckCircle } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface PatientFormWizardProps {
@@ -16,11 +17,10 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Partial<Patient>>({
-    active: true,
-    paymentType: PaymentType.PRIVATE,
-    address: { street: '', number: '', neighborhood: '', city: '', state: '', zipCode: '' },
-    hasChildren: false,
-    needsReimbursement: false,
+    status: 'ativo',
+    convenio: false,
+    has_children: false,
+    needs_reimbursement: false,
     ...initialData
   });
 
@@ -37,13 +37,6 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateAddress = (field: keyof Patient['address'], value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      address: { ...prev.address!, [field]: value }
-    }));
-  };
-
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) setCurrentStep(prev => prev + 1);
   };
@@ -52,7 +45,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     if (currentStep > 0) setCurrentStep(prev => prev - 1);
   };
 
-  // Helper to map Enum values to Translations
+  // Mapeamento de opções
   const maritalOptions = [
       { value: MaritalStatus.SINGLE, label: t('marital.single') },
       { value: MaritalStatus.MARRIED, label: t('marital.married') },
@@ -76,110 +69,115 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0: // Basic
+      case 0: // Básico
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
-            <div className="col-span-1 md:col-span-2 flex justify-center mb-4">
-              <div className="relative group cursor-pointer">
-                <div className="h-24 w-24 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border-2 border-slate-300">
-                  {formData.photoUrl ? (
-                    <img src={formData.photoUrl} alt="Foto" className="h-full w-full object-cover" />
-                  ) : (
-                    <User className="h-10 w-10 text-slate-400" />
-                  )}
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-xs rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  {t('wizard.photo')}
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.name')}</label>
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-bold text-slate-700">Nome Completo *</label>
               <input 
                 type="text" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={formData.name || ''} 
-                onChange={e => updateField('name', e.target.value)}
+                required
+                className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                value={formData.full_name || ''} 
+                onChange={e => updateField('full_name', e.target.value)}
                 placeholder="Ex: João da Silva"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.email')}</label>
+              <label className="text-sm font-bold text-slate-700">E-mail</label>
               <input 
                 type="email" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                 value={formData.email || ''} 
                 onChange={e => updateField('email', e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.phone')}</label>
+              <label className="text-sm font-bold text-slate-700">WhatsApp (Telefone)</label>
               <input 
                 type="tel" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                 value={formData.whatsapp || ''} 
                 onChange={e => updateField('whatsapp', e.target.value)}
+                placeholder="(00) 00000-0000"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.cpf')}</label>
+              <label className="text-sm font-bold text-slate-700">CPF / CNPJ</label>
               <input 
                 type="text" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={formData.cpf || ''} 
-                onChange={e => updateField('cpf', e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                value={formData.cpf_cnpj || ''} 
+                onChange={e => updateField('cpf_cnpj', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Data de Nascimento</label>
+              <input 
+                type="date" 
+                className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                value={formData.birth_date ? formData.birth_date.split('T')[0] : ''} 
+                onChange={e => updateField('birth_date', e.target.value)}
               />
             </div>
           </div>
         );
       
-      case 1: // Address
+      case 1: // Endereço
         return (
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4 animate-fadeIn">
             <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.zip')}</label>
+              <label className="text-sm font-bold text-slate-700">CEP</label>
               <input 
                 type="text" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={formData.address?.zipCode || ''} 
-                onChange={e => updateAddress('zipCode', e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
+                value={formData.address_zip || ''} 
+                onChange={e => updateField('address_zip', e.target.value)}
               />
             </div>
             <div className="md:col-span-4 space-y-2">
-               <label className="text-sm font-medium text-slate-700">{t('wizard.street')}</label>
+               <label className="text-sm font-bold text-slate-700">Logradouro</label>
               <input 
                 type="text" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={formData.address?.street || ''} 
-                onChange={e => updateAddress('street', e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
+                value={formData.street || ''} 
+                onChange={e => updateField('street', e.target.value)}
               />
             </div>
             <div className="md:col-span-1 space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.number')}</label>
+              <label className="text-sm font-bold text-slate-700">Número</label>
               <input 
                 type="text" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={formData.address?.number || ''} 
-                onChange={e => updateAddress('number', e.target.value)}
-              />
-            </div>
-            <div className="md:col-span-3 space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.neighborhood')}</label>
-              <input 
-                type="text" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={formData.address?.neighborhood || ''} 
-                onChange={e => updateAddress('neighborhood', e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
+                value={formData.house_number || ''} 
+                onChange={e => updateField('house_number', e.target.value)}
               />
             </div>
             <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.city')}</label>
+              <label className="text-sm font-bold text-slate-700">Bairro</label>
               <input 
                 type="text" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={formData.address?.city || ''} 
-                onChange={e => updateAddress('city', e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
+                value={formData.neighborhood || ''} 
+                onChange={e => updateField('neighborhood', e.target.value)}
+              />
+            </div>
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-bold text-slate-700">Cidade</label>
+              <input 
+                type="text" 
+                className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
+                value={formData.city || ''} 
+                onChange={e => updateField('city', e.target.value)}
+              />
+            </div>
+            <div className="md:col-span-1 space-y-2">
+              <label className="text-sm font-bold text-slate-700">UF</label>
+              <input 
+                type="text" maxLength={2}
+                className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
+                value={formData.state || ''} 
+                onChange={e => updateField('state', e.target.value.toUpperCase())}
               />
             </div>
           </div>
@@ -187,13 +185,13 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
 
       case 2: // Social
         return (
-          <div className="grid grid-cols-1 gap-6 animate-fadeIn">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.marital')}</label>
+              <label className="text-sm font-bold text-slate-700">Estado Civil</label>
               <select 
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
-                value={formData.maritalStatus || ''}
-                onChange={e => updateField('maritalStatus', e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-white outline-none"
+                value={formData.marital_status || ''}
+                onChange={e => updateField('marital_status', e.target.value)}
               >
                 <option value="">Selecione...</option>
                 {maritalOptions.map(opt => (
@@ -202,9 +200,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.education')}</label>
+              <label className="text-sm font-bold text-slate-700">Escolaridade</label>
               <select 
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-white outline-none"
                 value={formData.education || ''}
                 onChange={e => updateField('education', e.target.value)}
               >
@@ -215,148 +213,151 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.profession')}</label>
+              <label className="text-sm font-bold text-slate-700">Profissão</label>
               <input 
                 type="text" 
-                className="w-full p-2.5 border border-slate-300 rounded-lg"
+                className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
                 value={formData.profession || ''} 
                 onChange={e => updateField('profession', e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Nacionalidade</label>
+              <input 
+                type="text" 
+                className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
+                value={formData.nationality || ''} 
+                onChange={e => updateField('nationality', e.target.value)}
+              />
+            </div>
           </div>
         );
 
-      case 3: // Family
+      case 3: // Família
         return (
-          <div className="space-y-4 animate-fadeIn">
-            <div className="flex items-center gap-3">
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <input 
                 type="checkbox" 
-                id="hasChildren"
-                className="h-5 w-5 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
-                checked={formData.hasChildren || false}
-                onChange={e => updateField('hasChildren', e.target.checked)}
+                id="has_children"
+                className="h-5 w-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                checked={formData.has_children || false}
+                onChange={e => updateField('has_children', e.target.checked)}
               />
-              <label htmlFor="hasChildren" className="text-sm font-medium text-slate-700">{t('wizard.hasChildren')}</label>
+              <label htmlFor="has_children" className="text-sm font-bold text-slate-700">Possui Filhos?</label>
             </div>
             
-            {formData.hasChildren && (
-              <div className="pl-8 space-y-2">
-                <label className="text-sm font-medium text-slate-700">{t('wizard.howMany')}</label>
-                <input 
-                  type="number" 
-                  className="w-32 p-2 border border-slate-300 rounded-lg"
-                  value={formData.numberOfChildren || 0}
-                  onChange={e => updateField('numberOfChildren', parseInt(e.target.value))}
-                />
+            {formData.has_children && (
+              <div className="grid grid-cols-2 gap-4 pl-8">
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Qtd Total</label>
+                    <input 
+                    type="number" 
+                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    value={formData.children_count || 0}
+                    onChange={e => updateField('children_count', parseInt(e.target.value))}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Qtd Menores</label>
+                    <input 
+                    type="number" 
+                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    value={formData.minor_children_count || 0}
+                    onChange={e => updateField('minor_children_count', parseInt(e.target.value))}
+                    />
+                </div>
               </div>
             )}
             
-            <div className="border-t border-slate-200 my-4 pt-4">
-              <h4 className="text-sm font-bold text-slate-800 mb-3">{t('wizard.spouse')}</h4>
+            <div className="border-t border-slate-200 pt-4">
+              <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Heart size={16} className="text-rose-500"/> Dados do Cônjuge / Parceiro</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input 
-                  type="text" placeholder={t('wizard.spouseName')}
-                  className="p-2.5 border border-slate-300 rounded-lg"
-                  value={formData.spouseName || ''}
-                  onChange={e => updateField('spouseName', e.target.value)}
+                  type="text" placeholder="Nome do Cônjuge"
+                  className="p-2.5 border border-slate-300 rounded-xl outline-none"
+                  value={formData.spouse_name || ''}
+                  onChange={e => updateField('spouse_name', e.target.value)}
                 />
                 <input 
-                  type="tel" placeholder={t('wizard.spouseContact')}
-                  className="p-2.5 border border-slate-300 rounded-lg"
-                  value={formData.spouseContact || ''}
-                  onChange={e => updateField('spouseContact', e.target.value)}
+                  type="text" placeholder="Contato Familiar Extra"
+                  className="p-2.5 border border-slate-300 rounded-xl outline-none"
+                  value={formData.family_contact || ''}
+                  onChange={e => updateField('family_contact', e.target.value)}
                 />
               </div>
             </div>
           </div>
         );
 
-      case 4: // Financial
+      case 4: // Financeiro
         return (
           <div className="space-y-6 animate-fadeIn">
              <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.paymentType')}</label>
+              <label className="text-sm font-bold text-slate-700">Tipo de Pagamento</label>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-lg flex-1 hover:bg-slate-50 transition-colors">
+                <label className="flex items-center gap-2 cursor-pointer border p-4 rounded-xl flex-1 hover:bg-slate-50 transition-colors shadow-sm">
                   <input 
                     type="radio" 
-                    name="paymentType" 
-                    value={PaymentType.PRIVATE}
-                    checked={formData.paymentType === PaymentType.PRIVATE}
-                    onChange={() => updateField('paymentType', PaymentType.PRIVATE)}
-                    className="text-primary-600 focus:ring-primary-500"
+                    name="convenio" 
+                    checked={!formData.convenio}
+                    onChange={() => updateField('convenio', false)}
+                    className="text-indigo-600"
                   />
-                  <span>{t('wizard.private')}</span>
+                  <span className="font-bold">Particular</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-lg flex-1 hover:bg-slate-50 transition-colors">
+                <label className="flex items-center gap-2 cursor-pointer border p-4 rounded-xl flex-1 hover:bg-slate-50 transition-colors shadow-sm">
                   <input 
                     type="radio" 
-                    name="paymentType" 
-                    value={PaymentType.INSURANCE}
-                    checked={formData.paymentType === PaymentType.INSURANCE}
-                    onChange={() => updateField('paymentType', PaymentType.INSURANCE)}
-                    className="text-primary-600 focus:ring-primary-500"
+                    name="convenio" 
+                    checked={formData.convenio}
+                    onChange={() => updateField('convenio', true)}
+                    className="text-indigo-600"
                   />
-                  <span>{t('wizard.insurance')}</span>
+                  <span className="font-bold">Convênio</span>
                 </label>
               </div>
             </div>
 
-            {formData.paymentType === PaymentType.INSURANCE && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            {formData.convenio && (
+              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">{t('wizard.provider')}</label>
-                  <select 
-                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
-                    value={formData.insuranceProvider || ''}
-                    onChange={e => updateField('insuranceProvider', e.target.value)}
-                  >
-                    <option value="">Selecione...</option>
-                    {INSURANCE_PROVIDERS.map(prov => (
-                      <option key={prov} value={prov}>{prov}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">{t('wizard.card')}</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Nome do Convênio / Operadora</label>
                   <input 
                     type="text" 
-                    className="w-full p-2.5 border border-slate-300 rounded-lg"
-                    value={formData.insuranceNumber || ''}
-                    onChange={e => updateField('insuranceNumber', e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none"
+                    value={formData.convenio_name || ''}
+                    onChange={e => updateField('convenio_name', e.target.value)}
+                    placeholder="Ex: Unimed, Bradesco..."
                   />
                 </div>
+                
+                <label className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        className="w-4 h-4 text-indigo-600" 
+                        checked={formData.needs_reimbursement || false}
+                        onChange={e => updateField('needs_reimbursement', e.target.checked)}
+                    />
+                    <span className="text-xs font-bold text-slate-700">Requer Recibo para Reembolso</span>
+                </label>
               </div>
             )}
 
-            {/* NEW: Reimbursement Toggle */}
             <div className="space-y-2">
-                <label className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl cursor-pointer hover:border-indigo-200 transition-colors">
-                    <input 
-                        type="checkbox" 
-                        className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
-                        checked={formData.needsReimbursement || false}
-                        onChange={e => updateField('needsReimbursement', e.target.checked)}
-                    />
-                    <div>
-                        <span className="block text-sm font-bold text-slate-700">{t('wizard.needsReimbursement')}</span>
-                        <span className="block text-xs text-slate-500">Habilita emissão rápida de recibos detalhados para seguradoras.</span>
-                    </div>
-                </label>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">{t('wizard.status')}</label>
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${formData.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {formData.active ? t('common.active') : t('common.inactive')}
-                </span>
+              <label className="text-sm font-bold text-slate-700">Status do Cadastro</label>
+              <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
                 <button 
-                  onClick={() => updateField('active', !formData.active)}
-                  className="text-sm text-primary-600 underline hover:text-primary-700"
+                  onClick={() => updateField('status', 'ativo')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${formData.status === 'ativo' ? 'bg-emerald-50 text-white shadow-md' : 'text-slate-500'}`}
                 >
-                  Alterar Status
+                  ATIVO
+                </button>
+                <button 
+                  onClick={() => updateField('status', 'inativo')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${formData.status === 'inativo' ? 'bg-red-50 text-white shadow-md' : 'text-slate-500'}`}
+                >
+                  INATIVO
                 </button>
               </div>
             </div>
@@ -366,13 +367,15 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       case 5: // Docs
         return (
           <div className="space-y-4 animate-fadeIn">
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-slate-500 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
-              <FileText className="h-10 w-10 mb-2 text-slate-400" />
-              <p className="font-medium">{t('wizard.upload')}</p>
-              <p className="text-xs mt-1">{t('wizard.uploadDesc')}</p>
+            <div className="border-2 border-dashed border-slate-300 rounded-[2rem] p-12 flex flex-col items-center justify-center text-slate-500 bg-slate-50 hover:bg-indigo-50/30 hover:border-indigo-300 transition-all cursor-pointer group">
+              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
+                <FileText className="h-8 w-8 text-indigo-400" />
+              </div>
+              <p className="font-bold text-slate-700">Anexar Documentos Digitais</p>
+              <p className="text-xs mt-1">Identidade, Carteira Convênio, Laudos Prévios...</p>
             </div>
-            <div className="text-xs text-slate-500 italic">
-              * Nesta demonstração, o upload é apenas visual.
+            <div className="text-center">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">Protegido pela LGPD</span>
             </div>
           </div>
         );
@@ -383,64 +386,72 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      {/* Wizard Header */}
-      <div className="bg-slate-50 border-b border-slate-200 p-4">
+    <div className="flex flex-col h-full bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden">
+      {/* Cabeçalho do Wizard */}
+      <div className="bg-slate-50 border-b border-slate-100 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-800">
-            {initialData.id ? t('wizard.edit') : t('wizard.new')}
-          </h2>
-          <span className="text-xs font-medium bg-primary-100 text-primary-700 px-2 py-1 rounded">
-             {t('wizard.step')} {currentStep + 1} {t('wizard.of')} {STEPS.length}
-          </span>
-        </div>
-        
-        {/* Progress Bar */}
-        <div className="relative h-1 w-full bg-slate-200 rounded-full overflow-hidden">
-          <div 
-            className="absolute top-0 left-0 h-full bg-primary-500 transition-all duration-300"
-            style={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }}
-          />
+          <div>
+            <h2 className="text-xl font-display font-bold text-slate-800">
+                {formData.id ? 'Editar Paciente' : 'Novo Paciente'}
+            </h2>
+            <p className="text-xs text-slate-500">Passo {currentStep + 1} de {STEPS.length}: {STEPS[currentStep].title}</p>
+          </div>
+          <button onClick={onCancel} className="p-2 hover:bg-slate-200 rounded-full text-slate-400"><X size={20}/></button>
         </div>
         
         {/* Step Icons */}
-        <div className="hidden md:flex justify-between mt-4">
+        <div className="flex justify-between items-center px-4 md:px-10">
           {STEPS.map((step, idx) => (
-            <div 
-              key={step.id} 
-              className={`flex flex-col items-center cursor-pointer ${idx === currentStep ? 'text-primary-600' : 'text-slate-400'}`}
-              onClick={() => setCurrentStep(idx)}
-            >
-              <div className={`p-2 rounded-full mb-1 ${idx === currentStep ? 'bg-primary-100' : 'bg-transparent'}`}>
-                {step.icon}
+            <React.Fragment key={step.id}>
+              <div 
+                className={`flex flex-col items-center transition-all ${idx <= currentStep ? 'text-indigo-600' : 'text-slate-300'}`}
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${idx === currentStep ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : idx < currentStep ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200'}`}>
+                  {idx < currentStep ? <CheckCircle size={20} /> : step.icon}
+                </div>
               </div>
-              <span className="text-[10px] font-medium uppercase tracking-wider">{step.title}</span>
-            </div>
+              {idx < STEPS.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-2 md:mx-4 transition-colors ${idx < currentStep ? 'bg-indigo-500' : 'bg-slate-200'}`}></div>
+              )}
+            </React.Fragment>
           ))}
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 p-6 overflow-y-auto min-h-[400px]">
+      {/* Área de Conteúdo */}
+      <div className="flex-1 p-8 overflow-y-auto min-h-[400px]">
         {renderStepContent()}
       </div>
 
-      {/* Footer Actions */}
-      <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
-        <Button variant="ghost" onClick={currentStep === 0 ? onCancel : handlePrev}>
-          {currentStep === 0 ? t('wizard.cancel') : <><ChevronLeft className="mr-1 h-4 w-4" /> {t('wizard.prev')}</>}
-        </Button>
+      {/* Rodapé de Ações */}
+      <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+        <button 
+            onClick={currentStep === 0 ? onCancel : handlePrev}
+            className="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors flex items-center gap-2"
+        >
+            <ChevronLeft size={20} /> {currentStep === 0 ? 'Cancelar' : 'Voltar'}
+        </button>
         
         {currentStep === STEPS.length - 1 ? (
-          <Button variant="primary" onClick={() => onSave(formData)}>
-            <Save className="mr-2 h-4 w-4" /> {t('wizard.save')}
-          </Button>
+          <button 
+            onClick={() => onSave(formData)}
+            className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-2"
+          >
+            <Save size={20} /> Finalizar Cadastro
+          </button>
         ) : (
-          <Button variant="primary" onClick={handleNext}>
-            {t('wizard.next')} <ChevronRight className="ml-1 h-4 w-4" />
-          </Button>
+          <button 
+            onClick={handleNext}
+            className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-2"
+          >
+            Avançar <ChevronRight size={20} />
+          </button>
         )}
       </div>
     </div>
   );
 };
+
+const X = ({ size, className }: any) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+);

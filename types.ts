@@ -74,45 +74,49 @@ export enum EducationLevel {
   DOCTORATE = 'Doutorado'
 }
 
-export enum PaymentType {
-  PRIVATE = 'Particular',
-  INSURANCE = 'Convênio'
-}
-
 export interface Patient {
   id: string;
-  name: string;
+  tenant_id: number;
+  full_name: string;
+  name?: string; // Compatibility alias
   email?: string;
-  phone?: string;
   whatsapp?: string;
-  photoUrl?: string;
-  cpf?: string;
+  phone?: string; // Compatibility alias
+  cpf_cnpj?: string;
+  cpf?: string; // Compatibility alias
   rg?: string;
-  birthDate?: string;
-  address: {
-    street: string;
-    number: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-    zipCode: string;
-  };
-  maritalStatus?: MaritalStatus;
+  birth_date?: string;
+  birthDate?: string; // Compatibility alias
+  // Endereço (achatado conforme API)
+  street?: string;
+  house_number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  address_zip?: string;
+  country?: string;
+  // Sociais
+  marital_status?: MaritalStatus;
   education?: EducationLevel;
   profession?: string;
-  hasChildren: boolean;
-  numberOfChildren?: number;
-  spouseName?: string;
-  spouseContact?: string;
-  fatherName?: string;
-  motherName?: string;
-  emergencyContact?: string;
-  active: boolean;
-  paymentType: PaymentType;
-  insuranceProvider?: string;
-  insuranceNumber?: string;
-  needsReimbursement?: boolean;
-  psychologistId: string;
+  nationality?: string;
+  naturality?: string;
+  // Familiar
+  has_children: boolean;
+  children_count?: number;
+  minor_children_count?: number;
+  spouse_name?: string;
+  family_contact?: string;
+  emergency_contact?: string;
+  // Clínico/Financeiro
+  status: 'ativo' | 'inativo';
+  convenio: boolean;
+  convenio_name?: string;
+  needs_reimbursement: boolean;
+  needsReimbursement?: boolean; // Compatibility alias
+  psychologist_id?: string;
+  photoUrl?: string;
+  active?: boolean;
 }
 
 export type AppointmentType = 'consulta' | 'bloqueio' | 'pessoal';
@@ -121,40 +125,47 @@ export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no-sh
 
 export interface Appointment {
   id: string;
-  patientId?: string;
-  patientName?: string;
-  psychologistId: string;
-  psychologistName: string;
+  patient_id?: string;
+  patient_name?: string;
+  patientName?: string; // Compatibility alias
+  psychologist_id: string;
+  psychologist_name: string;
+  psychologistName?: string; // Compatibility alias
   title: string;
   start: Date;
   end: Date;
   status: AppointmentStatus;
   type: AppointmentType;
   modality: AppointmentModality;
-  meetingUrl?: string;
+  meeting_url?: string;
   notes?: string;
   color?: string;
   duration_minutes?: number;
 }
 
-export interface ClinicalRecord {
+export type PaymentType = 'pix' | 'credit' | 'debit' | 'cash' | 'transfer' | 'check' | 'courtesy';
+
+export interface Document {
   id: string;
-  patientId: string;
-  patientName: string;
-  date: string;
-  type: 'Evolução' | 'Anamnese' | 'Avaliação' | 'Encaminhamento';
   title: string;
-  preview: string;
-  status: 'Rascunho' | 'Finalizado';
-  tags: string[];
+  category: string;
+  type: string;
+  size: string;
+  date: string;
 }
 
-export type QuestionType = 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'select';
+export interface FormStats {
+  totalForms: number;
+  totalResponses: number;
+  mostUsed: string | null;
+}
 
 export interface FormOption {
   label: string;
-  value?: number;
+  value: number;
 }
+
+export type QuestionType = 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'select';
 
 export interface FormQuestion {
   id: string;
@@ -176,13 +187,32 @@ export interface InterpretationRule {
 export interface ClinicalForm {
   id: string;
   title: string;
-  description: string;
-  createdAt: string;
-  questions: FormQuestion[];
-  isGlobal?: boolean;
-  responseCount: number;
   hash: string;
+  description?: string;
+  questions: FormQuestion[];
   interpretations?: InterpretationRule[];
+  responseCount: number;
+  isGlobal?: boolean;
+}
+
+export interface ClinicalRecord {
+  id: string;
+  patientId: string;
+  patientName: string;
+  date: string;
+  type: 'Evolução' | 'Anamnese' | 'Avaliação' | 'Encaminhamento';
+  status: 'Rascunho' | 'Finalizado';
+  title: string;
+  preview: string;
+  tags: string[];
+}
+
+export interface MessageTemplate {
+  id: string;
+  title: string;
+  category: 'Lembrete' | 'Financeiro' | 'Aniversário' | 'Outros';
+  content: string;
+  lastUsed?: string;
 }
 
 export interface Service {
@@ -193,9 +223,26 @@ export interface Service {
   price: number;
   cost: number;
   color: string;
-  modality: AppointmentModality;
+  modality: 'online' | 'presencial';
   description?: string;
 }
+
+export interface ServicePackageItem {
+  serviceId: string;
+  quantity: number;
+}
+
+export interface ServicePackage {
+  id: string;
+  name: string;
+  description?: string;
+  items: ServicePackageItem[];
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  totalPrice: number;
+}
+
+export type ComandaStatus = 'aberta' | 'fechada';
 
 export interface ComandaItem {
   id: string;
@@ -206,8 +253,6 @@ export interface ComandaItem {
   total: number;
 }
 
-export type ComandaStatus = 'aberta' | 'fechada';
-
 export interface ComandaSession {
   id: string;
   number: number;
@@ -217,21 +262,38 @@ export interface ComandaSession {
 
 export interface Comanda {
   id: string;
-  description: string;
   patientId: string;
   patientName: string;
   status: ComandaStatus;
+  description: string;
+  items: ComandaItem[];
+  sessions?: ComandaSession[];
+  subtotal: number;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
   totalValue: number;
   paidValue: number;
-  items: ComandaItem[];
-  sessions: ComandaSession[];
-  createdAt: string;
-  type?: 'servico' | 'pacote';
-  subtotal?: number;
-  discountType?: 'percentage' | 'fixed';
-  discountValue?: number;
   startDate?: string;
   frequency?: 'unica' | 'semanal' | 'quinzenal' | 'mensal';
+  createdAt: string;
+}
+
+export type ProductType = 'physical' | 'digital';
+
+export interface Product {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  cost: number;
+  stock: number;
+  minStock: number;
+  brand: string;
+  salesCount: number;
+  type: ProductType;
+  imageUrl?: string;
+  expirationDate?: string;
+  barcode?: string;
 }
 
 export type GoalStatus = 'acquisition' | 'maintenance' | 'generalization' | 'completed';
@@ -261,9 +323,9 @@ export interface ABCRecord {
 export interface PEI {
   id: string;
   patientId: string;
-  goals: ClinicalGoal[];
   startDate: string;
   reviewDate: string;
+  goals: ClinicalGoal[];
   abcRecords?: ABCRecord[];
   sensoryProfile?: {
     auditory: number;
@@ -283,66 +345,16 @@ export interface Assessment {
   description: string;
   type: 'risk' | 'sum';
   cutoff?: number;
-  questions: any[];
-  options?: any[];
-  color?: string;
-}
-
-export interface Document {
-  id: string;
-  title: string;
-  category: string;
-  type: string;
-  size: string;
-  date: string;
-  url?: string;
-}
-
-export interface FormStats {
-  totalForms: number;
-  totalResponses: number;
-  mostUsed: string | null;
-}
-
-export interface MessageTemplate {
-  id: string;
-  title: string;
-  content: string;
-  category: 'Lembrete' | 'Financeiro' | 'Aniversário' | 'Outros';
-  lastUsed?: string;
-}
-
-export interface ServicePackageItem {
-  serviceId: string;
-  quantity: number;
-}
-
-export interface ServicePackage {
-  id: string;
-  name: string;
-  description: string;
-  items: ServicePackageItem[];
-  discountType: 'percentage' | 'fixed';
-  discountValue: number;
-  totalPrice: number;
-}
-
-export type ProductType = 'physical' | 'digital';
-
-export interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  cost: number;
-  stock: number;
-  minStock: number;
-  brand: string;
-  salesCount: number;
-  type: ProductType;
-  imageUrl?: string;
-  expirationDate?: string;
-  barcode?: string;
+  questions: {
+    id: string;
+    text: string;
+    riskAnswer?: string;
+  }[];
+  options?: {
+    label: string;
+    value: number;
+  }[];
+  color: string;
 }
 
 export interface RPDRecord {

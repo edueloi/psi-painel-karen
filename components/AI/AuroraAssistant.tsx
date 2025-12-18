@@ -89,8 +89,9 @@ export const AuroraAssistant: React.FC = () => {
             - Use emojis moderadamente para manter a leveza.
           `;
 
+          /* Changed model to gemini-3-flash-preview */
           const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: messages.concat(newUserMsg).map(m => ({
                 role: m.role,
                 parts: [{ text: m.text }]
