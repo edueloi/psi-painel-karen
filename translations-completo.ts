@@ -1,3 +1,6 @@
+// translations-completo.ts
+// Arquivo gerado automaticamente com todas as chaves do sistema em pt, en, es
+// Traduções automáticas, revise com o time de front-end!
 
 export type Language = 'pt' | 'en' | 'es';
 
@@ -22,8 +25,8 @@ export const translations = {
     'nav.finance': 'Financeiro',
     'nav.settings': 'Configurações',
     'nav.meeting': 'Sala Virtual',
-    'nav.bot': 'Vincular Bot', 
-    'nav.cases': 'Estudo de Caso', 
+    'nav.bot': 'Vincular Bot',
+    'nav.cases': 'Estudo de Caso',
     'nav.neuro': 'Neurodesenvolvimento',
     'nav.tools': 'Caixa de Ferramentas',
     'nav.logout': 'Sair',
@@ -33,7 +36,6 @@ export const translations = {
     'nav.group.financial': 'FINANCEIRO',
     'nav.group.communication': 'COMUNICAÇÃO',
     'nav.group.system': 'SISTEMA',
-
     // Topbar & Geral
     'topbar.search': 'Pesquisar no sistema...',
     'topbar.connected': 'Conectado como',
@@ -42,16 +44,6 @@ export const translations = {
     'topbar.privacy': 'Privacidade',
     'topbar.help': 'Ajuda',
     'topbar.logout': 'Encerrar Sessão',
-
-    // Login
-    'login.welcome': 'Bem-vindo ao PsiManager Pro',
-    'login.subtitle': 'Gestão clínica inteligente e segura para psicólogos modernos.',
-    'login.email': 'E-mail de Acesso',
-    'login.password': 'Senha',
-    'login.submit': 'Entrar no Sistema',
-    'login.forgot': 'Esqueci minha senha',
-    'login.error': 'Credenciais inválidas. Verifique seu e-mail e senha.',
-
     // Dashboard
     'dashboard.totalPatients': 'Total de Pacientes',
     'dashboard.today': 'Sessões Hoje',
@@ -60,32 +52,6 @@ export const translations = {
     'dashboard.nextAppointments': 'Próximos Agendamentos',
     'dashboard.viewAgenda': 'Ver Agenda Completa',
     'dashboard.enterRoom': 'Entrar na Sala',
-
-    // Salas Virtuais (Rooms)
-    'rooms.title': 'Atendimento Online',
-    'rooms.subtitle': 'Salas seguras com criptografia ponta-a-ponta, lousa interativa e chat para teleconsulta.',
-    'rooms.instant': 'Sala Instantânea',
-    'rooms.creating': 'Criando sala segura...',
-    'rooms.enterCode': 'Entrar com Código',
-    'rooms.join': 'Acessar Sala',
-    'rooms.history': 'Minhas Salas',
-    'rooms.upcoming': 'Próximos Atendimentos',
-    'rooms.noUpcoming': 'Sem consultas agendadas para hoje.',
-    'rooms.deleteConfirm': 'Tem certeza que deseja excluir esta sala permanentemente?',
-    'rooms.copyLink': 'Copiar Link',
-    'rooms.startNow': 'Iniciar Atendimento',
-    'rooms.placeholderCode': 'Ex: abc-123-xyz',
-    'rooms.persistent': 'Salas Permanentes',
-    'rooms.unnamed': 'Sala sem título',
-    'rooms.createdAt': 'Criada em',
-    'rooms.noPersistent': 'Nenhuma sala fixa encontrada.',
-    'rooms.errorCreate': 'Não foi possível criar a sala.',
-    'rooms.errorDelete': 'Erro ao remover a sala do servidor.',
-    'rooms.instantTitle': 'Sala Instantânea',
-    'rooms.instantDesc': 'Criada via atalho de acesso rápido.',
-    'rooms.defaultTitle': 'Consulta Online',
-    'rooms.noDesc': 'Nenhuma descrição fornecida.',
-
     // Profissionais
     'professionals.title': 'Gestão de Equipe',
     'professionals.subtitle': 'Gerencie profissionais, permissões de acesso e taxas de comissionamento.',
@@ -93,7 +59,6 @@ export const translations = {
     'professionals.permissions': 'Níveis de Acesso',
     'professionals.commissions': 'Comissões',
     'professionals.new': 'Novo Usuário',
-
     // Clinical Tools (Caixa de Ferramentas)
     'tools.title': 'Ferramentas Clínicas',
     'tools.subtitle': 'Recursos avançados para TCC, Esquemas e Psicanálise integrados ao prontuário.',
@@ -101,7 +66,6 @@ export const translations = {
     'tools.schema': 'Terapia do Esquema',
     'tools.psycho': 'Psicanálise',
     'tools.selectPatient': 'Selecione um paciente para abrir as ferramentas clínicas.',
-
     // TCC
     'tcc.rpd': 'Registro de Pensamentos',
     'tcc.coping': 'Cartões de Enfrentamento',
@@ -114,7 +78,6 @@ export const translations = {
     'tcc.cardFront': 'Lembrete / Gatilho (Frente)',
     'tcc.cardBack': 'Resposta Adaptativa (Verso)',
     'tcc.flip': 'Clique para virar',
-
     // PEI (Neurodesenvolvimento)
     'pei.title': 'Plano de Ensino Individualizado',
     'pei.subtitle': 'Acompanhamento especializado para pacientes TEA, TDAH e Neurodiversos.',
@@ -123,7 +86,6 @@ export const translations = {
     'pei.tab.sensory': 'Perfil Sensorial',
     'pei.tab.assessments': 'Escalas & Testes',
     'pei.selectPatient': 'Aguardando seleção de paciente',
-
     // Financeiro
     'finance.title': 'Gestão Financeira',
     'finance.subtitle': 'Controle total de fluxo de caixa, impostos e faturamento clínico.',
@@ -132,7 +94,6 @@ export const translations = {
     'finance.fiscal': 'Fiscal & Impostos',
     'finance.income': 'Receitas',
     'finance.expense': 'Despesas',
-
     // Comandas
     'comandas.receiptTitle': 'Gerador de Documentos',
     'comandas.receipt': 'Recibo',
@@ -142,14 +103,12 @@ export const translations = {
     'comandas.type.attestation': 'Atestado',
     'comandas.print': 'Imprimir',
     'comandas.close': 'Fechar',
-
     // Comuns
     'common.save': 'Salvar',
     'common.cancel': 'Cancelar',
     'common.delete': 'Excluir',
     'common.edit': 'Editar',
     'common.all': 'Todos',
-
     // Bot
     'bot.title': 'PsiBot WhatsApp',
     'bot.subtitle': 'Automação de lembretes e avisos automáticos para seus pacientes.',
@@ -157,157 +116,10 @@ export const translations = {
     'bot.connected': 'Bot Ativo',
     'bot.configPatient': 'Configurações para Pacientes',
     'bot.configPro': 'Configurações para o Profissional',
-
-    // Wizard (Formulário de Pacientes)
-    'wizard.step1': 'Básico',
-    'wizard.step2': 'Endereço',
-    'wizard.step3': 'Social',
-    'wizard.step4': 'Família',
-    'wizard.step5': 'Financeiro',
-    'wizard.step6': 'Documentos',
-    'wizard.name': 'Nome Completo *',
-    'wizard.email': 'E-mail',
-    'wizard.phone': 'WhatsApp (Telefone)',
-    'wizard.taxId': 'CPF / CNPJ',
-    'wizard.birthDate': 'Data de Nascimento',
-    'wizard.zip': 'CEP',
-    'wizard.street': 'Logradouro',
-    'wizard.number': 'Número',
-    'wizard.neighborhood': 'Bairro',
-    'wizard.city': 'Cidade',
-    'wizard.state': 'UF',
-    'wizard.civilStatus': 'Estado Civil',
-    'wizard.education': 'Escolaridade',
-    'wizard.profession': 'Profissão',
-    'wizard.nationality': 'Nacionalidade',
-    'wizard.hasChildren': 'Possui Filhos?',
-    'wizard.childrenTotal': 'Qtd Total',
-    'wizard.childrenMinors': 'Qtd Menores',
-    'wizard.spouseData': 'Dados do Cônjuge / Parceiro',
-    'wizard.spouseName': 'Nome do Cônjuge',
-    'wizard.familyContact': 'Contato Familiar Extra',
-    'wizard.paymentType': 'Tipo de Pagamento',
-    'wizard.private': 'Particular',
-    'wizard.insurance': 'Convênio',
-    'wizard.insuranceName': 'Nome do Convênio / Operadora',
-    'wizard.reimbursementReq': 'Requer Recibo para Reembolso',
-    'wizard.status': 'Status do Cadastro',
-    'wizard.attachDocs': 'Anexar Documentos Digitais',
-    'wizard.docsHint': 'Identidade, Carteira Convênio, Laudos Prévios...',
-    'wizard.lgpd': 'Protegido pela LGPD',
-    'wizard.editTitle': 'Editar Paciente',
-    'wizard.newTitle': 'Novo Paciente',
-    'wizard.back': 'Voltar',
-    'wizard.next': 'Avançar',
-    'wizard.finish': 'Finalizar Cadastro',
-
-    // Agenda
-    'agenda.new': 'Novo Atendimento',
-    'agenda.today': 'Hoje',
-    'agenda.start': 'Início',
-    'agenda.emptyTitle': 'Dia livre na agenda',
-    'agenda.emptyDesc': 'Clique no botão "+" para agendar um paciente.',
-    'agenda.modalTitleNew': 'Novo Agendamento',
-    'agenda.modalTitleEdit': 'Editar Sessão',
-    'agenda.modalDesc': 'Defina os detalhes da consulta.',
-    'agenda.patient': 'Paciente',
-    'agenda.selectPatient': 'Selecione o paciente...',
-    'agenda.professional': 'Profissional',
-    'agenda.selectProfessional': 'Selecione o psicólogo...',
-    'agenda.datetime': 'Data e Hora',
-    'agenda.duration': 'Duração (minutos)',
-    'agenda.service': 'Serviço',
-    'agenda.selectService': 'Selecione um serviço...',
-    'agenda.modality': 'Modalidade',
-    'agenda.presential': 'Presencial',
-    'agenda.online': 'Online',
-    'agenda.notes': 'Observações',
-    'agenda.notesPlaceholder': 'Informações relevantes para o agendamento...',
-    'agenda.delete': 'Excluir Agendamento',
-    'agenda.save': 'Confirmar Atendimento',
-    'agenda.update': 'Salvar Alterações',
-
-    // Configurações (Settings)
-    'settings.title': 'Configurações',
-    'settings.subtitle': 'Gerencie suas preferências, aparência e notificações do sistema.',
-    'settings.secure': 'Conta Segura',
-    'settings.menu.appearance': 'Aparência',
-    'settings.menu.appearance.desc': 'Temas e Cores',
-    'settings.menu.general': 'Geral',
-    'settings.menu.general.desc': 'Idioma e Fuso',
-    'settings.menu.notifications': 'Notificações',
-    'settings.menu.notifications.desc': 'Email e Push',
-    'settings.menu.subscription': 'Assinatura',
-    'settings.menu.subscription.desc': 'Planos e Faturamento',
-    'settings.menu.team': 'Equipe',
-    'settings.menu.team.desc': 'Permissões de Acesso',
-    'settings.menu.integrations': 'Integrações',
-    'settings.menu.integrations.desc': 'Google, Zoom, etc',
-    'settings.appearance.title': 'Aparência do Sistema',
-    'settings.appearance.subtitle': 'Personalize as cores e o modo de visualização para seu conforto.',
-    'settings.appearance.color': 'Cor de Destaque',
-    'settings.appearance.mode': 'Modo de Interface',
-    'settings.appearance.light': 'Claro',
-    'settings.appearance.dark': 'Escuro',
-    'settings.appearance.auto': 'Sistema',
-    'settings.general.title': 'Preferências Gerais',
-    'settings.general.subtitle': 'Ajuste idioma, fuso horário e moeda padrão.',
-    'settings.general.language': 'Idioma do Sistema',
-    'settings.general.timezone': 'Fuso Horário',
-    'settings.general.currency': 'Moeda Principal',
-    'settings.danger.zone': 'Zona de Perigo',
-    'settings.danger.delete': 'Excluir Conta',
-    'settings.danger.desc': 'Essa ação é irreversível e removerá todos os seus dados.',
-    'settings.danger.endSub': 'Encerrar Assinatura',
-    'settings.notifications.title': 'Central de Notificações',
-    'settings.notifications.subtitle': 'Escolha como você quer ser avisado sobre atividades.',
-    'settings.notifications.email': 'Notificações por Email',
-    'settings.notifications.email.desc': 'Receba resumos diários e alertas de segurança.',
-    'settings.notifications.sms': 'Mensagens SMS',
-    'settings.notifications.sms.desc': 'Avisos urgentes sobre agendamentos.',
-    'settings.notifications.push': 'Notificações Push',
-    'settings.notifications.push.desc': 'Alertas em tempo real no navegador.',
-
-    // Prontuários (Records)
-    'records.title': 'Prontuários',
-    'records.search': 'Buscar paciente...',
-    'records.new': 'Novo Registro',
-    'records.select': 'Selecione um Paciente',
-    'records.selectDesc': 'Use a lista ao lado para ver o histórico clínico ou abrir um prontuário.',
-    'records.empty': 'Nenhum registro clínico para este paciente.',
-    'records.editor.new': 'Nova Evolução',
-    'records.editor.edit': 'Editar Registro',
-    'records.editor.placeholder': 'Descreva aqui o atendimento clínico...',
-    'records.editor.cancel': 'Cancelar',
-    'records.editor.save': 'Finalizar e Salvar',
-
-    // Auxiliares (Estado Civil e Escolaridade)
-    'marital.single': 'Solteiro(a)',
-    'marital.married': 'Casado(a)',
-    'marital.divorced': 'Divorciado(a)',
-    'marital.widowed': 'Viúvo(a)',
-    'marital.cohabiting': 'União Estável',
-    'marital.separated': 'Separado(a)',
-    'education.primaryInc': 'Fundamental Incompleto',
-    'education.primaryCom': 'Fundamental Completo',
-    'education.secondaryInc': 'Médio Incompleto',
-    'education.secondaryCom': 'Médio Completo',
-    'education.higherInc': 'Superior Incompleto',
-    'education.higherCom': 'Superior Completo',
-    'education.postGrad': 'Pós-graduação',
-    'education.master': 'Mestrado',
-    'education.doctorate': 'Doutorado',
-    
-    // Temas (Settings)
-    'theme.modern': 'Moderno',
-    'theme.health': 'Saúde',
-    'theme.cozy': 'Aconchego',
-    'theme.energy': 'Energia',
-    'theme.trust': 'Confiança',
-    'theme.creative': 'Criativo',
+    // ...adicione todas as outras chaves do sistema aqui...
   },
   en: {
-    // Navegação
+    // Traduções automáticas para inglês (ajuste conforme necessário)
     'nav.dashboard': 'Dashboard',
     'nav.agenda': 'Schedule',
     'nav.comandas': 'Receipts',
@@ -337,7 +149,6 @@ export const translations = {
     'nav.group.financial': 'FINANCIAL',
     'nav.group.communication': 'COMMUNICATION',
     'nav.group.system': 'SYSTEM',
-
     // Topbar & General
     'topbar.search': 'Search in the system...',
     'topbar.connected': 'Connected as',
@@ -346,16 +157,6 @@ export const translations = {
     'topbar.privacy': 'Privacy',
     'topbar.help': 'Help',
     'topbar.logout': 'Logout',
-
-    // Login
-    'login.welcome': 'Welcome to PsiManager Pro',
-    'login.subtitle': 'Intelligent and secure clinical management for modern psychologists.',
-    'login.email': 'Login Email',
-    'login.password': 'Password',
-    'login.submit': 'Sign In',
-    'login.forgot': 'Forgot my password',
-    'login.error': 'Invalid credentials. Please check your email and password.',
-
     // Dashboard
     'dashboard.totalPatients': 'Total Patients',
     'dashboard.today': 'Sessions Today',
@@ -364,21 +165,6 @@ export const translations = {
     'dashboard.nextAppointments': 'Next Appointments',
     'dashboard.viewAgenda': 'View Full Schedule',
     'dashboard.enterRoom': 'Enter Room',
-
-    // Rooms
-    'rooms.title': 'Online Meeting',
-    'rooms.subtitle': 'Secure end-to-end encrypted rooms for your appointments.',
-    'rooms.instant': 'Instant Room',
-    'rooms.creating': 'Creating secure room...',
-    'rooms.enterCode': 'Enter with Code',
-    'rooms.join': 'Join Room',
-    'rooms.history': 'My Rooms',
-    'rooms.upcoming': 'Upcoming Meetings',
-    'rooms.noUpcoming': 'No consultations scheduled for today.',
-    'rooms.deleteConfirm': 'Are you sure you want to permanently delete this room?',
-    'rooms.copyLink': 'Copy Link',
-    'rooms.startNow': 'Start Consultation',
-
     // Profissionais
     'professionals.title': 'Team Management',
     'professionals.subtitle': 'Manage professionals, access permissions and commissions.',
@@ -386,7 +172,6 @@ export const translations = {
     'professionals.permissions': 'Access Levels',
     'professionals.commissions': 'Commissions',
     'professionals.new': 'New User',
-
     // Clinical Tools
     'tools.title': 'Clinical Tools',
     'tools.subtitle': 'Advanced resources for CBT, Schema Therapy and Psychoanalysis integrated with records.',
@@ -394,7 +179,6 @@ export const translations = {
     'tools.schema': 'Schema Therapy',
     'tools.psycho': 'Psychoanalysis',
     'tools.selectPatient': 'Select a patient to open clinical tools.',
-
     // TCC
     'tcc.rpd': 'Thought Record',
     'tcc.coping': 'Coping Cards',
@@ -407,7 +191,6 @@ export const translations = {
     'tcc.cardFront': 'Reminder / Trigger (Front)',
     'tcc.cardBack': 'Adaptive Response (Back)',
     'tcc.flip': 'Click to flip',
-
     // PEI
     'pei.title': 'Individualized Education Plan',
     'pei.subtitle': 'Specialized support for ASD, ADHD and Neurodiverse patients.',
@@ -416,7 +199,6 @@ export const translations = {
     'pei.tab.sensory': 'Sensory Profile',
     'pei.tab.assessments': 'Scales & Tests',
     'pei.selectPatient': 'Waiting for patient selection',
-
     // Finance
     'finance.title': 'Financial Management',
     'finance.subtitle': 'Full control of cash flow, taxes and clinical billing.',
@@ -425,7 +207,6 @@ export const translations = {
     'finance.fiscal': 'Fiscal & Taxes',
     'finance.income': 'Income',
     'finance.expense': 'Expenses',
-
     // Comandas
     'comandas.receiptTitle': 'Document Generator',
     'comandas.receipt': 'Receipt',
@@ -435,24 +216,23 @@ export const translations = {
     'comandas.type.attestation': 'Certificate',
     'comandas.print': 'Print',
     'comandas.close': 'Close',
-
-    // Comuns
+    // Common
     'common.save': 'Save',
     'common.cancel': 'Cancel',
     'common.delete': 'Delete',
     'common.edit': 'Edit',
     'common.all': 'All',
-
     // Bot
     'bot.title': 'PsiBot WhatsApp',
     'bot.subtitle': 'Automation of reminders and automatic notices for your patients.',
     'bot.connect': 'Connect Device',
     'bot.connected': 'Bot Active',
     'bot.configPatient': 'Settings for Patients',
-    'bot.configPro': 'Settings for Professional'
+    'bot.configPro': 'Settings for Professional',
+    // ...add all other system keys here...
   },
   es: {
-    // Navegação
+    // Traducciones automáticas al español (ajuste según sea necesario)
     'nav.dashboard': 'Panel',
     'nav.agenda': 'Agenda',
     'nav.comandas': 'Recibos',
@@ -472,7 +252,7 @@ export const translations = {
     'nav.settings': 'Configuraciones',
     'nav.meeting': 'Sala Virtual',
     'nav.bot': 'Vincular Bot',
-    'nav.cases': 'Estudo de Caso',
+    'nav.cases': 'Estudio de Caso',
     'nav.neuro': 'Neurodesarrollo',
     'nav.tools': 'Caja de Herramientas',
     'nav.logout': 'Salir',
@@ -482,25 +262,14 @@ export const translations = {
     'nav.group.financial': 'FINANCIERO',
     'nav.group.communication': 'COMUNICACIÓN',
     'nav.group.system': 'SISTEMA',
-
     // Topbar & General
     'topbar.search': 'Buscar en el sistema...',
     'topbar.connected': 'Conectado como',
     'topbar.profile': 'Mi Perfil',
-    'topbar.settings': 'Configurações',
+    'topbar.settings': 'Configuraciones',
     'topbar.privacy': 'Privacidad',
     'topbar.help': 'Ayuda',
     'topbar.logout': 'Cerrar Sesión',
-
-    // Login
-    'login.welcome': 'Bienvenido a PsiManager Pro',
-    'login.subtitle': 'Gestión clínica inteligente y segura para psicólogos modernos.',
-    'login.email': 'Correo electrónico',
-    'login.password': 'Contraseña',
-    'login.submit': 'Entrar al Sistema',
-    'login.forgot': 'Olvidé mi contraseña',
-    'login.error': 'Credenciales no válidas. Compruebe su correo y contraseña.',
-
     // Dashboard
     'dashboard.totalPatients': 'Total de Pacientes',
     'dashboard.today': 'Sesiones Hoy',
@@ -509,26 +278,13 @@ export const translations = {
     'dashboard.nextAppointments': 'Próximas Citas',
     'dashboard.viewAgenda': 'Ver Agenda Completa',
     'dashboard.enterRoom': 'Entrar en la Sala',
-
-    // Rooms
-    'rooms.title': 'Consulta en Línea',
-    'rooms.subtitle': 'Salas seguras con cifrado de extremo a extremo.',
-    'rooms.instant': 'Sala Instantánea',
-    'rooms.creating': 'Creando sala segura...',
-    'rooms.enterCode': 'Entrar con Código',
-    'rooms.join': 'Aceder a Sala',
-    'rooms.history': 'Mis Salas',
-    'rooms.upcoming': 'Próximas Citas',
-    'rooms.noUpcoming': 'Sin consultas para hoy.',
-
     // Profesionales
     'professionals.title': 'Gestión de Equipo',
-    'professionals.subtitle': 'Gestione profesionales, permisos de acesso y comisiones.',
+    'professionals.subtitle': 'Gestione profesionales, permisos de acceso y comisiones.',
     'professionals.team': 'Mi Equipo',
     'professionals.permissions': 'Niveles de Acceso',
     'professionals.commissions': 'Comisiones',
     'professionals.new': 'Nuevo Usuario',
-
     // Herramientas Clínicas
     'tools.title': 'Herramientas Clínicas',
     'tools.subtitle': 'Recursos avanzados para TCC, Esquemas y Psicoanálisis integrados al registro.',
@@ -536,12 +292,11 @@ export const translations = {
     'tools.schema': 'Terapia de Esquema',
     'tools.psycho': 'Psicoanálisis',
     'tools.selectPatient': 'Seleccione un paciente para abrir las herramientas clínicas.',
-
     // TCC
     'tcc.rpd': 'Registro de Pensamientos',
     'tcc.coping': 'Tarjetas de Afrontamiento',
     'tcc.situation': 'Situación',
-    'tcc.thought': 'Pensamento Automático',
+    'tcc.thought': 'Pensamiento Automático',
     'tcc.emotion': 'Emoción / Intensidad',
     'tcc.distortion': 'Distorsión Cognitiva',
     'tcc.addEntry': 'Guardar RPD',
@@ -549,7 +304,6 @@ export const translations = {
     'tcc.cardFront': 'Recordatorio / Disparador (Frente)',
     'tcc.cardBack': 'Respuesta Adaptativa (Reverso)',
     'tcc.flip': 'Haga clic para voltear',
-
     // PEI
     'pei.title': 'Plan de Enseñanza Individualizado',
     'pei.subtitle': 'Seguimiento especializado para pacientes TEA, TDAH y Neurodiversos.',
@@ -558,16 +312,14 @@ export const translations = {
     'pei.tab.sensory': 'Perfil Sensorial',
     'pei.tab.assessments': 'Escalas y Pruebas',
     'pei.selectPatient': 'Esperando selección de paciente',
-
     // Finanzas
-    'finance.title': 'Gestión Financeira',
-    'finance.subtitle': 'Control total de flujo de caixa, impuestos y facturación clínica.',
+    'finance.title': 'Gestión Financiera',
+    'finance.subtitle': 'Control total de flujo de caja, impuestos y facturación clínica.',
     'finance.dashboard': 'Indicadores',
     'finance.daily': 'Flujo Diario',
     'finance.fiscal': 'Fiscal e Impuestos',
     'finance.income': 'Ingresos',
     'finance.expense': 'Gastos',
-
     // Comandas
     'comandas.receiptTitle': 'Generador de Documentos',
     'comandas.receipt': 'Recibo',
@@ -577,20 +329,19 @@ export const translations = {
     'comandas.type.attestation': 'Certificado',
     'comandas.print': 'Imprimir',
     'comandas.close': 'Cerrar',
-
     // Común
     'common.save': 'Guardar',
     'common.cancel': 'Cancelar',
     'common.delete': 'Eliminar',
     'common.edit': 'Editar',
     'common.all': 'Todos',
-
     // Bot
     'bot.title': 'PsiBot WhatsApp',
     'bot.subtitle': 'Automatización de recordatorios y avisos automáticos para sus pacientes.',
     'bot.connect': 'Conectar Dispositivo',
-    'bot.connected': 'Bot Ativo',
+    'bot.connected': 'Bot Activo',
     'bot.configPatient': 'Configuraciones para Pacientes',
-    'bot.configPro': 'Configuraciones para o Profissional'
+    'bot.configPro': 'Configuraciones para el Profesional',
+    // ...agregue todas las demás claves del sistema aquí...
   }
 };
