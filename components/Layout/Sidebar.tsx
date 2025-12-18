@@ -15,19 +15,20 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) => {
   const location = useLocation();
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   // Filtrar seções de navegação baseada no papel
   const visibleSections = NAV_SECTIONS.filter(section => {
     // Se for super_admin, ele só vê o Painel Master
     if (user?.role === 'super_admin') return false; 
     
-    // Se for um usuário comum (profissional ou secretario), ele não vê Gestão e Financeiro
-    const isManagementGroup = section.title === 'nav.group.management' || section.title === 'nav.group.financial';
+    // Grupos que exigem permissão administrativa (Gestão e Financeiro)
+    const isRestrictedGroup = section.title === 'nav.group.management' || section.title === 'nav.group.financial';
     
-    // Admin da clínica (ou cargos superiores) vê TUDO da clínica
-    if (isManagementGroup && user?.role !== 'admin') return false;
+    // Se for um grupo restrito e o usuário NÃO for admin, oculta
+    if (isRestrictedGroup && !isAdmin) return false;
     
+    // Admin, Profissional e Secretário veem os grupos: Geral, Clínico, Comunicação e Sistema
     return true;
   });
 

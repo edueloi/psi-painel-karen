@@ -17,6 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
   isAdmin: boolean;
+  isProfissional: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,9 +25,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const decodeToken = (token: string | null): AuthUser | null => {
   if (!token) return null;
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload;
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+
+    return JSON.parse(jsonPayload);
   } catch (e) {
+    console.error("Erro ao decodificar token:", e);
     return null;
   }
 };
@@ -49,7 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (newToken: string) => {
     localStorage.setItem('psi_token', newToken);
     setToken(newToken);
-    setUser(decodeToken(newToken));
+    const decoded = decodeToken(newToken);
+    setUser(decoded);
   };
 
   const logout = () => {
@@ -66,7 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout, 
       isAuthenticated: !!token,
       isSuperAdmin: user?.role === 'super_admin',
-      isAdmin: user?.role === 'admin'
+      isAdmin: user?.role === 'admin',
+      isProfissional: user?.role === 'profissional'
     }}>
       {children}
     </AuthContext.Provider>

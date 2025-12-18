@@ -52,12 +52,14 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[] }> = ({ children, allowedRoles }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isAdmin } = useAuth();
   
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   
-  // Se houver restrição de cargo, permite se o usuário for o cargo exigido OU for o 'admin' da clínica
-  if (allowedRoles && user && !allowedRoles.includes(user.role) && user.role !== 'admin') {
+  // Se houver restrição de cargo:
+  // Permite se o usuário tiver o cargo na lista OU se ele for o 'admin' da clínica (Master User da clínica)
+  if (allowedRoles && user && !allowedRoles.includes(user.role) && !isAdmin) {
+    // A única exceção é se um admin tentar acessar rotas de super_admin sem permissão
     return <Navigate to="/" replace />;
   }
 
@@ -71,14 +73,14 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/login" element={<Login onLogin={() => {}} />} />
       
-      {/* Rotas de Super Admin */}
+      {/* Rotas de Super Admin (Apenas para o papel global) */}
       <Route path="/master" element={
         <ProtectedRoute allowedRoles={['super_admin']}>
           <SuperAdmin onLogout={() => {}} />
         </ProtectedRoute>
       } />
 
-      {/* Rotas Comuns de Clínica */}
+      {/* Rotas Comuns de Clínica (Acessíveis por profissional, secretario e admin) */}
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
       <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
@@ -95,7 +97,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/forms" element={<ProtectedRoute><Forms /></ProtectedRoute>} />
       <Route path="/forms/list" element={<ProtectedRoute><FormsList /></ProtectedRoute>} />
       
-      {/* Rotas de Gestão e Financeiro (Acessíveis por Admin) */}
+      {/* Rotas de Gestão e Financeiro (Restritas a Admin via allowedRoles, mas permitidas pelo bypass da ProtectedRoute) */}
       <Route path="/professionals" element={<ProtectedRoute allowedRoles={['admin']}><Professionals /></ProtectedRoute>} />
       <Route path="/permissions" element={<ProtectedRoute allowedRoles={['admin']}><Permissions /></ProtectedRoute>} />
       <Route path="/services" element={<ProtectedRoute allowedRoles={['admin']}><Services /></ProtectedRoute>} />
