@@ -265,6 +265,7 @@ export interface ComandaItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  description?: string;
 }
 
 export interface ComandaSession {
