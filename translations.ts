@@ -43,6 +43,15 @@ export const translations = {
     'topbar.help': 'Ajuda',
     'topbar.logout': 'Encerrar Sessão',
 
+    // Login
+    'login.welcome': 'Bem-vindo ao PsiManager Pro',
+    'login.subtitle': 'Gestão clínica inteligente e segura para psicólogos modernos.',
+    'login.email': 'E-mail de Acesso',
+    'login.password': 'Senha',
+    'login.submit': 'Entrar no Sistema',
+    'login.forgot': 'Esqueci minha senha',
+    'login.error': 'Credenciais inválidas. Verifique seu e-mail e senha.',
+
     // Dashboard
     'dashboard.totalPatients': 'Total de Pacientes',
     'dashboard.today': 'Sessões Hoje',
@@ -51,6 +60,31 @@ export const translations = {
     'dashboard.nextAppointments': 'Próximos Agendamentos',
     'dashboard.viewAgenda': 'Ver Agenda Completa',
     'dashboard.enterRoom': 'Entrar na Sala',
+
+    // Salas Virtuais (Rooms)
+    'rooms.title': 'Atendimento Online',
+    'rooms.subtitle': 'Salas seguras com criptografia ponta-a-ponta, lousa interativa e chat para teleconsulta.',
+    'rooms.instant': 'Sala Instantânea',
+    'rooms.creating': 'Criando sala segura...',
+    'rooms.enterCode': 'Entrar com Código',
+    'rooms.join': 'Acessar Sala',
+    'rooms.history': 'Minhas Salas',
+    'rooms.upcoming': 'Próximos Atendimentos',
+    'rooms.noUpcoming': 'Sem consultas agendadas para hoje.',
+    'rooms.deleteConfirm': 'Tem certeza que deseja excluir esta sala permanentemente?',
+    'rooms.copyLink': 'Copiar Link',
+    'rooms.startNow': 'Iniciar Atendimento',
+    'rooms.placeholderCode': 'Ex: abc-123-xyz',
+    'rooms.persistent': 'Salas Permanentes',
+    'rooms.unnamed': 'Sala sem título',
+    'rooms.createdAt': 'Criada em',
+    'rooms.noPersistent': 'Nenhuma sala fixa encontrada.',
+    'rooms.errorCreate': 'Não foi possível criar a sala.',
+    'rooms.errorDelete': 'Erro ao remover a sala do servidor.',
+    'rooms.instantTitle': 'Sala Instantânea',
+    'rooms.instantDesc': 'Criada via atalho de acesso rápido.',
+    'rooms.defaultTitle': 'Consulta Online',
+    'rooms.noDesc': 'Nenhuma descrição fornecida.',
 
     // Profissionais
     'professionals.title': 'Gestão de Equipe',
@@ -125,15 +159,290 @@ export const translations = {
     'bot.configPro': 'Configurações para o Profissional'
   },
   en: {
+    // Navegação
     'nav.dashboard': 'Dashboard',
     'nav.agenda': 'Schedule',
+    'nav.comandas': 'Receipts',
     'nav.patients': 'Patients',
-    'nav.logout': 'Logout'
+    'nav.professionals': 'Professionals',
+    'nav.permissions': 'Permissions',
+    'nav.products': 'Products',
+    'nav.bestClients': 'Best Clients',
+    'nav.performance': 'Performance',
+    'nav.records': 'Records',
+    'nav.services': 'Services/Packages',
+    'nav.documents': 'Documents',
+    'nav.docGen': 'Doc Generator',
+    'nav.forms': 'Forms',
+    'nav.messages': 'Messages',
+    'nav.finance': 'Finance',
+    'nav.settings': 'Settings',
+    'nav.meeting': 'Virtual Room',
+    'nav.bot': 'Link Bot',
+    'nav.cases': 'Case Study',
+    'nav.neuro': 'Neurodevelopment',
+    'nav.tools': 'Toolbox',
+    'nav.logout': 'Logout',
+    'nav.group.general': 'GENERAL',
+    'nav.group.clinical': 'CLINICAL',
+    'nav.group.management': 'MANAGEMENT',
+    'nav.group.financial': 'FINANCIAL',
+    'nav.group.communication': 'COMMUNICATION',
+    'nav.group.system': 'SYSTEM',
+
+    // Topbar & General
+    'topbar.search': 'Search in the system...',
+    'topbar.connected': 'Connected as',
+    'topbar.profile': 'My Profile',
+    'topbar.settings': 'Settings',
+    'topbar.privacy': 'Privacy',
+    'topbar.help': 'Help',
+    'topbar.logout': 'Logout',
+
+    // Login
+    'login.welcome': 'Welcome to PsiManager Pro',
+    'login.subtitle': 'Intelligent and secure clinical management for modern psychologists.',
+    'login.email': 'Login Email',
+    'login.password': 'Password',
+    'login.submit': 'Sign In',
+    'login.forgot': 'Forgot my password',
+    'login.error': 'Invalid credentials. Please check your email and password.',
+
+    // Dashboard
+    'dashboard.totalPatients': 'Total Patients',
+    'dashboard.today': 'Sessions Today',
+    'dashboard.revenue': 'Monthly Revenue',
+    'dashboard.attendance': 'Attendance Rate',
+    'dashboard.nextAppointments': 'Next Appointments',
+    'dashboard.viewAgenda': 'View Full Schedule',
+    'dashboard.enterRoom': 'Enter Room',
+
+    // Rooms
+    'rooms.title': 'Online Meeting',
+    'rooms.subtitle': 'Secure end-to-end encrypted rooms for your appointments.',
+    'rooms.instant': 'Instant Room',
+    'rooms.creating': 'Creating secure room...',
+    'rooms.enterCode': 'Enter with Code',
+    'rooms.join': 'Join Room',
+    'rooms.history': 'My Rooms',
+    'rooms.upcoming': 'Upcoming Meetings',
+    'rooms.noUpcoming': 'No consultations scheduled for today.',
+    'rooms.deleteConfirm': 'Are you sure you want to permanently delete this room?',
+    'rooms.copyLink': 'Copy Link',
+    'rooms.startNow': 'Start Consultation',
+
+    // Profissionais
+    'professionals.title': 'Team Management',
+    'professionals.subtitle': 'Manage professionals, access permissions and commissions.',
+    'professionals.team': 'My Team',
+    'professionals.permissions': 'Access Levels',
+    'professionals.commissions': 'Commissions',
+    'professionals.new': 'New User',
+
+    // Clinical Tools
+    'tools.title': 'Clinical Tools',
+    'tools.subtitle': 'Advanced resources for CBT, Schema Therapy and Psychoanalysis integrated with records.',
+    'tools.tcc': 'CBT (RPD and Cards)',
+    'tools.schema': 'Schema Therapy',
+    'tools.psycho': 'Psychoanalysis',
+    'tools.selectPatient': 'Select a patient to open clinical tools.',
+
+    // TCC
+    'tcc.rpd': 'Thought Record',
+    'tcc.coping': 'Coping Cards',
+    'tcc.situation': 'Situation',
+    'tcc.thought': 'Automatic Thought',
+    'tcc.emotion': 'Emotion / Intensity',
+    'tcc.distortion': 'Cognitive Distortion',
+    'tcc.addEntry': 'Save RPD',
+    'tcc.addCard': 'New Coping Card',
+    'tcc.cardFront': 'Reminder / Trigger (Front)',
+    'tcc.cardBack': 'Adaptive Response (Back)',
+    'tcc.flip': 'Click to flip',
+
+    // PEI
+    'pei.title': 'Individualized Education Plan',
+    'pei.subtitle': 'Specialized support for ASD, ADHD and Neurodiverse patients.',
+    'pei.tab.goals': 'Acquisition Goals',
+    'pei.tab.abc': 'ABC Record',
+    'pei.tab.sensory': 'Sensory Profile',
+    'pei.tab.assessments': 'Scales & Tests',
+    'pei.selectPatient': 'Waiting for patient selection',
+
+    // Finance
+    'finance.title': 'Financial Management',
+    'finance.subtitle': 'Full control of cash flow, taxes and clinical billing.',
+    'finance.dashboard': 'Indicators',
+    'finance.daily': 'Daily Flow',
+    'finance.fiscal': 'Fiscal & Taxes',
+    'finance.income': 'Income',
+    'finance.expense': 'Expenses',
+
+    // Comandas
+    'comandas.receiptTitle': 'Document Generator',
+    'comandas.receipt': 'Receipt',
+    'comandas.type.simple': 'Simple Receipt',
+    'comandas.type.reimbursement': 'Reimbursement Receipt',
+    'comandas.type.declaration': 'Declaration',
+    'comandas.type.attestation': 'Certificate',
+    'comandas.print': 'Print',
+    'comandas.close': 'Close',
+
+    // Comuns
+    'common.save': 'Save',
+    'common.cancel': 'Cancel',
+    'common.delete': 'Delete',
+    'common.edit': 'Edit',
+    'common.all': 'All',
+
+    // Bot
+    'bot.title': 'PsiBot WhatsApp',
+    'bot.subtitle': 'Automation of reminders and automatic notices for your patients.',
+    'bot.connect': 'Connect Device',
+    'bot.connected': 'Bot Active',
+    'bot.configPatient': 'Settings for Patients',
+    'bot.configPro': 'Settings for Professional'
   },
   es: {
+    // Navegação
     'nav.dashboard': 'Panel',
     'nav.agenda': 'Agenda',
+    'nav.comandas': 'Recibos',
     'nav.patients': 'Pacientes',
-    'nav.logout': 'Salir'
+    'nav.professionals': 'Profesionales',
+    'nav.permissions': 'Permisos',
+    'nav.products': 'Productos',
+    'nav.bestClients': 'Mejores Clientes',
+    'nav.performance': 'Rendimiento',
+    'nav.records': 'Registros',
+    'nav.services': 'Servicios/Paquetes',
+    'nav.documents': 'Documentos',
+    'nav.docGen': 'Generador de Docs',
+    'nav.forms': 'Formularios',
+    'nav.messages': 'Mensajes',
+    'nav.finance': 'Finanzas',
+    'nav.settings': 'Configuraciones',
+    'nav.meeting': 'Sala Virtual',
+    'nav.bot': 'Vincular Bot',
+    'nav.cases': 'Estudo de Caso',
+    'nav.neuro': 'Neurodesarrollo',
+    'nav.tools': 'Caja de Herramientas',
+    'nav.logout': 'Salir',
+    'nav.group.general': 'GENERAL',
+    'nav.group.clinical': 'CLÍNICO',
+    'nav.group.management': 'GESTIÓN',
+    'nav.group.financial': 'FINANCIERO',
+    'nav.group.communication': 'COMUNICACIÓN',
+    'nav.group.system': 'SISTEMA',
+
+    // Topbar & General
+    'topbar.search': 'Buscar en el sistema...',
+    'topbar.connected': 'Conectado como',
+    'topbar.profile': 'Mi Perfil',
+    'topbar.settings': 'Configurações',
+    'topbar.privacy': 'Privacidad',
+    'topbar.help': 'Ayuda',
+    'topbar.logout': 'Cerrar Sesión',
+
+    // Login
+    'login.welcome': 'Bienvenido a PsiManager Pro',
+    'login.subtitle': 'Gestión clínica inteligente y segura para psicólogos modernos.',
+    'login.email': 'Correo electrónico',
+    'login.password': 'Contraseña',
+    'login.submit': 'Entrar al Sistema',
+    'login.forgot': 'Olvidé mi contraseña',
+    'login.error': 'Credenciales no válidas. Compruebe su correo y contraseña.',
+
+    // Dashboard
+    'dashboard.totalPatients': 'Total de Pacientes',
+    'dashboard.today': 'Sesiones Hoy',
+    'dashboard.revenue': 'Ingresos Mensuales',
+    'dashboard.attendance': 'Tasa de Asistencia',
+    'dashboard.nextAppointments': 'Próximas Citas',
+    'dashboard.viewAgenda': 'Ver Agenda Completa',
+    'dashboard.enterRoom': 'Entrar en la Sala',
+
+    // Rooms
+    'rooms.title': 'Consulta en Línea',
+    'rooms.subtitle': 'Salas seguras con cifrado de extremo a extremo.',
+    'rooms.instant': 'Sala Instantánea',
+    'rooms.creating': 'Creando sala segura...',
+    'rooms.enterCode': 'Entrar con Código',
+    'rooms.join': 'Aceder a Sala',
+    'rooms.history': 'Mis Salas',
+    'rooms.upcoming': 'Próximas Citas',
+    'rooms.noUpcoming': 'Sin consultas para hoy.',
+
+    // Profesionales
+    'professionals.title': 'Gestión de Equipo',
+    'professionals.subtitle': 'Gestione profesionales, permisos de acesso y comisiones.',
+    'professionals.team': 'Mi Equipo',
+    'professionals.permissions': 'Niveles de Acceso',
+    'professionals.commissions': 'Comisiones',
+    'professionals.new': 'Nuevo Usuario',
+
+    // Herramientas Clínicas
+    'tools.title': 'Herramientas Clínicas',
+    'tools.subtitle': 'Recursos avanzados para TCC, Esquemas y Psicoanálisis integrados al registro.',
+    'tools.tcc': 'TCC (RPD y Tarjetas)',
+    'tools.schema': 'Terapia de Esquema',
+    'tools.psycho': 'Psicoanálisis',
+    'tools.selectPatient': 'Seleccione un paciente para abrir las herramientas clínicas.',
+
+    // TCC
+    'tcc.rpd': 'Registro de Pensamientos',
+    'tcc.coping': 'Tarjetas de Afrontamiento',
+    'tcc.situation': 'Situación',
+    'tcc.thought': 'Pensamento Automático',
+    'tcc.emotion': 'Emoción / Intensidad',
+    'tcc.distortion': 'Distorsión Cognitiva',
+    'tcc.addEntry': 'Guardar RPD',
+    'tcc.addCard': 'Nueva Tarjeta de Afrontamiento',
+    'tcc.cardFront': 'Recordatorio / Disparador (Frente)',
+    'tcc.cardBack': 'Respuesta Adaptativa (Reverso)',
+    'tcc.flip': 'Haga clic para voltear',
+
+    // PEI
+    'pei.title': 'Plan de Enseñanza Individualizado',
+    'pei.subtitle': 'Seguimiento especializado para pacientes TEA, TDAH y Neurodiversos.',
+    'pei.tab.goals': 'Metas de Adquisición',
+    'pei.tab.abc': 'Registro ABC',
+    'pei.tab.sensory': 'Perfil Sensorial',
+    'pei.tab.assessments': 'Escalas y Pruebas',
+    'pei.selectPatient': 'Esperando selección de paciente',
+
+    // Finanzas
+    'finance.title': 'Gestión Financeira',
+    'finance.subtitle': 'Control total de flujo de caixa, impuestos y facturación clínica.',
+    'finance.dashboard': 'Indicadores',
+    'finance.daily': 'Flujo Diario',
+    'finance.fiscal': 'Fiscal e Impuestos',
+    'finance.income': 'Ingresos',
+    'finance.expense': 'Gastos',
+
+    // Comandas
+    'comandas.receiptTitle': 'Generador de Documentos',
+    'comandas.receipt': 'Recibo',
+    'comandas.type.simple': 'Recibo Simple',
+    'comandas.type.reimbursement': 'Recibo para Reembolso',
+    'comandas.type.declaration': 'Declaración',
+    'comandas.type.attestation': 'Certificado',
+    'comandas.print': 'Imprimir',
+    'comandas.close': 'Cerrar',
+
+    // Común
+    'common.save': 'Guardar',
+    'common.cancel': 'Cancelar',
+    'common.delete': 'Eliminar',
+    'common.edit': 'Editar',
+    'common.all': 'Todos',
+
+    // Bot
+    'bot.title': 'PsiBot WhatsApp',
+    'bot.subtitle': 'Automatización de recordatorios y avisos automáticos para sus pacientes.',
+    'bot.connect': 'Conectar Dispositivo',
+    'bot.connected': 'Bot Ativo',
+    'bot.configPatient': 'Configuraciones para Pacientes',
+    'bot.configPro': 'Configuraciones para o Profissional'
   }
 };

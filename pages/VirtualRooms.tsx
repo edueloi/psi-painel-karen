@@ -56,14 +56,14 @@ export const VirtualRooms: React.FC = () => {
     try {
         const response = await api.post<{ message: string, id: number }>('/virtualRooms', {
             code: randomCode,
-            title: `Sala Instantânea - ${new Date().toLocaleDateString()}`,
-            description: "Criada via atalho de sala instantânea."
+            title: `${t('rooms.instantTitle')} - ${new Date().toLocaleDateString()}`,
+            description: t('rooms.instantDesc')
         });
         
         // Redireciona imediatamente após criar
         navigate(`/meeting/${randomCode}`);
     } catch (e: any) {
-        alert("Erro ao criar sala: " + e.message);
+        alert(t('rooms.errorCreate') + " " + e.message);
     } finally {
         setIsCreating(false);
     }
@@ -82,7 +82,7 @@ export const VirtualRooms: React.FC = () => {
               await api.delete(`/virtualRooms/${id}`);
               setRooms(prev => prev.filter(r => r.id !== id));
           } catch (e) {
-              alert("Erro ao remover sala.");
+              alert(t('rooms.errorDelete'));
           }
       }
   };
@@ -144,7 +144,7 @@ export const VirtualRooms: React.FC = () => {
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
                           <input 
                             type="text" 
-                            placeholder="Ex: abc-123-xyz" 
+                            placeholder={t('rooms.placeholderCode')} 
                             className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400 font-medium text-slate-700 transition-all"
                             value={meetingCode}
                             onChange={(e) => setMeetingCode(e.target.value)}
@@ -164,25 +164,25 @@ export const VirtualRooms: React.FC = () => {
               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                   <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                       <h3 className="font-bold text-slate-700 flex items-center gap-2"><History size={18} className="text-indigo-500" /> {t('rooms.history')}</h3>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white border border-slate-200 px-2 py-1 rounded-md">Persistentes</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white border border-slate-200 px-2 py-1 rounded-md">{t('rooms.persistent')}</span>
                   </div>
                   
                   <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto custom-scrollbar">
                       {isLoading ? (
                           <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-slate-300" /></div>
                       ) : persistentRooms.length === 0 ? (
-                          <div className="p-10 text-center text-slate-400 text-sm">Nenhuma sala persistente criada.</div>
+                          <div className="p-10 text-center text-slate-400 text-sm">{t('rooms.noPersistent')}</div>
                       ) : (
                           persistentRooms.map((room) => (
                             <div key={room.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors group">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <h4 className="text-sm font-bold text-slate-800 truncate">{room.title || 'Sala Sem Nome'}</h4>
+                                        <h4 className="text-sm font-bold text-slate-800 truncate">{room.title || t('rooms.unnamed')}</h4>
                                         <div className="flex items-center gap-1 text-[10px] font-mono bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100">
                                             {room.code}
                                         </div>
                                     </div>
-                                    <p className="text-xs text-slate-400">Criada em: {new Date(room.created_at).toLocaleDateString()}</p>
+                                    <p className="text-xs text-slate-400">{t('rooms.createdAt')}: {new Date(room.created_at).toLocaleDateString()}</p>
                                 </div>
                                 <div className="flex items-center gap-2 ml-4">
                                     <button 
@@ -236,7 +236,6 @@ export const VirtualRooms: React.FC = () => {
                             <Video size={40} className="opacity-10 text-indigo-900" />
                           </div>
                           <p className="font-medium">{t('rooms.noUpcoming')}</p>
-                          <p className="text-xs mt-2 text-slate-400">Salas agendadas aparecerão aqui automaticamente.</p>
                       </div>
                   ) : (
                       upcomingRooms.map(room => (
@@ -262,8 +261,8 @@ export const VirtualRooms: React.FC = () => {
                                           {room.scheduled_end ? ` - ${new Date(room.scheduled_end).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : ''}
                                       </span>
                                   </div>
-                                  <h4 className="font-bold text-slate-800 text-base mb-1 truncate">{room.title || 'Consulta Online'}</h4>
-                                  <p className="text-sm text-slate-400 line-clamp-1">{room.description || 'Nenhuma descrição fornecida.'}</p>
+                                  <h4 className="font-bold text-slate-800 text-base mb-1 truncate">{room.title || t('rooms.defaultTitle')}</h4>
+                                  <p className="text-sm text-slate-400 line-clamp-1">{room.description || t('rooms.noDesc')}</p>
                               </div>
 
                               <div className="flex gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-t-0 border-slate-50">
