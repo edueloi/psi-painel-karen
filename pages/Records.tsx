@@ -1,14 +1,10 @@
-
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { MOCK_RECORDS } from '../constants';
 import { ClinicalRecord, Patient } from '../types';
 import { api } from '../services/api';
 import { 
-  FileText, Search, Plus, User, Clock, Calendar, Hash, Tag, Filter, 
-  CheckCircle, Edit3, MoreHorizontal, ChevronRight, Stethoscope, 
-  Paperclip, Printer, Share2, Lock, Unlock, Mic, Save, X, 
-  LayoutTemplate, Bold, Italic, List, ArrowLeft, Brain, Activity,
-  AlertCircle, History, ChevronDown, Trash2, MicOff, Lightbulb, Loader2
+  Search, Plus, User, 
+  X, ArrowLeft, Loader2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -26,7 +22,6 @@ export const Records: React.FC = () => {
   const [editorMode, setEditorMode] = useState<'new' | 'edit' | 'view'>('new');
   const [currentRecord, setCurrentRecord] = useState<Partial<ClinicalRecord> & { attachments?: string[] }>({});
   const [editorContent, setEditorContent] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
 
   const fetchPatients = async () => {
     setIsLoading(true);
@@ -82,10 +77,10 @@ export const Records: React.FC = () => {
       
       <div className={`w-full md:w-80 lg:w-96 bg-slate-50 border-r border-slate-200 flex flex-col transition-all ${isMobileListVisible ? 'flex' : 'hidden md:flex'}`}>
           <div className="p-4 border-b border-slate-200 bg-white sticky top-0 z-10">
-              <h2 className="text-lg font-display font-bold text-slate-800 mb-3 flex items-center gap-2"><User size={20} className="text-indigo-600" /> Prontuários</h2>
+              <h2 className="text-lg font-display font-bold text-slate-800 mb-3 flex items-center gap-2"><User size={20} className="text-indigo-600" /> {t('records.title')}</h2>
               <div className="relative group">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-indigo-500 transition-colors" />
-                  <input type="text" placeholder="Buscar paciente..." className="w-full pl-9 pr-4 py-2.5 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder={t('records.search')} className="w-full pl-9 pr-4 py-2.5 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               </div>
           </div>
 
@@ -113,7 +108,7 @@ export const Records: React.FC = () => {
                                   <div><h2 className="text-xl font-display font-bold text-slate-800 leading-none">{selectedPatient.full_name}</h2><p className="text-xs text-slate-400 mt-1">{selectedPatient.status.toUpperCase()}</p></div>
                               </div>
                           </div>
-                          <button onClick={handleNewRecord} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg"><Plus size={18} /> Novo Registro</button>
+                          <button onClick={handleNewRecord} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg"><Plus size={18} /> {t('records.new')}</button>
                       </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
@@ -128,15 +123,15 @@ export const Records: React.FC = () => {
                                   </div>
                               </div>
                           ))}
-                          {patientRecords.length === 0 && <div className="py-20 text-center text-slate-400 italic">Nenhum registro clínico para este paciente.</div>}
+                          {patientRecords.length === 0 && <div className="py-20 text-center text-slate-400 italic">{t('records.empty')}</div>}
                       </div>
                   </div>
               </>
           ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center">
                   <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6"><Search size={40} className="opacity-30" /></div>
-                  <h2 className="text-2xl font-bold text-slate-700 mb-2">Selecione um Paciente</h2>
-                  <p className="max-w-sm">Use a lista ao lado para ver o histórico clínico ou abrir um prontuário.</p>
+                  <h2 className="text-2xl font-bold text-slate-700 mb-2">{t('records.select')}</h2>
+                  <p className="max-w-sm">{t('records.selectDesc')}</p>
               </div>
           )}
       </div>
@@ -145,13 +140,13 @@ export const Records: React.FC = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
               <div className="bg-white w-full h-full md:h-[90vh] md:w-[90vw] md:max-w-5xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
                   <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50 shrink-0">
-                      <h3 className="text-xl font-bold">{editorMode === 'new' ? 'Nova Evolução' : 'Editar Registro'}</h3>
+                      <h3 className="text-xl font-bold">{editorMode === 'new' ? t('records.editor.new') : t('records.editor.edit')}</h3>
                       <button onClick={() => setIsEditorOpen(false)}><X size={24}/></button>
                   </div>
-                  <textarea className="flex-1 p-10 outline-none text-lg leading-relaxed resize-none" value={editorContent} onChange={e => setEditorContent(e.target.value)} placeholder="Descreva aqui o atendimento clínico..." />
+                  <textarea className="flex-1 p-10 outline-none text-lg leading-relaxed resize-none" value={editorContent} onChange={e => setEditorContent(e.target.value)} placeholder={t('records.editor.placeholder')} />
                   <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 shrink-0">
-                      <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 font-bold text-slate-500">Cancelar</button>
-                      <button onClick={() => setIsEditorOpen(false)} className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">Finalizar e Salvar</button>
+                      <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 font-bold text-slate-500">{t('records.editor.cancel')}</button>
+                      <button onClick={() => setIsEditorOpen(false)} className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">{t('records.editor.save')}</button>
                   </div>
               </div>
           </div>

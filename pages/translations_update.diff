@@ -1,0 +1,118 @@
+--- a/translations.ts
++++ b/translations.ts
+@@ pt: {
+     // PEI (Neurodesenvolvimento)
+@@
+     'pei.tab.assessments': 'Escalas & Testes',
+     'pei.selectPatient': 'Aguardando seleção de paciente',
+
+     // Added labels for PEI goals, ABC recording and sensory profile
+     'pei.goals': 'Metas',
+     'pei.addGoal': 'Nova Meta',
+     'pei.current': 'Atual',
+     'pei.target': 'Meta',
+     'pei.save': 'Salvar',
+     'pei.status': 'Status',
+     'pei.acquisition': 'Aquisição',
+     'pei.maintenance': 'Manutenção',
+     'pei.generalization': 'Generalização',
+     'pei.completed': 'Concluída',
+     'pei.goal.area': 'Área',
+     'pei.goal.title': 'Título da Meta',
+     'pei.goal.desc': 'Descrição da Meta',
+     'pei.goal.initial': 'Valor Inicial',
+     'pei.goal.target': 'Valor Alvo',
+     'pei.goal.save': 'Salvar Meta',
+
+     'pei.abc.new': 'Novo Registro',
+     'pei.abc.title': 'Novo Registro ABC',
+     'pei.abc.date': 'Data e Hora',
+     'pei.abc.antecedent': 'Antecedente',
+     'pei.abc.behavior': 'Comportamento',
+     'pei.abc.consequence': 'Consequência',
+     'pei.abc.save': 'Salvar Registro',
+
+     'pei.sensory.auditory': 'Auditivo',
+     'pei.sensory.visual': 'Visual',
+     'pei.sensory.tactile': 'Tátil',
+     'pei.sensory.vestibular': 'Vestibular',
+     'pei.sensory.oral': 'Oral',
+     'pei.sensory.social': 'Social',
+
+@@ en: {
+     // PEI
+@@
+     'pei.tab.assessments': 'Scales & Tests',
+     'pei.selectPatient': 'Waiting for patient selection',
+
+     // Added labels for PEI goals, ABC recording and sensory profile
+     'pei.goals': 'Goals',
+     'pei.addGoal': 'New Goal',
+     'pei.current': 'Current',
+     'pei.target': 'Target',
+     'pei.save': 'Save',
+     'pei.status': 'Status',
+     'pei.acquisition': 'Acquisition',
+     'pei.maintenance': 'Maintenance',
+     'pei.generalization': 'Generalization',
+     'pei.completed': 'Completed',
+     'pei.goal.area': 'Area',
+     'pei.goal.title': 'Goal Title',
+     'pei.goal.desc': 'Goal Description',
+     'pei.goal.initial': 'Initial Value',
+     'pei.goal.target': 'Target Value',
+     'pei.goal.save': 'Save Goal',
+
+     'pei.abc.new': 'New Record',
+     'pei.abc.title': 'New ABC Record',
+     'pei.abc.date': 'Date & Time',
+     'pei.abc.antecedent': 'Antecedent',
+     'pei.abc.behavior': 'Behavior',
+     'pei.abc.consequence': 'Consequence',
+     'pei.abc.save': 'Save Record',
+
+     'pei.sensory.auditory': 'Auditory',
+     'pei.sensory.visual': 'Visual',
+     'pei.sensory.tactile': 'Tactile',
+     'pei.sensory.vestibular': 'Vestibular',
+     'pei.sensory.oral': 'Oral',
+     'pei.sensory.social': 'Social',
+
+@@ es: {
+     // PEI
+@@
+     'pei.tab.assessments': 'Escalas y Pruebas',
+     'pei.selectPatient': 'Esperando selección de paciente',
+
+     // Added labels for PEI goals, ABC recording and sensory profile
+     'pei.goals': 'Metas',
+     'pei.addGoal': 'Nueva Meta',
+     'pei.current': 'Actual',
+     'pei.target': 'Objetivo',
+     'pei.save': 'Guardar',
+     'pei.status': 'Estado',
+     'pei.acquisition': 'Adquisición',
+     'pei.maintenance': 'Mantenimiento',
+     'pei.generalization': 'Generalización',
+     'pei.completed': 'Completada',
+     'pei.goal.area': 'Área',
+     'pei.goal.title': 'Título de la Meta',
+     'pei.goal.desc': 'Descripción de la Meta',
+     'pei.goal.initial': 'Valor Inicial',
+     'pei.goal.target': 'Valor Objetivo',
+     'pei.goal.save': 'Guardar Meta',
+
+     'pei.abc.new': 'Nuevo Registro',
+     'pei.abc.title': 'Nuevo Registro ABC',
+     'pei.abc.date': 'Fecha y Hora',
+     'pei.abc.antecedent': 'Antecedente',
+     'pei.abc.behavior': 'Comportamiento',
+     'pei.abc.consequence': 'Consecuencia',
+     'pei.abc.save': 'Guardar Registro',
+
+     'pei.sensory.auditory': 'Auditivo',
+     'pei.sensory.visual': 'Visual',
+     'pei.sensory.tactile': 'Táctil',
+     'pei.sensory.vestibular': 'Vestibular',
+     'pei.sensory.oral': 'Oral',
+     'pei.sensory.social': 'Social',

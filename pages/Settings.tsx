@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { 
   Settings as SettingsIcon, Palette, Bell, Globe, Moon, Monitor, Smartphone, 
-  Check, ChevronRight, Lock, Database, CreditCard, UserPlus, ShieldCheck, Mail,
-  Zap, Cloud, Save, AlertTriangle, LogOut, ChevronDown, Clock
+  Check, ChevronRight, Database, CreditCard, UserPlus, ShieldCheck, Mail,
+  Zap, Save, AlertTriangle, ChevronDown, Clock
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Language } from '../translations';
@@ -96,7 +95,7 @@ export const Settings: React.FC = () => {
         </div>
         <button className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
             <ShieldCheck size={18} className="text-emerald-500" />
-            <span className="text-sm">Conta Segura</span>
+            <span className="text-sm">{t('settings.secure')}</span>
         </button>
       </div>
 
@@ -292,15 +291,15 @@ export const Settings: React.FC = () => {
                 {/* Danger Zone */}
                 <div className="mt-12 pt-8 border-t border-slate-100">
                     <h3 className="text-red-600 font-bold mb-4 flex items-center gap-2">
-                        <AlertTriangle size={20} /> Zona de Perigo
+                        <AlertTriangle size={20} /> {t('settings.danger.zone')}
                     </h3>
                     <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div>
-                            <h4 className="font-bold text-red-900">Excluir Conta</h4>
-                            <p className="text-sm text-red-700/70 mt-1">Essa ação é irreversível e removerá todos os seus dados.</p>
+                            <h4 className="font-bold text-red-900">{t('settings.danger.delete')}</h4>
+                            <p className="text-sm text-red-700/70 mt-1">{t('settings.danger.desc')}</p>
                         </div>
                         <button className="px-6 py-2.5 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                            Encerrar Assinatura
+                            {t('settings.danger.endSub')}
                         </button>
                     </div>
                 </div>
@@ -370,9 +369,9 @@ export const Settings: React.FC = () => {
                   <div>
                     <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
                         <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600"><CreditCard size={24} /></div>
-                        Plano & Assinatura
+                        {t('settings.menu.subscription')}
                     </h2>
-                    <p className="text-slate-500 text-sm md:text-base">Gerencie seu plano atual e informações de pagamento.</p>
+                    <p className="text-slate-500 text-sm md:text-base">{t('settings.menu.subscription.desc')}</p>
                   </div>
 
                   {/* Plan Card */}
@@ -434,9 +433,9 @@ export const Settings: React.FC = () => {
                     <div>
                         <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
                             <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><UserPlus size={24} /></div>
-                            Gestão de Equipe
+                            {t('settings.menu.team')}
                         </h2>
-                        <p className="text-slate-500 text-sm md:text-base">Gerencie quem tem acesso ao seu sistema.</p>
+                        <p className="text-slate-500 text-sm md:text-base">{t('settings.menu.team.desc')}</p>
                     </div>
                     <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 text-sm">
                         <UserPlus size={18} /> Convidar
@@ -482,9 +481,9 @@ export const Settings: React.FC = () => {
                   <div>
                     <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
                         <div className="p-2 bg-cyan-100 rounded-lg text-cyan-600"><Database size={24} /></div>
-                        Integrações
+                        {t('settings.menu.integrations')}
                     </h2>
-                    <p className="text-slate-500 text-sm md:text-base">Conecte o PsiManager Pro com suas ferramentas favoritas.</p>
+                    <p className="text-slate-500 text-sm md:text-base">{t('settings.menu.integrations.desc')}</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
