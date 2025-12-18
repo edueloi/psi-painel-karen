@@ -43,17 +43,24 @@ export const api: Api = {
         throw new Error('Sessão expirada');
       }
 
+      // Se a resposta for vazia (ex: 204 No Content), retornar objeto vazio
+      if (response.status === 204) {
+          return {} as T;
+      }
+
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Erro na requisição');
+        throw new Error(data.error || `Erro ${response.status}: ${response.statusText}`);
       }
 
       return data;
     } catch (err: any) {
-      console.error(`API Error [${endpoint}]:`, err);
+      console.error(`ERRO API [${config.method || 'GET'}] ${endpoint}:`, err);
+      
       if (err.name === 'TypeError' && (err.message === 'Failed to fetch' || err.message.includes('NetworkError'))) {
-        throw new Error('Erro de Conexão: Não foi possível alcançar o servidor em ' + BASE_URL + '. Verifique se o backend está rodando e se o CORS está habilitado.');
+        throw new Error('Erro de Conexão: Não foi possível alcançar o servidor em ' + BASE_URL + '. Verifique se o backend está rodando, se o firewall permite a conexão e se o CORS está devidamente habilitado no Node.js.');
       }
+      
       throw err;
     }
   },

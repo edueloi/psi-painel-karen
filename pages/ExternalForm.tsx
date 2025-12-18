@@ -53,7 +53,8 @@ export const ExternalForm: React.FC = () => {
 
   const calculateScore = () => {
       let total = 0;
-      Object.values(answerValues).forEach(val => total += val);
+      /* Fixed type error by explicitly casting val to number */
+      Object.values(answerValues).forEach((val: any) => total += (val as number));
       
       let interpretation = undefined;
       if (form?.interpretations) {

@@ -19,11 +19,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
 
   // Filtrar seções de navegação baseada no papel
   const visibleSections = NAV_SECTIONS.filter(section => {
-    // Se for super_admin, ele tem seu próprio painel, mas podemos restringir a clínica
+    // Se for super_admin, ele só vê o Painel Master
     if (user?.role === 'super_admin') return false; 
     
-    // Professionals e Financeiro só para Admin da Clínica
-    if (section.title === 'nav.group.management' && user?.role !== 'admin') return false;
+    // Se for um usuário comum (profissional ou secretario), ele não vê Gestão e Financeiro
+    const isManagementGroup = section.title === 'nav.group.management' || section.title === 'nav.group.financial';
+    
+    // Admin da clínica (ou cargos superiores) vê TUDO da clínica
+    if (isManagementGroup && user?.role !== 'admin') return false;
     
     return true;
   });
@@ -63,7 +66,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                       {section.items.map((item) => {
                         const isActive = item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path);
                         return (
-                          <Link key={item.path} to={item.path} onClick={() => window.innerWidth < 1024 && onClose()} className={`relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
+                          <Link 
+                            key={item.path} 
+                            to={item.path} 
+                            onClick={() => window.innerWidth < 1024 && onClose()} 
+                            className={`relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                          >
                             {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-600 rounded-r-full"></div>}
                             <span className={isActive ? 'text-indigo-600' : 'text-slate-400'}>{item.icon}</span>
                             <span>{t(item.label)}</span>

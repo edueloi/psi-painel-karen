@@ -1,30 +1,27 @@
 
-
+// Ajustado para strings minúsculas conforme padrão do seu banco de dados
 export enum UserRole {
-  ADMIN = 'ADMIN',
-  PSYCHOLOGIST = 'PSYCHOLOGIST',
-  SECRETARY = 'SECRETARY'
+  SUPER_ADMIN = 'super_admin',
+  ADMIN = 'admin',
+  PSYCHOLOGIST = 'profissional',
+  SECRETARY = 'secretario'
 }
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: 'super_admin' | 'admin' | 'profissional' | 'secretario';
   avatar?: string;
 }
 
 // --- SUPER ADMIN TYPES ---
 export interface Tenant {
   id: string;
-  name: string;
-  email: string;
-  initialPassword?: string; // Only for display upon creation
-  planDurationMonths: number; // 1, 2, 3, 12...
-  monthlyPrice: number;
-  totalValue: number; // monthlyPrice * planDurationMonths
-  startDate: string;
-  expiryDate: string;
+  company_name: string;
+  admin_name: string;
+  admin_email: string;
+  plan_type: string;
   status: 'active' | 'expired' | 'pending';
 }
 
@@ -35,7 +32,7 @@ export interface GlobalResource {
   type: 'pdf' | 'doc' | 'image';
   size: string;
   date: string;
-  public: boolean; // Visible to all tenants
+  public: boolean;
 }
 // -------------------------
 
@@ -45,13 +42,13 @@ export interface Professional {
   email: string;
   phone?: string;
   cpfCnpj?: string;
-  profession: string; // e.g. Psicólogo, Nutricionista
-  registrationNumber?: string; // CRP/CRM
+  profession: string;
+  registrationNumber?: string;
   color: string;
-  role: UserRole;
-  commissionRate: number; // Percentage 0-100
+  role: 'admin' | 'profissional' | 'secretario';
+  commissionRate: number;
   hasAgenda: boolean;
-  isThirdParty: boolean; // Prestador terceiro
+  isThirdParty: boolean;
   active: boolean;
   avatarUrl?: string;
 }
@@ -92,8 +89,6 @@ export interface Patient {
   cpf?: string;
   rg?: string;
   birthDate?: string;
-  
-  // Address
   address: {
     street: string;
     number: string;
@@ -102,13 +97,9 @@ export interface Patient {
     state: string;
     zipCode: string;
   };
-
-  // Social
   maritalStatus?: MaritalStatus;
   education?: EducationLevel;
   profession?: string;
-
-  // Family
   hasChildren: boolean;
   numberOfChildren?: number;
   spouseName?: string;
@@ -116,15 +107,12 @@ export interface Patient {
   fatherName?: string;
   motherName?: string;
   emergencyContact?: string;
-
-  // Medical/Financial
   active: boolean;
   paymentType: PaymentType;
   insuranceProvider?: string;
   insuranceNumber?: string;
-  needsReimbursement?: boolean; // NEW: Reembolso indicator
-
-  psychologistId: string; // To link to specific doctor
+  needsReimbursement?: boolean;
+  psychologistId: string;
 }
 
 export type AppointmentType = 'consulta' | 'bloqueio' | 'pessoal';
@@ -133,8 +121,8 @@ export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no-sh
 
 export interface Appointment {
   id: string;
-  patientId?: string; // Optional if it's a block
-  patientName?: string; // Denormalized for display
+  patientId?: string;
+  patientName?: string;
   psychologistId: string;
   psychologistName: string;
   title: string;
@@ -146,25 +134,7 @@ export interface Appointment {
   meetingUrl?: string;
   notes?: string;
   color?: string;
-  
-  // Added duration_minutes to fix error in Agenda.tsx on line 130
   duration_minutes?: number;
-
-  // Recurrence Logic
-  recurrence?: 'none' | 'weekly' | 'biweekly' | 'monthly';
-  recurrenceEndType?: 'count' | 'date'; // 'count' = X times, 'date' = until Y date
-  recurrenceEndValue?: string | number; // Holds the count (e.g., 10) or date string
-  recurrenceGroupId?: string; // To link series together
-}
-
-export interface Document {
-  id: string;
-  title: string;
-  category: string;
-  type: 'pdf' | 'doc' | 'image' | 'sheet' | 'other';
-  date: string;
-  size: string;
-  url: string;
 }
 
 export interface ClinicalRecord {
@@ -179,20 +149,11 @@ export interface ClinicalRecord {
   tags: string[];
 }
 
-export interface FormStats {
-  totalForms: number;
-  totalResponses: number;
-  mostUsed: {
-    title: string;
-    responseCount: number;
-  } | null;
-}
-
 export type QuestionType = 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'select';
 
 export interface FormOption {
   label: string;
-  value: number; // Score associated with this option
+  value?: number;
 }
 
 export interface FormQuestion {
@@ -200,16 +161,16 @@ export interface FormQuestion {
   type: QuestionType;
   text: string;
   required: boolean;
-  options?: FormOption[]; // Updated to support scores
+  options?: FormOption[];
 }
 
 export interface InterpretationRule {
   id: string;
   minScore: number;
   maxScore: number;
-  resultTitle: string; // e.g., "Depressão Moderada"
-  description: string; // Clinical description
-  color: string; // e.g., "bg-red-100 text-red-700"
+  resultTitle: string;
+  description: string;
+  color: string;
 }
 
 export interface ClinicalForm {
@@ -218,10 +179,129 @@ export interface ClinicalForm {
   description: string;
   createdAt: string;
   questions: FormQuestion[];
-  interpretations?: InterpretationRule[]; // Logic for results
-  isGlobal?: boolean; // If true, it comes from Super Admin and cannot be deleted by tenant
+  isGlobal?: boolean;
   responseCount: number;
   hash: string;
+  interpretations?: InterpretationRule[];
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  category: string;
+  duration: number;
+  price: number;
+  cost: number;
+  color: string;
+  modality: AppointmentModality;
+  description?: string;
+}
+
+export interface ComandaItem {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export type ComandaStatus = 'aberta' | 'fechada';
+
+export interface ComandaSession {
+  id: string;
+  number: number;
+  date: string;
+  status: 'pending' | 'completed';
+}
+
+export interface Comanda {
+  id: string;
+  description: string;
+  patientId: string;
+  patientName: string;
+  status: ComandaStatus;
+  totalValue: number;
+  paidValue: number;
+  items: ComandaItem[];
+  sessions: ComandaSession[];
+  createdAt: string;
+  type?: 'servico' | 'pacote';
+  subtotal?: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  startDate?: string;
+  frequency?: 'unica' | 'semanal' | 'quinzenal' | 'mensal';
+}
+
+export type GoalStatus = 'acquisition' | 'maintenance' | 'generalization' | 'completed';
+
+export interface ClinicalGoal {
+  id: string;
+  area: string;
+  title: string;
+  description: string;
+  status: GoalStatus;
+  currentValue: number;
+  targetValue: number;
+  startDate: string;
+  history: { date: string, value: number }[];
+}
+
+export interface ABCRecord {
+  id: string;
+  date: string;
+  antecedent: string;
+  behavior: string;
+  consequence: string;
+  intensity: 'low' | 'medium' | 'high';
+  duration?: string;
+}
+
+export interface PEI {
+  id: string;
+  patientId: string;
+  goals: ClinicalGoal[];
+  startDate: string;
+  reviewDate: string;
+  abcRecords?: ABCRecord[];
+  sensoryProfile?: {
+    auditory: number;
+    visual: number;
+    tactile: number;
+    vestibular: number;
+    oral: number;
+    social: number;
+    proprioceptive: number;
+    lastAssessmentDate: string;
+  };
+}
+
+export interface Assessment {
+  id: string;
+  name: string;
+  description: string;
+  type: 'risk' | 'sum';
+  cutoff?: number;
+  questions: any[];
+  options?: any[];
+  color?: string;
+}
+
+export interface Document {
+  id: string;
+  title: string;
+  category: string;
+  type: string;
+  size: string;
+  date: string;
+  url?: string;
+}
+
+export interface FormStats {
+  totalForms: number;
+  totalResponses: number;
+  mostUsed: string | null;
 }
 
 export interface MessageTemplate {
@@ -232,18 +312,6 @@ export interface MessageTemplate {
   lastUsed?: string;
 }
 
-export interface Service {
-  id: string;
-  name: string;
-  category: string;
-  duration: number; // in minutes
-  price: number;
-  cost: number;
-  color: string;
-  modality: AppointmentModality;
-  description?: string;
-}
-
 export interface ServicePackageItem {
   serviceId: string;
   quantity: number;
@@ -252,60 +320,11 @@ export interface ServicePackageItem {
 export interface ServicePackage {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   items: ServicePackageItem[];
   discountType: 'percentage' | 'fixed';
   discountValue: number;
-  totalPrice: number; // Calculated after discount
-}
-
-export type ComandaStatus = 'aberta' | 'fechada';
-export type ComandaType = 'servico' | 'pacote';
-export type Frequency = 'unica' | 'semanal' | 'quinzenal' | 'mensal';
-
-export interface ComandaItem {
-  id: string;
-  serviceId: string;
-  serviceName: string; // Denormalized
-  quantity: number;
-  unitPrice: number;
-  total: number;
-}
-
-export interface ComandaSession {
-  id: string;
-  number: number; // e.g. Session 1 of 10
-  date: string; // ISO String
-  status: 'pending' | 'completed' | 'canceled';
-  notes?: string;
-}
-
-export interface Comanda {
-  id: string;
-  description: string;
-  patientId: string;
-  patientName: string;
-  startDate: string; // Data inicial para cálculo das sessões
-  
-  status: ComandaStatus;
-  type: ComandaType;
-  
-  // Service Specifics
-  frequency?: Frequency;
-  
-  items: ComandaItem[];
-  
-  // New: Session Tracking
-  sessions: ComandaSession[];
-  
-  // Financials
-  subtotal: number;
-  discountType: 'percentage' | 'fixed';
-  discountValue: number;
-  totalValue: number;
-  paidValue: number;
-  
-  createdAt: string;
+  totalPrice: number;
 }
 
 export type ProductType = 'physical' | 'digital';
@@ -313,122 +332,41 @@ export type ProductType = 'physical' | 'digital';
 export interface Product {
   id: string;
   name: string;
-  type: ProductType;
-  imageUrl?: string;
-  brand: string;
   category: string;
   price: number;
   cost: number;
   stock: number;
   minStock: number;
+  brand: string;
+  salesCount: number;
+  type: ProductType;
+  imageUrl?: string;
   expirationDate?: string;
   barcode?: string;
-  salesCount: number; // For "top sellers" analytics
 }
 
-// --- PEI / ABA / NEURODEVELOPMENT TYPES ---
-export type GoalStatus = 'acquisition' | 'maintenance' | 'generalization' | 'completed';
-
-export interface GoalDataPoint {
-  date: string;
-  value: number; // Percentage or Count
-  notes?: string;
-}
-
-export interface ClinicalGoal {
-  id: string;
-  area: string; // e.g., 'Comunicação', 'Motor', 'Social'
-  title: string; // e.g., 'Contato Visual ao chamar nome'
-  description?: string;
-  status: GoalStatus;
-  startDate: string;
-  targetDate?: string;
-  currentValue: number; // Last recorded %
-  targetValue: number; // e.g., 80%
-  history: GoalDataPoint[];
-}
-
-export interface SensoryProfile {
-  auditory: number; // 0-100
-  visual: number;
-  tactile: number;
-  vestibular: number;
-  oral: number;
-  social: number;
-  lastAssessmentDate: string;
-}
-
-export interface ABCRecord {
-  id: string;
-  date: string; // ISO DateTime
-  antecedent: string;
-  behavior: string;
-  consequence: string;
-  intensity: 'low' | 'medium' | 'high';
-  duration?: string; // e.g. "5 min"
-}
-
-export interface PEI {
-  id: string;
-  patientId: string;
-  patientName: string;
-  therapistId: string;
-  startDate: string;
-  reviewDate: string;
-  goals: ClinicalGoal[];
-  sensoryProfile?: SensoryProfile; // NEW
-  abcRecords?: ABCRecord[]; // NEW
-}
-
-// --- ASSESSMENT TYPES ---
-export interface AssessmentQuestion {
-  id: string;
-  text: string;
-  riskAnswer?: string;
-}
-
-export interface AssessmentOption {
-  label: string;
-  value: number | string;
-}
-
-export interface Assessment {
-  id: string;
-  name: string;
-  description: string;
-  type: 'risk' | 'sum';
-  cutoff?: number;
-  questions: AssessmentQuestion[];
-  options?: AssessmentOption[];
-  color?: string;
-}
-
-// --- CLINICAL TOOLS TYPES ---
 export interface RPDRecord {
-    id: string;
-    date: string;
-    situation: string;
-    thought: string;
-    emotion: string;
-    intensity: number; // 0-10
-    distortion: string;
-    response: string;
-    outcome?: string;
+  id: string;
+  date: string;
+  situation: string;
+  thought: string;
+  emotion: string;
+  intensity: number;
+  distortion?: string;
 }
 
 export interface SchemaItem {
-    id: string;
-    name: string;
-    domain: string;
-    active: boolean;
-    intensity: number; // 0-10
+  id: string;
+  name: string;
+  domain: string;
+  active: boolean;
+  intensity: number;
 }
 
 export interface DreamEntry {
-    id: string;
-    date: string;
-    title: string;
-    manifestContent: string;
-    associations: string;
-    interpretation: string;
+  id: string;
+  date: string;
+  title: string;
+  manifestContent: string;
+  associations: string;
 }

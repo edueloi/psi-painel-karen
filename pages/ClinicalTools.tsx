@@ -243,6 +243,7 @@ const SchemaPanel = () => {
 
     return (
         <div className="space-y-6 animate-fadeIn">
+            {/* Sub-Tabs */}
             <div className="flex bg-slate-100 p-1 rounded-lg w-fit">
                 <button onClick={() => setActiveSubTab('schemas')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeSubTab === 'schemas' ? 'bg-white shadow-sm text-rose-600' : 'text-slate-500'}`}>Esquemas</button>
                 <button onClick={() => setActiveSubTab('modes')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeSubTab === 'modes' ? 'bg-white shadow-sm text-rose-600' : 'text-slate-500'}`}>Modos (Estados)</button>
@@ -259,7 +260,8 @@ const SchemaPanel = () => {
                             <p className="text-slate-400 text-sm text-center py-4">Clique nos esquemas abaixo para ativá-los.</p>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {Object.values(activeSchemas).map(s => (
+                                {/* Fixed type error: cast s to any to ensure properties like id/name/domain are accessible when inference is incomplete */}
+                                {Object.values(activeSchemas).map((s: any) => (
                                     <div key={s.id} className="p-3 bg-rose-50 rounded-lg border border-rose-100 flex items-center justify-between">
                                         <div>
                                             <h4 className="font-bold text-rose-900 text-sm">{s.name}</h4>

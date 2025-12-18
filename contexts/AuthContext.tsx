@@ -21,16 +21,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const decodeToken = (token: string | null): AuthUser | null => {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload;
+  } catch (e) {
+    return null;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('psi_token'));
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => decodeToken(localStorage.getItem('psi_token')));
 
   useEffect(() => {
     if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUser(payload);
-      } catch (e) {
+      const decoded = decodeToken(token);
+      if (decoded) {
+        setUser(decoded);
+      } else {
         logout();
       }
     }
@@ -39,6 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (newToken: string) => {
     localStorage.setItem('psi_token', newToken);
     setToken(newToken);
+    setUser(decodeToken(newToken));
   };
 
   const logout = () => {
