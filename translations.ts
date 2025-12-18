@@ -9,7 +9,7 @@ export const translations = {
     'nav.comandas': 'Comandas',
     'nav.patients': 'Pacientes',
     'nav.professionals': 'Profissionais',
-    'nav.permissions': 'Permissões e Acessos',
+    'nav.permissions': 'Permissões',
     'nav.products': 'Produtos',
     'nav.bestClients': 'Melhores Clientes',
     'nav.performance': 'Performance',
@@ -34,6 +34,15 @@ export const translations = {
     'nav.group.communication': 'COMUNICAÇÃO',
     'nav.group.system': 'SISTEMA',
 
+    // Topbar & Geral
+    'topbar.search': 'Pesquisar no sistema...',
+    'topbar.connected': 'Conectado como',
+    'topbar.profile': 'Meu Perfil',
+    'topbar.settings': 'Configurações',
+    'topbar.privacy': 'Privacidade',
+    'topbar.help': 'Ajuda',
+    'topbar.logout': 'Encerrar Sessão',
+
     // Dashboard
     'dashboard.totalPatients': 'Total de Pacientes',
     'dashboard.today': 'Sessões Hoje',
@@ -43,24 +52,34 @@ export const translations = {
     'dashboard.viewAgenda': 'Ver Agenda Completa',
     'dashboard.enterRoom': 'Entrar na Sala',
 
-    // Pacientes & Wizard
-    'patients.title': 'Meus Pacientes',
-    'patients.subtitle': 'Gestão completa de prontuários e cadastros.',
-    'patients.new': 'Novo Paciente',
-    'patients.searchPlaceholder': 'Pesquisar por nome ou CPF...',
-    'wizard.step1': 'Dados Básicos',
-    'wizard.step2': 'Endereço',
-    'wizard.step3': 'Social',
-    'wizard.step4': 'Família',
-    'wizard.step5': 'Financeiro',
-    'wizard.step6': 'Documentos',
+    // Profissionais
+    'professionals.title': 'Gestão de Equipe',
+    'professionals.subtitle': 'Gerencie profissionais, permissões de acesso e taxas de comissionamento.',
+    'professionals.team': 'Minha Equipe',
+    'professionals.permissions': 'Níveis de Acesso',
+    'professionals.commissions': 'Comissões',
+    'professionals.new': 'Novo Usuário',
 
     // Clinical Tools (Caixa de Ferramentas)
     'tools.title': 'Ferramentas Clínicas',
     'tools.subtitle': 'Recursos avançados para TCC, Esquemas e Psicanálise integrados ao prontuário.',
-    'tools.tcc': 'TCC',
-    'tools.schema': 'Esquemas',
+    'tools.tcc': 'TCC (RPD e Cartões)',
+    'tools.schema': 'Terapia do Esquema',
     'tools.psycho': 'Psicanálise',
+    'tools.selectPatient': 'Selecione um paciente para abrir as ferramentas clínicas.',
+
+    // TCC
+    'tcc.rpd': 'Registro de Pensamentos',
+    'tcc.coping': 'Cartões de Enfrentamento',
+    'tcc.situation': 'Situação',
+    'tcc.thought': 'Pensamento Automático',
+    'tcc.emotion': 'Emoção / Intensidade',
+    'tcc.distortion': 'Distorção Cognitiva',
+    'tcc.addEntry': 'Salvar RPD',
+    'tcc.addCard': 'Novo Cartão de Enfrentamento',
+    'tcc.cardFront': 'Lembrete / Gatilho (Frente)',
+    'tcc.cardBack': 'Resposta Adaptativa (Verso)',
+    'tcc.flip': 'Clique para virar',
 
     // PEI (Neurodesenvolvimento)
     'pei.title': 'Plano de Ensino Individualizado',
@@ -71,15 +90,24 @@ export const translations = {
     'pei.tab.assessments': 'Escalas & Testes',
     'pei.selectPatient': 'Aguardando seleção de paciente',
 
-    // Agenda
-    'agenda.title': 'Agenda Clínica',
-    'agenda.new': 'Novo Agendamento',
-    'agenda.presential': 'Presencial',
-    'agenda.online': 'Online',
-    'agenda.professional': 'Profissional',
-    'agenda.patient': 'Paciente',
-    'agenda.service': 'Serviço',
-    'agenda.notes': 'Observações',
+    // Financeiro
+    'finance.title': 'Gestão Financeira',
+    'finance.subtitle': 'Controle total de fluxo de caixa, impostos e faturamento clínico.',
+    'finance.dashboard': 'Indicadores',
+    'finance.daily': 'Fluxo Diário',
+    'finance.fiscal': 'Fiscal & Impostos',
+    'finance.income': 'Receitas',
+    'finance.expense': 'Despesas',
+
+    // Comandas
+    'comandas.receiptTitle': 'Gerador de Documentos',
+    'comandas.receipt': 'Recibo',
+    'comandas.type.simple': 'Recibo Simples',
+    'comandas.type.reimbursement': 'Recibo para Reembolso',
+    'comandas.type.declaration': 'Declaração',
+    'comandas.type.attestation': 'Atestado',
+    'comandas.print': 'Imprimir',
+    'comandas.close': 'Fechar',
 
     // Comuns
     'common.save': 'Salvar',
@@ -88,27 +116,24 @@ export const translations = {
     'common.edit': 'Editar',
     'common.all': 'Todos',
 
-    // Login
-    'login.welcome': 'Bem-vindo de volta',
-    'login.subtitle': 'Acesse sua conta para gerenciar sua clínica.',
-    'login.email': 'E-mail profissional',
-    'login.password': 'Senha de acesso',
-    'login.submit': 'Entrar no Sistema'
+    // Bot
+    'bot.title': 'PsiBot WhatsApp',
+    'bot.subtitle': 'Automação de lembretes e avisos automáticos para seus pacientes.',
+    'bot.connect': 'Conectar Dispositivo',
+    'bot.connected': 'Bot Ativo',
+    'bot.configPatient': 'Configurações para Pacientes',
+    'bot.configPro': 'Configurações para o Profissional'
   },
   en: {
     'nav.dashboard': 'Dashboard',
     'nav.agenda': 'Schedule',
     'nav.patients': 'Patients',
-    'nav.logout': 'Logout',
-    'dashboard.totalPatients': 'Total Patients',
-    'dashboard.today': 'Sessions Today'
+    'nav.logout': 'Logout'
   },
   es: {
     'nav.dashboard': 'Panel',
     'nav.agenda': 'Agenda',
     'nav.patients': 'Pacientes',
-    'nav.logout': 'Salir',
-    'dashboard.totalPatients': 'Total Pacientes',
-    'dashboard.today': 'Sesiones Hoy'
+    'nav.logout': 'Salir'
   }
 };

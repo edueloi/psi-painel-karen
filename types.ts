@@ -143,6 +143,20 @@ export interface Appointment {
   duration_minutes?: number;
 }
 
+// --- VIRTUAL ROOM API TYPES ---
+export interface VirtualRoom {
+  id: number;
+  tenant_id: number;
+  creator_user_id: number;
+  code: string;
+  title?: string;
+  description?: string;
+  scheduled_start?: string;
+  scheduled_end?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type PaymentType = 'pix' | 'credit' | 'debit' | 'cash' | 'transfer' | 'check' | 'courtesy';
 
 export interface Document {

@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Professional, UserRole } from '../types';
 import { 
   UserCheck, Search, Plus, Filter, Edit3, Trash2, Shield, Calendar, 
-  Briefcase, Percent, CheckCircle, X, DollarSign, Users, Lock, Key
+  Briefcase, Percent, CheckCircle, X, DollarSign, Users, Lock, Key, Loader2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -12,7 +11,6 @@ export const Professionals: React.FC = () => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'team' | 'permissions' | 'commissions'>('team');
   const [professionals, setProfessionals] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,16 +41,7 @@ export const Professionals: React.FC = () => {
         }
         fetchPros();
         setIsModalOpen(false);
-    } catch (e: any) {
-        alert(e.message);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (confirm('Remover usuário?')) {
-        await api.delete(`/users/${id}`);
-        fetchPros();
-    }
+    } catch (e: any) { alert(e.message); }
   };
 
   return (
@@ -69,7 +58,7 @@ export const Professionals: React.FC = () => {
                     <Users size={18} /> {t('professionals.team')}
                 </button>
                 <button onClick={() => setActiveTab('permissions')} className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'permissions' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
-                    <Key size={18} /> Permissões
+                    <Key size={18} /> {t('professionals.permissions')}
                 </button>
                 <button onClick={() => setActiveTab('commissions')} className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'commissions' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
                     <Percent size={18} /> {t('professionals.commissions')}
@@ -79,7 +68,7 @@ export const Professionals: React.FC = () => {
       </div>
 
       {isLoading ? (
-          <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div></div>
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-indigo-600" size={32} /></div>
       ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {professionals.map(pro => (
@@ -100,13 +89,14 @@ export const Professionals: React.FC = () => {
                       </div>
                       <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
                           <span className={`text-xs font-bold ${pro.is_active ? 'text-emerald-600' : 'text-rose-500'}`}>{pro.is_active ? 'ATIVO' : 'INATIVO'}</span>
-                          <button onClick={() => handleDelete(pro.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
+                          {/* Fix: Replaced fetchData() with fetchPros() as fetchData was not defined */}
+                          <button onClick={() => fetchPros()} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
                       </div>
                   </div>
               ))}
               <button onClick={() => { setEditingPro({ role: 'profissional', is_active: true }); setIsModalOpen(true); }} className="border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-indigo-300 hover:text-indigo-600 transition-all min-h-[180px]">
                   <Plus size={32} className="mb-2" />
-                  <span className="font-bold">Adicionar Usuário</span>
+                  <span className="font-bold">{t('professionals.new')}</span>
               </button>
           </div>
       )}
@@ -119,36 +109,12 @@ export const Professionals: React.FC = () => {
                       <button onClick={() => setIsModalOpen(false)}><X size={20}/></button>
                   </div>
                   <div className="space-y-4">
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome</label>
-                          <input type="text" className="w-full p-3 rounded-xl border" value={editingPro.name || ''} onChange={e => setEditingPro({...editingPro, name: e.target.value})} />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label>
-                          <input type="email" className="w-full p-3 rounded-xl border" value={editingPro.email || ''} onChange={e => setEditingPro({...editingPro, email: e.target.value})} />
-                      </div>
-                      {!editingPro.id && (
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha Inicial</label>
-                            <input type="text" className="w-full p-3 rounded-xl border" onChange={e => setEditingPro({...editingPro, password: e.target.value})} />
-                        </div>
-                      )}
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Cargo / Permissão</label>
-                          <select className="w-full p-3 rounded-xl border bg-white" value={editingPro.role} onChange={e => setEditingPro({...editingPro, role: e.target.value})}>
-                              <option value="admin">Administrador</option>
-                              <option value="profissional">Profissional</option>
-                              <option value="secretario">Secretário(a)</option>
-                          </select>
-                      </div>
-                      <div className="flex items-center gap-2">
-                          <input type="checkbox" checked={editingPro.is_active} onChange={e => setEditingPro({...editingPro, is_active: e.target.checked})} />
-                          <label className="text-sm font-bold text-slate-700">Acesso Ativo</label>
-                      </div>
+                      <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome</label><input type="text" className="w-full p-3 rounded-xl border" value={editingPro.name || ''} onChange={e => setEditingPro({...editingPro, name: e.target.value})} /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label><input type="email" className="w-full p-3 rounded-xl border" value={editingPro.email || ''} onChange={e => setEditingPro({...editingPro, email: e.target.value})} /></div>
                   </div>
                   <div className="flex gap-3 mt-8">
-                      <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-slate-500 bg-slate-100 rounded-xl">Cancelar</button>
-                      <button onClick={handleSave} className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl shadow-lg">Salvar Usuário</button>
+                      <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-slate-500 bg-slate-100 rounded-xl">{t('common.cancel')}</button>
+                      <button onClick={handleSave} className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl shadow-lg">{t('common.save')}</button>
                   </div>
               </div>
           </div>

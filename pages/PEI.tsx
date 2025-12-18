@@ -1,24 +1,24 @@
 
-import React, { useState } from 'react';
-import { MOCK_PEIS, MOCK_PATIENTS, ASSESSMENTS_DATA } from '../constants';
-import { PEI as PEIType, ClinicalGoal, ABCRecord, GoalStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { MOCK_PEIS, ASSESSMENTS_DATA } from '../constants';
+import { PEI as PEIType, ClinicalGoal, ABCRecord, GoalStatus, Patient } from '../types';
+import { api } from '../services/api';
 import { 
   BrainCircuit, Plus, Search, ChevronDown, CheckCircle, TrendingUp, 
   Target, Calendar, Activity, ArrowRight, User, List, Layers, ClipboardCheck, 
   AlertTriangle, Radar, Eye, Volume2, Hand, Footprints, Smile, MessageSquare,
-  Clock, FileText, ChevronRight, X, Save, ArrowLeft, Zap, Box, Brain
+  Clock, FileText, ChevronRight, X, Save, ArrowLeft, Zap, Box, Brain, Loader2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 // --- COMPONENTS FOR SUB-TABS ---
 
-// 1. Goals (Enhanced with Modal)
+// 1. Goals
 const GoalsTab: React.FC<{ pei: PEIType, onUpdate: (id: string, val: number) => void, onAdd: (goal: ClinicalGoal) => void }> = ({ pei, onUpdate, onAdd }) => {
     const { t } = useLanguage();
     const [inputVal, setInputVal] = useState('');
     const [targetGoal, setTargetGoal] = useState('');
     
-    // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newGoal, setNewGoal] = useState<Partial<ClinicalGoal>>({
         area: 'Comunicação',
@@ -110,7 +110,6 @@ const GoalsTab: React.FC<{ pei: PEIType, onUpdate: (id: string, val: number) => 
                 })}
             </div>
 
-            {/* ADD GOAL MODAL */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
                     <div className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -196,15 +195,13 @@ const GoalsTab: React.FC<{ pei: PEIType, onUpdate: (id: string, val: number) => 
     );
 };
 
-// 2. ABC Recording (Enhanced with Modal)
+// 2. ABC Recording
 const ABCTab: React.FC<{ pei: PEIType, onAdd: (abc: ABCRecord) => void }> = ({ pei, onAdd }) => {
     const { t } = useLanguage();
-    
-    // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newABC, setNewABC] = useState<Partial<ABCRecord>>({
         intensity: 'medium',
-        date: new Date().toISOString().slice(0, 16) // datetime-local format
+        date: new Date().toISOString().slice(0, 16)
     });
 
     const handleSaveABC = () => {
@@ -270,104 +267,36 @@ const ABCTab: React.FC<{ pei: PEIType, onAdd: (abc: ABCRecord) => void }> = ({ p
                                     <p className="text-sm font-medium text-slate-700">{abc.consequence}</p>
                                 </div>
                             </div>
-                            
-                            {abc.duration && (
-                                <div className="mt-3 text-right">
-                                    <span className="text-xs text-slate-500 font-medium">Duração: {abc.duration}</span>
-                                </div>
-                            )}
                         </div>
                     </div>
                 ))}
-                
-                {(!pei.abcRecords || pei.abcRecords.length === 0) && (
-                    <div className="pl-8 text-slate-400 italic text-sm">Nenhum registro comportamental encontrado.</div>
-                )}
             </div>
 
-            {/* NEW ABC MODAL */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
                     <div className="bg-white w-full max-w-lg rounded-[24px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-amber-50/50">
                             <div>
                                 <h3 className="font-bold text-slate-800">{t('pei.abc.title')}</h3>
-                                <p className="text-xs text-slate-500">{t('pei.abc.subtitle')}</p>
                             </div>
                             <button onClick={() => setIsModalOpen(false)}><X size={20} className="text-slate-400" /></button>
                         </div>
                         <div className="p-6 space-y-5 overflow-y-auto">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('pei.abc.date')}</label>
-                                <input 
-                                    type="datetime-local" 
-                                    className="w-full p-3 rounded-xl border border-slate-200"
-                                    value={newABC.date}
-                                    onChange={e => setNewABC({...newABC, date: e.target.value})}
-                                />
+                                <input type="datetime-local" className="w-full p-3 rounded-xl border border-slate-200" value={newABC.date} onChange={e => setNewABC({...newABC, date: e.target.value})} />
                             </div>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('pei.abc.antecedent')}</label>
-                                    <textarea 
-                                        className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 h-20 resize-none"
-                                        placeholder="O que aconteceu imediatamente antes?"
-                                        value={newABC.antecedent || ''}
-                                        onChange={e => setNewABC({...newABC, antecedent: e.target.value})}
-                                    />
-                                </div>
-                                <div className="text-center text-slate-300"><ArrowRight className="mx-auto rotate-90" size={16} /></div>
-                                <div>
-                                    <label className="block text-xs font-bold text-indigo-500 uppercase mb-1">{t('pei.abc.behavior')}</label>
-                                    <textarea 
-                                        className="w-full p-3 rounded-xl border-2 border-indigo-100 bg-white h-20 resize-none focus:border-indigo-500 outline-none"
-                                        placeholder="Descrição detalhada do comportamento..."
-                                        value={newABC.behavior || ''}
-                                        onChange={e => setNewABC({...newABC, behavior: e.target.value})}
-                                    />
-                                </div>
-                                <div className="text-center text-slate-300"><ArrowRight className="mx-auto rotate-90" size={16} /></div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('pei.abc.consequence')}</label>
-                                    <textarea 
-                                        className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 h-20 resize-none"
-                                        placeholder="O que aconteceu imediatamente depois?"
-                                        value={newABC.consequence || ''}
-                                        onChange={e => setNewABC({...newABC, consequence: e.target.value})}
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('pei.abc.antecedent')}</label>
+                                <textarea className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 h-20 resize-none" value={newABC.antecedent || ''} onChange={e => setNewABC({...newABC, antecedent: e.target.value})} />
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('pei.abc.intensity')}</label>
-                                    <div className="flex gap-2">
-                                        {['low', 'medium', 'high'].map(lvl => (
-                                            <button 
-                                                key={lvl}
-                                                onClick={() => setNewABC({...newABC, intensity: lvl as any})}
-                                                className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase border ${
-                                                    newABC.intensity === lvl 
-                                                        ? lvl === 'high' ? 'bg-red-500 text-white border-red-500' : lvl === 'medium' ? 'bg-amber-500 text-white border-amber-500' : 'bg-blue-500 text-white border-blue-500'
-                                                        : 'bg-white text-slate-500 border-slate-200'
-                                                }`}
-                                            >
-                                                {lvl}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('pei.abc.duration')}</label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Ex: 5 min"
-                                        className="w-full p-2.5 rounded-xl border border-slate-200"
-                                        value={newABC.duration || ''}
-                                        onChange={e => setNewABC({...newABC, duration: e.target.value})}
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('pei.abc.behavior')}</label>
+                                <textarea className="w-full p-3 rounded-xl border-2 border-indigo-100 h-20 resize-none" value={newABC.behavior || ''} onChange={e => setNewABC({...newABC, behavior: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('pei.abc.consequence')}</label>
+                                <textarea className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 h-20 resize-none" value={newABC.consequence || ''} onChange={e => setNewABC({...newABC, consequence: e.target.value})} />
                             </div>
                         </div>
                         <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
@@ -381,22 +310,13 @@ const ABCTab: React.FC<{ pei: PEIType, onAdd: (abc: ABCRecord) => void }> = ({ p
     );
 };
 
-// 3. Sensory Profile (Enhanced: Interactive & Diet)
+// 3. Sensory Profile
 const SensoryTab: React.FC<{ pei: PEIType }> = ({ pei }) => {
     const { t } = useLanguage();
     const [profile, setProfile] = useState(pei.sensoryProfile || {
         auditory: 50, visual: 50, tactile: 50, vestibular: 50, oral: 50, social: 50,
         proprioceptive: 50, lastAssessmentDate: new Date().toISOString()
     });
-    const [diet, setDiet] = useState<Record<string, string>>({}); // Stores strategies per sense
-
-    const updateProfile = (key: string, value: number) => {
-        setProfile(prev => ({...prev, [key]: value}));
-    };
-
-    const updateDiet = (key: string, text: string) => {
-        setDiet(prev => ({...prev, [key]: text}));
-    };
 
     const sensoryTypes = [
         { key: 'auditory', label: t('pei.sensory.auditory'), icon: <Volume2 size={18}/>, color: 'text-purple-600', bg: 'bg-purple-100', accent: 'accent-purple-600' },
@@ -407,322 +327,99 @@ const SensoryTab: React.FC<{ pei: PEIType }> = ({ pei }) => {
         { key: 'social', label: t('pei.sensory.social'), icon: <MessageSquare size={18}/>, color: 'text-indigo-600', bg: 'bg-indigo-100', accent: 'accent-indigo-600' },
     ];
 
-    const getStatus = (value: number) => {
-        if (value < 35) return { text: t('pei.sensory.hypo') + ' / ' + t('pei.sensory.seeking'), color: 'text-blue-600 font-bold' };
-        if (value > 65) return { text: t('pei.sensory.hyper') + ' / ' + t('pei.sensory.avoiding'), color: 'text-red-600 font-bold' };
-        return { text: 'Regulado / Padrão', color: 'text-slate-400' };
-    };
-
     return (
-        <div className="animate-fadeIn space-y-8">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <div>
-                    <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                        <Activity size={20} className="text-indigo-500" /> {t('pei.tab.sensory')}
-                    </h3>
-                    <p className="text-sm text-slate-500">Mapeamento do perfil sensorial e estratégias de regulação (Dieta Sensorial).</p>
-                </div>
-                <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-200">{t('common.save')}</button>
-                </div>
-            </div>
-
-            {/* Matrix */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Sliders Area */}
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                    <h4 className="font-bold text-slate-700 mb-6 uppercase text-xs tracking-wider border-b border-slate-100 pb-2">{t('pei.sensory.register')}</h4>
-                    <div className="space-y-6">
-                        {sensoryTypes.map(s => {
-                            // @ts-ignore
-                            const val = profile[s.key] as number;
-                            const status = getStatus(val);
-                            
-                            return (
-                                <div key={s.key} className="group">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`p-2 rounded-lg ${s.bg} ${s.color}`}>{s.icon}</div>
-                                            <span className="font-bold text-slate-700">{s.label}</span>
-                                        </div>
-                                        <span className={`text-xs ${status.color}`}>{status.text}</span>
-                                    </div>
-                                    <input 
-                                        type="range" min="0" max="100" 
-                                        value={val}
-                                        onChange={(e) => updateProfile(s.key, parseInt(e.target.value))}
-                                        className={`w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer ${s.accent}`} 
-                                    />
-                                    <div className="flex justify-between text-[10px] text-slate-400 mt-1 uppercase font-bold">
-                                        <span>Busca</span>
-                                        <span>Neutro</span>
-                                        <span>Evitação</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Sensory Diet / Strategies */}
+        <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <h4 className="font-bold text-slate-700 mb-6 uppercase text-xs tracking-wider border-b border-slate-100 pb-2">Perfil Sensorial</h4>
                 <div className="space-y-6">
-                    <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100 flex items-center gap-4">
-                        <div className="p-3 bg-white rounded-full text-indigo-600 shadow-sm"><Zap size={24} /></div>
-                        <div>
-                            <h4 className="font-bold text-indigo-900">{t('pei.sensory.diet')}</h4>
-                            <p className="text-xs text-indigo-700/80">Registre atividades regulatórias para cada sistema sensorial alterado.</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm max-h-[600px] overflow-y-auto custom-scrollbar">
-                        {sensoryTypes.filter(s => {
-                            // Only show inputs for non-neutral senses
-                            // @ts-ignore
-                            const val = profile[s.key];
-                            return val < 40 || val > 60;
-                        }).length === 0 ? (
-                            <div className="text-center py-10 text-slate-400">
-                                <CheckCircle size={48} className="mx-auto mb-2 opacity-20" />
-                                <p>Nenhuma alteração significativa detectada para sugerir dieta.</p>
-                            </div>
-                        ) : (
-                            sensoryTypes.filter(s => {
-                                // @ts-ignore
-                                const val = profile[s.key];
-                                return val < 40 || val > 60;
-                            }).map(s => (
-                                <div key={s.key} className="mb-6 last:mb-0">
-                                    <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-                                        <span className={`w-2 h-2 rounded-full ${s.bg.replace('bg-', 'bg-').replace('100', '500')}`}></span>
-                                        Estratégias para: {s.label}
-                                    </label>
-                                    <textarea 
-                                        className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-indigo-300 outline-none transition-all resize-none h-24"
-                                        placeholder={`Ex: Atividades para regular ${s.label.toLowerCase()}...`}
-                                        value={diet[s.key] || ''}
-                                        onChange={(e) => updateDiet(s.key, e.target.value)}
-                                    />
+                    {sensoryTypes.map(s => {
+                        const val = profile[s.key as keyof typeof profile] as number;
+                        return (
+                            <div key={s.key}>
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="flex items-center gap-3"><div className={`p-2 rounded-lg ${s.bg} ${s.color}`}>{s.icon}</div><span className="font-bold text-slate-700">{s.label}</span></div>
+                                    <span className="text-xs font-bold text-slate-400">{val}%</span>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                                <input type="range" min="0" max="100" value={val} className={`w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer ${s.accent}`} readOnly />
+                            </div>
+                        );
+                    })}
                 </div>
+            </div>
+            <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
+                <div className="flex items-center gap-3 mb-4"><Zap size={24} className="text-indigo-600" /><h4 className="font-bold text-indigo-900">Dieta Sensorial Sugerida</h4></div>
+                <p className="text-sm text-indigo-700">Com base nos indicadores acima, as estratégias de regulação aparecerão aqui.</p>
             </div>
         </div>
     );
 };
 
-// 4. ASSESSMENT RUNNER (Functional)
-const AssessmentRunner: React.FC<{ assessmentId: string, onBack: () => void }> = ({ assessmentId, onBack }) => {
-    const { t } = useLanguage();
-    const data = ASSESSMENTS_DATA[assessmentId];
-    const [answers, setAnswers] = useState<Record<string, any>>({});
-    const [finished, setFinished] = useState(false);
-    const [result, setResult] = useState<{score: number, risk: string} | null>(null);
-
-    if (!data) return <div>Erro: Escala não encontrada.</div>;
-
-    const handleAnswer = (qId: string, val: any) => {
-        setAnswers(prev => ({...prev, [qId]: val}));
-    };
-
-    const calculateResult = () => {
-        let score = 0;
-        
-        if (data.type === 'risk') {
-            // M-CHAT Logic: Count mismatch with riskAnswer
-            data.questions.forEach(q => {
-                const ans = answers[q.id];
-                if (ans && q.riskAnswer && ans === q.riskAnswer) {
-                    score++;
-                }
-            });
-        } else {
-            // Likert Sum Logic
-            Object.values(answers).forEach(val => score += (val as number));
-        }
-
-        let risk = 'Baixo Risco / Dentro do Esperado';
-        if (data.cutoff && score >= data.cutoff) {
-            risk = 'Risco Elevado / Indicativo Clínico';
-        } else if (data.cutoff && score >= (data.cutoff / 2)) {
-            risk = 'Risco Moderado';
-        }
-
-        setResult({ score, risk });
-        setFinished(true);
-    };
-
-    if (finished && result) {
-        return (
-            <div className="animate-fadeIn space-y-6">
-                <button onClick={onBack} className="text-slate-500 hover:text-slate-700 flex items-center gap-2 text-sm font-bold mb-4">
-                    <ArrowLeft size={16} /> {t('pei.assessments.back')}
-                </button>
-
-                <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center shadow-sm">
-                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${result.score >= (data.cutoff || 0) ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}`}>
-                        <ClipboardCheck size={40} />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">{t('pei.assessments.result')}</h2>
-                    <p className="text-lg text-slate-600 mb-6">{data.name}</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                        <div className="bg-slate-50 p-4 rounded-xl">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">{t('pei.assessments.score')}</p>
-                            <p className="text-3xl font-display font-bold text-indigo-600">{result.score}</p>
-                        </div>
-                        <div className={`p-4 rounded-xl ${result.score >= (data.cutoff || 0) ? 'bg-red-50 border border-red-100' : 'bg-emerald-50 border border-emerald-100'}`}>
-                            <p className="text-xs font-bold uppercase tracking-wide opacity-70">{t('pei.assessments.interpretation')}</p>
-                            <p className={`text-lg font-bold ${result.score >= (data.cutoff || 0) ? 'text-red-700' : 'text-emerald-700'}`}>{result.risk}</p>
-                        </div>
-                    </div>
-
-                    <button className="mt-8 px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg">
-                        {t('pei.assessments.saveToRecord')}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="animate-fadeIn">
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <button onClick={onBack} className="text-slate-400 hover:text-indigo-600 flex items-center gap-1 text-xs font-bold mb-2 transition-colors">
-                        <ArrowLeft size={12} /> {t('pei.assessments.back')}
-                    </button>
-                    <h3 className="font-bold text-slate-800 text-xl">{data.name}</h3>
-                    <p className="text-sm text-slate-500">{data.description}</p>
-                </div>
-                <div className="text-right">
-                    <span className="text-xs font-bold text-slate-400 uppercase">Progresso</span>
-                    <p className="text-lg font-bold text-indigo-600">
-                        {Object.keys(answers).length} / {data.questions.length}
-                    </p>
-                </div>
-            </div>
-
-            <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
-                {data.questions.map((q, idx) => (
-                    <div key={q.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                        <p className="font-bold text-slate-800 mb-4 flex gap-3">
-                            <span className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-xs text-slate-500 shrink-0">{idx + 1}</span>
-                            {q.text}
-                        </p>
-                        
-                        <div className="flex flex-wrap gap-2 ml-9">
-                            {data.options ? (
-                                data.options.map(opt => (
-                                    <button
-                                        key={opt.value}
-                                        onClick={() => handleAnswer(q.id, opt.value)}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
-                                            answers[q.id] === opt.value 
-                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' 
-                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                        }`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))
-                            ) : (
-                                // Default Yes/No for M-CHAT
-                                <>
-                                    <button
-                                        onClick={() => handleAnswer(q.id, 'Sim')}
-                                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all border ${
-                                            answers[q.id] === 'Sim' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                        }`}
-                                    >
-                                        Sim
-                                    </button>
-                                    <button
-                                        onClick={() => handleAnswer(q.id, 'Não')}
-                                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all border ${
-                                            answers[q.id] === 'Não' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                        }`}
-                                    >
-                                        Não
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-200 flex justify-end">
-                <button 
-                    onClick={calculateResult}
-                    disabled={Object.keys(answers).length < data.questions.length}
-                    className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                    {t('pei.assessments.calculate')}
-                </button>
-            </div>
-        </div>
-    );
-};
-
+// 4. Assessments
 const AssessmentsTab = () => {
     const { t } = useLanguage();
-    const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
-
-    if (activeAssessmentId) {
-        return <AssessmentRunner assessmentId={activeAssessmentId} onBack={() => setActiveAssessmentId(null)} />;
-    }
-
     const assessmentsList = [
-        { id: 'mchat', name: 'M-CHAT-R/F', desc: 'Rastreio de Autismo (16-30 meses)', color: 'bg-blue-500' },
-        { id: 'snap', name: 'SNAP-IV', desc: 'Avaliação de Sintomas TDAH', color: 'bg-orange-500' },
-        { id: 'ata', name: 'Escala ATA', desc: 'Avaliação de Traços Autísticos', color: 'bg-emerald-500' },
-        { id: 'vineland', name: 'Vineland-3', desc: 'Comportamento Adaptativo (Indisponível na Demo)', color: 'bg-purple-500', disabled: true },
+        { id: 'mchat', name: 'M-CHAT-R/F', desc: 'Rastreio de Autismo', color: 'bg-blue-500' },
+        { id: 'snap', name: 'SNAP-IV', desc: 'Sintomas TDAH', color: 'bg-orange-500' },
+        { id: 'ata', name: 'Escala ATA', desc: 'Traços Autísticos', color: 'bg-emerald-500' },
     ];
 
     return (
-        <div className="animate-fadeIn">
-            <h3 className="font-bold text-slate-800 text-lg mb-6 flex items-center gap-2">
-                <ClipboardCheck size={20} className="text-emerald-600" /> {t('pei.assessments.available')}
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {assessmentsList.map(item => (
-                    <div 
-                        key={item.id} 
-                        onClick={() => !item.disabled && setActiveAssessmentId(item.id)}
-                        className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all group flex items-center justify-between ${
-                            item.disabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-indigo-300 hover:shadow-md cursor-pointer'
-                        }`}
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-lg ${item.color} flex items-center justify-center text-white font-bold text-lg shadow-sm`}>
-                                {item.name.charAt(0)}
-                            </div>
-                            <div>
-                                <h4 className="font-bold text-slate-800 group-hover:text-indigo-700 transition-colors">{item.name}</h4>
-                                <p className="text-xs text-slate-500">{item.desc}</p>
-                            </div>
-                        </div>
-                        {!item.disabled && <ChevronRight className="text-slate-300 group-hover:text-indigo-500" size={20} />}
+        <div className="animate-fadeIn grid grid-cols-1 md:grid-cols-2 gap-4">
+            {assessmentsList.map(item => (
+                <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer flex items-center justify-between group">
+                    <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-lg ${item.color} flex items-center justify-center text-white font-bold text-lg`}>{item.name.charAt(0)}</div>
+                        <div><h4 className="font-bold text-slate-800 group-hover:text-indigo-700">{item.name}</h4><p className="text-xs text-slate-500">{item.desc}</p></div>
                     </div>
-                ))}
-            </div>
+                    <ChevronRight className="text-slate-300 group-hover:text-indigo-500" size={20} />
+                </div>
+            ))}
         </div>
     );
 };
 
-
 export const PEI: React.FC = () => {
   const { t } = useLanguage();
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'goals' | 'abc' | 'sensory' | 'assessments'>('goals');
   const [peis, setPeis] = useState<PEIType[]>(MOCK_PEIS);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchPatients = async () => {
+      setIsLoading(true);
+      try {
+          const data = await api.get<Patient[]>('/patients');
+          setPatients(data);
+          
+          // Se houver pacientes, garantir que existam PEIs para demonstração
+          if (data.length > 0) {
+              const demoPeis = data.map(p => ({
+                  id: 'pei-' + p.id,
+                  patientId: p.id,
+                  startDate: new Date().toISOString(),
+                  reviewDate: new Date(new Date().setDate(new Date().getDate() + 90)).toISOString(),
+                  goals: [
+                      { id: 'g1', area: 'Comunicação', title: 'Apontar para objetos desejados', description: 'O paciente deve apontar com o dedo indicador para solicitar itens.', status: 'acquisition' as GoalStatus, currentValue: 20, targetValue: 100, startDate: new Date().toISOString(), history: [] }
+                  ],
+                  abcRecords: [],
+                  sensoryProfile: { auditory: 40, visual: 60, tactile: 30, vestibular: 50, oral: 70, social: 50, proprioceptive: 50, lastAssessmentDate: new Date().toISOString() }
+              }));
+              setPeis(demoPeis);
+          }
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
 
   const selectedPei = peis.find(p => p.patientId === selectedPatientId);
-  const patient = MOCK_PATIENTS.find(p => p.id === selectedPatientId);
+  const patient = patients.find(p => p.id === selectedPatientId);
 
   const handleUpdateGoal = (goalId: string, newValue: number) => {
       if (!selectedPei) return;
@@ -762,77 +459,55 @@ export const PEI: React.FC = () => {
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
       
-      {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-indigo-900/20 border border-slate-800 text-white">
+      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-violet-900 via-slate-900 to-slate-950 opacity-90"></div>
-        <div className="absolute right-0 top-0 w-96 h-96 bg-violet-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-        
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-            <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-violet-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
-                    <BrainCircuit size={14} />
-                    <span>Neurodiversidade & TEA</span>
-                </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('pei.title')}</h1>
-                <p className="text-violet-200 text-lg leading-relaxed max-w-xl">
-                    {t('pei.subtitle')}
-                </p>
-            </div>
+        <div className="relative z-10">
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-2 leading-tight">{t('pei.title')}</h1>
+            <p className="text-violet-200 text-lg">{t('pei.subtitle')}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           
-          {/* Sidebar: Patient Selector */}
           <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                   <div className="p-4 border-b border-slate-100 bg-slate-50">
-                      <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">Selecione o Paciente</h3>
+                      <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Meus Pacientes</h3>
                   </div>
                   <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto custom-scrollbar">
-                      {MOCK_PATIENTS.map(p => (
+                      {isLoading ? (
+                          <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>
+                      ) : patients.map(p => (
                           <button
                             key={p.id}
                             onClick={() => setSelectedPatientId(p.id)}
-                            className={`w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors text-left ${selectedPatientId === p.id ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`}
+                            className={`w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors text-left ${selectedPatientId === p.id ? 'bg-indigo-50 border-l-4 border-indigo-600 shadow-inner' : ''}`}
                           >
-                              <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 shrink-0">
-                                  {p.name.charAt(0)}
+                              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-500 shrink-0">
+                                  {p.full_name.charAt(0)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                  <p className={`text-sm font-bold truncate ${selectedPatientId === p.id ? 'text-indigo-700' : 'text-slate-700'}`}>{p.name}</p>
-                                  <p className="text-xs text-slate-400 truncate">Ver Prontuário</p>
+                                  <p className={`text-sm font-bold truncate ${selectedPatientId === p.id ? 'text-indigo-700' : 'text-slate-700'}`}>{p.full_name}</p>
+                                  <p className="text-[10px] text-slate-400 uppercase font-bold">{p.status}</p>
                               </div>
-                              {selectedPatientId === p.id && <ChevronDown className="text-indigo-600 -rotate-90" size={16} />}
                           </button>
                       ))}
+                      {patients.length === 0 && !isLoading && <div className="p-8 text-center text-xs text-slate-400">Nenhum paciente cadastrado</div>}
                   </div>
               </div>
           </div>
 
-          {/* Main Content */}
           <div className="lg:col-span-3">
               {selectedPatientId && selectedPei ? (
                   <div className="space-y-6 animate-fadeIn">
-                      
-                      {/* Header Status */}
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
-                          <div className="flex items-center gap-4">
-                              <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-bold">
-                                  {patient?.name.charAt(0)}
-                              </div>
-                              <div>
-                                  <h2 className="text-xl font-bold text-slate-800">{patient?.name}</h2>
-                                  <p className="text-sm text-slate-500 flex items-center gap-2">
-                                      <Calendar size={14} /> Início: {new Date(selectedPei.startDate).toLocaleDateString()}
-                                      <span className="text-slate-300">|</span>
-                                      Revisão: {new Date(selectedPei.reviewDate).toLocaleDateString()}
-                                  </p>
-                              </div>
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                          <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-bold">{patient?.full_name.charAt(0)}</div>
+                          <div>
+                                <h2 className="text-xl font-bold text-slate-800">{patient?.full_name}</h2>
+                                <p className="text-sm text-slate-500 flex items-center gap-2"><Calendar size={14} /> Revisão PEI: {new Date(selectedPei.reviewDate).toLocaleDateString()}</p>
                           </div>
                       </div>
 
-                      {/* TABS NAVIGATION */}
                       <div className="flex bg-slate-100 p-1 rounded-xl overflow-x-auto no-scrollbar">
                           {[
                               { id: 'goals', label: t('pei.tab.goals'), icon: <Target size={16} /> },
@@ -840,32 +515,23 @@ export const PEI: React.FC = () => {
                               { id: 'sensory', label: t('pei.tab.sensory'), icon: <Activity size={16} /> },
                               { id: 'assessments', label: t('pei.tab.assessments'), icon: <ClipboardCheck size={16} /> },
                           ].map(tab => (
-                              <button 
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
-                                    activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                              >
+                              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                                   {tab.icon} {tab.label}
                               </button>
                           ))}
                       </div>
 
-                      {/* TABS CONTENT */}
                       <div className="min-h-[400px]">
                           {activeTab === 'goals' && <GoalsTab pei={selectedPei} onUpdate={handleUpdateGoal} onAdd={handleAddGoal} />}
                           {activeTab === 'abc' && <ABCTab pei={selectedPei} onAdd={handleAddABC} />}
                           {activeTab === 'sensory' && <SensoryTab pei={selectedPei} />}
                           {activeTab === 'assessments' && <AssessmentsTab />}
                       </div>
-
                   </div>
               ) : (
                   <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400">
                       <BrainCircuit size={48} className="mb-4 opacity-20" />
                       <p className="font-medium text-lg">{t('pei.selectPatient')}</p>
-                      <p className="text-sm">Selecione um paciente na lista ao lado para gerenciar o plano.</p>
                   </div>
               )}
           </div>
