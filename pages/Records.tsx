@@ -90,7 +90,10 @@ export const Records: React.FC = () => {
     }
   }, [selectedPatientId]);
 
-  const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [selectedPatientId, patients]);
+  const selectedPatient = useMemo(
+    () => patients.find(p => String(p.id) === selectedPatientId),
+    [selectedPatientId, patients]
+  );
 
   const filteredPatients = useMemo(() => 
     patients.filter(p => p.full_name.toLowerCase().includes(searchTerm.toLowerCase())),
@@ -120,7 +123,7 @@ export const Records: React.FC = () => {
   }, [patientRecords, recordSearch, statusFilter]);
 
   const handlePatientSelect = (id: string) => {
-      setSelectedPatientId(id);
+      setSelectedPatientId(String(id));
       setIsMobileListVisible(false);
   };
 
@@ -309,12 +312,15 @@ export const Records: React.FC = () => {
           <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
               {isLoading ? (
                   <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-indigo-400" /></div>
-              ) : filteredPatients.map(patient => (
-                  <button key={patient.id} onClick={() => handlePatientSelect(patient.id)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${selectedPatientId === patient.id ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 ${selectedPatientId === patient.id ? 'bg-white/20 border-white/20' : 'bg-slate-200 border-white text-slate-500'}`}>{patient.full_name.charAt(0)}</div>
-                      <div className="flex-1 min-w-0"><p className="font-bold text-sm truncate">{patient.full_name}</p><p className={`text-[10px] uppercase font-bold ${selectedPatientId === patient.id ? 'text-indigo-200' : 'text-slate-400'}`}>{patient.status}</p></div>
+              ) : filteredPatients.map(patient => {
+                  const pid = String(patient.id);
+                  const isSelected = selectedPatientId === pid;
+                  return (
+                  <button key={pid} onClick={() => handlePatientSelect(pid)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 ${isSelected ? 'bg-white/20 border-white/20' : 'bg-slate-200 border-white text-slate-500'}`}>{patient.full_name.charAt(0)}</div>
+                      <div className="flex-1 min-w-0"><p className="font-bold text-sm truncate">{patient.full_name}</p><p className={`text-[10px] uppercase font-bold ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>{patient.status}</p></div>
                   </button>
-              ))}
+              )})}
           </div>
       </div>
 
