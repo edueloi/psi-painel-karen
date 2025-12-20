@@ -1,6 +1,7 @@
-
-import React from 'react';
-import { MOCK_FORM_STATS, MOCK_FORMS, MOCK_PATIENTS } from '../constants';
+﻿
+import React, { useEffect, useState } from 'react';
+import { api } from '../services/api';
+import { ClinicalForm, FormStats, Patient } from '../types';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   HeartPulse, FilePlus, Inbox, Trophy, Wand2, PlusCircle, ListChecks, PieChart, 
@@ -9,6 +10,11 @@ import {
 
 export const Forms: React.FC = () => {
   const navigate = useNavigate();
+  const [forms, setForms] = useState<ClinicalForm[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [stats, setStats] = useState<FormStats>({ totalForms: 0, totalResponses: 0, mostUsed: null });
+  const [recentResponses, setRecentResponses] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -17,18 +23,73 @@ export const Forms: React.FC = () => {
     return 'Boa noite';
   };
 
-  // Mock Recent Responses
-  const recentResponses = [
-      { id: 1, patient: 'Carlos Oliveira', form: 'Anamnese Adulto Inicial', date: 'Hoje, 10:30', status: 'Novo' },
-      { id: 2, patient: 'Mariana Souza', form: 'Diário de Sono Semanal', date: 'Ontem, 14:15', status: 'Lido' },
-      { id: 3, patient: 'Pedro Santos', form: 'Termo de Consentimento', date: '22 Set, 09:00', status: 'Lido' },
-      { id: 4, patient: 'Ana Clara', form: 'Avaliação de Humor', date: '20 Set, 16:45', status: 'Novo' },
-  ];
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const [formsData, patientsData] = await Promise.all([
+          api.get<any[]>('/forms'),
+          api.get<Patient[]>('/patients')
+        ]);
+        const mappedForms = formsData.map((f) => ({
+          id: String(f.id),
+          title: f.title,
+          hash: f.hash,
+          description: f.description || '',
+          questions: [],
+          interpretations: [],
+          responseCount: f.response_count ?? 0,
+          isGlobal: Boolean(f.is_global)
+        })) as ClinicalForm[];
+        setForms(mappedForms);
+        setPatients(patientsData);
 
+        const totalResponses = mappedForms.reduce((acc, f) => acc + (f.responseCount || 0), 0);
+        const mostUsed = mappedForms.sort((a, b) => (b.responseCount || 0) - (a.responseCount || 0))[0]?.title || null;
+        setStats({ totalForms: mappedForms.length, totalResponses, mostUsed });
+
+        const responseBuckets = await Promise.all(
+          mappedForms.slice(0, 5).map((form) =>
+            api.get<any[]>(`/forms/${form.id}/responses`).then((rows) =>
+              rows.map((r) => ({ ...r, formTitle: form.title }))
+            )
+          )
+        );
+        const allResponses = responseBuckets.flat();
+        const patientMap = patientsData.reduce((acc, p) => {
+          acc[String(p.id)] = p.full_name;
+          return acc;
+        }, {} as Record<string, string>);
+
+        const now = Date.now();
+        const mappedResponses = allResponses
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 4)
+          .map((r) => {
+            const createdAt = new Date(r.created_at);
+            const diff = now - createdAt.getTime();
+            const status = diff < 24 * 60 * 60 * 1000 ? 'Novo' : 'Lido';
+            return {
+              id: r.id,
+              patient: patientMap[String(r.patient_id)] || r.respondent_name || 'Visitante',
+              form: r.formTitle,
+              date: createdAt.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+              status
+            };
+          });
+        setRecentResponses(mappedResponses);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
   const quickTemplates = [
-      { title: 'Anamnese Geral', desc: 'Questionário completo para novos pacientes.' },
-      { title: 'Inventário de Beck', desc: 'Escala de Depressão e Ansiedade.' },
-      { title: 'Diário de Emoções', desc: 'Registro diário para TCC.' },
+      { title: 'Anamnese Geral', desc: 'QuestionÃ¡rio completo para novos pacientes.' },
+      { title: 'InventÃ¡rio de Beck', desc: 'Escala de DepressÃ£o e Ansiedade.' },
+      { title: 'DiÃ¡rio de EmoÃ§Ãµes', desc: 'Registro diÃ¡rio para TCC.' },
   ];
 
   return (
@@ -43,26 +104,26 @@ export const Forms: React.FC = () => {
             <div className="max-w-[640px]">
                 <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-900/60 border border-slate-400/30 text-indigo-200 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
                     <HeartPulse size={12} className="text-sky-400" />
-                    <span>Painel clínico</span>
+                    <span>Painel clÃ­nico</span>
                 </div>
                 <h1 className="text-3xl md:text-5xl font-display font-bold text-slate-50 mb-3 leading-tight">
-                    Visão Geral dos <br/>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-200">Formulários</span>
+                    VisÃ£o Geral dos <br/>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-200">FormulÃ¡rios</span>
                 </h1>
                 <p className="text-slate-300 text-lg leading-relaxed max-w-lg mb-6">
-                    Acompanhe em tempo real seus formulários criados, respostas recebidas e métricas de engajamento dos pacientes.
+                    Acompanhe em tempo real seus formulÃ¡rios criados, respostas recebidas e mÃ©tricas de engajamento dos pacientes.
                 </p>
                 <div className="flex flex-wrap gap-4">
                     <div className="flex-1 min-w-[140px] p-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-md">
-                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">Formulários</div>
+                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">FormulÃ¡rios</div>
                         <div className="text-2xl font-bold text-white flex items-center gap-2">
-                            <FilePlus size={20} className="text-sky-400" /> {MOCK_FORM_STATS.totalForms}
+                            <FilePlus size={20} className="text-sky-400" /> {stats.totalForms}
                         </div>
                     </div>
                     <div className="flex-1 min-w-[140px] p-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-md">
                         <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">Respostas</div>
                         <div className="text-2xl font-bold text-white flex items-center gap-2">
-                            <Inbox size={20} className="text-emerald-400" /> {MOCK_FORM_STATS.totalResponses}
+                            <Inbox size={20} className="text-emerald-400" /> {stats.totalResponses}
                         </div>
                     </div>
                 </div>
@@ -74,7 +135,7 @@ export const Forms: React.FC = () => {
                 </div>
                 <div className="text-indigo-100 text-base">
                     <strong className="text-white block text-xl mb-1">{getGreeting()}</strong>
-                    Aqui está o resumo da sua <br/> atividade clínica recente.
+                    Aqui estÃ¡ o resumo da sua <br/> atividade clÃ­nica recente.
                 </div>
             </div>
         </div>
@@ -82,11 +143,11 @@ export const Forms: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Coluna Esquerda: Ações e Templates */}
+          {/* Coluna Esquerda: AÃ§Ãµes e Templates */}
           <div className="space-y-8">
               {/* Quick Actions */}
               <div>
-                  <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><Bolt size={20} className="text-indigo-600"/> Acesso Rápido</h2>
+                  <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><Bolt size={20} className="text-indigo-600"/> Acesso RÃ¡pido</h2>
                   <div className="grid grid-cols-1 gap-4">
                         <Link to="/forms/new" className="flex items-center p-4 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-1 transition-all group">
                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mr-4 group-hover:bg-white/30 transition-colors">
@@ -107,7 +168,7 @@ export const Forms: React.FC = () => {
                             <Link to="/forms/list" className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all group">
                                 <PieChart size={24} className="text-purple-500 mb-3 group-hover:scale-110 transition-transform" />
                                 <h4 className="font-bold text-slate-800">Resultados</h4>
-                                <p className="text-xs text-slate-500">Ver estatísticas</p>
+                                <p className="text-xs text-slate-500">Ver estatÃ­sticas</p>
                             </Link>
                         </div>
                   </div>
@@ -146,10 +207,10 @@ export const Forms: React.FC = () => {
                           <thead>
                               <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase text-slate-400 font-bold tracking-wider">
                                   <th className="px-6 py-4">Paciente</th>
-                                  <th className="px-6 py-4">Formulário</th>
+                                  <th className="px-6 py-4">FormulÃ¡rio</th>
                                   <th className="px-6 py-4">Data</th>
                                   <th className="px-6 py-4">Status</th>
-                                  <th className="px-6 py-4 text-right">Ação</th>
+                                  <th className="px-6 py-4 text-right">AÃ§Ã£o</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -193,7 +254,7 @@ export const Forms: React.FC = () => {
                       </table>
                   </div>
                   <div className="p-4 border-t border-slate-100 bg-slate-50/30 text-center">
-                      <p className="text-xs text-slate-400">Mostrando as últimas 4 respostas</p>
+                      <p className="text-xs text-slate-400">Mostrando as Ãºltimas 4 respostas</p>
                   </div>
               </div>
           </div>
@@ -201,3 +262,6 @@ export const Forms: React.FC = () => {
     </div>
   );
 };
+
+
+

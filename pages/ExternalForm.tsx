@@ -1,7 +1,7 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { MOCK_FORMS, MOCK_PROFESSIONALS, MOCK_PATIENTS } from '../constants';
+import { api } from '../services/api';
 import { ClinicalForm, Patient, Professional, InterpretationRule } from '../types';
 import { CheckCircle, AlertCircle, ChevronDown, User, Phone, Mail, ShieldCheck, ArrowRight, Calendar, MapPin, Calculator, Info } from 'lucide-react';
 
@@ -31,24 +31,63 @@ export const ExternalForm: React.FC = () => {
   });
 
   useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-        // 1. Load Form
-        const foundForm = MOCK_FORMS.find(f => f.hash === hash);
-        setForm(foundForm);
+    const load = async () => {
+      setLoading(true);
+      try {
+        const formData = await api.get<any>(`/forms/public/${hash}`);
+        const mappedForm: ClinicalForm = {
+          id: String(formData.id),
+          title: formData.title,
+          hash: formData.hash,
+          description: formData.description || '',
+          questions: (formData.questions || []).map((q: any) => ({
+            id: String(q.id),
+            type: q.question_type || q.type,
+            text: q.question_text || q.text,
+            required: Boolean(q.is_required ?? q.required),
+            options: q.options_json
+              ? (typeof q.options_json === 'string' ? JSON.parse(q.options_json) : q.options_json)
+              : (q.options || [])
+          })),
+          interpretations: (formData.interpretations || []).map((r: any) => ({
+            id: String(r.id),
+            minScore: r.min_score ?? r.minScore,
+            maxScore: r.max_score ?? r.maxScore,
+            resultTitle: r.result_title ?? r.resultTitle,
+            description: r.description || '',
+            color: r.color || 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+          })),
+          responseCount: formData.response_count ?? 0,
+          isGlobal: Boolean(formData.is_global)
+        };
+        setForm(mappedForm);
 
-        // 2. Load Professional (Owner of the form)
-        // In a real app, this would come from the form relationship
-        setProfessional(MOCK_PROFESSIONALS[0]); 
+        setProfessional({
+          id: 'public',
+          name: 'Equipe PsiPainel',
+          email: 'contato@psipainel.com.br',
+          role: 'profissional',
+          profession: 'Psicologia Clinica',
+          registrationNumber: '00000'
+        } as any);
 
-        // 3. Load Patient (if link is specific)
-        if (patientId) {
-            const foundPatient = MOCK_PATIENTS.find(p => p.id === patientId);
-            setPatient(foundPatient);
+        const token = localStorage.getItem('psi_token');
+        if (patientId && token) {
+          try {
+            const patientData = await api.get<Patient>(`/patients/${patientId}`);
+            setPatient(patientData);
+          } catch {
+            setPatient(undefined);
+          }
         }
-
+      } catch (e) {
+        console.error(e);
+        setForm(undefined);
+      } finally {
         setLoading(false);
-    }, 800);
+      }
+    };
+    load();
   }, [hash, patientId]);
 
   const calculateScore = () => {
@@ -64,12 +103,12 @@ export const ExternalForm: React.FC = () => {
       return { total, interpretation };
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation for public link
     if (!patient && (!identification.name || !identification.phone)) {
-        alert("Por favor, preencha seus dados de identificação.");
+        alert("Por favor, preencha seus dados de identificaÃ§Ã£o.");
         return;
     }
 
@@ -77,17 +116,17 @@ export const ExternalForm: React.FC = () => {
     setScoreResult(result);
     setSubmitted(true);
     
-    const submissionData = {
-        formId: form?.id,
-        patientId: patient?.id || 'guest',
-        patientData: patient ? null : identification,
-        answers: answers,
-        score: result.total,
-        interpretationId: result.interpretation?.id,
-        submittedAt: new Date().toISOString()
-    };
-    
-    console.log("Form Submitted:", submissionData);
+        try {
+        await api.post(`/forms/public/${hash}/responses`, {
+            answers,
+            score: result.total,
+            respondent_name: patient ? patient.full_name : identification.name,
+            respondent_email: patient ? patient.email : identification.email,
+            respondent_phone: patient ? (patient.whatsapp || patient.phone) : identification.phone
+        });
+    } catch (err) {
+        console.error(err);
+    }
   };
 
   const handleInputChange = (questionId: string, value: any, scoreValue: number = 0) => {
@@ -113,7 +152,7 @@ export const ExternalForm: React.FC = () => {
         <div className="min-h-screen bg-slate-50 flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600"></div>
-                <span className="text-indigo-900/60 font-sans animate-pulse font-medium">Carregando formulário...</span>
+                <span className="text-indigo-900/60 font-sans animate-pulse font-medium">Carregando formulÃ¡rio...</span>
             </div>
         </div>
     );
@@ -126,8 +165,8 @@ export const ExternalForm: React.FC = () => {
                 <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
                     <AlertCircle className="h-10 w-10 text-red-500" />
                 </div>
-                <h1 className="text-2xl font-bold text-slate-800 mb-3">Formulário Indisponível</h1>
-                <p className="text-slate-500 leading-relaxed">O link que você acessou pode ter expirado ou não existe mais. Entre em contato com o profissional.</p>
+                <h1 className="text-2xl font-bold text-slate-800 mb-3">FormulÃ¡rio IndisponÃ­vel</h1>
+                <p className="text-slate-500 leading-relaxed">O link que vocÃª acessou pode ter expirado ou nÃ£o existe mais. Entre em contato com o profissional.</p>
             </div>
         </div>
     );
@@ -162,7 +201,7 @@ export const ExternalForm: React.FC = () => {
                     <p className="font-mono text-slate-700 font-bold tracking-widest">#REQ-{Math.floor(Math.random() * 10000)}</p>
                 </div>
 
-                <p className="text-xs text-slate-400">Você pode fechar esta página agora.</p>
+                <p className="text-xs text-slate-400">VocÃª pode fechar esta pÃ¡gina agora.</p>
             </div>
         </div>
     );
@@ -191,11 +230,11 @@ export const ExternalForm: React.FC = () => {
                         <h2 className="text-2xl font-display font-bold">{professional.name}</h2>
                         <ShieldCheck size={18} className="text-emerald-400" />
                     </div>
-                    <p className="text-indigo-100 font-medium mb-3">{professional.profession} • CRP {professional.registrationNumber}</p>
+                    <p className="text-indigo-100 font-medium mb-3">{professional.profession} â€¢ CRP {professional.registrationNumber}</p>
                     
                     <div className="flex flex-wrap justify-center md:justify-start gap-3">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10">
-                            <MapPin size={12} /> São Paulo, SP
+                            <MapPin size={12} /> SÃ£o Paulo, SP
                         </span>
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10">
                             <Calendar size={12} /> Atendimento Presencial & Online
@@ -210,7 +249,7 @@ export const ExternalForm: React.FC = () => {
                 {/* Form Intro */}
                 <div className="bg-slate-50 border-b border-slate-100 p-8 md:p-10">
                     <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider mb-4">
-                        Formulário Seguro
+                        FormulÃ¡rio Seguro
                     </span>
                     <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-800 mb-4 leading-tight">{form.title}</h1>
                     <p className="text-slate-500 text-lg leading-relaxed max-w-2xl">{form.description}</p>
@@ -218,7 +257,7 @@ export const ExternalForm: React.FC = () => {
                     {form.interpretations && form.interpretations.length > 0 && (
                         <div className="mt-6 flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg w-fit">
                             <Calculator size={14} />
-                            <span>Este questionário gera um resultado automático ao final.</span>
+                            <span>Este questionÃ¡rio gera um resultado automÃ¡tico ao final.</span>
                         </div>
                     )}
                 </div>
@@ -229,7 +268,7 @@ export const ExternalForm: React.FC = () => {
                     {!patient ? (
                         <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm relative group hover:border-indigo-200 transition-colors">
                             <div className="absolute -top-4 left-8 bg-indigo-600 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-md">
-                                Passo 1: Sua Identificação
+                                Passo 1: Sua IdentificaÃ§Ã£o
                             </div>
                             
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -279,11 +318,11 @@ export const ExternalForm: React.FC = () => {
                     ) : (
                         <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 flex items-center gap-4 animate-fadeIn">
                             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-indigo-600 font-bold border border-indigo-100 text-lg shadow-sm">
-                                {patient.name.charAt(0)}
+                                {patient.full_name.charAt(0)}
                             </div>
                             <div>
                                 <p className="text-sm text-indigo-900 font-medium opacity-80">Respondendo como:</p>
-                                <p className="text-xl font-bold text-indigo-800">{patient.name}</p>
+                                <p className="text-xl font-bold text-indigo-800">{patient.full_name}</p>
                             </div>
                             <CheckCircle className="ml-auto text-indigo-400 opacity-50" size={32} />
                         </div>
@@ -293,7 +332,7 @@ export const ExternalForm: React.FC = () => {
                     <div className="space-y-10">
                         <div className="flex items-center gap-4">
                             <div className="h-px bg-slate-100 flex-1"></div>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Questionário</span>
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">QuestionÃ¡rio</span>
                             <div className="h-px bg-slate-100 flex-1"></div>
                         </div>
 
@@ -302,7 +341,7 @@ export const ExternalForm: React.FC = () => {
                                 <label className="block text-slate-800 font-bold mb-4 text-xl leading-snug">
                                     <span className="inline-block w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 text-center leading-8 text-sm mr-3 font-mono">{idx + 1}</span>
                                     {q.text} 
-                                    {q.required && <span className="text-red-500 ml-1" title="Obrigatório">*</span>}
+                                    {q.required && <span className="text-red-500 ml-1" title="ObrigatÃ³rio">*</span>}
                                 </label>
 
                                 <div className="pl-0 md:pl-11">
@@ -387,7 +426,7 @@ export const ExternalForm: React.FC = () => {
                                                     handleInputChange(q.id, e.target.value, selectedOption?.value || 0);
                                                 }}
                                             >
-                                                <option value="">Selecione uma opção...</option>
+                                                <option value="">Selecione uma opÃ§Ã£o...</option>
                                                 {q.options?.map((opt, i) => (
                                                     <option key={i} value={opt.label}>{opt.label}</option>
                                                 ))}
@@ -411,7 +450,7 @@ export const ExternalForm: React.FC = () => {
                             <ArrowRight className="group-hover:translate-x-1 transition-transform" />
                         </button>
                         <p className="text-center text-xs text-slate-400 mt-6 flex items-center justify-center gap-2">
-                            <ShieldCheck size={14} /> Seus dados estão seguros e protegidos pela LGPD.
+                            <ShieldCheck size={14} /> Seus dados estÃ£o seguros e protegidos pela LGPD.
                         </p>
                     </div>
                 </form>
@@ -424,3 +463,5 @@ export const ExternalForm: React.FC = () => {
     </div>
   );
 };
+
+

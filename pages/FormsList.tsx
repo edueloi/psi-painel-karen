@@ -1,15 +1,15 @@
-
-import React, { useState } from 'react';
-import { MOCK_FORMS, MOCK_PATIENTS, MOCK_USERS } from '../constants';
-import { ClinicalForm, UserRole } from '../types';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
+import { ClinicalForm, Patient } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Plus, ClipboardList, Link as LinkIcon, ChartPie, Pen, Trash2, CheckCircle, Share2, LayoutTemplate, Users, Copy, Send, Lock
+  Search, Plus, ClipboardList, ChartPie, Pen, Trash2, CheckCircle, Share2, LayoutTemplate, Copy, Send, Lock
 } from 'lucide-react';
 
 export const FormsList: React.FC = () => {
   const navigate = useNavigate();
-  const [forms, setForms] = useState<ClinicalForm[]>(MOCK_FORMS);
+  const [forms, setForms] = useState<ClinicalForm[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Share Modal States
@@ -18,8 +18,31 @@ export const FormsList: React.FC = () => {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Mock Current User (In real app, get from Context)
-  const currentUser = MOCK_USERS[0]; 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [formsData, patientsData] = await Promise.all([
+          api.get<any[]>('/forms'),
+          api.get<Patient[]>('/patients')
+        ]);
+        const mapped = formsData.map((f) => ({
+          id: String(f.id),
+          title: f.title,
+          hash: f.hash,
+          description: f.description || '',
+          questions: [],
+          interpretations: [],
+          responseCount: f.response_count ?? 0,
+          isGlobal: Boolean(f.is_global)
+        })) as ClinicalForm[];
+        setForms(mapped);
+        setPatients(patientsData);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    load();
+  }, []);
 
   const filteredForms = forms.filter(f => 
     f.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -28,7 +51,7 @@ export const FormsList: React.FC = () => {
 
   const handleOpenShare = (form: ClinicalForm) => {
       setSelectedForm(form);
-      setSelectedPatientId(''); // Reset patient selection
+      setSelectedPatientId('');
       setCopiedLink(false);
       setIsShareModalOpen(true);
   };
@@ -51,17 +74,20 @@ export const FormsList: React.FC = () => {
 
   const handleWhatsAppShare = () => {
       const link = getShareLink();
-      const patient = MOCK_PATIENTS.find(p => p.id === selectedPatientId);
+      const patient = patients.find(p => String(p.id) === selectedPatientId);
       const message = patient 
-        ? `Olá ${patient.name}, por favor preencha este formulário: ${link}`
-        : `Olá, por favor preencha este formulário: ${link}`;
+        ? `Ola ${patient.full_name}, por favor preencha este formulario: ${link}`
+        : `Ola, por favor preencha este formulario: ${link}`;
       
-      window.open(`https://wa.me/${patient?.phone?.replace(/\D/g, '') || ''}?text=${encodeURIComponent(message)}`, '_blank');
+      const phone = patient?.whatsapp || patient?.phone || '';
+      window.open(`https://wa.me/${phone.replace(/\\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este formulário? Todas as respostas serão perdidas.')) {
-        setForms(prev => prev.filter(f => f.id !== id));
+    if (window.confirm('Tem certeza que deseja excluir este formulario? Todas as respostas serao perdidas.')) {
+        api.delete(`/forms/${id}`)
+          .then(() => setForms(prev => prev.filter(f => f.id !== id)))
+          .catch((e) => alert(e.message || 'Erro ao remover'));
     }
   };
 
@@ -78,11 +104,11 @@ export const FormsList: React.FC = () => {
             <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-blue-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
                     <ClipboardList size={14} />
-                    <span>Gestão de Formulários</span>
+                    <span>Gestao de Formularios</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">Meus Formulários</h1>
+                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">Meus Formularios</h1>
                 <p className="text-blue-200 text-lg leading-relaxed max-w-xl">
-                    Gerencie seus questionários, acompanhe respostas e compartilhe links seguros com seus pacientes em um único lugar.
+                    Gerencie seus questionarios, acompanhe respostas e compartilhe links seguros com seus pacientes em um unico lugar.
                 </p>
             </div>
 
@@ -92,7 +118,7 @@ export const FormsList: React.FC = () => {
                     className="w-full lg:w-auto bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-blue-900/50 flex items-center justify-center gap-2 transition-all hover:-translate-y-1 active:translate-y-0"
                 >
                     <Plus size={20} />
-                    Novo Formulário
+                    Novo Formulario
                 </button>
             </div>
         </div>
@@ -123,7 +149,7 @@ export const FormsList: React.FC = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5 group-focus-within:text-blue-500 transition-colors" />
                 <input 
                     type="text" 
-                    placeholder="Buscar formulário..." 
+                    placeholder="Buscar formulario..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all text-slate-600 placeholder:text-slate-400 shadow-sm"
@@ -139,13 +165,13 @@ export const FormsList: React.FC = () => {
                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
                     <ClipboardList size={32} className="opacity-50 text-slate-400" />
                 </div>
-                <h3 className="font-bold text-slate-700 text-xl mb-1">Nenhum formulário encontrado</h3>
-                <p className="text-slate-500 mb-8 max-w-sm text-center">Parece que você ainda não criou nenhum formulário ou sua busca não retornou resultados.</p>
+                <h3 className="font-bold text-slate-700 text-xl mb-1">Nenhum formulario encontrado</h3>
+                <p className="text-slate-500 mb-8 max-w-sm text-center">Parece que voce ainda nao criou nenhum formulario ou sua busca nao retornou resultados.</p>
                 <button 
                     onClick={() => navigate('/forms/new')}
                     className="text-blue-600 font-bold hover:underline"
                 >
-                    Criar meu primeiro formulário
+                    Criar meu primeiro formulario
                 </button>
              </div>
         ) : (
@@ -179,7 +205,7 @@ export const FormsList: React.FC = () => {
                             {form.title}
                         </h3>
                         <p className="text-xs text-slate-400 mt-2 line-clamp-2">
-                             {form.description || 'Sem descrição.'}
+                             {form.description || 'Sem descricao.'}
                         </p>
                     </div>
 
@@ -225,7 +251,7 @@ export const FormsList: React.FC = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
               <div className="bg-white w-full max-w-lg rounded-[28px] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden">
                   <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                      <h3 className="text-xl font-display font-bold text-slate-800">Compartilhar Formulário</h3>
+                      <h3 className="text-xl font-display font-bold text-slate-800">Compartilhar Formulario</h3>
                       <p className="text-sm text-slate-500 mt-1">{selectedForm.title}</p>
                   </div>
                   
@@ -236,11 +262,11 @@ export const FormsList: React.FC = () => {
                             className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${!selectedPatientId ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
                             onClick={() => setSelectedPatientId('')}
                           >
-                              Link Público
+                              Link Publico
                           </button>
                           <button 
                             className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${selectedPatientId ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
-                            onClick={() => setSelectedPatientId(MOCK_PATIENTS[0]?.id)}
+                            onClick={() => setSelectedPatientId(patients[0] ? String(patients[0].id) : '')}
                           >
                               Vincular a Paciente
                           </button>
@@ -256,18 +282,18 @@ export const FormsList: React.FC = () => {
                                     value={selectedPatientId}
                                     onChange={(e) => setSelectedPatientId(e.target.value)}
                                   >
-                                      {MOCK_PATIENTS.map(p => (
-                                          <option key={p.id} value={p.id}>{p.name}</option>
+                                      {patients.map(p => (
+                                          <option key={p.id} value={p.id}>{p.full_name}</option>
                                       ))}
                                   </select>
                                   <p className="text-xs text-indigo-600 mt-2 bg-indigo-50 p-2 rounded-lg flex items-center gap-2">
                                       <CheckCircle size={14} />
-                                      O paciente não precisará preencher os dados de identificação.
+                                      O paciente nao precisara preencher os dados de identificacao.
                                   </p>
                               </div>
                           ) : (
                               <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-sm text-slate-500">
-                                  <p>Este é um link público genérico. Qualquer pessoa que acessar deverá preencher seus dados de identificação (Nome, E-mail e Telefone) antes de responder.</p>
+                                  <p>Este e um link publico generico. Qualquer pessoa que acessar devera preencher seus dados de identificacao (Nome, E-mail e Telefone) antes de responder.</p>
                               </div>
                           )}
 

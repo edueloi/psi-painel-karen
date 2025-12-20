@@ -31,6 +31,7 @@ import { Profile } from './pages/Profile';
 import { Settings } from './pages/Settings';
 import { Privacy } from './pages/Privacy';
 import { Help } from './pages/Help';
+import { Messages } from './pages/Messages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 
@@ -113,6 +114,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/privacy" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
+      <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
       
       {/* Redirecionamento Inicial conforme cargo */}
       <Route path="*" element={user?.role === 'super_admin' ? <Navigate to="/master" /> : <Navigate to="/" />} />
@@ -133,3 +135,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+

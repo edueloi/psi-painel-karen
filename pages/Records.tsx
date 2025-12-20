@@ -1,12 +1,19 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { MOCK_RECORDS } from '../constants';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ClinicalRecord, Patient } from '../types';
 import { api } from '../services/api';
 import { 
   Search, Plus, User, 
-  X, ArrowLeft, Loader2
+  X, ArrowLeft, Loader2, Tag, Filter, FileText, Paperclip, Trash2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+
+type RecordAttachment = {
+  id?: string;
+  file_name: string;
+  file_url: string;
+  file_type?: string;
+  file_size?: number | null;
+};
 
 export const Records: React.FC = () => {
   const { t } = useLanguage();
@@ -15,13 +22,23 @@ export const Records: React.FC = () => {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isMobileListVisible, setIsMobileListVisible] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [localRecords, setLocalRecords] = useState<ClinicalRecord[]>(MOCK_RECORDS);
+  const [recordSearch, setRecordSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'final'>('all');
+  const [records, setRecords] = useState<ClinicalRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'new' | 'edit' | 'view'>('new');
-  const [currentRecord, setCurrentRecord] = useState<Partial<ClinicalRecord> & { attachments?: string[] }>({});
+  const [currentRecord, setCurrentRecord] = useState<Partial<ClinicalRecord> & { attachments?: RecordAttachment[] }>({});
   const [editorContent, setEditorContent] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentType, setAttachmentType] = useState('');
+  const [attachmentSize, setAttachmentSize] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchPatients = async () => {
     setIsLoading(true);
@@ -39,6 +56,40 @@ export const Records: React.FC = () => {
     fetchPatients();
   }, []);
 
+  const fetchRecords = async (patientId: string) => {
+    try {
+      const data = await api.get<any[]>('/medical-records', { patient_id: patientId });
+      const mapped = data.map((r) => ({
+        id: String(r.id),
+        patientId: String(r.patient_id),
+        patientName: '',
+        date: r.created_at,
+        type: r.record_type,
+        status: r.status,
+        title: r.title,
+        preview: (r.content || '').slice(0, 120),
+        tags: (() => {
+          if (!r.tags) return [];
+          if (Array.isArray(r.tags)) return r.tags;
+          try {
+            return JSON.parse(r.tags);
+          } catch (e) {
+            return [];
+          }
+        })()
+      })) as ClinicalRecord[];
+      setRecords(mapped);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedPatientId) {
+      fetchRecords(selectedPatientId);
+    }
+  }, [selectedPatientId]);
+
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [selectedPatientId, patients]);
 
   const filteredPatients = useMemo(() => 
@@ -46,10 +97,27 @@ export const Records: React.FC = () => {
   [searchTerm, patients]);
 
   const patientRecords = useMemo(() => 
-    localRecords
+    records
         .filter(r => r.patientId === selectedPatientId)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-  [localRecords, selectedPatientId]);
+  [records, selectedPatientId]);
+
+  const recordStats = useMemo(() => {
+      if (patientRecords.length === 0) return { total: 0, lastDate: null as string | null };
+      return { total: patientRecords.length, lastDate: patientRecords[0].date };
+  }, [patientRecords]);
+
+  const filteredRecords = useMemo(() => {
+      const q = recordSearch.trim().toLowerCase();
+      return patientRecords.filter(r => {
+          const matchesText = !q || (r.title || '').toLowerCase().includes(q) || (r.preview || '').toLowerCase().includes(q);
+          const matchesStatus =
+            statusFilter === 'all' ||
+            (statusFilter === 'draft' && r.status === 'Rascunho') ||
+            (statusFilter === 'final' && r.status === 'Finalizado');
+          return matchesText && matchesStatus;
+      });
+  }, [patientRecords, recordSearch, statusFilter]);
 
   const handlePatientSelect = (id: string) => {
       setSelectedPatientId(id);
@@ -63,13 +131,167 @@ export const Records: React.FC = () => {
           patientId: selectedPatient.id,
           patientName: selectedPatient.full_name,
           date: new Date().toISOString(),
-          type: 'Evolução',
+          type: 'Evolucao',
           status: 'Rascunho',
-          title: `Sessão - ${new Date().toLocaleDateString()}`,
-          tags: []
+          title: `Sessao - ${new Date().toLocaleDateString()}`,
+          tags: [],
+          attachments: []
       });
       setEditorContent('');
+      setTagInput('');
+      setAttachmentName('');
+      setAttachmentUrl('');
+      setAttachmentType('');
+      setAttachmentSize('');
       setIsEditorOpen(true);
+  };
+
+  const handleOpenRecord = async (recordId: string) => {
+      try {
+          const data = await api.get<any>(`/medical-records/${recordId}`);
+          const tags = (() => {
+              if (!data.tags) return [];
+              if (Array.isArray(data.tags)) return data.tags;
+              try {
+                  return JSON.parse(data.tags);
+              } catch (e) {
+                  return [];
+              }
+          })();
+          const attachments = Array.isArray(data.attachments)
+            ? data.attachments.map((a: any) => ({
+                id: String(a.id),
+                file_name: a.file_name,
+                file_url: a.file_url,
+                file_type: a.file_type || undefined,
+                file_size: a.file_size ?? null
+              }))
+            : [];
+
+          setEditorMode('edit');
+          setCurrentRecord({
+              id: String(data.id),
+              patientId: String(data.patient_id),
+              patientName: selectedPatient?.full_name || '',
+              date: data.created_at,
+              type: data.record_type,
+              status: data.status,
+              title: data.title,
+              tags,
+              attachments
+          });
+          setEditorContent(data.content || '');
+          setTagInput(tags.join(', '));
+          setAttachmentName('');
+          setAttachmentUrl('');
+          setAttachmentType('');
+          setAttachmentSize('');
+          setIsEditorOpen(true);
+      } catch (e) {
+          console.error(e);
+      }
+  };
+
+  const handleAddAttachment = () => {
+      if (!attachmentUrl.trim()) return;
+      const next: RecordAttachment = {
+          file_name: attachmentName.trim() || 'Arquivo',
+          file_url: attachmentUrl.trim(),
+          file_type: attachmentType.trim() || undefined,
+          file_size: attachmentSize ? Number(attachmentSize) : null
+      };
+      const current = currentRecord.attachments || [];
+      setCurrentRecord({ ...currentRecord, attachments: [...current, next] });
+      setAttachmentName('');
+      setAttachmentUrl('');
+      setAttachmentType('');
+      setAttachmentSize('');
+  };
+
+  const appendAttachment = (next: RecordAttachment) => {
+      const current = currentRecord.attachments || [];
+      setCurrentRecord({ ...currentRecord, attachments: [...current, next] });
+  };
+
+  const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+      reader.readAsDataURL(file);
+  });
+
+  const uploadFile = async (file: File) => {
+      const dataUrl = await fileToDataUrl(file);
+      const request = await api.post<{ id: number }>('/uploads/request', {
+          file_name: file.name,
+          file_type: file.type || null,
+          file_size: file.size || null
+      });
+      await api.put(`/uploads/${request.id}/confirm`, {
+          file_url: dataUrl,
+          status: 'uploaded'
+      });
+      appendAttachment({
+          file_name: file.name,
+          file_url: dataUrl,
+          file_type: file.type || undefined,
+          file_size: file.size
+      });
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files || []) as File[];
+      if (!files.length) return;
+      setIsUploading(true);
+      setUploadError(null);
+      try {
+          for (const file of files) {
+              if (file instanceof File) {
+                  await uploadFile(file);
+              }
+          }
+      } catch (e) {
+          console.error(e);
+          setUploadError('Erro ao enviar arquivo');
+      } finally {
+          setIsUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+      const current = currentRecord.attachments || [];
+      const next = current.filter((_, i) => i !== index);
+      setCurrentRecord({ ...currentRecord, attachments: next });
+  };
+
+  const handleSaveRecord = async () => {
+      if (!selectedPatient) return;
+      try {
+          const tags = tagInput
+              .split(',')
+              .map(t => t.trim())
+              .filter(Boolean);
+          const payload = {
+              patient_id: selectedPatient.id,
+              record_type: currentRecord.type || 'Evolucao',
+              status: currentRecord.status || 'Rascunho',
+              title: currentRecord.title || `Sessao - ${new Date().toLocaleDateString()}`,
+              content: editorContent,
+              tags,
+              attachments: currentRecord.attachments || []
+          };
+
+          if (editorMode === 'edit' && currentRecord.id) {
+              await api.put(`/medical-records/${currentRecord.id}`, payload);
+          } else {
+              await api.post('/medical-records', payload);
+          }
+          await fetchRecords(selectedPatient.id);
+          setIsEditorOpen(false);
+      } catch (e: any) {
+          alert(e.message || 'Erro ao salvar prontuario');
+      }
   };
 
   return (
@@ -110,20 +332,74 @@ export const Records: React.FC = () => {
                           </div>
                           <button onClick={handleNewRecord} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg"><Plus size={18} /> {t('records.new')}</button>
                       </div>
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
+                              <span className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full"><FileText size={14} /> {recordStats.total} registros</span>
+                              {recordStats.lastDate && (
+                                  <span className="bg-slate-100 px-3 py-1.5 rounded-full">Ultima atualizacao: {new Date(recordStats.lastDate).toLocaleDateString()}</span>
+                              )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                              <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+                                  <input
+                                    type="text"
+                                    placeholder="Buscar registro..."
+                                    className="w-full sm:w-56 pl-9 pr-3 py-2 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                    value={recordSearch}
+                                    onChange={e => setRecordSearch(e.target.value)}
+                                  />
+                              </div>
+                              <div className="relative">
+                                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+                                  <select
+                                    className="w-full sm:w-44 pl-9 pr-3 py-2 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'draft' | 'final')}
+                                  >
+                                      <option value="all">Todos</option>
+                                      <option value="draft">Rascunho</option>
+                                      <option value="final">Finalizado</option>
+                                  </select>
+                              </div>
+                          </div>
+                      </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
                       <div className="relative space-y-8 pl-4 md:pl-8 before:absolute before:left-[19px] md:before:left-[35px] before:top-0 before:h-full before:w-0.5 before:bg-slate-200/80">
-                          {patientRecords.map((record, index) => (
+                          {filteredRecords.map((record) => (
                               <div key={record.id} className="relative group animate-[slideUpFade_0.3s_ease-out]">
                                   <div className={`absolute -left-[27px] md:-left-[43px] top-6 w-4 h-4 rounded-full border-4 border-white shadow-sm z-10 ${record.status === 'Finalizado' ? 'bg-indigo-600' : 'bg-amber-400'}`}></div>
-                                  <div className="bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                                      <h3 className="font-bold text-slate-800 text-base">{record.title}</h3>
-                                      <p className="text-xs text-slate-500 mb-4">{new Date(record.date).toLocaleString()}</p>
-                                      <div className="prose prose-sm max-w-none text-slate-600 mb-4 line-clamp-3">{record.preview}</div>
+                                  <div
+                                    className="bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                                    onClick={() => handleOpenRecord(record.id)}
+                                  >
+                                      <div className="flex items-start justify-between gap-3">
+                                          <div>
+                                              <h3 className="font-bold text-slate-800 text-base">{record.title}</h3>
+                                              <p className="text-xs text-slate-500">{new Date(record.date).toLocaleString()}</p>
+                                          </div>
+                                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase">
+                                              <span className="px-2 py-1 rounded-full border border-slate-200 text-slate-500">{record.type}</span>
+                                              <span className={`px-2 py-1 rounded-full border ${record.status === 'Finalizado' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{record.status}</span>
+                                          </div>
+                                      </div>
+                                      <div className="prose prose-sm max-w-none text-slate-600 mb-4 mt-3 line-clamp-3">{record.preview}</div>
+                                      {record.tags && record.tags.length > 0 && (
+                                          <div className="flex flex-wrap gap-2">
+                                              {record.tags.map(tag => (
+                                                  <span key={tag} className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{tag}</span>
+                                              ))}
+                                          </div>
+                                      )}
                                   </div>
                               </div>
                           ))}
-                          {patientRecords.length === 0 && <div className="py-20 text-center text-slate-400 italic">{t('records.empty')}</div>}
+                          {filteredRecords.length === 0 && (
+                              <div className="py-20 text-center text-slate-400 italic">
+                                  {patientRecords.length === 0 ? t('records.empty') : 'Nenhum registro encontrado para o filtro.'}
+                              </div>
+                          )}
                       </div>
                   </div>
               </>
@@ -143,10 +419,153 @@ export const Records: React.FC = () => {
                       <h3 className="text-xl font-bold">{editorMode === 'new' ? t('records.editor.new') : t('records.editor.edit')}</h3>
                       <button onClick={() => setIsEditorOpen(false)}><X size={24}/></button>
                   </div>
-                  <textarea className="flex-1 p-10 outline-none text-lg leading-relaxed resize-none" value={editorContent} onChange={e => setEditorContent(e.target.value)} placeholder={t('records.editor.placeholder')} />
+                  <div className="p-6 border-b border-slate-200 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Titulo</label>
+                          <input
+                            type="text"
+                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
+                            value={currentRecord.title || ''}
+                            onChange={e => setCurrentRecord({ ...currentRecord, title: e.target.value })}
+                            placeholder="Ex: Sessao de acompanhamento"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo</label>
+                          <select
+                            className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
+                            value={currentRecord.type || 'Evolucao'}
+                            onChange={e => setCurrentRecord({ ...currentRecord, type: e.target.value })}
+                          >
+                              <option value="Evolucao">Evolucao</option>
+                              <option value="Anamnese">Anamnese</option>
+                              <option value="Avaliacao">Avaliacao</option>
+                              <option value="Encaminhamento">Encaminhamento</option>
+                              <option value="Plano">Plano</option>
+                              <option value="Relatorio">Relatorio</option>
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+                          <select
+                            className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
+                            value={currentRecord.status || 'Rascunho'}
+                            onChange={e => setCurrentRecord({ ...currentRecord, status: e.target.value })}
+                          >
+                              <option value="Rascunho">Rascunho</option>
+                              <option value="Finalizado">Finalizado</option>
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tags</label>
+                          <div className="relative">
+                              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+                              <input
+                                type="text"
+                                className="w-full pl-9 pr-3 py-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
+                                value={tagInput}
+                                onChange={e => setTagInput(e.target.value)}
+                                placeholder="Ansiedade, TCC, Emocional"
+                              />
+                          </div>
+                      </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                      <textarea
+                        className="w-full min-h-[320px] p-8 outline-none text-lg leading-relaxed resize-none"
+                        value={editorContent}
+                        onChange={e => setEditorContent(e.target.value)}
+                        placeholder={t('records.editor.placeholder')}
+                      />
+                      <div className="px-8 pb-8">
+                          <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">
+                                  <Paperclip size={14} /> Anexos
+                              </div>
+                              <div className="flex items-center gap-2">
+                                  <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    className="hidden"
+                                    multiple
+                                    onChange={handleFileSelect}
+                                  />
+                                  <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="px-3 py-1.5 text-[11px] font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60"
+                                    disabled={isUploading}
+                                  >
+                                      {isUploading ? 'Enviando...' : 'Selecionar arquivo'}
+                                  </button>
+                              </div>
+                          </div>
+                          {uploadError && <div className="text-xs text-red-600 mb-2">{uploadError}</div>}
+                          <div className="space-y-3">
+                              {(currentRecord.attachments || []).map((att, idx) => (
+                                  <div key={`${att.file_url}-${idx}`} className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm">
+                                      <div className="min-w-0">
+                                          <div className="font-bold text-slate-700 truncate">{att.file_name}</div>
+                                          <div className="text-xs text-slate-500 truncate">{att.file_url}</div>
+                                          {(att.file_type || att.file_size) && (
+                                              <div className="text-[11px] text-slate-400">
+                                                  {att.file_type || 'arquivo'}{att.file_size ? ` · ${att.file_size} bytes` : ''}
+                                              </div>
+                                          )}
+                                      </div>
+                                      <button
+                                        onClick={() => handleRemoveAttachment(idx)}
+                                        className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+                                      >
+                                          <Trash2 size={14} />
+                                      </button>
+                                  </div>
+                              ))}
+                              {(currentRecord.attachments || []).length === 0 && (
+                                  <div className="text-xs text-slate-400">Nenhum anexo adicionado.</div>
+                              )}
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-3">
+                              <input
+                                type="text"
+                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
+                                placeholder="Nome do arquivo"
+                                value={attachmentName}
+                                onChange={e => setAttachmentName(e.target.value)}
+                              />
+                              <input
+                                type="text"
+                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
+                                placeholder="Tipo (pdf, jpg...)"
+                                value={attachmentType}
+                                onChange={e => setAttachmentType(e.target.value)}
+                              />
+                              <input
+                                type="text"
+                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 md:col-span-2"
+                                placeholder="URL do arquivo"
+                                value={attachmentUrl}
+                                onChange={e => setAttachmentUrl(e.target.value)}
+                              />
+                              <input
+                                type="number"
+                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
+                                placeholder="Tamanho (bytes)"
+                                value={attachmentSize}
+                                onChange={e => setAttachmentSize(e.target.value)}
+                              />
+                              <button
+                                onClick={handleAddAttachment}
+                                className="w-full px-4 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800"
+                              >
+                                  Adicionar anexo
+                              </button>
+                          </div>
+                      </div>
+                  </div>
                   <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 shrink-0">
                       <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 font-bold text-slate-500">{t('records.editor.cancel')}</button>
-                      <button onClick={() => setIsEditorOpen(false)} className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">{t('records.editor.save')}</button>
+                      <button onClick={handleSaveRecord} className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">{t('records.editor.save')}</button>
                   </div>
               </div>
           </div>

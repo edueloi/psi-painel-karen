@@ -10,6 +10,7 @@ interface Api {
   get<T>(endpoint: string, params?: Record<string, string>): Promise<T>;
   post<T>(endpoint: string, body: any): Promise<T>;
   put<T>(endpoint: string, body: any): Promise<T>;
+  patch<T>(endpoint: string, body: any): Promise<T>;
   delete<T>(endpoint: string): Promise<T>;
 }
 
@@ -75,6 +76,10 @@ export const api: Api = {
 
   put<T>(endpoint: string, body: any): Promise<T> {
     return this.request(endpoint, { method: 'PUT', body: JSON.stringify(body) });
+  },
+
+  patch<T>(endpoint: string, body: any): Promise<T> {
+    return this.request(endpoint, { method: 'PATCH', body: JSON.stringify(body) });
   },
 
   delete<T>(endpoint: string): Promise<T> {

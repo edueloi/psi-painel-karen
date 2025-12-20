@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { Patient, RPDRecord } from '../types';
 import {
@@ -19,6 +19,7 @@ import {
   Moon,
   PenLine,
   ScanSearch,
+  RefreshCcw,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -39,8 +40,61 @@ type SchemaMode = {
   intensity: number; // 0..10
 };
 
-const uid = () => Math.random().toString(36).slice(2);
+const toIso = (v?: any) => {
+  if (!v) return new Date().toISOString();
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+};
 
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+/** -------------------- API TYPES (map do backend) -------------------- */
+type ApiTccRPD = {
+  id: number | string;
+  situation: string;
+  thought: string;
+  emotion?: string;
+  intensity?: number;
+  created_at?: string;
+  date?: string;
+};
+
+type ApiTccCard = {
+  id: number | string;
+  front: string;
+  back: string;
+  created_at?: string;
+  createdAt?: string;
+};
+
+type ApiSchemaLatest = {
+  id?: number | string;
+  active_schemas?: any; // JSON
+  modes?: any; // JSON
+  created_at?: string;
+};
+
+type ApiPsychoDream = {
+  id: number | string;
+  title?: string;
+  manifest?: string;
+  latent?: string;
+  created_at?: string;
+};
+
+type ApiPsychoSignifier = {
+  id: number | string;
+  term: string;
+  created_at?: string;
+};
+
+type ApiPsychoGet = {
+  dreams?: ApiPsychoDream[];
+  freeText?: string;
+  signifiers?: ApiPsychoSignifier[];
+};
+
+/** -------------------- UI HELPERS -------------------- */
 const StatusBadge: React.FC<{ status?: string; t: (k: string) => string }> = ({ status, t }) => {
   const v = (status || '').toLowerCase();
   const isActive = v === 'ativo' || v === 'active';
@@ -90,13 +144,23 @@ const EmptyDashed: React.FC<{ text: string; icon?: React.ReactNode }> = ({ text,
   </div>
 );
 
+const InlineError: React.FC<{ text: string }> = ({ text }) => (
+  <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-4 text-sm font-bold flex items-center gap-2">
+    <AlertTriangle size={16} /> {text}
+  </div>
+);
+
 /* ------------------------- TCC (RPD + CARTÕES) ------------------------- */
 
 const TCCPanel: React.FC<{
   t: (k: string) => string;
-  scopeKey: string;
+  scopeKey: string; // patientId
 }> = ({ t, scopeKey }) => {
   const [activeSub, setActiveSub] = useState<TccSubTab>('rpd');
+
+  // Loading / error
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // RPD
   const [records, setRecords] = useState<RPDRecord[]>([]);
@@ -108,83 +172,148 @@ const TCCPanel: React.FC<{
   const [newCard, setNewCard] = useState({ front: '', back: '' });
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
 
-  const storageKey = useMemo(() => `clinical_tools_tcc_${scopeKey}`, [scopeKey]);
+  const mapRpd = (r: ApiTccRPD): RPDRecord => ({
+    id: String(r.id),
+    date: toIso(r.created_at || r.date),
+    situation: r.situation || '',
+    thought: r.thought || '',
+    emotion: r.emotion || '',
+    intensity: clamp(Number(r.intensity ?? 5), 0, 10),
+  });
+
+  const mapCard = (c: ApiTccCard): CopingCard => ({
+    id: String(c.id),
+    front: c.front || '',
+    back: c.back || '',
+    createdAt: toIso(c.created_at || c.createdAt),
+  });
+
+  const loadTcc = async () => {
+    if (!scopeKey || scopeKey === 'none') return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get<{ records: ApiTccRPD[]; cards: ApiTccCard[] }>(`/clinical-tools/${scopeKey}/tcc`);
+      setRecords(Array.isArray(data?.records) ? data.records.map(mapRpd) : []);
+      setCards(Array.isArray(data?.cards) ? data.cards.map(mapCard) : []);
+    } catch (e) {
+      console.error(e);
+      setError(t('common.loadError') || 'Erro ao carregar.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.records)) setRecords(parsed.records);
-      if (Array.isArray(parsed.cards)) setCards(parsed.cards);
-    } catch {}
-  }, [storageKey]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ records, cards }));
-    } catch {}
-  }, [storageKey, records, cards]);
+    // reset state ao trocar paciente
+    setRecords([]);
+    setCards([]);
+    setEditingId(null);
+    setEditingCardId(null);
+    setNewRPD({ intensity: 5 });
+    setNewCard({ front: '', back: '' });
+    setActiveSub('rpd');
+    void loadTcc();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey]);
 
   const clearRPD = () => {
     setEditingId(null);
     setNewRPD({ intensity: 5 });
   };
 
-  const saveRPD = () => {
+  const saveRPD = async () => {
     if (!newRPD.situation?.trim() || !newRPD.thought?.trim()) return;
 
-    if (editingId) {
-      setRecords((prev) =>
-        prev.map((r) =>
-          r.id === editingId
-            ? ({
-                ...r,
-                situation: newRPD.situation!,
-                thought: newRPD.thought!,
-                emotion: newRPD.emotion || '',
-                intensity: Number(newRPD.intensity ?? 5),
-              } as RPDRecord)
-            : r,
-        ),
-      );
+    setLoading(true);
+    setError(null);
+    try {
+      if (editingId) {
+        // PUT (update full)
+        await api.put(`/clinical-tools/${scopeKey}/tcc/rpd/${editingId}`, {
+          situation: newRPD.situation?.trim(),
+          thought: newRPD.thought?.trim(),
+          emotion: (newRPD.emotion || '').trim(),
+          intensity: clamp(Number(newRPD.intensity ?? 5), 0, 10),
+        });
+        clearRPD();
+        await loadTcc();
+        return;
+      }
+
+      // POST (create)
+      await api.post(`/clinical-tools/${scopeKey}/tcc/rpd`, {
+        situation: newRPD.situation?.trim(),
+        thought: newRPD.thought?.trim(),
+        emotion: (newRPD.emotion || '').trim(),
+        intensity: clamp(Number(newRPD.intensity ?? 5), 0, 10),
+      });
+
       clearRPD();
-      return;
+      await loadTcc();
+    } catch (e) {
+      console.error(e);
+      setError(t('common.saveError') || 'Erro ao salvar.');
+    } finally {
+      setLoading(false);
     }
-
-    const rec: RPDRecord = {
-      id: uid(),
-      date: new Date().toISOString(),
-      situation: newRPD.situation!,
-      thought: newRPD.thought!,
-      emotion: newRPD.emotion || '',
-      intensity: Number(newRPD.intensity ?? 5),
-    } as RPDRecord;
-
-    setRecords((prev) => [rec, ...prev]);
-    clearRPD();
   };
 
   const editRPD = (r: RPDRecord) => {
     setActiveSub('rpd');
-    setEditingId(r.id);
+    setEditingId(String(r.id));
     setNewRPD({ situation: r.situation, thought: r.thought, emotion: r.emotion, intensity: r.intensity });
   };
 
-  const deleteRPD = (id: string) => setRecords((prev) => prev.filter((r) => r.id !== id));
+  const deleteRPD = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.delete(`/clinical-tools/${scopeKey}/tcc/rpd/${id}`);
+      await loadTcc();
+    } catch (e) {
+      console.error(e);
+      setError(t('common.deleteError') || 'Erro ao excluir.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const saveCard = () => {
+  // EXEMPLO PATCH (útil pra update parcial). Aqui não muda UI, mas fica pronto se quiser usar.
+  const patchRPD = async (id: string, patch: Partial<Pick<RPDRecord, 'emotion' | 'intensity'>>) => {
+    await api.patch(`/clinical-tools/${scopeKey}/tcc/rpd/${id}`, patch);
+  };
+
+  const saveCard = async () => {
     if (!newCard.front.trim() || !newCard.back.trim()) return;
 
-    if (editingCardId) {
-      setCards((prev) => prev.map((c) => (c.id === editingCardId ? { ...c, front: newCard.front, back: newCard.back } : c)));
-      setEditingCardId(null);
-      setNewCard({ front: '', back: '' });
-      return;
-    }
+    setLoading(true);
+    setError(null);
+    try {
+      if (editingCardId) {
+        await api.put(`/clinical-tools/${scopeKey}/tcc/cards/${editingCardId}`, {
+          front: newCard.front.trim(),
+          back: newCard.back.trim(),
+        });
+        setEditingCardId(null);
+        setNewCard({ front: '', back: '' });
+        await loadTcc();
+        return;
+      }
 
-    setCards((prev) => [{ id: uid(), front: newCard.front, back: newCard.back, createdAt: new Date().toISOString() }, ...prev]);
-    setNewCard({ front: '', back: '' });
+      await api.post(`/clinical-tools/${scopeKey}/tcc/cards`, {
+        front: newCard.front.trim(),
+        back: newCard.back.trim(),
+      });
+
+      setNewCard({ front: '', back: '' });
+      await loadTcc();
+    } catch (e) {
+      console.error(e);
+      setError(t('common.saveError') || 'Erro ao salvar.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const editCard = (c: CopingCard) => {
@@ -193,11 +322,23 @@ const TCCPanel: React.FC<{
     setNewCard({ front: c.front, back: c.back });
   };
 
-  const deleteCard = (id: string) => setCards((prev) => prev.filter((c) => c.id !== id));
+  const deleteCard = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.delete(`/clinical-tools/${scopeKey}/tcc/cards/${id}`);
+      await loadTcc();
+    } catch (e) {
+      console.error(e);
+      setError(t('common.deleteError') || 'Erro ao excluir.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
-      {/* Sub tabs (igual imagem) */}
+      {/* Sub tabs */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-1 flex gap-1 w-full max-w-2xl">
         <button
           onClick={() => setActiveSub('rpd')}
@@ -219,7 +360,15 @@ const TCCPanel: React.FC<{
         </button>
       </div>
 
-      {/* Content */}
+      {error && <InlineError text={error} />}
+
+      {/* Loading hint */}
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-slate-500 font-bold">
+          <Loader2 className="animate-spin" size={16} /> {t('common.loading') || 'Carregando...'}
+        </div>
+      )}
+
       {activeSub === 'rpd' && (
         <div className="flex flex-col gap-6">
           <SectionCard
@@ -227,21 +376,26 @@ const TCCPanel: React.FC<{
             subtitle={t('tcc.rpd.hint')}
             icon={<BrainCircuit size={18} className="text-indigo-600" />}
             right={
-              <button
-                onClick={clearRPD}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
-              >
-                <RotateCcw size={16} /> {t('common.clear')}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={loadTcc}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
+                  title={t('common.refresh') || 'Atualizar'}
+                >
+                  <RefreshCcw size={16} /> {t('common.refresh') || 'Atualizar'}
+                </button>
+                <button
+                  onClick={clearRPD}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
+                >
+                  <RotateCcw size={16} /> {t('common.clear')}
+                </button>
+              </div>
             }
           >
-            {/* NOVO BLOCO RPD - campos empilhados, botão ao lado da emoção/intensidade */}
             <div className="space-y-4">
-              {/* SITUAÇÃO */}
               <div>
-                <label className="block text-xs font-extrabold text-slate-500 uppercase mb-1.5">
-                  {t('tcc.rpd.situation')}
-                </label>
+                <label className="block text-xs font-extrabold text-slate-500 uppercase mb-1.5">{t('tcc.rpd.situation')}</label>
                 <textarea
                   className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 h-28 resize-none text-sm focus:bg-white focus:ring-4 focus:ring-indigo-100 outline-none"
                   value={newRPD.situation || ''}
@@ -250,11 +404,8 @@ const TCCPanel: React.FC<{
                 />
               </div>
 
-              {/* PENSAMENTO */}
               <div>
-                <label className="block text-xs font-extrabold text-slate-500 uppercase mb-1.5">
-                  {t('tcc.rpd.thought')}
-                </label>
+                <label className="block text-xs font-extrabold text-slate-500 uppercase mb-1.5">{t('tcc.rpd.thought')}</label>
                 <textarea
                   className="w-full p-3 rounded-xl border-2 border-indigo-100 bg-white h-28 resize-none text-sm focus:ring-4 focus:ring-indigo-100 outline-none"
                   value={newRPD.thought || ''}
@@ -263,12 +414,9 @@ const TCCPanel: React.FC<{
                 />
               </div>
 
-              {/* EMOÇÃO/INTENSIDADE + BOTÃO (lado a lado no desktop) */}
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
                 <div>
-                  <label className="block text-xs font-extrabold text-slate-500 uppercase mb-1.5">
-                    {t('tcc.rpd.emotion')}
-                  </label>
+                  <label className="block text-xs font-extrabold text-slate-500 uppercase mb-1.5">{t('tcc.rpd.emotion')}</label>
 
                   <div className="flex gap-2 items-center">
                     <input
@@ -285,9 +433,7 @@ const TCCPanel: React.FC<{
                       max="10"
                       className="w-20 p-3 rounded-xl border border-slate-200 text-center font-extrabold text-sm focus:ring-4 focus:ring-indigo-100 outline-none"
                       value={Number(newRPD.intensity ?? 5)}
-                      onChange={(e) =>
-                        setNewRPD({ ...newRPD, intensity: parseInt(e.target.value || '5', 10) })
-                      }
+                      onChange={(e) => setNewRPD({ ...newRPD, intensity: clamp(parseInt(e.target.value || '5', 10), 0, 10) })}
                       title={t('tcc.rpd.intensity')}
                     />
                   </div>
@@ -297,14 +443,17 @@ const TCCPanel: React.FC<{
 
                 <button
                   onClick={saveRPD}
-                  className="w-full md:w-auto md:min-w-[160px] h-11 bg-indigo-600 text-white font-extrabold rounded-xl hover:bg-indigo-700 shadow-sm text-sm inline-flex items-center justify-center gap-2 active:scale-[0.99]"
+                  disabled={loading}
+                  className={[
+                    'w-full md:w-auto md:min-w-[160px] h-11 text-white font-extrabold rounded-xl shadow-sm text-sm inline-flex items-center justify-center gap-2 active:scale-[0.99]',
+                    loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700',
+                  ].join(' ')}
                 >
                   {editingId ? <Save size={16} /> : <Plus size={16} />}
                   {editingId ? t('common.save') : t('tcc.rpd.save')}
                 </button>
               </div>
 
-              {/* Aviso */}
               {(!newRPD.situation?.trim() || !newRPD.thought?.trim()) && (
                 <div className="text-[12px] text-amber-600 flex items-center gap-2 justify-end">
                   <AlertTriangle size={14} /> {t('tcc.rpd.requiredHint')}
@@ -313,7 +462,11 @@ const TCCPanel: React.FC<{
             </div>
           </SectionCard>
 
-          <SectionCard title={t('tcc.rpd.history')} subtitle={t('tcc.rpd.historyHint')} icon={<Sparkles size={18} className="text-indigo-600" />}>
+          <SectionCard
+            title={t('tcc.rpd.history')}
+            subtitle={t('tcc.rpd.historyHint')}
+            icon={<Sparkles size={18} className="text-indigo-600" />}
+          >
             {records.length === 0 ? (
               <EmptyDashed text={t('tcc.rpd.empty')} icon={<CheckCircle2 className="opacity-30" />} />
             ) : (
@@ -355,7 +508,7 @@ const TCCPanel: React.FC<{
                           <Edit3 size={16} />
                         </button>
                         <button
-                          onClick={() => deleteRPD(r.id)}
+                          onClick={() => deleteRPD(String(r.id))}
                           className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
                           title={t('common.delete')}
                         >
@@ -378,18 +531,26 @@ const TCCPanel: React.FC<{
             subtitle={t('tcc.cards.hint')}
             icon={<Sparkles size={18} className="text-indigo-600" />}
             right={
-              <button
-                onClick={() => {
-                  setEditingCardId(null);
-                  setNewCard({ front: '', back: '' });
-                }}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
-              >
-                <RotateCcw size={16} /> {t('common.clear')}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={loadTcc}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
+                >
+                  <RefreshCcw size={16} /> {t('common.refresh') || 'Atualizar'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEditingCardId(null);
+                    setNewCard({ front: '', back: '' });
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
+                >
+                  <RotateCcw size={16} /> {t('common.clear')}
+                </button>
+              </div>
             }
           >
-            {/* igual imagem: 2 inputs e botão à direita */}
             <div className="rounded-2xl bg-indigo-50/40 border border-indigo-100 p-4">
               <div className="text-xs font-extrabold text-indigo-700 uppercase mb-3">{t('tcc.cards.formTitle')}</div>
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-end">
@@ -410,7 +571,11 @@ const TCCPanel: React.FC<{
 
                 <button
                   onClick={saveCard}
-                  className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold shadow-sm inline-flex items-center gap-2 justify-center"
+                  disabled={loading}
+                  className={[
+                    'h-11 px-6 rounded-xl text-white font-extrabold shadow-sm inline-flex items-center gap-2 justify-center',
+                    loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700',
+                  ].join(' ')}
                 >
                   {editingCardId ? <Save size={16} /> : <Plus size={16} />}
                   {editingCardId ? t('common.save') : t('tcc.cards.create')}
@@ -512,25 +677,37 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
   const [sub, setSub] = useState<SchemaSubTab>('schemas');
   const [activeSchemas, setActiveSchemas] = useState<string[]>([]);
   const [modes, setModes] = useState<SchemaMode[]>(DEFAULT_MODES);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [savedPulse, setSavedPulse] = useState(false);
 
-  const storageKey = useMemo(() => `clinical_tools_schema_${scopeKey}`, [scopeKey]);
+  const loadLatest = async () => {
+    if (!scopeKey || scopeKey === 'none') return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get<ApiSchemaLatest>(`/clinical-tools/${scopeKey}/schema/latest`);
+      const schemas = Array.isArray(data?.active_schemas) ? data.active_schemas : [];
+      const md = Array.isArray(data?.modes) ? data.modes : [];
+      setActiveSchemas(schemas);
+      setModes(md.length ? md : DEFAULT_MODES);
+    } catch (e) {
+      console.error(e);
+      setError(t('common.loadError') || 'Erro ao carregar.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.activeSchemas)) setActiveSchemas(parsed.activeSchemas);
-      if (Array.isArray(parsed.modes)) setModes(parsed.modes);
-    } catch {}
-  }, [storageKey]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ activeSchemas, modes }));
-    } catch {}
-  }, [storageKey, activeSchemas, modes]);
+    setActiveSchemas([]);
+    setModes(DEFAULT_MODES);
+    setSub('schemas');
+    void loadLatest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey]);
 
   const toggleSchema = (name: string) => {
     setActiveSchemas((prev) => (prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]));
@@ -541,15 +718,28 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
   };
 
   const setModeIntensity = (id: string, val: number) => {
-    setModes((prev) => prev.map((m) => (m.id === id ? { ...m, intensity: val } : m)));
+    setModes((prev) => prev.map((m) => (m.id === id ? { ...m, intensity: clamp(val, 0, 10) } : m)));
   };
 
   const activeModesCount = modes.filter((m) => m.active).length;
 
-  const saveRegister = () => {
-    // já persiste automaticamente, aqui é só UX como na imagem
-    setSavedPulse(true);
-    setTimeout(() => setSavedPulse(false), 900);
+  const saveRegister = async () => {
+    // POST snapshot (registro)
+    setLoading(true);
+    setError(null);
+    try {
+      await api.post(`/clinical-tools/${scopeKey}/schema/snapshot`, {
+        activeSchemas,
+        modes,
+      });
+      setSavedPulse(true);
+      setTimeout(() => setSavedPulse(false), 900);
+    } catch (e) {
+      console.error(e);
+      setError(t('common.saveError') || 'Erro ao salvar.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -575,12 +765,28 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
         </button>
       </div>
 
+      {error && <InlineError text={error} />}
+
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-slate-500 font-bold">
+          <Loader2 className="animate-spin" size={16} /> {t('common.loading') || 'Carregando...'}
+        </div>
+      )}
+
       {sub === 'schemas' && (
         <div className="space-y-6">
           <SectionCard
             title={t('schema.activeTitle')}
             subtitle={t('schema.activeHint')}
             icon={<LayoutGrid size={18} className="text-rose-600" />}
+            right={
+              <button
+                onClick={loadLatest}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
+              >
+                <RefreshCcw size={16} /> {t('common.refresh') || 'Atualizar'}
+              </button>
+            }
           >
             {activeSchemas.length === 0 ? (
               <div className="text-slate-400 text-sm">{t('schema.activeEmpty')}</div>
@@ -611,7 +817,9 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
                     onClick={() => toggleSchema(s)}
                     className={[
                       'px-3 py-2 rounded-xl border text-sm font-extrabold transition-all',
-                      on ? 'bg-rose-600 text-white border-rose-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50',
+                      on
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50',
                     ].join(' ')}
                   >
                     {s}
@@ -675,7 +883,6 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
             })}
           </div>
 
-          {/* bottom bar igual imagem */}
           <div className="sticky bottom-4">
             <div className="bg-slate-900 text-white rounded-2xl shadow-lg border border-slate-800 px-5 py-4 flex items-center justify-between gap-4">
               <div className="font-extrabold text-sm">
@@ -683,9 +890,10 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
               </div>
               <button
                 onClick={saveRegister}
+                disabled={loading}
                 className={[
                   'px-5 h-10 rounded-xl font-extrabold text-sm transition-all',
-                  savedPulse ? 'bg-emerald-600' : 'bg-slate-700 hover:bg-slate-600',
+                  loading ? 'bg-slate-700/60 cursor-not-allowed' : savedPulse ? 'bg-emerald-600' : 'bg-slate-700 hover:bg-slate-600',
                 ].join(' ')}
               >
                 {savedPulse ? t('schema.modes.saved') : t('schema.modes.save')}
@@ -705,43 +913,186 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
 
   const [dreams, setDreams] = useState<DreamRecord[]>([]);
   const [newDream, setNewDream] = useState({ title: '', manifest: '', latent: '' });
+  const [editingDreamId, setEditingDreamId] = useState<string | null>(null);
 
   const [freeText, setFreeText] = useState('');
   const [signifiers, setSignifiers] = useState<Signifier[]>([]);
   const [newSignifier, setNewSignifier] = useState('');
 
-  const storageKey = useMemo(() => `clinical_tools_psycho_${scopeKey}`, [scopeKey]);
+  const [loading, setLoading] = useState(false);
+  const [freeSaving, setFreeSaving] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadedRef = useRef(false);
+  const debounceRef = useRef<number | null>(null);
+
+  const mapDream = (d: ApiPsychoDream): DreamRecord => ({
+    id: String(d.id),
+    title: d.title || '',
+    manifest: d.manifest || '',
+    latent: d.latent || '',
+    createdAt: toIso(d.created_at),
+  });
+
+  const mapSignifier = (s: ApiPsychoSignifier): Signifier => ({
+    id: String(s.id),
+    term: s.term || '',
+    createdAt: toIso(s.created_at),
+  });
+
+  const loadPsycho = async () => {
+    if (!scopeKey || scopeKey === 'none') return;
+    setLoading(true);
+    setError(null);
     try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.dreams)) setDreams(parsed.dreams);
-      if (typeof parsed.freeText === 'string') setFreeText(parsed.freeText);
-      if (Array.isArray(parsed.signifiers)) setSignifiers(parsed.signifiers);
-    } catch {}
-  }, [storageKey]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ dreams, freeText, signifiers }));
-    } catch {}
-  }, [storageKey, dreams, freeText, signifiers]);
-
-  const addDream = () => {
-    if (!newDream.title.trim() && !newDream.manifest.trim() && !newDream.latent.trim()) return;
-    setDreams((prev) => [
-      { id: uid(), createdAt: new Date().toISOString(), title: newDream.title, manifest: newDream.manifest, latent: newDream.latent },
-      ...prev,
-    ]);
-    setNewDream({ title: '', manifest: '', latent: '' });
+      const data = await api.get<ApiPsychoGet>(`/clinical-tools/${scopeKey}/psycho`);
+      setDreams(Array.isArray(data?.dreams) ? data.dreams.map(mapDream) : []);
+      setFreeText(typeof data?.freeText === 'string' ? data.freeText : '');
+      setSignifiers(Array.isArray(data?.signifiers) ? data.signifiers.map(mapSignifier) : []);
+      loadedRef.current = true;
+    } catch (e) {
+      console.error(e);
+      setError(t('common.loadError') || 'Erro ao carregar.');
+      loadedRef.current = false;
+    } finally {
+      setLoading(false);
+      setFreeSaving('idle');
+    }
   };
 
-  const addSignifier = () => {
-    if (!newSignifier.trim()) return;
-    setSignifiers((prev) => [{ id: uid(), createdAt: new Date().toISOString(), term: newSignifier.trim() }, ...prev]);
+  useEffect(() => {
+    // reset ao trocar paciente
+    setDreams([]);
+    setFreeText('');
+    setSignifiers([]);
+    setNewDream({ title: '', manifest: '', latent: '' });
+    setEditingDreamId(null);
     setNewSignifier('');
+    setError(null);
+    loadedRef.current = false;
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = null;
+
+    void loadPsycho();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey]);
+
+  // AUTO-SAVE do texto livre usando PATCH (e fallback pra PUT)
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    if (!scopeKey || scopeKey === 'none') return;
+
+    setFreeSaving('saving');
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+
+    debounceRef.current = window.setTimeout(async () => {
+      try {
+        // PATCH (parcial)
+        await api.patch(`/clinical-tools/${scopeKey}/psycho/free`, { content: freeText });
+        setFreeSaving('saved');
+        window.setTimeout(() => setFreeSaving('idle'), 900);
+      } catch (e1) {
+        try {
+          // fallback PUT
+          await api.put(`/clinical-tools/${scopeKey}/psycho/free`, { content: freeText });
+          setFreeSaving('saved');
+          window.setTimeout(() => setFreeSaving('idle'), 900);
+        } catch (e2) {
+          console.error(e1, e2);
+          setFreeSaving('error');
+        }
+      }
+    }, 700);
+
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, [freeText, scopeKey]);
+
+  const saveDream = async () => {
+    if (!newDream.title.trim() && !newDream.manifest.trim() && !newDream.latent.trim()) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      if (editingDreamId) {
+        // PUT (editar sonho) — precisa existir no backend
+        await api.put(`/clinical-tools/${scopeKey}/psycho/dreams/${editingDreamId}`, {
+          title: newDream.title.trim(),
+          manifest: newDream.manifest.trim(),
+          latent: newDream.latent.trim(),
+        });
+      } else {
+        // POST
+        await api.post(`/clinical-tools/${scopeKey}/psycho/dreams`, {
+          title: newDream.title.trim(),
+          manifest: newDream.manifest.trim(),
+          latent: newDream.latent.trim(),
+        });
+      }
+
+      setNewDream({ title: '', manifest: '', latent: '' });
+      setEditingDreamId(null);
+      await loadPsycho();
+    } catch (e) {
+      console.error(e);
+      setError(t('common.saveError') || 'Erro ao salvar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const editDream = (d: DreamRecord) => {
+    setSub('dreams');
+    setEditingDreamId(d.id);
+    setNewDream({ title: d.title, manifest: d.manifest, latent: d.latent });
+  };
+
+  const deleteDream = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // DELETE (precisa existir no backend)
+      await api.delete(`/clinical-tools/${scopeKey}/psycho/dreams/${id}`);
+      await loadPsycho();
+    } catch (e) {
+      console.error(e);
+      setError(t('common.deleteError') || 'Erro ao excluir.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addSignifier = async () => {
+    if (!newSignifier.trim()) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      await api.post(`/clinical-tools/${scopeKey}/psycho/signifiers`, { term: newSignifier.trim() });
+      setNewSignifier('');
+      await loadPsycho();
+    } catch (e) {
+      console.error(e);
+      setError(t('common.saveError') || 'Erro ao salvar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteSignifier = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // DELETE (precisa existir no backend)
+      await api.delete(`/clinical-tools/${scopeKey}/psycho/signifiers/${id}`);
+      await loadPsycho();
+    } catch (e) {
+      console.error(e);
+      setError(t('common.deleteError') || 'Erro ao excluir.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -776,12 +1127,39 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
         </button>
       </div>
 
+      {error && <InlineError text={error} />}
+
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-slate-500 font-bold">
+          <Loader2 className="animate-spin" size={16} /> {t('common.loading') || 'Carregando...'}
+        </div>
+      )}
+
       {sub === 'dreams' && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <SectionCard
-            title={t('psycho.dreams.newTitle')}
+            title={editingDreamId ? t('psycho.dreams.editTitle') : t('psycho.dreams.newTitle')}
             subtitle={t('psycho.dreams.hint')}
             icon={<Moon size={18} className="text-amber-600" />}
+            right={
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={loadPsycho}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
+                >
+                  <RefreshCcw size={16} /> {t('common.refresh') || 'Atualizar'}
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingDreamId(null);
+                    setNewDream({ title: '', manifest: '', latent: '' });
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-sm hover:bg-slate-50"
+                >
+                  <RotateCcw size={16} /> {t('common.clear')}
+                </button>
+              </div>
+            }
           >
             <div className="space-y-3">
               <input
@@ -812,10 +1190,14 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
               </div>
 
               <button
-                onClick={addDream}
-                className="w-full h-11 bg-amber-600 text-white font-extrabold rounded-xl hover:bg-amber-700 shadow-sm inline-flex items-center justify-center gap-2"
+                onClick={saveDream}
+                disabled={loading}
+                className={[
+                  'w-full h-11 text-white font-extrabold rounded-xl shadow-sm inline-flex items-center justify-center gap-2',
+                  loading ? 'bg-amber-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700',
+                ].join(' ')}
               >
-                <Save size={16} /> {t('psycho.dreams.archive')}
+                <Save size={16} /> {editingDreamId ? (t('common.save') || 'Salvar') : t('psycho.dreams.archive')}
               </button>
             </div>
           </SectionCard>
@@ -827,15 +1209,40 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
               <div className="space-y-3">
                 {dreams.map((d) => (
                   <div key={d.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-[11px] font-extrabold uppercase text-slate-400">{new Date(d.createdAt).toLocaleString()}</div>
-                    <div className="mt-1 font-extrabold text-slate-900">{d.title || t('psycho.dreams.noTitle')}</div>
-                    <div className="mt-3 text-sm text-slate-600">
-                      <div className="font-bold text-slate-700">{t('psycho.dreams.manifest')}</div>
-                      <div className="line-clamp-2">{d.manifest || '-'}</div>
-                    </div>
-                    <div className="mt-3 text-sm text-slate-600">
-                      <div className="font-bold text-slate-700">{t('psycho.dreams.latent')}</div>
-                      <div className="line-clamp-2">{d.latent || '-'}</div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-extrabold uppercase text-slate-400">
+                          {new Date(d.createdAt).toLocaleString()}
+                        </div>
+                        <div className="mt-1 font-extrabold text-slate-900">{d.title || t('psycho.dreams.noTitle')}</div>
+
+                        <div className="mt-3 text-sm text-slate-600">
+                          <div className="font-bold text-slate-700">{t('psycho.dreams.manifest')}</div>
+                          <div className="line-clamp-2">{d.manifest || '-'}</div>
+                        </div>
+
+                        <div className="mt-3 text-sm text-slate-600">
+                          <div className="font-bold text-slate-700">{t('psycho.dreams.latent')}</div>
+                          <div className="line-clamp-2">{d.latent || '-'}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => editDream(d)}
+                          className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          title={t('common.edit')}
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => deleteDream(d.id)}
+                          className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+                          title={t('common.delete')}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -851,7 +1258,13 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
             <div>
               <div className="text-2xl font-extrabold text-amber-900">{t('psycho.free.title')}</div>
               <div className="text-sm text-amber-800/70 mt-2">{t('psycho.free.hint')}</div>
+              <div className="mt-2 text-xs font-extrabold">
+                {freeSaving === 'saving' && <span className="text-amber-700">{t('common.saving') || 'Salvando...'}</span>}
+                {freeSaving === 'saved' && <span className="text-emerald-700">{t('common.saved') || 'Salvo'}</span>}
+                {freeSaving === 'error' && <span className="text-red-700">{t('common.saveError') || 'Erro ao salvar'}</span>}
+              </div>
             </div>
+
             <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700">
               <PenLine size={18} />
             </div>
@@ -864,7 +1277,9 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
               placeholder={t('psycho.free.ph')}
               className="w-full min-h-[420px] rounded-2xl border border-amber-200 bg-amber-50/30 p-5 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-amber-100 resize-none"
             />
-            <div className="text-xs text-amber-800/60 mt-2 text-right">{freeText.length} {t('psycho.free.chars')}</div>
+            <div className="text-xs text-amber-800/60 mt-2 text-right">
+              {freeText.length} {t('psycho.free.chars')}
+            </div>
           </div>
         </div>
       )}
@@ -880,7 +1295,11 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
             />
             <button
               onClick={addSignifier}
-              className="h-11 px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold inline-flex items-center gap-2"
+              disabled={loading}
+              className={[
+                'h-11 px-5 rounded-xl text-white font-extrabold inline-flex items-center gap-2',
+                loading ? 'bg-amber-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700',
+              ].join(' ')}
             >
               <Plus size={16} /> {t('psycho.signifiers.add')}
             </button>
@@ -892,8 +1311,22 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {signifiers.map((s) => (
                 <div key={s.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="text-[11px] font-extrabold uppercase text-slate-400">{new Date(s.createdAt).toLocaleDateString()}</div>
-                  <div className="mt-1 font-extrabold text-slate-900">{s.term}</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-extrabold uppercase text-slate-400">
+                        {new Date(s.createdAt).toLocaleDateString()}
+                      </div>
+                      <div className="mt-1 font-extrabold text-slate-900">{s.term}</div>
+                    </div>
+
+                    <button
+                      onClick={() => deleteSignifier(s.id)}
+                      className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+                      title={t('common.delete')}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -919,7 +1352,7 @@ export const ClinicalTools: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await api.get<Patient[]>('/patients');
-      setPatients(data);
+      setPatients(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -928,13 +1361,10 @@ export const ClinicalTools: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, []);
 
-  const selectedPatient = useMemo(
-    () => patients.find((p) => p.id === selectedPatientId),
-    [patients, selectedPatientId],
-  );
+  const selectedPatient = useMemo(() => patients.find((p) => p.id === selectedPatientId), [patients, selectedPatientId]);
 
   const filteredPatients = useMemo(() => {
     const q = patientSearch.trim().toLowerCase();
@@ -946,7 +1376,6 @@ export const ClinicalTools: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* HERO (igual imagem) */}
       <div className="relative overflow-hidden rounded-3xl p-8 bg-slate-900 shadow-xl border border-slate-800 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 opacity-90" />
         <div className="relative z-10">
@@ -959,9 +1388,8 @@ export const ClinicalTools: React.FC = () => {
         </div>
       </div>
 
-      {/* LAYOUT (2 colunas igual imagem; no mobile empilha) */}
       <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-6 items-start">
-        {/* LEFT: PACIENTES */}
+        {/* LEFT */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-100">
             <div className="text-[12px] font-extrabold text-slate-500 uppercase">{t('tools.patientListTitle')}</div>
@@ -1018,9 +1446,8 @@ export const ClinicalTools: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT: FERRAMENTAS */}
+        {/* RIGHT */}
         <div className="space-y-4 min-w-0">
-          {/* Tabs principais (igual imagem) */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-1 flex gap-1 overflow-x-auto no-scrollbar">
             {[
               { id: 'tcc', label: t('tools.tcc'), icon: <BrainCircuit size={16} />, activeCls: 'text-indigo-700', onCls: 'bg-indigo-50 border-indigo-100' },
@@ -1043,12 +1470,10 @@ export const ClinicalTools: React.FC = () => {
             })}
           </div>
 
-          {/* Conteúdo */}
           {!selectedPatient ? (
             <EmptyDashed text={t('tools.selectPatientHint')} icon={<Boxes size={22} className="opacity-30" />} />
           ) : (
             <div className="space-y-6">
-              {/* opcional: header do paciente (leve) */}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold">
