@@ -166,6 +166,12 @@ export interface VirtualRoom {
   description?: string;
   scheduled_start?: string;
   scheduled_end?: string;
+  patient_id?: number;
+  professional_id?: number;
+  appointment_id?: number;
+  provider?: 'jitsi' | 'zoom' | 'teams' | 'outro';
+  link?: string;
+  expiration_date?: string;
   created_at: string;
   updated_at: string;
 }

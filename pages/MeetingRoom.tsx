@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ASSESSMENTS_DATA } from '../constants';
+import { api } from '../services/api';
 
 interface MeetingRoomProps {
   isGuest?: boolean;
@@ -20,12 +21,41 @@ type ConnectionStatus = 'idle' | 'waiting_approval' | 'connected';
 
 // Helper for coordinates
 type Point = { x: number, y: number };
+type RoomMessage = {
+  id: number;
+  sender_role: 'host' | 'guest' | 'system';
+  sender_name: string;
+  message: string;
+  created_at: string;
+};
+type RoomEvent = {
+  id: number;
+  event_type: string;
+  payload_json: string | null;
+  created_at: string;
+};
+type AssessmentEvent = {
+  id: number;
+  event_type: 'start' | 'answer' | 'finish';
+  assessment_id: string;
+  question_id: string | null;
+  payload_json: string | null;
+  created_at: string;
+};
+type WaitingEntry = {
+  id: number;
+  guest_name: string;
+  status: 'waiting' | 'approved' | 'denied';
+  created_at?: string;
+};
 
-export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => {
+export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp = false }) => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const hasAuthToken = Boolean(localStorage.getItem('psi_token'));
+  const isGuest = isGuestProp || searchParams.get('guest') === 'true' || !hasAuthToken;
   
   // --- Mode Check ---
   const isCompanionMode = searchParams.get('companion') === 'true';
@@ -44,11 +74,22 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   // Host: Simulation State for Incoming Request
   const [incomingRequest, setIncomingRequest] = useState<{name: string, id: string} | null>(null);
   const [remoteUserConnected, setRemoteUserConnected] = useState(false);
+  const [remoteParticipantName, setRemoteParticipantName] = useState<string | null>(null);
+  const [layoutMode, setLayoutMode] = useState<'focus' | 'side-by-side' | 'stacked'>('focus');
+  const [entryNotice, setEntryNotice] = useState<string | null>(null);
+  const [waitingList, setWaitingList] = useState<WaitingEntry[]>([]);
+  const [waitingToken, setWaitingToken] = useState<string | null>(null);
+  const [remoteWhiteboardActive, setRemoteWhiteboardActive] = useState(false);
+  const [allowGuestDraw, setAllowGuestDraw] = useState(false);
+  const [remoteAllowGuestDraw, setRemoteAllowGuestDraw] = useState(false);
 
-  const [messages, setMessages] = useState<{sender: string, text: string, time: string}[]>([
-    { sender: 'System', text: 'Sala segura criada (Criptografia ponta-a-ponta).', time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }
+  const [messages, setMessages] = useState<{sender: string, text: string, time: string, role?: 'host' | 'guest' | 'system', isLocal?: boolean}[]>([
+    { sender: 'Sistema', text: 'Sala segura criada (Criptografia ponta-a-ponta).', time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), role: 'system', isLocal: false }
   ]);
   const [newMessage, setNewMessage] = useState('');
+  const [lastMessageId, setLastMessageId] = useState(0);
+  const [lastEventId, setLastEventId] = useState(0);
+  const [lastAssessmentId, setLastAssessmentId] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLinkDeviceModal, setShowLinkDeviceModal] = useState(false);
@@ -57,6 +98,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   const [lobbyTab, setLobbyTab] = useState<'info' | 'companion'>('info');
   const [copied, setCopied] = useState(false);
   const [guestName, setGuestName] = useState('');
+  const [participantToken, setParticipantToken] = useState<string | null>(null);
+  const [remoteScreenShareActive, setRemoteScreenShareActive] = useState(false);
+  const [participants, setParticipants] = useState<string[]>([]);
 
   // Assessment States
   const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
@@ -74,6 +118,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  const lastMessageIdRef = useRef(0);
+  const lastEventIdRef = useRef(0);
+  const lastAssessmentIdRef = useRef(0);
+  const participantsRef = useRef<string[]>([]);
+  const clientIdRef = useRef<string>(
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
+  );
   
   // Audio Analysis
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -87,7 +138,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   const lastPointRef = useRef<Point | null>(null);
 
   const meetingUrl = window.location.href.split('?')[0];
+  const appointment: { title?: string; patientName?: string; psychologistName?: string } | null = null;
   const roomLabel = id ? `Sala ${id}` : 'Sala';
+  const hostDisplayName = appointment?.psychologistName || 'Profissional';
+  const patientDisplayName = remoteParticipantName || appointment?.patientName || 'Paciente';
+  const remoteDisplayName = isGuest ? hostDisplayName : patientDisplayName;
+  const remoteInitial = remoteDisplayName?.charAt(0)?.toUpperCase() || '?';
+  const localDisplayName = isGuest ? (guestName || 'Paciente') : 'Você';
+  const localInitial = localDisplayName.charAt(0).toUpperCase();
+  const useGridLayout = !screenShare && layoutMode !== 'focus';
+  const waitingEntries = waitingList.length
+    ? waitingList
+    : (incomingRequest ? [{ id: 0, guest_name: incomingRequest.name, status: 'waiting' as const }] : []);
+  const guestCanDraw = isGuest ? remoteAllowGuestDraw : allowGuestDraw;
 
   // --- BROADCAST CHANNEL (Real-time Sync between tabs) ---
   useEffect(() => {
@@ -103,6 +166,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                 // Only host listens to this
                 if (!isGuest && !isCompanionMode) {
                     setIncomingRequest({ name: payload.name, id: payload.id });
+                    setRemoteParticipantName(payload.name || null);
                 }
                 break;
 
@@ -170,6 +234,71 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
     };
   }, [id, isGuest, isCompanionMode, connectionStatus]);
 
+  useEffect(() => {
+      if (isGuest || !id || !hasAuthToken) return;
+      let active = true;
+      const fetchWaiting = async () => {
+          try {
+              const data = await api.get<WaitingEntry[]>(`/virtual-rooms/${id}/waiting`);
+              if (!active) return;
+              const list = Array.isArray(data) ? data : [];
+              setWaitingList(list);
+              if (list.length) {
+                  setRemoteParticipantName(list[0].guest_name);
+              } else if (!remoteUserConnected) {
+                  setRemoteParticipantName(null);
+              }
+          } catch (err) {
+              if (active) setWaitingList([]);
+          }
+      };
+      fetchWaiting();
+      const interval = setInterval(fetchWaiting, 2000);
+      return () => {
+          active = false;
+          clearInterval(interval);
+      };
+  }, [isGuest, id, hasAuthToken, remoteUserConnected]);
+
+  useEffect(() => {
+      if (!isGuest || !waitingToken) return;
+      let active = true;
+      const pollStatus = async () => {
+          try {
+              const data = await api.get<{ status: string }>(`/virtual-rooms/public/waiting/${waitingToken}`);
+              if (!active) return;
+              if (data.status === 'approved') {
+                  try {
+                      if (id) {
+                          await api.post(`/virtual-rooms/public/${id}/join`, { token: waitingToken, name: guestName });
+                      }
+                      setConnectionStatus('connected');
+                      setRemoteUserConnected(true);
+                      setWaitingToken(null);
+                  } catch (err) {
+                      alert('Nao foi possivel entrar na sala.');
+                      setConnectionStatus('idle');
+                      setHasJoined(false);
+                      setWaitingToken(null);
+                  }
+              } else if (data.status === 'denied') {
+                  alert('Sua entrada foi negada.');
+                  setConnectionStatus('idle');
+                  setHasJoined(false);
+                  setWaitingToken(null);
+              }
+          } catch (err) {
+              // keep polling
+          }
+      };
+      pollStatus();
+      const interval = setInterval(pollStatus, 2000);
+      return () => {
+          active = false;
+          clearInterval(interval);
+      };
+  }, [isGuest, waitingToken, id, guestName]);
+
 
   // --- ASSESSMENT HANDLERS ---
   const handleStartAssessment = (assessId: string) => {
@@ -180,6 +309,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
           type: 'START_ASSESSMENT',
           payload: { id: assessId }
       });
+      if (id) {
+          api.post(`/virtual-rooms/${id}/assessments`, {
+              event_type: 'start',
+              assessment_id: assessId,
+              payload: { client_id: clientIdRef.current }
+          }).catch(() => {});
+      }
   };
 
   const handleRemoteAnswer = (qId: string, val: any) => {
@@ -189,6 +325,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
           type: 'UPDATE_ANSWER',
           payload: { questionId: qId, value: val }
       });
+      if (id && activeAssessmentId) {
+          if (isGuest && participantToken) {
+              api.post(`/virtual-rooms/public/${id}/assessments`, {
+                  token: participantToken,
+                  event_type: 'answer',
+                  assessment_id: activeAssessmentId,
+                  question_id: qId,
+                  payload: { value: val, client_id: clientIdRef.current }
+              }).catch(() => {});
+          }
+      }
   };
 
   const handleFinishAssessment = () => {
@@ -197,6 +344,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       broadcastChannelRef.current?.postMessage({
           type: 'FINISH_ASSESSMENT'
       });
+      if (id) {
+          if (isGuest && participantToken && activeAssessmentId) {
+              api.post(`/virtual-rooms/public/${id}/assessments`, {
+                  token: participantToken,
+                  event_type: 'finish',
+                  assessment_id: activeAssessmentId,
+                  payload: { client_id: clientIdRef.current }
+              }).catch(() => {});
+          }
+      }
   };
 
   const calculateHostResult = () => {
@@ -215,6 +372,281 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       }
       return score;
   };
+
+  const getQuestionText = (assessmentId: string, questionId: string) => {
+      const data = ASSESSMENTS_DATA[assessmentId];
+      if (!data) return '';
+      const q = data.questions.find((item) => item.id === questionId);
+      return q ? q.text : '';
+  };
+
+  const getAssessmentName = (assessmentId: string) => {
+      const data = ASSESSMENTS_DATA[assessmentId];
+      return data ? data.name : 'Formulario';
+  };
+
+  const parsePayload = (payload: any) => {
+      if (payload === null || payload === undefined) return null;
+      if (typeof payload === 'object') return payload;
+      if (typeof payload === 'string') {
+          try {
+              return JSON.parse(payload);
+          } catch {
+              return null;
+          }
+      }
+      try {
+          return JSON.parse(String(payload));
+      } catch {
+          return null;
+      }
+  };
+
+  useEffect(() => {
+      if (!id || !hasJoined) return;
+      if (isGuest && connectionStatus !== 'connected') return;
+      let active = true;
+      const fetchMessages = async () => {
+          try {
+              const endpoint = isGuest ? `/virtual-rooms/public/${id}/messages` : `/virtual-rooms/${id}/messages`;
+              const rows = await api.get<RoomMessage[]>(endpoint, { since: String(lastMessageIdRef.current) });
+              if (!active || !rows.length) return;
+              const mapped = rows.map((msg) => {
+                  const isLocal = isGuest ? msg.sender_role === 'guest' : msg.sender_role === 'host';
+                  return {
+                      sender: msg.sender_name,
+                      text: msg.message,
+                      time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      role: msg.sender_role,
+                      isLocal
+                  };
+              });
+              setMessages((prev) => [...prev, ...mapped]);
+              const last = rows[rows.length - 1];
+              lastMessageIdRef.current = last.id;
+              setLastMessageId(last.id);
+          } catch (err) {
+              // ignore polling errors
+          }
+      };
+      fetchMessages();
+      const interval = setInterval(fetchMessages, 2000);
+      return () => {
+          active = false;
+          clearInterval(interval);
+      };
+  }, [id, hasJoined, isGuest, connectionStatus]);
+
+  useEffect(() => {
+      if (isGuest) return;
+      if (activeSidePanel === 'whiteboard') {
+          setRemoteWhiteboardActive(true);
+          sendRoomEvent('whiteboard_open');
+      } else if (remoteWhiteboardActive) {
+          setRemoteWhiteboardActive(false);
+          sendRoomEvent('whiteboard_close');
+      }
+  }, [activeSidePanel, isGuest, remoteWhiteboardActive]);
+
+  useEffect(() => {
+      if (isGuest) return;
+      sendRoomEvent('whiteboard_permission', { allowed: allowGuestDraw });
+  }, [allowGuestDraw, isGuest]);
+
+  useEffect(() => {
+      if (!isGuest) return;
+      if (!remoteWhiteboardActive && activeSidePanel === 'whiteboard') {
+          setActiveSidePanel('none');
+      }
+  }, [isGuest, remoteWhiteboardActive, activeSidePanel]);
+
+  useEffect(() => {
+      if (!id || !hasJoined) return;
+      if (isGuest && connectionStatus !== 'connected') return;
+      let active = true;
+      const fetchEvents = async () => {
+          try {
+              const endpoint = isGuest ? `/virtual-rooms/public/${id}/events` : `/virtual-rooms/${id}/events`;
+              const rows = await api.get<RoomEvent[]>(endpoint, { since: String(lastEventIdRef.current) });
+              if (!active || !rows.length) return;
+              rows.forEach((evt) => {
+                  const payload = parsePayload(evt.payload_json);
+                  if (payload?.client_id && payload.client_id === clientIdRef.current) return;
+                  if (evt.event_type === 'whiteboard_start') {
+                      remoteDrawStart(payload);
+                  } else if (evt.event_type === 'whiteboard_move') {
+                      remoteDrawMove(payload);
+                  } else if (evt.event_type === 'whiteboard_clear') {
+                      const ctx = canvasRef.current?.getContext('2d');
+                      if (ctx && canvasRef.current) {
+                          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                      }
+                  } else if (evt.event_type === 'whiteboard_open') {
+                      if (isGuest) {
+                          setRemoteWhiteboardActive(true);
+                          setActiveSidePanel('whiteboard');
+                      }
+                  } else if (evt.event_type === 'whiteboard_close') {
+                      if (isGuest) {
+                          setRemoteWhiteboardActive(false);
+                          if (activeSidePanel === 'whiteboard') setActiveSidePanel('none');
+                      }
+                  } else if (evt.event_type === 'whiteboard_permission') {
+                      if (isGuest) {
+                          setRemoteAllowGuestDraw(Boolean(payload?.allowed));
+                      }
+                  } else if (evt.event_type === 'screen_share_on') {
+                      setRemoteScreenShareActive(true);
+                  } else if (evt.event_type === 'screen_share_off') {
+                      setRemoteScreenShareActive(false);
+                  }
+              });
+              const last = rows[rows.length - 1];
+              lastEventIdRef.current = last.id;
+              setLastEventId(last.id);
+          } catch (err) {
+              // ignore polling errors
+          }
+      };
+      fetchEvents();
+      const interval = setInterval(fetchEvents, 2000);
+      return () => {
+          active = false;
+          clearInterval(interval);
+      };
+  }, [id, hasJoined, isGuest, connectionStatus]);
+
+  useEffect(() => {
+      if (!id || !hasJoined) return;
+      if (isGuest && connectionStatus !== 'connected') return;
+      let active = true;
+      const fetchAssessments = async () => {
+          try {
+              const endpoint = isGuest ? `/virtual-rooms/public/${id}/assessments` : `/virtual-rooms/${id}/assessments`;
+              const rows = await api.get<AssessmentEvent[]>(endpoint, { since: String(lastAssessmentIdRef.current) });
+              if (!active || !rows.length) return;
+              rows.forEach((evt) => {
+                  const payload = parsePayload(evt.payload_json);
+                  if (payload?.client_id && payload.client_id === clientIdRef.current) return;
+                  if (evt.event_type === 'start') {
+                      if (isGuest) {
+                          setActiveAssessmentId(evt.assessment_id);
+                          setAssessmentStatus('active');
+                          setActiveSidePanel('assessments');
+                          setRemoteAnswers({});
+                      } else {
+                          setMessages((prev) => [
+                              ...prev,
+                              {
+                                  sender: 'Sistema',
+                                  text: `Formulario iniciado: ${getAssessmentName(evt.assessment_id)}`,
+                                  time: new Date(evt.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                  role: 'system',
+                                  isLocal: false
+                              }
+                          ]);
+                      }
+                  } else if (evt.event_type === 'answer') {
+                      if (!isGuest && evt.question_id) {
+                          setRemoteAnswers(prev => ({ ...prev, [evt.question_id as string]: payload?.value ?? payload }));
+                          const questionText = getQuestionText(evt.assessment_id, evt.question_id);
+                          const answerValue = payload?.value ?? payload;
+                          const label = questionText ? `${questionText}: ${answerValue}` : `Resposta: ${answerValue}`;
+                          setMessages((prev) => [
+                              ...prev,
+                              {
+                                  sender: remoteDisplayName,
+                                  text: label,
+                                  time: new Date(evt.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                  role: 'guest',
+                                  isLocal: false
+                              }
+                          ]);
+                      }
+                  } else if (evt.event_type === 'finish') {
+                      if (!isGuest) {
+                          setAssessmentStatus('completed');
+                          setMessages((prev) => [
+                              ...prev,
+                              {
+                                  sender: 'Sistema',
+                                  text: `Formulario finalizado: ${getAssessmentName(evt.assessment_id)}`,
+                                  time: new Date(evt.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                  role: 'system',
+                                  isLocal: false
+                              }
+                          ]);
+                      }
+                  }
+              });
+              const last = rows[rows.length - 1];
+              lastAssessmentIdRef.current = last.id;
+              setLastAssessmentId(last.id);
+          } catch (err) {
+              // ignore polling errors
+          }
+      };
+      fetchAssessments();
+      const interval = setInterval(fetchAssessments, 2000);
+      return () => {
+          active = false;
+          clearInterval(interval);
+      };
+  }, [id, hasJoined, isGuest, connectionStatus]);
+
+  useEffect(() => {
+      if (!id || !hasAuthToken) return;
+      let active = true;
+      const fetchParticipants = async () => {
+          try {
+              const rows = await api.get<{ name: string }[]>(`/virtual-rooms/${id}/participants`);
+              if (!active) return;
+              const names = rows.map((r) => r.name);
+              const prev = participantsRef.current;
+              if (prev.length && names.length === 0) {
+                  setEntryNotice(`${prev[0]} saiu da sala.`);
+                  setRemoteUserConnected(false);
+                  setRemoteParticipantName(null);
+              }
+              if (!prev.length && names.length) {
+                  setRemoteUserConnected(true);
+                  setRemoteParticipantName(names[0]);
+              }
+              participantsRef.current = names;
+              setParticipants(names);
+          } catch (err) {
+              // ignore polling errors
+          }
+      };
+      fetchParticipants();
+      const interval = setInterval(fetchParticipants, 2000);
+      return () => {
+          active = false;
+          clearInterval(interval);
+      };
+  }, [id, hasAuthToken]);
+
+  useEffect(() => {
+      if (!isGuest || !participantToken || !id) return;
+      const leavePayload = JSON.stringify({ token: participantToken });
+      const leaveUrl = `http://localhost:3013/virtual-rooms/public/${id}/leave`;
+      const handleUnload = () => {
+          if (navigator.sendBeacon) {
+              navigator.sendBeacon(leaveUrl, leavePayload);
+          } else {
+              fetch(leaveUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: leavePayload,
+                  keepalive: true
+              }).catch(() => {});
+          }
+      };
+      window.addEventListener('beforeunload', handleUnload);
+      return () => {
+          window.removeEventListener('beforeunload', handleUnload);
+      };
+  }, [isGuest, participantToken, id]);
 
 
   // --- Initialize Media ---
@@ -258,38 +690,56 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       }
   }, [hasJoined, isCompanionMode]);
 
-  // --- Simulate Remote Connection (Fallback if Broadcast not used) ---
   useEffect(() => {
-      if (hasJoined && !isGuest && !isCompanionMode && !remoteUserConnected) {
-          // Keep existing simulation as fallback or for demo feel
-          const timeout = setTimeout(() => {
-              if (!incomingRequest && !remoteUserConnected) {
-                  // Only simulate if no real request via broadcast happened
-                  setIncomingRequest({ 
-                    name: guestName || 'Convidado', 
-                    id: 'simulated-guest' 
-                });
-              }
-          }, 3000);
-          return () => clearTimeout(timeout);
+      if (!remoteUserConnected) return;
+      const message = `${remoteDisplayName} entrou na sala.`;
+      setEntryNotice(message);
+      const timeout = setTimeout(() => setEntryNotice(null), 3000);
+      return () => clearTimeout(timeout);
+  }, [remoteUserConnected, remoteDisplayName]);
+
+
+  const handleAdmitGuest = async (entry?: WaitingEntry) => {
+      const name = entry?.guest_name || incomingRequest?.name || remoteParticipantName || 'Paciente';
+      if (entry && entry.id > 0 && id) {
+          try {
+              await api.post(`/virtual-rooms/${id}/waiting/${entry.id}/approve`, {});
+          } catch (err) {
+              // keep flow
+          }
+      } else {
+          broadcastChannelRef.current?.postMessage({ type: 'ADMIT_GUEST' });
       }
-  }, [hasJoined, isGuest, isCompanionMode, remoteUserConnected]);
-
-
-  const handleAdmitGuest = () => {
-      broadcastChannelRef.current?.postMessage({ type: 'ADMIT_GUEST' });
       setRemoteUserConnected(true);
+      setRemoteParticipantName(name);
       setIncomingRequest(null);
+      if (entry && entry.id > 0) {
+          setWaitingList(prev => prev.filter(item => item.id !== entry.id));
+      }
+      if (!isGuest) {
+          setHasJoined(true);
+          setConnectionStatus('connected');
+      }
       setMessages(prev => [...prev, { 
           sender: 'System', 
-          text: `${incomingRequest?.name} entrou na sala.`, 
+          text: `${name} entrou na sala.`, 
           time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
       }]);
   };
 
-  const handleDenyGuest = () => {
-      broadcastChannelRef.current?.postMessage({ type: 'DENY_GUEST' });
+  const handleDenyGuest = async (entry?: WaitingEntry) => {
+      if (entry && entry.id > 0 && id) {
+          try {
+              await api.post(`/virtual-rooms/${id}/waiting/${entry.id}/deny`, {});
+          } catch (err) {
+              // keep flow
+          }
+          setWaitingList(prev => prev.filter(item => item.id !== entry.id));
+      } else {
+          broadcastChannelRef.current?.postMessage({ type: 'DENY_GUEST' });
+      }
       setIncomingRequest(null);
+      setRemoteParticipantName(null);
   };
 
   const setupAudioAnalysis = (stream: MediaStream) => {
@@ -360,14 +810,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       screenStreamRef.current?.getTracks().forEach(t => t.stop());
       screenStreamRef.current = null;
       setScreenShare(false);
+      sendRoomEvent('screen_share_off');
     } else {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         screenStreamRef.current = stream;
         setScreenShare(true);
+        sendRoomEvent('screen_share_on');
         stream.getVideoTracks()[0].onended = () => {
           setScreenShare(false);
           screenStreamRef.current = null;
+          sendRoomEvent('screen_share_off');
         };
       } catch (err) {
         console.error("Error sharing screen:", err);
@@ -424,7 +877,28 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       };
   };
 
+  const sendRoomEvent = async (eventType: string, payload?: Record<string, any>) => {
+      if (!id) return;
+      if (isGuest && !guestCanDraw && eventType.startsWith('whiteboard_')) return;
+      if (isGuest && (eventType === 'whiteboard_open' || eventType === 'whiteboard_close' || eventType === 'whiteboard_permission')) return;
+      const body = {
+          event_type: eventType,
+          payload: payload ? { ...payload, client_id: clientIdRef.current } : { client_id: clientIdRef.current }
+      };
+      try {
+          if (isGuest) {
+              if (!participantToken) return;
+              await api.post(`/virtual-rooms/public/${id}/events`, { token: participantToken, ...body });
+          } else {
+              await api.post(`/virtual-rooms/${id}/events`, body);
+          }
+      } catch (err) {
+          // ignore event errors
+      }
+  };
+
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (isGuest && !guestCanDraw) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -442,9 +916,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
         type: 'DRAW_START',
         payload: { x: pos.x, y: pos.y, color: drawColor }
     });
+    sendRoomEvent('whiteboard_start', { x: pos.x, y: pos.y, color: drawColor });
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (isGuest && !guestCanDraw) return;
     if (!isDrawing || !lastPointRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -473,11 +949,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
             color: drawColor 
         }
     });
+    sendRoomEvent('whiteboard_move', { 
+        startX: lastPointRef.current.x, 
+        startY: lastPointRef.current.y, 
+        endX: pos.x, 
+        endY: pos.y, 
+        color: drawColor 
+    });
 
     lastPointRef.current = pos;
   };
 
   const stopDrawing = () => {
+      if (isGuest && !guestCanDraw) return;
       setIsDrawing(false);
       lastPointRef.current = null;
   };
@@ -510,18 +994,49 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   };
 
   const clearCanvas = () => {
+      if (isGuest && !guestCanDraw) return;
       const ctx = canvasRef.current?.getContext('2d');
       if (ctx && canvasRef.current) {
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
           broadcastChannelRef.current?.postMessage({ type: 'CLEAR_BOARD' });
+          sendRoomEvent('whiteboard_clear');
       }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
-    setMessages([...messages, { sender: isGuest ? guestName || 'Convidado' : 'Você', text: newMessage, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) }]);
+    if (!newMessage.trim() || !id) return;
+    const message = newMessage.trim();
     setNewMessage('');
+    try {
+        if (isGuest) {
+            if (!participantToken) return;
+            await api.post(`/virtual-rooms/public/${id}/messages`, {
+                token: participantToken,
+                sender_name: guestName || 'Paciente',
+                message
+            });
+        } else {
+            await api.post(`/virtual-rooms/${id}/messages`, {
+                sender_name: hostDisplayName,
+                message
+            });
+        }
+    } catch (err) {
+        // ignore send errors; polling will keep UI consistent
+    }
+  };
+
+  const handleEndCall = async () => {
+      cleanupMedia();
+      if (isGuest && participantToken && id) {
+          try {
+              await api.post(`/virtual-rooms/public/${id}/leave`, { token: participantToken });
+          } catch (err) {
+              // ignore leave errors
+          }
+      }
+      navigate(isGuest ? '/' : '/salas-virtuais');
   };
 
   const getCompanionUrl = () => {
@@ -530,17 +1045,47 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
       return url.toString();
   };
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
       if (isGuest && !guestName.trim()) {
           alert("Por favor, digite seu nome para entrar.");
           return;
       }
       
+      // reset state per session (no chat cache)
+      setMessages([{
+          sender: 'Sistema',
+          text: 'Sala segura criada (Criptografia ponta-a-ponta).',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          role: 'system',
+          isLocal: false
+      }]);
+      setRemoteAnswers({});
+      setActiveAssessmentId(null);
+      setAssessmentStatus('idle');
+      setLastMessageId(0);
+      setLastEventId(0);
+      setLastAssessmentId(0);
+      lastMessageIdRef.current = 0;
+      lastEventIdRef.current = 0;
+      lastAssessmentIdRef.current = 0;
+
       setHasJoined(true);
       
       if (isGuest) {
           setConnectionStatus('waiting_approval');
-          // Request entry via broadcast
+          if (id) {
+              try {
+                  const data = await api.post<{ token: string }>(`/virtual-rooms/public/${id}/waiting`, { name: guestName });
+                  setWaitingToken(data.token);
+                  setParticipantToken(data.token);
+              } catch (err) {
+                  alert('Nao foi possivel entrar na fila.');
+                  setConnectionStatus('idle');
+                  setHasJoined(false);
+                  return;
+              }
+          }
+          // Optional: keep local broadcast for same-browser sessions
           broadcastChannelRef.current?.postMessage({
               type: 'REQUEST_ENTRY',
               payload: { name: guestName, id: 'guest-' + Date.now() }
@@ -564,19 +1109,20 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                   </button>
               </div>
               <div className="flex-1 relative overflow-hidden bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
-                  <canvas 
-                      ref={canvasRef}
-                      width={window.innerWidth} 
-                      height={window.innerHeight - 56}
-                      onMouseDown={startDrawing}
-                      onMouseMove={draw}
-                      onMouseUp={stopDrawing}
-                      onMouseLeave={stopDrawing}
-                      onTouchStart={startDrawing}
-                      onTouchMove={draw}
-                      onTouchEnd={stopDrawing}
-                      className="touch-none block cursor-crosshair"
-                  />
+              <canvas 
+                  ref={canvasRef}
+                  width={window.innerWidth} 
+                  height={window.innerHeight - 56}
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                  className={`touch-none block ${isGuest && !guestCanDraw ? 'cursor-default pointer-events-none' : 'cursor-crosshair'}`}
+              />
+              {!isGuest && (
                   <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/90 p-2 rounded-xl border border-slate-200 shadow-sm">
                       {['#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b'].map(color => (
                           <button 
@@ -587,6 +1133,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                           />
                       ))}
                   </div>
+              )}
               </div>
           </div>
       );
@@ -618,12 +1165,37 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   if (!hasJoined) {
       return (
           <div className="fixed inset-0 bg-slate-50 text-slate-800 flex items-center justify-center font-sans p-4 overflow-y-auto">
+              {waitingEntries.length > 0 && !isGuest && (
+                  <div className="absolute top-6 right-6 z-[100] animate-[slideLeft_0.3s_ease-out] w-full max-w-sm">
+                      <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-2xl">
+                          <div className="flex items-center justify-between mb-3">
+                              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Na espera ({waitingEntries.length})</div>
+                              <div className="text-[10px] text-slate-400">Permissao pendente</div>
+                          </div>
+                          <div className="space-y-3">
+                              {waitingEntries.map((entry) => (
+                                  <div key={entry.id} className="flex items-center gap-4">
+                                      <div className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg">{entry.guest_name.charAt(0)}</div>
+                                      <div className="flex-1">
+                                          <h4 className="font-bold text-sm text-slate-900">{entry.guest_name}</h4>
+                                          <p className="text-xs text-slate-500">Solicitando entrada...</p>
+                                      </div>
+                                      <div className="flex gap-2">
+                                          <button onClick={() => handleDenyGuest(entry)} className="p-2 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white transition-colors" title="Negar"><X size={18} /></button>
+                                          <button onClick={() => handleAdmitGuest(entry)} className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors" title="Admitir"><Check size={18} /></button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              )}
               <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8 my-auto h-auto min-h-[600px]">
                   {/* Left Column: Video Preview */}
                   <div className="flex flex-col justify-center animate-[fadeIn_0.5s_ease-out]">
                       <h1 className="text-3xl font-display font-bold mb-2 text-slate-900">Sala de Espera</h1>
                       <p className="text-slate-500 mb-6">
-                          {isGuest ? 'Você foi convidado para uma reunião' : `${appointment?.title || 'Consulta'} - ${appointment?.patientName || 'Paciente'}`}
+                          {isGuest ? 'Voce foi convidado para uma reuniao' : `${appointment?.title || 'Consulta'} - ${patientDisplayName}`}
                       </p>
                       
                       <div className="relative w-full aspect-video bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-200 shadow-2xl mb-6 group ring-4 ring-white">
@@ -726,15 +1298,32 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
     <div className="fixed inset-0 bg-[#0f1115] text-white overflow-hidden font-sans flex flex-col">
       
       {/* --- INCOMING REQUEST ALERT (HOST ONLY) --- */}
-      {incomingRequest && !isGuest && (
+      {waitingEntries.length > 0 && !isGuest && (
           <div className="absolute top-20 right-4 z-[100] animate-[slideLeft_0.3s_ease-out] w-full max-w-sm">
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-slate-800 font-bold text-lg">{incomingRequest.name.charAt(0)}</div>
-                  <div className="flex-1"><h4 className="font-bold text-sm text-white">{incomingRequest.name}</h4><p className="text-xs text-slate-300">Solicitando entrada...</p></div>
-                  <div className="flex gap-2">
-                      <button onClick={handleDenyGuest} className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors" title="Negar"><X size={18} /></button>
-                      <button onClick={handleAdmitGuest} className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors" title="Admitir"><Check size={18} /></button>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl">
+                  <div className="flex items-center justify-between mb-3">
+                      <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Na espera ({waitingEntries.length})</div>
+                      <div className="text-[10px] text-slate-400">Permissao pendente</div>
                   </div>
+                  <div className="space-y-3">
+                      {waitingEntries.map((entry) => (
+                          <div key={entry.id} className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-slate-800 font-bold text-lg">{entry.guest_name.charAt(0)}</div>
+                              <div className="flex-1"><h4 className="font-bold text-sm text-white">{entry.guest_name}</h4><p className="text-xs text-slate-300">Solicitando entrada...</p></div>
+                              <div className="flex gap-2">
+                                  <button onClick={() => handleDenyGuest(entry)} className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors" title="Negar"><X size={18} /></button>
+                                  <button onClick={() => handleAdmitGuest(entry)} className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors" title="Admitir"><Check size={18} /></button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+      {entryNotice && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[90] animate-[fadeIn_0.3s_ease-out]">
+              <div className="bg-emerald-600/90 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg border border-emerald-400/50">
+                  {entryNotice}
               </div>
           </div>
       )}
@@ -748,18 +1337,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
           </div>
           <div className="h-6 w-px bg-white/10 hidden sm:block"></div>
           <div className="hidden sm:block">
-             <h1 className="font-bold text-lg leading-none">{isGuest ? `Atendimento: ${appointment?.psychologistName || 'Profissional'}` : (appointment?.patientName || t('meeting.patient'))}</h1>
+             <h1 className="font-bold text-lg leading-none">{isGuest ? `Atendimento: ${hostDisplayName}` : (patientDisplayName || t('meeting.patient'))}</h1>
              <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Em atendimento</p>
           </div>
         </div>
         
         <div className="flex items-center gap-3">
            {!isGuest && (
-               <>
-                   <button onClick={() => setShowLinkDeviceModal(true)} className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg text-xs font-bold transition-all border border-indigo-500/30"><Tablet size={14} /> Lousa no Tablet</button>
-                   <button onClick={() => setShowSettingsModal(true)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Configurações"><Settings size={20} /></button>
-               </>
+               <button onClick={() => setShowLinkDeviceModal(true)} className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg text-xs font-bold transition-all border border-indigo-500/30"><Tablet size={14} /> Lousa no Tablet</button>
            )}
+           <button onClick={() => setShowSettingsModal(true)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white" title="Configurações"><Settings size={20} /></button>
         </div>
       </header>
 
@@ -770,15 +1357,73 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
         <div className="flex-1 relative flex items-center justify-center p-2 md:p-4">
            
            {/* Remote Participant Area */}
-           <div className="w-full h-full max-w-6xl max-h-[85vh] relative flex items-center justify-center">
+           <div className={`w-full h-full ${useGridLayout ? '' : 'max-w-6xl max-h-[85vh]'} relative flex items-center justify-center`}>
               
               {screenShare ? (
                  <video ref={screenShareRef} autoPlay muted playsInline className="w-full h-full object-contain rounded-2xl shadow-2xl bg-black" />
+              ) : useGridLayout ? (
+                 <div className={`w-full h-full ${layoutMode === 'side-by-side' ? 'grid grid-cols-1 md:grid-cols-2' : 'grid grid-rows-2'} gap-4`}>
+                    <div className="relative w-full h-full bg-[#1e2025] rounded-[24px] md:rounded-[32px] overflow-hidden shadow-2xl border border-white/5">
+                       {remoteScreenShareActive ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+                             <MonitorUp size={40} className="text-emerald-400 mb-3" />
+                             <p className="text-sm md:text-base font-bold text-slate-200">Compartilhamento de tela ativo</p>
+                             <p className="text-xs text-slate-500 mt-1">O profissional esta compartilhando a tela.</p>
+                          </div>
+                       ) : remoteUserConnected ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+                             <div className="w-24 h-24 md:w-36 md:h-36 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-4xl md:text-5xl font-bold text-white shadow-2xl">
+                                {remoteInitial}
+                             </div>
+                             <p className="mt-4 text-sm md:text-base font-bold text-slate-200">{remoteDisplayName}</p>
+                          </div>
+                       ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-center px-4">
+                             <div className="w-24 h-24 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(0,0,0,0.3)] border-4 border-white/5">
+                                <User size={48} className="text-slate-400" />
+                             </div>
+                             <h2 className="text-lg md:text-xl font-display font-bold text-slate-200">{t('meeting.waiting')}</h2>
+                             <p className="text-slate-500 mt-2 text-xs md:text-sm">{isGuest ? 'Aguardando o profissional...' : 'O paciente entrar em breve...'}</p>
+                          </div>
+                       )}
+                       <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl text-white text-sm font-bold flex items-center gap-2">
+                          {remoteDisplayName} <MicIcon size={14} className="text-emerald-400" />
+                       </div>
+                    </div>
+                    <div className="relative w-full h-full bg-[#1e2025] rounded-[24px] md:rounded-[32px] overflow-hidden shadow-2xl border border-white/5">
+                       {cameraOn ? (
+                          <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
+                       ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 relative">
+                             <div className="w-24 h-24 md:w-36 md:h-36 rounded-full bg-indigo-600 flex items-center justify-center text-3xl md:text-4xl font-bold shadow-lg">
+                                {localInitial}
+                             </div>
+                             {micOn && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-24 h-24 md:w-36 md:h-36 rounded-full border-2 border-indigo-500/30 animate-ping"></div></div>}
+                          </div>
+                       )}
+                       <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                          {t('meeting.you')} {!micOn && <MicOff size={12} className="text-red-400" />}
+                       </div>
+                    </div>
+                 </div>
+              ) : remoteScreenShareActive ? (
+                 <div className="relative w-full h-full bg-[#1e2025] rounded-[24px] md:rounded-[32px] overflow-hidden shadow-2xl border border-white/5 animate-[fadeIn_0.5s_ease-out]">
+                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+                         <MonitorUp size={64} className="text-emerald-400 mb-4" />
+                         <p className="text-lg font-bold text-slate-200">Compartilhamento de tela ativo</p>
+                         <p className="text-sm text-slate-500 mt-2">O profissional esta compartilhando a tela.</p>
+                     </div>
+                 </div>
               ) : remoteUserConnected ? (
                  <div className="relative w-full h-full bg-[#1e2025] rounded-[24px] md:rounded-[32px] overflow-hidden shadow-2xl border border-white/5 animate-[fadeIn_0.5s_ease-out]">
-                     <img src={isGuest ? "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=1000&auto=format&fit=crop" : "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1000&auto=format&fit=crop"} alt="Remote User" className="w-full h-full object-cover opacity-90" />
+                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+                         <div className="w-32 h-32 md:w-48 md:h-48 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-5xl md:text-6xl font-bold text-white shadow-2xl">
+                            {remoteInitial}
+                         </div>
+                         <p className="mt-6 text-lg font-bold text-slate-200">{remoteDisplayName}</p>
+                     </div>
                      <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl text-white text-sm font-bold flex items-center gap-2">
-                         {isGuest ? 'Dra. Karen Gomes' : 'Paciente'} <MicIcon size={14} className="text-emerald-400" />
+                         {remoteDisplayName} <MicIcon size={14} className="text-emerald-400" />
                      </div>
                  </div>
               ) : (
@@ -788,7 +1433,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                           <User size={60} className="text-slate-400 md:w-20 md:h-20" />
                        </div>
                        <h2 className="text-2xl md:text-3xl font-display font-bold text-slate-200">{t('meeting.waiting')}</h2>
-                       <p className="text-slate-500 mt-2 text-sm md:text-lg">{isGuest ? 'Aguardando o profissional...' : 'O paciente entrará em breve...'}</p>
+                       <p className="text-slate-500 mt-2 text-sm md:text-lg">{isGuest ? 'Aguardando o profissional...' : 'O paciente entrar em breve...'}</p>
                     </div>
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/5 via-transparent to-transparent opacity-50"></div>
                  </div>
@@ -805,21 +1450,23 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
            </div>
 
            {/* PIP (Local User) */}
-           <div className="absolute top-4 right-4 w-28 md:w-72 aspect-video md:top-auto md:bottom-8 md:right-8 bg-[#1e2025] rounded-xl md:rounded-2xl overflow-hidden border border-white/10 shadow-2xl z-30 group cursor-move transition-all duration-300">
-              {cameraOn ? (
-                 <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
-              ) : (
-                 <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 relative">
-                    <div className="w-8 h-8 md:w-16 md:h-16 rounded-full bg-indigo-600 flex items-center justify-center text-xs md:text-xl font-bold shadow-lg">
-                        {isGuest ? (guestName.charAt(0) || 'G') : 'You'}
+           {!useGridLayout && (
+              <div className="absolute top-4 right-4 w-28 md:w-72 aspect-video md:top-auto md:bottom-8 md:right-8 bg-[#1e2025] rounded-xl md:rounded-2xl overflow-hidden border border-white/10 shadow-2xl z-30 group cursor-move transition-all duration-300">
+                 {cameraOn ? (
+                    <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
+                 ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 relative">
+                       <div className="w-8 h-8 md:w-16 md:h-16 rounded-full bg-indigo-600 flex items-center justify-center text-xs md:text-xl font-bold shadow-lg">
+                           {localInitial}
+                       </div>
+                       {micOn && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-12 h-12 md:w-20 md:h-20 rounded-full border-2 border-indigo-500/30 animate-ping"></div></div>}
                     </div>
-                    {micOn && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-12 h-12 md:w-20 md:h-20 rounded-full border-2 border-indigo-500/30 animate-ping"></div></div>}
+                 )}
+                 <div className="absolute bottom-1 left-1 md:bottom-3 md:left-3 bg-black/60 backdrop-blur-sm px-2 py-0.5 md:px-3 md:py-1 rounded md:rounded-lg text-[8px] md:text-xs font-bold flex items-center gap-1 md:gap-2">
+                    {t('meeting.you')} {!micOn && <MicOff size={8} className="text-red-400 md:w-3 md:h-3" />}
                  </div>
-              )}
-              <div className="absolute bottom-1 left-1 md:bottom-3 md:left-3 bg-black/60 backdrop-blur-sm px-2 py-0.5 md:px-3 md:py-1 rounded md:rounded-lg text-[8px] md:text-xs font-bold flex items-center gap-1 md:gap-2">
-                 {t('meeting.you')} {!micOn && <MicOff size={8} className="text-red-400 md:w-3 md:h-3" />}
               </div>
-           </div>
+           )}
         </div>
 
         {/* SIDE PANEL */}
@@ -842,8 +1489,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                     <>
                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                           {messages.map((msg, i) => (
-                             <div key={i} className={`flex flex-col ${msg.sender === (isGuest ? guestName || 'Convidado' : 'Você') ? 'items-end' : 'items-start'}`}>
-                                <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${msg.sender === (isGuest ? guestName || 'Convidado' : 'Você') ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#252830] text-slate-200 rounded-tl-none border border-white/5'}`}>
+                             <div key={i} className={`flex flex-col ${msg.isLocal ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${msg.isLocal ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#252830] text-slate-200 rounded-tl-none border border-white/5'}`}>
                                    {msg.text}
                                 </div>
                                 <span className="text-[10px] text-slate-500 mt-1 px-1">{msg.time}</span>
@@ -862,14 +1509,21 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                  {activeSidePanel === 'whiteboard' && (
                     <div className="flex flex-col h-full bg-white">
                         <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                            <div className="flex gap-2">
-                                {['#000000', '#ef4444', '#3b82f6', '#10b981'].map(color => (
-                                    <button key={color} onClick={() => setDrawColor(color)} className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${drawColor === color ? 'border-slate-400 scale-110 shadow-sm' : 'border-transparent'}`} style={{ backgroundColor: color }} />
-                                ))}
-                            </div>
-                            <div className="flex items-center gap-1 bg-white rounded-lg border border-slate-200 p-0.5">
-                                <button onClick={clearCanvas} className="p-1.5 hover:bg-slate-100 rounded text-slate-600" title={t('meeting.clearBoard')}><Eraser size={16} /></button>
-                            </div>
+                            {!isGuest && (
+                                <>
+                                    <div className="flex gap-2">
+                                        {['#000000', '#ef4444', '#3b82f6', '#10b981'].map(color => (
+                                            <button key={color} onClick={() => setDrawColor(color)} className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${drawColor === color ? 'border-slate-400 scale-110 shadow-sm' : 'border-transparent'}`} style={{ backgroundColor: color }} />
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center gap-1 bg-white rounded-lg border border-slate-200 p-0.5">
+                                        <button onClick={clearCanvas} className="p-1.5 hover:bg-slate-100 rounded text-slate-600" title={t('meeting.clearBoard')}><Eraser size={16} /></button>
+                                    </div>
+                                </>
+                            )}
+                            {isGuest && (
+                                <div className="text-xs text-slate-500 font-semibold">Lousa compartilhada pelo profissional</div>
+                            )}
                         </div>
                         <div className="flex-1 overflow-hidden cursor-crosshair relative bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
                             <canvas ref={canvasRef} width={400} height={800} onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} className="w-full h-full" />
@@ -1034,6 +1688,25 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
               <div className="bg-[#181a1f] border border-white/10 w-full max-w-lg rounded-[2rem] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden">
                   <div className="p-6 border-b border-white/10 flex justify-between items-center"><h3 className="text-xl font-bold text-white flex items-center gap-2"><Settings size={20} /> Configurações</h3><button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-white"><X size={20} /></button></div>
                   <div className="p-6 space-y-6">
+                      {!isGuest && (
+                          <div className="space-y-3">
+                              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><PenTool size={14} /> Lousa</label>
+                              <div className="flex items-center justify-between bg-[#252830] border border-white/10 rounded-xl px-4 py-3">
+                                  <span className="text-sm text-slate-200">Permitir paciente desenhar</span>
+                                  <button onClick={() => setAllowGuestDraw(!allowGuestDraw)} className={`w-12 h-7 rounded-full transition-colors ${allowGuestDraw ? 'bg-emerald-500' : 'bg-slate-600'}`}>
+                                      <span className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${allowGuestDraw ? 'translate-x-6' : 'translate-x-1'}`}></span>
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+                      <div className="space-y-3">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Layout size={14} /> Layout da Sala</label>
+                          <div className="grid grid-cols-3 gap-2">
+                              <button onClick={() => setLayoutMode('focus')} className={layoutMode === 'focus' ? 'px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-indigo-600 text-white border-indigo-500' : 'px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-[#252830] text-slate-300 border-white/10 hover:bg-[#2d313a]'}>Foco</button>
+                              <button onClick={() => setLayoutMode('side-by-side')} className={layoutMode === 'side-by-side' ? 'px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-indigo-600 text-white border-indigo-500' : 'px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-[#252830] text-slate-300 border-white/10 hover:bg-[#2d313a]'}>Lado a lado</button>
+                              <button onClick={() => setLayoutMode('stacked')} className={layoutMode === 'stacked' ? 'px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-indigo-600 text-white border-indigo-500' : 'px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-[#252830] text-slate-300 border-white/10 hover:bg-[#2d313a]'}>Empilhado</button>
+                          </div>
+                      </div>
                       <div className="space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Video size={14} /> Câmera</label><div className="relative"><select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none"><option>FaceTime HD Camera (Built-in)</option><option>External Webcam</option></select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} /></div></div>
                       <div className="space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Mic size={14} /> Microfone</label><div className="relative"><select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none"><option>MacBook Pro Microphone (Built-in)</option><option>AirPods Pro</option></select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} /></div><div className="flex items-center gap-2"><div className="flex-1 bg-[#252830] h-2 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 w-[60%] animate-pulse"></div></div><span className="text-xs text-emerald-400 font-bold">Bom</span></div></div>
                       <div className="space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Volume2 size={14} /> Saída de Áudio</label><div className="relative"><select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none"><option>MacBook Pro Speakers</option><option>AirPods Pro</option></select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} /></div><button className="text-xs text-indigo-400 font-bold hover:underline">Testar Som</button></div>
@@ -1061,7 +1734,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20"><PhoneOff size={36} /></div>
                <h3 className="text-2xl font-bold text-white mb-2">Encerrar Sessão?</h3>
                <p className="text-slate-400 mb-8 text-sm leading-relaxed">Isso desconectará você e o paciente da sala virtual. Certifique-se de que o prontuário foi salvo.</p>
-               <div className="flex gap-3"><button onClick={() => setShowEndModal(false)} className="flex-1 py-3.5 rounded-xl font-bold text-slate-300 hover:bg-white/10 transition-colors">Cancelar</button><button onClick={() => { cleanupMedia(); navigate(isGuest ? '/' : '/salas-virtuais'); }} className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors">Encerrar</button></div>
+               <div className="flex gap-3"><button onClick={() => setShowEndModal(false)} className="flex-1 py-3.5 rounded-xl font-bold text-slate-300 hover:bg-white/10 transition-colors">Cancelar</button><button onClick={handleEndCall} className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors">Encerrar</button></div>
             </div>
          </div>
       )}

@@ -28,6 +28,7 @@ export const Agenda: React.FC = () => {
   const [applyToSeries, setApplyToSeries] = useState(false);
   const [deleteSeries, setDeleteSeries] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const [formData, setFormData] = useState<any>({
       type: 'consulta',
@@ -400,13 +401,12 @@ export const Agenda: React.FC = () => {
   };
 
   const handleDelete = async () => {
-      if (window.confirm('Excluir este agendamento?')) {
-          const suffix = deleteSeries ? '?delete_series=1' : '';
-          await api.delete(`/appointments/${formData.id}${suffix}`);
-          fetchData();
-          setIsModalOpen(false);
-          pushToast('success', 'Agendamento removido.');
-      }
+      const suffix = deleteSeries ? '?delete_series=1' : '';
+      await api.delete(`/appointments/${formData.id}${suffix}`);
+      fetchData();
+      setIsModalOpen(false);
+      setIsDeleteModalOpen(false);
+      pushToast('success', 'Agendamento removido.');
   };
 
   return (
@@ -1112,13 +1112,46 @@ export const Agenda: React.FC = () => {
                                           Excluir serie
                                       </label>
                                   )}
-                                  <button onClick={handleDelete} className="px-3 py-2 bg-white text-red-600 rounded-lg hover:bg-red-50 transition-colors border border-red-200" title="Excluir Agendamento">
+                                  <button onClick={() => setIsDeleteModalOpen(true)} className="px-3 py-2 bg-white text-red-600 rounded-lg hover:bg-red-50 transition-colors border border-red-200" title="Excluir Agendamento">
                                       <Trash2 size={18}/>
                                   </button>
                               </div>
                           )}
                           <button onClick={handleSave} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg shadow-sm transition-all">
                               {formData.id ? 'Salvar Alteracoes' : 'Confirmar Atendimento'}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          )}
+          {isDeleteModalOpen && (
+              <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                  <div className="bg-white w-full max-w-sm rounded-xl shadow-xl border border-slate-200 overflow-hidden">
+                      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-slate-800">Excluir agendamento</h4>
+                          <button onClick={() => setIsDeleteModalOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                              <X size={16} />
+                          </button>
+                      </div>
+                      <div className="p-5 space-y-3 text-sm text-slate-600">
+                          <p>Deseja realmente excluir este agendamento?</p>
+                          {(formData.parent_appointment_id || formData.recurrence_rule) && (
+                              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={deleteSeries}
+                                    onChange={(e) => setDeleteSeries(e.target.checked)}
+                                  />
+                                  Excluir toda a serie
+                              </label>
+                          )}
+                      </div>
+                      <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                          <button onClick={() => setIsDeleteModalOpen(false)} className="px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">
+                              Cancelar
+                          </button>
+                          <button onClick={handleDelete} className="px-3 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg">
+                              Excluir
                           </button>
                       </div>
                   </div>

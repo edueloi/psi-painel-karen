@@ -3,10 +3,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Video, Calendar, Clock, Copy, ArrowRight, Link as LinkIcon, 
-  Plus, History, Play, Trash2, Loader2, Search, Check, ShieldCheck 
+  Plus, History, Play, Trash2, Loader2, Search, Check, ShieldCheck, X 
 } from 'lucide-react';
 import { api } from '../services/api';
-import { VirtualRoom } from '../types';
+import { VirtualRoom, Patient, User } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const VirtualRooms: React.FC = () => {
@@ -15,18 +15,41 @@ export const VirtualRooms: React.FC = () => {
   
   // State
   const [rooms, setRooms] = useState<VirtualRoom[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [professionals, setProfessionals] = useState<User[]>([]);
   const [meetingCode, setMeetingCode] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [roomSearch, setRoomSearch] = useState('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSavingRoom, setIsSavingRoom] = useState(false);
+  const [createdRoom, setCreatedRoom] = useState<VirtualRoom | null>(null);
+  const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
+  const [createForm, setCreateForm] = useState({
+      title: '',
+      description: '',
+      scheduled_start: '',
+      scheduled_end: '',
+      patient_id: '',
+      professional_id: '',
+      appointment_id: '',
+      provider: 'jitsi',
+      link: '',
+      expiration_date: ''
+  });
 
   // Load Rooms
   const fetchRooms = async () => {
     setIsLoading(true);
     try {
-        const data = await api.get<VirtualRoom[]>('/virtual-rooms');
+        const [data, pts, pros] = await Promise.all([
+            api.get<VirtualRoom[]>('/virtual-rooms'),
+            api.get<Patient[]>('/patients'),
+            api.get<User[]>('/users')
+        ]);
         setRooms(data);
+        setPatients(pts || []);
+        setProfessionals((pros || []).filter(p => p.role !== 'secretario'));
     } catch (e) {
         console.error("Erro ao buscar salas:", e);
     } finally {
@@ -66,25 +89,84 @@ export const VirtualRooms: React.FC = () => {
       persistent: persistentRooms.length
   }), [rooms, upcomingRooms, persistentRooms]);
 
+  const pushToast = (type: 'success' | 'error', message: string) => {
+      const id = Date.now() + Math.floor(Math.random() * 1000);
+      setToasts(prev => [...prev, { id, type, message }]);
+      window.setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== id));
+      }, 3200);
+  };
+
+  const generateCode = () => Math.random().toString(36).substr(2, 9);
+
+  const openCreateModal = (preset?: { title?: string; description?: string }) => {
+      setCreatedRoom(null);
+      setCreateForm({
+          title: preset?.title || '',
+          description: preset?.description || '',
+          scheduled_start: '',
+          scheduled_end: '',
+          patient_id: '',
+          professional_id: '',
+          appointment_id: '',
+          provider: 'jitsi',
+          link: '',
+          expiration_date: ''
+      });
+      setIsCreateModalOpen(true);
+  };
+
   // Handlers
   const handleInstantMeeting = async () => {
-    setIsCreating(true);
-    const randomCode = Math.random().toString(36).substr(2, 9);
-    
-    try {
-        const response = await api.post<{ message: string, id: number }>('/virtual-rooms', {
-            code: randomCode,
-            title: `${t('rooms.instantTitle')} - ${new Date().toLocaleDateString()}`,
-            description: t('rooms.instantDesc')
-        });
-        
-        // Redireciona imediatamente apos criar
-        navigate(`/sala/${randomCode}`);
-    } catch (e: any) {
-        alert(t('rooms.errorCreate') + " " + e.message);
-    } finally {
-        setIsCreating(false);
-    }
+    openCreateModal({
+        title: `${t('rooms.instantTitle')} - ${new Date().toLocaleDateString()}`,
+        description: t('rooms.instantDesc')
+    });
+  };
+
+  const handleCreateRoom = async () => {
+      setIsSavingRoom(true);
+      const code = generateCode();
+      try {
+          const response = await api.post<{ message: string; id: number }>('/virtual-rooms', {
+              code,
+              title: createForm.title || null,
+              description: createForm.description || null,
+              scheduled_start: createForm.scheduled_start || null,
+              scheduled_end: createForm.scheduled_end || null,
+              patient_id: createForm.patient_id || null,
+              professional_id: createForm.professional_id || null,
+              appointment_id: createForm.appointment_id || null,
+              provider: createForm.provider || null,
+              link: createForm.link || null,
+              expiration_date: createForm.expiration_date || null
+          });
+          const room: VirtualRoom = {
+              id: response.id,
+              tenant_id: 0,
+              creator_user_id: 0,
+              code,
+              title: createForm.title || undefined,
+              description: createForm.description || undefined,
+              scheduled_start: createForm.scheduled_start || undefined,
+              scheduled_end: createForm.scheduled_end || undefined,
+              patient_id: createForm.patient_id ? Number(createForm.patient_id) : undefined,
+              professional_id: createForm.professional_id ? Number(createForm.professional_id) : undefined,
+              appointment_id: createForm.appointment_id ? Number(createForm.appointment_id) : undefined,
+              provider: (createForm.provider || 'jitsi') as VirtualRoom['provider'],
+              link: createForm.link || undefined,
+              expiration_date: createForm.expiration_date || undefined,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+          };
+          setCreatedRoom(room);
+          setRooms(prev => [room, ...prev]);
+          pushToast('success', 'Sala criada com sucesso.');
+      } catch (e: any) {
+          pushToast('error', t('rooms.errorCreate') + ' ' + (e.message || ''));
+      } finally {
+          setIsSavingRoom(false);
+      }
   };
 
   const handleJoinByCode = (e: React.FormEvent) => {
@@ -114,6 +196,18 @@ export const VirtualRooms: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20 px-4 sm:px-6 lg:px-0">
+      {toasts.length > 0 && (
+        <div className="fixed top-6 right-6 z-[200] space-y-3">
+          {toasts.map(t => (
+            <div
+              key={t.id}
+              className={`px-4 py-3 rounded-2xl shadow-xl border text-sm font-bold ${t.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}
+            >
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* --- HERO SECTION --- */}
       <div className="relative overflow-hidden rounded-[28px] p-8 bg-slate-950 shadow-2xl shadow-indigo-900/30 border border-slate-800 text-white">
@@ -126,47 +220,196 @@ export const VirtualRooms: React.FC = () => {
             <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-indigo-200 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
                     <Video size={14} />
-                    <span>Telemedicina Segura</span>
+                    <span>{t('rooms.badge')}</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('rooms.title')}</h1>
                 <p className="text-indigo-100 text-lg leading-relaxed max-w-xl">
                     {t('rooms.subtitle')}
                 </p>
                 <div className="mt-6 flex flex-wrap items-center gap-3 text-xs font-bold text-indigo-100/80">
-                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">Criptografia ponta a ponta</span>
-                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">Sem app extra</span>
-                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">Link seguro</span>
+                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{t('rooms.feature.e2e')}</span>
+                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{t('rooms.feature.noApp')}</span>
+                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{t('rooms.feature.link')}</span>
                 </div>
             </div>
             
-            {isCreating ? (
-                <div className="flex items-center gap-3 bg-white/10 px-6 py-4 rounded-2xl border border-white/20 animate-pulse">
-                    <Loader2 className="animate-spin text-indigo-400" />
-                    <span className="font-bold">{t('rooms.creating')}</span>
-                </div>
-            ) : (
-                <button 
-                    onClick={handleInstantMeeting}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0"
-                >
-                    <Plus size={24} />
-                    {t('rooms.instant')}
-                </button>
-            )}
+            <button 
+                onClick={handleInstantMeeting}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0"
+            >
+                <Plus size={24} />
+                {t('rooms.instant')}
+            </button>
         </div>
       </div>
 
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-slate-800">Criar sala virtual</h4>
+              <button onClick={() => setIsCreateModalOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Titulo</label>
+                <input
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm"
+                  value={createForm.title}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Sessao de acompanhamento"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Descricao</label>
+                <textarea
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm resize-none h-20"
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Observacoes para a sala..."
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Inicio</label>
+                  <input
+                    type="datetime-local"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm"
+                    value={createForm.scheduled_start}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, scheduled_start: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Fim</label>
+                  <input
+                    type="datetime-local"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm"
+                    value={createForm.scheduled_end}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, scheduled_end: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Paciente</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm bg-white"
+                    value={createForm.patient_id}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, patient_id: e.target.value }))}
+                  >
+                    <option value="">Sem paciente</option>
+                    {patients.map(p => (
+                      <option key={p.id} value={String(p.id)}>{p.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Profissional</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm bg-white"
+                    value={createForm.professional_id}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, professional_id: e.target.value }))}
+                  >
+                    <option value="">Sem profissional</option>
+                    {professionals.map(p => (
+                      <option key={p.id} value={String(p.id)}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Provider</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm bg-white"
+                    value={createForm.provider}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, provider: e.target.value }))}
+                  >
+                    <option value="jitsi">Jitsi</option>
+                    <option value="zoom">Zoom</option>
+                    <option value="teams">Teams</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Expira em</label>
+                  <input
+                    type="datetime-local"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm"
+                    value={createForm.expiration_date}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, expiration_date: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Link externo (opcional)</label>
+                <input
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 text-sm"
+                  value={createForm.link}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, link: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                O link e publico. O cliente entra sem login usando <code className="font-mono">/sala/{'{codigo}'}</code>.
+              </div>
+
+              {createdRoom && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                  <div className="font-semibold text-emerald-700 mb-1">Sala criada</div>
+                  <div className="text-xs text-emerald-700 break-all mb-3">
+                    {`${window.location.origin}/sala/${createdRoom.code}`}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleCopyLink(createdRoom)}
+                      className="px-3 py-2 text-xs font-semibold bg-white border border-emerald-200 rounded-lg text-emerald-700 hover:bg-emerald-100"
+                    >
+                      Copiar link publico
+                    </button>
+                    <button
+                      onClick={() => navigate(`/sala/${createdRoom.code}`)}
+                      className="px-3 py-2 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                    >
+                      Abrir sala
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button onClick={() => setIsCreateModalOpen(false)} className="px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateRoom}
+                disabled={isSavingRoom}
+                className="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {isSavingRoom ? 'Criando...' : 'Criar sala'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Salas ativas</div>
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">{t('rooms.stats.active')}</div>
           <div className="text-2xl font-display font-bold text-slate-800 mt-2">{roomStats.total}</div>
         </div>
         <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Agendadas</div>
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">{t('rooms.stats.upcoming')}</div>
           <div className="text-2xl font-display font-bold text-slate-800 mt-2">{roomStats.upcoming}</div>
         </div>
         <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Persistentes</div>
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">{t('rooms.stats.persistent')}</div>
           <div className="text-2xl font-display font-bold text-slate-800 mt-2">{roomStats.persistent}</div>
         </div>
       </div>
@@ -213,7 +456,7 @@ export const VirtualRooms: React.FC = () => {
                                   <input
                                     value={roomSearch}
                                     onChange={(e) => setRoomSearch(e.target.value)}
-                                    placeholder="Buscar sala..."
+                                    placeholder={t('rooms.search')}
                                     className="w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
                                   />
                               </div>
@@ -279,7 +522,7 @@ export const VirtualRooms: React.FC = () => {
                       </h3>
                       <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
                           <ShieldCheck size={14} />
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Hiper-Seguro</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">{t('rooms.secureBadge')}</span>
                       </div>
                   </div>
                   

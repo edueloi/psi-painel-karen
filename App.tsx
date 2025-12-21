@@ -98,7 +98,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/pacientes" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
       <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
       <Route path="/salas-virtuais" element={<ProtectedRoute><VirtualRooms /></ProtectedRoute>} />
-      <Route path="/sala/:id" element={<ProtectedRoute><MeetingRoom /></ProtectedRoute>} />
+      <Route path="/sala/:id" element={<MeetingRoom />} />
       <Route path="/bot" element={<ProtectedRoute><BotIntegration /></ProtectedRoute>} />
 
       {/* Rotas clinicas avancadas */}

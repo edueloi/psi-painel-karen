@@ -64,29 +64,55 @@ export const translations = {
     // Salas Virtuais (Rooms)
     'rooms.title': 'Atendimento Online',
     'rooms.subtitle': 'Salas seguras com criptografia ponta-a-ponta, lousa interativa e chat para teleconsulta.',
-    'rooms.instant': 'Sala Instantânea',
+    'rooms.instant': 'Sala Instantanea',
     'rooms.creating': 'Criando sala segura...',
-    'rooms.enterCode': 'Entrar com Código',
+    'rooms.enterCode': 'Entrar com Codigo',
     'rooms.join': 'Acessar Sala',
     'rooms.history': 'Minhas Salas',
-    'rooms.upcoming': 'Próximos Atendimentos',
+    'rooms.upcoming': 'Proximos Atendimentos',
     'rooms.noUpcoming': 'Sem consultas agendadas para hoje.',
     'rooms.deleteConfirm': 'Tem certeza que deseja excluir esta sala permanentemente?',
     'rooms.copyLink': 'Copiar Link',
     'rooms.startNow': 'Iniciar Atendimento',
     'rooms.placeholderCode': 'Ex: abc-123-xyz',
     'rooms.persistent': 'Salas Permanentes',
-    'rooms.unnamed': 'Sala sem título',
+    'rooms.unnamed': 'Sala sem titulo',
     'rooms.createdAt': 'Criada em',
     'rooms.noPersistent': 'Nenhuma sala fixa encontrada.',
-    'rooms.errorCreate': 'Não foi possível criar a sala.',
+    'rooms.errorCreate': 'Nao foi possivel criar a sala.',
     'rooms.errorDelete': 'Erro ao remover a sala do servidor.',
-    'rooms.instantTitle': 'Sala Instantânea',
-    'rooms.instantDesc': 'Criada via atalho de acesso rápido.',
+    'rooms.instantTitle': 'Sala Instantanea',
+    'rooms.instantDesc': 'Criada via atalho de acesso rapido.',
     'rooms.defaultTitle': 'Consulta Online',
-    'rooms.noDesc': 'Nenhuma descrição fornecida.',
+    'rooms.noDesc': 'Nenhuma descricao fornecida.',
+
+    // Sala Virtual (Meeting)
+    'meeting.patient': 'Paciente',
+    'meeting.waiting': 'Aguardando...',
+    'meeting.waitingForStart': 'Aguardando inicio do teste.',
+    'meeting.listening': 'Ouvindo...',
+    'meeting.you': 'Voce',
+    'meeting.chat': 'Chat',
+    'meeting.whiteboard': 'Lousa',
+    'meeting.assessments': 'Avaliacoes',
+    'meeting.clearBoard': 'Limpar lousa',
+    'meeting.testComplete': 'Teste finalizado',
+    'meeting.monitoring': 'Monitorando',
+    'meeting.resultCalculated': 'Resultado',
+    'meeting.sendTest': 'Enviar teste',
 
     
+    
+    'rooms.badge': 'Telemedicina Segura',
+    'rooms.feature.e2e': 'Criptografia ponta a ponta',
+    'rooms.feature.noApp': 'Sem app extra',
+    'rooms.feature.link': 'Link seguro',
+    'rooms.stats.active': 'Salas ativas',
+    'rooms.stats.upcoming': 'Agendadas',
+    'rooms.stats.persistent': 'Persistentes',
+    'rooms.search': 'Buscar sala...',
+    'rooms.secureBadge': 'Hiper seguro',
+
     // Estudo de Casos (Case Studies)
     'cases.title': 'Estudo de Casos',
     'cases.boards': 'Quadros de Casos',
@@ -714,6 +740,21 @@ export const translations = {
     'topbar.notifications': 'Notificações',
   },
   en: {
+
+    // Meeting Room
+    'meeting.patient': 'Patient',
+    'meeting.waiting': 'Waiting...',
+    'meeting.waitingForStart': 'Waiting to start.',
+    'meeting.listening': 'Listening...',
+    'meeting.you': 'You',
+    'meeting.chat': 'Chat',
+    'meeting.whiteboard': 'Whiteboard',
+    'meeting.assessments': 'Assessments',
+    'meeting.clearBoard': 'Clear board',
+    'meeting.testComplete': 'Test completed',
+    'meeting.monitoring': 'Monitoring',
+    'meeting.resultCalculated': 'Result',
+    'meeting.sendTest': 'Send test',
     // Navegação
     'nav.dashboard': 'Dashboard',
     'nav.agenda': 'Schedule',
@@ -817,9 +858,30 @@ export const translations = {
     'rooms.creating': 'Creating secure room...',
     'rooms.enterCode': 'Enter with Code',
     'rooms.join': 'Join Room',
-    'rooms.history': 'My Rooms',
+    
+    'rooms.placeholderCode': 'e.g. abc-123-xyz',
+    'rooms.persistent': 'Persistent Rooms',
+    'rooms.unnamed': 'Untitled room',
+    'rooms.createdAt': 'Created on',
+    'rooms.noPersistent': 'No persistent rooms found.',
+    'rooms.errorCreate': 'Unable to create room.',
+    'rooms.errorDelete': 'Error deleting room.',
+    'rooms.instantTitle': 'Instant Room',
+    'rooms.instantDesc': 'Created from quick access.',
+    'rooms.defaultTitle': 'Online Consultation',
+    'rooms.noDesc': 'No description provided.','rooms.history': 'My Rooms',
     'rooms.upcoming': 'Upcoming Meetings',
     'rooms.noUpcoming': 'No consultations scheduled for today.',
+    
+    'rooms.badge': 'Secure Telemedicine',
+    'rooms.feature.e2e': 'End-to-end encryption',
+    'rooms.feature.noApp': 'No extra app',
+    'rooms.feature.link': 'Secure link',
+    'rooms.stats.active': 'Active rooms',
+    'rooms.stats.upcoming': 'Scheduled',
+    'rooms.stats.persistent': 'Persistent',
+    'rooms.search': 'Search room...',
+    'rooms.secureBadge': 'Ultra secure',
     'rooms.deleteConfirm': 'Are you sure you want to permanently delete this room?',
     'rooms.copyLink': 'Copy Link',
     'rooms.startNow': 'Start Consultation',
@@ -1378,6 +1440,21 @@ export const translations = {
 
   },
   es: {
+
+    // Sala Virtual
+    'meeting.patient': 'Paciente',
+    'meeting.waiting': 'Esperando...',
+    'meeting.waitingForStart': 'Esperando para iniciar.',
+    'meeting.listening': 'Escuchando...',
+    'meeting.you': 'Tu',
+    'meeting.chat': 'Chat',
+    'meeting.whiteboard': 'Pizarra',
+    'meeting.assessments': 'Evaluaciones',
+    'meeting.clearBoard': 'Limpiar pizarra',
+    'meeting.testComplete': 'Test finalizado',
+    'meeting.monitoring': 'Monitoreando',
+    'meeting.resultCalculated': 'Resultado',
+    'meeting.sendTest': 'Enviar test',
     // Navegação
     'nav.dashboard': 'Panel',
     'nav.agenda': 'Agenda',
@@ -1503,15 +1580,37 @@ export const translations = {
     'dashboard.enterRoom': 'Entrar en la Sala',
 
     // Rooms
-    'rooms.title': 'Consulta en Línea',
+    'rooms.title': 'Consulta en Linea',
     'rooms.subtitle': 'Salas seguras con cifrado de extremo a extremo.',
-    'rooms.instant': 'Sala Instantánea',
+    'rooms.instant': 'Sala Instantanea',
     'rooms.creating': 'Creando sala segura...',
-    'rooms.enterCode': 'Entrar con Código',
+    'rooms.enterCode': 'Entrar con Codigo',
     'rooms.join': 'Aceder a Sala',
-    'rooms.history': 'Mis Salas',
-    'rooms.upcoming': 'Próximas Citas',
+    
+    'rooms.placeholderCode': 'Ej: abc-123-xyz',
+    'rooms.persistent': 'Salas Persistentes',
+    'rooms.unnamed': 'Sala sin titulo',
+    'rooms.createdAt': 'Creada en',
+    'rooms.noPersistent': 'No hay salas fijas.',
+    'rooms.errorCreate': 'No se pudo crear la sala.',
+    'rooms.errorDelete': 'Error al eliminar la sala.',
+    'rooms.instantTitle': 'Sala Instantanea',
+    'rooms.instantDesc': 'Creada desde acceso rapido.',
+    'rooms.defaultTitle': 'Consulta en Linea',
+    'rooms.noDesc': 'Sin descripcion.','rooms.history': 'Mis Salas',
+    'rooms.upcoming': 'Proximas Citas',
     'rooms.noUpcoming': 'Sin consultas para hoy.',
+
+    
+    'rooms.badge': 'Telemedicina Segura',
+    'rooms.feature.e2e': 'Cifrado de extremo a extremo',
+    'rooms.feature.noApp': 'Sin app extra',
+    'rooms.feature.link': 'Enlace seguro',
+    'rooms.stats.active': 'Salas activas',
+    'rooms.stats.upcoming': 'Agendadas',
+    'rooms.stats.persistent': 'Persistentes',
+    'rooms.search': 'Buscar sala...',
+    'rooms.secureBadge': 'Hiper seguro',
 
     // Comandas
     'comandas.title': 'Comandas y Recibos',
@@ -2041,5 +2140,10 @@ export const translations = {
     'topbar.notifications': 'Notificaciones',
   }
 };
+
+
+
+
+
 
 
