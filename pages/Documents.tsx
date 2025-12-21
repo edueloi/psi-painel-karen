@@ -255,69 +255,77 @@ export const Documents: React.FC = () => {
           </div>
       </div>
 
-      <div className="flex flex-col gap-6 sticky top-0 bg-slate-50/95 backdrop-blur z-20 py-4 -my-4 px-1">
-        <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-            <div className="overflow-x-auto w-full lg:w-auto pb-2 -mb-2 no-scrollbar flex items-center gap-2">
-                <div className="flex gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-max shadow-sm">
-                    {categories.map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setActiveCategory(cat)}
-                            className={`
-                                px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap
-                                ${activeCategory === cat 
-                                    ? 'bg-slate-900 text-white shadow-md' 
-                                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}
-                            `}
-                        >
-                            {cat}
-                        </button>
-                    ))}
-                </div>
-                <button 
-                    onClick={() => setIsCategoryModalOpen(true)}
-                    className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm shrink-0"
-                    title="Gerenciar Categorias"
+      <div className="flex flex-col gap-4 sticky top-0 bg-slate-50/95 backdrop-blur z-20 py-4 -my-4 px-1">
+        <div className="overflow-x-auto w-full pb-2 -mb-2 no-scrollbar">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-max shadow-sm">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`
+                    px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap
+                    ${activeCategory === cat
+                      ? 'bg-slate-900 text-white shadow-md'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}
+                  `}
                 >
-                    <Settings size={20} />
+                  {cat}
                 </button>
+              ))}
             </div>
+            <button
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm shrink-0"
+              title="Gerenciar categorias"
+            >
+              <Settings size={20} />
+            </button>
+          </div>
+        </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <div className="relative w-full lg:w-80 group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5 group-focus-within:text-teal-500 transition-colors" />
-                    <input 
-                        type="text" 
-                        placeholder="Pesquisar por nome do arquivo..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-300 transition-all text-slate-600 placeholder:text-slate-400 shadow-sm"
-                    />
-                </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setViewMode('grid')}
-                        className={`px-4 py-3 rounded-2xl text-xs font-bold border ${viewMode === 'grid' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
-                    >
-                        Grade
-                    </button>
-                    <button
-                        onClick={() => setViewMode('list')}
-                        className={`px-4 py-3 rounded-2xl text-xs font-bold border ${viewMode === 'list' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
-                    >
-                        Lista
-                    </button>
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as 'recent' | 'name' | 'size')}
-                        className="px-4 py-3 rounded-2xl text-xs font-bold border bg-white text-slate-600 border-slate-200"
-                    >
-                        <option value="recent">Mais recentes</option>
-                        <option value="name">Nome</option>
-                        <option value="size">Tamanho</option>
-                    </select>
-                </div>
+        <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-center">
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <button
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="px-4 py-3 rounded-2xl text-xs font-bold border bg-white text-slate-600 border-slate-200 hover:text-indigo-700 hover:border-indigo-200"
+            >
+              Criar categoria
+            </button>
+            <div className="relative w-full lg:w-80 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5 group-focus-within:text-teal-500 transition-colors" />
+              <input
+                type="text"
+                placeholder="Pesquisar por nome do arquivo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-300 transition-all text-slate-600 placeholder:text-slate-400 shadow-sm"
+              />
             </div>
+          </div>
+          <div className="flex gap-2 w-full lg:w-auto">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-4 py-3 rounded-2xl text-xs font-bold border ${viewMode === 'grid' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
+            >
+              Grade
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-3 rounded-2xl text-xs font-bold border ${viewMode === 'list' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
+            >
+              Lista
+            </button>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'recent' | 'name' | 'size')}
+              className="px-4 py-3 rounded-2xl text-xs font-bold border bg-white text-slate-600 border-slate-200"
+            >
+              <option value="recent">Mais recentes</option>
+              <option value="name">Nome</option>
+              <option value="size">Tamanho</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -540,5 +548,7 @@ export const Documents: React.FC = () => {
     </div>
   );
 };
+
+
 
 

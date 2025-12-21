@@ -47,6 +47,10 @@ export const Records: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const editorActiveRef = useRef<HTMLDivElement | null>(null);
+  const selectionRef = useRef<Range | null>(null);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkText, setLinkText] = useState('');
 
   const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -101,16 +105,44 @@ export const Records: React.FC = () => {
     setEditorSections(prev => ({ ...prev, [key]: value }));
   };
 
+  const storeSelection = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    selectionRef.current = sel.getRangeAt(0);
+  };
+
+  const restoreSelection = () => {
+    const sel = window.getSelection();
+    if (!sel || !selectionRef.current) return;
+    sel.removeAllRanges();
+    sel.addRange(selectionRef.current);
+  };
+
   const execCommand = (command: string, value?: string) => {
     if (!editorActiveRef.current) return;
     editorActiveRef.current.focus();
+    restoreSelection();
     document.execCommand(command, false, value);
   };
 
   const handleInsertLink = () => {
-    const url = window.prompt('URL do link:');
+    setLinkUrl('');
+    setLinkText('');
+    setLinkModalOpen(true);
+  };
+
+  const confirmInsertLink = () => {
+    const url = linkUrl.trim();
     if (!url) return;
-    execCommand('createLink', url);
+    if (linkText.trim()) {
+      execCommand(
+        'insertHTML',
+        `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText.trim()}</a>`
+      );
+    } else {
+      execCommand('createLink', url);
+    }
+    setLinkModalOpen(false);
   };
 
   const fetchPatients = async () => {
@@ -561,63 +593,121 @@ export const Records: React.FC = () => {
                           <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500 uppercase">
                               <span>Editor</span>
                               <div className="flex flex-wrap gap-2">
-                                  <button onClick={() => execCommand('bold')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Negrito</button>
-                                  <button onClick={() => execCommand('italic')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Italico</button>
-                                  <button onClick={() => execCommand('underline')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Sublinhado</button>
-                                  <button onClick={() => execCommand('formatBlock', 'H2')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Titulo</button>
-                                  <button onClick={() => execCommand('insertUnorderedList')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Topicos</button>
-                                  <button onClick={() => execCommand('insertOrderedList')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Numerado</button>
-                                  <button onClick={handleInsertLink} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Link</button>
+                                  <button
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => execCommand('bold')}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
+                                  >
+                                    Negrito
+                                  </button>
+                                  <button
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => execCommand('italic')}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
+                                  >
+                                    Italico
+                                  </button>
+                                  <button
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => execCommand('underline')}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
+                                  >
+                                    Sublinhado
+                                  </button>
+                                  <button
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => execCommand('formatBlock', 'H2')}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
+                                  >
+                                    Titulo
+                                  </button>
+                                  <button
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => execCommand('insertUnorderedList')}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
+                                  >
+                                    Topicos
+                                  </button>
+                                  <button
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => execCommand('insertOrderedList')}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
+                                  >
+                                    Numerado
+                                  </button>
+                                  <button
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={handleInsertLink}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
+                                  >
+                                    Link
+                                  </button>
                               </div>
                           </div>
 
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Descricao da demanda</label>
-                              <div
+                          {getVisibleSections(currentRecord.type).includes('demand') ? (
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Descricao da demanda</label>
+                                <div
                                 className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
                                 contentEditable
                                 suppressContentEditableWarning
                                 onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                onMouseUp={storeSelection}
+                                onKeyUp={storeSelection}
                                 onInput={(e) => updateSection('demand', (e.currentTarget as HTMLDivElement).innerHTML)}
                                 dangerouslySetInnerHTML={{ __html: editorSections.demand }}
                               />
-                          </div>
+                            </div>
+                          ) : null}
 
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Procedimentos</label>
-                              <div
+                          {getVisibleSections(currentRecord.type).includes('procedures') ? (
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Procedimentos</label>
+                                <div
                                 className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
                                 contentEditable
                                 suppressContentEditableWarning
                                 onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                onMouseUp={storeSelection}
+                                onKeyUp={storeSelection}
                                 onInput={(e) => updateSection('procedures', (e.currentTarget as HTMLDivElement).innerHTML)}
                                 dangerouslySetInnerHTML={{ __html: editorSections.procedures }}
                               />
-                          </div>
+                            </div>
+                          ) : null}
 
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Analise e conclusao</label>
-                              <div
+                          {getVisibleSections(currentRecord.type).includes('analysis') ? (
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Analise e conclusao</label>
+                                <div
                                 className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
                                 contentEditable
                                 suppressContentEditableWarning
                                 onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                onMouseUp={storeSelection}
+                                onKeyUp={storeSelection}
                                 onInput={(e) => updateSection('analysis', (e.currentTarget as HTMLDivElement).innerHTML)}
                                 dangerouslySetInnerHTML={{ __html: editorSections.analysis }}
                               />
-                          </div>
+                            </div>
+                          ) : null}
 
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Texto livre</label>
-                              <div
+                          {getVisibleSections(currentRecord.type).includes('free') ? (
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Texto livre</label>
+                                <div
                                 className="min-h-[120px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
                                 contentEditable
                                 suppressContentEditableWarning
                                 onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                onMouseUp={storeSelection}
+                                onKeyUp={storeSelection}
                                 onInput={(e) => updateSection('free', (e.currentTarget as HTMLDivElement).innerHTML)}
                                 dangerouslySetInnerHTML={{ __html: editorSections.free }}
                               />
-                          </div>
+                            </div>
+                          ) : null}
                       </div>
                       <div className="px-8 pb-8">
                           <div className="flex items-center justify-between mb-3">
@@ -711,6 +801,50 @@ export const Records: React.FC = () => {
                   </div>
               </div>
           </div>
+      )}
+
+      {linkModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-slate-100 font-bold text-slate-800">Inserir link</div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">URL</label>
+                <input
+                  type="text"
+                  className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Texto (opcional)</label>
+                <input
+                  type="text"
+                  className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500"
+                  value={linkText}
+                  onChange={(e) => setLinkText(e.target.value)}
+                  placeholder="Clique aqui"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <button
+                onClick={() => setLinkModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-500 font-bold"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmInsertLink}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold"
+              >
+                Inserir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
