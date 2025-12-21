@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
-import { MOCK_MESSAGE_TEMPLATES } from '../constants';
+import React, { useEffect, useState } from 'react';
 import { MessageTemplate } from '../types';
+import { api } from '../services/api';
 import { 
   MessageCircle, Search, Plus, Edit3, Trash2, Send, Variable, X, Copy, Check
 } from 'lucide-react';
@@ -18,18 +18,70 @@ const AVAILABLE_VARIABLES = [
 ];
 
 export const Messages: React.FC = () => {
-  const [templates, setTemplates] = useState<MessageTemplate[]>(MOCK_MESSAGE_TEMPLATES);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState<Partial<MessageTemplate>>({});
+  const [isLoading, setIsLoading] = useState(false);
   
   // States for "Copy" feedback simulation
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3200);
+  };
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        setIsLoading(true);
+        const rows = await api.get<any[]>('/messages/templates');
+        const mapped = rows.map((row) => ({
+          id: String(row.id),
+          title: row.title || '',
+          category: (row.category || 'Outros') as MessageTemplate['category'],
+          content: row.content || '',
+          lastUsed: row.last_used || row.lastUsed
+        }));
+        setTemplates(mapped);
+      } catch (err: any) {
+        pushToast('error', err.message || 'Erro ao carregar mensagens');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTemplates();
+  }, []);
 
   const filteredTemplates = templates.filter(t => 
     t.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     t.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const filteredPatients = patients.filter((p) => {
+    const name = (p.full_name || p.name || '').toLowerCase();
+    const email = (p.email || '').toLowerCase();
+    const phone = (p.whatsapp || p.phone || p.celular || '').toLowerCase();
+    const term = patientSearch.toLowerCase();
+    return name.includes(term) || email.includes(term) || phone.includes(term);
+  });
+
+  const previewPatient = selectedPatientIds.length > 0
+    ? patients.find(p => String(p.id) == String(selectedPatientIds[0]))
+    : null;
+  const previewMessage = sendTemplate
+    ? fillTemplate(sendTemplate.content, previewPatient)
+    : '';
+
+const allFilteredSelected = filteredPatients.length > 0 && filteredPatients.every((p) => selectedPatientIds.includes(String(p.id)));
+const filteredPatientIds = filteredPatients.map((p) => String(p.id));
+
 
   const handleOpenModal = (template?: MessageTemplate) => {
     if (template) {
@@ -40,30 +92,50 @@ export const Messages: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!currentTemplate.title || !currentTemplate.content) {
-      alert('Preencha o título e o conteúdo da mensagem.');
+      pushToast('error', 'Preencha o t??tulo e o conte?do da mensagem.');
       return;
     }
 
-    if (currentTemplate.id) {
-      // Edit
-      setTemplates(prev => prev.map(t => t.id === currentTemplate.id ? { ...t, ...currentTemplate } as MessageTemplate : t));
-    } else {
-      // Create
-      const newTemplate = { 
-        ...currentTemplate, 
-        id: Math.random().toString(36).substr(2, 9),
-        lastUsed: new Date().toISOString().split('T')[0]
-      } as MessageTemplate;
-      setTemplates(prev => [...prev, newTemplate]);
+    try {
+      if (currentTemplate.id) {
+        await api.put(`/messages/templates/${currentTemplate.id}`, {
+          title: currentTemplate.title,
+          category: currentTemplate.category || 'Outros',
+          content: currentTemplate.content
+        });
+        setTemplates(prev => prev.map(t => t.id === currentTemplate.id ? { ...t, ...currentTemplate } as MessageTemplate : t));
+        pushToast('success', 'Modelo atualizado com sucesso.');
+      } else {
+        const result = await api.post<{ id: number }>('/messages/templates', {
+          title: currentTemplate.title,
+          category: currentTemplate.category || 'Outros',
+          content: currentTemplate.content
+        });
+        const newTemplate = { 
+          ...currentTemplate, 
+          id: String(result.id),
+          lastUsed: new Date().toISOString().split('T')[0]
+        } as MessageTemplate;
+        setTemplates(prev => [newTemplate, ...prev]);
+        pushToast('success', 'Modelo criado com sucesso.');
+      }
+      setIsModalOpen(false);
+    } catch (err: any) {
+      pushToast('error', err.message || 'Erro ao salvar mensagem');
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este modelo?')) {
-      setTemplates(prev => prev.filter(t => t.id !== id));
+      try {
+        await api.delete(`/messages/templates/${id}`);
+        setTemplates(prev => prev.filter(t => t.id !== id));
+        pushToast('success', 'Modelo removido.');
+      } catch (err: any) {
+        pushToast('error', err.message || 'Erro ao remover mensagem');
+      }
     }
   };
 
@@ -88,13 +160,97 @@ export const Messages: React.FC = () => {
     }
   };
 
-  const handleWhatsAppSimulation = (template: MessageTemplate) => {
-    const fakeMessage = encodeURIComponent(template.content);
-    window.open(`https://wa.me/?text=${fakeMessage}`, '_blank');
+  const normalizePhone = (value?: string) => {
+    if (!value) return '';
+    return value.replace(/\D/g, '');
+  };
+
+  const fillTemplate = (content: string, patient: any) => {
+    const nomePaciente = patient?.full_name || patient?.name || '';
+    const data = {
+      nome_paciente: nomePaciente,
+      data_agendamento: sendMeta.appointmentDate || '',
+      horario: sendMeta.appointmentTime || '',
+      servico: sendMeta.service || '',
+      nome_profissional: '',
+      valor_total: sendMeta.total || '',
+      nome_clinica: sendMeta.clinic || ''
+    };
+
+    let result = content || '';
+    Object.entries(data).forEach(([key, value]) => {
+      const tag = `{{${key}}}`;
+      result = result.split(tag).join(String(value || ''));
+    });
+    return result;
+  };
+
+  const handleOpenSendModal = async (template: MessageTemplate) => {
+    setSendTemplate(template);
+    setIsSendModalOpen(true);
+    setSelectedPatientIds([]);
+
+    if (patients.length == 0) {
+      try {
+        setIsPatientsLoading(true);
+        const rows = await api.get<any[]>('/patients');
+        setPatients(rows || []);
+      } catch (err: any) {
+        pushToast('error', err.message || 'Erro ao carregar pacientes');
+      } finally {
+        setIsPatientsLoading(false);
+      }
+    }
+  };
+
+  const handleTogglePatient = (id: string) => {
+    setSelectedPatientIds(prev => prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]);
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!sendTemplate) return;
+    if (selectedPatientIds.length == 0) {
+      pushToast('error', 'Selecione pelo menos um paciente.');
+      return;
+    }
+
+    let opened = 0;
+    selectedPatientIds.forEach((id, index) => {
+      const patient = patients.find(p => String(p.id) == String(id));
+      if (!patient) return;
+      const phone = normalizePhone(patient.whatsapp || patient.phone || patient.celular);
+      const content = fillTemplate(sendTemplate.content, patient);
+      if (!phone) {
+        pushToast('error', `Paciente sem telefone: ${patient.full_name || patient.name || 'Sem nome'}`);
+        return;
+      }
+      const url = `https://wa.me/${phone}?text=${encodeURIComponent(content)}`;
+      setTimeout(() => {
+        window.open(url, '_blank');
+      }, 150 * index);
+      opened += 1;
+    });
+
+    if (opened > 0) {
+      pushToast('success', 'Abrindo WhatsApp para envio.');
+      setIsSendModalOpen(false);
+    }
   };
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
+      {toasts.length > 0 && (
+        <div className="fixed right-6 top-6 z-[60] space-y-2">
+          {toasts.map(t => (
+            <div
+              key={t.id}
+              className={`rounded-xl px-4 py-3 text-sm font-semibold shadow-lg border ${t.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}
+            >
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* --- HERO SECTION --- */}
       <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-sky-900/20 border border-slate-800 text-white">
@@ -145,6 +301,16 @@ export const Messages: React.FC = () => {
 
       {/* --- GRID DE MENSAGENS --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {isLoading && (
+          <div className="col-span-full text-center text-slate-500 font-medium">
+            Carregando modelos...
+          </div>
+        )}
+        {!isLoading && filteredTemplates.length === 0 && (
+          <div className="col-span-full text-center text-slate-500 font-medium">
+            Nenhum modelo encontrado.
+          </div>
+        )}
         {filteredTemplates.map(template => (
             <div key={template.id} className="group bg-white rounded-2xl p-6 border border-slate-100 hover:border-sky-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_30px_rgba(14,165,233,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative">
                 
@@ -168,7 +334,7 @@ export const Messages: React.FC = () => {
                 {/* Footer Actions */}
                 <div className="flex items-center gap-2 pt-4 border-t border-slate-50 mt-auto">
                     <button 
-                        onClick={() => handleWhatsAppSimulation(template)}
+                        onClick={() => handleOpenSendModal(template)}
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold text-xs hover:bg-emerald-100 transition-colors"
                         title="Enviar via WhatsApp"
                     >
@@ -205,6 +371,158 @@ export const Messages: React.FC = () => {
             <span className="font-bold">Criar Nova Mensagem</span>
         </button>
       </div>
+
+
+      {isSendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-3xl rounded-[28px] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+              <div>
+                <h2 className="text-xl font-display font-bold text-slate-800">Enviar WhatsApp</h2>
+                <p className="text-xs text-slate-500 mt-1">Template: {sendTemplate?.title || 'Sem titulo'}</p>
+              </div>
+              <button onClick={() => setIsSendModalOpen(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 shadow-sm transition-all">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Buscar paciente</label>
+                <input
+                  type="text"
+                  value={patientSearch}
+                  onChange={e => setPatientSearch(e.target.value)}
+                  placeholder="Nome, email ou telefone"
+                  className="w-full p-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all font-medium text-slate-700"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold text-slate-700">Pacientes</label>
+                  <button
+                    onClick={() => {
+                      if (allFilteredSelected) {
+                        setSelectedPatientIds(prev => prev.filter(id => !filteredPatientIds.includes(id)));
+                      } else {
+                        setSelectedPatientIds(prev => Array.from(new Set([...prev, ...filteredPatientIds])));
+                      }
+                    }}
+                    className="text-xs font-bold text-sky-600 hover:text-sky-700"
+                  >
+                    {allFilteredSelected ? 'Desmarcar todos' : 'Selecionar todos'}
+                  </button>
+                </div>
+                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl">
+                  {isPatientsLoading && (
+                    <div className="p-4 text-sm text-slate-500">Carregando pacientes...</div>
+                  )}
+                  {!isPatientsLoading && filteredPatients.length === 0 && (
+                    <div className="p-4 text-sm text-slate-500">Nenhum paciente encontrado.</div>
+                  )}
+                  {!isPatientsLoading && filteredPatients.map((p) => {
+                    const id = String(p.id);
+                    const name = p.full_name || p.name || 'Sem nome';
+                    const phone = p.whatsapp || p.phone || p.celular || '';
+                    const checked = selectedPatientIds.includes(id);
+                    return (
+                      <label key={id} className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-b-0 cursor-pointer hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleTogglePatient(id)}
+                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold text-slate-700">{name}</div>
+                          <div className="text-xs text-slate-500">{p.email || ''} {phone ? `- ${phone}` : ''}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Data agendamento</label>
+                  <input
+                    type="date"
+                    value={sendMeta.appointmentDate}
+                    onChange={e => setSendMeta({ ...sendMeta, appointmentDate: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all font-medium text-slate-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Horario</label>
+                  <input
+                    type="time"
+                    value={sendMeta.appointmentTime}
+                    onChange={e => setSendMeta({ ...sendMeta, appointmentTime: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all font-medium text-slate-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Servico</label>
+                  <input
+                    type="text"
+                    value={sendMeta.service}
+                    onChange={e => setSendMeta({ ...sendMeta, service: e.target.value })}
+                    placeholder="Ex: Consulta"
+                    className="w-full p-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all font-medium text-slate-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Valor total</label>
+                  <input
+                    type="text"
+                    value={sendMeta.total}
+                    onChange={e => setSendMeta({ ...sendMeta, total: e.target.value })}
+                    placeholder="Ex: 150,00"
+                    className="w-full p-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all font-medium text-slate-700"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Nome da clinica</label>
+                  <input
+                    type="text"
+                    value={sendMeta.clinic}
+                    onChange={e => setSendMeta({ ...sendMeta, clinic: e.target.value })}
+                    placeholder="Ex: Psi Manager"
+                    className="w-full p-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all font-medium text-slate-700"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold text-slate-700">Preview</label>
+                  <span className="text-xs text-slate-400">Baseado no primeiro paciente selecionado</span>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap">
+                  {previewMessage || 'Selecione um paciente para visualizar.'}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+              <button
+                onClick={() => setIsSendModalOpen(false)}
+                className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSendWhatsApp}
+                className="px-8 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 hover:-translate-y-0.5 transition-all"
+              >
+                Enviar ({selectedPatientIds.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- MODAL DE EDIÇÃO/CRIAÇÃO --- */}
       {isModalOpen && (

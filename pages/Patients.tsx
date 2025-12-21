@@ -59,6 +59,7 @@ export const Patients: React.FC = () => {
   const [summary, setSummary] = useState<PatientSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     fetchPatients();
@@ -134,6 +135,7 @@ export const Patients: React.FC = () => {
 
   const openPatientSummary = async (patient: Patient) => {
     setSelectedPatient(patient);
+    setShowDetails(false);
     setSummary(null);
     setSummaryError(null);
     setSummaryLoading(true);
@@ -204,6 +206,37 @@ export const Patients: React.FC = () => {
   };
 
   const renderCount = (value: number | null) => value === null ? 'ND' : String(value);
+
+  const formatDate = (value?: string) => {
+    if (!value) return 'Nao informado';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Nao informado';
+    return date.toLocaleDateString('pt-BR');
+  };
+
+  const calcAge = (value?: string) => {
+    if (!value) return 'Nao informado';
+    const birth = new Date(value);
+    if (Number.isNaN(birth.getTime())) return 'Nao informado';
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age -= 1;
+    }
+    return `${age} anos`;
+  };
+
+  const buildAddress = (patient: Patient) => {
+    const parts = [
+      patient.street,
+      patient.house_number,
+      patient.neighborhood,
+      patient.city,
+      patient.state
+    ].filter(Boolean);
+    return parts.length ? parts.join(', ') : 'Nao informado';
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 animate-fadeIn min-h-screen">
@@ -411,8 +444,8 @@ export const Patients: React.FC = () => {
 
       {selectedPatient && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-5xl bg-white rounded-[2rem] shadow-2xl overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4">
+          <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-2xl overflow-hidden">
+            <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold border border-indigo-100">
                   {selectedPatient.full_name.charAt(0)}
@@ -422,12 +455,14 @@ export const Patients: React.FC = () => {
                   <div className="text-xs text-slate-500">{selectedPatient.email || selectedPatient.whatsapp || 'Sem contato'}</div>
                 </div>
               </div>
-              <button onClick={() => setSelectedPatient(null)} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSelectedPatient(null)} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
                 <div className="flex flex-wrap gap-2 text-xs">
                   <span className={`px-3 py-1 rounded-full font-bold border ${selectedPatient.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
@@ -508,6 +543,80 @@ export const Patients: React.FC = () => {
               </div>
 
               <div className="space-y-6">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm font-bold text-slate-800">Dados do paciente</div>
+                    <button
+                      onClick={() => setShowDetails((prev) => !prev)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-600 hover:border-indigo-200 hover:text-indigo-700"
+                    >
+                      {showDetails ? 'Ocultar dados' : 'Ver dados'}
+                    </button>
+                  </div>
+                  {showDetails ? (
+                    <div className="grid grid-cols-1 gap-3 text-sm">
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Nascimento</div>
+                        <div className="text-slate-700 font-semibold">{formatDate(selectedPatient.birth_date || selectedPatient.birthDate)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Idade</div>
+                        <div className="text-slate-700 font-semibold">{calcAge(selectedPatient.birth_date || selectedPatient.birthDate)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">CPF/CNPJ</div>
+                        <div className="text-slate-700 font-semibold">{selectedPatient.cpf_cnpj || selectedPatient.cpf || 'Nao informado'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">RG</div>
+                        <div className="text-slate-700 font-semibold">{selectedPatient.rg || 'Nao informado'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Profissao</div>
+                        <div className="text-slate-700 font-semibold">{selectedPatient.profession || 'Nao informado'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Estado civil</div>
+                        <div className="text-slate-700 font-semibold">{selectedPatient.marital_status || 'Nao informado'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Escolaridade</div>
+                        <div className="text-slate-700 font-semibold">{selectedPatient.education || 'Nao informado'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Nacionalidade</div>
+                        <div className="text-slate-700 font-semibold">{selectedPatient.nationality || 'Nao informado'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Naturalidade</div>
+                        <div className="text-slate-700 font-semibold">{selectedPatient.naturality || 'Nao informado'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Filhos</div>
+                        <div className="text-slate-700 font-semibold">
+                          {selectedPatient.has_children ? (selectedPatient.children_count ?? 0) : 'Nao'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Contato emergencia</div>
+                        <div className="text-slate-700 font-semibold">{selectedPatient.emergency_contact || 'Nao informado'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Endereco</div>
+                        <div className="text-slate-700 font-semibold">{buildAddress(selectedPatient)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Convenio</div>
+                        <div className="text-slate-700 font-semibold">
+                          {selectedPatient.convenio ? (selectedPatient.convenio_name || 'Sim') : 'Nao'}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400">Clique em \"Ver dados\" para abrir as informacoes completas.</div>
+                  )}
+                </div>
+
                 <div className="bg-white border border-slate-200 rounded-2xl p-5">
                   <div className="text-sm font-bold text-slate-800 mb-4">Contato</div>
                   <div className="space-y-3 text-sm text-slate-600">
