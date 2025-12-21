@@ -127,10 +127,14 @@ export interface Appointment {
   id: string;
   patient_id?: string;
   patient_name?: string;
+  patient_name_text?: string;
   patientName?: string; // Compatibility alias
-  psychologist_id: string;
-  psychologist_name: string;
+  psychologist_id?: string;
+  psychologist_name?: string;
+  professional_name_text?: string;
   psychologistName?: string; // Compatibility alias
+  service_id?: string;
+  service_name?: string;
   title: string;
   start: Date;
   end: Date;
@@ -141,6 +145,15 @@ export interface Appointment {
   notes?: string;
   color?: string;
   duration_minutes?: number;
+  recurrence_rule?: {
+    freq: 'daily' | 'weekly' | 'monthly';
+    interval: number;
+    byWeekday?: string[];
+  } | null;
+  recurrence_end_date?: string | null;
+  recurrence_count?: number | null;
+  parent_appointment_id?: number | null;
+  recurrence_index?: number | null;
 }
 
 // --- VIRTUAL ROOM API TYPES ---

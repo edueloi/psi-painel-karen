@@ -5,13 +5,14 @@ import {
   Zap, Save, AlertTriangle, ChevronDown, Clock
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { Language } from '../translations';
 
 export const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState('aparencia');
   const [selectedColor, setSelectedColor] = useState('Indigo');
-  const [selectedMode, setSelectedMode] = useState('light');
+  const { mode: selectedMode, setMode } = useTheme();
   
   // Mock States for Toggles
   const [notifications, setNotifications] = useState({ email: true, sms: false, push: true, marketing: false });
@@ -196,7 +197,7 @@ export const Settings: React.FC = () => {
                         ].map((mode) => (
                             <button 
                                 key={mode.id}
-                                onClick={() => setSelectedMode(mode.id)}
+                                onClick={() => setMode(mode.id as any)}
                                 className={`
                                     relative group overflow-hidden rounded-2xl border-2 transition-all duration-300
                                     ${selectedMode === mode.id 

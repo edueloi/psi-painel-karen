@@ -409,7 +409,7 @@ export const Documents: React.FC = () => {
                             <span className="text-[10px] text-slate-400">{doc.type.toUpperCase()}</span>
                         </div>
                         <h3 className="font-bold text-slate-800 text-sm truncate">{doc.title}</h3>
-                        <div className="text-xs text-slate-400 mt-1">{doc.size} � {new Date(doc.date).toLocaleDateString()}</div>
+                        <div className="text-xs text-slate-400 mt-1">{doc.size} | {new Date(doc.date).toLocaleDateString()}</div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button className="px-3 py-2 rounded-xl bg-teal-50 text-teal-700 text-xs font-bold hover:bg-teal-100 transition-colors">Baixar</button>
@@ -548,6 +548,8 @@ export const Documents: React.FC = () => {
     </div>
   );
 };
+
+
 
 
 

@@ -36,6 +36,7 @@ import { Help } from './pages/Help';
 import { Messages } from './pages/Messages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
@@ -166,11 +167,13 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <LanguageProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
     </LanguageProvider>
   );
 };

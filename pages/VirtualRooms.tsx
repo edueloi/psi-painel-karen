@@ -19,6 +19,7 @@ export const VirtualRooms: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [roomSearch, setRoomSearch] = useState('');
 
   // Load Rooms
   const fetchRooms = async () => {
@@ -38,15 +39,32 @@ export const VirtualRooms: React.FC = () => {
   }, []);
 
   // Compute Categories
+  const matchesQuery = (room: VirtualRoom) => {
+      const q = roomSearch.trim().toLowerCase();
+      if (!q) return true;
+      const title = (room.title || '').toLowerCase();
+      const desc = (room.description || '').toLowerCase();
+      const code = (room.code || '').toLowerCase();
+      return title.includes(q) || desc.includes(q) || code.includes(q);
+  };
+
   const upcomingRooms = useMemo(() => {
       const now = new Date();
-      return rooms.filter(r => r.scheduled_start && new Date(r.scheduled_start) >= now)
-                  .sort((a, b) => new Date(a.scheduled_start!).getTime() - new Date(b.scheduled_start!).getTime());
-  }, [rooms]);
+      return rooms
+        .filter(r => r.scheduled_start && new Date(r.scheduled_start) >= now)
+        .filter(matchesQuery)
+        .sort((a, b) => new Date(a.scheduled_start!).getTime() - new Date(b.scheduled_start!).getTime());
+  }, [rooms, roomSearch]);
 
   const persistentRooms = useMemo(() => {
-      return rooms.filter(r => !r.scheduled_start);
-  }, [rooms]);
+      return rooms.filter(r => !r.scheduled_start).filter(matchesQuery);
+  }, [rooms, roomSearch]);
+
+  const roomStats = useMemo(() => ({
+      total: rooms.length,
+      upcoming: upcomingRooms.length,
+      persistent: persistentRooms.length
+  }), [rooms, upcomingRooms, persistentRooms]);
 
   // Handlers
   const handleInstantMeeting = async () => {
@@ -88,7 +106,7 @@ export const VirtualRooms: React.FC = () => {
   };
 
   const handleCopyLink = (room: VirtualRoom) => {
-      const url = `${window.location.origin}/#/sala/${room.code}`;
+      const url = `${window.location.origin}/sala/${room.code}`;
       navigator.clipboard.writeText(url);
       setCopiedId(room.id);
       setTimeout(() => setCopiedId(null), 2000);
@@ -138,6 +156,21 @@ export const VirtualRooms: React.FC = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Salas ativas</div>
+          <div className="text-2xl font-display font-bold text-slate-800 mt-2">{roomStats.total}</div>
+        </div>
+        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Agendadas</div>
+          <div className="text-2xl font-display font-bold text-slate-800 mt-2">{roomStats.upcoming}</div>
+        </div>
+        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Persistentes</div>
+          <div className="text-2xl font-display font-bold text-slate-800 mt-2">{roomStats.persistent}</div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* LEFT: ACTIONS & CODE */}
           <div className="space-y-6">
@@ -172,9 +205,20 @@ export const VirtualRooms: React.FC = () => {
               {/* Persistent Rooms / History */}
               <div className="relative rounded-3xl p-[1px] bg-gradient-to-br from-slate-200 via-white to-indigo-200 shadow-lg">
                   <div className="bg-white rounded-[22px] border border-slate-100 overflow-hidden flex flex-col">
-                      <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                      <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                           <h3 className="font-bold text-slate-700 flex items-center gap-2"><History size={18} className="text-indigo-500" /> {t('rooms.history')}</h3>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white border border-slate-200 px-2 py-1 rounded-md">{t('rooms.persistent')}</span>
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                              <div className="relative w-full sm:w-56">
+                                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                  <input
+                                    value={roomSearch}
+                                    onChange={(e) => setRoomSearch(e.target.value)}
+                                    placeholder="Buscar sala..."
+                                    className="w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+                                  />
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white border border-slate-200 px-2 py-1 rounded-md">{t('rooms.persistent')}</span>
+                          </div>
                       </div>
                       
                       <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto custom-scrollbar">
