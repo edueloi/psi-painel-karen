@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { ClinicalForm, Patient } from '../types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Search, Plus, ClipboardList, ChartPie, Pen, Trash2, CheckCircle, Share2, LayoutTemplate, Copy, Send, Lock
 } from 'lucide-react';
 
 export const FormsList: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [defaultPatientId, setDefaultPatientId] = useState('');
   
   // Share Modal States
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -44,6 +46,13 @@ export const FormsList: React.FC = () => {
     load();
   }, []);
 
+  useEffect(() => {
+    const patientId = searchParams.get('patient_id');
+    if (patientId) {
+      setDefaultPatientId(patientId);
+    }
+  }, [searchParams]);
+
   const filteredForms = forms.filter(f => 
     f.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     f.hash.includes(searchTerm.toLowerCase())
@@ -51,14 +60,14 @@ export const FormsList: React.FC = () => {
 
   const handleOpenShare = (form: ClinicalForm) => {
       setSelectedForm(form);
-      setSelectedPatientId('');
+      setSelectedPatientId(defaultPatientId || '');
       setCopiedLink(false);
       setIsShareModalOpen(true);
   };
 
   const getShareLink = () => {
       if (!selectedForm) return '';
-      let url = `${window.location.origin}${window.location.pathname}#/f/${selectedForm.hash}`;
+      let url = `${window.location.origin}/f/${selectedForm.hash}`;
       if (selectedPatientId) {
           url += `?p=${selectedPatientId}`;
       }
@@ -114,7 +123,7 @@ export const FormsList: React.FC = () => {
 
             <div className="flex gap-4 w-full lg:w-auto">
                 <button 
-                    onClick={() => navigate('/forms/new')}
+                    onClick={() => navigate('/formularios/novo')}
                     className="w-full lg:w-auto bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-blue-900/50 flex items-center justify-center gap-2 transition-all hover:-translate-y-1 active:translate-y-0"
                 >
                     <Plus size={20} />
@@ -168,7 +177,7 @@ export const FormsList: React.FC = () => {
                 <h3 className="font-bold text-slate-700 text-xl mb-1">Nenhum formulario encontrado</h3>
                 <p className="text-slate-500 mb-8 max-w-sm text-center">Parece que voce ainda nao criou nenhum formulario ou sua busca nao retornou resultados.</p>
                 <button 
-                    onClick={() => navigate('/forms/new')}
+                    onClick={() => navigate('/formularios/novo')}
                     className="text-blue-600 font-bold hover:underline"
                 >
                     Criar meu primeiro formulario
@@ -224,15 +233,27 @@ export const FormsList: React.FC = () => {
                     {/* Hover Action Overlay */}
                     <div className="absolute inset-x-0 bottom-0 p-4 bg-white/95 backdrop-blur-sm rounded-b-2xl border-t border-blue-100 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 flex gap-2">
                         {form.isGlobal ? (
-                            <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-slate-500 font-bold text-xs cursor-not-allowed">
-                                <Lock size={16} /> Protegido
+                            <button
+                                onClick={() => navigate(`/formularios/${form.id}/respostas`)}
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition-colors"
+                            >
+                                <ChartPie size={16} /> Resultados
                             </button>
                         ) : (
                             <>
-                                <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors">
+                                <button
+                                    onClick={() => navigate(`/formularios/${form.id}`)}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors"
+                                >
                                     <Pen size={16} /> Editar
                                 </button>
-                                <button 
+                                <button
+                                    onClick={() => navigate(`/formularios/${form.id}/respostas`)}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs hover:bg-emerald-100 transition-colors"
+                                >
+                                    <ChartPie size={16} /> Resultados
+                                </button>
+                                <button
                                     onClick={() => handleDelete(form.id)}
                                     className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
                                 >
@@ -338,3 +359,5 @@ export const FormsList: React.FC = () => {
     </div>
   );
 };
+
+

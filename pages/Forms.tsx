@@ -1,4 +1,4 @@
-﻿
+
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { ClinicalForm, FormStats, Patient } from '../types';
@@ -51,7 +51,7 @@ export const Forms: React.FC = () => {
         const responseBuckets = await Promise.all(
           mappedForms.slice(0, 5).map((form) =>
             api.get<any[]>(`/forms/${form.id}/responses`).then((rows) =>
-              rows.map((r) => ({ ...r, formTitle: form.title }))
+              rows.map((r) => ({ ...r, formTitle: form.title, formId: form.id }))
             )
           )
         );
@@ -73,6 +73,7 @@ export const Forms: React.FC = () => {
               id: r.id,
               patient: patientMap[String(r.patient_id)] || r.respondent_name || 'Visitante',
               form: r.formTitle,
+              formId: r.formId,
               date: createdAt.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
               status
             };
@@ -87,9 +88,9 @@ export const Forms: React.FC = () => {
     load();
   }, []);
   const quickTemplates = [
-      { title: 'Anamnese Geral', desc: 'QuestionÃ¡rio completo para novos pacientes.' },
-      { title: 'InventÃ¡rio de Beck', desc: 'Escala de DepressÃ£o e Ansiedade.' },
-      { title: 'DiÃ¡rio de EmoÃ§Ãµes', desc: 'Registro diÃ¡rio para TCC.' },
+      { title: 'Anamnese Geral', desc: 'Questionário completo para novos pacientes.' },
+      { title: 'Inventário de Beck', desc: 'Escala de Depressão e Ansiedade.' },
+      { title: 'Diário de Emoções', desc: 'Registro diário para TCC.' },
   ];
 
   return (
@@ -104,18 +105,18 @@ export const Forms: React.FC = () => {
             <div className="max-w-[640px]">
                 <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-900/60 border border-slate-400/30 text-indigo-200 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
                     <HeartPulse size={12} className="text-sky-400" />
-                    <span>Painel clÃ­nico</span>
+                    <span>Painel clínico</span>
                 </div>
                 <h1 className="text-3xl md:text-5xl font-display font-bold text-slate-50 mb-3 leading-tight">
-                    VisÃ£o Geral dos <br/>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-200">FormulÃ¡rios</span>
+                    Visão Geral dos <br/>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-200">Formulários</span>
                 </h1>
                 <p className="text-slate-300 text-lg leading-relaxed max-w-lg mb-6">
-                    Acompanhe em tempo real seus formulÃ¡rios criados, respostas recebidas e mÃ©tricas de engajamento dos pacientes.
+                    Acompanhe em tempo real seus formulários criados, respostas recebidas e métricas de engajamento dos pacientes.
                 </p>
                 <div className="flex flex-wrap gap-4">
                     <div className="flex-1 min-w-[140px] p-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-md">
-                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">FormulÃ¡rios</div>
+                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">Formulários</div>
                         <div className="text-2xl font-bold text-white flex items-center gap-2">
                             <FilePlus size={20} className="text-sky-400" /> {stats.totalForms}
                         </div>
@@ -135,7 +136,7 @@ export const Forms: React.FC = () => {
                 </div>
                 <div className="text-indigo-100 text-base">
                     <strong className="text-white block text-xl mb-1">{getGreeting()}</strong>
-                    Aqui estÃ¡ o resumo da sua <br/> atividade clÃ­nica recente.
+                    Aqui está o resumo da sua <br/> atividade clínica recente.
                 </div>
             </div>
         </div>
@@ -143,13 +144,13 @@ export const Forms: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Coluna Esquerda: AÃ§Ãµes e Templates */}
+          {/* Coluna Esquerda: Ações e Templates */}
           <div className="space-y-8">
               {/* Quick Actions */}
               <div>
-                  <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><Bolt size={20} className="text-indigo-600"/> Acesso RÃ¡pido</h2>
+                  <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><Bolt size={20} className="text-indigo-600"/> Acesso Rápido</h2>
                   <div className="grid grid-cols-1 gap-4">
-                        <Link to="/forms/new" className="flex items-center p-4 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-1 transition-all group">
+                        <Link to="/formularios/novo" className="flex items-center p-4 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-1 transition-all group">
                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mr-4 group-hover:bg-white/30 transition-colors">
                                 <PlusCircle size={24} />
                             </div>
@@ -160,15 +161,15 @@ export const Forms: React.FC = () => {
                             <ChevronRight className="ml-auto opacity-50 group-hover:translate-x-1 transition-transform" />
                         </Link>
                         <div className="grid grid-cols-2 gap-4">
-                            <Link to="/forms/list" className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all group">
+                            <Link to="/formularios/lista" className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all group">
                                 <ListChecks size={24} className="text-indigo-500 mb-3 group-hover:scale-110 transition-transform" />
                                 <h4 className="font-bold text-slate-800">Meus Forms</h4>
                                 <p className="text-xs text-slate-500">Gerenciar todos</p>
                             </Link>
-                            <Link to="/forms/list" className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all group">
+                            <Link to="/formularios/lista" className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all group">
                                 <PieChart size={24} className="text-purple-500 mb-3 group-hover:scale-110 transition-transform" />
                                 <h4 className="font-bold text-slate-800">Resultados</h4>
-                                <p className="text-xs text-slate-500">Ver estatÃ­sticas</p>
+                                <p className="text-xs text-slate-500">Ver estatísticas</p>
                             </Link>
                         </div>
                   </div>
@@ -198,7 +199,12 @@ export const Forms: React.FC = () => {
           <div className="lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Inbox size={20} className="text-emerald-600"/> Respostas Recentes</h2>
-                  <button className="text-xs font-bold text-indigo-600 hover:underline">Ver todas</button>
+                  <button
+                    className="text-xs font-bold text-indigo-600 hover:underline"
+                    onClick={() => navigate('/formularios/lista')}
+                  >
+                    Ver todas
+                  </button>
               </div>
 
               <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden">
@@ -207,10 +213,10 @@ export const Forms: React.FC = () => {
                           <thead>
                               <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase text-slate-400 font-bold tracking-wider">
                                   <th className="px-6 py-4">Paciente</th>
-                                  <th className="px-6 py-4">FormulÃ¡rio</th>
+                                  <th className="px-6 py-4">Formulário</th>
                                   <th className="px-6 py-4">Data</th>
                                   <th className="px-6 py-4">Status</th>
-                                  <th className="px-6 py-4 text-right">AÃ§Ã£o</th>
+                                  <th className="px-6 py-4 text-right">Ação</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -244,7 +250,11 @@ export const Forms: React.FC = () => {
                                           </span>
                                       </td>
                                       <td className="px-6 py-4 text-right">
-                                          <button className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all" title="Ver Resposta">
+                                          <button
+                                            className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                                            title="Ver Resposta"
+                                            onClick={() => navigate(`/formularios/${res.formId}/respostas`)}
+                                          >
                                               <Eye size={18} />
                                           </button>
                                       </td>
@@ -254,7 +264,7 @@ export const Forms: React.FC = () => {
                       </table>
                   </div>
                   <div className="p-4 border-t border-slate-100 bg-slate-50/30 text-center">
-                      <p className="text-xs text-slate-400">Mostrando as Ãºltimas 4 respostas</p>
+                      <p className="text-xs text-slate-400">Mostrando as últimas 4 respostas</p>
                   </div>
               </div>
           </div>
@@ -262,6 +272,8 @@ export const Forms: React.FC = () => {
     </div>
   );
 };
+
+
 
 
 

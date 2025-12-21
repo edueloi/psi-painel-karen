@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { Appointment, Professional, Service } from '../types';
 import { 
@@ -8,9 +8,11 @@ import {
   DollarSign, Package, Layers, Loader2, Briefcase, FileText, UserCheck, Ban
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSearchParams } from 'react-router-dom';
 
 export const Agenda: React.FC = () => {
   const { t, language } = useLanguage();
+  const [searchParams] = useSearchParams();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
@@ -19,6 +21,8 @@ export const Agenda: React.FC = () => {
   const [view, setView] = useState<'day' | 'week' | 'month'>('week');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasPrefilled, setHasPrefilled] = useState(false);
+  const [filterPatientId, setFilterPatientId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<any>({
       type: 'consulta',
@@ -73,7 +77,15 @@ export const Agenda: React.FC = () => {
       monthDays.push(new Date(d));
   }
 
-  const getAppointmentsForDay = (date: Date) => appointments.filter(a => isSameDay(a.start, date));
+  const filteredAppointments = useMemo(() => {
+      if (!filterPatientId) return appointments;
+      return appointments.filter((a: any) => {
+          const pid = String(a.patient_id ?? a.patientId ?? '');
+          return pid && pid === String(filterPatientId);
+      });
+  }, [appointments, filterPatientId]);
+
+  const getAppointmentsForDay = (date: Date) => filteredAppointments.filter(a => isSameDay(a.start, date));
   const getRangeLabel = () => {
       if (view === 'month') {
           return currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' });
@@ -152,6 +164,23 @@ export const Agenda: React.FC = () => {
   useEffect(() => {
       fetchData();
   }, []);
+
+  useEffect(() => {
+      const patientId = searchParams.get('patient_id');
+      if (!patientId || hasPrefilled) return;
+      setFormData((prev: any) => ({
+          ...prev,
+          type: 'consulta',
+          patient_id: patientId
+      }));
+      setIsModalOpen(true);
+      setHasPrefilled(true);
+  }, [searchParams, hasPrefilled]);
+
+  useEffect(() => {
+      const patientId = searchParams.get('patient_id');
+      setFilterPatientId(patientId ? String(patientId) : null);
+  }, [searchParams]);
 
   const handleSave = async () => {
       try {

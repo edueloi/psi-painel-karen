@@ -207,10 +207,10 @@ export const Dashboard: React.FC = () => {
             <button onClick={() => navigate('/agenda')} className="flex items-center gap-2 bg-slate-900 text-white px-4 h-10 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-all">
               <Calendar size={16} /> Ver agenda
             </button>
-            <button onClick={() => navigate('/patients')} className="flex items-center gap-2 bg-indigo-600 text-white px-4 h-10 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
+            <button onClick={() => navigate('/pacientes')} className="flex items-center gap-2 bg-indigo-600 text-white px-4 h-10 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
               <Plus size={16} /> {t('patients.new')}
             </button>
-            <button onClick={() => navigate('/records')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 h-10 rounded-xl font-bold text-sm hover:border-indigo-200 hover:text-indigo-700 transition-all">
+            <button onClick={() => navigate('/prontuario')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 h-10 rounded-xl font-bold text-sm hover:border-indigo-200 hover:text-indigo-700 transition-all">
               <FileText size={16} /> Novo prontuario
             </button>
           </div>
@@ -308,7 +308,7 @@ export const Dashboard: React.FC = () => {
                       <div className="text-sm font-bold text-slate-700 truncate">{p.full_name}</div>
                       <div className="text-[10px] text-slate-400">{p.email || p.whatsapp || p.phone || 'Sem contato'}</div>
                     </div>
-                    <button onClick={() => navigate('/patients')} className="text-xs font-bold text-indigo-600 hover:underline">Abrir</button>
+                    <button onClick={() => navigate('/pacientes')} className="text-xs font-bold text-indigo-600 hover:underline">Abrir</button>
                   </div>
                 ))}
               </div>

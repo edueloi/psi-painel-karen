@@ -6,6 +6,7 @@ import {
   X, ArrowLeft, Loader2, Tag, Filter, FileText, Paperclip, Trash2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSearchParams } from 'react-router-dom';
 
 type RecordAttachment = {
   id?: string;
@@ -17,6 +18,7 @@ type RecordAttachment = {
 
 export const Records: React.FC = () => {
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -30,7 +32,12 @@ export const Records: React.FC = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'new' | 'edit' | 'view'>('new');
   const [currentRecord, setCurrentRecord] = useState<Partial<ClinicalRecord> & { attachments?: RecordAttachment[] }>({});
-  const [editorContent, setEditorContent] = useState('');
+  const [editorSections, setEditorSections] = useState({
+    demand: '',
+    procedures: '',
+    analysis: '',
+    free: ''
+  });
   const [tagInput, setTagInput] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
   const [attachmentUrl, setAttachmentUrl] = useState('');
@@ -39,6 +46,72 @@ export const Records: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const editorActiveRef = useRef<HTMLDivElement | null>(null);
+
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const sectionMap: Record<string, Array<'demand' | 'procedures' | 'analysis' | 'free'>> = {
+    Evolucao: ['demand', 'procedures', 'analysis'],
+    Anamnese: ['demand', 'free'],
+    Avaliacao: ['demand', 'procedures', 'analysis'],
+    Encaminhamento: ['demand', 'analysis'],
+    Plano: ['procedures', 'analysis'],
+    Relatorio: ['demand', 'procedures', 'analysis', 'free']
+  };
+
+  const getVisibleSections = (type?: string) => {
+    const key = type || 'Evolucao';
+    return sectionMap[key] || sectionMap.Evolucao;
+  };
+
+  const buildRecordHtml = (sections: { demand: string; procedures: string; analysis: string; free: string }) => {
+    return [
+      `<section data-section="demand">${sections.demand || ''}</section>`,
+      `<section data-section="procedures">${sections.procedures || ''}</section>`,
+      `<section data-section="analysis">${sections.analysis || ''}</section>`,
+      `<section data-section="free">${sections.free || ''}</section>`
+    ].join('');
+  };
+
+  const parseRecordContent = (content: string) => {
+    if (!content) {
+      return { demand: '', procedures: '', analysis: '', free: '' };
+    }
+    if (!content.includes('data-section=')) {
+      return { demand: content, procedures: '', analysis: '', free: '' };
+    }
+    try {
+      const doc = new DOMParser().parseFromString(content, 'text/html');
+      const grab = (key: string) => {
+        const el = doc.querySelector(`section[data-section="${key}"]`);
+        return el ? el.innerHTML : '';
+      };
+      return {
+        demand: grab('demand'),
+        procedures: grab('procedures'),
+        analysis: grab('analysis'),
+        free: grab('free')
+      };
+    } catch {
+      return { demand: content, procedures: '', analysis: '', free: '' };
+    }
+  };
+
+  const updateSection = (key: 'demand' | 'procedures' | 'analysis' | 'free', value: string) => {
+    setEditorSections(prev => ({ ...prev, [key]: value }));
+  };
+
+  const execCommand = (command: string, value?: string) => {
+    if (!editorActiveRef.current) return;
+    editorActiveRef.current.focus();
+    document.execCommand(command, false, value);
+  };
+
+  const handleInsertLink = () => {
+    const url = window.prompt('URL do link:');
+    if (!url) return;
+    execCommand('createLink', url);
+  };
 
   const fetchPatients = async () => {
     setIsLoading(true);
@@ -56,6 +129,13 @@ export const Records: React.FC = () => {
     fetchPatients();
   }, []);
 
+  useEffect(() => {
+    const patientId = searchParams.get('patient_id');
+    if (patientId && !selectedPatientId) {
+      setSelectedPatientId(patientId);
+    }
+  }, [searchParams, selectedPatientId]);
+
   const fetchRecords = async (patientId: string) => {
     try {
       const data = await api.get<any[]>('/medical-records', { patient_id: patientId });
@@ -67,7 +147,7 @@ export const Records: React.FC = () => {
         type: r.record_type,
         status: r.status,
         title: r.title,
-        preview: (r.content || '').slice(0, 120),
+        preview: stripHtml(String(r.content || '')).slice(0, 120),
         tags: (() => {
           if (!r.tags) return [];
           if (Array.isArray(r.tags)) return r.tags;
@@ -140,7 +220,7 @@ export const Records: React.FC = () => {
           tags: [],
           attachments: []
       });
-      setEditorContent('');
+      setEditorSections({ demand: '', procedures: '', analysis: '', free: '' });
       setTagInput('');
       setAttachmentName('');
       setAttachmentUrl('');
@@ -183,7 +263,7 @@ export const Records: React.FC = () => {
               tags,
               attachments
           });
-          setEditorContent(data.content || '');
+          setEditorSections(parseRecordContent(String(data.content || '')));
           setTagInput(tags.join(', '));
           setAttachmentName('');
           setAttachmentUrl('');
@@ -280,7 +360,7 @@ export const Records: React.FC = () => {
               record_type: currentRecord.type || 'Evolucao',
               status: currentRecord.status || 'Rascunho',
               title: currentRecord.title || `Sessao - ${new Date().toLocaleDateString()}`,
-              content: editorContent,
+              content: buildRecordHtml(editorSections),
               tags,
               attachments: currentRecord.attachments || []
           };
@@ -477,12 +557,68 @@ export const Records: React.FC = () => {
                       </div>
                   </div>
                   <div className="flex-1 overflow-y-auto">
-                      <textarea
-                        className="w-full min-h-[320px] p-8 outline-none text-lg leading-relaxed resize-none"
-                        value={editorContent}
-                        onChange={e => setEditorContent(e.target.value)}
-                        placeholder={t('records.editor.placeholder')}
-                      />
+                      <div className="px-6 md:px-8 pt-6 space-y-6">
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500 uppercase">
+                              <span>Editor</span>
+                              <div className="flex flex-wrap gap-2">
+                                  <button onClick={() => execCommand('bold')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Negrito</button>
+                                  <button onClick={() => execCommand('italic')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Italico</button>
+                                  <button onClick={() => execCommand('underline')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Sublinhado</button>
+                                  <button onClick={() => execCommand('formatBlock', 'H2')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Titulo</button>
+                                  <button onClick={() => execCommand('insertUnorderedList')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Topicos</button>
+                                  <button onClick={() => execCommand('insertOrderedList')} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Numerado</button>
+                                  <button onClick={handleInsertLink} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Link</button>
+                              </div>
+                          </div>
+
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Descricao da demanda</label>
+                              <div
+                                className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
+                                contentEditable
+                                suppressContentEditableWarning
+                                onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                onInput={(e) => updateSection('demand', (e.currentTarget as HTMLDivElement).innerHTML)}
+                                dangerouslySetInnerHTML={{ __html: editorSections.demand }}
+                              />
+                          </div>
+
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Procedimentos</label>
+                              <div
+                                className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
+                                contentEditable
+                                suppressContentEditableWarning
+                                onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                onInput={(e) => updateSection('procedures', (e.currentTarget as HTMLDivElement).innerHTML)}
+                                dangerouslySetInnerHTML={{ __html: editorSections.procedures }}
+                              />
+                          </div>
+
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Analise e conclusao</label>
+                              <div
+                                className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
+                                contentEditable
+                                suppressContentEditableWarning
+                                onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                onInput={(e) => updateSection('analysis', (e.currentTarget as HTMLDivElement).innerHTML)}
+                                dangerouslySetInnerHTML={{ __html: editorSections.analysis }}
+                              />
+                          </div>
+
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Texto livre</label>
+                              <div
+                                className="min-h-[120px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
+                                contentEditable
+                                suppressContentEditableWarning
+                                onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                onInput={(e) => updateSection('free', (e.currentTarget as HTMLDivElement).innerHTML)}
+                                dangerouslySetInnerHTML={{ __html: editorSections.free }}
+                              />
+                          </div>
+                      </div>
                       <div className="px-8 pb-8">
                           <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">

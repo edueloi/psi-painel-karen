@@ -40,7 +40,7 @@ export const api: Api = {
 
       if (response.status === 401) {
         localStorage.removeItem('psi_token');
-        window.location.href = '#/login';
+        window.location.href = '/login';
         throw new Error('Sessão expirada');
       }
 
@@ -86,3 +86,4 @@ export const api: Api = {
     return this.request(endpoint, { method: 'DELETE' });
   }
 };
+

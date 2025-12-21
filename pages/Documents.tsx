@@ -1,5 +1,6 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MOCK_DOCUMENTS, DOCUMENT_CATEGORIES } from '../constants';
 import { Document } from '../types';
 import {
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 
 export const Documents: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [categories, setCategories] = useState<string[]>(DOCUMENT_CATEGORIES);
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +34,7 @@ export const Documents: React.FC = () => {
   const [sortBy, setSortBy] = useState<'recent' | 'name' | 'size'>('recent');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCUMENTS);
+  const [filterPatientId, setFilterPatientId] = useState<string | null>(null);
 
   // Category Management States
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -42,7 +45,10 @@ export const Documents: React.FC = () => {
   const filteredDocs = documents.filter(doc => {
     const matchesCategory = activeCategory === 'Todos' || doc.category === activeCategory;
     const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const docAny = doc as any;
+    const hasPatientField = docAny.patient_id !== undefined || docAny.patientId !== undefined;
+    const matchesPatient = !filterPatientId || !hasPatientField || String(docAny.patient_id ?? docAny.patientId ?? '') === String(filterPatientId);
+    return matchesCategory && matchesSearch && matchesPatient;
   });
 
   const parseSizeToMB = (sizeStr: string) => {
@@ -395,7 +401,7 @@ export const Documents: React.FC = () => {
                             <span className="text-[10px] text-slate-400">{doc.type.toUpperCase()}</span>
                         </div>
                         <h3 className="font-bold text-slate-800 text-sm truncate">{doc.title}</h3>
-                        <div className="text-xs text-slate-400 mt-1">{doc.size} • {new Date(doc.date).toLocaleDateString()}</div>
+                        <div className="text-xs text-slate-400 mt-1">{doc.size} ï¿½ {new Date(doc.date).toLocaleDateString()}</div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button className="px-3 py-2 rounded-xl bg-teal-50 text-teal-700 text-xs font-bold hover:bg-teal-100 transition-colors">Baixar</button>

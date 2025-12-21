@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
               {user?.role === 'super_admin' ? (
                 <div>
                    <h3 className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Administração Master</h3>
-                   <Link to="/master" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold bg-indigo-50 text-indigo-700 shadow-sm">
+                   <Link to="/painel-master" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold bg-indigo-50 text-indigo-700 shadow-sm">
                       <ShieldAlert size={20} /> Painel Master
                    </Link>
                 </div>

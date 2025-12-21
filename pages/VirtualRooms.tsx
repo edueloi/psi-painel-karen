@@ -24,7 +24,7 @@ export const VirtualRooms: React.FC = () => {
   const fetchRooms = async () => {
     setIsLoading(true);
     try {
-        const data = await api.get<VirtualRoom[]>('/virtualRooms');
+        const data = await api.get<VirtualRoom[]>('/virtual-rooms');
         setRooms(data);
     } catch (e) {
         console.error("Erro ao buscar salas:", e);
@@ -54,14 +54,14 @@ export const VirtualRooms: React.FC = () => {
     const randomCode = Math.random().toString(36).substr(2, 9);
     
     try {
-        const response = await api.post<{ message: string, id: number }>('/virtualRooms', {
+        const response = await api.post<{ message: string, id: number }>('/virtual-rooms', {
             code: randomCode,
             title: `${t('rooms.instantTitle')} - ${new Date().toLocaleDateString()}`,
             description: t('rooms.instantDesc')
         });
         
         // Redireciona imediatamente apos criar
-        navigate(`/meeting/${randomCode}`);
+        navigate(`/sala/${randomCode}`);
     } catch (e: any) {
         alert(t('rooms.errorCreate') + " " + e.message);
     } finally {
@@ -72,14 +72,14 @@ export const VirtualRooms: React.FC = () => {
   const handleJoinByCode = (e: React.FormEvent) => {
     e.preventDefault();
     if (meetingCode.trim()) {
-      navigate(`/meeting/${meetingCode.trim()}`);
+      navigate(`/sala/${meetingCode.trim()}`);
     }
   };
 
   const handleDeleteRoom = async (id: number) => {
       if (window.confirm(t('rooms.deleteConfirm'))) {
           try {
-              await api.delete(`/virtualRooms/${id}`);
+              await api.delete(`/virtual-rooms/${id}`);
               setRooms(prev => prev.filter(r => r.id !== id));
           } catch (e) {
               alert(t('rooms.errorDelete'));
@@ -88,7 +88,7 @@ export const VirtualRooms: React.FC = () => {
   };
 
   const handleCopyLink = (room: VirtualRoom) => {
-      const url = `${window.location.origin}/#/meeting/${room.code}`;
+      const url = `${window.location.origin}/#/sala/${room.code}`;
       navigator.clipboard.writeText(url);
       setCopiedId(room.id);
       setTimeout(() => setCopiedId(null), 2000);
@@ -203,7 +203,7 @@ export const VirtualRooms: React.FC = () => {
                                             {copiedId === room.id ? <Check size={18}/> : <Copy size={18} />}
                                         </button>
                                         <button 
-                                            onClick={() => navigate(`/meeting/${room.code}`)} 
+                                            onClick={() => navigate(`/sala/${room.code}`)} 
                                             className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md transition-all"
                                             title={t('rooms.join')}
                                         >
@@ -284,7 +284,7 @@ export const VirtualRooms: React.FC = () => {
                                           {copiedId === room.id ? <Check size={20} /> : <Copy size={20} />}
                                       </button>
                                       <button 
-                                        onClick={() => navigate(`/meeting/${room.code}`)}
+                                        onClick={() => navigate(`/sala/${room.code}`)}
                                         className="flex-1 sm:flex-none px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 group-hover:shadow-indigo-200"
                                       >
                                           <Play size={16} fill="currentColor" /> {t('rooms.startNow')}
@@ -300,4 +300,5 @@ export const VirtualRooms: React.FC = () => {
     </div>
   );
 };
+
 

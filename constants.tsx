@@ -9,51 +9,51 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'nav.dashboard', path: '/', icon: <Activity size={20} /> },
       { label: 'nav.agenda', path: '/agenda', icon: <Calendar size={20} /> },
-      { label: 'nav.meeting', path: '/virtual-rooms', icon: <Video size={20} /> },
+      { label: 'nav.meeting', path: '/salas-virtuais', icon: <Video size={20} /> },
       { label: 'nav.bot', path: '/bot', icon: <Smartphone size={20} /> },
     ]
   },
   {
     title: 'nav.group.clinical',
     items: [
-      { label: 'nav.patients', path: '/patients', icon: <Users size={20} /> },
-      { label: 'nav.neuro', path: '/pei', icon: <BrainCircuit size={20} /> }, 
-      { label: 'nav.tools', path: '/clinical-tools', icon: <Boxes size={20} /> },
-      { label: 'nav.records', path: '/records', icon: <FileText size={20} /> },
-      { label: 'nav.cases', path: '/cases', icon: <BookOpen size={20} /> },
-      { label: 'nav.documents', path: '/documents', icon: <FolderOpen size={20} /> },
-      { label: 'nav.forms', path: '/forms', icon: <ClipboardList size={20} /> },
+      { label: 'nav.patients', path: '/pacientes', icon: <Users size={20} /> },
+      { label: 'nav.neuro', path: '/neurodesenvolvimento', icon: <BrainCircuit size={20} /> }, 
+      { label: 'nav.tools', path: '/caixa-ferramentas', icon: <Boxes size={20} /> },
+      { label: 'nav.records', path: '/prontuario', icon: <FileText size={20} /> },
+      { label: 'nav.cases', path: '/estudos-de-caso', icon: <BookOpen size={20} /> },
+      { label: 'nav.documents', path: '/documentos', icon: <FolderOpen size={20} /> },
+      { label: 'nav.forms', path: '/formularios', icon: <ClipboardList size={20} /> },
     ]
   },
   {
     title: 'nav.group.management',
     items: [
-      { label: 'nav.professionals', path: '/professionals', icon: <UserCheck size={20} /> },
-      { label: 'nav.permissions', path: '/permissions', icon: <Key size={20} /> },
-      { label: 'nav.services', path: '/services', icon: <Briefcase size={20} /> },
-      { label: 'nav.products', path: '/products', icon: <Package size={20} /> },
+      { label: 'nav.professionals', path: '/profissionais', icon: <UserCheck size={20} /> },
+      { label: 'nav.permissions', path: '/permissoes', icon: <Key size={20} /> },
+      { label: 'nav.services', path: '/servicos', icon: <Briefcase size={20} /> },
+      { label: 'nav.products', path: '/produtos', icon: <Package size={20} /> },
       { label: 'nav.comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },
     ]
   },
   {
     title: 'nav.group.financial',
     items: [
-      { label: 'nav.finance', path: '/finance', icon: <DollarSign size={20} /> },
-      { label: 'nav.docGen', path: '/doc-generator', icon: <Printer size={20} /> },
-      { label: 'nav.bestClients', path: '/best-clients', icon: <Trophy size={20} /> },
-      { label: 'nav.performance', path: '/performance', icon: <BarChart2 size={20} /> },
+      { label: 'nav.finance', path: '/financeiro', icon: <DollarSign size={20} /> },
+      { label: 'nav.docGen', path: '/gerador-documentos', icon: <Printer size={20} /> },
+      { label: 'nav.bestClients', path: '/melhores-clientes', icon: <Trophy size={20} /> },
+      { label: 'nav.performance', path: '/desempenho', icon: <BarChart2 size={20} /> },
     ]
   },
   {
     title: 'nav.group.communication',
     items: [
-      { label: 'nav.messages', path: '/messages', icon: <MessageCircle size={20} /> },
+      { label: 'nav.messages', path: '/mensagens', icon: <MessageCircle size={20} /> },
     ]
   },
   {
     title: 'nav.group.system',
     items: [
-      { label: 'nav.settings', path: '/settings', icon: <Settings size={20} /> },
+      { label: 'nav.settings', path: '/configuracoes', icon: <Settings size={20} /> },
     ]
   }
 ];
@@ -138,3 +138,4 @@ export const ASSESSMENTS_DATA: Record<string, Assessment> = {
     color: 'bg-emerald-500'
   }
 };
+

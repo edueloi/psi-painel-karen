@@ -10,7 +10,7 @@ import {
   ClipboardCheck, Play, PieChart, ArrowLeft
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { MOCK_APPOINTMENTS, ASSESSMENTS_DATA } from '../constants';
+import { ASSESSMENTS_DATA } from '../constants';
 
 interface MeetingRoomProps {
   isGuest?: boolean;
@@ -86,8 +86,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
   const [drawColor, setDrawColor] = useState('#000000');
   const lastPointRef = useRef<Point | null>(null);
 
-  const appointment = MOCK_APPOINTMENTS.find(a => a.id === id);
   const meetingUrl = window.location.href.split('?')[0];
+  const roomLabel = id ? `Sala ${id}` : 'Sala';
 
   // --- BROADCAST CHANNEL (Real-time Sync between tabs) ---
   useEffect(() => {
@@ -266,9 +266,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
               if (!incomingRequest && !remoteUserConnected) {
                   // Only simulate if no real request via broadcast happened
                   setIncomingRequest({ 
-                      name: appointment?.patientName || 'Carlos Oliveira (Simulado)', 
-                      id: 'simulated-guest' 
-                  });
+                    name: guestName || 'Convidado', 
+                    id: 'simulated-guest' 
+                });
               }
           }, 3000);
           return () => clearTimeout(timeout);
@@ -1061,7 +1061,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
                <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20"><PhoneOff size={36} /></div>
                <h3 className="text-2xl font-bold text-white mb-2">Encerrar Sessão?</h3>
                <p className="text-slate-400 mb-8 text-sm leading-relaxed">Isso desconectará você e o paciente da sala virtual. Certifique-se de que o prontuário foi salvo.</p>
-               <div className="flex gap-3"><button onClick={() => setShowEndModal(false)} className="flex-1 py-3.5 rounded-xl font-bold text-slate-300 hover:bg-white/10 transition-colors">Cancelar</button><button onClick={() => { cleanupMedia(); navigate(isGuest ? '/' : '/virtual-rooms'); }} className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors">Encerrar</button></div>
+               <div className="flex gap-3"><button onClick={() => setShowEndModal(false)} className="flex-1 py-3.5 rounded-xl font-bold text-slate-300 hover:bg-white/10 transition-colors">Cancelar</button><button onClick={() => { cleanupMedia(); navigate(isGuest ? '/' : '/salas-virtuais'); }} className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors">Encerrar</button></div>
             </div>
          </div>
       )}
@@ -1069,3 +1069,5 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest = false }) => 
     </div>
   );
 };
+
+

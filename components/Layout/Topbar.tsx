@@ -122,16 +122,16 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
                  </div>
 
                  <div className="p-2 space-y-1">
-                    <button onClick={() => handleNavigate('/profile')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
+                    <button onClick={() => handleNavigate('/perfil')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
                        <UserIcon size={16} /> {t('topbar.profile')}
                     </button>
-                    <button onClick={() => handleNavigate('/settings')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
+                    <button onClick={() => handleNavigate('/configuracoes')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
                        <Settings size={16} /> {t('topbar.settings')}
                     </button>
-                    <button onClick={() => handleNavigate('/privacy')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
+                    <button onClick={() => handleNavigate('/privacidade')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
                        <Shield size={16} /> {t('topbar.privacy')}
                     </button>
-                    <button onClick={() => handleNavigate('/help')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
+                    <button onClick={() => handleNavigate('/ajuda')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
                        <HelpCircle size={16} /> {t('topbar.help')}
                     </button>
                  </div>

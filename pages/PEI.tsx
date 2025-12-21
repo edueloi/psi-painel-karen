@@ -10,6 +10,7 @@ import {
   Clock, FileText, ChevronRight, X, Save, ArrowLeft, Zap, Box, Brain, Loader2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSearchParams } from 'react-router-dom';
 
 // --- COMPONENTS FOR SUB-TABS ---
 type NeuroAssessment = {
@@ -585,6 +586,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
 
 export const PEI: React.FC = () => {
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'goals' | 'abc' | 'sensory' | 'assessments'>('goals');
@@ -678,6 +680,13 @@ export const PEI: React.FC = () => {
   useEffect(() => {
     fetchPatients();
   }, []);
+
+  useEffect(() => {
+    const patientId = searchParams.get('patient_id');
+    if (patientId && !selectedPatientId) {
+      setSelectedPatientId(patientId);
+    }
+  }, [searchParams, selectedPatientId]);
 
   useEffect(() => {
     if (selectedPatientId) {

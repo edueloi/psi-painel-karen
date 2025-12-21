@@ -22,6 +22,7 @@ import {
   RefreshCcw,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSearchParams } from 'react-router-dom';
 
 type ToolTab = 'tcc' | 'schema' | 'psycho';
 type TccSubTab = 'rpd' | 'cards';
@@ -1341,6 +1342,7 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
 
 export const ClinicalTools: React.FC = () => {
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -1363,6 +1365,13 @@ export const ClinicalTools: React.FC = () => {
   useEffect(() => {
     void fetchData();
   }, []);
+
+  useEffect(() => {
+    const patientId = searchParams.get('patient_id');
+    if (patientId && !selectedPatientId) {
+      setSelectedPatientId(patientId);
+    }
+  }, [searchParams, selectedPatientId]);
 
   const selectedPatient = useMemo(() => patients.find((p) => p.id === selectedPatientId), [patients, selectedPatientId]);
 

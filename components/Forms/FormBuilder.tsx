@@ -28,6 +28,15 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
   const [questions, setQuestions] = useState<FormQuestion[]>(initialData?.questions || []);
   const [interpretations, setInterpretations] = useState<InterpretationRule[]>(initialData?.interpretations || []);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState('');
+  const handleSave = () => {
+    if (!title.trim()) {
+      setTitleError('Titulo obrigatorio para salvar.');
+      return;
+    }
+    setTitleError('');
+    onSave({ title, description, questions, interpretations });
+  };
 
   // --- Logic Helpers ---
   const calculateMaxScore = () => {
@@ -153,7 +162,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
         </div>
 
         <div className="flex gap-3">
-           <Button variant="primary" size="sm" onClick={() => onSave({ title, description, questions, interpretations })}>
+           <Button variant="primary" size="sm" onClick={handleSave}>
              <Save size={16} className="mr-2" /> Salvar
            </Button>
         </div>
@@ -203,10 +212,20 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                     <input
                         type="text"
                         value={title}
-                        onChange={(e) => setTitle(e.target.value)}
+                        onChange={(e) => {
+                          setTitle(e.target.value);
+                          if (titleError) setTitleError('');
+                        }}
                         placeholder="Título do Formulário"
-                        className="w-full text-3xl font-display font-bold text-slate-800 placeholder:text-slate-300 border-none focus:ring-0 p-0 bg-transparent mb-2"
+                        className={`w-full text-3xl font-display font-bold placeholder:text-slate-300 border-none focus:ring-0 p-0 bg-transparent mb-2 ${
+                          titleError ? 'text-red-600' : 'text-slate-800'
+                        }`}
                     />
+                    {titleError ? (
+                      <p className="text-xs font-bold text-red-600 mb-2">
+                        {titleError}
+                      </p>
+                    ) : null}
                     <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
@@ -464,3 +483,4 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
     </div>
   );
 };
+

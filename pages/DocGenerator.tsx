@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { Patient } from '../types';
 import {
@@ -10,7 +10,10 @@ import {
   Loader2,
   Plus,
   Save,
-  X
+  X,
+  Image,
+  Trash2,
+  UploadCloud
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -29,6 +32,13 @@ type DocTemplate = {
   footer_logo_url?: string | null;
   signature_name?: string | null;
   signature_crp?: string | null;
+};
+
+type UploadItem = {
+  id: string;
+  file_name?: string | null;
+  file_type?: string | null;
+  file_url?: string | null;
 };
 
 const monthNames = [
@@ -61,6 +71,7 @@ export const DocGenerator: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [categories, setCategories] = useState<DocCategory[]>([]);
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
 
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [patientName, setPatientName] = useState('');
@@ -82,6 +93,8 @@ export const DocGenerator: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRendering, setIsRendering] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  const [uploadingTarget, setUploadingTarget] = useState<string | null>(null);
 
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
@@ -93,14 +106,20 @@ export const DocGenerator: React.FC = () => {
   const [templateFooterLogo, setTemplateFooterLogo] = useState('');
   const [templateSignatureName, setTemplateSignatureName] = useState('');
   const [templateSignatureCrp, setTemplateSignatureCrp] = useState('');
+  const [templateImageToInsert, setTemplateImageToInsert] = useState('');
+
+  const headerInputRef = useRef<HTMLInputElement | null>(null);
+  const footerInputRef = useRef<HTMLInputElement | null>(null);
+  const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [patientsData, categoriesData, templatesData] = await Promise.all([
+      const [patientsData, categoriesData, templatesData, uploadsData] = await Promise.all([
         api.get<Patient[]>('/patients'),
         api.get<any[]>('/doc-generator/doc-categories'),
-        api.get<any[]>('/doc-generator/doc-templates')
+        api.get<any[]>('/doc-generator/doc-templates'),
+        api.get<any[]>('/uploads')
       ]);
       setPatients(patientsData);
       setCategories(
@@ -117,6 +136,14 @@ export const DocGenerator: React.FC = () => {
           footer_logo_url: t.footer_logo_url,
           signature_name: t.signature_name,
           signature_crp: t.signature_crp
+        }))
+      );
+      setUploads(
+        (uploadsData || []).map((u: any) => ({
+          id: String(u.id),
+          file_name: u.file_name,
+          file_type: u.file_type,
+          file_url: u.file_url
         }))
       );
     } catch (e) {
@@ -145,6 +172,69 @@ export const DocGenerator: React.FC = () => {
     [templates, selectedTemplateId]
   );
 
+  const imageUploads = useMemo(
+    () => uploads.filter(u => (u.file_type || '').startsWith('image/') && u.file_url),
+    [uploads]
+  );
+
+  const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
+    reader.readAsDataURL(file);
+  });
+
+  const uploadImage = async (file: File, target: 'header' | 'footer' | 'library') => {
+    setUploadError('');
+    setUploadingTarget(target);
+    try {
+      const upload = await api.post<{ id: number }>('/uploads/request', {
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size
+      });
+      const dataUrl = await readFileAsDataUrl(file);
+      await api.put(`/uploads/${upload.id}/confirm`, {
+        file_url: dataUrl,
+        status: 'uploaded'
+      });
+      if (target === 'header') setLogoUrl(dataUrl);
+      if (target === 'footer') setFooterLogoUrl(dataUrl);
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+      setUploadError('Nao foi possivel enviar a imagem.');
+    } finally {
+      setUploadingTarget(null);
+    }
+  };
+
+  const handleLogoFile = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    target: 'header' | 'footer' | 'library'
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    await uploadImage(file, target);
+  };
+
+  const handleDeleteUpload = async (id: string) => {
+    try {
+      await api.delete(`/uploads/${id}`);
+      if (logoUrl && imageUploads.find(u => u.id === id && u.file_url === logoUrl)) {
+        setLogoUrl('');
+      }
+      if (footerLogoUrl && imageUploads.find(u => u.id === id && u.file_url === footerLogoUrl)) {
+        setFooterLogoUrl('');
+      }
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+      setUploadError('Nao foi possivel remover a imagem.');
+    }
+  };
+
   const buildData = () => {
     const name = patient?.full_name || patientName.trim();
     const d = new Date(docDate);
@@ -159,7 +249,11 @@ export const DocGenerator: React.FC = () => {
       amount: amount.trim(),
       city: city.trim(),
       year: Number.isNaN(d.getTime()) ? '' : String(d.getFullYear()),
-      month_name: Number.isNaN(d.getTime()) ? '' : monthNames[d.getMonth()] || ''
+      month_name: Number.isNaN(d.getTime()) ? '' : monthNames[d.getMonth()] || '',
+      header_logo_url: logoUrl || selectedTemplate?.header_logo_url || '',
+      footer_logo_url: footerLogoUrl || selectedTemplate?.footer_logo_url || '',
+      signature_name: selectedTemplate?.signature_name || '',
+      signature_crp: selectedTemplate?.signature_crp || ''
     };
   };
 
@@ -200,7 +294,26 @@ export const DocGenerator: React.FC = () => {
 
   useEffect(() => {
     renderPreview();
-  }, [selectedTemplateId, selectedPatientId, patientName, professionalName, professionalCrp, city, docDate, timeStart, timeEnd, serviceName, amount, logoUrl, footerLogoUrl]);
+  }, [
+    selectedTemplateId,
+    selectedPatientId,
+    patientName,
+    professionalName,
+    professionalCrp,
+    city,
+    docDate,
+    timeStart,
+    timeEnd,
+    serviceName,
+    amount,
+    logoUrl,
+    footerLogoUrl,
+    selectedTemplate?.template_body,
+    selectedTemplate?.header_logo_url,
+    selectedTemplate?.footer_logo_url,
+    selectedTemplate?.signature_name,
+    selectedTemplate?.signature_crp
+  ]);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -224,6 +337,7 @@ export const DocGenerator: React.FC = () => {
       setTemplateFooterLogo(tpl.footer_logo_url || '');
       setTemplateSignatureName(tpl.signature_name || '');
       setTemplateSignatureCrp(tpl.signature_crp || '');
+      setTemplateImageToInsert('');
     } else {
       setEditingTemplateId(null);
       setTemplateTitle('');
@@ -234,6 +348,7 @@ export const DocGenerator: React.FC = () => {
       setTemplateFooterLogo('');
       setTemplateSignatureName('');
       setTemplateSignatureCrp('');
+      setTemplateImageToInsert('');
     }
     setIsTemplateModalOpen(true);
   };
@@ -399,6 +514,37 @@ export const DocGenerator: React.FC = () => {
                     Remover template
                   </button>
                 )}
+                <div className="mt-4 space-y-2">
+                  {filteredTemplates.map((tpl) => (
+                    <div
+                      key={tpl.id}
+                      className={`border rounded-xl p-3 flex items-center justify-between gap-2 ${
+                        tpl.id === selectedTemplateId ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">{tpl.title}</p>
+                        {tpl.doc_type ? (
+                          <span className="text-[10px] uppercase tracking-wide text-slate-400">{tpl.doc_type}</span>
+                        ) : null}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSelectedTemplateId(tpl.id)}
+                          className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-600"
+                        >
+                          Usar
+                        </button>
+                        <button
+                          onClick={() => openTemplateModal(tpl)}
+                          className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-900 text-white"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -511,21 +657,191 @@ export const DocGenerator: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Logo (opcional)</label>
-                <div className="grid grid-cols-1 gap-2">
-                  <input
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
-                    placeholder="Logo cabecalho (URL)"
-                    value={logoUrl}
-                    onChange={(e) => setLogoUrl(e.target.value)}
-                  />
-                  <input
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
-                    placeholder="Logo rodape (URL)"
-                    value={footerLogoUrl}
-                    onChange={(e) => setFooterLogoUrl(e.target.value)}
-                  />
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Logos e imagens</label>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cabecalho</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => headerInputRef.current?.click()}
+                          className="px-3 py-1 text-xs font-bold rounded-lg bg-slate-900 text-white flex items-center gap-1"
+                        >
+                          <UploadCloud size={14} /> Enviar
+                        </button>
+                        <button
+                          onClick={() => setLogoUrl('')}
+                          className="px-3 py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-600"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      <select
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                      >
+                        <option value="">Selecionar imagem existente</option>
+                        {imageUploads.map((img) => (
+                          <option key={img.id} value={img.file_url || ''}>{img.file_name || `Imagem ${img.id}`}</option>
+                        ))}
+                      </select>
+                      <input
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+                        placeholder="URL manual"
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                      />
+                    </div>
+                    {logoUrl ? (
+                      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 flex justify-center">
+                        <img src={logoUrl} alt="Logo cabecalho" className="max-h-24 object-contain" />
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-400 flex items-center justify-center gap-2">
+                        <Image size={16} /> Sem logo selecionada
+                      </div>
+                    )}
+                    {uploadingTarget === 'header' ? (
+                      <p className="text-xs text-slate-400 flex items-center gap-2">
+                        <Loader2 className="animate-spin" size={14} /> Enviando cabecalho...
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Rodape</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => footerInputRef.current?.click()}
+                          className="px-3 py-1 text-xs font-bold rounded-lg bg-slate-900 text-white flex items-center gap-1"
+                        >
+                          <UploadCloud size={14} /> Enviar
+                        </button>
+                        <button
+                          onClick={() => setFooterLogoUrl('')}
+                          className="px-3 py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-600"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      <select
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+                        value={footerLogoUrl}
+                        onChange={(e) => setFooterLogoUrl(e.target.value)}
+                      >
+                        <option value="">Selecionar imagem existente</option>
+                        {imageUploads.map((img) => (
+                          <option key={img.id} value={img.file_url || ''}>{img.file_name || `Imagem ${img.id}`}</option>
+                        ))}
+                      </select>
+                      <input
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+                        placeholder="URL manual"
+                        value={footerLogoUrl}
+                        onChange={(e) => setFooterLogoUrl(e.target.value)}
+                      />
+                    </div>
+                    {footerLogoUrl ? (
+                      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 flex justify-center">
+                        <img src={footerLogoUrl} alt="Logo rodape" className="max-h-20 object-contain" />
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-400 flex items-center justify-center gap-2">
+                        <Image size={16} /> Sem logo selecionada
+                      </div>
+                    )}
+                    {uploadingTarget === 'footer' ? (
+                      <p className="text-xs text-slate-400 flex items-center gap-2">
+                        <Loader2 className="animate-spin" size={14} /> Enviando rodape...
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
+                {uploadError ? (
+                  <p className="text-xs text-red-500 mt-2">{uploadError}</p>
+                ) : null}
+                <input
+                  ref={headerInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleLogoFile(e, 'header')}
+                />
+                <input
+                  ref={footerInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleLogoFile(e, 'footer')}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Biblioteca de imagens</label>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-slate-500">Salvas no seu painel para reutilizar nos documentos.</p>
+                  <button
+                    onClick={() => libraryInputRef.current?.click()}
+                    className="px-3 py-1 text-xs font-bold rounded-lg bg-indigo-600 text-white flex items-center gap-1"
+                  >
+                    <UploadCloud size={14} /> Adicionar
+                  </button>
+                </div>
+                {uploadingTarget === 'library' ? (
+                  <div className="text-xs text-slate-400 flex items-center gap-2">
+                    <Loader2 className="animate-spin" size={14} /> Enviando imagem...
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-2 gap-3">
+                  {imageUploads.length === 0 ? (
+                    <div className="col-span-2 p-4 border border-dashed border-slate-200 rounded-xl text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <Image size={16} /> Nenhuma imagem salva ainda
+                    </div>
+                  ) : (
+                    imageUploads.map((img) => (
+                      <div key={img.id} className="border border-slate-200 rounded-xl p-2 bg-white">
+                        <div className="bg-slate-50 rounded-lg p-2 flex items-center justify-center h-24">
+                          <img src={img.file_url || ''} alt={img.file_name || 'Imagem'} className="max-h-20 object-contain" />
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-2 truncate">{img.file_name || `Imagem ${img.id}`}</p>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => setLogoUrl(img.file_url || '')}
+                            className="flex-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-600 py-1"
+                          >
+                            Cabecalho
+                          </button>
+                          <button
+                            onClick={() => setFooterLogoUrl(img.file_url || '')}
+                            className="flex-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-600 py-1"
+                          >
+                            Rodape
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUpload(img.id)}
+                            className="px-2 rounded-lg bg-red-50 text-red-600"
+                            title="Remover"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <input
+                  ref={libraryInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleLogoFile(e, 'library')}
+                />
               </div>
             </>
           )}
@@ -602,6 +918,16 @@ export const DocGenerator: React.FC = () => {
                   onChange={(e) => setTemplateHeaderLogo(e.target.value)}
                 />
               </div>
+              <select
+                className="w-full p-3 rounded-xl border border-slate-200 bg-white"
+                value={templateHeaderLogo}
+                onChange={(e) => setTemplateHeaderLogo(e.target.value)}
+              >
+                <option value="">Selecionar logo de cabecalho</option>
+                {imageUploads.map((img) => (
+                  <option key={img.id} value={img.file_url || ''}>{img.file_name || `Imagem ${img.id}`}</option>
+                ))}
+              </select>
               <div className="grid grid-cols-2 gap-3">
                 <input
                   className="w-full p-3 rounded-xl border border-slate-200"
@@ -616,6 +942,16 @@ export const DocGenerator: React.FC = () => {
                   onChange={(e) => setTemplateSignatureName(e.target.value)}
                 />
               </div>
+              <select
+                className="w-full p-3 rounded-xl border border-slate-200 bg-white"
+                value={templateFooterLogo}
+                onChange={(e) => setTemplateFooterLogo(e.target.value)}
+              >
+                <option value="">Selecionar logo de rodape</option>
+                {imageUploads.map((img) => (
+                  <option key={img.id} value={img.file_url || ''}>{img.file_name || `Imagem ${img.id}`}</option>
+                ))}
+              </select>
               <div className="grid grid-cols-2 gap-3">
                 <input
                   className="w-full p-3 rounded-xl border border-slate-200"
@@ -623,6 +959,28 @@ export const DocGenerator: React.FC = () => {
                   value={templateSignatureCrp}
                   onChange={(e) => setTemplateSignatureCrp(e.target.value)}
                 />
+              </div>
+              <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
+                <select
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-white"
+                  value={templateImageToInsert}
+                  onChange={(e) => setTemplateImageToInsert(e.target.value)}
+                >
+                  <option value="">Inserir imagem do acervo</option>
+                  {imageUploads.map((img) => (
+                    <option key={img.id} value={img.file_url || ''}>{img.file_name || `Imagem ${img.id}`}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    if (!templateImageToInsert) return;
+                    setTemplateBody((prev) => `${prev}\n<img src="${templateImageToInsert}" style="max-width:100%; height:auto;" />\n`);
+                    setTemplateImageToInsert('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
+                >
+                  Inserir
+                </button>
               </div>
               <textarea
                 className="w-full min-h-[260px] p-4 rounded-xl border border-slate-200"
