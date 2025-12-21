@@ -49,7 +49,7 @@ export const BotIntegration: React.FC = () => {
             <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-emerald-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
                     <Smartphone size={14} />
-                    <span>WhatsApp Bot</span>
+                    <span>{t('bot.badge')}</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('bot.title')}</h1>
                 <p className="text-emerald-200 text-lg leading-relaxed max-w-xl">
@@ -73,7 +73,7 @@ export const BotIntegration: React.FC = () => {
                           </div>
                           <h4 className="text-xl font-bold text-emerald-600 mb-2">{t('bot.connected')}</h4>
                           <p className="text-sm text-slate-500">Karen Gomes (11) 99999-8888</p>
-                          <button onClick={() => setIsConnected(false)} className="mt-6 text-xs text-red-500 hover:underline">Desconectar</button>
+                          <button onClick={() => setIsConnected(false)} className="mt-6 text-xs text-red-500 hover:underline">{t('bot.disconnect')}</button>
                       </div>
                   ) : (
                       <div className="w-full flex flex-col items-center group cursor-pointer" onClick={handleSimulateConnection}>
@@ -96,7 +96,7 @@ export const BotIntegration: React.FC = () => {
                               </div>
                           </div>
                           <p className="text-sm font-bold text-slate-700 mb-1">{t('bot.scan')}</p>
-                          <p className="text-xs text-slate-400">Clique no QR Code para simular</p>
+                          <p className="text-xs text-slate-400">{t('bot.scanHint')}</p>
                       </div>
                   )}
               </div>
@@ -205,3 +205,4 @@ const ToggleItem = ({ label, icon, checked, onChange }: any) => (
         </label>
     </div>
 );
+

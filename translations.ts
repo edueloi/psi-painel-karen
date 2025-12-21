@@ -341,11 +341,30 @@ export const translations = {
 
     // Bot
     'bot.title': 'PsiBot WhatsApp',
-    'bot.subtitle': 'Automação de lembretes e avisos automáticos para seus pacientes.',
+    'bot.subtitle': 'Automacao de lembretes e avisos automaticos para seus pacientes.',
     'bot.connect': 'Conectar Dispositivo',
     'bot.connected': 'Bot Ativo',
-    'bot.configPatient': 'Configurações para Pacientes',
-    'bot.configPro': 'Configurações para o Profissional',
+    'bot.configPatient': 'Configuracoes para Pacientes',
+    'bot.configPro': 'Configuracoes para o Profissional',
+
+    
+    'bot.badge': 'WhatsApp Bot',
+    'bot.disconnect': 'Desconectar',
+    'bot.scan': 'Escaneie o QR Code com o WhatsApp',
+    'bot.scanHint': 'Clique no QR Code para simular',
+    'bot.instructions': 'Instrucoes',
+    'bot.instruction1': 'Abra o WhatsApp no celular e toque em Menu > Dispositivos conectados.',
+    'bot.instruction2': 'Selecione Conectar dispositivo e aponte a camera para o QR Code.',
+    'bot.instruction3': 'Aguarde a confirmacao e mantenha o celular conectado.',
+    'bot.instruction4': 'Pronto! O bot comeca a enviar lembretes automaticamente.',
+    'bot.remind24h': 'Lembrete 24h antes da consulta',
+    'bot.remind1h': 'Lembrete 1h antes da consulta',
+    'bot.billing': 'Aviso de pagamento',
+    'bot.bday': 'Mensagem de aniversario',
+    'bot.dailySummary': 'Resumo diario do dia',
+    'bot.nextPatient': 'Aviso do proximo paciente',
+    'bot.financialAlert': 'Alertas financeiros',
+    'bot.saveConfig': 'Salvar configuracoes',
 
     // Wizard (Formulário de Pacientes)
     'wizard.step1': 'Básico',
@@ -947,6 +966,25 @@ export const translations = {
     'bot.connected': 'Bot Active',
     'bot.configPatient': 'Settings for Patients',
     'bot.configPro': 'Settings for Professional',
+
+    
+    'bot.badge': 'WhatsApp Bot',
+    'bot.disconnect': 'Disconnect',
+    'bot.scan': 'Scan the QR code with WhatsApp',
+    'bot.scanHint': 'Click the QR code to simulate',
+    'bot.instructions': 'Instructions',
+    'bot.instruction1': 'Open WhatsApp and go to Menu > Linked devices.',
+    'bot.instruction2': 'Select Link a device and point the camera to the QR code.',
+    'bot.instruction3': 'Wait for confirmation and keep the phone connected.',
+    'bot.instruction4': 'Done! The bot starts sending reminders automatically.',
+    'bot.remind24h': 'Reminder 24h before the session',
+    'bot.remind1h': 'Reminder 1h before the session',
+    'bot.billing': 'Billing notice',
+    'bot.bday': 'Birthday message',
+    'bot.dailySummary': 'Daily summary',
+    'bot.nextPatient': 'Next patient alert',
+    'bot.financialAlert': 'Financial alerts',
+    'bot.saveConfig': 'Save settings',
 
     // Wizard (Patient Form)
     'wizard.step1': 'Basic Info',
@@ -1721,11 +1759,30 @@ export const translations = {
 
     // Bot
     'bot.title': 'PsiBot WhatsApp',
-    'bot.subtitle': 'Automatización de recordatorios y avisos automáticos para sus pacientes.',
+    'bot.subtitle': 'Automatizacion de recordatorios y avisos automaticos para sus pacientes.',
     'bot.connect': 'Conectar Dispositivo',
-    'bot.connected': 'Bot Ativo',
+    'bot.connected': 'Bot Activo',
     'bot.configPatient': 'Configuraciones para Pacientes',
-    'bot.configPro': 'Configuraciones para o Profissional',
+    'bot.configPro': 'Configuraciones para el Profesional',
+    
+    'bot.badge': 'WhatsApp Bot',
+    'bot.disconnect': 'Desconectar',
+    'bot.scan': 'Escanee el QR con WhatsApp',
+    'bot.scanHint': 'Haga clic en el QR para simular',
+    'bot.instructions': 'Instrucciones',
+    'bot.instruction1': 'Abra WhatsApp y vaya a Menu > Dispositivos vinculados.',
+    'bot.instruction2': 'Seleccione Vincular dispositivo y apunte la camara al QR.',
+    'bot.instruction3': 'Espere la confirmacion y mantenga el telefono conectado.',
+    'bot.instruction4': 'Listo! El bot comienza a enviar recordatorios automaticamente.',
+    'bot.remind24h': 'Recordatorio 24h antes de la cita',
+    'bot.remind1h': 'Recordatorio 1h antes de la cita',
+    'bot.billing': 'Aviso de pago',
+    'bot.bday': 'Mensaje de cumpleanos',
+    'bot.dailySummary': 'Resumen diario',
+    'bot.nextPatient': 'Aviso del proximo paciente',
+    'bot.financialAlert': 'Alertas financieros',
+    'bot.saveConfig': 'Guardar configuracion',
+
     // Wizard (Patient Form)
     'wizard.step1': 'Básico',
     'wizard.step2': 'Dirección',
@@ -2140,6 +2197,8 @@ export const translations = {
     'topbar.notifications': 'Notificaciones',
   }
 };
+
+
 
 
 

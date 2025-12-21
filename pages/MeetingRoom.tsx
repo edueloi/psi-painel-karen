@@ -34,6 +34,13 @@ type RoomEvent = {
   payload_json: string | null;
   created_at: string;
 };
+type TranscriptEntry = {
+  id: number;
+  speaker_role: 'host' | 'guest';
+  speaker_name: string;
+  text: string;
+  created_at: string;
+};
 type AssessmentEvent = {
   id: number;
   event_type: 'start' | 'answer' | 'finish';
@@ -90,6 +97,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
   const [lastMessageId, setLastMessageId] = useState(0);
   const [lastEventId, setLastEventId] = useState(0);
   const [lastAssessmentId, setLastAssessmentId] = useState(0);
+  const [lastTranscriptId, setLastTranscriptId] = useState(0);
+  const [transcriptLog, setTranscriptLog] = useState<TranscriptEntry[]>([]);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLinkDeviceModal, setShowLinkDeviceModal] = useState(false);
@@ -101,6 +110,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
   const [participantToken, setParticipantToken] = useState<string | null>(null);
   const [remoteScreenShareActive, setRemoteScreenShareActive] = useState(false);
   const [participants, setParticipants] = useState<string[]>([]);
+  const [suppressMessageHistory, setSuppressMessageHistory] = useState(false);
+  const [suppressEventHistory, setSuppressEventHistory] = useState(false);
+  const [suppressAssessmentHistory, setSuppressAssessmentHistory] = useState(false);
+  const [suppressTranscriptHistory, setSuppressTranscriptHistory] = useState(false);
+  const [remoteTranscriptionRequested, setRemoteTranscriptionRequested] = useState(false);
+  const [transcriptionActive, setTranscriptionActive] = useState(false);
 
   // Assessment States
   const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
@@ -110,6 +125,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
   // Captions
   const [captionsOn, setCaptionsOn] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [transcriptionEnabled, setTranscriptionEnabled] = useState(false);
+  const [guestTranscriptionEnabled, setGuestTranscriptionEnabled] = useState(false);
+  const [copiedTranscript, setCopiedTranscript] = useState(false);
   
   // --- Refs ---
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -121,6 +139,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
   const lastMessageIdRef = useRef(0);
   const lastEventIdRef = useRef(0);
   const lastAssessmentIdRef = useRef(0);
+  const lastTranscriptIdRef = useRef(0);
+  const suppressMessageHistoryRef = useRef(false);
+  const suppressEventHistoryRef = useRef(false);
+  const suppressAssessmentHistoryRef = useRef(false);
+  const suppressTranscriptHistoryRef = useRef(false);
+  const recognitionRef = useRef<any>(null);
+  const recognitionActiveRef = useRef(false);
   const participantsRef = useRef<string[]>([]);
   const clientIdRef = useRef<string>(
     typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
@@ -151,6 +176,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
     ? waitingList
     : (incomingRequest ? [{ id: 0, guest_name: incomingRequest.name, status: 'waiting' as const }] : []);
   const guestCanDraw = isGuest ? remoteAllowGuestDraw : allowGuestDraw;
+  const hasSpeechSupport = typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const transcriptText = transcriptLog
+      .map((entry) => `[${entry.speaker_name}] ${entry.text}`)
+      .join('\n');
 
   // --- BROADCAST CHANNEL (Real-time Sync between tabs) ---
   useEffect(() => {
@@ -411,6 +440,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
               const endpoint = isGuest ? `/virtual-rooms/public/${id}/messages` : `/virtual-rooms/${id}/messages`;
               const rows = await api.get<RoomMessage[]>(endpoint, { since: String(lastMessageIdRef.current) });
               if (!active || !rows.length) return;
+              if (suppressMessageHistoryRef.current) {
+                  const last = rows[rows.length - 1];
+                  lastMessageIdRef.current = last.id;
+                  setLastMessageId(last.id);
+                  suppressMessageHistoryRef.current = false;
+                  setSuppressMessageHistory(false);
+                  return;
+              }
               const mapped = rows.map((msg) => {
                   const isLocal = isGuest ? msg.sender_role === 'guest' : msg.sender_role === 'host';
                   return {
@@ -435,7 +472,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
           active = false;
           clearInterval(interval);
       };
-  }, [id, hasJoined, isGuest, connectionStatus]);
+  }, [id, hasJoined, isGuest, connectionStatus, suppressMessageHistory]);
 
   useEffect(() => {
       if (isGuest) return;
@@ -454,6 +491,22 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
   }, [allowGuestDraw, isGuest]);
 
   useEffect(() => {
+      if (isGuest) return;
+      if (transcriptionEnabled) {
+          sendRoomEvent('transcription_on');
+      } else {
+          sendRoomEvent('transcription_off');
+      }
+  }, [transcriptionEnabled, isGuest]);
+
+  useEffect(() => {
+      if (!isGuest) return;
+      if (!remoteTranscriptionRequested) {
+          setGuestTranscriptionEnabled(false);
+      }
+  }, [isGuest, remoteTranscriptionRequested]);
+
+  useEffect(() => {
       if (!isGuest) return;
       if (!remoteWhiteboardActive && activeSidePanel === 'whiteboard') {
           setActiveSidePanel('none');
@@ -469,6 +522,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
               const endpoint = isGuest ? `/virtual-rooms/public/${id}/events` : `/virtual-rooms/${id}/events`;
               const rows = await api.get<RoomEvent[]>(endpoint, { since: String(lastEventIdRef.current) });
               if (!active || !rows.length) return;
+              if (suppressEventHistoryRef.current) {
+                  const last = rows[rows.length - 1];
+                  lastEventIdRef.current = last.id;
+                  setLastEventId(last.id);
+                  suppressEventHistoryRef.current = false;
+                  setSuppressEventHistory(false);
+                  return;
+              }
               rows.forEach((evt) => {
                   const payload = parsePayload(evt.payload_json);
                   if (payload?.client_id && payload.client_id === clientIdRef.current) return;
@@ -495,6 +556,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
                       if (isGuest) {
                           setRemoteAllowGuestDraw(Boolean(payload?.allowed));
                       }
+                  } else if (evt.event_type === 'transcription_on') {
+                      if (isGuest) {
+                          setRemoteTranscriptionRequested(true);
+                      }
+                  } else if (evt.event_type === 'transcription_off') {
+                      if (isGuest) {
+                          setRemoteTranscriptionRequested(false);
+                      }
                   } else if (evt.event_type === 'screen_share_on') {
                       setRemoteScreenShareActive(true);
                   } else if (evt.event_type === 'screen_share_off') {
@@ -514,7 +583,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
           active = false;
           clearInterval(interval);
       };
-  }, [id, hasJoined, isGuest, connectionStatus]);
+  }, [id, hasJoined, isGuest, connectionStatus, suppressEventHistory]);
 
   useEffect(() => {
       if (!id || !hasJoined) return;
@@ -525,6 +594,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
               const endpoint = isGuest ? `/virtual-rooms/public/${id}/assessments` : `/virtual-rooms/${id}/assessments`;
               const rows = await api.get<AssessmentEvent[]>(endpoint, { since: String(lastAssessmentIdRef.current) });
               if (!active || !rows.length) return;
+              if (suppressAssessmentHistoryRef.current) {
+                  const last = rows[rows.length - 1];
+                  lastAssessmentIdRef.current = last.id;
+                  setLastAssessmentId(last.id);
+                  suppressAssessmentHistoryRef.current = false;
+                  setSuppressAssessmentHistory(false);
+                  return;
+              }
               rows.forEach((evt) => {
                   const payload = parsePayload(evt.payload_json);
                   if (payload?.client_id && payload.client_id === clientIdRef.current) return;
@@ -592,7 +669,38 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
           active = false;
           clearInterval(interval);
       };
-  }, [id, hasJoined, isGuest, connectionStatus]);
+  }, [id, hasJoined, isGuest, connectionStatus, suppressAssessmentHistory]);
+
+  useEffect(() => {
+      if (!id || !hasJoined || isGuest) return;
+      let active = true;
+      const fetchTranscripts = async () => {
+          try {
+              const rows = await api.get<TranscriptEntry[]>(`/virtual-rooms/${id}/transcripts`, { since: String(lastTranscriptIdRef.current) });
+              if (!active || !rows.length) return;
+              if (suppressTranscriptHistoryRef.current) {
+                  const last = rows[rows.length - 1];
+                  lastTranscriptIdRef.current = last.id;
+                  setLastTranscriptId(last.id);
+                  suppressTranscriptHistoryRef.current = false;
+                  setSuppressTranscriptHistory(false);
+                  return;
+              }
+              setTranscriptLog((prev) => [...prev, ...rows]);
+              const last = rows[rows.length - 1];
+              lastTranscriptIdRef.current = last.id;
+              setLastTranscriptId(last.id);
+          } catch (err) {
+              // ignore polling errors
+          }
+      };
+      fetchTranscripts();
+      const interval = setInterval(fetchTranscripts, 2000);
+      return () => {
+          active = false;
+          clearInterval(interval);
+      };
+  }, [id, hasJoined, isGuest, suppressTranscriptHistory]);
 
   useEffect(() => {
       if (!id || !hasAuthToken) return;
@@ -1027,6 +1135,102 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
     }
   };
 
+  const handleCopyTranscript = async () => {
+      try {
+          await navigator.clipboard.writeText(transcriptText);
+          setCopiedTranscript(true);
+          setTimeout(() => setCopiedTranscript(false), 2000);
+      } catch {
+          // ignore
+      }
+  };
+
+  const stopRecognition = () => {
+      if (recognitionRef.current && recognitionActiveRef.current) {
+          try {
+              recognitionRef.current.stop();
+          } catch {
+              // ignore
+          }
+      }
+      recognitionActiveRef.current = false;
+      setTranscriptionActive(false);
+  };
+
+  const startRecognition = async () => {
+      if (!hasSpeechSupport || recognitionActiveRef.current) return;
+      const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!Recognition) return;
+      const recognition = new Recognition();
+      recognition.lang = 'pt-BR';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.onresult = (event: any) => {
+          let finalText = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+              if (event.results[i].isFinal) {
+                  finalText += event.results[i][0].transcript;
+              }
+          }
+          const text = finalText.trim();
+          if (!text || !id) return;
+          if (isGuest) {
+              if (!participantToken) return;
+              api.post(`/virtual-rooms/public/${id}/transcripts`, {
+                  token: participantToken,
+                  speaker_name: guestName || 'Paciente',
+                  text
+              }).catch(() => {});
+          } else {
+              api.post(`/virtual-rooms/${id}/transcripts`, {
+                  speaker_name: hostDisplayName,
+                  text
+              }).catch(() => {});
+          }
+      };
+      recognition.onend = () => {
+          if (recognitionActiveRef.current) {
+              try {
+                  recognition.start();
+              } catch {
+                  // ignore
+              }
+          }
+      };
+      recognition.onerror = () => {
+          // ignore errors, allow retry
+      };
+      recognitionRef.current = recognition;
+      recognitionActiveRef.current = true;
+      setTranscriptionActive(true);
+      try {
+          recognition.start();
+      } catch {
+          recognitionActiveRef.current = false;
+          setTranscriptionActive(false);
+      }
+  };
+
+  useEffect(() => {
+      if (isGuest) return;
+      if (!transcriptionEnabled) {
+          stopRecognition();
+          return;
+      }
+      startRecognition();
+      return () => stopRecognition();
+  }, [transcriptionEnabled, isGuest]);
+
+  useEffect(() => {
+      if (!isGuest) return;
+      if (!guestTranscriptionEnabled) {
+          stopRecognition();
+          return;
+      }
+      startRecognition();
+      return () => stopRecognition();
+  }, [guestTranscriptionEnabled, isGuest]);
+
   const handleEndCall = async () => {
       cleanupMedia();
       if (isGuest && participantToken && id) {
@@ -1065,9 +1269,20 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
       setLastMessageId(0);
       setLastEventId(0);
       setLastAssessmentId(0);
+      setLastTranscriptId(0);
+      setTranscriptLog([]);
       lastMessageIdRef.current = 0;
       lastEventIdRef.current = 0;
       lastAssessmentIdRef.current = 0;
+      lastTranscriptIdRef.current = 0;
+      suppressMessageHistoryRef.current = true;
+      suppressEventHistoryRef.current = true;
+      suppressAssessmentHistoryRef.current = true;
+      suppressTranscriptHistoryRef.current = true;
+      setSuppressMessageHistory(true);
+      setSuppressEventHistory(true);
+      setSuppressAssessmentHistory(true);
+      setSuppressTranscriptHistory(true);
 
       setHasJoined(true);
       
@@ -1317,6 +1532,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
                           </div>
                       ))}
                   </div>
+              </div>
+          </div>
+      )}
+      {isGuest && remoteTranscriptionRequested && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[90] animate-[fadeIn_0.3s_ease-out]">
+              <div className="bg-indigo-600/90 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg border border-indigo-400/50 flex items-center gap-3">
+                  <span>Transcricao solicitada pelo profissional</span>
+                  {hasSpeechSupport ? (
+                      <button onClick={() => setGuestTranscriptionEnabled(true)} className="px-3 py-1 bg-white/10 rounded-full text-xs font-bold hover:bg-white/20">Ativar</button>
+                  ) : (
+                      <span className="text-xs text-white/80">Seu navegador nao suporta</span>
+                  )}
               </div>
           </div>
       )}
@@ -1690,6 +1917,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
                   <div className="p-6 space-y-6">
                       {!isGuest && (
                           <div className="space-y-3">
+                              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Subtitles size={14} /> Transcricao</label>
+                              <div className="flex items-center justify-between bg-[#252830] border border-white/10 rounded-xl px-4 py-3">
+                                  <span className="text-sm text-slate-200">Transcricao ativa</span>
+                                  <button onClick={() => setTranscriptionEnabled(!transcriptionEnabled)} className={`w-12 h-7 rounded-full transition-colors ${transcriptionEnabled ? 'bg-emerald-500' : 'bg-slate-600'}`}>
+                                      <span className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${transcriptionEnabled ? 'translate-x-6' : 'translate-x-1'}`}></span>
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+                      {!isGuest && (
+                          <div className="space-y-3">
                               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><PenTool size={14} /> Lousa</label>
                               <div className="flex items-center justify-between bg-[#252830] border border-white/10 rounded-xl px-4 py-3">
                                   <span className="text-sm text-slate-200">Permitir paciente desenhar</span>
@@ -1730,10 +1968,22 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ isGuest: isGuestProp =
 
       {showEndModal && (
          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-[#181a1f] border border-white/10 p-8 rounded-[2rem] max-w-sm w-full text-center shadow-2xl animate-[slideUpFade_0.3s_ease-out]">
+            <div className={`bg-[#181a1f] border border-white/10 p-8 rounded-[2rem] ${!isGuest && transcriptionEnabled ? 'max-w-2xl' : 'max-w-sm'} w-full text-center shadow-2xl animate-[slideUpFade_0.3s_ease-out]`}>
                <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20"><PhoneOff size={36} /></div>
                <h3 className="text-2xl font-bold text-white mb-2">Encerrar Sessão?</h3>
                <p className="text-slate-400 mb-8 text-sm leading-relaxed">Isso desconectará você e o paciente da sala virtual. Certifique-se de que o prontuário foi salvo.</p>
+               {!isGuest && transcriptionEnabled && (
+                   <div className="text-left bg-[#101216] border border-white/10 rounded-2xl p-4 mb-6">
+                       <div className="flex items-center justify-between mb-2">
+                           <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Relatorio da transcricao</div>
+                           <button onClick={handleCopyTranscript} className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                               {copiedTranscript ? <Check size={12} /> : <Copy size={12} />}
+                               {copiedTranscript ? 'Copiado' : 'Copiar'}
+                           </button>
+                       </div>
+                       <textarea readOnly value={transcriptText} className="w-full h-40 bg-[#0f1115] border border-white/10 rounded-xl p-3 text-xs text-slate-200 leading-relaxed resize-none" placeholder="Sem transcricao registrada." />
+                   </div>
+               )}
                <div className="flex gap-3"><button onClick={() => setShowEndModal(false)} className="flex-1 py-3.5 rounded-xl font-bold text-slate-300 hover:bg-white/10 transition-colors">Cancelar</button><button onClick={handleEndCall} className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors">Encerrar</button></div>
             </div>
          </div>
