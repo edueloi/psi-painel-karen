@@ -40,7 +40,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { ClinicalForm } from "../types";
+import { ClinicalForm, FormQuestion } from "../types";
 import { api } from "../services/api";
 
 interface MeetingRoomProps {
@@ -99,6 +99,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
   // --- Mode Check ---
   const isCompanionMode = searchParams.get("companion") === "true";
+  const guestWaitingKey = id ? `psi_room_waiting_${id}` : null;
+  const guestNameKey = id ? `psi_room_guest_name_${id}` : null;
 
   // --- States ---
   const [hasJoined, setHasJoined] = useState(isCompanionMode);
@@ -178,6 +180,38 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [remoteTranscriptionRequested, setRemoteTranscriptionRequested] =
     useState(false);
   const [transcriptionActive, setTranscriptionActive] = useState(false);
+
+  useEffect(() => {
+    if (!isGuest || !id) return;
+    if (guestNameKey && !guestName) {
+      const savedName = localStorage.getItem(guestNameKey);
+      if (savedName) setGuestName(savedName);
+    }
+    if (guestWaitingKey && !waitingToken && !hasJoined) {
+      const savedToken = localStorage.getItem(guestWaitingKey);
+      if (savedToken) {
+        setWaitingToken(savedToken);
+        setParticipantToken(savedToken);
+        setHasJoined(true);
+        setConnectionStatus("waiting_approval");
+      }
+    }
+  }, [
+    isGuest,
+    id,
+    guestName,
+    guestNameKey,
+    waitingToken,
+    hasJoined,
+    guestWaitingKey,
+  ]);
+
+  useEffect(() => {
+    if (!isGuest || !id || !guestNameKey) return;
+    if (guestName.trim()) {
+      localStorage.setItem(guestNameKey, guestName.trim());
+    }
+  }, [isGuest, id, guestName, guestNameKey]);
 
   // Assessment States
   const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(
@@ -275,6 +309,46 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (value === null || value === undefined) return "-";
     if (Array.isArray(value)) return value.join(", ");
     return String(value);
+  };
+  const formatAnswerDisplay = (question: FormQuestion, value: any) => {
+    if (value === null || value === undefined) return "-";
+    if (question.options && question.options.length) {
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => {
+            const option = question.options?.find(
+              (opt) => String(opt.value) === String(item)
+            );
+            return option ? option.label : String(item);
+          })
+          .join(", ");
+      }
+      const option = question.options.find(
+        (opt) => String(opt.value) === String(value)
+      );
+      return option ? option.label : String(value);
+    }
+    return formatAnswerValue(value);
+  };
+  const buildAnswerPayload = (question: FormQuestion, rawValue: any) => {
+    if (question.type === "checkbox") {
+      const selected = Array.isArray(rawValue) ? rawValue : [];
+      const score = (question.options || []).reduce((sum, opt) => {
+        return selected.includes(String(opt.value)) ? sum + opt.value : sum;
+      }, 0);
+      return { value: selected, score };
+    }
+    if (question.type === "radio" || question.type === "select") {
+      const option = question.options?.find(
+        (opt) => String(opt.value) === String(rawValue)
+      );
+      return { value: rawValue, score: option ? option.value : 0 };
+    }
+    if (question.type === "number") {
+      const score = Number(rawValue);
+      return { value: rawValue, score: Number.isFinite(score) ? score : 0 };
+    }
+    return { value: rawValue, score: 0 };
   };
 
   // --- BROADCAST CHANNEL (Real-time Sync between tabs) ---
@@ -414,9 +488,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         );
         if (!active) return;
         const list = Array.isArray(data) ? data : [];
-        setWaitingList(list);
-        if (list.length) {
-          setRemoteParticipantName(list[0].guest_name);
+        const filtered = list.filter((entry) => entry.status === "waiting");
+        setWaitingList(filtered);
+        if (filtered.length) {
+          setRemoteParticipantName(filtered[0].guest_name);
         } else if (!remoteUserConnected) {
           setRemoteParticipantName(null);
         }
@@ -452,17 +527,20 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             setConnectionStatus("connected");
             setRemoteUserConnected(true);
             setWaitingToken(null);
+            if (guestWaitingKey) localStorage.removeItem(guestWaitingKey);
           } catch (err) {
             alert("Nao foi possivel entrar na sala.");
             setConnectionStatus("idle");
             setHasJoined(false);
             setWaitingToken(null);
+            if (guestWaitingKey) localStorage.removeItem(guestWaitingKey);
           }
         } else if (data.status === "denied") {
           alert("Sua entrada foi negada.");
           setConnectionStatus("idle");
           setHasJoined(false);
           setWaitingToken(null);
+          if (guestWaitingKey) localStorage.removeItem(guestWaitingKey);
         }
       } catch (err) {
         // keep polling
@@ -554,6 +632,20 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (!data) return null;
     const values = Object.values(remoteAnswers) as Array<{ score?: number }>;
     return values.reduce((sum, entry) => sum + (entry?.score || 0), 0);
+  };
+  const getInterpretationForScore = (score: number | null) => {
+    if (score === null || !activeAssessmentForm?.interpretations) return null;
+    return activeAssessmentForm.interpretations.find(
+      (rule) => score >= rule.minScore && score <= rule.maxScore
+    );
+  };
+
+  const handleGuestAnswerChange = (
+    question: FormQuestion,
+    rawValue: any
+  ) => {
+    const payload = buildAnswerPayload(question, rawValue);
+    handleRemoteAnswer(question.id, payload.value, payload.score);
   };
 
   const getQuestionText = (assessmentId: string, questionId: string) => {
@@ -1558,6 +1650,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         // ignore leave errors
       }
     }
+    if (isGuest && guestWaitingKey) {
+      localStorage.removeItem(guestWaitingKey);
+    }
     navigate(isGuest ? "/" : "/salas-virtuais");
   };
 
@@ -1619,6 +1714,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           );
           setWaitingToken(data.token);
           setParticipantToken(data.token);
+          if (guestWaitingKey) {
+            localStorage.setItem(guestWaitingKey, data.token);
+          }
         } catch (err) {
           alert("Nao foi possivel entrar na fila.");
           setConnectionStatus("idle");
@@ -2052,6 +2150,53 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       )}
 
       <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
+        {!isGuest && waitingEntries.length > 0 && (
+          <div className="absolute top-20 right-6 z-[100] animate-[slideLeft_0.3s_ease-out] w-full max-w-sm">
+            <div className="bg-[#111319] border border-white/10 p-4 rounded-2xl shadow-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Na espera ({waitingEntries.length})
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Permissao pendente
+                </div>
+              </div>
+              <div className="space-y-3">
+                {waitingEntries.map((entry) => (
+                  <div key={entry.id} className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">
+                      {entry.guest_name.charAt(0)}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-sm text-slate-100">
+                        {entry.guest_name}
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        Solicitando entrada...
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDenyGuest(entry)}
+                        className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                        title="Negar"
+                      >
+                        <X size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleAdmitGuest(entry)}
+                        className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors"
+                        title="Admitir"
+                      >
+                        <Check size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <section
           className={`flex-1 grid gap-4 ${
             useGridLayout ? "md:grid-cols-2" : "grid-cols-1"
@@ -2199,7 +2344,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
             {activeSidePanel === "assessments" && (
               <>
-                <div className="text-sm font-bold mb-3">Avaliacoes</div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-bold">Avaliacoes</div>
+                  {assessmentStatus !== "idle" && (
+                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">
+                      {assessmentStatus === "completed"
+                        ? "Finalizada"
+                        : "Em andamento"}
+                    </div>
+                  )}
+                </div>
+
                 {!isGuest && assessmentStatus === "idle" && (
                   <div className="space-y-2">
                     {assessmentForms.length === 0 && (
@@ -2227,21 +2382,215 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 )}
 
                 {!isGuest && assessmentStatus !== "idle" && (
-                  <div className="text-xs text-slate-300 space-y-2">
-                    <div>
-                      Em andamento: {getAssessmentName(activeAssessmentId || "")}
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="text-xs text-slate-400 mb-2">
+                      {activeAssessmentForm
+                        ? `${activeAssessmentForm.title} - ${Object.keys(
+                            remoteAnswers
+                          ).length}/${activeAssessmentForm.questions.length} respondidas`
+                        : "Carregando avaliacao..."}
                     </div>
+                    {activeAssessmentForm && (
+                      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                        {activeAssessmentForm.questions.map((question) => {
+                          const answer = remoteAnswers[question.id];
+                          return (
+                            <div
+                              key={question.id}
+                              className="bg-white/5 border border-white/10 rounded-xl p-3"
+                            >
+                              <div className="text-xs text-slate-300 mb-2">
+                                {question.text}
+                              </div>
+                              <div className="text-sm text-white">
+                                {formatAnswerDisplay(
+                                  question,
+                                  answer?.value
+                                )}
+                              </div>
+                              {typeof answer?.score === "number" && (
+                                <div className="text-[10px] text-slate-500 mt-1">
+                                  Score: {answer.score}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     {assessmentStatus === "completed" && (
-                      <div>Resultado: {calculateHostResult() ?? "-"}</div>
+                      <div className="mt-3 text-xs text-slate-300">
+                        <div>Resultado: {calculateHostResult() ?? "-"}</div>
+                        {getInterpretationForScore(calculateHostResult()) && (
+                          <div className="mt-1 text-slate-400">
+                            {
+                              getInterpretationForScore(calculateHostResult())
+                                ?.resultTitle
+                            }
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
 
                 {isGuest && (
-                  <div className="text-xs text-slate-300">
-                    {activeAssessmentForm
-                      ? `Avaliacao ativa: ${activeAssessmentForm.title}`
-                      : "Aguardando avaliacao iniciar."}
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {!activeAssessmentForm && (
+                      <div className="text-xs text-slate-300">
+                        Aguardando avaliacao iniciar.
+                      </div>
+                    )}
+                    {activeAssessmentForm && (
+                      <>
+                        <div className="text-xs text-slate-400 mb-2">
+                          {activeAssessmentForm.title}
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                          {activeAssessmentForm.questions.map((question) => {
+                            const answerValue =
+                              remoteAnswers[question.id]?.value ??
+                              (question.type === "checkbox" ? [] : "");
+                            const isDisabled =
+                              assessmentStatus === "completed";
+                            return (
+                              <div
+                                key={question.id}
+                                className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-2"
+                              >
+                                <div className="text-xs text-slate-200">
+                                  {question.text}
+                                </div>
+                                {(question.type === "text" ||
+                                  question.type === "number") && (
+                                  <input
+                                    type={
+                                      question.type === "number"
+                                        ? "number"
+                                        : "text"
+                                    }
+                                    value={answerValue ?? ""}
+                                    onChange={(e) =>
+                                      handleGuestAnswerChange(
+                                        question,
+                                        e.target.value
+                                      )
+                                    }
+                                    disabled={isDisabled}
+                                    className="w-full bg-[#0f1115] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
+                                  />
+                                )}
+                                {question.type === "textarea" && (
+                                  <textarea
+                                    value={answerValue ?? ""}
+                                    onChange={(e) =>
+                                      handleGuestAnswerChange(
+                                        question,
+                                        e.target.value
+                                      )
+                                    }
+                                    disabled={isDisabled}
+                                    className="w-full h-24 bg-[#0f1115] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 resize-none disabled:opacity-60"
+                                  />
+                                )}
+                                {(question.type === "radio" ||
+                                  question.type === "checkbox") &&
+                                  (question.options || []).map((opt) => {
+                                    const optionValue = String(opt.value);
+                                    const checked =
+                                      question.type === "radio"
+                                        ? String(answerValue) === optionValue
+                                        : Array.isArray(answerValue) &&
+                                          answerValue.includes(optionValue);
+                                    return (
+                                      <label
+                                        key={optionValue}
+                                        className="flex items-center gap-2 text-xs text-slate-300"
+                                      >
+                                        <input
+                                          type={
+                                            question.type === "radio"
+                                              ? "radio"
+                                              : "checkbox"
+                                          }
+                                          name={`q-${question.id}`}
+                                          value={optionValue}
+                                          checked={checked}
+                                          disabled={isDisabled}
+                                          onChange={() => {
+                                            if (question.type === "radio") {
+                                              handleGuestAnswerChange(
+                                                question,
+                                                optionValue
+                                              );
+                                              return;
+                                            }
+                                            const selected = Array.isArray(
+                                              answerValue
+                                            )
+                                              ? [...answerValue]
+                                              : [];
+                                            const next = selected.includes(
+                                              optionValue
+                                            )
+                                              ? selected.filter(
+                                                  (item) =>
+                                                    item !== optionValue
+                                                )
+                                              : [...selected, optionValue];
+                                            handleGuestAnswerChange(
+                                              question,
+                                              next
+                                            );
+                                          }}
+                                          className="accent-indigo-500"
+                                        />
+                                        <span>{opt.label}</span>
+                                      </label>
+                                    );
+                                  })}
+                                {question.type === "select" && (
+                                  <select
+                                    value={answerValue ?? ""}
+                                    onChange={(e) =>
+                                      handleGuestAnswerChange(
+                                        question,
+                                        e.target.value
+                                      )
+                                    }
+                                    disabled={isDisabled}
+                                    className="w-full bg-[#0f1115] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
+                                  >
+                                    <option value="">Selecione...</option>
+                                    {(question.options || []).map((opt) => (
+                                      <option
+                                        key={opt.value}
+                                        value={String(opt.value)}
+                                      >
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {assessmentStatus === "active" && (
+                          <button
+                            onClick={handleFinishAssessment}
+                            className="mt-3 w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                          >
+                            Finalizar avaliacao
+                          </button>
+                        )}
+                        {assessmentStatus === "completed" && (
+                          <div className="mt-3 text-xs text-slate-400">
+                            Avaliacao finalizada.
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </>
@@ -2275,6 +2624,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               title={cameraOn ? "Desativar Câmera" : "Ativar Câmera"}
             >
               {cameraOn ? <Video size={24} /> : <VideoOff size={24} />}
+            </button>
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 bg-[#252830] hover:bg-[#2d313a] text-slate-300"
+              title="Configuracoes"
+            >
+              <Settings size={22} />
             </button>
             <div className="w-px h-8 bg-white/10 mx-1 shrink-0"></div>
 
@@ -2370,7 +2726,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         {/* ... (Other Modals - Settings, LinkDevice, End - kept same) ... */}
         {showSettingsModal && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-[#181a1f] border border-white/10 w-full max-w-lg rounded-[2rem] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden">
+            <div className="bg-[#181a1f] border border-white/10 w-full max-w-lg max-h-[90vh] rounded-[2rem] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden flex flex-col">
               <div className="p-6 border-b border-white/10 flex justify-between items-center">
                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
                   <Settings size={20} /> Configurações
@@ -2382,7 +2738,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   <X size={20} />
                 </button>
               </div>
-              <div className="p-6 space-y-6">
+              <div className="p-6 space-y-6 overflow-y-auto min-h-0">
                 {!isGuest && (
                   <div className="space-y-3">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
