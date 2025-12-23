@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { FormBuilder } from '../components/Forms/FormBuilder';
-import { FormQuestion, InterpretationRule } from '../types';
+import { FormQuestion, InterpretationRule, FormTheme } from '../types';
 
 type BuilderPayload = {
   title: string;
   description: string;
   questions: FormQuestion[];
   interpretations?: InterpretationRule[];
+  theme?: FormTheme;
 };
 
 export const FormEditor: React.FC = () => {
@@ -54,11 +55,21 @@ export const FormEditor: React.FC = () => {
           color: r.color ?? 'bg-slate-100 text-slate-800'
         })) as InterpretationRule[];
 
+        let theme = undefined;
+        if (form.theme_json) {
+          try {
+            theme = typeof form.theme_json === 'string' ? JSON.parse(form.theme_json) : form.theme_json;
+          } catch {
+            theme = undefined;
+          }
+        }
+
         setInitialData({
           title: form.title || '',
           description: form.description || '',
           questions,
-          interpretations
+          interpretations,
+          theme
         });
       } catch (e) {
         console.error(e);

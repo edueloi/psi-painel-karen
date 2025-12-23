@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Patient } from '../types';
-import { ArrowLeft, FileText, Clock, User } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, User, Filter, ChevronDown } from 'lucide-react';
 
 type FormResponse = {
   id: string;
+  form_id: string;
+  form_title: string;
   patient_id?: string | null;
   respondent_name?: string | null;
   respondent_email?: string | null;
@@ -15,35 +18,41 @@ type FormResponse = {
   created_at?: string;
 };
 
-export const FormResponses: React.FC = () => {
+export const FormsResponsesAll: React.FC = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const [formTitle, setFormTitle] = useState('Formulario');
   const [responses, setResponses] = useState<FormResponse[]>([]);
-  const [questionsMap, setQuestionsMap] = useState<Record<string, string>>({});
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [forms, setForms] = useState<{ id: string; title: string }[]>([]);
+  const [questionsMap, setQuestionsMap] = useState<Record<string, Record<string, string>>>({});
+  const [selectedFormId, setSelectedFormId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      if (!id) return;
       setIsLoading(true);
       try {
-        const [formData, responsesData, patientsData] = await Promise.all([
-          api.get<any>(`/forms/${id}`),
-          api.get<any[]>(`/forms/${id}/responses`),
+        const [formsData, patientsData] = await Promise.all([
+          api.get<any[]>('/forms'),
           api.get<Patient[]>('/patients')
         ]);
-        setFormTitle(formData.title || 'Formulario');
-        const map: Record<string, string> = {};
-        (formData.questions || []).forEach((q: any) => {
-          const key = String(q.id ?? q.question_id);
-          map[key] = q.question_text ?? q.text ?? '';
-        });
-        setQuestionsMap(map);
-        setResponses(
-          (responsesData || []).map((r: any) => ({
+        const mappedForms = formsData.map((f) => ({ id: String(f.id), title: f.title }));
+        setForms(mappedForms);
+        setPatients(patientsData || []);
+
+        const responsesBuckets = await Promise.all(
+          mappedForms.map((form) =>
+            api.get<any[]>(`/forms/${form.id}/responses`).then((rows) =>
+              rows.map((r) => ({ ...r, form_title: form.title, form_id: form.id }))
+            )
+          )
+        );
+        const allResponses = responsesBuckets.flat();
+        const mapped = allResponses
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .map((r) => ({
             id: String(r.id),
+            form_id: String(r.form_id || r.formId || r.form_id),
+            form_title: r.form_title,
             patient_id: r.patient_id ? String(r.patient_id) : null,
             respondent_name: r.respondent_name ?? null,
             respondent_email: r.respondent_email ?? null,
@@ -51,9 +60,24 @@ export const FormResponses: React.FC = () => {
             score: r.score ?? null,
             answers_json: r.answers_json ?? r.answers,
             created_at: r.created_at
-          }))
+          }));
+        setResponses(mapped);
+
+        const questionBuckets = await Promise.all(
+          mappedForms.map((form) =>
+            api.get<any>(`/forms/${form.id}`).then((formData) => ({ id: form.id, questions: formData.questions || [] }))
+          )
         );
-        setPatients(patientsData || []);
+        const map: Record<string, Record<string, string>> = {};
+        questionBuckets.forEach((entry) => {
+          const qMap: Record<string, string> = {};
+          entry.questions.forEach((q: any) => {
+            const key = String(q.id ?? q.question_id);
+            qMap[key] = q.question_text ?? q.text ?? '';
+          });
+          map[String(entry.id)] = qMap;
+        });
+        setQuestionsMap(map);
       } catch (e) {
         console.error(e);
       } finally {
@@ -61,21 +85,31 @@ export const FormResponses: React.FC = () => {
       }
     };
     load();
-  }, [id]);
+  }, []);
 
   const getPatientName = (patientId?: string | null) => {
     if (!patientId) return '';
     return patients.find((p) => String(p.id) === String(patientId))?.full_name || '';
   };
 
-  const renderAnswers = (answersJson: any) => {
+  const formatDate = (value?: string) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const filteredResponses = responses.filter((r) => !selectedFormId || r.form_id === selectedFormId);
+
+  const renderAnswers = (formId: string, answersJson: any) => {
     if (!answersJson) return null;
+    const map = questionsMap[formId] || {};
     const entries = Object.entries(answersJson);
     if (!entries.length) return null;
     return (
       <div className="mt-4 space-y-2">
         {entries.map(([key, value]) => {
-          const label = questionsMap[key] || `Pergunta ${key}`;
+          const label = map[key] || `Pergunta ${key}`;
           const display = Array.isArray(value) ? value.join(', ') : String(value);
           return (
             <div key={key} className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-sm text-slate-700">
@@ -88,48 +122,50 @@ export const FormResponses: React.FC = () => {
     );
   };
 
-  const formatDate = (value?: string) => {
-    if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-  };
+  const totalResponses = responses.length;
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans pb-10">
       <div className="flex flex-wrap items-center gap-4 justify-between">
-        <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate('/formularios/metricas')}
-          className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">{formTitle}</h1>
-          <p className="text-sm text-slate-500">{responses.length} respostas recebidas</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/formularios/metricas')}
+            className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Respostas</h1>
+            <p className="text-sm text-slate-500">{totalResponses} respostas registradas</p>
+          </div>
         </div>
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <Filter size={14} className="text-slate-400" />
+          <select
+            value={selectedFormId}
+            onChange={(e) => setSelectedFormId(e.target.value)}
+            className="text-sm font-semibold text-slate-700 bg-transparent outline-none"
+          >
+            <option value="">Todos os formularios</option>
+            {forms.map((form) => (
+              <option key={form.id} value={form.id}>{form.title}</option>
+            ))}
+          </select>
+          <ChevronDown size={16} className="text-slate-400" />
         </div>
-        <button
-          onClick={() => navigate('/formularios/respostas')}
-          className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
-        >
-          Ver todas respostas
-        </button>
       </div>
 
       {isLoading ? (
         <div className="text-slate-500">Carregando respostas...</div>
-      ) : responses.length === 0 ? (
+      ) : filteredResponses.length === 0 ? (
         <div className="p-8 rounded-2xl border border-dashed border-slate-200 text-center text-slate-400">
           Nenhuma resposta registrada ainda.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {responses.map((res) => {
+          {filteredResponses.map((res) => {
             const patientName = getPatientName(res.patient_id);
             const respondentLabel = patientName || res.respondent_name || 'Visitante';
-            const answersText = res.answers_json || res.answers;
             return (
               <div key={res.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <div className="flex flex-wrap gap-4 items-center justify-between">
@@ -140,6 +176,9 @@ export const FormResponses: React.FC = () => {
                     <div>
                       <p className="font-bold text-slate-700">{respondentLabel}</p>
                       <p className="text-xs text-slate-400">{res.respondent_email || res.respondent_phone || 'Sem contato'}</p>
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        <FileText size={12} /> {res.form_title}
+                      </p>
                     </div>
                   </div>
                   <div className="text-xs text-slate-500 flex items-center gap-2">
@@ -160,14 +199,12 @@ export const FormResponses: React.FC = () => {
                   ) : null}
                 </div>
 
-                {answersText ? (
-                  <details className="mt-4">
-                    <summary className="cursor-pointer text-xs font-bold text-indigo-600 flex items-center gap-2">
-                      <FileText size={14} /> Ver respostas
-                    </summary>
-                    {renderAnswers(answersText)}
-                  </details>
-                ) : null}
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-xs font-bold text-indigo-600 flex items-center gap-2">
+                    <FileText size={14} /> Ver respostas
+                  </summary>
+                  {renderAnswers(res.form_id, res.answers_json)}
+                </details>
               </div>
             );
           })}

@@ -444,7 +444,7 @@ export const Patients: React.FC = () => {
 
       {selectedPatient && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-2xl overflow-hidden">
+          <div className="w-full max-w-4xl max-h-[90vh] bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
             <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold border border-indigo-100">
@@ -462,7 +462,7 @@ export const Patients: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 overflow-y-auto">
               <div className="lg:col-span-2 space-y-6">
                 <div className="flex flex-wrap gap-2 text-xs">
                   <span className={`px-3 py-1 rounded-full font-bold border ${selectedPatient.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
@@ -553,20 +553,26 @@ export const Patients: React.FC = () => {
                       {showDetails ? 'Ocultar dados' : 'Ver dados'}
                     </button>
                   </div>
+                  <div className="grid grid-cols-1 gap-3 text-sm">
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Nascimento</div>
+                      <div className="text-slate-700 font-semibold">{formatDate(selectedPatient.birth_date || selectedPatient.birthDate)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Idade</div>
+                      <div className="text-slate-700 font-semibold">{calcAge(selectedPatient.birth_date || selectedPatient.birthDate)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">CPF/CNPJ</div>
+                      <div className="text-slate-700 font-semibold">{selectedPatient.cpf_cnpj || selectedPatient.cpf || 'Nao informado'}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Telefone</div>
+                      <div className="text-slate-700 font-semibold">{selectedPatient.whatsapp || selectedPatient.phone || 'Nao informado'}</div>
+                    </div>
+                  </div>
                   {showDetails ? (
-                    <div className="grid grid-cols-1 gap-3 text-sm">
-                      <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Nascimento</div>
-                        <div className="text-slate-700 font-semibold">{formatDate(selectedPatient.birth_date || selectedPatient.birthDate)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Idade</div>
-                        <div className="text-slate-700 font-semibold">{calcAge(selectedPatient.birth_date || selectedPatient.birthDate)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">CPF/CNPJ</div>
-                        <div className="text-slate-700 font-semibold">{selectedPatient.cpf_cnpj || selectedPatient.cpf || 'Nao informado'}</div>
-                      </div>
+                    <div className="mt-4 grid grid-cols-1 gap-3 text-sm border-t border-slate-100 pt-4">
                       <div>
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">RG</div>
                         <div className="text-slate-700 font-semibold">{selectedPatient.rg || 'Nao informado'}</div>
@@ -613,7 +619,7 @@ export const Patients: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs text-slate-400">Clique em \"Ver dados\" para abrir as informacoes completas.</div>
+                    <div className="mt-4 text-xs text-slate-400">Clique em "Ver dados" para abrir as informacoes completas.</div>
                   )}
                 </div>
 

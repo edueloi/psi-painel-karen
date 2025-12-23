@@ -12,6 +12,7 @@ export const ExternalForm: React.FC = () => {
   const [form, setForm] = useState<ClinicalForm | undefined>(undefined);
   const [professional, setProfessional] = useState<Professional | undefined>(undefined);
   const [patient, setPatient] = useState<Patient | undefined>(undefined);
+  const [branding, setBranding] = useState<any>(undefined);
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [scoreResult, setScoreResult] = useState<{ total: number, interpretation?: InterpretationRule } | null>(null);
@@ -19,6 +20,17 @@ export const ExternalForm: React.FC = () => {
 
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [answerValues, setAnswerValues] = useState<Record<string, number>>({});
+
+  const totalQuestions = form?.questions?.length || 0;
+  const answeredQuestions = form
+    ? form.questions.filter((q) => {
+        const value = answers[q.id];
+        if (value === undefined || value === null) return false;
+        if (Array.isArray(value)) return value.length > 0;
+        return String(value).trim().length > 0;
+      }).length
+    : 0;
+  const progress = totalQuestions ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
 
   const [identification, setIdentification] = useState({
     name: '',
@@ -63,15 +75,26 @@ export const ExternalForm: React.FC = () => {
           responseCount: formData.response_count ?? 0,
           isGlobal: Boolean(formData.is_global)
         };
-        setForm(mappedForm);
+        let theme = undefined;
+        if (formData.theme_json) {
+          try {
+            theme = typeof formData.theme_json === 'string' ? JSON.parse(formData.theme_json) : formData.theme_json;
+          } catch {
+            theme = undefined;
+          }
+        }
 
+        setForm({ ...mappedForm, theme });
+        setBranding(formData.branding || undefined);
+
+        const publicBranding = formData.branding || {};
         setProfessional({
           id: 'public',
-          name: 'Equipe PsiPainel',
+          name: publicBranding.professional_name || 'Equipe PsiPainel',
           email: 'contato@psipainel.com.br',
           role: 'profissional',
-          profession: 'Psicologia Clinica',
-          registrationNumber: '00000'
+          profession: publicBranding.professional_specialty || 'Psicologia Clinica',
+          registrationNumber: publicBranding.professional_crp || '00000'
         } as any);
 
         const token = localStorage.getItem('psi_token');
@@ -150,6 +173,15 @@ export const ExternalForm: React.FC = () => {
     }
   };
 
+  const theme = {
+    primaryColor: form?.theme?.primaryColor || '#0f172a',
+    accentColor: form?.theme?.accentColor || '#4f46e5',
+    backgroundColor: form?.theme?.backgroundColor || '#f8fafc',
+    cardColor: form?.theme?.cardColor || '#ffffff',
+    buttonColor: form?.theme?.buttonColor || '#4f46e5',
+    headerImageUrl: form?.theme?.headerImageUrl || branding?.cover_url || ''
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -219,8 +251,8 @@ export const ExternalForm: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans text-slate-700 flex flex-col relative">
-      <div className="absolute top-0 left-0 w-full h-[320px] bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 overflow-hidden z-0">
+    <div className="min-h-screen font-sans text-slate-700 flex flex-col relative" style={{ backgroundColor: theme.backgroundColor }}>
+      <div className="absolute top-0 left-0 w-full h-[320px] overflow-hidden z-0" style={{ background: theme.headerImageUrl ? `url(${theme.headerImageUrl}) center/cover` : `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})` }}>
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
         <div className="absolute -right-20 -top-20 w-96 h-96 bg-indigo-500/30 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="absolute left-10 bottom-10 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] pointer-events-none"></div>
@@ -228,9 +260,13 @@ export const ExternalForm: React.FC = () => {
 
       <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-12 relative z-10">
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center md:items-start gap-6 text-white shadow-xl">
-          <div className="w-24 h-24 rounded-full border-4 border-white/20 shadow-lg bg-indigo-600 overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl font-bold">
-            {professional.name.charAt(0)}
-          </div>
+          {branding?.clinic_logo_url ? (
+            <img src={branding.clinic_logo_url} alt="logo" className="w-24 h-24 rounded-full border-4 border-white/20 shadow-lg object-cover bg-white" />
+          ) : (
+            <div className="w-24 h-24 rounded-full border-4 border-white/20 shadow-lg bg-indigo-600 overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl font-bold">
+              {professional.name.charAt(0)}
+            </div>
+          )}
           <div className="text-center md:text-left flex-1">
             <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
               <h2 className="text-2xl font-display font-bold">{professional.name}</h2>
@@ -240,7 +276,7 @@ export const ExternalForm: React.FC = () => {
 
             <div className="flex flex-wrap justify-center md:justify-start gap-3">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10">
-                <MapPin size={12} /> Sao Paulo, SP
+                <MapPin size={12} /> {branding?.clinic_name || 'Clinica'}
               </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10">
                 <Calendar size={12} /> Atendimento Presencial & Online
@@ -264,6 +300,19 @@ export const ExternalForm: React.FC = () => {
               </div>
             )}
           </div>
+
+
+<div className="mt-6 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className="text-xs text-slate-500 font-semibold">
+      Progresso: <span className="text-slate-800 font-bold">{answeredQuestions}/{totalQuestions}</span> respostas
+    </div>
+    <div className="text-xs font-bold text-indigo-600">{progress}%</div>
+  </div>
+  <div className="mt-2 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+    <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }}></div>
+  </div>
+</div>
 
           <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
             {!patient ? (
@@ -337,11 +386,11 @@ export const ExternalForm: React.FC = () => {
               </div>
 
               {form.questions.map((q, idx) => (
-                <div key={q.id} className="group transition-all duration-500">
+                <div key={q.id} className="group transition-all duration-500 border border-slate-200 rounded-3xl p-6 md:p-7 shadow-sm hover:border-indigo-200 hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]" style={{ backgroundColor: theme.cardColor }}>
                   <label className="block text-slate-800 font-bold mb-4 text-xl leading-snug">
                     <span className="inline-block w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 text-center leading-8 text-sm mr-3 font-mono">{idx + 1}</span>
                     {q.text}
-                    {q.required && <span className="text-red-500 ml-1" title="Obrigatorio">*</span>}
+                    {q.required && <span className="ml-2 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600">Obrigatorio</span>}
                   </label>
 
                   <div className="pl-0 md:pl-11">
@@ -444,7 +493,7 @@ export const ExternalForm: React.FC = () => {
             <div className="pt-8 border-t border-slate-100">
               <button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 rounded-2xl shadow-xl shadow-indigo-200 hover:shadow-indigo-300 transition-all hover:-translate-y-1 active:translate-y-0 text-xl flex items-center justify-center gap-3 group"
+                className="w-full text-white font-bold py-5 rounded-2xl shadow-xl transition-all hover:-translate-y-1 active:translate-y-0 text-xl flex items-center justify-center gap-3 group" style={{ backgroundColor: theme.buttonColor }}
               >
                 Enviar Respostas
                 <ArrowRight className="group-hover:translate-x-1 transition-transform" />

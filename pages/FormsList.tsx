@@ -3,7 +3,7 @@ import { api } from '../services/api';
 import { ClinicalForm, Patient } from '../types';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-  Search, Plus, ClipboardList, ChartPie, Pen, Trash2, CheckCircle, Share2, LayoutTemplate, Copy, Send, Lock
+  Search, Plus, ClipboardList, ChartPie, Pen, Trash2, CheckCircle, Share2, LayoutTemplate, Copy, Send, Lock, ArrowLeft
 } from 'lucide-react';
 
 export const FormsList: React.FC = () => {
@@ -12,6 +12,8 @@ export const FormsList: React.FC = () => {
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'Todos' | 'Ativos' | 'Arquivados'>('Todos');
+  const [archivedIds, setArchivedIds] = useState<string[]>([]);
   const [defaultPatientId, setDefaultPatientId] = useState('');
   
   // Share Modal States
@@ -46,6 +48,27 @@ export const FormsList: React.FC = () => {
     load();
   }, []);
 
+
+useEffect(() => {
+  try {
+    const stored = localStorage.getItem('psi_forms_archived');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) setArchivedIds(parsed.map(String));
+    }
+  } catch {
+    // ignore
+  }
+}, []);
+
+useEffect(() => {
+  try {
+    localStorage.setItem('psi_forms_archived', JSON.stringify(archivedIds));
+  } catch {
+    // ignore
+  }
+}, [archivedIds]);
+
   useEffect(() => {
     const patientId = searchParams.get('patient_id');
     if (patientId) {
@@ -53,10 +76,16 @@ export const FormsList: React.FC = () => {
     }
   }, [searchParams]);
 
-  const filteredForms = forms.filter(f => 
-    f.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    f.hash.includes(searchTerm.toLowerCase())
-  );
+
+const filteredForms = forms.filter(f => 
+  f.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  f.hash.includes(searchTerm.toLowerCase())
+).filter(f => {
+  if (activeFilter === 'Arquivados') return archivedIds.includes(f.id);
+  if (activeFilter === 'Ativos') return !archivedIds.includes(f.id);
+  return true;
+});
+
 
   const handleOpenShare = (form: ClinicalForm) => {
       setSelectedForm(form);
@@ -92,6 +121,11 @@ export const FormsList: React.FC = () => {
       window.open(`https://wa.me/${phone.replace(/\\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+
+const toggleArchive = (id: string) => {
+  setArchivedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+};
+
   const handleDelete = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este formulario? Todas as respostas serao perdidas.')) {
         api.delete(`/forms/${id}`)
@@ -109,22 +143,28 @@ export const FormsList: React.FC = () => {
         <div className="absolute -right-32 -top-32 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="absolute left-10 bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
         
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-            <div className="max-w-2xl">
+        <div className="relative z-10 flex flex-col gap-6">
+            <div className="max-w-none">
                 <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-blue-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
                     <ClipboardList size={14} />
                     <span>Gestao de Formularios</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">Meus Formularios</h1>
-                <p className="text-blue-200 text-lg leading-relaxed max-w-xl">
+                <p className="text-blue-100 text-base md:text-lg leading-relaxed max-w-none">
                     Gerencie seus questionarios, acompanhe respostas e compartilhe links seguros com seus pacientes em um unico lugar.
                 </p>
             </div>
 
-            <div className="flex gap-4 w-full lg:w-auto">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 w-full">
+                <button 
+                    onClick={() => navigate('/formularios')}
+                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-slate-900/30 flex items-center justify-center gap-2 transition-all border border-white/10 whitespace-nowrap"
+                >
+                    <ArrowLeft size={18} /> Visao geral
+                </button>
                 <button 
                     onClick={() => navigate('/formularios/novo')}
-                    className="w-full lg:w-auto bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-blue-900/50 flex items-center justify-center gap-2 transition-all hover:-translate-y-1 active:translate-y-0"
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-lg shadow-blue-900/50 flex items-center justify-center gap-2 transition-all whitespace-nowrap"
                 >
                     <Plus size={20} />
                     Novo Formulario
@@ -138,12 +178,13 @@ export const FormsList: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
              <div className="overflow-x-auto w-full lg:w-auto pb-2 -mb-2 no-scrollbar">
                 <div className="flex gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-max shadow-sm">
-                    {['Todos', 'Ativos', 'Arquivados'].map(cat => (
+                    {(['Todos', 'Ativos', 'Arquivados'] as const).map(cat => (
                         <button
                             key={cat}
+                            onClick={() => setActiveFilter(cat)}
                             className={`
                                 px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap
-                                ${cat === 'Todos' 
+                                ${cat === activeFilter 
                                     ? 'bg-slate-900 text-white shadow-md' 
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}
                             `}
@@ -167,6 +208,27 @@ export const FormsList: React.FC = () => {
         </div>
       </div>
 
+
+
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  <div className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm">
+    <p className="text-xs font-bold text-slate-400 uppercase">Total de Formularios</p>
+    <p className="text-2xl font-extrabold text-slate-800">{forms.length}</p>
+  </div>
+  <div className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm">
+    <p className="text-xs font-bold text-slate-400 uppercase">Ativos</p>
+    <p className="text-2xl font-extrabold text-emerald-600">{forms.length - archivedIds.length}</p>
+  </div>
+  <div className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm">
+    <p className="text-xs font-bold text-slate-400 uppercase">Arquivados</p>
+    <p className="text-2xl font-extrabold text-slate-500">{archivedIds.length}</p>
+  </div>
+  <div className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm">
+    <p className="text-xs font-bold text-slate-400 uppercase">Respostas Totais</p>
+    <p className="text-2xl font-extrabold text-indigo-600">{forms.reduce((sum, f) => sum + (f.responseCount || 0), 0)}</p>
+  </div>
+</div>
+
       {/* Forms Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredForms.length === 0 ? (
@@ -185,7 +247,7 @@ export const FormsList: React.FC = () => {
              </div>
         ) : (
             filteredForms.map(form => (
-                <div key={form.id} className="group bg-white rounded-2xl p-5 border border-slate-100 hover:border-blue-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_30px_rgba(59,130,246,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col relative">
+                <div key={form.id} className="group bg-white rounded-2xl p-5 border border-slate-100 hover:border-blue-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_30px_rgba(59,130,246,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col relative overflow-hidden">
                     
                     {/* Top: Icon & Actions */}
                     <div className="flex items-start justify-between mb-4">
@@ -231,11 +293,11 @@ export const FormsList: React.FC = () => {
                     </div>
 
                     {/* Hover Action Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-4 bg-white/95 backdrop-blur-sm rounded-b-2xl border-t border-blue-100 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 flex gap-2">
+                    <div className="absolute inset-x-0 bottom-0 p-4 bg-white/95 backdrop-blur-sm rounded-b-2xl border-t border-blue-100 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 grid grid-cols-2 gap-2">
                         {form.isGlobal ? (
                             <button
                                 onClick={() => navigate(`/formularios/${form.id}/respostas`)}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition-colors"
+                                className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition-colors"
                             >
                                 <ChartPie size={16} /> Resultados
                             </button>
@@ -243,21 +305,27 @@ export const FormsList: React.FC = () => {
                             <>
                                 <button
                                     onClick={() => navigate(`/formularios/${form.id}`)}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors"
+                                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors"
                                 >
                                     <Pen size={16} /> Editar
                                 </button>
                                 <button
                                     onClick={() => navigate(`/formularios/${form.id}/respostas`)}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs hover:bg-emerald-100 transition-colors"
+                                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs hover:bg-emerald-100 transition-colors"
                                 >
                                     <ChartPie size={16} /> Resultados
                                 </button>
                                 <button
-                                    onClick={() => handleDelete(form.id)}
-                                    className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                                    onClick={() => toggleArchive(form.id)}
+                                    className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-50 text-slate-600 font-bold text-xs hover:bg-slate-100 transition-colors"
                                 >
-                                    <Trash2 size={16} />
+                                    {archivedIds.includes(form.id) ? 'Desarquivar' : 'Arquivar'}
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(form.id)}
+                                    className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-50 text-red-500 font-bold text-xs hover:bg-red-100 transition-colors"
+                                >
+                                    <Trash2 size={16} /> Excluir
                                 </button>
                             </>
                         )}

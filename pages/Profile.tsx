@@ -1,5 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { UserRole } from '../types';
+import { api } from '../services/api';
 import {
   Mail,
   Phone,
@@ -70,6 +71,43 @@ export const Profile: React.FC = () => {
     { dayKey: 'sunday', active: false, start: '', end: '', lunchStart: '', lunchEnd: '' },
   ]);
 
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const data = await api.get<any>('/profile/me');
+        if (data) {
+          setUser(prev => ({
+            ...prev,
+            name: data.name ?? prev.name,
+            email: data.email ?? prev.email,
+            role: data.role ?? prev.role,
+            phone: data.phone ?? prev.phone,
+            crp: data.crp ?? prev.crp,
+            specialty: data.specialty ?? prev.specialty,
+            companyName: data.company_name ?? data.companyName ?? prev.companyName,
+            address: data.address ?? prev.address,
+            bio: data.bio ?? prev.bio,
+            avatarUrl: data.avatar_url ?? data.avatarUrl ?? prev.avatarUrl,
+            clinicLogoUrl: data.clinic_logo_url ?? data.clinicLogoUrl ?? prev.clinicLogoUrl,
+            coverUrl: data.cover_url ?? data.coverUrl ?? prev.coverUrl,
+          }));
+        }
+
+        if (data?.schedule) {
+          const scheduleData = typeof data.schedule == 'string' ? JSON.parse(data.schedule) : data.schedule;
+          if (Array.isArray(scheduleData)) {
+            setSchedule(scheduleData as ScheduleDay[]);
+          }
+        }
+      } catch (err) {
+        // keep local state if request fails
+      }
+    };
+
+    loadProfile();
+  }, []);
+
   const initials = useMemo(() => {
     const parts = user.name.trim().split(/\s+/);
     const a = parts[0]?.[0] ?? 'U';
@@ -77,9 +115,15 @@ export const Profile: React.FC = () => {
     return (a + b).toUpperCase();
   }, [user.name]);
 
+
+
   const pickImage = async (file: File) => {
-    // preview local
-    return URL.createObjectURL(file);
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Erro ao carregar imagem'));
+      reader.readAsDataURL(file);
+    });
   };
 
   const onAvatarPick = async (file?: File | null) => {
@@ -108,14 +152,32 @@ export const Profile: React.FC = () => {
     setSchedule(prev => prev.map((d, i) => (i === index ? { ...d, ...patch } : d)));
   };
 
+
   const handleSave = async () => {
     setSaveStatus('saving');
 
-    // TODO: chamar API
-    await new Promise(r => setTimeout(r, 600));
+    try {
+      await api.put('/profile/me', {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        crp: user.crp,
+        specialty: user.specialty,
+        company_name: user.companyName,
+        address: user.address,
+        bio: user.bio,
+        avatar_url: user.avatarUrl,
+        clinic_logo_url: user.clinicLogoUrl,
+        cover_url: user.coverUrl,
+        schedule,
+      });
 
-    setSaveStatus('saved');
-    setTimeout(() => setSaveStatus('idle'), 1500);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 1500);
+    } catch (err) {
+      setSaveStatus('idle');
+      alert('Nao foi possivel salvar o perfil.');
+    }
   };
 
   return (

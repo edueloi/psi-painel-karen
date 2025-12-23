@@ -187,6 +187,16 @@ export interface Document {
   date: string;
 }
 
+
+export interface FormTheme {
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  cardColor: string;
+  buttonColor: string;
+  headerImageUrl?: string;
+}
+
 export interface FormStats {
   totalForms: number;
   totalResponses: number;
@@ -226,6 +236,7 @@ export interface ClinicalForm {
   interpretations?: InterpretationRule[];
   responseCount: number;
   isGlobal?: boolean;
+  theme?: FormTheme;
 }
 
 export interface ClinicalRecord {

@@ -1,14 +1,14 @@
 
 import React, { useState } from 'react';
-import { FormQuestion, QuestionType, FormOption, InterpretationRule } from '../../types';
+import { FormQuestion, QuestionType, FormOption, InterpretationRule, FormTheme } from '../../types';
 import { 
   Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, FileSignature, Wand2, Settings, Eye, ArrowLeft, Calculator, Target, Palette
 } from 'lucide-react';
 import { Button } from '../UI/Button';
 
 interface FormBuilderProps {
-  initialData?: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[] };
-  onSave: (data: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[] }) => void;
+  initialData?: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[]; theme?: FormTheme };
+  onSave: (data: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[]; theme?: FormTheme }) => void;
   onCancel: () => void;
 }
 
@@ -27,6 +27,31 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
   const [description, setDescription] = useState(initialData?.description || '');
   const [questions, setQuestions] = useState<FormQuestion[]>(initialData?.questions || []);
   const [interpretations, setInterpretations] = useState<InterpretationRule[]>(initialData?.interpretations || []);
+
+
+  const [theme, setTheme] = useState<FormTheme>(initialData?.theme || {
+    primaryColor: '#4f46e5',
+    accentColor: '#7c3aed',
+    backgroundColor: '#f8fafc',
+    cardColor: '#ffffff',
+    buttonColor: '#4f46e5',
+    headerImageUrl: ''
+  });
+  const paletteOptions = [
+    { label: 'Neutros', colors: ['#0f172a', '#111827', '#1f2937', '#334155', '#475569', '#64748b', '#94a3b8', '#e2e8f0', '#f1f5f9', '#ffffff'] },
+    { label: 'Pasteis', colors: ['#fce7f3', '#fde2e2', '#ffe4e6', '#fde68a', '#fef3c7', '#e9d5ff', '#ddd6fe', '#dbeafe', '#cffafe', '#d1fae5'] },
+    { label: 'Vibrantes', colors: ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899'] },
+    { label: 'Tons Azuis', colors: ['#0ea5e9', '#38bdf8', '#60a5fa', '#2563eb', '#1d4ed8', '#1e40af', '#0f172a', '#e0f2fe', '#bae6fd', '#7dd3fc'] },
+    { label: 'Tons Verdes', colors: ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0', '#dcfce7', '#064e3b', '#10b981', '#34d399', '#a7f3d0'] },
+    { label: 'Terrosos', colors: ['#7f5539', '#9c6644', '#b08968', '#c9ada7', '#a98467', '#6b4423', '#e6ccb2', '#ede0d4', '#ddb892', '#f5ebe0'] },
+    { label: 'Roxos', colors: ['#2e1065', '#4c1d95', '#5b21b6', '#6d28d9', '#7c3aed', '#8b5cf6', '#a78bfa', '#c4b5fd', '#e9d5ff', '#f5f3ff'] },
+    { label: 'Laranjas', colors: ['#7c2d12', '#9a3412', '#c2410c', '#ea580c', '#f97316', '#fb923c', '#fdba74', '#fed7aa', '#ffedd5', '#fff7ed'] },
+    { label: 'Rosas', colors: ['#831843', '#9d174d', '#be185d', '#db2777', '#ec4899', '#f472b6', '#f9a8d4', '#fbcfe8', '#fce7f3', '#fff1f2'] },
+    { label: 'Azul Esverdeado', colors: ['#042f2e', '#0f766e', '#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4', '#ccfbf1', '#e0fdfa', '#f0fdfa'] }
+  ];
+  const [selectedPalette, setSelectedPalette] = useState(paletteOptions[1].label);
+  const currentPalette = paletteOptions.find(p => p.label === selectedPalette)?.colors || paletteOptions[0].colors;
+
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [titleError, setTitleError] = useState('');
   const handleSave = () => {
@@ -35,7 +60,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
       return;
     }
     setTitleError('');
-    onSave({ title, description, questions, interpretations });
+    onSave({ title, description, questions, interpretations, theme });
   };
 
   // --- Logic Helpers ---
@@ -158,6 +183,12 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'logic' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
                 <Calculator size={14} /> Cálculo & Resultados
+            </button>
+            <button 
+                onClick={() => setActiveTab('settings')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+                <Palette size={14} /> Aparencia
             </button>
         </div>
 
@@ -478,6 +509,121 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                 </div>
             </div>
         )}
+
+
+
+{/* --- TAB: SETTINGS --- */}
+{activeTab === 'settings' && (
+    <div className="flex-1 overflow-y-auto bg-slate-100/50 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto space-y-6">
+            <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <Palette size={18} />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800">Tema do Formulario Publico</h3>
+                        <p className="text-sm text-slate-500">Personalize as cores e o cabecalho.</p>
+                    </div>
+                </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label className="space-y-2 md:col-span-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Paleta</span>
+                            <select
+                                value={selectedPalette}
+                                onChange={e => setSelectedPalette(e.target.value)}
+                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 bg-white"
+                            >
+                                {paletteOptions.map((palette) => (
+                                    <option key={palette.label} value={palette.label}>{palette.label}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="space-y-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Cor primaria</span>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                            {currentPalette.map(color => (
+                                <button
+                                    key={`primary-${color}`}
+                                    type="button"
+                                    onClick={() => setTheme(prev => ({ ...prev, primaryColor: color }))}
+                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.primaryColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                        </label>
+                        <label className="space-y-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Cor secundaria</span>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                            {currentPalette.map(color => (
+                                <button
+                                    key={`accent-${color}`}
+                                    type="button"
+                                    onClick={() => setTheme(prev => ({ ...prev, accentColor: color }))}
+                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.accentColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                        </label>
+                        <label className="space-y-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Fundo</span>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                            {currentPalette.map(color => (
+                                <button
+                                    key={`bg-${color}`}
+                                    type="button"
+                                    onClick={() => setTheme(prev => ({ ...prev, backgroundColor: color }))}
+                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.backgroundColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                        </label>
+                        <label className="space-y-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Card</span>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                            {currentPalette.map(color => (
+                                <button
+                                    key={`card-${color}`}
+                                    type="button"
+                                    onClick={() => setTheme(prev => ({ ...prev, cardColor: color }))}
+                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.cardColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                        </label>
+                        <label className="space-y-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Botao</span>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                            {currentPalette.map(color => (
+                                <button
+                                    key={`button-${color}`}
+                                    type="button"
+                                    onClick={() => setTheme(prev => ({ ...prev, buttonColor: color }))}
+                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.buttonColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                    </label>
+                    <label className="space-y-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase">Imagem do cabecalho (URL)</span>
+                        <input type="text" value={theme.headerImageUrl || ''} onChange={e => setTheme(prev => ({ ...prev, headerImageUrl: e.target.value }))} placeholder="https://" className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm" />
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
 
       </div>
     </div>

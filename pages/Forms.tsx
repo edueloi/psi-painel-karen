@@ -16,7 +16,8 @@ import {
   Clock,
   CheckCircle,
   ChevronRight,
-  FileText
+  FileText,
+  Copy
 } from 'lucide-react';
 
 export const Forms: React.FC = () => {
@@ -26,12 +27,21 @@ export const Forms: React.FC = () => {
   const [stats, setStats] = useState<FormStats>({ totalForms: 0, totalResponses: 0, mostUsed: null });
   const [recentResponses, setRecentResponses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [copiedFormId, setCopiedFormId] = useState<string | null>(null);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Bom dia';
     if (hour < 18) return 'Boa tarde';
     return 'Boa noite';
+  };
+
+  const handleCopyPublicLink = (form: ClinicalForm) => {
+    const link = `${window.location.origin}/f/${form.hash}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedFormId(form.id);
+      setTimeout(() => setCopiedFormId(null), 2000);
+    });
   };
 
   useEffect(() => {
@@ -99,54 +109,63 @@ export const Forms: React.FC = () => {
     load();
   }, []);
 
-  const quickTemplates = [
-    { title: 'Anamnese Geral', desc: 'Questionario completo para novos pacientes.' },
-    { title: 'Inventario de Beck', desc: 'Escala de Depressao e Ansiedade.' },
-    { title: 'Diario de Emocoes', desc: 'Registro diario para TCC.' },
-  ];
-
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-10">
-      <div className="relative overflow-hidden rounded-[26px] p-6 md:p-10 bg-slate-900 border border-slate-700/50 shadow-[0_22px_45px_-20px_rgba(15,23,42,0.55)]">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-blue-900"></div>
-        <div className="absolute -top-[60px] -right-[40px] w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+      <div className="relative overflow-hidden rounded-[28px] p-6 md:p-10 bg-slate-950 border border-slate-700/40 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.7)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.25),transparent_55%)]"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"></div>
+        <div className="absolute -top-[80px] -right-[60px] w-[320px] h-[320px] bg-indigo-500/10 rounded-full blur-3xl opacity-70 pointer-events-none"></div>
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8 items-center">
-          <div className="max-w-[640px]">
-            <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-900/60 border border-slate-400/30 text-indigo-200 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-8 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-white/5 border border-white/10 text-indigo-200 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
               <HeartPulse size={12} className="text-sky-400" />
-              <span>Painel clinico</span>
+              <span>Central de formularios</span>
             </div>
             <h1 className="text-3xl md:text-5xl font-display font-bold text-slate-50 mb-3 leading-tight">
-              Visao Geral dos <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-200">Formularios</span>
+              Formularios <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 to-indigo-200">clinicos</span>
             </h1>
-            <p className="text-slate-300 text-lg leading-relaxed max-w-lg mb-6">
-              Acompanhe em tempo real seus formularios criados, respostas recebidas e metricas de engajamento dos pacientes.
+            <p className="text-slate-300 text-lg leading-relaxed max-w-2xl mb-6">
+              Controle criacao, compartilhamento e respostas em um fluxo simples. Tudo pronto para sua rotina clinica.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[140px] p-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-md">
-                <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">Formularios</div>
-                <div className="text-2xl font-bold text-white flex items-center gap-2">
-                  <FilePlus size={20} className="text-sky-400" /> {stats.totalForms}
-                </div>
-              </div>
-              <div className="flex-1 min-w-[140px] p-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-md">
-                <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">Respostas</div>
-                <div className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Inbox size={20} className="text-emerald-400" /> {stats.totalResponses}
-                </div>
-              </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => navigate('/formularios/novo')}
+                className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-900/40 flex items-center gap-2"
+              >
+                <PlusCircle size={18} /> Criar formulario
+              </button>
+              <button
+                onClick={() => navigate('/formularios/lista')}
+                className="px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm border border-white/10 flex items-center gap-2"
+              >
+                <ListChecks size={18} /> Ver lista completa
+              </button>
             </div>
           </div>
-          <div className="flex flex-col items-start lg:items-end lg:text-right gap-4 lg:border-l border-slate-700/50 lg:pl-8 lg:h-full lg:justify-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-600/50 backdrop-blur-md text-slate-200 text-sm font-semibold shadow-lg">
-              <Calendar size={16} className="text-yellow-400" />
-              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+
+          <div className="grid gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+              <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">Formularios</div>
+              <div className="text-2xl font-bold text-white flex items-center gap-2">
+                <FilePlus size={20} className="text-sky-400" /> {stats.totalForms}
+              </div>
             </div>
-            <div className="text-indigo-100 text-base">
-              <strong className="text-white block text-xl mb-1">{getGreeting()}</strong>
-              Aqui esta o resumo da sua <br /> atividade clinica recente.
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+              <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">Respostas</div>
+              <div className="text-2xl font-bold text-white flex items-center gap-2">
+                <Inbox size={20} className="text-emerald-400" /> {stats.totalResponses}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+              <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">Mais usado</div>
+              <div className="text-sm font-semibold text-slate-100 line-clamp-2">
+                {stats.mostUsed || 'Sem dados'}
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-600/50 backdrop-blur-md text-slate-200 text-xs font-semibold shadow-lg w-fit">
+              <Calendar size={14} className="text-yellow-400" />
+              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
           </div>
         </div>
@@ -163,40 +182,57 @@ export const Forms: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-bold text-lg">Criar Novo</h4>
-                  <p className="text-indigo-100 text-xs">Do zero ou template</p>
+                  <p className="text-indigo-100 text-xs">Do zero ou a partir de um modelo</p>
                 </div>
                 <ChevronRight className="ml-auto opacity-50 group-hover:translate-x-1 transition-transform" />
               </Link>
               <div className="grid grid-cols-2 gap-4">
                 <Link to="/formularios/lista" className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all group">
                   <ListChecks size={24} className="text-indigo-500 mb-3 group-hover:scale-110 transition-transform" />
-                  <h4 className="font-bold text-slate-800">Meus Forms</h4>
-                  <p className="text-xs text-slate-500">Gerenciar todos</p>
+                  <h4 className="font-bold text-slate-800">Lista Completa</h4>
+                  <p className="text-xs text-slate-500">Gerenciar formularios</p>
                 </Link>
-                <Link to="/formularios/lista" className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all group">
+                <Link to="/formularios/metricas" className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all group">
                   <PieChart size={24} className="text-purple-500 mb-3 group-hover:scale-110 transition-transform" />
                   <h4 className="font-bold text-slate-800">Resultados</h4>
-                  <p className="text-xs text-slate-500">Ver estatisticas</p>
+                  <p className="text-xs text-slate-500">Metricas e respostas</p>
                 </Link>
               </div>
             </div>
           </div>
 
           <div>
-            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><Wand2 size={20} className="text-purple-600" /> Modelos Populares</h2>
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><FileText size={20} className="text-slate-700" /> Formularios Recentes</h2>
             <div className="space-y-3">
-              {quickTemplates.map((tpl, i) => (
-                <div key={i} className="group flex items-start gap-3 p-3 rounded-xl bg-white border border-slate-100 hover:border-purple-200 hover:bg-purple-50/30 transition-all cursor-pointer">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 font-bold text-xs">
-                    {tpl.title.charAt(0)}
+              {forms.slice(0, 4).map((form) => (
+                <div key={form.id} className="flex items-start gap-3 p-3 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 font-bold text-xs">
+                    {form.title.charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-bold text-sm text-slate-700 group-hover:text-purple-700 transition-colors">{tpl.title}</h4>
-                    <p className="text-xs text-slate-500 line-clamp-1">{tpl.desc}</p>
+                    <h4 className="font-bold text-sm text-slate-700">{form.title}</h4>
+                    <p className="text-xs text-slate-500">{form.responseCount || 0} respostas</p>
                   </div>
-                  <button className="text-slate-300 hover:text-purple-600"><PlusCircle size={18} /></button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => navigate(`/formularios/${form.id}`)}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
+                    >
+                      Abrir
+                    </button>
+                    <button
+                      onClick={() => handleCopyPublicLink(form)}
+                      className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                      title="Copiar link publico"
+                    >
+                      {copiedFormId === form.id ? <CheckCircle size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                    </button>
+                  </div>
                 </div>
               ))}
+              {forms.length === 0 && (
+                <div className="text-sm text-slate-400">Nenhum formulario criado ainda.</div>
+              )}
             </div>
           </div>
         </div>
@@ -206,7 +242,7 @@ export const Forms: React.FC = () => {
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Inbox size={20} className="text-emerald-600" /> Respostas Recentes</h2>
             <button
               className="text-xs font-bold text-indigo-600 hover:underline"
-              onClick={() => navigate('/formularios/lista')}
+              onClick={() => navigate('/formularios/respostas')}
             >
               Ver todas
             </button>

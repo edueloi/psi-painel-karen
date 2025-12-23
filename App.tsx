@@ -23,8 +23,10 @@ import { CaseStudies } from './pages/CaseStudies';
 import { Documents } from './pages/Documents';
 import { Forms } from './pages/Forms';
 import { FormsList } from './pages/FormsList';
+import { FormsMetrics } from './pages/FormsMetrics';
 import { FormEditor } from './pages/FormEditor';
 import { FormResponses } from './pages/FormResponses';
+import { FormsResponsesAll } from './pages/FormsResponsesAll';
 import { ExternalForm } from './pages/ExternalForm';
 import { DocGenerator } from './pages/DocGenerator';
 import { BestClients } from './pages/BestClients';
@@ -109,9 +111,11 @@ const AppRoutes: React.FC = () => {
       <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/formularios" element={<ProtectedRoute><Forms /></ProtectedRoute>} />
       <Route path="/formularios/lista" element={<ProtectedRoute><FormsList /></ProtectedRoute>} />
+      <Route path="/formularios/metricas" element={<ProtectedRoute><FormsMetrics /></ProtectedRoute>} />
       <Route path="/formularios/novo" element={<ProtectedRoute><FormEditor /></ProtectedRoute>} />
       <Route path="/formularios/:id" element={<ProtectedRoute><FormEditor /></ProtectedRoute>} />
       <Route path="/formularios/:id/respostas" element={<ProtectedRoute><FormResponses /></ProtectedRoute>} />
+      <Route path="/formularios/respostas" element={<ProtectedRoute><FormsResponsesAll /></ProtectedRoute>} />
 
       {/* Rotas de gestao e financeiro */}
       <Route path="/profissionais" element={<ProtectedRoute allowedRoles={['admin']}><Professionals /></ProtectedRoute>} />
@@ -143,7 +147,9 @@ const AppRoutes: React.FC = () => {
       <Route path="/documents" element={<Navigate to="/documentos" replace />} />
       <Route path="/forms" element={<Navigate to="/formularios" replace />} />
       <Route path="/forms/list" element={<Navigate to="/formularios/lista" replace />} />
+      <Route path="/forms/metrics" element={<Navigate to="/formularios/metricas" replace />} />
       <Route path="/forms/new" element={<Navigate to="/formularios/novo" replace />} />
+      <Route path="/forms/responses" element={<Navigate to="/formularios/respostas" replace />} />
       <Route path="/professionals" element={<Navigate to="/profissionais" replace />} />
       <Route path="/permissions" element={<Navigate to="/permissoes" replace />} />
       <Route path="/services" element={<Navigate to="/servicos" replace />} />
