@@ -46,8 +46,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
       <aside className={`fixed top-0 left-0 z-50 h-full w-[280px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className={`h-24 flex items-center px-8 border-b ${headerBorder} flex-shrink-0`}>
           <div className="flex items-center gap-3 group cursor-pointer">
-            <div className="relative h-10 w-10 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-xl flex items-center justify-center text-white shadow-lg">
-              <BrainCircuit size={20} />
+            <div className="relative h-10 w-10 rounded-xl overflow-hidden shadow-lg">
+              <img src="/logo-psiflux.png" alt="PsiFlux" className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                }}
+              />
+              <div className="hidden w-full h-full bg-gradient-to-br from-indigo-500 to-violet-500 items-center justify-center text-white">
+                <BrainCircuit size={20} />
+              </div>
             </div>
             <div>
               <h1 className={`font-display font-bold text-xl ${titleText} leading-none`}>PsiFlux</h1>

@@ -102,7 +102,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       if (remember) localStorage.setItem('psi_remembered_email', email);
       else localStorage.removeItem('psi_remembered_email');
       login(res.token);
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'E-mail ou senha incorretos.');
     } finally {
@@ -138,7 +138,13 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
         {/* Logo */}
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <img src="/logo-psiflux.png" alt="PsiFlux" className="w-10 h-10 rounded-xl object-contain"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+              (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+            }}
+          />
+          <div className="hidden w-10 h-10 rounded-xl bg-indigo-600 items-center justify-center shadow-md shadow-indigo-200">
             <BrainCircuit size={20} className="text-white" />
           </div>
           <div>
@@ -177,7 +183,13 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
           {/* Logo mobile */}
           <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <img src="/logo-psiflux.png" alt="PsiFlux" className="w-8 h-8 rounded-lg object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+              }}
+            />
+            <div className="hidden w-8 h-8 rounded-lg bg-indigo-600 items-center justify-center">
               <BrainCircuit size={16} className="text-white" />
             </div>
             <p className="text-slate-800 font-bold">PsiFlux</p>

@@ -39,6 +39,7 @@ import { Messages } from './pages/Messages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LandingPage } from './pages/LandingPage';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
@@ -68,7 +69,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   // Se houver restricao de cargo:
   // Permite se o usuario tiver o cargo na lista OU se ele for o admin da clinica
   if (allowedRoles && user && !allowedRoles.includes(user.role) && !isAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <MainLayout>{children}</MainLayout>;
@@ -79,7 +80,7 @@ const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const { isAuthenticated, user } = useAuth();
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user?.role !== 'super_admin') return <Navigate to="/" replace />;
+  if (user?.role !== 'super_admin') return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
 };
@@ -94,6 +95,7 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login onLogin={() => {}} />} />
       <Route path="/f/:hash" element={<ExternalForm />} />
 
@@ -108,7 +110,7 @@ const AppRoutes: React.FC = () => {
       />
 
       {/* Rotas comuns da clinica */}
-      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/pacientes" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
       <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
       <Route path="/salas-virtuais" element={<ProtectedRoute><VirtualRooms /></ProtectedRoute>} />
@@ -177,7 +179,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/messages" element={<Navigate to="/mensagens" replace />} />
 
       {/* Redirecionamento inicial conforme cargo */}
-      <Route path="*" element={user?.role === 'super_admin' ? <Navigate to="/painel-master" /> : <Navigate to="/" />} />
+      <Route path="*" element={user?.role === 'super_admin' ? <Navigate to="/painel-master" /> : <Navigate to="/dashboard" />} />
     </Routes>
   );
 };
