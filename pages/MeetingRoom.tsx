@@ -126,7 +126,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   >(null);
   const [layoutMode, setLayoutMode] = useState<
     "focus" | "side-by-side" | "stacked"
-  >("focus");
+  >("side-by-side");
   const [entryNotice, setEntryNotice] = useState<string | null>(null);
   const [waitingList, setWaitingList] = useState<WaitingEntry[]>([]);
   const [waitingToken, setWaitingToken] = useState<string | null>(null);
@@ -334,7 +334,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (question.type === "checkbox") {
       const selected = Array.isArray(rawValue) ? rawValue : [];
       const score = (question.options || []).reduce((sum, opt) => {
-        return selected.includes(String(opt.value)) ? sum + opt.value : sum;
+        const optionScore = Number(opt.value);
+        if (selected.includes(String(opt.value))) {
+          return (
+            sum + (Number.isFinite(optionScore) ? optionScore : 0)
+          );
+        }
+        return sum;
       }, 0);
       return { value: selected, score };
     }
@@ -342,7 +348,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       const option = question.options?.find(
         (opt) => String(opt.value) === String(rawValue)
       );
-      return { value: rawValue, score: option ? option.value : 0 };
+      const optionScore = Number(option?.value ?? 0);
+      return {
+        value: rawValue,
+        score: Number.isFinite(optionScore) ? optionScore : 0,
+      };
     }
     if (question.type === "number") {
       const score = Number(rawValue);
@@ -433,9 +443,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           break;
 
         case "FINISH_ASSESSMENT":
-          if (!isGuest) {
-            setAssessmentStatus("completed");
-          }
+          setAssessmentStatus("completed");
+          break;
+        case "CANCEL_ASSESSMENT":
+          setRemoteAnswers({});
+          setActiveAssessmentId(null);
+          setActiveAssessmentHash(null);
+          setAssessmentStatus("idle");
+          if (isGuest) setActiveSidePanel("none");
           break;
       }
     };
@@ -624,6 +639,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           .catch(() => {});
       }
     }
+  };
+
+  const handleCancelAssessment = () => {
+    setActiveAssessmentId(null);
+    setActiveAssessmentHash(null);
+    setAssessmentStatus("idle");
+    setRemoteAnswers({});
+    broadcastChannelRef.current?.postMessage({
+      type: "CANCEL_ASSESSMENT",
+    });
   };
 
   const calculateHostResult = () => {
@@ -1637,7 +1662,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
     startRecognition();
     return () => stopRecognition();
-  }, [guestTranscriptionEnabled, isGuest]);
+    }, [guestTranscriptionEnabled, isGuest]);
 
   const handleEndCall = async () => {
     cleanupMedia();
@@ -2199,7 +2224,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         )}
         <section
           className={`flex-1 grid gap-4 ${
-            useGridLayout ? "md:grid-cols-2" : "grid-cols-1"
+            useGridLayout
+              ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-2"
+              : "grid-cols-1"
           }`}
         >
           <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center">
@@ -2383,6 +2410,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
                 {!isGuest && assessmentStatus !== "idle" && (
                   <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-slate-400 uppercase tracking-wider">
+                        Avaliacao em andamento
+                      </span>
+                      <button
+                        onClick={handleCancelAssessment}
+                        className="text-xs text-red-400 hover:text-red-200"
+                      >
+                        Cancelar e retornar
+                      </button>
+                    </div>
                     <div className="text-xs text-slate-400 mb-2">
                       {activeAssessmentForm
                         ? `${activeAssessmentForm.title} - ${Object.keys(
@@ -2458,8 +2496,22 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                                 key={question.id}
                                 className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-2"
                               >
-                                <div className="text-xs text-slate-200">
-                                  {question.text}
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="text-xs text-slate-200">
+                                    {question.text}
+                                  </div>
+                                  <button
+                                    onClick={() =>
+                                      handleGuestAnswerChange(
+                                        question,
+                                        question.type === "checkbox" ? [] : ""
+                                      )
+                                    }
+                                    disabled={isDisabled}
+                                    className="text-[10px] text-indigo-300 hover:text-white"
+                                  >
+                                    Limpar
+                                  </button>
                                 </div>
                                 {(question.type === "text" ||
                                   question.type === "number") && (

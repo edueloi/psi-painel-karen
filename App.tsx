@@ -62,14 +62,26 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
+  // Super admin não acessa rotas da clínica — vai para o painel próprio
+  if (user?.role === 'super_admin') return <Navigate to="/painel-master" replace />;
+
   // Se houver restricao de cargo:
   // Permite se o usuario tiver o cargo na lista OU se ele for o admin da clinica
   if (allowedRoles && user && !allowedRoles.includes(user.role) && !isAdmin) {
-    // A unica excecao e se um admin tentar acessar rotas de super_admin sem permissao
     return <Navigate to="/" replace />;
   }
 
   return <MainLayout>{children}</MainLayout>;
+};
+
+// Rota exclusiva para super_admin — sem o MainLayout da clínica
+const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, user } = useAuth();
+
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role !== 'super_admin') return <Navigate to="/" replace />;
+
+  return <>{children}</>;
 };
 
 const RedirectToSala: React.FC = () => {
@@ -78,7 +90,7 @@ const RedirectToSala: React.FC = () => {
 };
 
 const AppRoutes: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <Routes>
@@ -89,9 +101,9 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/painel-master"
         element={
-          <ProtectedRoute allowedRoles={['super_admin']}>
-            <SuperAdmin onLogout={() => {}} />
-          </ProtectedRoute>
+          <SuperAdminRoute>
+            <SuperAdmin onLogout={logout} />
+          </SuperAdminRoute>
         }
       />
 

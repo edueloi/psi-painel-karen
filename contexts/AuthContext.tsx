@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
 
 interface AuthUser {
-  user_id: number;
+  id: number;
   tenant_id: number | null;
   role: 'super_admin' | 'admin' | 'profissional' | 'secretario';
   name?: string;
@@ -46,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Busca perfil completo do usuário
   const fetchUserProfile = async (decoded: AuthUser) => {
     try {
-      const data = await api.get(`/users/${decoded.user_id}`);
+      const data = await api.get('/users/me');
       setUser({ ...decoded, name: data.name, email: data.email });
     } catch (e) {
       setUser(decoded); // fallback só com id/role

@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Video, Calendar, Clock, Copy, ArrowRight, Link as LinkIcon, 
-  Plus, History, Play, Trash2, Loader2, Search, Check, ShieldCheck, X 
+  Video, Calendar, Clock, Copy, ArrowRight, Link as LinkIcon,
+  Plus, History, Play, Trash2, Loader2, Search, Check, ShieldCheck, X
 } from 'lucide-react';
 import { api } from '../services/api';
 import { VirtualRoom, Patient, User } from '../types';
@@ -117,11 +117,26 @@ export const VirtualRooms: React.FC = () => {
   };
 
   // Handlers
+  const [isCreatingInstant, setIsCreatingInstant] = useState(false);
+
   const handleInstantMeeting = async () => {
-    openCreateModal({
-        title: `${t('rooms.instantTitle')} - ${new Date().toLocaleDateString()}`,
-        description: t('rooms.instantDesc')
-    });
+    setIsCreatingInstant(true);
+    try {
+      const code = generateCode();
+      const title = `Sessão - ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      const room = await api.post<any>('/virtual-rooms', {
+        title,
+        description: 'Sessão iniciada via acesso rápido.',
+        code,
+        provider: 'interno',
+      });
+      const roomCode = room.code || room.hash || code;
+      navigate(`/sala/${roomCode}`);
+    } catch (e: any) {
+      pushToast('error', 'Erro ao criar sala: ' + (e.message || ''));
+    } finally {
+      setIsCreatingInstant(false);
+    }
   };
 
   const handleCreateRoom = async () => {
@@ -233,13 +248,23 @@ export const VirtualRooms: React.FC = () => {
                 </div>
             </div>
             
-            <button 
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
                 onClick={handleInstantMeeting}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0"
-            >
-                <Plus size={24} />
-                {t('rooms.instant')}
-            </button>
+                disabled={isCreatingInstant}
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-70 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0"
+              >
+                {isCreatingInstant ? <Loader2 size={22} className="animate-spin" /> : <Play size={22} fill="currentColor" />}
+                Sala Instantânea
+              </button>
+              <button
+                onClick={() => openCreateModal()}
+                className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all"
+              >
+                <Plus size={20} />
+                Agendar Sala
+              </button>
+            </div>
         </div>
       </div>
 
