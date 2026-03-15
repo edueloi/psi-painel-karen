@@ -8,7 +8,7 @@ const FAQS = [
   },
   { 
     q: 'O sistema funciona offline?', 
-    a: 'O PsiManager Pro é uma aplicação web progressiva (PWA). Você pode acessar dados armazenados em cache, mas precisa de conexão para sincronizar novos agendamentos.' 
+    a: 'O PsiFlux é uma aplicação web progressiva (PWA). Você pode acessar dados armazenados em cache, mas precisa de conexão para sincronizar novos agendamentos.' 
   },
   { 
     q: 'Como exportar o prontuário de um paciente?', 

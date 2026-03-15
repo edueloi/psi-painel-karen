@@ -142,7 +142,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
             <BrainCircuit size={20} className="text-white" />
           </div>
           <div>
-            <p className="text-slate-800 font-bold text-base leading-none">PsiManager</p>
+            <p className="text-slate-800 font-bold text-base leading-none">PsiFlux</p>
             <p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest">Pro</p>
           </div>
         </div>
@@ -180,7 +180,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
               <BrainCircuit size={16} className="text-white" />
             </div>
-            <p className="text-slate-800 font-bold">PsiManager Pro</p>
+            <p className="text-slate-800 font-bold">PsiFlux</p>
           </div>
 
           {/* ── Esqueci a senha ── */}

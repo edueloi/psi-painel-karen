@@ -111,7 +111,7 @@ export const Privacy: React.FC = () => {
                   <FileText size={20} className="text-indigo-500" /> Dados e LGPD
               </h3>
               <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                  O PsiManager Pro está em conformidade com a LGPD. Você pode solicitar uma cópia dos seus dados ou a exclusão da conta a qualquer momento.
+                  O PsiFlux está em conformidade com a LGPD. Você pode solicitar uma cópia dos seus dados ou a exclusão da conta a qualquer momento.
               </p>
               
               <div className="flex gap-4">

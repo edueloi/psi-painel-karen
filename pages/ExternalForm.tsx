@@ -506,7 +506,7 @@ export const ExternalForm: React.FC = () => {
         </div>
 
         <div className="text-center mt-8 text-slate-400 text-sm font-medium">
-          Powered by <span className="text-slate-500 font-bold">PsiManager Pro</span>
+          Powered by <span className="text-slate-500 font-bold">PsiFlux</span>
         </div>
       </main>
     </div>

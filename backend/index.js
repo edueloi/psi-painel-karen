@@ -83,6 +83,6 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend PsiManager rodando na porta ${PORT}`);
+  console.log(`🚀 Backend PsiFlux rodando na porta ${PORT}`);
   console.log(`   Health: http://localhost:${PORT}/health`);
 });

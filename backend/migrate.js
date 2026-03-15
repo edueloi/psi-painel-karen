@@ -1,5 +1,5 @@
 /**
- * Migração do banco de dados PsiManager
+ * Migração do banco de dados PsiFlux
  * Execute: node migrate.js
  */
 const mysql = require('mysql2/promise');
@@ -18,8 +18,8 @@ async function migrate() {
   console.log('🚀 Iniciando migração...');
 
   // Criar banco se não existir
-  await conn.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'psimanager'}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-  await conn.query(`USE \`${process.env.DB_NAME || 'psimanager'}\``);
+  await conn.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'psiflux'}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+  await conn.query(`USE \`${process.env.DB_NAME || 'psiflux'}\``);
 
   // ---- DROP tabelas antigas (schema novo) ----
   await conn.query('SET FOREIGN_KEY_CHECKS = 0');
@@ -506,26 +506,26 @@ async function migrate() {
   if (tenants.length === 0) {
     const [tenantResult] = await conn.query(
       'INSERT INTO tenants (name, slug, plan_id) VALUES (?, ?, ?)',
-      ['Clínica PsiManager', 'default', proPlanId]
+      ['Clínica PsiFlux', 'default', proPlanId]
     );
     const tenantId = tenantResult.insertId;
 
     const hashedPassword = await bcrypt.hash('admin123', 10);
     await conn.query(
       'INSERT INTO users (tenant_id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
-      [tenantId, 'Administrador', 'admin@psimanager.com', hashedPassword, 'admin']
+      [tenantId, 'Administrador', 'admin@psiflux.com', hashedPassword, 'admin']
     );
 
     // Super admin — tenant_id 0 (não pertence a nenhum tenant real)
     const superHash = await bcrypt.hash('super123', 10);
     await conn.query(
       'INSERT INTO users (tenant_id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
-      [tenantId, 'Super Admin', 'super@psimanager.com', superHash, 'super_admin']
+      [tenantId, 'Super Admin', 'super@psiflux.com', superHash, 'super_admin']
     );
 
     console.log('✅ Seed criado:');
-    console.log('   Admin:      admin@psimanager.com / admin123');
-    console.log('   SuperAdmin: super@psimanager.com / super123');
+    console.log('   Admin:      admin@psiflux.com / admin123');
+    console.log('   SuperAdmin: super@psiflux.com / super123');
   }
 
   console.log('✅ Migração concluída com sucesso!');

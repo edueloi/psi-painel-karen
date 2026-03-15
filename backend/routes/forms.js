@@ -46,7 +46,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 });
 
 // POST /forms
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { title, description, fields, is_public } = req.body;
     if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
@@ -73,7 +73,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /forms/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { title, description, fields, is_public } = req.body;
 
@@ -109,7 +109,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /forms/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM forms WHERE id = ? AND tenant_id = ?',
@@ -124,7 +124,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // GET /forms/:id/responses
-router.get('/:id/responses', async (req, res) => {
+router.get('/:id/responses', authMiddleware, async (req, res) => {
   try {
     const [responses] = await db.query(
       'SELECT * FROM form_responses WHERE form_id = ? ORDER BY created_at DESC',

@@ -1,7 +1,7 @@
 {
-  "name": "psimanager-backend",
+  "name": "psiflux-backend",
   "version": "1.0.0",
-  "description": "Backend API do PsiManager Pro",
+  "description": "Backend API do PsiFlux",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

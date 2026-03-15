@@ -1905,15 +1905,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             </p>
 
             <div className="relative w-full aspect-video bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-200 shadow-2xl mb-6 group ring-4 ring-white">
-              {cameraOn ? (
-                <video
-                  ref={lobbyVideoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover transform scale-x-[-1]"
-                />
-              ) : (
+              <video
+                ref={lobbyVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className={`w-full h-full object-cover transform scale-x-[-1] ${cameraOn ? '' : 'hidden'}`}
+              />
+              {!cameraOn && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 animate-pulse">
                     <VideoOff size={32} />
@@ -2256,15 +2255,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           </div>
 
           <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center">
-            {cameraOn ? (
-              <video
-                ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover transform scale-x-[-1]"
-              />
-            ) : (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`w-full h-full object-cover transform scale-x-[-1] ${cameraOn ? '' : 'hidden'}`}
+            />
+            {!cameraOn && (
               <div className="flex flex-col items-center gap-3 text-slate-400">
                 <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-2xl font-bold">
                   {localInitial}
@@ -2324,12 +2322,23 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               <>
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-sm font-bold">Lousa</div>
-                  <button
-                    onClick={clearCanvas}
-                    className="text-xs text-slate-300 hover:text-white"
-                  >
-                    Limpar
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {!isGuest && (
+                      <button
+                        onClick={() => setShowLinkDeviceModal(true)}
+                        className="text-xs text-slate-300 hover:text-white flex items-center gap-1"
+                        title="Vincular dispositivo"
+                      >
+                        <QrCode size={14} /> QR Code
+                      </button>
+                    )}
+                    <button
+                      onClick={clearCanvas}
+                      className="text-xs text-slate-300 hover:text-white"
+                    >
+                      Limpar
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   {["#000000", "#ef4444", "#3b82f6", "#10b981", "#f59e0b"].map(

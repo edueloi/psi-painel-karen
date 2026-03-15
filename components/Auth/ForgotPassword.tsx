@@ -115,7 +115,7 @@ export const ForgotPassword: React.FC = () => {
             )}
 
             <div className="mt-8 pt-6 border-t border-slate-100 w-full flex justify-center">
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">PsiManager Pro Segurança</p>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">PsiFlux Segurança</p>
             </div>
         </div>
       </div>

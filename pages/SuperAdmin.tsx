@@ -346,7 +346,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               <ShieldCheck size={18} className="text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800 leading-none">PsiManager</p>
+              <p className="text-sm font-bold text-slate-800 leading-none">PsiFlux</p>
               <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-0.5">Super Admin</p>
             </div>
           </div>
@@ -677,7 +677,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                               </div>
 
                               <h3 className="font-bold text-slate-800 text-base leading-tight">{u.name}</h3>
-                              <p className="text-xs text-slate-400 mb-4 mt-0.5">Equipe Master · PsiManager</p>
+                              <p className="text-xs text-slate-400 mb-4 mt-0.5">Equipe Master · PsiFlux</p>
 
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
@@ -882,7 +882,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
         <Modal title="Novo Integrante" sub="Acesso master ao painel de super admin" onClose={() => { setTeamModal(false); setError(''); }} error={error}>
           <div>{lbl('Nome Completo *')}<input className={inp} placeholder="Nome completo" value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div>{lbl('E-mail *')}<input type="email" className={inp} placeholder="usuario@psimanager.com" value={teamForm.email} onChange={e => setTeamForm({ ...teamForm, email: e.target.value })} /></div>
+            <div>{lbl('E-mail *')}<input type="email" className={inp} placeholder="usuario@psiflux.com" value={teamForm.email} onChange={e => setTeamForm({ ...teamForm, email: e.target.value })} /></div>
             <div>{lbl('Telefone')}<input className={inp} placeholder="(11) 99999-9999" value={teamForm.phone} onChange={e => setTeamForm({ ...teamForm, phone: e.target.value })} /></div>
           </div>
           <div>{lbl('Senha *')}<div className="relative"><input type={showTeamPass ? 'text' : 'password'} className={inp + ' pr-10'} placeholder="Mínimo 6 caracteres" value={teamForm.password} onChange={e => setTeamForm({ ...teamForm, password: e.target.value })} /><button type="button" onClick={() => setShowTeamPass(!showTeamPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showTeamPass ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></div>

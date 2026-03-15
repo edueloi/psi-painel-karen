@@ -22,7 +22,7 @@ export const AuroraAssistant: React.FC = () => {
     {
       id: 'welcome',
       role: 'model',
-      text: 'Olá! Sou a Aurora, sua assistente inteligente do PsiManager. 🧠✨\n\nPosso te ajudar com agendamentos, explicar como funcionam as salas virtuais ou dar dicas sobre o sistema. Como posso ser útil hoje?',
+      text: 'Olá! Sou a Aurora, sua assistente inteligente do PsiFlux. 🧠✨\n\nPosso te ajudar com agendamentos, explicar como funcionam as salas virtuais ou dar dicas sobre o sistema. Como posso ser útil hoje?',
       timestamp: new Date()
     }
   ]);
@@ -71,7 +71,7 @@ export const AuroraAssistant: React.FC = () => {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           
           const systemInstruction = `
-            Você é a Aurora, a Inteligência Artificial avançada do sistema "PsiManager Pro".
+            Você é a Aurora, a Inteligência Artificial avançada do sistema "PsiFlux".
             Seu tom é empático, profissional, acolhedor e eficiente (persona de uma secretária executiva clínica de alto nível).
             
             O sistema possui os seguintes módulos principais:
@@ -125,7 +125,7 @@ export const AuroraAssistant: React.FC = () => {
           } else if (lowerText.includes('prontuário') || lowerText.includes('paciente')) {
               responseText = "Os **Prontuários** ficam no menu Pacientes. Lá você pode registrar evoluções (SOAP), anexar documentos e visualizar o histórico completo. Tudo é salvo com segurança.";
           } else {
-              responseText = "Entendi. Como sou uma assistente focada na gestão da sua clínica, posso te ajudar a encontrar funcionalidades, explicar ferramentas ou dar dicas de uso do PsiManager Pro. O que gostaria de explorar?";
+              responseText = "Entendi. Como sou uma assistente focada na gestão da sua clínica, posso te ajudar a encontrar funcionalidades, explicar ferramentas ou dar dicas de uso do PsiFlux. O que gostaria de explorar?";
           }
 
           setMessages(prev => [...prev, {
@@ -291,7 +291,7 @@ export const AuroraAssistant: React.FC = () => {
                 </button>
             </div>
             <div className="text-center mt-2">
-                <span className="text-[10px] text-slate-400">Powered by Gemini AI • PsiManager Pro</span>
+                <span className="text-[10px] text-slate-400">Powered by Gemini AI • PsiFlux</span>
             </div>
         </div>
       </div>

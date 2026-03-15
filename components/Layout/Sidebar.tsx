@@ -50,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
               <BrainCircuit size={20} />
             </div>
             <div>
-              <h1 className={`font-display font-bold text-xl ${titleText} leading-none`}>PsiManager</h1>
+              <h1 className={`font-display font-bold text-xl ${titleText} leading-none`}>PsiFlux</h1>
               <span className={`text-[10px] font-bold ${subtitleText} tracking-widest uppercase`}>
                 {user?.role === 'super_admin' ? 'Master' : 'Clinic'} Edition
               </span>
