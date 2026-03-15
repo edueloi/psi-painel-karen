@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NAV_SECTIONS } from '../../constants';
 import { X, LogOut, BrainCircuit, ShieldAlert } from 'lucide-react';
+import logoUrl from '../../images/logo-psiflux.png';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -47,15 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
         <div className={`h-24 flex items-center px-8 border-b ${headerBorder} flex-shrink-0`}>
           <div className="flex items-center gap-3 group cursor-pointer">
             <div className="relative h-10 w-10 rounded-xl overflow-hidden shadow-lg">
-              <img src="/logo-psiflux.png" alt="PsiFlux" className="w-full h-full object-contain"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                  (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
-                }}
-              />
-              <div className="hidden w-full h-full bg-gradient-to-br from-indigo-500 to-violet-500 items-center justify-center text-white">
-                <BrainCircuit size={20} />
-              </div>
+              <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className={`font-display font-bold text-xl ${titleText} leading-none`}>PsiFlux</h1>

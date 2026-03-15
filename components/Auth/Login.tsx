@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, BrainCircuit, ShieldCheck, ChevronLeft } from 'lucide-react';
+import logoUrl from '../../images/logo-psiflux.png';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -138,15 +139,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
         {/* Logo */}
         <div className="flex items-center gap-3 relative z-10">
-          <img src="/logo-psiflux.png" alt="PsiFlux" className="w-10 h-10 rounded-xl object-contain"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-              (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden w-10 h-10 rounded-xl bg-indigo-600 items-center justify-center shadow-md shadow-indigo-200">
-            <BrainCircuit size={20} className="text-white" />
-          </div>
+          <img src={logoUrl} alt="PsiFlux" className="w-10 h-10 rounded-xl object-contain" />
           <div>
             <p className="text-slate-800 font-bold text-base leading-none">PsiFlux</p>
             <p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest">Pro</p>
@@ -183,15 +176,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
           {/* Logo mobile */}
           <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-            <img src="/logo-psiflux.png" alt="PsiFlux" className="w-8 h-8 rounded-lg object-contain"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-                (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
-              }}
-            />
-            <div className="hidden w-8 h-8 rounded-lg bg-indigo-600 items-center justify-center">
-              <BrainCircuit size={16} className="text-white" />
-            </div>
+            <img src={logoUrl} alt="PsiFlux" className="w-8 h-8 rounded-lg object-contain" />
             <p className="text-slate-800 font-bold">PsiFlux</p>
           </div>
 

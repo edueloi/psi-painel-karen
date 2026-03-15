@@ -3,7 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 
-// Auto-migrate virtual_rooms table to full schema
+// ── Auto-migrate virtual_rooms table ─────────────────────────────────────────
 async function ensureSchema() {
   const cols = [
     'ALTER TABLE virtual_rooms ADD COLUMN title VARCHAR(200) NULL',
@@ -22,11 +22,38 @@ async function ensureSchema() {
     try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
   }
 }
-
 let schemaReady = false;
 async function withSchema() {
   if (!schemaReady) { await ensureSchema(); schemaReady = true; }
 }
+
+// ── In-memory real-time stores ────────────────────────────────────────────────
+// Each store: roomKey → Array of items with auto-increment id
+const eventsMap      = new Map(); // { id, event_type, payload_json, created_at }
+const messagesMap    = new Map(); // { id, sender_name, content, created_at }
+const assessmentsMap = new Map(); // { id, event_type, assessment_id, question_id, payload_json, created_at }
+const transcriptsMap = new Map(); // { id, speaker_name, text, created_at }
+const waitingMap     = new Map(); // { id(string), guest_name, status, token, created_at }
+const participantsMap = new Map();
+
+let _seq = 1;
+const nextId = () => _seq++;
+
+function getRoomKey(id) { return String(id).toLowerCase().trim(); }
+function getList(map, key) {
+  if (!map.has(key)) map.set(key, []);
+  return map.get(key);
+}
+function pushItem(map, key, item) {
+  getList(map, key).push(item);
+  return item;
+}
+function sinceItems(map, key, since) {
+  const n = Number(since) || 0;
+  return getList(map, key).filter(i => i.id > n);
+}
+
+// ── CRUD Routes (auth required via index.js) ──────────────────────────────────
 
 // GET /virtual-rooms
 router.get('/', async (req, res) => {
@@ -47,7 +74,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /virtual-rooms/:id
+// GET /virtual-rooms/:id  (must come before sub-routes that use /:id/xxx)
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -68,16 +95,12 @@ router.get('/:id', async (req, res) => {
 // POST /virtual-rooms
 router.post('/', async (req, res) => {
   try {
-    // Run schema migration (silently, best-effort)
     try { await withSchema(); } catch (_) {}
-
     const {
-      title, name,
-      description, code,
+      title, name, description, code,
       scheduled_start, scheduled_end,
       patient_id, professional_id, appointment_id,
-      provider, link, expiration_date,
-      max_participants
+      provider, link, expiration_date, max_participants
     } = req.body || {};
 
     const roomTitle = (title || name || '').trim();
@@ -86,39 +109,30 @@ router.post('/', async (req, res) => {
     const hash = uuidv4().replace(/-/g, '').substring(0, 20);
     const roomCode = (code || Math.random().toString(36).substr(2, 9)).toString().trim();
 
-    // Get current columns to build a safe INSERT
     const [colRows] = await db.query(
       `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'virtual_rooms'`
     );
-    const existingCols = new Set(colRows.map((r) => r.COLUMN_NAME));
+    const existingCols = new Set(colRows.map(r => r.COLUMN_NAME));
 
     const cols = ['tenant_id', 'name', 'host_id', 'max_participants', 'hash'];
     const vals = [req.user.tenant_id, roomTitle, req.user.id, max_participants || 10, hash];
 
     const optionals = [
-      ['title', roomTitle],
-      ['description', description || null],
-      ['code', roomCode],
-      ['scheduled_start', scheduled_start || null],
-      ['scheduled_end', scheduled_end || null],
-      ['patient_id', patient_id || null],
-      ['professional_id', professional_id || null],
-      ['appointment_id', appointment_id || null],
-      ['provider', provider || 'jitsi'],
-      ['link', link || null],
+      ['title', roomTitle], ['description', description || null],
+      ['code', roomCode], ['scheduled_start', scheduled_start || null],
+      ['scheduled_end', scheduled_end || null], ['patient_id', patient_id || null],
+      ['professional_id', professional_id || null], ['appointment_id', appointment_id || null],
+      ['provider', provider || 'jitsi'], ['link', link || null],
       ['expiration_date', expiration_date || null],
     ];
-
     for (const [col, val] of optionals) {
       if (existingCols.has(col)) { cols.push(col); vals.push(val); }
     }
 
     const placeholders = cols.map(() => '?').join(', ');
     const [result] = await db.query(
-      `INSERT INTO virtual_rooms (${cols.join(', ')}) VALUES (${placeholders})`,
-      vals
+      `INSERT INTO virtual_rooms (${cols.join(', ')}) VALUES (${placeholders})`, vals
     );
-
     const [room] = await db.query('SELECT * FROM virtual_rooms WHERE id = ?', [result.insertId]);
     res.status(201).json(room[0]);
   } catch (err) {
@@ -134,24 +148,18 @@ router.put('/:id', async (req, res) => {
     const roomTitle = title || name;
     await db.query(
       `UPDATE virtual_rooms SET
-         name = COALESCE(?, name),
-         title = COALESCE(?, title),
+         name = COALESCE(?, name), title = COALESCE(?, title),
          description = COALESCE(?, description),
-         scheduled_start = ?,
-         scheduled_end = ?,
-         patient_id = ?,
-         professional_id = ?,
+         scheduled_start = ?, scheduled_end = ?,
+         patient_id = ?, professional_id = ?,
          provider = COALESCE(?, provider),
-         link = ?,
-         expiration_date = ?
+         link = ?, expiration_date = ?
        WHERE id = ? AND tenant_id = ?`,
-      [
-        roomTitle, roomTitle, description,
-        scheduled_start || null, scheduled_end || null,
-        patient_id || null, professional_id || null,
-        provider, link || null, expiration_date || null,
-        req.params.id, req.user.tenant_id
-      ]
+      [roomTitle, roomTitle, description,
+       scheduled_start || null, scheduled_end || null,
+       patient_id || null, professional_id || null,
+       provider, link || null, expiration_date || null,
+       req.params.id, req.user.tenant_id]
     );
     const [rows] = await db.query('SELECT * FROM virtual_rooms WHERE id = ?', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Sala não encontrada' });
@@ -177,31 +185,113 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// ── In-memory store for real-time room state ─────────────────────────────────
-// waitingMap: roomKey → Map(entryId → { id, guest_name, status, created_at })
-// participantsMap: roomKey → Map(token → { name, joined_at })
-const waitingMap = new Map();
-const participantsMap = new Map();
-let _waitingSeq = 1;
+// ── Real-time: Events ─────────────────────────────────────────────────────────
 
-function getRoomKey(id) { return String(id).toLowerCase().trim(); }
-function ensureRoom(map, key) { if (!map.has(key)) map.set(key, new Map()); return map.get(key); }
+// GET /virtual-rooms/:id/events?since=0
+router.get('/:id/events', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  res.json(sinceItems(eventsMap, key, req.query.since));
+});
 
 // POST /virtual-rooms/:id/events
-router.post('/:id/events', async (req, res) => { res.json({ ok: true }); });
+router.post('/:id/events', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const { event_type, payload } = req.body || {};
+  if (!event_type) return res.json({ ok: true });
+  const item = pushItem(eventsMap, key, {
+    id: nextId(),
+    event_type,
+    payload_json: payload ? JSON.stringify(payload) : null,
+    created_at: new Date().toISOString(),
+  });
+  res.json({ ok: true, id: item.id });
+});
+
+// ── Real-time: Messages ───────────────────────────────────────────────────────
+
+// GET /virtual-rooms/:id/messages?since=0
+router.get('/:id/messages', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  res.json(sinceItems(messagesMap, key, req.query.since));
+});
 
 // POST /virtual-rooms/:id/messages
-router.post('/:id/messages', async (req, res) => { res.json({ ok: true, timestamp: new Date().toISOString() }); });
+router.post('/:id/messages', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const { sender_name, message } = req.body || {};
+  const item = pushItem(messagesMap, key, {
+    id: nextId(),
+    sender_name: sender_name || 'Profissional',
+    content: message || '',
+    created_at: new Date().toISOString(),
+  });
+  res.json({ ok: true, id: item.id, timestamp: item.created_at });
+});
 
-// GET /virtual-rooms/:id/waiting — host polls who is waiting
-router.get('/:id/waiting', async (req, res) => {
+// ── Real-time: Assessments ────────────────────────────────────────────────────
+
+// GET /virtual-rooms/:id/assessments?since=0
+router.get('/:id/assessments', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  res.json(sinceItems(assessmentsMap, key, req.query.since));
+});
+
+// POST /virtual-rooms/:id/assessments
+router.post('/:id/assessments', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const { event_type, assessment_id, question_id, payload } = req.body || {};
+  const item = pushItem(assessmentsMap, key, {
+    id: nextId(),
+    event_type: event_type || '',
+    assessment_id: assessment_id || '',
+    question_id: question_id || null,
+    payload_json: payload ? JSON.stringify(payload) : null,
+    created_at: new Date().toISOString(),
+  });
+  res.json({ ok: true, id: item.id });
+});
+
+// ── Real-time: Transcripts ────────────────────────────────────────────────────
+
+// GET /virtual-rooms/:id/transcripts?since=0
+router.get('/:id/transcripts', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  res.json(sinceItems(transcriptsMap, key, req.query.since));
+});
+
+// POST /virtual-rooms/:id/transcripts
+router.post('/:id/transcripts', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const { speaker_name, text } = req.body || {};
+  const item = pushItem(transcriptsMap, key, {
+    id: nextId(),
+    speaker_name: speaker_name || '',
+    text: text || '',
+    created_at: new Date().toISOString(),
+  });
+  res.json({ ok: true, id: item.id });
+});
+
+// ── Waiting room ──────────────────────────────────────────────────────────────
+
+let _waitingSeq = 1;
+
+// GET /virtual-rooms/:id/waiting
+router.get('/:id/waiting', (req, res) => {
   const key = getRoomKey(req.params.id);
   const room = waitingMap.get(key) || new Map();
   res.json([...room.values()]);
 });
 
+// GET /virtual-rooms/:id/participants
+router.get('/:id/participants', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const room = participantsMap.get(key) || new Map();
+  res.json([...room.values()].map(p => ({ name: p.name, joined_at: p.joined_at })));
+});
+
 // POST /virtual-rooms/:id/waiting/:entryId/approve
-router.post('/:id/waiting/:entryId/approve', async (req, res) => {
+router.post('/:id/waiting/:entryId/approve', (req, res) => {
   const key = getRoomKey(req.params.id);
   const room = waitingMap.get(key);
   if (room) {
@@ -212,7 +302,7 @@ router.post('/:id/waiting/:entryId/approve', async (req, res) => {
 });
 
 // POST /virtual-rooms/:id/waiting/:entryId/deny
-router.post('/:id/waiting/:entryId/deny', async (req, res) => {
+router.post('/:id/waiting/:entryId/deny', (req, res) => {
   const key = getRoomKey(req.params.id);
   const room = waitingMap.get(key);
   if (room) {
@@ -222,16 +312,9 @@ router.post('/:id/waiting/:entryId/deny', async (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /virtual-rooms/:id/participants — host polls who is connected
-router.get('/:id/participants', async (req, res) => {
-  const key = getRoomKey(req.params.id);
-  const room = participantsMap.get(key) || new Map();
-  res.json([...room.values()].map(p => ({ name: p.name, joined_at: p.joined_at })));
-});
+// ── Public routes (no auth) ───────────────────────────────────────────────────
 
-// ── Rotas públicas (sem auth) ─────────────────────────────────────────────────
-
-// POST /virtual-rooms/public/:id/join — guest enters room after approval
+// POST /virtual-rooms/public/:id/join
 router.post('/public/:id/join', async (req, res) => {
   try {
     const [rooms] = await db.query(
@@ -245,7 +328,8 @@ router.post('/public/:id/join', async (req, res) => {
     const { name } = req.body || {};
     if (name) {
       const key = getRoomKey(req.params.id);
-      ensureRoom(participantsMap, key).set(token, { name, joined_at: new Date().toISOString() });
+      if (!participantsMap.has(key)) participantsMap.set(key, new Map());
+      participantsMap.get(key).set(token, { name, joined_at: new Date().toISOString() });
     }
     res.json({ room: rooms[0], participant_token: token });
   } catch (err) {
@@ -254,20 +338,21 @@ router.post('/public/:id/join', async (req, res) => {
   }
 });
 
-// POST /virtual-rooms/public/:id/waiting — guest requests to join (enters waiting room)
-router.post('/public/:id/waiting', async (req, res) => {
+// POST /virtual-rooms/public/:id/waiting
+router.post('/public/:id/waiting', (req, res) => {
   const { name } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
   const token = uuidv4();
   const entryId = String(_waitingSeq++);
   const key = getRoomKey(req.params.id);
+  if (!waitingMap.has(key)) waitingMap.set(key, new Map());
   const entry = { id: entryId, guest_name: name, status: 'waiting', token, created_at: new Date().toISOString() };
-  ensureRoom(waitingMap, key).set(entryId, entry);
+  waitingMap.get(key).set(entryId, entry);
   res.json({ token, entry_id: entryId });
 });
 
-// GET /virtual-rooms/public/waiting/:token — guest polls approval status
-router.get('/public/waiting/:token', async (req, res) => {
+// GET /virtual-rooms/public/waiting/:token
+router.get('/public/waiting/:token', (req, res) => {
   for (const room of waitingMap.values()) {
     for (const entry of room.values()) {
       if (entry.token === req.params.token) {
@@ -278,11 +363,87 @@ router.get('/public/waiting/:token', async (req, res) => {
   res.json({ status: 'waiting' });
 });
 
-router.post('/public/:id/events', async (req, res) => { res.json({ ok: true }); });
-router.post('/public/:id/messages', async (req, res) => { res.json({ ok: true }); });
+// GET /virtual-rooms/public/:id/events?since=0
+router.get('/public/:id/events', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  res.json(sinceItems(eventsMap, key, req.query.since));
+});
 
-// POST /virtual-rooms/public/:id/leave — guest leaves
-router.post('/public/:id/leave', async (req, res) => {
+// POST /virtual-rooms/public/:id/events
+router.post('/public/:id/events', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const { event_type, payload } = req.body || {};
+  if (!event_type) return res.json({ ok: true });
+  const item = pushItem(eventsMap, key, {
+    id: nextId(),
+    event_type,
+    payload_json: payload ? JSON.stringify(payload) : null,
+    created_at: new Date().toISOString(),
+  });
+  res.json({ ok: true, id: item.id });
+});
+
+// GET /virtual-rooms/public/:id/messages?since=0
+router.get('/public/:id/messages', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  res.json(sinceItems(messagesMap, key, req.query.since));
+});
+
+// POST /virtual-rooms/public/:id/messages
+router.post('/public/:id/messages', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const { sender_name, message } = req.body || {};
+  const item = pushItem(messagesMap, key, {
+    id: nextId(),
+    sender_name: sender_name || 'Paciente',
+    content: message || '',
+    created_at: new Date().toISOString(),
+  });
+  res.json({ ok: true, id: item.id, timestamp: item.created_at });
+});
+
+// GET /virtual-rooms/public/:id/assessments?since=0
+router.get('/public/:id/assessments', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  res.json(sinceItems(assessmentsMap, key, req.query.since));
+});
+
+// POST /virtual-rooms/public/:id/assessments
+router.post('/public/:id/assessments', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const { event_type, assessment_id, question_id, payload } = req.body || {};
+  const item = pushItem(assessmentsMap, key, {
+    id: nextId(),
+    event_type: event_type || '',
+    assessment_id: assessment_id || '',
+    question_id: question_id || null,
+    payload_json: payload ? JSON.stringify(payload) : null,
+    created_at: new Date().toISOString(),
+  });
+  res.json({ ok: true, id: item.id });
+});
+
+// GET /virtual-rooms/public/:id/transcripts?since=0
+router.get('/public/:id/transcripts', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  res.json(sinceItems(transcriptsMap, key, req.query.since));
+});
+
+// POST /virtual-rooms/public/:id/transcripts
+router.post('/public/:id/transcripts', (req, res) => {
+  const key = getRoomKey(req.params.id);
+  const { speaker_name, text } = req.body || {};
+  const item = pushItem(transcriptsMap, key, {
+    id: nextId(),
+    speaker_name: speaker_name || '',
+    text: text || '',
+    created_at: new Date().toISOString(),
+  });
+  res.json({ ok: true, id: item.id });
+});
+
+// POST /virtual-rooms/public/:id/leave
+router.post('/public/:id/leave', (req, res) => {
   const { token } = req.body || {};
   if (token) {
     const key = getRoomKey(req.params.id);
