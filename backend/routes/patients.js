@@ -601,10 +601,10 @@ router.get('/:id/history', async (req, res) => {
       try { const [rows] = await db.query(sql, params); return rows; } catch { return []; }
     };
 
-    const [appointments, transactions, records, documents, notes, comandas, events] = await Promise.all([
+    const [appointments, transactions, records, documents, notes, comandas, events, peis, clinicalTools] = await Promise.all([
       safeQuery(
-        `SELECT a.id, a.start_time as date, a.status, a.title, a.notes,
-                s.name as service_name, u.name as professional_name
+        `SELECT a.id, a.start_time as date, a.status, a.title, a.notes, a.modality,
+                s.name as service_name, u.name as professional_name, a.duration_minutes
          FROM appointments a
          LEFT JOIN services s ON s.id = a.service_id
          LEFT JOIN users u ON u.id = a.professional_id
@@ -613,14 +613,14 @@ router.get('/:id/history', async (req, res) => {
         [id, tenantId]
       ),
       safeQuery(
-        `SELECT id, date, type, amount, description, category, status
+        `SELECT id, date, type, amount, description, category, status, payment_method
          FROM financial_transactions
          WHERE patient_id = ? AND tenant_id = ?
          ORDER BY date DESC LIMIT 100`,
         [id, tenantId]
       ),
       safeQuery(
-        `SELECT r.id, r.created_at as date, r.content, u.name as professional_name
+        `SELECT r.id, r.created_at as date, r.content, u.name as professional_name, r.type
          FROM medical_records r
          LEFT JOIN users u ON u.id = r.professional_id
          WHERE r.patient_id = ? AND r.tenant_id = ?
@@ -642,7 +642,7 @@ router.get('/:id/history', async (req, res) => {
         [id, tenantId]
       ),
       safeQuery(
-        `SELECT id, created_at as date, total as amount, status, description
+        `SELECT id, created_at as date, total as amount, status, description, items, payment_method
          FROM comandas
          WHERE patient_id = ? AND tenant_id = ?
          ORDER BY created_at DESC LIMIT 50`,
@@ -655,26 +655,42 @@ router.get('/:id/history', async (req, res) => {
          ORDER BY created_at DESC LIMIT 50`,
         [id, tenantId]
       ),
+      safeQuery(
+        `SELECT id, created_at as date, title, description, start_date, end_date
+         FROM pei
+         WHERE patient_id = ? AND tenant_id = ?
+         ORDER BY created_at DESC LIMIT 50`,
+        [id, tenantId]
+      ),
+      safeQuery(
+        `SELECT id, created_at as date, tool_type, data
+         FROM clinical_tools
+         WHERE patient_id = ? AND tenant_id = ?
+         ORDER BY created_at DESC LIMIT 50`,
+        [id, tenantId]
+      ),
     ]);
 
     const timeline = [
       ...appointments.map(a => ({
         id: `apt-${a.id}`, type: 'appointment', date: a.date,
-        title: a.title || 'Consulta',
+        title: a.title || (a.modality === 'online' ? 'Sessão Online' : 'Sessão Presencial'),
         subtitle: [a.service_name, a.professional_name].filter(Boolean).join(' · '),
-        status: a.status, notes: a.notes,
+        status: a.status, 
+        notes: a.notes,
+        preview: a.duration_minutes ? `${a.duration_minutes} min` : null,
       })),
       ...transactions.map(t => ({
         id: `fin-${t.id}`, type: 'finance', date: t.date,
         title: t.description || t.category || 'Transação financeira',
-        subtitle: t.category,
+        subtitle: [t.category, t.payment_method].filter(Boolean).join(' · '),
         amount: t.amount, financeType: t.type, status: t.status,
       })),
       ...records.map(r => ({
         id: `rec-${r.id}`, type: 'record', date: r.date,
-        title: 'Prontuário adicionado',
+        title: r.type === 'session' ? 'Evolução de Sessão' : 'Prontuário',
         subtitle: r.professional_name,
-        preview: r.content ? String(r.content).slice(0, 120) : null,
+        preview: r.content ? String(r.content).slice(0, 150) : null,
       })),
       ...documents.map(d => ({
         id: `doc-${d.id}`, type: 'document', date: d.date,
@@ -683,19 +699,39 @@ router.get('/:id/history', async (req, res) => {
       })),
       ...notes.map(n => ({
         id: `note-${n.id}`, type: 'note', date: n.date,
-        title: 'Anotação',
-        preview: n.content ? String(n.content).slice(0, 120) : null,
+        title: 'Anotação Interna',
+        preview: n.content ? String(n.content).slice(0, 150) : null,
       })),
-      ...comandas.map(c => ({
-        id: `com-${c.id}`, type: 'comanda', date: c.date,
-        title: `Comanda ${c.id}`,
-        subtitle: c.description || 'Venda de serviços/produtos',
-        amount: c.amount, status: c.status,
-      })),
+      ...comandas.map(c => {
+        let itemsDesc = '';
+        try {
+          const items = typeof c.items === 'string' ? JSON.parse(c.items) : (c.items || []);
+          itemsDesc = items.map(i => `${i.qty || 1}x ${i.name}`).join(', ');
+        } catch (e) {}
+
+        return {
+          id: `com-${c.id}`, type: 'comanda', date: c.date,
+          title: `Comanda #${c.id}`,
+          subtitle: itemsDesc || c.description || 'Venda de serviços/produtos',
+          amount: c.amount, status: c.status,
+          notes: c.payment_method ? `Pago via ${c.payment_method}` : null
+        };
+      }),
       ...events.map(e => ({
         id: `ev-${e.id}`, type: e.type, date: e.date,
         title: e.title,
         subtitle: e.description,
+      })),
+      ...peis.map(p => ({
+        id: `pei-${p.id}`, type: 'pei', date: p.date,
+        title: p.title || 'Plano de Ensino Individualizado',
+        subtitle: p.description ? p.description.slice(0, 100) : null,
+        preview: p.start_date ? `Vigência: ${new Date(p.start_date).toLocaleDateString()} ${p.end_date ? 'até ' + new Date(p.end_date).toLocaleDateString() : ''}` : null
+      })),
+      ...clinicalTools.map(ct => ({
+        id: `ct-${ct.id}`, type: 'tool', date: ct.date,
+        title: ct.tool_type.includes('/') ? ct.tool_type.split('/')[1].toUpperCase() : 'Avaliação Clínica',
+        subtitle: ct.tool_type,
       })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -707,6 +743,8 @@ router.get('/:id/history', async (req, res) => {
       events: events.length,
       documents: documents.length,
       notes: notes.length,
+      pei: peis.length,
+      tools: clinicalTools.length
     }});
   } catch (err) {
     console.error(err);

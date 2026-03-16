@@ -141,6 +141,7 @@ export interface Appointment {
   patient_name_text?: string;
   patientName?: string; // Compatibility alias
   psychologist_id?: string;
+  professional_id?: string;
   psychologist_name?: string;
   professional_name_text?: string;
   psychologistName?: string; // Compatibility alias

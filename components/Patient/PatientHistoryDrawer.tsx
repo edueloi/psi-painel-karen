@@ -2,14 +2,15 @@ import React, { useEffect, useState } from 'react';
 import {
   X, Calendar, DollarSign, FileText, FolderOpen, StickyNote,
   Loader2, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp,
-  TrendingDown, ChevronRight, Boxes, Shield
+  TrendingDown, ChevronRight, Boxes, Shield, BrainCircuit, History, Info
 } from 'lucide-react';
 import { Patient } from '../../types';
-import { api } from '../../services/api';
+import { api, API_BASE_URL, getStaticUrl } from '../../services/api';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface TimelineItem {
   id: string;
-  type: 'appointment' | 'finance' | 'record' | 'document' | 'note';
+  type: 'appointment' | 'finance' | 'record' | 'document' | 'note' | 'comanda' | 'pei' | 'tool' | string;
   date: string;
   title: string;
   subtitle?: string;
@@ -30,6 +31,8 @@ interface HistoryData {
     events: number;
     documents: number;
     notes: number;
+    pei: number;
+    tools: number;
   };
 }
 
@@ -38,7 +41,7 @@ interface Props {
   onClose: () => void;
 }
 
-const typeConfig = {
+const typeConfig: Record<string, any> = {
   appointment: {
     label: 'Consulta',
     icon: <Calendar size={14} />,
@@ -87,42 +90,34 @@ const typeConfig = {
     border: 'border-orange-200',
     dot: 'bg-orange-500',
   },
-  status_change: {
-    label: 'Status',
-    icon: <TrendingUp size={14} />,
-    bg: 'bg-rose-50',
-    text: 'text-rose-600',
-    border: 'border-rose-200',
-    dot: 'bg-rose-500',
+  pei: {
+    label: 'PEI',
+    icon: <BrainCircuit size={14} />,
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-600',
+    border: 'border-emerald-200',
+    dot: 'bg-emerald-500',
   },
-  data_change: {
-    label: 'Dados',
-    icon: <FileText size={14} />,
-    bg: 'bg-slate-50',
-    text: 'text-slate-600',
-    border: 'border-slate-200',
-    dot: 'bg-slate-500',
-  },
-  plan_change: {
-    label: 'Plano',
-    icon: <Shield size={14} />,
-    bg: 'bg-cyan-50',
-    text: 'text-cyan-600',
-    border: 'border-cyan-200',
-    dot: 'bg-cyan-500',
+  tool: {
+    label: 'Avaliação',
+    icon: <Boxes size={14} />,
+    bg: 'bg-sky-50',
+    text: 'text-sky-600',
+    border: 'border-sky-200',
+    dot: 'bg-sky-500',
   },
 };
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  scheduled: { label: 'Agendado', icon: <Clock size={10} />, color: 'text-indigo-600 bg-indigo-50' },
-  confirmed: { label: 'Confirmado', icon: <CheckCircle size={10} />, color: 'text-blue-600 bg-blue-50' },
-  completed: { label: 'Realizado', icon: <CheckCircle size={10} />, color: 'text-emerald-600 bg-emerald-50' },
-  cancelled: { label: 'Cancelado', icon: <XCircle size={10} />, color: 'text-red-500 bg-red-50' },
-  'no-show': { label: 'Faltou', icon: <AlertCircle size={10} />, color: 'text-amber-600 bg-amber-50' },
-  paid: { label: 'Pago', icon: <CheckCircle size={10} />, color: 'text-emerald-600 bg-emerald-50' },
-  pending: { label: 'Pendente', icon: <Clock size={10} />, color: 'text-amber-600 bg-amber-50' },
-  open: { label: 'Aberta', icon: <Clock size={10} />, color: 'text-orange-600 bg-orange-50' },
-  closed: { label: 'Fechada', icon: <CheckCircle size={10} />, color: 'text-emerald-600 bg-emerald-50' },
+  scheduled: { label: 'Agendado', icon: <Clock size={10} />, color: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
+  confirmed: { label: 'Confirmado', icon: <CheckCircle size={10} />, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+  completed: { label: 'Realizado', icon: <CheckCircle size={10} />, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+  cancelled: { label: 'Cancelado', icon: <XCircle size={10} />, color: 'text-red-500 bg-red-50 border-red-100' },
+  'no-show': { label: 'Faltou', icon: <AlertCircle size={10} />, color: 'text-amber-600 bg-amber-50 border-amber-100' },
+  paid: { label: 'Pago', icon: <CheckCircle size={10} />, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+  pending: { label: 'Pendente', icon: <Clock size={10} />, color: 'text-amber-600 bg-amber-50 border-amber-100' },
+  open: { label: 'Aberta', icon: <Clock size={10} />, color: 'text-orange-600 bg-orange-50 border-orange-100' },
+  closed: { label: 'Fechada', icon: <CheckCircle size={10} />, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
 };
 
 const formatDate = (raw: string) => {
@@ -156,16 +151,17 @@ const groupByMonth = (items: TimelineItem[]) => {
 const FILTER_OPTIONS = [
   { id: 'all', label: 'Tudo' },
   { id: 'appointment', label: 'Consultas' },
-  { id: 'finance', label: 'Financeiro' },
-  { id: 'comanda', label: 'Comandas' },
   { id: 'record', label: 'Prontuários' },
-  { id: 'status_change', label: 'Status' },
-  { id: 'data_change', label: 'Alterações' },
+  { id: 'pei', label: 'PEI' },
+  { id: 'comanda', label: 'Comandas' },
+  { id: 'finance', label: 'Financeiro' },
+  { id: 'tool', label: 'Avaliações' },
   { id: 'document', label: 'Documentos' },
   { id: 'note', label: 'Anotações' },
 ];
 
 export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
+  const { t } = useLanguage();
   const [data, setData] = useState<HistoryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -177,73 +173,79 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
     setLoading(true);
     api.get<HistoryData>(`/patients/${patient.id}/history`)
       .then(setData)
-      .catch(() => setData({ timeline: [], counts: { appointments: 0, transactions: 0, comandas: 0, records: 0, events: 0, documents: 0, notes: 0 } }))
+      .catch(() => setData({ timeline: [], counts: { appointments: 0, transactions: 0, comandas: 0, records: 0, events: 0, documents: 0, notes: 0, pei: 0, tools: 0 } }))
       .finally(() => setLoading(false));
   }, [patient?.id]);
 
   const isOpen = !!patient;
-  const filtered = data?.timeline.filter(i => filter === 'all' || i.type === filter) ?? [];
+  const filtered = data?.timeline.filter((i: TimelineItem) => filter === 'all' || i.type === filter) || [];
   const grouped = groupByMonth(filtered);
 
   return (
     <>
       {/* Overlay */}
       <div
-        className={`fixed inset-0 z-[80] bg-black/30 backdrop-blur-[2px] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-md transition-opacity duration-500 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
       {/* Drawer */}
       <div className={`
-        fixed top-0 right-0 z-[90] h-full w-full sm:w-[42%] min-w-[320px] max-w-[600px]
-        bg-white shadow-2xl flex flex-col
-        transition-transform duration-300 ease-out
+        fixed top-0 right-0 z-[160] h-full w-full sm:w-[45%] min-w-[340px] max-w-[700px]
+        bg-white shadow-[0_0_100px_rgba(0,0,0,0.2)] flex flex-col
+        transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
         ${isOpen ? 'translate-x-0' : 'translate-x-full'}
       `}>
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white font-bold text-base">
-              {(patient?.full_name || '?').charAt(0).toUpperCase()}
+        <div className="bg-white border-b border-slate-100 px-8 py-8 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-[1.8rem] bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-indigo-100 overflow-hidden relative group">
+              {patient?.photo_url ? (
+                <img src={getStaticUrl(patient.photo_url)} className="w-full h-full object-cover" />
+              ) : (
+                (patient?.full_name || '?').charAt(0).toUpperCase()
+              )}
             </div>
-            <div className="text-white">
-              <div className="text-sm font-bold truncate max-w-[200px]">{patient?.full_name}</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">Histórico completo</div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-800 tracking-tighter leading-none mb-1">{patient?.full_name}</h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('patients.history') || 'Histórico Clínico & Financeiro'}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+            className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-400 transition-all active:scale-95"
           >
-            <X size={16} />
+            <X size={20} />
           </button>
         </div>
 
-        {/* Stats row */}
+        {/* Stats Grid */}
         {data && (
-          <div className="grid grid-cols-4 border-b border-slate-100 shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-50 shrink-0 bg-slate-50/30">
             {[
-              { label: 'Consultas', value: data.counts.appointments, color: 'text-indigo-600' },
-              { label: 'Finanças', value: data.counts.transactions, color: 'text-emerald-600' },
-              { label: 'Comandas', value: data.counts.comandas, color: 'text-orange-600' },
-              { label: 'Registros', value: data.counts.records + data.counts.events, color: 'text-blue-600' },
+              { label: 'Sessões', value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={12}/> },
+              { label: 'Prontuários', value: data.counts.records, color: 'text-blue-600', icon: <FileText size={12}/> },
+              { label: 'Comandas', value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={12}/> },
+              { label: 'Neuro/PEI', value: (data.counts.pei || 0) + (data.counts.tools || 0), color: 'text-emerald-600', icon: <BrainCircuit size={12}/> },
             ].map(s => (
-              <div key={s.label} className="py-3 text-center border-r border-slate-100 last:border-r-0">
-                <div className={`text-base font-bold ${s.color}`}>{s.value}</div>
-                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">{s.label}</div>
+              <div key={s.label} className="py-6 px-4 text-center border-r border-slate-50 last:border-r-0 hover:bg-white transition-colors">
+                <div className={`flex items-center justify-center gap-2 text-xl font-black ${s.color}`}>
+                  {s.icon} {s.value}
+                </div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{s.label}</div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Filter tabs */}
-        <div className="px-4 py-2.5 border-b border-slate-100 flex gap-1 overflow-x-auto no-scrollbar shrink-0 bg-slate-50/60">
+        {/* Filter Scroll */}
+        <div className="px-6 py-4 border-b border-slate-50 flex gap-2 overflow-x-auto no-scrollbar shrink-0 bg-white sticky top-0 z-20">
           {FILTER_OPTIONS.map(f => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
-                filter === f.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+              className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                filter === f.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 border border-slate-100'
               }`}
             >
               {f.label}
@@ -251,79 +253,87 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
           ))}
         </div>
 
-        {/* Timeline */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        {/* Timeline Content */}
+        <div className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar bg-white">
           {loading ? (
-            <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
-              <Loader2 size={18} className="animate-spin" />
-              <span className="text-sm">Carregando histórico...</span>
+            <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-300">
+              <Loader2 size={40} className="animate-spin text-indigo-500" />
+              <p className="text-xs font-black uppercase tracking-widest animate-pulse">Sincronizando Histórico...</p>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
-                <Clock size={24} className="text-slate-300" />
+            <div className="flex flex-col items-center justify-center py-32 text-center animate-fadeIn">
+              <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mb-6 border border-slate-100">
+                <History size={32} className="text-slate-200" />
               </div>
-              <p className="text-sm font-semibold text-slate-500">Nenhum registro encontrado</p>
-              <p className="text-xs text-slate-400 mt-1">Este paciente ainda não tem histórico nesta categoria.</p>
+              <h4 className="text-lg font-black text-slate-700 mb-1">Nada por aqui ainda</h4>
+              <p className="text-xs font-bold text-slate-400 max-w-[200px] mx-auto">Este paciente ainda não possui registros nesta categoria.</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-12 pb-24">
               {Object.entries(grouped).map(([month, items]) => (
-                <div key={month}>
-                  {/* Month separator */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest capitalize">{month}</div>
+                <div key={month} className="animate-fadeIn">
+                  {/* Month Tag */}
+                  <div className="flex items-center gap-4 mb-8 sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10">
+                    <div className="px-5 py-2 bg-slate-800 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-200">
+                        {month}
+                    </div>
                     <div className="flex-1 h-px bg-slate-100" />
-                    <div className="text-[10px] text-slate-300 font-medium">{items.length}</div>
+                    <span className="text-[10px] font-black text-slate-300">{items.length} EVENTOS</span>
                   </div>
 
-                  {/* Items */}
-                  <div className="space-y-2 relative">
-                    {/* Timeline line */}
-                    <div className="absolute left-[15px] top-4 bottom-2 w-px bg-slate-100" />
+                  {/* Verticals */}
+                  <div className="space-y-4 relative pl-6">
+                    {/* The Line */}
+                    <div className="absolute left-[3px] top-6 bottom-0 w-1 bg-gradient-to-b from-slate-100 via-slate-50 to-transparent rounded-full" />
 
-                    {items.map(item => {
-                      const cfg = typeConfig[item.type];
+                    {items.map((item: any) => {
+                      const cfg = typeConfig[item.type] || typeConfig.note;
                       const st = item.status ? statusConfig[item.status] : null;
                       return (
-                        <div key={item.id} className="flex gap-3 relative">
-                          {/* Dot */}
-                          <div className={`w-8 h-8 rounded-xl ${cfg.bg} ${cfg.text} flex items-center justify-center shrink-0 border ${cfg.border} relative z-10 shadow-sm`}>
+                        <div key={item.id} className="group relative">
+                          <div className={`absolute -left-[30px] top-2 w-8 h-8 rounded-xl ${cfg.bg} ${cfg.text} flex items-center justify-center border-2 border-white shadow-md z-10 group-hover:scale-125 transition-all duration-300`}>
                             {cfg.icon}
                           </div>
-                          {/* Content */}
-                          <div className="flex-1 bg-white border border-slate-100 rounded-xl p-3 hover:border-slate-200 transition-colors min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-xs font-bold text-slate-800">{item.title}</span>
+                          <div className="bg-white border border-slate-100 rounded-[2rem] p-6 hover:shadow-2xl hover:shadow-slate-100 hover:border-indigo-100 transition-all duration-300 cursor-pointer group-hover:-translate-y-1">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                  <h5 className="text-sm font-black text-slate-800 tracking-tight">{item.title}</h5>
                                   {st && (
-                                    <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${st.color}`}>
+                                    <span className={`inline-flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${st.color}`}>
                                       {st.icon} {st.label}
                                     </span>
                                   )}
                                 </div>
+                                
                                 {item.subtitle && (
-                                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">{item.subtitle}</div>
+                                  <p className="text-[11px] font-bold text-indigo-500/60 leading-tight mb-2 uppercase tracking-wide">{item.subtitle}</p>
                                 )}
+                                
                                 {item.preview && (
-                                  <div className="text-[11px] text-slate-500 mt-1 leading-relaxed line-clamp-2 italic">
-                                    {item.preview}…
+                                  <div className="text-[12px] text-slate-500 font-medium leading-relaxed mb-3 line-clamp-3 bg-slate-50/50 p-3 rounded-2xl border border-dashed border-slate-200">
+                                    {item.preview}
                                   </div>
                                 )}
+                                
                                 {item.notes && (
-                                  <div className="text-[11px] text-slate-400 mt-1 line-clamp-1 italic">{item.notes}</div>
+                                  <p className="text-[10px] font-bold text-slate-400 italic flex items-center gap-1.5">
+                                      <Info size={12}/> {item.notes}
+                                  </p>
                                 )}
                               </div>
+
                               <div className="text-right shrink-0">
                                 {item.amount != null && (
-                                  <div className={`text-xs font-bold ${item.financeType === 'income' ? 'text-emerald-600' : 'text-red-500'} flex items-center gap-0.5 justify-end`}>
-                                    {item.financeType === 'income' ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                                  <div className={`text-sm font-black mb-1 ${item.financeType === 'income' ? 'text-emerald-500' : 'text-rose-500'} flex items-center gap-1 justify-end`}>
+                                    {item.financeType === 'income' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                                     {formatMoney(item.amount)}
                                   </div>
                                 )}
-                                <div className="text-[10px] text-slate-400 mt-0.5">{formatDate(item.date)}</div>
-                                <div className="text-[10px] text-slate-300">{formatTime(item.date)}</div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] font-black text-slate-800 uppercase tabular-nums">{formatTime(item.date)}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter tabular-nums">{formatDate(item.date)}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -337,12 +347,14 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60 shrink-0">
-          <p className="text-[10px] text-slate-400 text-center">
-            {filtered.length} registro{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
-            {filter !== 'all' ? ` em "${FILTER_OPTIONS.find(f => f.id === filter)?.label}"` : ' no total'}
-          </p>
+        {/* Action Footer */}
+        <div className="p-8 border-t border-slate-50 bg-white shrink-0 shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
+          <button 
+            onClick={onClose}
+            className="w-full py-5 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.98]"
+          >
+            FECHAR HISTÓRICO
+          </button>
         </div>
       </div>
     </>
