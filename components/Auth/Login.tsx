@@ -144,8 +144,11 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
             <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-1" />
           </div>
           <div>
-            <p className="text-slate-800 font-display font-bold text-[18px] leading-none tracking-tight">PsiFlux</p>
-            <p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest mt-0.5">Pro Edition</p>
+            <h1 className="text-slate-800 font-display font-bold text-[24px] leading-none tracking-tight flex items-baseline">
+              <span className="text-[#1e295b]">Psi</span>
+              <span className="text-[#00bcd4]">Flux</span>
+            </h1>
+            <p className="text-[#1e295b] text-[11px] font-medium tracking-tight mt-0.5">Onde o seu consultório flui.</p>
           </div>
         </div>
 
@@ -183,8 +186,11 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
               <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-0.5" />
             </div>
             <div>
-              <p className="text-slate-800 font-display font-bold text-lg leading-none">PsiFlux</p>
-              <p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest mt-0.5">Pro Edition</p>
+              <h1 className="text-slate-800 font-display font-bold text-[22px] leading-none tracking-tight flex items-baseline">
+                <span className="text-[#1e295b]">Psi</span>
+                <span className="text-[#00bcd4]">Flux</span>
+              </h1>
+              <p className="text-[#1e295b] text-[10px] font-medium tracking-tight mt-0.5">Onde o seu consultório flui.</p>
             </div>
           </div>
 

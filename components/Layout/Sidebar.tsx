@@ -59,9 +59,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
               <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-1" />
             </div>
             <div>
-              <h1 className={`font-display font-bold text-[22px] ${titleText} leading-none tracking-tight`}>PsiFlux</h1>
-              <span className={`text-[10px] font-bold ${subtitleText} tracking-widest uppercase`}>
-                {user?.role === 'super_admin' ? 'Master' : 'Clinic'} Edition
+              <h1 className="font-display font-bold text-[28px] leading-none tracking-tight flex items-baseline">
+                <span className={isDark ? "text-slate-100" : "text-[#1e295b]"}>Psi</span>
+                <span className="text-[#00bcd4]">Flux</span>
+              </h1>
+              <span className={`text-[10px] whitespace-nowrap font-medium ${isDark ? 'text-slate-400' : 'text-[#1e295b]'} tracking-tight`}>
+                Onde o seu consultório flui.
               </span>
             </div>
           </div>
