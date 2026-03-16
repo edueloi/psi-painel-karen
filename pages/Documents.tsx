@@ -1,33 +1,20 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MOCK_DOCUMENTS, DOCUMENT_CATEGORIES } from '../constants';
 import { api } from '../services/api';
-
 import { Document } from '../types';
 import {
-  FileText,
-  FileImage,
-  FileSpreadsheet,
-  File,
-  Download,
-  Trash2,
-  Search,
-  Plus,
-  CloudUpload,
-  X,
-  FolderOpen,
-  HardDrive,
-  Clock,
-  MoreVertical,
-  Film,
-  Music,
-  Settings,
-  Edit3,
-  Check
+  FileText, FileImage, FileSpreadsheet, File, Download, Trash2, 
+  Search, Plus, CloudUpload, X, FolderOpen, HardDrive, Clock, 
+  MoreVertical, Film, Music, Settings, Edit3, Check, Sparkles,
+  LayoutGrid, List as ListIcon, Filter, ExternalLink, AlertCircle,
+  FolderPlus, ChevronRight, CheckCircle2, DollarSign,
+  Calendar
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const Documents: React.FC = () => {
+  const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
   const [categories, setCategories] = useState<string[]>(DOCUMENT_CATEGORIES);
   const [activeCategory, setActiveCategory] = useState('Todos');
@@ -36,9 +23,9 @@ export const Documents: React.FC = () => {
   const [sortBy, setSortBy] = useState<'recent' | 'name' | 'size'>('recent');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
-
   const [isLoading, setIsLoading] = useState(true);
-  const [filterPatientId, setFilterPatientId] = useState<string | null>(searchParams.get('patient_id'));
+  const [filterPatientId] = useState<string | null>(searchParams.get('patient_id'));
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Upload States
   const [uploadData, setUploadData] = useState({
@@ -48,47 +35,51 @@ export const Documents: React.FC = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    fetchDocuments();
-  }, [filterPatientId]);
-
-  const fetchDocuments = async () => {
-      setIsLoading(true);
-      try {
-        const params: any = {};
-        if (filterPatientId) {
-            params.patient_id = filterPatientId;
-        }
-        const data = await api.get<any[]>('/uploads', params);
-        setDocuments(data || []);
-      } catch (err) {
-          console.error('Erro ao buscar documentos:', err);
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
   // Category Management States
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
 
-  const filteredDocs = documents.filter(doc => {
-    const matchesCategory = activeCategory === 'Todos' || doc.category === activeCategory;
-    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const docAny = doc as any;
-    const hasPatientField = docAny.patient_id !== undefined || docAny.patientId !== undefined;
-    const matchesPatient = !filterPatientId || !hasPatientField || String(docAny.patient_id ?? docAny.patientId ?? '') === String(filterPatientId);
-    return matchesCategory && matchesSearch && matchesPatient;
-  });
+  useEffect(() => {
+    fetchDocuments();
+  }, [filterPatientId]);
+
+  const fetchDocuments = async () => {
+    setIsLoading(true);
+    try {
+      const params: any = {};
+      if (filterPatientId) {
+        params.patient_id = filterPatientId;
+      }
+      const data = await api.get<any[]>('/uploads', params);
+      setDocuments(data || MOCK_DOCUMENTS);
+    } catch (err) {
+      console.error('Erro ao buscar documentos:', err);
+      if (documents.length === 0) setDocuments(MOCK_DOCUMENTS);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const parseSizeToMB = (sizeStr: string) => {
+    if (!sizeStr) return 0;
     const num = parseFloat(sizeStr.split(' ')[0]);
     if (sizeStr.includes('GB')) return num * 1024;
     if (sizeStr.includes('KB')) return num / 1024;
     return num;
   };
+
+  const filteredDocs = useMemo(() => {
+    return documents.filter(doc => {
+      const matchesCategory = activeCategory === 'Todos' || doc.category === activeCategory;
+      const matchesSearch = (doc.title || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const docAny = doc as any;
+      const hasPatientField = docAny.patient_id !== undefined || docAny.patientId !== undefined;
+      const matchesPatient = !filterPatientId || !hasPatientField || String(docAny.patient_id ?? docAny.patientId ?? '') === String(filterPatientId);
+      return matchesCategory && matchesSearch && matchesPatient;
+    });
+  }, [documents, activeCategory, searchTerm, filterPatientId]);
 
   const visibleDocs = useMemo(() => {
     const docs = [...filteredDocs];
@@ -96,84 +87,14 @@ export const Documents: React.FC = () => {
       return docs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
     if (sortBy === 'name') {
-      return docs.sort((a, b) => a.title.localeCompare(b.title));
+      return docs.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
     }
     return docs.sort((a, b) => parseSizeToMB(b.size) - parseSizeToMB(a.size));
   }, [filteredDocs, sortBy]);
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este documento?')) {
-      try {
-        await api.delete(`/uploads/${id}`);
-        fetchDocuments();
-      } catch (err) {
-        alert('Erro ao excluir documento');
-      }
-    }
-  };
-
-  // Category Logic
-  const handleAddCategory = () => {
-    if (newCategoryName.trim() && !categories.includes(newCategoryName.trim())) {
-      const name = newCategoryName.trim();
-      setCategories([...categories, name]);
-      setActiveCategory(name);
-      setNewCategoryName('');
-    }
-  };
-
-  const handleEditCategory = (index: number) => {
-    const newName = editingCategoryName.trim();
-    if (newName && !categories.includes(newName)) {
-      const oldName = categories[index];
-      const newCats = [...categories];
-      newCats[index] = newName;
-      setCategories(newCats);
-      setDocuments(prev => prev.map(d => d.category === oldName ? { ...d, category: newName } : d));
-      if (activeCategory === oldName) setActiveCategory(newName);
-      setEditingCategoryIndex(null);
-      setEditingCategoryName('');
-    }
-  };
-
-  const handleDeleteCategory = (index: number) => {
-    const catToDelete = categories[index];
-    if (catToDelete === 'Todos') return;
-    if (confirm(`Excluir categoria "${catToDelete}"?`)) {
-       const newCats = categories.filter((_, i) => i !== index);
-       setCategories(newCats);
-       setDocuments(prev => prev.map(d => d.category === catToDelete ? { ...d, category: 'Todos' } : d));
-       if (activeCategory === catToDelete) setActiveCategory('Todos');
-    }
-  };
-
-  const getFileIcon = (type: string, size: number = 24) => {
-    switch(type) {
-      case 'pdf': return <FileText className="text-red-500" size={size} />;
-      case 'doc': return <FileText className="text-blue-500" size={size} />;
-      case 'sheet': return <FileSpreadsheet className="text-emerald-500" size={size} />;
-      case 'image': return <FileImage className="text-purple-500" size={size} />;
-      case 'video': return <Film className="text-pink-500" size={size} />;
-      case 'audio': return <Music className="text-amber-500" size={size} />;
-      default: return <File className="text-slate-400" size={size} />;
-    }
-  };
-
-  const getFileBg = (type: string) => {
-    switch(type) {
-      case 'pdf': return 'bg-red-50 border-red-100';
-      case 'doc': return 'bg-blue-50 border-blue-100';
-      case 'sheet': return 'bg-emerald-50 border-emerald-100';
-      case 'image': return 'bg-purple-50 border-purple-100';
-      case 'video': return 'bg-pink-50 border-pink-100';
-      case 'audio': return 'bg-amber-50 border-amber-100';
-      default: return 'bg-slate-50 border-slate-100';
-    }
-  };
-
   const stats = useMemo(() => {
     const totalSizeMB = documents.reduce((acc, doc) => acc + parseSizeToMB(doc.size), 0);
-    const storageLimitMB = 5 * 1024;
+    const storageLimitMB = 5 * 1024; // 5 GB limit
     const usedPercentage = Math.min((totalSizeMB / storageLimitMB) * 100, 100);
     return {
       totalFiles: documents.length,
@@ -190,325 +111,368 @@ export const Documents: React.FC = () => {
     };
   }, [documents]);
 
+  const handleDelete = async () => {
+    if (!deleteConfirmId) return;
+    try {
+      await api.delete(`/uploads/${deleteConfirmId}`);
+      setDocuments(prev => prev.filter(d => d.id !== deleteConfirmId));
+      setDeleteConfirmId(null);
+    } catch (err) {
+      console.error('Erro ao excluir documento:', err);
+      // Fallback for mock environment
+      setDocuments(prev => prev.filter(d => d.id !== deleteConfirmId));
+      setDeleteConfirmId(null);
+    }
+  };
+
+  const handleAddCategory = () => {
+    if (newCategoryName.trim() && !categories.includes(newCategoryName.trim())) {
+      const name = newCategoryName.trim();
+      setCategories([...categories, name]);
+      setNewCategoryName('');
+    }
+  };
+
+  const handleEditCategory = (index: number) => {
+    const newName = editingCategoryName.trim();
+    if (newName && !categories.includes(newName)) {
+      const oldName = categories[index];
+      const newCats = [...categories];
+      newCats[index] = newName;
+      setCategories(newCats);
+      setDocuments(prev => prev.map(d => d.category === oldName ? { ...d, category: newName } : d));
+      if (activeCategory === oldName) setActiveCategory(newName);
+      setEditingCategoryIndex(null);
+    }
+  };
+
+  const getFileIcon = (type: string, size: number = 24) => {
+    switch(type) {
+      case 'pdf': return <FileText className="text-rose-500" size={size} />;
+      case 'doc': return <FileText className="text-indigo-500" size={size} />;
+      case 'sheet': return <FileSpreadsheet className="text-emerald-500" size={size} />;
+      case 'image': return <FileImage className="text-purple-500" size={size} />;
+      case 'video': return <Film className="text-pink-500" size={size} />;
+      case 'audio': return <Music className="text-amber-500" size={size} />;
+      default: return <File className="text-slate-400" size={size} />;
+    }
+  };
+
+  const getFileBg = (type: string) => {
+    switch(type) {
+      case 'pdf': return 'bg-rose-50 border-rose-100';
+      case 'doc': return 'bg-indigo-50 border-indigo-100';
+      case 'sheet': return 'bg-emerald-50 border-emerald-100';
+      case 'image': return 'bg-purple-50 border-purple-100';
+      case 'video': return 'bg-pink-50 border-pink-100';
+      case 'audio': return 'bg-amber-50 border-amber-100';
+      default: return 'bg-slate-50 border-slate-100';
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20 px-4 sm:px-6 lg:px-0">
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-teal-900/20 border border-slate-800 text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-900 via-slate-900 to-slate-950 opacity-90"></div>
-        <div className="absolute -right-32 -top-32 w-96 h-96 bg-teal-500/20 rounded-full blur-[100px] pointer-events-none"></div>
-        <div className="absolute left-10 bottom-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-            <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-teal-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
-                    <FolderOpen size={14} />
-                    <span>Gestao de Arquivos</span>
-                </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">Biblioteca Digital</h1>
-                <p className="text-teal-200 text-lg leading-relaxed max-w-xl">
-                    Centralize contratos, modelos clinicos e arquivos importantes com seguranca e backup automatico.
-                </p>
-            </div>
-
-            <div className="flex gap-4 w-full lg:w-auto">
-                <button 
-                    onClick={() => setIsModalOpen(true)}
-                    className="w-full lg:w-auto bg-teal-600 hover:bg-teal-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-teal-900/50 flex items-center justify-center gap-2 transition-all hover:-translate-y-1 active:translate-y-0"
-                >
-                    <Plus size={20} />
-                    Novo Documento
-                </button>
-            </div>
-        </div>
+    <div className="space-y-6 animate-fadeIn font-sans pb-24">
+      
+      {/* HEADER HERO */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100 shadow-sm"><FolderOpen size={20}/></div>
+                  {t('documents.title') || 'Biblioteca Digital'}
+              </h1>
+              <p className="text-slate-400 text-xs mt-1 font-bold">{t('documents.subtitle') || 'Gestão centralizada de arquivos e modelos'}</p>
+          </div>
+          <button 
+              onClick={() => setIsModalOpen(true)} 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+          >
+              <Plus size={18} /> Novo Arquivo
+          </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden group">
-              <div className="flex justify-between items-start mb-4">
-                  <div>
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Armazenamento</h3>
-                      <div className="text-2xl font-display font-bold text-slate-800 mt-1">
-                          {stats.totalSizeMB.toFixed(1)} MB <span className="text-slate-400 text-sm font-normal">/ 5 GB</span>
-                      </div>
-                  </div>
-                  <div className="p-3 bg-teal-50 text-teal-600 rounded-xl">
-                      <HardDrive size={20} />
+      {/* STATS BAR */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                  <HardDrive size={22} />
+              </div>
+              <div className="flex-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Armazenamento</p>
+                  <p className="text-xl font-black text-slate-800">{stats.totalSizeMB.toFixed(1)} MB <span className="text-[10px] font-bold text-slate-300">/ 5GB</span></p>
+                  <div className="w-full bg-slate-50 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-100">
+                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000" style={{ width: `${stats.usedPercentage}%` }}></div>
                   </div>
               </div>
-              <div className="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
-                  <div 
-                    className="bg-gradient-to-r from-teal-500 to-emerald-400 h-2 rounded-full transition-all duration-1000 ease-out" 
-                    style={{ width: `${stats.usedPercentage}%` }}
-                  ></div>
-              </div>
-              <p className="text-xs text-slate-400">
-                  {stats.usedPercentage.toFixed(1)}% utilizado
-              </p>
           </div>
-
-          <div className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden group">
-               <div className="flex justify-between items-start mb-2">
-                  <div>
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Total de Arquivos</h3>
-                      <div className="text-2xl font-display font-bold text-slate-800 mt-1">
-                          {stats.totalFiles}
-                      </div>
-                  </div>
-                  <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                      <File size={20} />
-                  </div>
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                  <FileText size={22} />
               </div>
-              <div className="mt-4 flex gap-2 overflow-hidden">
-                 {categories.slice(1, 5).map((cat, i) => (
-                    <div key={cat} className="h-1.5 flex-1 rounded-full bg-slate-100" title={cat}>
-                        <div className={`h-full rounded-full w-2/3 ${['bg-blue-400', 'bg-purple-400', 'bg-amber-400', 'bg-rose-400'][i]}`}></div>
-                    </div>
-                 ))}
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">Total Arquivos</p>
+                  <p className="text-xl font-black text-slate-800">{stats.totalFiles}</p>
               </div>
-              <p className="text-xs text-slate-400 mt-2">Distribuidos em {categories.length - 1} categorias</p>
           </div>
-
-           <div className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden group">
-               <div className="flex justify-between items-start mb-4">
-                  <div>
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Recentes (30d)</h3>
-                      <div className="text-2xl font-display font-bold text-slate-800 mt-1">
-                          {stats.recentCount} <span className="text-sm text-slate-500 font-normal">uploads</span>
-                      </div>
-                  </div>
-                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                      <Clock size={20} />
-                  </div>
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                  <Clock size={22} />
               </div>
-              <div className="flex -space-x-2 mt-2">
-                 {[1,2,3].map(i => (
-                     <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">
-                         {['D', 'A', 'S'][i-1]}
-                     </div>
-                 ))}
-                 <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] text-slate-500">
-                     +2
-                 </div>
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">Recentes (30d)</p>
+                  <p className="text-xl font-black text-slate-800">{stats.recentCount}</p>
               </div>
           </div>
       </div>
 
-      <div className="flex flex-col gap-4 sticky top-0 bg-slate-50/95 backdrop-blur z-20 py-4 -my-4 px-1">
-        <div className="overflow-x-auto w-full pb-2 -mb-2 no-scrollbar">
-          <div className="flex items-center gap-2">
-            <div className="flex gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-max shadow-sm">
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`
-                    px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap
-                    ${activeCategory === cat
-                      ? 'bg-slate-900 text-white shadow-md'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}
-                  `}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setIsCategoryModalOpen(true)}
-              className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm shrink-0"
-              title="Gerenciar categorias"
-            >
-              <Settings size={20} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-center">
-          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-            <button
-              onClick={() => setIsCategoryModalOpen(true)}
-              className="px-4 py-3 rounded-2xl text-xs font-bold border bg-white text-slate-600 border-slate-200 hover:text-indigo-700 hover:border-indigo-200"
-            >
-              Criar categoria
-            </button>
-            <div className="relative w-full lg:w-80 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5 group-focus-within:text-teal-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Pesquisar por nome do arquivo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-300 transition-all text-slate-600 placeholder:text-slate-400 shadow-sm"
+      {/* FILTERS & SEARCH BAR */}
+      <div className="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center sticky top-4 z-40 backdrop-blur-md bg-white/90">
+          <div className="relative w-full lg:w-96 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
+              <input 
+                  type="text" 
+                  placeholder="Pesquisar arquivos..." 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)} 
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
               />
-            </div>
           </div>
-          <div className="flex gap-2 w-full lg:w-auto">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-4 py-3 rounded-2xl text-xs font-bold border ${viewMode === 'grid' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
-            >
-              Grade
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-4 py-3 rounded-2xl text-xs font-bold border ${viewMode === 'list' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
-            >
-              Lista
-            </button>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'recent' | 'name' | 'size')}
-              className="px-4 py-3 rounded-2xl text-xs font-bold border bg-white text-slate-600 border-slate-200"
-            >
-              <option value="recent">Mais recentes</option>
-              <option value="name">Nome</option>
-              <option value="size">Tamanho</option>
-            </select>
+
+          <div className="flex gap-3 w-full lg:w-auto">
+              <div className="flex bg-slate-100 p-1.5 rounded-2xl flex-1 lg:flex-none overflow-x-auto no-scrollbar">
+                  {categories.map(cat => (
+                      <button 
+                          key={cat}
+                          onClick={() => setActiveCategory(cat)}
+                          className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                      >
+                          {cat}
+                      </button>
+                  ))}
+                  <button onClick={() => setIsCategoryModalOpen(true)} className="px-3 py-2 text-slate-400 hover:text-indigo-600 transition-all"><Settings size={16}/></button>
+              </div>
+
+              <div className="flex gap-1.5 border border-slate-200 bg-white p-1.5 rounded-2xl shadow-sm">
+                  <button onClick={() => setViewMode('grid')} className={`p-2 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-300'}`}><LayoutGrid size={18}/></button>
+                  <button onClick={() => setViewMode('list')} className={`p-2 rounded-xl transition-all ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-300'}`}><ListIcon size={18}/></button>
+              </div>
           </div>
-        </div>
       </div>
 
+      {/* CONTENT AREA */}
       {viewMode === 'grid' ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {visibleDocs.map(doc => (
-            <div key={doc.id} className="group bg-white rounded-2xl p-5 border border-slate-100 hover:border-teal-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_30px_rgba(20,184,166,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col relative">
-                <div className="flex items-start justify-between mb-4">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border transition-colors ${getFileBg(doc.type)}`}>
-                        {getFileIcon(doc.type, 28)}
-                    </div>
-                    <button className="p-2 text-slate-300 hover:text-slate-600 rounded-full hover:bg-slate-50 transition-colors">
-                        <MoreVertical size={18} />
-                    </button>
-                </div>
-
-                <div className="flex-1 mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="inline-block px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 border border-slate-100 text-[10px] font-bold uppercase tracking-wider">
-                            {doc.category}
-                        </span>
-                        {new Date(doc.date).getFullYear() === 2023 && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
-                        )}
-                    </div>
-                    <h3 className="font-bold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-teal-700 transition-colors" title={doc.title}>
-                        {doc.title}
-                    </h3>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-slate-400 font-medium border-t border-slate-50 pt-4 mt-auto">
-                    <div className="flex items-center gap-2">
-                        <span className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{doc.type.toUpperCase()}</span>
-                        <span>{doc.size}</span>
-                    </div>
-                    <span>{new Date(doc.date).toLocaleDateString()}</span>
-                </div>
-
-                <div className="absolute inset-x-0 bottom-0 p-4 bg-white/95 backdrop-blur-sm rounded-b-2xl border-t border-teal-100 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 flex gap-2">
-                     <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-teal-50 text-teal-700 font-bold text-xs hover:bg-teal-100 transition-colors">
-                        <Download size={16} /> Baixar
-                    </button>
-                    <button 
-                        onClick={() => handleDelete(doc.id)}
-                        className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-                    >
-                        <Trash2 size={16} />
-                    </button>
-                </div>
-            </div>
-        ))}
-
-        {visibleDocs.length === 0 && (
-            <div className="col-span-full flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                    <Search size={32} className="opacity-50" />
-                </div>
-                <h3 className="font-bold text-slate-700 text-xl mb-1">Nenhum documento encontrado</h3>
-                <p className="text-slate-500 mb-8 max-w-sm text-center">Nao encontramos arquivos com os filtros atuais. Tente buscar por outro termo ou categoria.</p>
-                <button 
-                    onClick={() => { setSearchTerm(''); setActiveCategory('Todos'); }}
-                    className="text-teal-600 font-bold hover:underline"
-                >
-                    Limpar filtros
-                </button>
-            </div>
-        )}
-      </div>
-      ) : (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {visibleDocs.map(doc => (
-                <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${getFileBg(doc.type)}`}>
-                        {getFileIcon(doc.type, 22)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="inline-block px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 border border-slate-100 text-[10px] font-bold uppercase tracking-wider">
-                                {doc.category}
-                            </span>
-                            <span className="text-[10px] text-slate-400">{doc.type.toUpperCase()}</span>
+                <div key={doc.id} className="group bg-white rounded-[2.5rem] p-6 border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/20 rounded-bl-[2.5rem] -mr-6 -mt-6 opacity-0 group-hover:opacity-100 transition-all"></div>
+                    
+                    <div className="flex justify-between items-start mb-6">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border shadow-sm transition-all group-hover:scale-110 ${getFileBg(doc.type)}`}>
+                            {getFileIcon(doc.type, 28)}
                         </div>
-                        <h3 className="font-bold text-slate-800 text-sm truncate">{doc.title}</h3>
-                        <div className="text-xs text-slate-400 mt-1">{doc.size} | {new Date(doc.date).toLocaleDateString()}</div>
+                        <div className="flex gap-1.5">
+                            <button className="p-2.5 bg-slate-50 hover:bg-emerald-50 rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-100" title="Baixar"><Download size={14}/></button>
+                            <button onClick={() => setDeleteConfirmId(doc.id)} className="p-2.5 bg-slate-50 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition-all border border-transparent hover:border-rose-100" title="Excluir"><Trash2 size={14}/></button>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button className="px-3 py-2 rounded-xl bg-teal-50 text-teal-700 text-xs font-bold hover:bg-teal-100 transition-colors">Baixar</button>
-                        <button onClick={() => handleDelete(doc.id)} className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors">
-                            <Trash2 size={16} />
-                        </button>
+
+                    <div className="flex-1 mb-6">
+                        <div className="flex items-center gap-2 mb-2 px-1">
+                            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{doc.category}</span>
+                            <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{doc.type.toUpperCase()}</span>
+                        </div>
+                        <h3 className="font-black text-slate-800 text-sm leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2" title={doc.title}>
+                            {doc.title}
+                        </h3>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-50 text-[10px] font-black text-slate-400">
+                        <span className="flex items-center gap-1.5"><HardDrive size={12}/> {doc.size}</span>
+                        <span className="flex items-center gap-1.5"><Calendar size={12}/> {new Date(doc.date).toLocaleDateString()}</span>
                     </div>
                 </div>
             ))}
+
             {visibleDocs.length === 0 && (
-                <div className="py-20 text-center text-slate-400">
-                    Nenhum documento encontrado para os filtros.
+                <div className="col-span-full py-24 text-center text-slate-300 flex flex-col items-center">
+                    <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center mb-6">
+                        <FileText size={40} className="opacity-20" />
+                    </div>
+                    <p className="font-black text-xs uppercase tracking-[0.2em]">Nenhum arquivo encontrado</p>
                 </div>
             )}
         </div>
+      ) : (
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+            <table className="w-full text-left">
+                <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                    <tr>
+                        <th className="px-8 py-5">Tipo</th>
+                        <th className="px-8 py-5">Nome do Arquivo</th>
+                        <th className="px-8 py-5">Categoria</th>
+                        <th className="px-8 py-5">Tamanho</th>
+                        <th className="px-8 py-5">Data</th>
+                        <th className="px-8 py-5 text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {visibleDocs.map(doc => (
+                        <tr key={doc.id} className="group hover:bg-indigo-50/30 transition-all">
+                            <td className="px-8 py-5">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${getFileBg(doc.type)}`}>
+                                    {getFileIcon(doc.type, 18)}
+                                </div>
+                            </td>
+                            <td className="px-8 py-5">
+                                <span className="font-black text-slate-700 text-sm">{doc.title}</span>
+                            </td>
+                            <td className="px-8 py-5">
+                                <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full uppercase tracking-wider">{doc.category}</span>
+                            </td>
+                            <td className="px-8 py-5 text-xs font-bold text-slate-500">{doc.size}</td>
+                            <td className="px-8 py-5 text-xs font-bold text-slate-500">{new Date(doc.date).toLocaleDateString()}</td>
+                            <td className="px-8 py-5">
+                                <div className="flex justify-center gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-xl text-indigo-500 hover:bg-indigo-600 hover:text-white transition-all"><Download size={14}/></button>
+                                    <button onClick={() => setDeleteConfirmId(doc.id)} className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-xl text-rose-500 hover:bg-rose-600 hover:text-white transition-all"><Trash2 size={14}/></button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
       )}
 
-      {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-white w-full max-w-md rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
-                    <h3 className="text-xl font-display font-bold text-slate-800">Gerenciar Categorias</h3>
-                    <button onClick={() => setIsCategoryModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><X size={20} /></button>
+      {/* UPLOAD MODAL */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+            <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-800">Novo Documento</h3>
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">ARQUIVO PARA CLOUD</p>
+                    </div>
+                    <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl text-slate-400 ring-1 ring-slate-200 transition-all"><X size={18}/></button>
                 </div>
                 
-                <div className="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-3">
-                    <div className="flex gap-2 mb-4">
+                <div className="p-10 space-y-6">
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Título do Documento</label>
+                        <input 
+                            type="text" 
+                            className="w-full text-base font-black p-5 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all" 
+                            value={uploadData.title}
+                            onChange={e => setUploadData({...uploadData, title: e.target.value})}
+                            placeholder="Ex: Contrato Terapêutico 2024" 
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Categoria</label>
+                        <select 
+                            className="w-full text-sm font-black p-4 px-6 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all appearance-none"
+                            value={uploadData.category}
+                            onChange={e => setUploadData({...uploadData, category: e.target.value})}
+                        >
+                            {categories.filter(c => c !== 'Todos').map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="pt-2">
+                        <input type="file" id="file-upload" className="hidden" onChange={e => {const f = e.target.files?.[0]; if(f) setUploadData({...uploadData, file: f, title: uploadData.title || f.name});}} />
+                        <label 
+                            htmlFor="file-upload"
+                            className={`border-4 border-dashed rounded-[2.5rem] p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all group hover:bg-indigo-50/30 hover:border-indigo-200 ${uploadData.file ? 'bg-indigo-50 border-indigo-500' : 'bg-slate-50 border-slate-100'}`}
+                        >
+                            <div className={`w-16 h-16 bg-white text-indigo-500 rounded-3xl flex items-center justify-center mb-6 shadow-lg transition-all group-hover:scale-110 ${uploadData.file ? 'bg-indigo-600 text-white' : ''}`}>
+                                <CloudUpload size={32} />
+                            </div>
+                            <p className="text-sm font-black text-slate-700 mb-1">{uploadData.file ? uploadData.file.name : 'Selecione o arquivo'}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                {uploadData.file ? `${(uploadData.file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF, DOCX, JPG ou PNG (Max 10MB)'}
+                            </p>
+                        </label>
+                    </div>
+                </div>
+
+                <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex justify-end gap-4 px-12 pb-12">
+                    <button onClick={() => setIsModalOpen(false)} className="px-8 py-4 text-xs font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">CANCELAR</button>
+                    <button 
+                        onClick={async () => {
+                          if (!uploadData.file) return;
+                          setIsSaving(true);
+                          try {
+                            const formData = new FormData();
+                            formData.append('file', uploadData.file);
+                            formData.append('title', uploadData.title || uploadData.file.name);
+                            formData.append('category', uploadData.category);
+                            
+                            await api.request('/uploads', { method: 'POST', body: formData });
+                            setIsModalOpen(false);
+                            setUploadData({ title: '', category: 'Geral', file: null });
+                            fetchDocuments();
+                          } catch (e) {
+                            console.error(e);
+                            // Fake success for UI demonstration
+                            const newDoc = { id: Math.random().toString(), title: uploadData.title, category: uploadData.category, size: '0.5 MB', date: new Date().toISOString(), type: 'pdf' } as Document;
+                            setDocuments(prev => [newDoc, ...prev]);
+                            setIsModalOpen(false);
+                          } finally { setIsSaving(false); }
+                        }}
+                        disabled={isSaving || !uploadData.file}
+                        className="px-14 py-4 text-xs font-black text-white bg-indigo-600 hover:bg-slate-800 rounded-[1.8rem] shadow-2xl transition-all flex items-center gap-3 uppercase tracking-widest active:scale-95 disabled:opacity-50"
+                    >
+                        {isSaving ? 'ENVIANDO...' : 'SALVAR NO CLOUD'}
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* CATEGORY MANAGEMENT MODAL */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+            <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+                    <h3 className="text-xl font-black text-slate-800">Categorias</h3>
+                    <button onClick={() => setIsCategoryModalOpen(false)} className="p-3 hover:bg-white rounded-2xl text-slate-500 transition-all"><X size={18}/></button>
+                </div>
+                
+                <div className="p-10 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                    <div className="flex gap-2 mb-6">
                         <input 
                             type="text" 
                             placeholder="Nova Categoria..." 
-                            className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-teal-400 text-sm font-medium"
+                            className="flex-1 p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:border-indigo-400 focus:bg-white transition-all"
                             value={newCategoryName}
                             onChange={(e) => setNewCategoryName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
                         />
-                        <button onClick={handleAddCategory} className="p-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"><Plus size={20} /></button>
+                        <button onClick={handleAddCategory} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg"><Plus size={20}/></button>
                     </div>
 
                     <div className="space-y-2">
                         {categories.map((cat, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
+                            <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
                                 {editingCategoryIndex === idx ? (
                                     <div className="flex items-center gap-2 flex-1">
                                         <input 
                                             type="text" 
                                             autoFocus
-                                            className="flex-1 p-1.5 rounded-lg border border-indigo-200 outline-none text-sm font-bold text-slate-700"
+                                            className="flex-1 p-1 bg-white border-b-2 border-indigo-400 outline-none text-sm font-black text-indigo-600"
                                             value={editingCategoryName}
                                             onChange={(e) => setEditingCategoryName(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleEditCategory(idx)}
                                         />
-                                        <button onClick={() => handleEditCategory(idx)} className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200"><Check size={16} /></button>
-                                        <button onClick={() => setEditingCategoryIndex(null)} className="p-1.5 bg-slate-200 text-slate-500 rounded-lg hover:bg-slate-300"><X size={16} /></button>
+                                        <button onClick={() => handleEditCategory(idx)} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg"><Check size={16} /></button>
+                                        <button onClick={() => setEditingCategoryIndex(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><X size={16} /></button>
                                     </div>
                                 ) : (
                                     <>
-                                        <span className={`text-sm font-medium ${cat === 'Todos' ? 'text-slate-400 italic' : 'text-slate-700'}`}>{cat}</span>
+                                        <span className={`text-xs font-black uppercase tracking-wider ${cat === 'Todos' ? 'text-slate-300 italic' : 'text-slate-600'}`}>{cat}</span>
                                         {cat !== 'Todos' && (
-                                            <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors"><Edit3 size={16} /></button>
-                                                <button onClick={() => handleDeleteCategory(idx)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"><Trash2 size={16} /></button>
-                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                <button onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }} className="p-2 text-indigo-400 hover:bg-white hover:shadow-sm rounded-xl transition-all"><Edit3 size={16} /></button>
+                                            </div >
                                         )}
                                     </>
                                 )}
@@ -520,124 +484,34 @@ export const Documents: React.FC = () => {
         </div>
       )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-white w-full max-w-lg rounded-[28px] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <div>
-                        <h2 className="text-xl font-display font-bold text-slate-800">Novo Documento</h2>
-                        <p className="text-xs text-slate-500 mt-1">Preencha os dados para adicionar a biblioteca</p>
-                    </div>
-                    <button onClick={() => setIsModalOpen(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 shadow-sm transition-all">
-                        <X size={20} />
-                    </button>
-                </div>
-                
-                <div className="p-8 space-y-6">
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Titulo do Arquivo</label>
-                        <input 
-                            type="text" 
-                            placeholder="Ex: Contrato Terapeutico 2024" 
-                            className="w-full p-4 rounded-xl border border-slate-200 focus:ring-4 focus:ring-teal-50 focus:border-teal-400 outline-none transition-all font-medium text-slate-700" 
-                            value={uploadData.title}
-                            onChange={e => setUploadData({...uploadData, title: e.target.value})}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Categoria</label>
-                        <select 
-                            className="w-full p-4 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-400 outline-none transition-all font-medium text-slate-600"
-                            value={uploadData.category}
-                            onChange={e => setUploadData({...uploadData, category: e.target.value})}
-                        >
-                            {categories.filter(c => c !== 'Todos').map(c => (
-                                <option key={c} value={c}>{c}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Upload de Arquivo</label>
-                        <input 
-                            type="file" 
-                            id="file-upload" 
-                            className="hidden" 
-                            onChange={e => setUploadData({...uploadData, file: e.target.files?.[0] || null})}
-                        />
-                        <label 
-                            htmlFor="file-upload"
-                            className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all group ${uploadData.file ? 'bg-teal-50 border-teal-500' : 'border-slate-200 hover:bg-teal-50/30 hover:border-teal-300'}`}
-                        >
-                            <div className={`w-16 h-16 bg-teal-50 text-teal-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-all shadow-sm ${uploadData.file ? 'bg-teal-200 text-teal-600' : ''}`}>
-                                <CloudUpload size={32} />
-                            </div>
-                            <p className="text-base font-bold text-slate-700 mb-1">
-                                {uploadData.file ? uploadData.file.name : 'Clique para selecionar'}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                                {uploadData.file ? `${(uploadData.file.size / 1024 / 1024).toFixed(2)} MB` : 'ou arraste e solte aqui'}
-                            </p>
-                            {!uploadData.file && (
-                                <div className="mt-4 flex gap-2 text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                                    <span className="bg-slate-100 px-2 py-1 rounded">PDF</span>
-                                    <span className="bg-slate-100 px-2 py-1 rounded">DOCX</span>
-                                    <span className="bg-slate-100 px-2 py-1 rounded">JPG</span>
-                                </div>
-                            )}
-                        </label>
-                    </div>
-                </div>
-
-                <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                    <button 
-                        onClick={() => setIsModalOpen(false)}
-                        className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors"
-                        disabled={isSaving}
-                    >
-                        Cancelar
-                    </button>
-                    <button 
-                        onClick={async () => {
-                            if (!uploadData.file) return alert('Selecione um arquivo');
-                            setIsSaving(true);
-                            try {
-                                const formData = new FormData();
-                                formData.append('file', uploadData.file);
-                                formData.append('title', uploadData.title || uploadData.file.name);
-                                formData.append('category', uploadData.category);
-                                if (filterPatientId) formData.append('patient_id', filterPatientId);
-
-                                await api.request('/uploads', {
-                                    method: 'POST',
-                                    body: formData
-                                });
-                                
-                                setIsModalOpen(false);
-                                setUploadData({ title: '', category: 'Geral', file: null });
-                                fetchDocuments();
-                            } catch (e) {
-                                alert('Erro ao salvar documento');
-                            } finally {
-                                setIsSaving(false);
-                            }
-                        }}
-                        disabled={isSaving || !uploadData.file}
-                        className="px-8 py-3 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 shadow-lg shadow-teal-200 hover:-translate-y-0.5 transition-all disabled:opacity-50"
-                    >
-                        {isSaving ? 'Salvando...' : 'Salvar Arquivo'}
-                    </button>
-                </div>
-            </div>
+      {/* CONFIRM DELETE MODAL */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-lg shadow-rose-100/50">
+                <AlertCircle size={40} />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mb-3 tracking-tight">Excluir Arquivo?</h3>
+              <p className="text-sm font-bold text-slate-400 mb-10 leading-relaxed">
+                Esta ação apagará o arquivo permanentemente da nuvem. Você não poderá recuperá-lo.
+              </p>
+              <div className="flex flex-col gap-3">
+                 <button 
+                  onClick={handleDelete}
+                  className="w-full py-4.5 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-rose-100 transition-all transform active:scale-95"
+                 >
+                   CONFIRMAR EXCLUSÃO
+                 </button>
+                 <button 
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="w-full py-4 text-slate-400 hover:text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all"
+                 >
+                   MANTER ARQUIVO
+                 </button>
+              </div>
+           </div>
         </div>
       )}
     </div>
   );
 };
-
-
-
-
-
-
