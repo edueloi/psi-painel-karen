@@ -134,15 +134,18 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
         style={{ background: 'linear-gradient(145deg, #eef2ff 0%, #f5f3ff 55%, #fdf4ff 100%)' }}>
 
         {/* blobs suaves */}
-        <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-40" style={{ background: 'radial-gradient(circle, #c7d2fe, transparent 70%)', transform: 'translate(30%,-30%)' }} />
-        <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full opacity-30" style={{ background: 'radial-gradient(circle, #ddd6fe, transparent 70%)', transform: 'translate(-30%,30%)' }} />
+        <div className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-40" style={{ background: 'radial-gradient(circle, #c7d2fe, transparent 70%)', transform: 'translate(30%,-30%)' }} />
+        <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full opacity-30" style={{ background: 'radial-gradient(circle, #ddd6fe, transparent 70%)', transform: 'translate(-30%,30%)' }} />
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 rounded-full opacity-15" style={{ background: 'radial-gradient(circle, #e0e7ff, transparent 70%)', transform: 'translate(-50%,-50%)' }} />
 
         {/* Logo */}
-        <div className="flex items-center gap-3 relative z-10">
-          <img src={logoUrl} alt="PsiFlux" className="w-10 h-10 rounded-xl object-contain" />
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="w-[52px] h-[52px] rounded-2xl overflow-hidden shadow-xl ring-2 ring-indigo-200/60 bg-white/80 backdrop-blur-sm flex-shrink-0">
+            <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-1" />
+          </div>
           <div>
-            <p className="text-slate-800 font-bold text-base leading-none">PsiFlux</p>
-            <p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest">Pro</p>
+            <p className="text-slate-800 font-display font-bold text-[18px] leading-none tracking-tight">PsiFlux</p>
+            <p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest mt-0.5">Pro Edition</p>
           </div>
         </div>
 
@@ -156,15 +159,15 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
         </div>
 
         {/* Indicadores */}
-        <div className="flex items-center justify-center gap-6 relative z-10">
+        <div className="flex items-center justify-center gap-4 relative z-10">
           {[
-            { value: '98%', label: 'Satisfação' },
-            { value: '2k+', label: 'Psicólogos' },
-            { value: '4.9★', label: 'Avaliação' },
-          ].map(({ value, label }) => (
-            <div key={label} className="text-center">
-              <p className="text-slate-800 font-bold text-lg leading-none">{value}</p>
-              <p className="text-slate-400 text-xs mt-1">{label}</p>
+            { value: '98%', label: 'Satisfação', color: 'bg-indigo-50' },
+            { value: '2k+', label: 'Psicólogos', color: 'bg-violet-50' },
+            { value: '4.9★', label: 'Avaliação', color: 'bg-purple-50' },
+          ].map(({ value, label, color }) => (
+            <div key={label} className={`text-center px-5 py-3 ${color} rounded-2xl border border-white/80 shadow-sm`}>
+              <p className="text-slate-800 font-display font-bold text-xl leading-none">{value}</p>
+              <p className="text-slate-500 text-xs mt-1 font-medium">{label}</p>
             </div>
           ))}
         </div>
@@ -175,9 +178,14 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
         <div className="w-full max-w-[400px]">
 
           {/* Logo mobile */}
-          <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-            <img src={logoUrl} alt="PsiFlux" className="w-8 h-8 rounded-lg object-contain" />
-            <p className="text-slate-800 font-bold">PsiFlux</p>
+          <div className="flex items-center gap-3 mb-8 lg:hidden">
+            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md ring-2 ring-indigo-100 bg-indigo-50/50 flex-shrink-0">
+              <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-0.5" />
+            </div>
+            <div>
+              <p className="text-slate-800 font-display font-bold text-lg leading-none">PsiFlux</p>
+              <p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest mt-0.5">Pro Edition</p>
+            </div>
           </div>
 
           {/* ── Esqueci a senha ── */}
@@ -231,8 +239,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           /* ── Login ── */
             <>
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-slate-800 mb-1">Bem-vindo de volta</h2>
-                <p className="text-slate-400 text-sm">Entre com suas credenciais para acessar</p>
+                <h2 className="text-[28px] font-display font-bold text-slate-900 mb-1.5 tracking-tight">Bem-vindo de volta</h2>
+                <p className="text-slate-400 text-sm">Entre com suas credenciais para acessar o painel</p>
               </div>
 
               {error && (
@@ -295,16 +303,16 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
                 {/* Botão entrar */}
                 <button type="submit" disabled={loading}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2 transition shadow-md shadow-indigo-100 disabled:opacity-60 mt-1">
+                  className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-indigo-200/60 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99] mt-1">
                   {loading
                     ? <><Loader2 size={16} className="animate-spin" /> Entrando...</>
                     : <>Entrar <ArrowRight size={16} /></>}
                 </button>
               </form>
 
-              <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-2">
+              <div className="mt-8 pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
                 <ShieldCheck size={13} className="text-slate-300" />
-                <p className="text-xs text-slate-400">Conexão segura · Dados criptografados</p>
+                <p className="text-xs text-slate-400">Conexão segura · Dados criptografados · LGPD</p>
               </div>
             </>
           )}

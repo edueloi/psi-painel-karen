@@ -36,47 +36,47 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-20 px-4 md:px-8 flex items-center justify-between transition-all duration-300 bg-white/80 backdrop-blur-xl border-b border-slate-200/60 support-backdrop-blur:bg-white/90">
-      
+    <header className="sticky top-0 z-30 h-[72px] px-4 md:px-8 flex items-center justify-between transition-all duration-300 bg-white/90 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_1px_3px_0_rgba(0,0,0,0.04),0_1px_2px_-1px_rgba(0,0,0,0.04)]">
+
       {/* Left Area: Mobile Menu & Search */}
       <div className="flex items-center gap-4 flex-1">
-        <button 
+        <button
           onClick={onMenuClick}
-          className="p-2.5 -ml-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors active:scale-95"
+          className="p-2 -ml-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-200 active:scale-95"
         >
-          <Menu size={24} />
+          <Menu size={22} />
         </button>
-        
+
         {/* Global Search */}
-        <div className="hidden md:flex items-center relative w-full max-w-md group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-indigo-500 transition-colors" />
-          <input 
-            type="text" 
+        <div className="hidden md:flex items-center relative w-full max-w-sm group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
+          <input
+            type="text"
             placeholder={t('topbar.search')}
-            className="w-full h-11 pl-11 pr-4 rounded-full bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-100 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm text-slate-600 placeholder:text-slate-400 transition-all shadow-sm"
+            className="w-full h-10 pl-11 pr-10 rounded-full bg-slate-50 border border-slate-200/60 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/8 outline-none text-sm text-slate-700 placeholder:text-slate-400 transition-all"
           />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-focus-within:flex items-center gap-1">
-             <span className="text-[10px] font-bold text-slate-400 border border-slate-200 rounded px-1.5 py-0.5">ESC</span>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-focus-within:flex items-center">
+             <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5">ESC</span>
           </div>
         </div>
       </div>
 
       {/* Right Area: Actions & Profile */}
-      <div className="flex items-center gap-3 md:gap-5">
-        
+      <div className="flex items-center gap-2 md:gap-4">
+
         {/* Notifications */}
-        <button className="relative p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all group">
-          <Bell size={20} className="group-hover:animate-swing" />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+        <button className="relative p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-200">
+          <Bell size={20} />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white shadow-sm"></span>
         </button>
-        
-        <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
+
+        <div className="h-7 w-px bg-slate-200/70 hidden md:block"></div>
 
         {/* User Profile Dropdown */}
         <div className="relative" ref={dropdownRef}>
-           <button 
+           <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all cursor-pointer group"
+              className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-slate-50 border border-transparent hover:border-slate-200/60 transition-all duration-200 cursor-pointer group"
            >
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-0.5 shadow-md shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
                   <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">

@@ -316,21 +316,46 @@ router.post('/public/:id/join', async (req, res) => {
     await withSchema();
     const rid = req.params.id;
     const numId = parseInt(rid) || 0;
+    const { name, token: waitingToken } = req.body || {};
+
+    // Tenta buscar a sala no banco
     const [rooms] = await db.query(
       'SELECT id, name, title, status, code, hash FROM virtual_rooms WHERE hash = ? OR code = ? OR id = ?',
       [rid, rid, numId]
     );
-    if (rooms.length === 0) return res.status(404).json({ error: 'Sala não encontrada' });
-    if (rooms[0].status === 'ended') return res.status(410).json({ error: 'Esta sala já foi encerrada' });
 
-    const token = uuidv4();
-    const { name } = req.body || {};
-    if (name) {
-      const key = getRoomKey(req.params.id);
-      if (!participantsMap.has(key)) participantsMap.set(key, new Map());
-      participantsMap.get(key).set(token, { name, joined_at: new Date().toISOString() });
+    let roomData = rooms[0] || null;
+
+    // Se não encontrou no banco, verifica se o token de espera está aprovado (sala em memória)
+    if (!roomData) {
+      let tokenApproved = false;
+      if (waitingToken) {
+        for (const room of waitingMap.values()) {
+          for (const entry of room.values()) {
+            if (entry.token === waitingToken && entry.status === 'approved') {
+              tokenApproved = true;
+              break;
+            }
+          }
+          if (tokenApproved) break;
+        }
+      }
+      if (!tokenApproved) {
+        return res.status(404).json({ error: 'Sala não encontrada' });
+      }
+      // Permite entrada com dados mínimos (sala existe só em memória)
+      roomData = { id: rid, name: rid, title: rid, status: 'active', code: rid, hash: rid };
     }
-    res.json({ room: rooms[0], participant_token: token });
+
+    if (roomData.status === 'ended') return res.status(410).json({ error: 'Esta sala já foi encerrada' });
+
+    const participantToken = waitingToken || uuidv4();
+    if (name) {
+      const key = getRoomKey(rid);
+      if (!participantsMap.has(key)) participantsMap.set(key, new Map());
+      participantsMap.get(key).set(participantToken, { name, joined_at: new Date().toISOString() });
+    }
+    res.json({ room: roomData, participant_token: participantToken });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao entrar na sala' });

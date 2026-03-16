@@ -129,13 +129,21 @@
                 '0%': { opacity: '0', transform: 'translateX(100%) scale(0.95)' },
                 '100%': { opacity: '1', transform: 'translateX(0) scale(1)' },
               },
+              swing: {
+                '0%': { transform: 'rotate(0deg)' },
+                '25%': { transform: 'rotate(-15deg)' },
+                '50%': { transform: 'rotate(10deg)' },
+                '75%': { transform: 'rotate(-5deg)' },
+                '100%': { transform: 'rotate(0deg)' },
+              },
             },
             animation: {
               fadeIn: 'fadeIn 0.3s ease-out',
-              slideUpFade: 'slideUpFade 0.4s ease-out',
+              slideUpFade: 'slideUpFade 0.35s ease-out',
               slideLeft: 'slideLeft 0.3s ease-out',
               scaleIn: 'scaleIn 0.2s ease-out',
               slideIn: 'slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              swing: 'swing 0.4s ease-in-out',
             }
           }
         }
@@ -164,12 +172,23 @@
       body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-page); color: var(--text-main); }
 
       /* Custom Scrollbar */
-      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
+      ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+      /* Smooth page transitions */
+      * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+      /* Better focus rings */
+      :focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 6px; }
+
+      /* Card base style */
+      .card { background: white; border-radius: 16px; border: 1px solid rgba(226,232,240,0.8); box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px -1px rgba(0,0,0,0.04); }
     </style>
   <script type="importmap">
 {
