@@ -164,6 +164,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLinkDeviceModal, setShowLinkDeviceModal] = useState(false);
   const [linkDeviceTab, setLinkDeviceTab] = useState<"qr" | "link">("qr");
+  const [companionConnected, setCompanionConnected] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [lobbyTab, setLobbyTab] = useState<"info" | "companion">("info");
@@ -456,6 +457,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           setAssessmentStatus("idle");
           if (isGuest) setActiveSidePanel("none");
           break;
+
+        case "COMPANION_CONNECTED":
+          if (!isGuest && !isCompanionMode) {
+            setShowLinkDeviceModal(false);
+            setCompanionConnected(true);
+            setTimeout(() => setCompanionConnected(false), 4000);
+          }
+          break;
       }
     };
 
@@ -463,6 +472,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       channel.close();
     };
   }, [id, isGuest, isCompanionMode, connectionStatus]);
+
+  // Companion mode: announce connection to host tab via BroadcastChannel
+  useEffect(() => {
+    if (!isCompanionMode || !id) return;
+    const channel = new BroadcastChannel(`meeting_room_${id}`);
+    channel.postMessage({ type: "COMPANION_CONNECTED" });
+    channel.close();
+  }, [isCompanionMode, id]);
 
   useEffect(() => {
     if (isGuest || !hasAuthToken) return;
@@ -2226,6 +2243,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         <div className="px-4 pt-3">
           <div className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-xl text-sm">
             {entryNotice}
+          </div>
+        </div>
+      )}
+
+      {companionConnected && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[200] animate-[slideUpFade_0.3s_ease-out]">
+          <div className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 text-sm font-bold">
+            <Check size={16} />
+            Lousa vinculada com sucesso!
           </div>
         </div>
       )}
