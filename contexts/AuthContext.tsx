@@ -8,6 +8,7 @@ interface AuthUser {
   role: 'super_admin' | 'admin' | 'profissional' | 'secretario';
   name?: string;
   email?: string;
+  avatarUrl?: string;
 }
 
 interface AuthContextType {
@@ -19,6 +20,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   isAdmin: boolean;
   isProfissional: boolean;
+  updateUser: (data: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,11 +48,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Busca perfil completo do usuário
   const fetchUserProfile = async (decoded: AuthUser) => {
     try {
-      const data = await api.get('/users/me');
-      setUser({ ...decoded, name: data.name, email: data.email });
+      interface FetchProfileResponse {
+        name: string;
+        email: string;
+        avatar_url?: string;
+        avatarUrl?: string;
+      }
+      const data = await api.get<FetchProfileResponse>('/profile/me');
+      setUser({ 
+        ...decoded, 
+        name: data.name, 
+        email: data.email,
+        avatarUrl: data.avatar_url || data.avatarUrl || decoded.avatarUrl
+      });
     } catch (e) {
       setUser(decoded); // fallback só com id/role
     }
+  };
+
+  const updateUser = (data: Partial<AuthUser>) => {
+    setUser(prev => prev ? { ...prev, ...data } : null);
   };
 
   useEffect(() => {
@@ -89,7 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAuthenticated: !!token,
       isSuperAdmin: user?.role === 'super_admin',
       isAdmin: user?.role === 'admin',
-      isProfissional: user?.role === 'profissional'
+      isProfissional: user?.role === 'profissional',
+      updateUser
     }}>
       {children}
     </AuthContext.Provider>

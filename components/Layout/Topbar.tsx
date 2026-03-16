@@ -80,8 +80,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
            >
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-0.5 shadow-md shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
                   <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                       {user?.avatar ? (
-                          <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                       {user?.avatarUrl ? (
+                          <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
                        ) : (
                           <span className="font-bold text-indigo-700 text-sm">{user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}</span>
                        )}

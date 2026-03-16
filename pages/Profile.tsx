@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 
 type DayKey =
   | 'monday'
@@ -39,21 +40,22 @@ type ScheduleDay = {
 
 export const Profile: React.FC = () => {
   const { t } = useLanguage();
+  const { updateUser } = useAuth();
 
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
   const [user, setUser] = useState({
-    name: 'Karen Gomes',
-    email: 'karen.gomes@psiclinica.com',
+    name: '',
+    email: '',
     role: UserRole.PSYCHOLOGIST,
-    phone: '(11) 99999-8888',
-    crp: '06/172315',
-    specialty: 'Psicologia Clinica & Neuropsicologia',
-    companyName: 'Clinica Mente Saudavel',
-    address: 'Av. Paulista, 1000 - Sala 42, Sao Paulo - SP',
-    bio: 'Especialista em Terapia Cognitivo-Comportamental com foco em transtornos de ansiedade e desenvolvimento pessoal. Atuo ha mais de 10 anos transformando vidas atraves da psicologia baseada em evidencias.',
+    phone: '',
+    crp: '',
+    specialty: '',
+    companyName: '',
+    address: '',
+    bio: '',
     avatarUrl: '',
     clinicLogoUrl: '',
     coverUrl: '',
@@ -139,7 +141,9 @@ export const Profile: React.FC = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setUser(prev => ({ ...prev, avatarUrl: data.avatar_url || prev.avatarUrl }));
+        const newAvatarUrl = data.avatar_url || data.avatarUrl || '';
+        setUser(prev => ({ ...prev, avatarUrl: newAvatarUrl || prev.avatarUrl }));
+        updateUser({ avatarUrl: newAvatarUrl });
       } else {
         // fallback: show preview locally
         const url = await pickImage(file);
