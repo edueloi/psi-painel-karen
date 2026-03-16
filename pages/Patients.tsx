@@ -159,7 +159,18 @@ export const Patients: React.FC = () => {
     }
   };
 
-  const handleSavePatient = async (data: Partial<Patient>, files: File[]) => {
+  const uploadPatientPhoto = async (patientId: string | number, photo: File) => {
+    const token = localStorage.getItem('psi_token');
+    const formData = new FormData();
+    formData.append('photo', photo);
+    await fetch(`${API_BASE_URL}/patients/${patientId}/photo`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: formData,
+    });
+  };
+
+  const handleSavePatient = async (data: Partial<Patient>, files: File[], photoFile?: File | null) => {
     try {
       const payload = {
         name: data.full_name,
@@ -201,6 +212,9 @@ export const Patients: React.FC = () => {
       const patientId = savedPatient?.id || data.id;
       if (patientId && files.length) {
         await uploadPatientDocuments(patientId, files);
+      }
+      if (patientId && photoFile) {
+        await uploadPatientPhoto(patientId, photoFile);
       }
 
       await fetchPatients();

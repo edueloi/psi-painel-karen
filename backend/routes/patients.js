@@ -351,7 +351,7 @@ router.put('/:id', async (req, res) => {
     } = req.body;
 
     const [existing] = await db.query(
-      'SELECT id FROM patients WHERE id = ? AND tenant_id = ?',
+      'SELECT * FROM patients WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Paciente não encontrado' });
@@ -402,6 +402,25 @@ router.put('/:id', async (req, res) => {
         req.params.id, req.user.tenant_id
       ]
     );
+
+    // Registrar históricos se houver mudanças importantes
+    const oldStatus = existing[0].status;
+    const newStatus = status ? normalizeStatus(status) : oldStatus;
+    if (oldStatus !== newStatus) {
+      await db.query(
+        `INSERT INTO patient_events (tenant_id, patient_id, type, title, description, old_value, new_value, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.tenant_id, req.params.id, 'status_change', 'Alteração de Status', `Status alterado de ${oldStatus} para ${newStatus}`, oldStatus, newStatus, req.user.id]
+      ).catch(console.error);
+    }
+
+    if (health_plan !== undefined && existing[0].health_plan !== health_plan) {
+      await db.query(
+        `INSERT INTO patient_events (tenant_id, patient_id, type, title, description, old_value, new_value, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.tenant_id, req.params.id, 'plan_change', 'Alteração de Plano', `Plano/Convênio alterado para ${health_plan || 'Nenhum'}`, existing[0].health_plan, health_plan, req.user.id]
+      ).catch(console.error);
+    }
 
     const [updated] = await db.query('SELECT * FROM patients WHERE id = ?', [req.params.id]);
     res.json(updated[0]);
@@ -570,7 +589,7 @@ router.get('/:id/history', async (req, res) => {
       try { const [rows] = await db.query(sql, params); return rows; } catch { return []; }
     };
 
-    const [appointments, transactions, records, documents, notes] = await Promise.all([
+    const [appointments, transactions, records, documents, notes, comandas, events] = await Promise.all([
       safeQuery(
         `SELECT a.id, a.start_time as date, a.status, a.title, a.notes,
                 s.name as service_name, u.name as professional_name
@@ -610,6 +629,20 @@ router.get('/:id/history', async (req, res) => {
          ORDER BY created_at DESC LIMIT 50`,
         [id, tenantId]
       ),
+      safeQuery(
+        `SELECT id, created_at as date, total as amount, status, description
+         FROM comandas
+         WHERE patient_id = ? AND tenant_id = ?
+         ORDER BY created_at DESC LIMIT 50`,
+        [id, tenantId]
+      ),
+      safeQuery(
+        `SELECT id, created_at as date, type, title, description
+         FROM patient_events
+         WHERE patient_id = ? AND tenant_id = ?
+         ORDER BY created_at DESC LIMIT 50`,
+        [id, tenantId]
+      ),
     ]);
 
     const timeline = [
@@ -641,18 +674,74 @@ router.get('/:id/history', async (req, res) => {
         title: 'Anotação',
         preview: n.content ? String(n.content).slice(0, 120) : null,
       })),
+      ...comandas.map(c => ({
+        id: `com-${c.id}`, type: 'comanda', date: c.date,
+        title: `Comanda ${c.id}`,
+        subtitle: c.description || 'Venda de serviços/produtos',
+        amount: c.amount, status: c.status,
+      })),
+      ...events.map(e => ({
+        id: `ev-${e.id}`, type: e.type, date: e.date,
+        title: e.title,
+        subtitle: e.description,
+      })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     res.json({ timeline, counts: {
       appointments: appointments.length,
       transactions: transactions.length,
+      comandas: comandas.length,
       records: records.length,
+      events: events.length,
       documents: documents.length,
       notes: notes.length,
     }});
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+});
+
+// POST /patients/:id/photo — Upload foto do paciente
+router.post('/:id/photo', async (req, res) => {
+  try {
+    const multerPhoto = multer({
+      storage: multer.diskStorage({
+        destination: (req2, file, cb) => {
+          const dir = require('path').join(__dirname, '../public/uploads/photos');
+          require('fs').mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req2, file, cb) => {
+          cb(null, `patient-${req.params.id}-${Date.now()}${require('path').extname(file.originalname)}`);
+        }
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req2, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Apenas imagens são permitidas'));
+      }
+    }).single('photo');
+
+    multerPhoto(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+      const [existing] = await db.query(
+        'SELECT id FROM patients WHERE id = ? AND tenant_id = ?',
+        [req.params.id, req.user.tenant_id]
+      );
+      if (existing.length === 0) return res.status(404).json({ error: 'Paciente não encontrado' });
+
+      const photo_url = `/uploads-static/photos/${req.file.filename}`;
+      await db.query('UPDATE patients SET photo_url = ? WHERE id = ? AND tenant_id = ?',
+        [photo_url, req.params.id, req.user.tenant_id]);
+
+      res.json({ photo_url });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao fazer upload da foto' });
   }
 });
 

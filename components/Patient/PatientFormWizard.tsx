@@ -1,7 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { Patient, MaritalStatus, EducationLevel } from '../../types';
-import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, X, Loader2 } from 'lucide-react';
+import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, X, Loader2, Camera } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { API_BASE_URL } from '../../services/api';
 
 /* ─── Máscaras ─────────────────────────────────────────── */
 const maskPhone = (v: string) => {
@@ -24,7 +25,7 @@ const maskCep = (v: string) => {
 
 interface PatientFormWizardProps {
   initialData?: Partial<Patient>;
-  onSave: (data: Partial<Patient>, files: File[]) => void;
+  onSave: (data: Partial<Patient>, files: File[], photoFile?: File | null) => void;
   onCancel: () => void;
 }
 
@@ -33,6 +34,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   const [currentStep, setCurrentStep] = useState(0);
   const [cepLoading, setCepLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>(initialData.photo_url || (initialData as any).photoUrl || '');
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<Partial<Patient>>({
     status: 'ativo',
     convenio: false,
@@ -109,6 +113,40 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       case 0: // Básico
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-fadeIn">
+            {/* Photo upload */}
+            <div className="md:col-span-2 flex justify-center mb-2">
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setPhotoFile(file);
+                  const reader = new FileReader();
+                  reader.onload = ev => setPhotoPreview(ev.target?.result as string);
+                  reader.readAsDataURL(file);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                className="relative group w-20 h-20 rounded-full border-2 border-dashed border-slate-300 hover:border-indigo-400 transition-colors overflow-hidden bg-slate-50"
+              >
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Foto" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full gap-1 text-slate-400">
+                    <User size={24} />
+                    <span className="text-[9px] font-bold uppercase tracking-wide">Foto</span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera size={18} className="text-white" />
+                </div>
+              </button>
+            </div>
             <div className="md:col-span-2 space-y-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.name')}</label>
               <input 
@@ -537,7 +575,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
 
         {currentStep === STEPS.length - 1 ? (
           <button
-            onClick={() => onSave(formData, selectedFiles)}
+            onClick={() => onSave(formData, selectedFiles, photoFile)}
             className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
           >
             <Save size={15} /> {t('wizard.finish')}

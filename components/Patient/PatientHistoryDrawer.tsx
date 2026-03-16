@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   X, Calendar, DollarSign, FileText, FolderOpen, StickyNote,
   Loader2, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp,
-  TrendingDown, ChevronRight
+  TrendingDown, ChevronRight, Boxes, Shield
 } from 'lucide-react';
 import { Patient } from '../../types';
 import { api } from '../../services/api';
@@ -25,7 +25,9 @@ interface HistoryData {
   counts: {
     appointments: number;
     transactions: number;
+    comandas: number;
     records: number;
+    events: number;
     documents: number;
     notes: number;
   };
@@ -77,6 +79,38 @@ const typeConfig = {
     border: 'border-violet-200',
     dot: 'bg-violet-500',
   },
+  comanda: {
+    label: 'Comanda',
+    icon: <Boxes size={14} />,
+    bg: 'bg-orange-50',
+    text: 'text-orange-600',
+    border: 'border-orange-200',
+    dot: 'bg-orange-500',
+  },
+  status_change: {
+    label: 'Status',
+    icon: <TrendingUp size={14} />,
+    bg: 'bg-rose-50',
+    text: 'text-rose-600',
+    border: 'border-rose-200',
+    dot: 'bg-rose-500',
+  },
+  data_change: {
+    label: 'Dados',
+    icon: <FileText size={14} />,
+    bg: 'bg-slate-50',
+    text: 'text-slate-600',
+    border: 'border-slate-200',
+    dot: 'bg-slate-500',
+  },
+  plan_change: {
+    label: 'Plano',
+    icon: <Shield size={14} />,
+    bg: 'bg-cyan-50',
+    text: 'text-cyan-600',
+    border: 'border-cyan-200',
+    dot: 'bg-cyan-500',
+  },
 };
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -87,6 +121,8 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; color
   'no-show': { label: 'Faltou', icon: <AlertCircle size={10} />, color: 'text-amber-600 bg-amber-50' },
   paid: { label: 'Pago', icon: <CheckCircle size={10} />, color: 'text-emerald-600 bg-emerald-50' },
   pending: { label: 'Pendente', icon: <Clock size={10} />, color: 'text-amber-600 bg-amber-50' },
+  open: { label: 'Aberta', icon: <Clock size={10} />, color: 'text-orange-600 bg-orange-50' },
+  closed: { label: 'Fechada', icon: <CheckCircle size={10} />, color: 'text-emerald-600 bg-emerald-50' },
 };
 
 const formatDate = (raw: string) => {
@@ -121,7 +157,10 @@ const FILTER_OPTIONS = [
   { id: 'all', label: 'Tudo' },
   { id: 'appointment', label: 'Consultas' },
   { id: 'finance', label: 'Financeiro' },
+  { id: 'comanda', label: 'Comandas' },
   { id: 'record', label: 'Prontuários' },
+  { id: 'status_change', label: 'Status' },
+  { id: 'data_change', label: 'Alterações' },
   { id: 'document', label: 'Documentos' },
   { id: 'note', label: 'Anotações' },
 ];
@@ -138,7 +177,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
     setLoading(true);
     api.get<HistoryData>(`/patients/${patient.id}/history`)
       .then(setData)
-      .catch(() => setData({ timeline: [], counts: { appointments: 0, transactions: 0, records: 0, documents: 0, notes: 0 } }))
+      .catch(() => setData({ timeline: [], counts: { appointments: 0, transactions: 0, comandas: 0, records: 0, events: 0, documents: 0, notes: 0 } }))
       .finally(() => setLoading(false));
   }, [patient?.id]);
 
@@ -182,16 +221,15 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
 
         {/* Stats row */}
         {data && (
-          <div className="grid grid-cols-5 border-b border-slate-100 shrink-0">
+          <div className="grid grid-cols-4 border-b border-slate-100 shrink-0">
             {[
               { label: 'Consultas', value: data.counts.appointments, color: 'text-indigo-600' },
-              { label: 'Pagamentos', value: data.counts.transactions, color: 'text-emerald-600' },
-              { label: 'Prontuários', value: data.counts.records, color: 'text-blue-600' },
-              { label: 'Documentos', value: data.counts.documents, color: 'text-amber-600' },
-              { label: 'Notas', value: data.counts.notes, color: 'text-violet-600' },
+              { label: 'Finanças', value: data.counts.transactions, color: 'text-emerald-600' },
+              { label: 'Comandas', value: data.counts.comandas, color: 'text-orange-600' },
+              { label: 'Registros', value: data.counts.records + data.counts.events, color: 'text-blue-600' },
             ].map(s => (
               <div key={s.label} className="py-3 text-center border-r border-slate-100 last:border-r-0">
-                <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+                <div className={`text-base font-bold ${s.color}`}>{s.value}</div>
                 <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">{s.label}</div>
               </div>
             ))}

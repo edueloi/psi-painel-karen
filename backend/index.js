@@ -28,6 +28,7 @@ const masterPermissionsRoutes = require('./routes/master-permissions');
 const notesRoutes = require('./routes/notes');
 const documentsRoutes = require('./routes/documents');
 const aiRoutes = require('./routes/ai');
+const profileRoutes = require('./routes/profile');
 
 const path = require('path');
 const app = express();
@@ -70,6 +71,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/notes`, notesRoutes);
   app.use(`${prefix}/documents`, documentsRoutes);
   app.use(`${prefix}/ai`, aiRoutes);
+  app.use(`${prefix}/profile`, profileRoutes);
 }
 
 // ---- Middlewares globais ----

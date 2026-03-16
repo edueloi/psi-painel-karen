@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { UserRole } from '../types';
-import { api } from '../services/api';
+import { api, API_BASE_URL } from '../services/api';
 import {
   Mail,
   Phone,
@@ -128,8 +128,27 @@ export const Profile: React.FC = () => {
 
   const onAvatarPick = async (file?: File | null) => {
     if (!file) return;
-    const url = await pickImage(file);
-    setUser(prev => ({ ...prev, avatarUrl: url }));
+    try {
+      const token = localStorage.getItem('psi_token');
+      const fd = new FormData();
+      fd.append('avatar', file);
+      const res = await fetch(`${API_BASE_URL}/profile/avatar`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: fd,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(prev => ({ ...prev, avatarUrl: data.avatar_url || prev.avatarUrl }));
+      } else {
+        // fallback: show preview locally
+        const url = await pickImage(file);
+        setUser(prev => ({ ...prev, avatarUrl: url }));
+      }
+    } catch {
+      const url = await pickImage(file);
+      setUser(prev => ({ ...prev, avatarUrl: url }));
+    }
   };
 
   const onLogoPick = async (file?: File | null) => {

@@ -173,4 +173,45 @@ router.delete('/:id', authorize('admin', 'super_admin'), async (req, res) => {
   }
 });
 
+// POST /users/:id/avatar — Upload avatar do usuário
+router.post('/:id/avatar', async (req, res) => {
+  try {
+    const isSelf = req.user.id == req.params.id;
+    const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+    if (!isSelf && !isAdmin) return res.status(403).json({ error: 'Sem permissão' });
+
+    const multerAvatar = require('multer')({
+      storage: require('multer').diskStorage({
+        destination: (req2, file, cb) => {
+          const dir = require('path').join(__dirname, '../public/uploads/avatars');
+          require('fs').mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req2, file, cb) => {
+          cb(null, `avatar-${req.params.id}-${Date.now()}${require('path').extname(file.originalname)}`);
+        }
+      }),
+      limits: { fileSize: 3 * 1024 * 1024 },
+      fileFilter: (req2, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Apenas imagens são permitidas'));
+      }
+    }).single('avatar');
+
+    multerAvatar(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+      const avatar_url = `/uploads-static/avatars/${req.file.filename}`;
+      await db.query('UPDATE users SET avatar_url = ? WHERE id = ? AND tenant_id = ?',
+        [avatar_url, req.params.id, req.user.tenant_id]);
+
+      res.json({ avatar_url });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao fazer upload do avatar' });
+  }
+});
+
 module.exports = router;

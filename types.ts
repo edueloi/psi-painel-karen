@@ -124,6 +124,7 @@ export interface Patient {
   psychologist_id?: string;
   responsible_professional_id?: string;
   photoUrl?: string;
+  photo_url?: string;
   active?: boolean;
   created_at?: string;
   updated_at?: string;
