@@ -64,7 +64,7 @@ export const Patients: React.FC = () => {
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
       const term = searchTerm.toLowerCase();
-      const matchesSearch = p.full_name.toLowerCase().includes(term) ||
+      const matchesSearch = (p.full_name || '').toLowerCase().includes(term) ||
         (p.cpf_cnpj && p.cpf_cnpj.includes(searchTerm)) ||
         (p.whatsapp && p.whatsapp.includes(searchTerm)) ||
         (p.email && p.email.toLowerCase().includes(term));
@@ -290,11 +290,11 @@ export const Patients: React.FC = () => {
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
                     isActive(patient) ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400'
                   }`}>
-                    {patient.full_name.charAt(0).toUpperCase()}
+                    {(patient.full_name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-slate-800 truncate">{patient.full_name}</h3>
+                      <h3 className="text-sm font-semibold text-slate-800 truncate">{patient.full_name || 'Sem nome'}</h3>
                       <span className={`shrink-0 inline-block w-2 h-2 rounded-full ${isActive(patient) ? 'bg-emerald-400' : 'bg-slate-300'}`} />
                     </div>
                     <div className="mt-1.5 space-y-1">
@@ -418,7 +418,7 @@ export const Patients: React.FC = () => {
             <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold shrink-0 border border-indigo-100">
-                  {selectedPatient.full_name.charAt(0)}
+                  {(selectedPatient.full_name || '?').charAt(0)}
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-bold text-slate-800 truncate">{selectedPatient.full_name}</div>

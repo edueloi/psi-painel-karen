@@ -2,26 +2,294 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+/* ─── helpers ─────────────────────────────────────────────── */
+const getJson = async (tenantId, scopeKey, toolType) => {
+  const [rows] = await db.query(
+    'SELECT id, data FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
+    [scopeKey, toolType, tenantId]
+  );
+  if (rows.length === 0) return { rowId: null, data: null };
+  let data = rows[0].data;
+  try { data = JSON.parse(data); } catch {}
+  return { rowId: rows[0].id, data };
+};
+
+const saveJson = async (tenantId, patientId, userId, scopeKey, toolType, data) => {
+  const str = typeof data === 'string' ? data : JSON.stringify(data);
+  const [rows] = await db.query(
+    'SELECT id FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
+    [scopeKey, toolType, tenantId]
+  );
+  if (rows.length > 0) {
+    await db.query('UPDATE clinical_tools SET data = ?, updated_at = NOW() WHERE id = ?', [str, rows[0].id]);
+  } else {
+    await db.query(
+      'INSERT INTO clinical_tools (tenant_id, patient_id, professional_id, scope_key, tool_type, data) VALUES (?, ?, ?, ?, ?, ?)',
+      [tenantId, patientId || 0, userId, scopeKey, toolType, str]
+    );
+  }
+};
+
+const getArray = async (tenantId, scopeKey, toolType) => {
+  const { data } = await getJson(tenantId, scopeKey, toolType);
+  return Array.isArray(data) ? data : [];
+};
+
+/* ═══════════════════════════════════════════════════════════
+   TCC – Registro de Pensamentos Disfuncionais (RPD) + Cartões
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /clinical-tools/:scopeKey/tcc → { records, cards }
+router.get('/:scopeKey/tcc', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const tid = req.user.tenant_id;
+    const [records, cards] = await Promise.all([
+      getArray(tid, scopeKey, 'tcc/rpd'),
+      getArray(tid, scopeKey, 'tcc/cards'),
+    ]);
+    res.json({ records, cards });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar TCC' }); }
+});
+
+// POST /clinical-tools/:scopeKey/tcc/rpd → add record
+router.post('/:scopeKey/tcc/rpd', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { situation, thought, emotion, intensity } = req.body;
+    const records = await getArray(req.user.tenant_id, scopeKey, 'tcc/rpd');
+    const entry = { id: Date.now(), situation, thought, emotion: emotion || '', intensity: intensity ?? 5, created_at: new Date().toISOString() };
+    records.push(entry);
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'tcc/rpd', records);
+    res.status(201).json(entry);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar RPD' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/tcc/rpd/:id → update record
+router.put('/:scopeKey/tcc/rpd/:itemId', async (req, res) => {
+  try {
+    const { scopeKey, itemId } = req.params;
+    const { situation, thought, emotion, intensity } = req.body;
+    const records = await getArray(req.user.tenant_id, scopeKey, 'tcc/rpd');
+    const idx = records.findIndex(r => String(r.id) === String(itemId));
+    if (idx === -1) return res.status(404).json({ error: 'Registro não encontrado' });
+    records[idx] = { ...records[idx], situation, thought, emotion: emotion || '', intensity: intensity ?? records[idx].intensity };
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'tcc/rpd', records);
+    res.json(records[idx]);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao atualizar RPD' }); }
+});
+
+// PATCH /clinical-tools/:scopeKey/tcc/rpd/:id → partial update
+router.patch('/:scopeKey/tcc/rpd/:itemId', async (req, res) => {
+  try {
+    const { scopeKey, itemId } = req.params;
+    const records = await getArray(req.user.tenant_id, scopeKey, 'tcc/rpd');
+    const idx = records.findIndex(r => String(r.id) === String(itemId));
+    if (idx === -1) return res.status(404).json({ error: 'Registro não encontrado' });
+    records[idx] = { ...records[idx], ...req.body };
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'tcc/rpd', records);
+    res.json(records[idx]);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao atualizar RPD' }); }
+});
+
+// DELETE /clinical-tools/:scopeKey/tcc/rpd/:id
+router.delete('/:scopeKey/tcc/rpd/:itemId', async (req, res) => {
+  try {
+    const { scopeKey, itemId } = req.params;
+    let records = await getArray(req.user.tenant_id, scopeKey, 'tcc/rpd');
+    records = records.filter(r => String(r.id) !== String(itemId));
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'tcc/rpd', records);
+    res.status(204).send();
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao excluir RPD' }); }
+});
+
+// POST /clinical-tools/:scopeKey/tcc/cards → add card
+router.post('/:scopeKey/tcc/cards', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { front, back } = req.body;
+    const cards = await getArray(req.user.tenant_id, scopeKey, 'tcc/cards');
+    const entry = { id: Date.now(), front, back, created_at: new Date().toISOString() };
+    cards.push(entry);
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'tcc/cards', cards);
+    res.status(201).json(entry);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar cartão' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/tcc/cards/:id
+router.put('/:scopeKey/tcc/cards/:itemId', async (req, res) => {
+  try {
+    const { scopeKey, itemId } = req.params;
+    const { front, back } = req.body;
+    const cards = await getArray(req.user.tenant_id, scopeKey, 'tcc/cards');
+    const idx = cards.findIndex(c => String(c.id) === String(itemId));
+    if (idx === -1) return res.status(404).json({ error: 'Cartão não encontrado' });
+    cards[idx] = { ...cards[idx], front, back };
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'tcc/cards', cards);
+    res.json(cards[idx]);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao atualizar cartão' }); }
+});
+
+// DELETE /clinical-tools/:scopeKey/tcc/cards/:id
+router.delete('/:scopeKey/tcc/cards/:itemId', async (req, res) => {
+  try {
+    const { scopeKey, itemId } = req.params;
+    let cards = await getArray(req.user.tenant_id, scopeKey, 'tcc/cards');
+    cards = cards.filter(c => String(c.id) !== String(itemId));
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'tcc/cards', cards);
+    res.status(204).send();
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao excluir cartão' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   TERAPIA DO ESQUEMA
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /clinical-tools/:scopeKey/schema/latest
+router.get('/:scopeKey/schema/latest', async (req, res) => {
+  try {
+    const { data } = await getJson(req.user.tenant_id, req.params.scopeKey, 'schema/latest');
+    res.json(data || null);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar esquema' }); }
+});
+
+// POST /clinical-tools/:scopeKey/schema/snapshot → save schema state
+router.post('/:scopeKey/schema/snapshot', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { active_schemas, modes } = req.body;
+    const payload = { active_schemas: active_schemas || [], modes: modes || [], updated_at: new Date().toISOString() };
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'schema/latest', payload);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar esquema' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   PSICOTERAPIA (sonhos, texto livre, significantes)
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /clinical-tools/:scopeKey/psycho → { dreams, freeText, signifiers }
+router.get('/:scopeKey/psycho', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const tid = req.user.tenant_id;
+    const [dreams, freeRaw, signifiers] = await Promise.all([
+      getArray(tid, scopeKey, 'psycho/dreams'),
+      getJson(tid, scopeKey, 'psycho/free'),
+      getArray(tid, scopeKey, 'psycho/signifiers'),
+    ]);
+    const freeText = typeof freeRaw.data === 'string' ? freeRaw.data :
+      (freeRaw.data?.content ?? '');
+    res.json({ dreams, freeText, signifiers });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar psico' }); }
+});
+
+// POST /clinical-tools/:scopeKey/psycho/dreams → add dream
+router.post('/:scopeKey/psycho/dreams', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const dreams = await getArray(req.user.tenant_id, scopeKey, 'psycho/dreams');
+    const entry = { id: Date.now(), ...req.body, created_at: new Date().toISOString() };
+    dreams.push(entry);
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'psycho/dreams', dreams);
+    res.status(201).json(entry);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar sonho' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/psycho/dreams/:id
+router.put('/:scopeKey/psycho/dreams/:itemId', async (req, res) => {
+  try {
+    const { scopeKey, itemId } = req.params;
+    const dreams = await getArray(req.user.tenant_id, scopeKey, 'psycho/dreams');
+    const idx = dreams.findIndex(d => String(d.id) === String(itemId));
+    if (idx === -1) return res.status(404).json({ error: 'Sonho não encontrado' });
+    dreams[idx] = { ...dreams[idx], ...req.body };
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'psycho/dreams', dreams);
+    res.json(dreams[idx]);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao atualizar sonho' }); }
+});
+
+// DELETE /clinical-tools/:scopeKey/psycho/dreams/:id
+router.delete('/:scopeKey/psycho/dreams/:itemId', async (req, res) => {
+  try {
+    const { scopeKey, itemId } = req.params;
+    let dreams = await getArray(req.user.tenant_id, scopeKey, 'psycho/dreams');
+    dreams = dreams.filter(d => String(d.id) !== String(itemId));
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'psycho/dreams', dreams);
+    res.status(204).send();
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao excluir sonho' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/psycho/free → save free text
+router.put('/:scopeKey/psycho/free', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { content } = req.body;
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'psycho/free', content ?? '');
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar texto livre' }); }
+});
+
+// PATCH /clinical-tools/:scopeKey/psycho/free
+router.patch('/:scopeKey/psycho/free', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { content } = req.body;
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'psycho/free', content ?? '');
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar texto livre' }); }
+});
+
+// POST /clinical-tools/:scopeKey/psycho/signifiers → add signifier
+router.post('/:scopeKey/psycho/signifiers', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { term } = req.body;
+    const list = await getArray(req.user.tenant_id, scopeKey, 'psycho/signifiers');
+    const entry = { id: Date.now(), term, created_at: new Date().toISOString() };
+    list.push(entry);
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'psycho/signifiers', list);
+    res.status(201).json(entry);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar significante' }); }
+});
+
+// DELETE /clinical-tools/:scopeKey/psycho/signifiers/:id
+router.delete('/:scopeKey/psycho/signifiers/:itemId', async (req, res) => {
+  try {
+    const { scopeKey, itemId } = req.params;
+    let list = await getArray(req.user.tenant_id, scopeKey, 'psycho/signifiers');
+    list = list.filter(s => String(s.id) !== String(itemId));
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, 'psycho/signifiers', list);
+    res.status(204).send();
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao excluir significante' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   GET /clinical-tools/summary?patient_id=X (para Patients.tsx)
+   ═══════════════════════════════════════════════════════════ */
+router.get('/summary', async (req, res) => {
+  try {
+    const { patient_id } = req.query;
+    const [[{ count }]] = await db.query(
+      'SELECT COUNT(*) as count FROM clinical_tools WHERE tenant_id = ? AND (patient_id = ? OR scope_key = ?)',
+      [req.user.tenant_id, patient_id || 0, String(patient_id || '')]
+    );
+    res.json({ count: Number(count) });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar resumo' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   Rotas genéricas (mantidas para compatibilidade)
+   ═══════════════════════════════════════════════════════════ */
+
 // GET /clinical-tools/:scopeKey/:toolCategory/:toolType
 router.get('/:scopeKey/:toolCategory/:toolType', async (req, res) => {
   try {
     const { scopeKey, toolCategory, toolType } = req.params;
     const fullType = `${toolCategory}/${toolType}`;
-
-    const [rows] = await db.query(
-      'SELECT * FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
-      [scopeKey, fullType, req.user.tenant_id]
-    );
-
-    if (rows.length === 0) return res.json(null);
-
-    const tool = rows[0];
-    try { tool.data = JSON.parse(tool.data); } catch {}
-    res.json(tool);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar ferramenta clínica' });
-  }
+    const { data } = await getJson(req.user.tenant_id, scopeKey, fullType);
+    res.json(data !== null ? { data } : null);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar ferramenta clínica' }); }
 });
 
 // PUT /clinical-tools/:scopeKey/:toolCategory/:toolType
@@ -29,32 +297,9 @@ router.put('/:scopeKey/:toolCategory/:toolType', async (req, res) => {
   try {
     const { scopeKey, toolCategory, toolType } = req.params;
     const fullType = `${toolCategory}/${toolType}`;
-    const { patient_id, data } = req.body;
-
-    const dataStr = typeof data === 'string' ? data : JSON.stringify(data);
-
-    const [existing] = await db.query(
-      'SELECT id FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
-      [scopeKey, fullType, req.user.tenant_id]
-    );
-
-    if (existing.length > 0) {
-      await db.query(
-        'UPDATE clinical_tools SET data = ?, updated_at = NOW() WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
-        [dataStr, scopeKey, fullType, req.user.tenant_id]
-      );
-    } else {
-      await db.query(
-        'INSERT INTO clinical_tools (tenant_id, patient_id, professional_id, scope_key, tool_type, data) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.user.tenant_id, patient_id || 0, req.user.id, scopeKey, fullType, dataStr]
-      );
-    }
-
+    await saveJson(req.user.tenant_id, req.body.patient_id, req.user.id, scopeKey, fullType, req.body.data ?? req.body);
     res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao salvar ferramenta clínica' });
-  }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar ferramenta clínica' }); }
 });
 
 // PATCH /clinical-tools/:scopeKey/:toolCategory/:toolType
@@ -62,67 +307,11 @@ router.patch('/:scopeKey/:toolCategory/:toolType', async (req, res) => {
   try {
     const { scopeKey, toolCategory, toolType } = req.params;
     const fullType = `${toolCategory}/${toolType}`;
-    const { data } = req.body;
-
-    const [existing] = await db.query(
-      'SELECT id, data FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
-      [scopeKey, fullType, req.user.tenant_id]
-    );
-
-    if (existing.length === 0) {
-      return res.status(404).json({ error: 'Ferramenta não encontrada' });
-    }
-
-    let existingData = {};
-    try { existingData = JSON.parse(existing[0].data); } catch {}
-
-    const merged = { ...existingData, ...data };
-    await db.query(
-      'UPDATE clinical_tools SET data = ?, updated_at = NOW() WHERE id = ?',
-      [JSON.stringify(merged), existing[0].id]
-    );
-
+    const { data: existing } = await getJson(req.user.tenant_id, scopeKey, fullType);
+    const merged = { ...(typeof existing === 'object' && existing !== null ? existing : {}), ...req.body };
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, fullType, merged);
     res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao atualizar ferramenta clínica' });
-  }
-});
-
-// POST /clinical-tools/:scopeKey/psycho/dreams - Adicionar entrada no diário
-router.post('/:scopeKey/psycho/dreams', async (req, res) => {
-  try {
-    const { scopeKey } = req.params;
-    const fullType = 'psycho/dreams';
-
-    const [existing] = await db.query(
-      'SELECT id, data FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
-      [scopeKey, fullType, req.user.tenant_id]
-    );
-
-    const newEntry = { id: Date.now(), ...req.body, created_at: new Date().toISOString() };
-    let entries = [];
-
-    if (existing.length > 0) {
-      try { entries = JSON.parse(existing[0].data); } catch {}
-      entries.push(newEntry);
-      await db.query(
-        'UPDATE clinical_tools SET data = ? WHERE id = ?',
-        [JSON.stringify(entries), existing[0].id]
-      );
-    } else {
-      entries = [newEntry];
-      await db.query(
-        'INSERT INTO clinical_tools (tenant_id, patient_id, professional_id, scope_key, tool_type, data) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.user.tenant_id, 0, req.user.id, scopeKey, fullType, JSON.stringify(entries)]
-      );
-    }
-
-    res.status(201).json(newEntry);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao adicionar entrada' });
-  }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao atualizar ferramenta clínica' }); }
 });
 
 module.exports = router;

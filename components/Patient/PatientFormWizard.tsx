@@ -1,7 +1,26 @@
 import React, { useState } from 'react';
 import { Patient, MaritalStatus, EducationLevel } from '../../types';
-import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, X } from 'lucide-react';
+import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, X, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+
+/* ─── Máscaras ─────────────────────────────────────────── */
+const maskPhone = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 10) return d.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+  return d.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+};
+
+const maskCpfCnpj = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 14);
+  if (d.length <= 11)
+    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4').replace(/[.-]$/, '').replace(/\.$/, '');
+  return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5').replace(/[-/.]$/, '');
+};
+
+const maskCep = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 8);
+  return d.replace(/(\d{5})(\d{0,3})/, '$1-$2').replace(/-$/, '');
+};
 
 interface PatientFormWizardProps {
   initialData?: Partial<Patient>;
@@ -12,6 +31,7 @@ interface PatientFormWizardProps {
 export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialData = {} as Partial<Patient>, onSave, onCancel }) => {
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
+  const [cepLoading, setCepLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Patient>>({
     status: 'ativo',
     convenio: false,
@@ -19,6 +39,27 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     needs_reimbursement: false,
     ...initialData
   });
+
+  const fetchCep = async (cep: string) => {
+    const digits = cep.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          street: data.logradouro || prev.street,
+          neighborhood: data.bairro || prev.neighborhood,
+          city: data.localidade || prev.city,
+          state: data.uf || prev.state,
+        }));
+      }
+    } catch { /* silencia erro de rede */ } finally {
+      setCepLoading(false);
+    }
+  };
 
   const STEPS = [
     { id: 'basic', title: t('wizard.step1'), icon: <User size={18} /> },
@@ -88,20 +129,22 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.phone')}</label>
-              <input 
-                type="tel" 
+              <input
+                type="tel"
+                placeholder="(00) 00000-0000"
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none"
-                value={formData.whatsapp || ''} 
-                onChange={e => updateField('whatsapp', e.target.value)}
+                value={formData.whatsapp || ''}
+                onChange={e => updateField('whatsapp', maskPhone(e.target.value))}
               />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.taxId')}</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
+                placeholder="000.000.000-00"
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none"
-                value={formData.cpf_cnpj || ''} 
-                onChange={e => updateField('cpf_cnpj', e.target.value)}
+                value={formData.cpf_cnpj || ''}
+                onChange={e => updateField('cpf_cnpj', maskCpfCnpj(e.target.value))}
               />
             </div>
             <div className="space-y-2">
@@ -118,22 +161,31 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       
       case 1: // Endereço
         return (
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 animate-fadeIn">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 animate-fadeIn">
             <div className="md:col-span-2 space-y-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.zip')}</label>
-              <input 
-                type="text" 
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-                value={formData.address_zip || ''} 
-                onChange={e => updateField('address_zip', e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="00000-000"
+                  maxLength={9}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 pr-8"
+                  value={formData.address_zip || ''}
+                  onChange={e => {
+                    const masked = maskCep(e.target.value);
+                    updateField('address_zip', masked);
+                    fetchCep(masked);
+                  }}
+                />
+                {cepLoading && <Loader2 size={14} className="animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400" />}
+              </div>
             </div>
             <div className="md:col-span-4 space-y-2">
-               <label className="text-xs font-semibold text-slate-600">{t('wizard.street')}</label>
-              <input 
-                type="text" 
+              <label className="text-xs font-semibold text-slate-600">{t('wizard.street')}</label>
+              <input
+                type="text"
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-                value={formData.street || ''} 
+                value={formData.street || ''}
                 onChange={e => updateField('street', e.target.value)}
               />
             </div>

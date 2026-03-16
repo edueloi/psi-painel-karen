@@ -107,13 +107,15 @@ router.get('/stats', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT t.*, p.name as plan_name, p.price as plan_price, p.max_users, p.max_patients,
-             u.name as admin_name, u.email as admin_email
+      SELECT t.id, t.name, t.slug, t.cnpj_cpf, t.phone, t.plan_id, t.active, t.created_at,
+             p.name as plan_name, p.price as plan_price, p.max_users, p.max_patients,
+             MAX(u.name) as admin_name, MAX(u.email) as admin_email
       FROM tenants t
       LEFT JOIN plans p ON p.id = t.plan_id
       LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'admin'
       WHERE t.id = ?
-      GROUP BY t.id
+      GROUP BY t.id, t.name, t.slug, t.cnpj_cpf, t.phone, t.plan_id, t.active, t.created_at,
+               p.name, p.price, p.max_users, p.max_patients
     `, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Tenant não encontrado' });
     res.json(rows[0]);
@@ -160,12 +162,12 @@ router.post('/', async (req, res) => {
     const [tenant] = await db.query(`
       SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active,
              p.name as plan_name, p.price as plan_price,
-             u.name as admin_name, u.email as admin_email
+             MAX(u.name) as admin_name, MAX(u.email) as admin_email
       FROM tenants t
       LEFT JOIN plans p ON p.id = t.plan_id
       LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'admin'
       WHERE t.id = ?
-      GROUP BY t.id
+      GROUP BY t.id, t.name, t.slug, t.cnpj_cpf, t.phone, t.active, p.name, p.price
     `, [tenantId]);
 
     res.status(201).json(tenant[0]);
