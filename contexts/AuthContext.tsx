@@ -9,6 +9,7 @@ interface AuthUser {
   name?: string;
   email?: string;
   avatarUrl?: string;
+  clinicLogoUrl?: string;
 }
 
 interface AuthContextType {
@@ -52,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: string;
         email: string;
         avatar_url?: string;
+        clinic_logo_url?: string;
         avatarUrl?: string;
       }
       const data = await api.get<FetchProfileResponse>('/profile/me');
@@ -59,7 +61,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...decoded, 
         name: data.name, 
         email: data.email,
-        avatarUrl: data.avatar_url || data.avatarUrl || decoded.avatarUrl
+        avatarUrl: data.avatar_url || data.avatarUrl || decoded.avatarUrl,
+        clinicLogoUrl: data.clinic_logo_url || (decoded as any).clinic_logo_url
       });
     } catch (e) {
       setUser(decoded); // fallback só com id/role

@@ -479,4 +479,70 @@ router.post('/public/:id/leave', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /virtual-rooms/public/:id/preview - Para previews em redes sociais (WhatsApp, etc.)
+router.get('/public/:id/preview', async (req, res) => {
+  try {
+    const rid = req.params.id;
+    const numId = parseInt(rid) || 0;
+
+    // Busca sala e info do host (com logo)
+    const [rooms] = await db.query(
+      `SELECT r.title, r.code, r.hash, u.name as host_name, u.clinic_logo_url, u.company_name
+       FROM virtual_rooms r
+       JOIN users u ON u.id = r.host_id
+       WHERE r.hash = ? OR r.code = ? OR r.id = ?`,
+      [rid, rid, numId]
+    );
+
+    if (rooms.length === 0) {
+      return res.send(`<html><head><script>window.location.href='/sala/${rid}';</script></head><body>Redirecionando...</body></html>`);
+    }
+
+    const room = rooms[0];
+    const logo = room.clinic_logo_url || 'https://psiflux.com.br/images/logo-psiflux.png';
+    const company = room.company_name || room.host_name || 'PsiFlux';
+    const title = room.title || 'Sessão de Atendimento';
+    const roomUrl = `https://psiflux.com.br/sala/${room.code || room.hash || rid}`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>${title} - ${company}</title>
+  <meta name="description" content="Prepare-se para sua consulta virtual com ${room.host_name}.">
+  
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${title} | ${company}">
+  <meta property="og:description" content="Acesse sua sala virtual de forma segura.">
+  <meta property="og:image" content="${logo.startsWith('http') ? logo : 'https://psiflux.com.br' + logo}">
+  <meta property="og:url" content="${roomUrl}">
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title} | ${company}">
+  <meta name="twitter:image" content="${logo.startsWith('http') ? logo : 'https://psiflux.com.br' + logo}">
+
+  <script>
+    window.location.href = "/sala/${room.code || room.hash || rid}";
+  </script>
+  <meta http-equiv="refresh" content="0;url=/sala/${room.code || room.hash || rid}">
+</head>
+<body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #f8fafc; color: #64748b;">
+  <div style="text-align: center;">
+    <img src="${logo.startsWith('http') ? logo : 'https://psiflux.com.br' + logo}" style="max-width: 120px; margin-bottom: 20px; border-radius: 20px;" />
+    <h2>Redirecionando para a sala...</h2>
+    <p>Se não for redirecionado automaticamente, <a href="/sala/${room.code || room.hash || rid}">clique aqui</a>.</p>
+  </div>
+</body>
+</html>`;
+
+    res.send(html);
+  } catch (err) {
+    console.error(err);
+    res.redirect(`/sala/${req.params.id}`);
+  }
+});
+
 module.exports = router;

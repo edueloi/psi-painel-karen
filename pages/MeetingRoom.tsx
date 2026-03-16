@@ -40,6 +40,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useAuth } from "../contexts/AuthContext";
 import { ClinicalForm, FormQuestion } from "../types";
 import { api, API_BASE_URL } from "../services/api";
 
@@ -119,6 +120,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const hasAuthToken = Boolean(localStorage.getItem("psi_token"));
   const isGuest =
     isGuestProp || searchParams.get("guest") === "true" || !hasAuthToken;
@@ -3633,12 +3635,23 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 </div>
 
                 <div className="flex flex-col items-center mb-8">
-                  <div className="bg-white p-5 rounded-3xl shadow-2xl shadow-indigo-500/10 mb-4 scale-105">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(meetingUrl)}&format=png&margin=1&color=111827`}
-                      alt="QR Code Meeting"
-                      className="w-40 h-40 block"
-                    />
+                  <div className="relative mb-6">
+                    <div className="bg-white p-5 rounded-3xl shadow-2xl shadow-indigo-500/10 scale-105">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(meetingUrl)}&format=png&margin=1&color=111827`}
+                        alt="QR Code Meeting"
+                        className="w-40 h-40 block"
+                      />
+                    </div>
+                    {user?.clinicLogoUrl ? (
+                      <div className="absolute -bottom-3 -right-3 w-14 h-14 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
+                        <img src={user.clinicLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="absolute -bottom-3 -right-3 w-14 h-14 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
+                        <img src="/images/logo-psiflux.png" alt="PsiFlux" className="w-10 h-10 object-contain" />
+                      </div>
+                    )}
                   </div>
                   <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest text-center">
                     Acesso Direto via QR Code
@@ -3667,7 +3680,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
                   <button
                     onClick={() => {
-                      const msg = `*Prepare-se, sua sessão já vai começar!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${meetingUrl}`;
+                      const shareUrl = `${window.location.origin}/api/virtual-rooms/public/${id}/preview`;
+                      const company = user?.company_name || user?.name || 'seu profissional';
+                      const msg = `*Prepare-se, sua sessão já vai começar com ${company}!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${shareUrl}`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                     }}
                     className="w-full h-14 rounded-2xl font-black text-xs uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2 active:scale-95"

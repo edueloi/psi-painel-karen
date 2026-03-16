@@ -8,10 +8,12 @@ import {
 import { api } from '../services/api';
 import { VirtualRoom, Patient, User } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export const VirtualRooms: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   // State
   const [rooms, setRooms] = useState<VirtualRoom[]>([]);
@@ -516,8 +518,9 @@ export const VirtualRooms: React.FC = () => {
                                         </button>
                                         <button 
                                             onClick={() => {
-                                              const url = `${window.location.origin}/sala/${room.code}`;
-                                              const msg = `*Prepare-se, sua sessão já vai começar!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${url}`;
+                                              const shareUrl = `${window.location.origin}/api/virtual-rooms/public/${room.code}/preview`;
+                                              const company = user?.company_name || user?.name || 'seu profissional';
+                                              const msg = `*Prepare-se, sua sessão já vai começar com ${company}!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${shareUrl}`;
                                               window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                                             }}
                                             className="p-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-md transition-all"
@@ -608,8 +611,9 @@ export const VirtualRooms: React.FC = () => {
                                       </button>
                                       <button 
                                         onClick={() => {
-                                          const url = `${window.location.origin}/sala/${room.code}`;
-                                          const msg = `*Prepare-se, sua sessão já vai começar!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${url}`;
+                                          const shareUrl = `${window.location.origin}/api/virtual-rooms/public/${room.code}/preview`;
+                                          const company = user?.company_name || user?.name || 'seu profissional';
+                                          const msg = `*Prepare-se, sua sessão já vai começar com ${company}!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${shareUrl}`;
                                           window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                                         }}
                                         className="p-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-md transition-all"
