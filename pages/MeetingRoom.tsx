@@ -166,6 +166,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [linkDeviceTab, setLinkDeviceTab] = useState<"qr" | "link">("qr");
   const [companionConnected, setCompanionConnected] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [lobbyTab, setLobbyTab] = useState<"info" | "companion">("info");
   const [copied, setCopied] = useState(false);
@@ -3112,6 +3113,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 >
                   <Subtitles size={22} />
                 </button>
+                <button
+                  onClick={() => setShowInviteModal(true)}
+                  className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all bg-[#252830] hover:bg-[#2d313a] text-slate-300"
+                  title="Convidar"
+                >
+                  <UserPlus size={18} className="sm:hidden" />
+                  <UserPlus size={22} className="hidden sm:block" />
+                </button>
                 <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
               </>
             )}
@@ -3501,6 +3510,73 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 >
                   Encerrar
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showInviteModal && (
+          <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+            <div className="bg-[#181a1f] border border-white/10 rounded-[2.5rem] max-w-sm w-full shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden relative">
+              <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-indigo-600/20 to-transparent pointer-events-none" />
+              <div className="p-8 relative z-10">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <UserPlus size={22} className="text-indigo-400" />
+                    Convidar
+                  </h3>
+                  <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="flex flex-col items-center mb-8">
+                  <div className="bg-white p-5 rounded-3xl shadow-2xl shadow-indigo-500/10 mb-4 scale-105">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(meetingUrl)}&format=png&margin=1&color=111827`}
+                      alt="QR Code Meeting"
+                      className="w-40 h-40 block"
+                    />
+                  </div>
+                  <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest text-center">
+                    Acesso Direto via QR Code
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Link de Acesso</label>
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl p-4 group hover:bg-white/10 transition-colors">
+                      <span className="flex-1 text-xs text-slate-300 font-mono truncate select-all">
+                        {meetingUrl}
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(meetingUrl);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className={`p-2 rounded-xl transition-all shrink-0 ${copied ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-white/5 text-slate-400 hover:text-white"}`}
+                      >
+                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const msg = `Olá! Entre na nossa consulta virtual por este link: ${meetingUrl}`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                    }}
+                    className="w-full h-14 rounded-2xl font-black text-xs uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2 active:scale-95"
+                  >
+                    <Send size={18} /> Compartilhar via WhatsApp
+                  </button>
+
+                  <p className="text-center text-[10px] text-slate-500 leading-relaxed font-bold px-4">
+                    Este link é exclusivo para esta sala. O paciente não precisa de login para entrar.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
