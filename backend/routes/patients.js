@@ -362,6 +362,12 @@ router.put('/:id', async (req, res) => {
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Paciente não encontrado' });
 
+    // Sanitizar data de nascimento para formato MySQL (YYYY-MM-DD)
+    let sanitizedBirthDate = birth_date;
+    if (birth_date && birth_date.includes('T')) {
+      sanitizedBirthDate = birth_date.split('T')[0];
+    }
+
     await db.query(
       `UPDATE patients SET
         name = COALESCE(?, name),
@@ -396,7 +402,7 @@ router.put('/:id', async (req, res) => {
         diagnosis = COALESCE(?, diagnosis)
       WHERE id = ? AND tenant_id = ?`,
       [
-        name ?? null, email ?? null, phone ?? null, phone2 ?? null, birth_date ?? null, cpf ?? null, rg ?? null, gender ?? null,
+        name ?? null, email ?? null, phone ?? null, phone2 ?? null, sanitizedBirthDate ?? null, cpf ?? null, rg ?? null, gender ?? null,
         marital_status ?? null, education ?? null, profession ?? null, nationality ?? null, naturality ?? null,
         has_children !== undefined ? (has_children ? 1 : 0) : null,
         children_count ?? null, minor_children_count ?? null,

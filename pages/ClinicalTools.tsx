@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../services/api';
+import { api, getStaticUrl } from '../services/api';
 import { Patient, RPDRecord } from '../types';
 import {
   Boxes,
@@ -1559,7 +1559,11 @@ export const ClinicalTools: React.FC = () => {
                       'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0',
                       selected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500',
                     ].join(' ')}>
-                      {(p.full_name || '?').charAt(0).toUpperCase()}
+                      {p.photo_url || p.photoUrl ? (
+                         <img src={getStaticUrl(p.photo_url || p.photoUrl)} alt={p.full_name} className="w-full h-full object-cover" />
+                      ) : (
+                         (p.full_name || '?').charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={['text-xs font-semibold truncate', selected ? 'text-indigo-800' : 'text-slate-700'].join(' ')}>
@@ -1615,7 +1619,11 @@ export const ClinicalTools: React.FC = () => {
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
-                    {(selectedPatient.full_name || '?').charAt(0).toUpperCase()}
+                    {selectedPatient.photo_url || selectedPatient.photoUrl ? (
+                      <img src={getStaticUrl(selectedPatient.photo_url || selectedPatient.photoUrl)} alt={selectedPatient.full_name} className="w-full h-full object-cover" />
+                    ) : (
+                      (selectedPatient.full_name || '?').charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-slate-800 truncate">{selectedPatient.full_name || 'Sem nome'}</p>

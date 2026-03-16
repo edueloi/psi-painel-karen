@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '../services/api';
-import { Comanda, Patient, Service, ComandaItem } from '../types';
+import { Comanda, Patient, Service } from '../types';
 import { 
-  ShoppingBag, Search, Plus, Filter, Edit3, Trash2, 
+  ShoppingBag, Search, Plus, Edit3, Trash2, 
   DollarSign, CheckCircle, X, LayoutGrid, List as ListIcon, 
-  CreditCard, Calendar, User, MoreHorizontal, ArrowRight
+  CreditCard, Calendar, User, MoreHorizontal, 
+  ArrowUpRight, Clock, CheckCircle2, AlertCircle, FileText
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -55,12 +56,22 @@ export const Comandas: React.FC = () => {
   // Lógica de Filtragem
   const filteredComandas = useMemo(() => {
       return comandas.filter(c => {
-          const matchesSearch = c.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                c.description.toLowerCase().includes(searchTerm.toLowerCase());
+          const patientName = c.patientName || '';
+          const description = c.description || '';
+          const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                description.toLowerCase().includes(searchTerm.toLowerCase());
           const matchesStatus = statusFilter === 'all' ? true : c.status === statusFilter;
           return matchesSearch && matchesStatus;
       });
   }, [comandas, searchTerm, statusFilter]);
+
+  // Estatísticas
+  const stats = useMemo(() => {
+      const total = comandas.reduce((acc, c) => acc + (c.totalValue || 0), 0);
+      const open = comandas.filter(c => c.status === 'aberta').reduce((acc, c) => acc + (c.totalValue || 0), 0);
+      const paid = comandas.filter(c => c.status === 'paga').reduce((acc, c) => acc + (c.totalValue || 0), 0);
+      return { total, open, paid };
+  }, [comandas]);
 
   // Ações
   const handleOpenModal = (comanda?: Comanda) => {
@@ -113,125 +124,168 @@ export const Comandas: React.FC = () => {
       });
   };
 
-  // Renderizadores de Componentes
   const StatusBadge = ({ status }: { status: string }) => {
       const styles = {
-          aberta: 'bg-amber-100 text-amber-700 border-amber-200',
-          paga: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-          cancelada: 'bg-slate-100 text-slate-600 border-slate-200'
-      };
-      const labels = {
-          aberta: t('comandas.status.open'),
-          paga: t('comandas.status.paid'),
-          cancelada: t('comandas.status.canceled')
+          aberta: 'bg-amber-50 text-amber-600 border-amber-100',
+          paga: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+          cancelada: 'bg-slate-50 text-slate-500 border-slate-100'
       };
       return (
-          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border ${styles[status as keyof typeof styles]}`}>
-              {labels[status as keyof typeof labels] || status}
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${styles[status as keyof typeof styles]}`}>
+              {status}
           </span>
       );
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn font-sans pb-20">
+    <div className="space-y-6 animate-fadeIn font-sans pb-24">
       
-      {/* HEADER & CONTROLS */}
-      <div className="flex flex-col gap-6 bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                  <h1 className="text-3xl font-display font-bold text-slate-800 flex items-center gap-3">
-                      <div className="p-2 bg-indigo-100 rounded-xl text-indigo-600"><ShoppingBag size={24}/></div>
-                      {t('comandas.title')}
-                  </h1>
-                  <p className="text-slate-500 mt-1">{t('finance.subtitle')}</p>
+      {/* HEADER & TOP CONTROLS */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+              <h1 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100 shadow-sm"><ShoppingBag size={20}/></div>
+                  {t('comandas.title')}
+              </h1>
+              <p className="text-slate-400 text-xs mt-1 font-medium">{t('finance.subtitle')}</p>
+          </div>
+          <button 
+              onClick={() => handleOpenModal()} 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+          >
+              <Plus size={18} /> {t('comandas.newEntry')}
+          </button>
+      </div>
+
+      {/* STATS BAR */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+              <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+                  <FileText size={20} />
               </div>
-              <button onClick={() => handleOpenModal()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all active:scale-95">
-                  <Plus size={20} /> {t('comandas.newEntry')}
-              </button>
+              <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('common.total')}</p>
+                  <p className="text-lg font-extrabold text-slate-800">{formatCurrency(stats.total)}</p>
+              </div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+              <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
+                  <Clock size={20} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('comandas.status.open')}</p>
+                  <p className="text-lg font-extrabold text-slate-800">{formatCurrency(stats.open)}</p>
+              </div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+              <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                  <CheckCircle2 size={20} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('comandas.status.paid')}</p>
+                  <p className="text-lg font-extrabold text-slate-800">{formatCurrency(stats.paid)}</p>
+              </div>
+          </div>
+      </div>
+
+      {/* FILTERS & SEARCH */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full lg:w-80 group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
+              <input 
+                  type="text" 
+                  placeholder={t('comandas.search')} 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)} 
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm focus:bg-white focus:border-indigo-300 transition-all placeholder:text-slate-400" 
+              />
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-4 justify-between items-center">
-              <div className="relative w-full lg:w-96 group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
-                  <input 
-                    type="text" 
-                    placeholder={t('comandas.search')} 
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)} 
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" 
-                  />
+          <div className="flex gap-2 w-full lg:w-auto">
+              {/* Status Filter */}
+              <div className="flex bg-slate-100 p-1 rounded-xl flex-1 lg:flex-none">
+                  {[
+                      { id: 'all', label: t('common.all') },
+                      { id: 'aberta', label: t('comandas.status.open') },
+                      { id: 'paga', label: t('comandas.status.paid') }
+                  ].map(st => (
+                      <button 
+                          key={st.id}
+                          onClick={() => setStatusFilter(st.id as any)}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${statusFilter === st.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                      >
+                          {st.label}
+                      </button>
+                  ))}
               </div>
 
-              <div className="flex gap-2 w-full lg:w-auto">
-                  {/* Status Filter */}
-                  <div className="flex bg-slate-100 p-1 rounded-xl flex-1 lg:flex-none">
-                      {['all', 'aberta', 'paga'].map(st => (
-                          <button 
-                            key={st}
-                            onClick={() => setStatusFilter(st as any)}
-                            className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-all ${statusFilter === st ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                          >
-                              {st === 'all' ? t('common.all') : st === 'aberta' ? t('comandas.status.open') : t('comandas.status.paid')}
-                          </button>
-                      ))}
-                  </div>
-
-                  {/* View Mode Toggle */}
-                  <div className="flex bg-slate-100 p-1 rounded-xl">
-                      <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-lg transition-all ${viewMode === 'kanban' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`} title={t('comandas.view.kanban')}><LayoutGrid size={20}/></button>
-                      <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`} title={t('comandas.view.list')}><ListIcon size={20}/></button>
-                  </div>
+              {/* View Toggle */}
+              <div className="flex gap-1 border border-slate-200 bg-white p-1 rounded-xl">
+                  <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'kanban' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300'}`}><LayoutGrid size={18}/></button>
+                  <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300'}`}><ListIcon size={18}/></button>
               </div>
           </div>
       </div>
 
       {/* CONTENT AREA */}
-      {comandas.length === 0 && !isLoading ? (
-          <div className="py-20 text-center text-slate-400 flex flex-col items-center">
-              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6"><ShoppingBag size={40} className="opacity-30"/></div>
-              <p className="text-lg font-medium">{t('comandas.empty')}</p>
-          </div>
-      ) : viewMode === 'kanban' ? (
-          /* KANBAN VIEW */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-x-auto pb-4">
+      {viewMode === 'kanban' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                  { id: 'aberta', title: t('comandas.status.open'), color: 'amber' },
-                  { id: 'paga', title: t('comandas.status.paid'), color: 'emerald' },
-                  { id: 'cancelada', title: t('comandas.status.canceled'), color: 'slate' }
+                  { id: 'aberta', title: t('comandas.status.open'), color: 'amber', icon: <Clock size={16}/> },
+                  { id: 'paga', title: t('comandas.status.paid'), color: 'emerald', icon: <CheckCircle2 size={16}/> },
+                  { id: 'cancelada', title: t('comandas.status.canceled'), color: 'slate', icon: <AlertCircle size={16}/> }
               ].map(col => (
-                  <div key={col.id} className="flex flex-col gap-4 min-w-[300px]">
-                      <div className={`flex items-center justify-between p-4 rounded-xl bg-${col.color}-50 border border-${col.color}-100`}>
-                          <h3 className={`font-bold text-${col.color}-800`}>{col.title}</h3>
-                          <span className={`px-2 py-0.5 bg-white rounded-md text-xs font-bold text-${col.color}-600 shadow-sm`}>
+                  <div key={col.id} className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between px-2">
+                          <div className={`flex items-center gap-2 text-${col.color}-600 font-bold text-xs uppercase tracking-wider`}>
+                              {col.icon}
+                              {col.title}
+                          </div>
+                          <span className="text-xs font-bold text-slate-300">
                               {filteredComandas.filter(c => c.status === col.id).length}
                           </span>
                       </div>
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                           {filteredComandas.filter(c => c.status === col.id).map(comanda => (
-                              <div key={comanda.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
-                                  <div className="flex justify-between items-start mb-3">
-                                      <div>
-                                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">#{comanda.id}</span>
-                                          <h4 className="font-bold text-slate-800 text-lg">{comanda.patientName}</h4>
+                              <div key={comanda.id} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative">
+                                  <div className="flex justify-between items-start mb-4">
+                                      <div className="flex items-center gap-3">
+                                          <div className={`h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
+                                              {comanda.patientName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                          </div>
+                                          <div>
+                                              <h4 className="font-bold text-slate-800 text-sm">{comanda.patientName}</h4>
+                                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">#{comanda.id}</p>
+                                          </div>
                                       </div>
-                                      <button className="text-slate-300 hover:text-slate-600"><MoreHorizontal size={20}/></button>
+                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                          <button onClick={() => handleOpenModal(comanda)} className="p-2 hover:bg-indigo-50 rounded-lg text-indigo-400"><Edit3 size={14}/></button>
+                                          <button onClick={() => handleDelete(comanda.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-400"><Trash2 size={14}/></button>
+                                      </div>
                                   </div>
                                   
-                                  <div className="space-y-2 mb-4">
-                                      <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 flex items-center gap-2">
-                                          <CreditCard size={14} className="text-slate-400"/> {comanda.description}
-                                      </p>
-                                      <p className="text-xs text-slate-400 flex items-center gap-1">
-                                          <Calendar size={12}/> {new Date(comanda.createdAt || Date.now()).toLocaleDateString()}
-                                      </p>
+                                  <div className="mb-4">
+                                      <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-2xl">
+                                          <p className="text-[11px] font-bold text-slate-700 flex items-center gap-2">
+                                              <FileText size={14} className="text-slate-400"/>
+                                              {comanda.description}
+                                          </p>
+                                      </div>
+                                      <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-slate-400 px-1">
+                                          <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(comanda.createdAt || '').toLocaleDateString()}</span>
+                                          {comanda.status === 'aberta' && (
+                                              <span className="text-amber-500 flex items-center gap-1"><Clock size={12}/> Pendente</span>
+                                          )}
+                                      </div>
                                   </div>
 
                                   <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                                      <div className="text-lg font-bold text-indigo-600">{formatCurrency(comanda.totalValue)}</div>
-                                      <div className="flex gap-1">
-                                          <button onClick={() => handleOpenModal(comanda)} className="p-2 hover:bg-indigo-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors"><Edit3 size={16}/></button>
-                                          <button onClick={() => handleDelete(comanda.id)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
+                                      <div className="text-sm font-extrabold text-indigo-600">
+                                          {formatCurrency(comanda.totalValue)}
                                       </div>
+                                      <button className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all transform hover:rotate-45">
+                                          <ArrowUpRight size={14} />
+                                      </button>
                                   </div>
                               </div>
                           ))}
@@ -240,30 +294,36 @@ export const Comandas: React.FC = () => {
               ))}
           </div>
       ) : (
-          /* LIST VIEW */
-          <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
               <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-wider">
+                  <thead className="bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
                       <tr>
-                          <th className="p-6">ID</th>
-                          <th className="p-6">{t('comandas.patient')}</th>
-                          <th className="p-6">{t('comandas.description')}</th>
-                          <th className="p-6">Status</th>
-                          <th className="p-6 text-right">{t('comandas.totalValue')}</th>
-                          <th className="p-6 text-center">{t('patients.card.actions')}</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4">{t('comandas.patient')}</th>
+                          <th className="px-6 py-4">{t('comandas.description')}</th>
+                          <th className="px-6 py-4">{t('comandas.totalValue')}</th>
+                          <th className="px-6 py-4 text-center">Ações</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                       {filteredComandas.map(c => (
-                          <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="p-6 text-slate-400 font-mono text-xs">#{c.id}</td>
-                              <td className="p-6 font-bold text-slate-800">{c.patientName}</td>
-                              <td className="p-6 text-slate-600">{c.description}</td>
-                              <td className="p-6"><StatusBadge status={c.status} /></td>
-                              <td className="p-6 text-right font-bold text-indigo-600">{formatCurrency(c.totalValue)}</td>
-                              <td className="p-6 flex justify-center gap-2">
-                                  <button onClick={() => handleOpenModal(c)} className="p-2 hover:bg-indigo-50 rounded-lg text-slate-400 hover:text-indigo-600"><Edit3 size={16}/></button>
-                                  <button onClick={() => handleDelete(c.id)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                          <tr key={c.id} className="hover:bg-slate-50/50 transition-colors group">
+                               <td className="px-6 py-4"><StatusBadge status={c.status} /></td>
+                              <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                      <div className="h-8 w-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 text-[10px] font-bold">
+                                          {c.patientName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                      </div>
+                                      <span className="font-bold text-slate-800 text-sm">{c.patientName}</span>
+                                  </div>
+                              </td>
+                              <td className="px-6 py-4 font-medium text-slate-600 text-sm">{c.description}</td>
+                              <td className="px-6 py-4 font-extrabold text-indigo-600 text-sm">{formatCurrency(c.totalValue)}</td>
+                              <td className="px-6 py-4">
+                                  <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button onClick={() => handleOpenModal(c)} className="p-2 hover:bg-indigo-50 rounded-lg text-indigo-400"><Edit3 size={14}/></button>
+                                      <button onClick={() => handleDelete(c.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-400"><Trash2 size={14}/></button>
+                                  </div>
                               </td>
                           </tr>
                       ))}
@@ -272,80 +332,97 @@ export const Comandas: React.FC = () => {
           </div>
       )}
 
-      {/* MODAL EDIT/NEW */}
+      {/* MODAL */}
       {isModalOpen && editingComanda && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-              <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                      <h3 className="text-xl font-display font-bold text-slate-800">{t('comandas.modalTitle')}</h3>
-                      <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><X size={20}/></button>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+              <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                      <div>
+                          <h3 className="text-lg font-extrabold text-slate-800">{t('comandas.modalTitle')}</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{editingComanda.id ? `#${editingComanda.id}` : t('comandas.newEntry')}</p>
+                      </div>
+                      <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white hover:shadow-sm rounded-full text-slate-400 ring-1 ring-slate-100 transition-all"><X size={18}/></button>
                   </div>
                   
-                  <div className="p-8 overflow-y-auto custom-scrollbar space-y-6">
-                      <div className="grid grid-cols-2 gap-6">
-                          <div className="col-span-2">
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">{t('comandas.patient')}</label>
-                              <div className="relative">
-                                  <select className="w-full p-3 pl-10 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-indigo-100 appearance-none" value={editingComanda.patientId} onChange={e => setEditingComanda({...editingComanda, patientId: e.target.value})}>
-                                      <option value="">{t('comandas.selectPatient')}</option>
-                                      {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                                  </select>
-                                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                              </div>
+                  <div className="p-8 space-y-5">
+                      <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t('comandas.patient')}</label>
+                          <div className="relative group">
+                              <select 
+                                  className="w-full text-sm font-bold p-3 pl-11 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100/50 transition-all appearance-none" 
+                                  value={editingComanda.patientId} 
+                                  onChange={e => setEditingComanda({...editingComanda, patientId: e.target.value})}
+                              >
+                                  <option value="">{t('comandas.selectPatient')}</option>
+                                  {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                              </select>
+                              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
                           </div>
-                          
-                          <div className="col-span-2">
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">{t('comandas.description')}</label>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t('comandas.description')}</label>
+                          <div className="relative group">
                               <input 
-                                type="text" 
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-100" 
-                                placeholder={t('comandas.descriptionPlaceholder')}
-                                value={editingComanda.description || ''} 
-                                onChange={e => setEditingComanda({...editingComanda, description: e.target.value})} 
+                                  type="text" 
+                                  className="w-full text-sm font-bold p-3 pl-11 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100/50 transition-all" 
+                                  placeholder={t('comandas.descriptionPlaceholder')}
+                                  value={editingComanda.description || ''} 
+                                  onChange={e => setEditingComanda({...editingComanda, description: e.target.value})} 
                               />
+                              <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
                           </div>
+                      </div>
 
+                      <div className="grid grid-cols-2 gap-4">
                           <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Status</label>
-                              <select className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none" value={editingComanda.status} onChange={e => setEditingComanda({...editingComanda, status: e.target.value as any})}>
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Status</label>
+                              <select 
+                                  className="w-full text-sm font-bold p-3 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-indigo-300 transition-all" 
+                                  value={editingComanda.status} 
+                                  onChange={e => setEditingComanda({...editingComanda, status: e.target.value as any})}
+                              >
                                   <option value="aberta">{t('comandas.status.open')}</option>
                                   <option value="paga">{t('comandas.status.paid')}</option>
                                   <option value="cancelada">{t('comandas.status.canceled')}</option>
                               </select>
                           </div>
-
                           <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">{t('comandas.totalValue')}</label>
-                              <div className="relative">
-                                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={18} />
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t('comandas.totalValue')}</label>
+                              <div className="relative group">
+                                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={16} />
                                   <input 
-                                    type="number" 
-                                    className="w-full p-3 pl-10 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-100 font-bold text-lg text-emerald-700" 
-                                    value={editingComanda.totalValue} 
-                                    onChange={e => setEditingComanda({...editingComanda, totalValue: parseFloat(e.target.value)})} 
+                                      type="number" 
+                                      className="w-full text-base font-extrabold p-3 pl-9 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100/50 transition-all text-emerald-700" 
+                                      value={editingComanda.totalValue} 
+                                      onChange={e => setEditingComanda({...editingComanda, totalValue: parseFloat(e.target.value)})} 
                                   />
                               </div>
                           </div>
                       </div>
 
-                      {/* Items Section (Simplificada para Demo) */}
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      {/* ITEMS */}
+                      <div className="bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100/50">
                           <div className="flex justify-between items-center mb-4">
-                              <h4 className="font-bold text-slate-700 text-sm">{t('comandas.items')}</h4>
-                              <button onClick={handleAddItem} className="text-xs font-bold text-indigo-600 bg-white border border-indigo-100 px-3 py-1.5 rounded-lg hover:bg-indigo-50 flex items-center gap-1">
-                                  <Plus size={14}/> {t('comandas.addItem')}
+                              <h4 className="text-[10px] font-extrabold text-indigo-900 uppercase tracking-widest flex items-center gap-2">
+                                  <ListIcon size={14}/> {t('comandas.items')}
+                              </h4>
+                              <button onClick={handleAddItem} className="h-7 w-7 rounded-full bg-white border border-indigo-200 flex items-center justify-center text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
+                                  <Plus size={14}/>
                               </button>
                           </div>
-                          {(!editingComanda.items || editingComanda.items.length === 0) ? (
-                              <p className="text-center text-xs text-slate-400 py-2">{t('comandas.noItems')}</p>
-                          ) : (
-                              <div className="space-y-2">
-                                  {editingComanda.items.map((item, idx) => (
-                                      <div key={idx} className="flex gap-2 text-sm bg-white p-2 rounded border border-slate-200">
+                          <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                              {(!editingComanda.items || editingComanda.items.length === 0) ? (
+                                  <div className="text-center py-4 border-2 border-dashed border-indigo-100 rounded-2xl">
+                                      <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">{t('comandas.noItems')}</p>
+                                  </div>
+                              ) : (
+                                  editingComanda.items.map((item, idx) => (
+                                      <div key={idx} className="flex gap-2 items-center animate-slideIn">
                                           <input 
                                               type="text" 
                                               placeholder="Item" 
-                                              className="flex-1 outline-none" 
+                                              className="flex-1 text-xs font-bold p-2.5 rounded-xl border border-indigo-100 bg-white shadow-sm outline-none focus:border-indigo-400 transition-all" 
                                               value={(item as any).name || (item as any).description || ''} 
                                               onChange={e => {
                                                   const newItems = [...(editingComanda.items || [])];
@@ -354,22 +431,30 @@ export const Comandas: React.FC = () => {
                                                   setEditingComanda({...editingComanda, items: newItems});
                                               }} 
                                           />
-                                          <input type="number" placeholder="0.00" className="w-20 text-right outline-none" value={item.value} onChange={e => {
-                                              const newItems = [...(editingComanda.items || [])];
-                                              newItems[idx].value = parseFloat(e.target.value);
-                                              setEditingComanda({...editingComanda, items: newItems});
-                                          }}/>
+                                          <div className="relative w-24">
+                                              <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400" size={12} />
+                                              <input 
+                                                  type="number" 
+                                                  className="w-full text-right text-xs font-bold p-2.5 pl-6 rounded-xl border border-indigo-100 bg-white shadow-sm outline-none focus:border-indigo-400 transition-all" 
+                                                  value={item.value} 
+                                                  onChange={e => {
+                                                      const newItems = [...(editingComanda.items || [])];
+                                                      newItems[idx].value = parseFloat(e.target.value);
+                                                      setEditingComanda({...editingComanda, items: newItems});
+                                                  }}
+                                              />
+                                          </div>
                                       </div>
-                                  ))}
-                              </div>
-                          )}
+                                  ))
+                              )}
+                          </div>
                       </div>
                   </div>
 
-                  <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-                      <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors">{t('common.cancel')}</button>
-                      <button onClick={handleSave} className="px-8 py-3 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg transition-colors flex items-center gap-2">
-                          <CheckCircle size={18}/> {t('common.save')}
+                  <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3 px-8 pb-8">
+                      <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">{t('common.cancel')}</button>
+                      <button onClick={handleSave} className="px-8 py-2.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl shadow-lg shadow-indigo-100 transition-all flex items-center gap-2 uppercase tracking-widest">
+                          <CheckCircle size={16}/> {t('common.save')}
                       </button>
                   </div>
               </div>

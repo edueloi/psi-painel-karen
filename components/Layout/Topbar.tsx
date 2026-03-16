@@ -5,6 +5,7 @@ import { Menu, Bell, Search, Settings, LogOut, User as UserIcon, ChevronDown, He
 import { User } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { getStaticUrl } from '../../services/api';
 
 
 interface TopbarProps {
@@ -81,7 +82,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-0.5 shadow-md shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
                   <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
                        {user?.avatarUrl ? (
-                          <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+                          <img src={getStaticUrl(user.avatarUrl)} alt={user.name} className="h-full w-full object-cover" />
                        ) : (
                           <span className="font-bold text-indigo-700 text-sm">{user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}</span>
                        )}
@@ -105,8 +106,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
                  <div className="p-4 border-b border-slate-50 bg-slate-50/50">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('topbar.connected')}</p>
                     <div className="flex items-center gap-3">
-                       <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                          {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+                       <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border border-slate-200">
+                          {user?.avatarUrl ? (
+                             <img src={getStaticUrl(user.avatarUrl)} alt={user.name} className="h-full w-full object-cover" />
+                          ) : (
+                             user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'
+                          )}
                        </div>
                        <div className="flex-1 min-w-0">
                                        <p className="font-bold text-slate-800 truncate">{user?.name}</p>

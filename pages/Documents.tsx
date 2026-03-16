@@ -609,16 +609,10 @@ export const Documents: React.FC = () => {
                                 formData.append('category', uploadData.category);
                                 if (filterPatientId) formData.append('patient_id', filterPatientId);
 
-                                const token = localStorage.getItem('psi_token');
-                                const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3013'}/uploads`, {
+                                await api.request('/uploads', {
                                     method: 'POST',
-                                    headers: {
-                                        'Authorization': `Bearer ${token}`
-                                    },
                                     body: formData
                                 });
-
-                                if (!res.ok) throw new Error('Erro no upload');
                                 
                                 setIsModalOpen(false);
                                 setUploadData({ title: '', category: 'Geral', file: null });

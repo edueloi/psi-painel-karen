@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { UserRole } from '../types';
-import { api, API_BASE_URL } from '../services/api';
+import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import {
   Mail,
   Phone,
@@ -196,6 +196,11 @@ export const Profile: React.FC = () => {
       });
 
       setSaveStatus('saved');
+      updateUser({ 
+        name: user.name, 
+        email: user.email,
+        avatarUrl: user.avatarUrl
+      });
       setTimeout(() => setSaveStatus('idle'), 1500);
     } catch (err) {
       setSaveStatus('idle');
@@ -211,7 +216,7 @@ export const Profile: React.FC = () => {
           {/* cover */}
           <div className="absolute inset-0">
             {user.coverUrl ? (
-              <img src={user.coverUrl} alt="cover" className="h-full w-full object-cover" />
+              <img src={getStaticUrl(user.coverUrl)} alt="cover" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full bg-gradient-to-r from-indigo-950 via-purple-950 to-indigo-900" />
             )}
@@ -257,7 +262,7 @@ export const Profile: React.FC = () => {
                       title={t('profile.changePhoto')}
                     >
                       {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt="avatar" className="h-full w-full object-cover group-hover:scale-[1.02] transition" />
+                        <img src={getStaticUrl(user.avatarUrl)} alt="avatar" className="h-full w-full object-cover group-hover:scale-[1.02] transition" />
                       ) : (
                         <div className="h-full w-full grid place-items-center">
                           <span className="text-xl font-extrabold text-indigo-400">{initials}</span>
@@ -280,10 +285,6 @@ export const Profile: React.FC = () => {
                         <h2 className="truncate text-base sm:text-lg font-extrabold text-slate-900">
                           {user.name}
                         </h2>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 text-[10px] font-bold">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          {t('profile.online')}
-                        </span>
                       </div>
 
                       <p className="mt-0.5 text-[12px] text-slate-500 font-semibold flex items-center gap-1.5">
@@ -294,10 +295,6 @@ export const Profile: React.FC = () => {
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600">
                           CRP {user.crp}
-                        </span>
-                        <span className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700 inline-flex items-center gap-1">
-                          <Award size={12} />
-                          {t('profile.premium')}
                         </span>
                       </div>
                     </div>
@@ -311,7 +308,7 @@ export const Profile: React.FC = () => {
                     title={t('profile.clinicLogo')}
                   >
                     {user.clinicLogoUrl ? (
-                      <img src={user.clinicLogoUrl} alt="clinic logo" className="h-full w-full object-cover" />
+                      <img src={getStaticUrl(user.clinicLogoUrl)} alt="clinic logo" className="h-full w-full object-cover" />
                     ) : (
                       <div className="grid place-items-center">
                         <ImageIcon size={18} className="text-slate-400 group-hover:text-indigo-500 transition" />
@@ -339,23 +336,17 @@ export const Profile: React.FC = () => {
               <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500" />
             </div>
 
-            {/* Verified */}
-            <div className="rounded-3xl bg-slate-950 text-white border border-white/10 shadow-[0_10px_30px_rgba(2,6,23,0.25)] overflow-hidden">
+            {/* Clinic Info Badge */}
+            <div className="rounded-3xl bg-indigo-600 text-white border border-indigo-400 shadow-[0_10px_30px_rgba(79,70,229,0.25)] overflow-hidden">
               <div className="p-5 relative">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.22),transparent_55%)]" />
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 opacity-50" />
                 <div className="relative flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-white/10 grid place-items-center">
-                    <BadgeCheck className="text-emerald-400" size={20} />
+                  <div className="h-10 w-10 rounded-2xl bg-white/20 grid place-items-center">
+                    <Building2 className="text-white" size={20} />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-extrabold">{t('profile.verified')}</h3>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">{t('profile.verifiedDesc')}</p>
-
-                    <div className="mt-4 w-full bg-white/10 rounded-full h-1.5">
-                      <div className="bg-emerald-400 h-1.5 rounded-full w-full shadow-[0_0_12px_rgba(52,211,153,0.45)]" />
-                    </div>
-
-                    <p className="mt-2 text-[10px] text-slate-400 text-right">{t('profile.validity')}</p>
+                    <h3 className="text-sm font-extrabold truncate">{user.companyName || 'Sua Clínica'}</h3>
+                    <p className="text-[11px] text-indigo-100 leading-relaxed truncate">{user.address || 'Endereço não configurado'}</p>
                   </div>
                 </div>
               </div>

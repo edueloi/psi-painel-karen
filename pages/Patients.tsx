@@ -6,7 +6,7 @@ import {
   FileUp, FileDown, Download, MapPin, Shield, User,
   Activity, TrendingUp, CheckSquare, Square, History
 } from 'lucide-react';
-import { api, API_BASE_URL } from '../services/api';
+import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
@@ -143,30 +143,26 @@ export const Patients: React.FC = () => {
 
   const uploadPatientDocuments = async (patientId: string | number, files: File[]) => {
     if (!files.length) return;
-    const token = localStorage.getItem('psi_token');
     for (const file of files) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('title', file.name);
       formData.append('category', 'Paciente');
       formData.append('patient_id', String(patientId));
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3013'}/uploads`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: formData,
+      
+      await api.request('/uploads', { 
+        method: 'POST', 
+        body: formData 
       });
-      if (!res.ok) throw new Error(`Falha ao enviar o arquivo ${file.name}`);
     }
   };
 
   const uploadPatientPhoto = async (patientId: string | number, photo: File) => {
-    const token = localStorage.getItem('psi_token');
     const formData = new FormData();
     formData.append('photo', photo);
-    await fetch(`${API_BASE_URL}/patients/${patientId}/photo`, {
+    await api.request(`/patients/${patientId}/photo`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: formData,
+      body: formData
     });
   };
 
@@ -559,8 +555,12 @@ export const Patients: React.FC = () => {
                   <div className="p-4">
                     <div className="flex items-start gap-3">
                       <div className="relative shrink-0">
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shadow-sm`}>
-                          {(patient.full_name || '?').charAt(0).toUpperCase()}
+                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shadow-sm overflow-hidden`}>
+                          {patient.photo_url || patient.photoUrl ? (
+                            <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
+                          ) : (
+                            (patient.full_name || '?').charAt(0).toUpperCase()
+                          )}
                         </div>
                         <button
                           onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelect(String(patient.id)); }}
@@ -693,8 +693,12 @@ export const Patients: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}>
-                            {(patient.full_name || '?').charAt(0).toUpperCase()}
+                          <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm overflow-hidden`}>
+                            {patient.photo_url || patient.photoUrl ? (
+                              <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
+                            ) : (
+                              (patient.full_name || '?').charAt(0).toUpperCase()
+                            )}
                           </div>
                           <div>
                             <div className="text-sm font-semibold text-slate-800">{patient.full_name || 'Sem nome'}</div>
@@ -873,8 +877,12 @@ export const Patients: React.FC = () => {
             <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-xl font-bold shrink-0 border-2 border-white/30`}>
-                    {(selectedPatient.full_name || '?').charAt(0).toUpperCase()}
+                  <div className={`w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-xl font-bold shrink-0 border-2 border-white/30 overflow-hidden`}>
+                    {selectedPatient.photo_url || selectedPatient.photoUrl ? (
+                      <img src={getStaticUrl(selectedPatient.photo_url || selectedPatient.photoUrl)} alt={selectedPatient.full_name} className="w-full h-full object-cover" />
+                    ) : (
+                      (selectedPatient.full_name || '?').charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="text-white">
                     <div className="text-base font-bold">{selectedPatient.full_name}</div>

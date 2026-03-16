@@ -1,5 +1,12 @@
-﻿export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3013';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3013';
 const BASE_URL = API_BASE_URL;
+
+export const getStaticUrl = (path?: string) => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  if (path.startsWith('data:')) return path;
+  return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>;
