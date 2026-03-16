@@ -32,7 +32,7 @@ const plans = [
     desc: 'Para profissionais autônomos',
     features: ['1 profissional', 'Agenda completa', 'Prontuário digital', 'Salas virtuais', 'Suporte por e-mail'],
     highlight: false,
-    cta: 'Começar grátis',
+    cta: 'Escolher',
   },
   {
     name: 'Pro',
@@ -88,7 +88,7 @@ export const LandingPage: React.FC = () => {
               Entrar
             </button>
             <button onClick={() => navigate('/login')} className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-colors shadow-sm shadow-indigo-200">
-              Começar grátis
+              Acessar agora
             </button>
           </div>
 
@@ -135,7 +135,7 @@ export const LandingPage: React.FC = () => {
               onClick={() => navigate('/login')}
               className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-semibold text-base transition-all shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5"
             >
-              Começar grátis <ArrowRight size={18} />
+              Acessar agora <ArrowRight size={18} />
             </button>
             <button
               onClick={() => navigate('/login')}
@@ -146,8 +146,8 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400">
-            <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-emerald-500" /> Sem cartão de crédito</span>
-            <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-emerald-500" /> 14 dias grátis</span>
+            <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-emerald-500" /> Sem fidelidade</span>
+            <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-emerald-500" /> Teleconsulta & IA</span>
             <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-emerald-500" /> LGPD compliant</span>
           </div>
         </div>
@@ -275,7 +275,7 @@ export const LandingPage: React.FC = () => {
           <div className="text-center mb-14">
             <div className="inline-block bg-indigo-50 text-indigo-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">Planos</div>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Simples e transparente</h2>
-            <p className="text-slate-500 text-lg">Comece grátis por 14 dias. Sem cartão de crédito.</p>
+            <p className="text-slate-500 text-lg">A solução completa para sua prática clínica e financeira.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
             {plans.map((plan) => (
@@ -354,7 +354,7 @@ export const LandingPage: React.FC = () => {
             </button>
             <div className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-slate-400">
               <span className="flex items-center gap-1.5"><Shield size={13} className="text-slate-400" /> LGPD compliant</span>
-              <span className="flex items-center gap-1.5"><CheckCircle size={13} className="text-emerald-500" /> 14 dias grátis</span>
+              <span className="flex items-center gap-1.5"><CheckCircle size={13} className="text-emerald-500" /> Gestão Completa</span>
               <span className="flex items-center gap-1.5"><CheckCircle size={13} className="text-emerald-500" /> Cancele quando quiser</span>
             </div>
           </div>
