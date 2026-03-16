@@ -58,17 +58,28 @@ router.get('/:id', async (req, res) => {
 // POST /appointments
 router.post('/', async (req, res) => {
   try {
-    const { patient_id, professional_id, service_id, title, start_time, end_time, notes, color } = req.body;
+    const { patient_id, professional_id, service_id, title, start_time, end_time, notes, color, duration_minutes } = req.body;
 
-    if (!start_time || !end_time) {
-      return res.status(400).json({ error: 'Data de início e fim são obrigatórias' });
+    if (!start_time) {
+      return res.status(400).json({ error: 'Data de início é obrigatória' });
+    }
+
+    let finalEndTime = end_time;
+    if (!finalEndTime && start_time) {
+      const duration = duration_minutes || 50;
+      const start = new Date(start_time);
+      finalEndTime = new Date(start.getTime() + duration * 60000).toISOString();
+    }
+
+    if (!finalEndTime) {
+      return res.status(400).json({ error: 'Data de início e duração são necessários para calcular o fim.' });
     }
 
     const [result] = await db.query(
       `INSERT INTO appointments (tenant_id, patient_id, professional_id, service_id, title, start_time, end_time, notes, color)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.user.tenant_id, patient_id || null, professional_id || null, service_id || null,
-       title || null, start_time, end_time, notes || null, color || null]
+       title || null, start_time, finalEndTime, notes || null, color || null]
     );
 
     const [created] = await db.query(

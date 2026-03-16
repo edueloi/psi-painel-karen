@@ -396,7 +396,9 @@ export const Agenda: React.FC = () => {
           setIsModalOpen(false);
           pushToast('success', 'Agendamento salvo com sucesso.');
       } catch (e: any) {
-          pushToast('error', e.message || 'Erro ao salvar agendamento');
+          // Se for erro de validação do banco, mostramos de forma amigável
+          console.error("Erro ao salvar:", e);
+          pushToast('error', e.message || 'Erro ao salvar agendamento. Verifique os dados.');
       }
   };
 
@@ -692,6 +694,7 @@ export const Agenda: React.FC = () => {
                                   <h3 className="text-base font-semibold text-slate-800">{formData.id ? 'Editar Sessao' : 'Novo Agendamento'}</h3>
                                   <p className="text-xs text-slate-500">
                                       {new Date(formData.appointment_date).toLocaleString(locale, { dateStyle: 'full', timeStyle: 'short' })}
+                                      {formData.duration_minutes && ` (${formData.duration_minutes} min)`}
                                   </p>
                               </div>
                           </div>

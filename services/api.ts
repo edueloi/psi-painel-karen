@@ -1,5 +1,5 @@
 
-export const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3013';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3013';
 const BASE_URL = API_BASE_URL;
 
 interface RequestOptions extends RequestInit {
@@ -20,7 +20,9 @@ export const api: Api = {
     const token = localStorage.getItem('psi_token');
     
     const headers = new Headers(options.headers || {});
-    headers.set('Content-Type', 'application/json');
+    if (!(options.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json');
+    }
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }

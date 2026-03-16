@@ -2,6 +2,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MOCK_DOCUMENTS, DOCUMENT_CATEGORIES } from '../constants';
+import { api } from '../services/api';
+
 import { Document } from '../types';
 import {
   FileText,
@@ -33,8 +35,38 @@ export const Documents: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'recent' | 'name' | 'size'>('recent');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [documents, setDocuments] = useState<Document[]>(MOCK_DOCUMENTS);
-  const [filterPatientId, setFilterPatientId] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [filterPatientId, setFilterPatientId] = useState<string | null>(searchParams.get('patient_id'));
+
+  // Upload States
+  const [uploadData, setUploadData] = useState({
+      title: '',
+      category: 'Geral',
+      file: null as File | null
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [filterPatientId]);
+
+  const fetchDocuments = async () => {
+      setIsLoading(true);
+      try {
+        const params: any = {};
+        if (filterPatientId) {
+            params.patient_id = filterPatientId;
+        }
+        const data = await api.get<any[]>('/uploads', params);
+        setDocuments(data || []);
+      } catch (err) {
+          console.error('Erro ao buscar documentos:', err);
+      } finally {
+          setIsLoading(false);
+      }
+  };
 
   // Category Management States
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -69,9 +101,14 @@ export const Documents: React.FC = () => {
     return docs.sort((a, b) => parseSizeToMB(b.size) - parseSizeToMB(a.size));
   }, [filteredDocs, sortBy]);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este documento?')) {
-      setDocuments(prev => prev.filter(d => d.id !== id));
+      try {
+        await api.delete(`/uploads/${id}`);
+        fetchDocuments();
+      } catch (err) {
+        alert('Erro ao excluir documento');
+      }
     }
   };
 
@@ -499,12 +536,22 @@ export const Documents: React.FC = () => {
                 <div className="p-8 space-y-6">
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Titulo do Arquivo</label>
-                        <input type="text" placeholder="Ex: Contrato Terapeutico 2024" className="w-full p-4 rounded-xl border border-slate-200 focus:ring-4 focus:ring-teal-50 focus:border-teal-400 outline-none transition-all font-medium text-slate-700" />
+                        <input 
+                            type="text" 
+                            placeholder="Ex: Contrato Terapeutico 2024" 
+                            className="w-full p-4 rounded-xl border border-slate-200 focus:ring-4 focus:ring-teal-50 focus:border-teal-400 outline-none transition-all font-medium text-slate-700" 
+                            value={uploadData.title}
+                            onChange={e => setUploadData({...uploadData, title: e.target.value})}
+                        />
                     </div>
 
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Categoria</label>
-                        <select className="w-full p-4 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-400 outline-none transition-all font-medium text-slate-600">
+                        <select 
+                            className="w-full p-4 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-400 outline-none transition-all font-medium text-slate-600"
+                            value={uploadData.category}
+                            onChange={e => setUploadData({...uploadData, category: e.target.value})}
+                        >
                             {categories.filter(c => c !== 'Todos').map(c => (
                                 <option key={c} value={c}>{c}</option>
                             ))}
@@ -513,18 +560,33 @@ export const Documents: React.FC = () => {
 
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Upload de Arquivo</label>
-                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-teal-50/30 hover:border-teal-300 transition-all group">
-                            <div className="w-16 h-16 bg-teal-50 text-teal-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-teal-100 transition-all shadow-sm">
+                        <input 
+                            type="file" 
+                            id="file-upload" 
+                            className="hidden" 
+                            onChange={e => setUploadData({...uploadData, file: e.target.files?.[0] || null})}
+                        />
+                        <label 
+                            htmlFor="file-upload"
+                            className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all group ${uploadData.file ? 'bg-teal-50 border-teal-500' : 'border-slate-200 hover:bg-teal-50/30 hover:border-teal-300'}`}
+                        >
+                            <div className={`w-16 h-16 bg-teal-50 text-teal-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-all shadow-sm ${uploadData.file ? 'bg-teal-200 text-teal-600' : ''}`}>
                                 <CloudUpload size={32} />
                             </div>
-                            <p className="text-base font-bold text-slate-700 mb-1">Clique para selecionar</p>
-                            <p className="text-xs text-slate-400">ou arraste e solte aqui</p>
-                            <div className="mt-4 flex gap-2 text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                                <span className="bg-slate-100 px-2 py-1 rounded">PDF</span>
-                                <span className="bg-slate-100 px-2 py-1 rounded">DOCX</span>
-                                <span className="bg-slate-100 px-2 py-1 rounded">JPG</span>
-                            </div>
-                        </div>
+                            <p className="text-base font-bold text-slate-700 mb-1">
+                                {uploadData.file ? uploadData.file.name : 'Clique para selecionar'}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                                {uploadData.file ? `${(uploadData.file.size / 1024 / 1024).toFixed(2)} MB` : 'ou arraste e solte aqui'}
+                            </p>
+                            {!uploadData.file && (
+                                <div className="mt-4 flex gap-2 text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                                    <span className="bg-slate-100 px-2 py-1 rounded">PDF</span>
+                                    <span className="bg-slate-100 px-2 py-1 rounded">DOCX</span>
+                                    <span className="bg-slate-100 px-2 py-1 rounded">JPG</span>
+                                </div>
+                            )}
+                        </label>
                     </div>
                 </div>
 
@@ -532,14 +594,45 @@ export const Documents: React.FC = () => {
                     <button 
                         onClick={() => setIsModalOpen(false)}
                         className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors"
+                        disabled={isSaving}
                     >
                         Cancelar
                     </button>
                     <button 
-                        onClick={() => { setIsModalOpen(false); alert('Documento salvo com sucesso! (Demo)'); }}
-                        className="px-8 py-3 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 shadow-lg shadow-teal-200 hover:-translate-y-0.5 transition-all"
+                        onClick={async () => {
+                            if (!uploadData.file) return alert('Selecione um arquivo');
+                            setIsSaving(true);
+                            try {
+                                const formData = new FormData();
+                                formData.append('file', uploadData.file);
+                                formData.append('title', uploadData.title || uploadData.file.name);
+                                formData.append('category', uploadData.category);
+                                if (filterPatientId) formData.append('patient_id', filterPatientId);
+
+                                const token = localStorage.getItem('psi_token');
+                                const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3013'}/uploads`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${token}`
+                                    },
+                                    body: formData
+                                });
+
+                                if (!res.ok) throw new Error('Erro no upload');
+                                
+                                setIsModalOpen(false);
+                                setUploadData({ title: '', category: 'Geral', file: null });
+                                fetchDocuments();
+                            } catch (e) {
+                                alert('Erro ao salvar documento');
+                            } finally {
+                                setIsSaving(false);
+                            }
+                        }}
+                        disabled={isSaving || !uploadData.file}
+                        className="px-8 py-3 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 shadow-lg shadow-teal-200 hover:-translate-y-0.5 transition-all disabled:opacity-50"
                     >
-                        Salvar Arquivo
+                        {isSaving ? 'Salvando...' : 'Salvar Arquivo'}
                     </button>
                 </div>
             </div>

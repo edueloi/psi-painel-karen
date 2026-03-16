@@ -2,14 +2,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Send, X, MessageSquare, ChevronDown, Minimize2, Paperclip, Bot } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { api } from '../../services/api';
+import { api, API_BASE_URL } from '../../services/api';
 
 // --- Types ---
 interface Message {
   id: string;
   role: 'user' | 'model' | 'assistant';
   text: string;
-  timestamp: Date;
+  timestamp: Date | string;
 }
 
 export const AuroraAssistant: React.FC = () => {
@@ -18,6 +18,8 @@ export const AuroraAssistant: React.FC = () => {
   const [isHovered, setIsHovered] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -49,30 +51,49 @@ export const AuroraAssistant: React.FC = () => {
   // --- AI Logic ---
   const handleSendMessage = async (textOverride?: string) => {
     const text = textOverride || inputValue;
-    if (!text.trim()) return;
+    if (!text.trim() && !selectedFile) return;
 
     // 1. Add User Message
     const newUserMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      text: text,
+      text: selectedFile ? `${text} (Anexo: ${selectedFile.name})`.trim() : text,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, newUserMsg]);
     setInputValue('');
+    const currentFile = selectedFile;
+    setSelectedFile(null);
     setIsTyping(true);
 
     try {
       // 2. Call Backend API
-      const response = await api.post<{ text: string }>('/ai/chat', {
-        messages: messages.concat(newUserMsg).map(m => ({
-          role: m.role === 'model' ? 'assistant' : m.role,
-          content: m.text
-        }))
+      const history = messages.concat(newUserMsg).map(m => ({
+        role: m.role === 'model' ? 'assistant' : m.role,
+        content: m.text
+      }));
+
+      const formData = new FormData();
+      formData.append('messages', JSON.stringify(history));
+      if (currentFile) {
+        formData.append('file', currentFile);
+      }
+
+      // We need a specific call for multipart if api.post only handles JSON
+      const token = localStorage.getItem('psi_token');
+      const res = await fetch(`${API_BASE_URL}/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
       });
 
-      const aiResponse = response.text || "Desculpe, não consegui processar sua resposta agora.";
+      if (!res.ok) throw new Error('Erro ao chamar servidor');
+      const data = await res.json();
+
+      const aiResponse = data.text || "Desculpe, não consegui processar sua resposta agora.";
       
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
@@ -91,6 +112,17 @@ export const AuroraAssistant: React.FC = () => {
       }]);
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("O arquivo é muito grande. O limite é 5MB.");
+        return;
+      }
+      setSelectedFile(file);
     }
   };
 
@@ -183,7 +215,7 @@ export const AuroraAssistant: React.FC = () => {
                         {/* Render simple markdown-like bold */}
                         <p dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
                         <span className={`text-[10px] mt-2 block ${msg.role === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
-                            {msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </span>
                     </div>
                 </div>
@@ -218,24 +250,58 @@ export const AuroraAssistant: React.FC = () => {
                 </div>
             )}
 
+            {/* File Preview */}
+            {selectedFile && (
+                <div className="flex items-center gap-2 mb-2 p-2 bg-indigo-50 rounded-lg animate-fadeIn border border-indigo-100">
+                    <div className="bg-indigo-100 p-1.5 rounded-md text-indigo-600">
+                        <Paperclip size={14} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">Arquivo selecionado</p>
+                        <p className="text-xs font-semibold text-slate-700 truncate">{selectedFile.name}</p>
+                    </div>
+                    <button 
+                        onClick={() => setSelectedFile(null)}
+                        className="p-1 hover:bg-white rounded-md text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
+
             <div className="relative flex items-center gap-2">
+                <input 
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept=".xlsx,.xls,.pdf,.txt,.csv"
+                />
+                <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Anexar arquivo (Excel, PDF)"
+                    className={`p-3 rounded-xl border transition-all ${selectedFile ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'}`}
+                >
+                    <Paperclip size={18} />
+                </button>
                 <input 
                     ref={inputRef}
                     type="text" 
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Digite sua dúvida..."
+                    placeholder="Sua mensagem ou comando..."
                     className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-100 focus:bg-white transition-all outline-none text-slate-700 placeholder:text-slate-400"
                 />
                 <button 
                     onClick={() => handleSendMessage()}
-                    disabled={!inputValue.trim() || isTyping}
+                    disabled={(!inputValue.trim() && !selectedFile) || isTyping}
                     className="p-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
                 >
                     <Send size={18} />
                 </button>
             </div>
+
             <div className="text-center mt-2">
                 <span className="text-[10px] text-slate-400">Powered by Aurora AI • PsiFlux</span>
             </div>

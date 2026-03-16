@@ -413,13 +413,29 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       case 5: // Docs
         return (
           <div className="space-y-4 animate-fadeIn">
-            <div className="border-2 border-dashed border-slate-300 rounded-[2rem] p-12 flex flex-col items-center justify-center text-slate-500 bg-slate-50 hover:bg-indigo-50/30 hover:border-indigo-300 transition-all cursor-pointer group">
+            <input 
+              type="file" 
+              className="hidden" 
+              id="patient-docs-upload" 
+              multiple 
+              onChange={async (e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                
+                // Modo simples: vamos apenas guardar os nomes por enquanto ou enviar se o ID existir
+                alert(`Selecionados ${files.length} arquivos. Em uma integração real, eles seriam enviados para o servidor.`);
+              }}
+            />
+            <label 
+              htmlFor="patient-docs-upload"
+              className="border-2 border-dashed border-slate-300 rounded-[2rem] p-12 flex flex-col items-center justify-center text-slate-500 bg-slate-50 hover:bg-indigo-50/30 hover:border-indigo-300 transition-all cursor-pointer group"
+            >
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
                 <FileText className="h-8 w-8 text-indigo-400" />
               </div>
               <p className="font-bold text-slate-700">{t('wizard.attachDocs')}</p>
               <p className="text-xs mt-1">{t('wizard.docsHint')}</p>
-            </div>
+            </label>
             <div className="text-center">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">{t('wizard.lgpd')}</span>
             </div>
