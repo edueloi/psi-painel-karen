@@ -207,15 +207,15 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
               )}
             </div>
             <div>
-              <h3 className="text-2xl font-black text-slate-800 tracking-tighter leading-none mb-1">{patient?.full_name}</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('patients.history') || 'Histórico Clínico & Financeiro'}</p>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter leading-none mb-1">{patient?.full_name}</h3>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('patients.history')}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-400 transition-all active:scale-95"
+            className="p-3 sm:p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-400 transition-all active:scale-95"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
@@ -223,9 +223,9 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
         {data && (
           <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-50 shrink-0 bg-slate-50/30">
             {[
-              { label: 'Sessões', value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={12}/> },
-              { label: 'Prontuários', value: data.counts.records, color: 'text-blue-600', icon: <FileText size={12}/> },
-              { label: 'Comandas', value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={12}/> },
+              { label: t('nav.agenda'), value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={12}/> },
+              { label: t('nav.records'), value: data.counts.records, color: 'text-blue-600', icon: <FileText size={12}/> },
+              { label: t('nav.comandas'), value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={12}/> },
               { label: 'Neuro/PEI', value: (data.counts.pei || 0) + (data.counts.tools || 0), color: 'text-emerald-600', icon: <BrainCircuit size={12}/> },
             ].map(s => (
               <div key={s.label} className="py-6 px-4 text-center border-r border-slate-50 last:border-r-0 hover:bg-white transition-colors">
@@ -244,11 +244,11 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
                 filter === f.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 border border-slate-100'
               }`}
             >
-              {f.label}
+              {f.id === 'all' ? t('common.all') : f.label}
             </button>
           ))}
         </div>
@@ -351,9 +351,9 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
         <div className="p-8 border-t border-slate-50 bg-white shrink-0 shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
           <button 
             onClick={onClose}
-            className="w-full py-5 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.98]"
+            className="w-full py-4 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-[0.98]"
           >
-            FECHAR HISTÓRICO
+            {t('comandas.close') || 'FECHAR HISTÓRICO'}
           </button>
         </div>
       </div>

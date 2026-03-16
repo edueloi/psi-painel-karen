@@ -530,6 +530,8 @@ export const translations = {
 
     // Pacientes
     'patients.title': 'Meus Pacientes',
+    'patients.history': 'Histórico Clínico',
+    'patients.timeline': 'Linha do Tempo',
     'patients.subtitle': 'Gerencie cadastros, status e histórico clínico.',
     'patients.search': 'Buscar por nome, CPF ou telefone...',
     'patients.filter.all': 'Todos',
@@ -1278,6 +1280,8 @@ export const translations = {
 
     // Patients
     'patients.title': 'My Patients',
+    'patients.history': 'Clinical History',
+    'patients.timeline': 'Timeline',
     'patients.subtitle': 'Manage registrations, status, and clinical history.',
     'patients.search': 'Search by name, ID, or phone...',
     'patients.filter.all': 'All',
@@ -2028,7 +2032,9 @@ export const translations = {
 
     // Patients
     'patients.title': 'Mis Pacientes',
-    'patients.subtitle': 'Administre registros, estado e historial clínico.',
+    'patients.history': 'Historial Clínico',
+    'patients.timeline': 'Línea de Tiempo',
+    'patients.subtitle': 'Gestione registros, estado e historial clínico.',
     'patients.search': 'Buscar por nombre, documento o teléfono...',
     'patients.filter.all': 'Todos',
     'patients.filter.active': 'Activos',
