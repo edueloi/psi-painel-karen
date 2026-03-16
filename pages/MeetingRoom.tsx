@@ -953,6 +953,74 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             setRemoteScreenShareActive(true);
           } else if (evt.event_type === "screen_share_off") {
             setRemoteScreenShareActive(false);
+          } else if (evt.event_type === "webrtc_offer") {
+            // Guest receives offer → create answer
+            if (isGuest && !isCompanionMode && payload?.sdp) {
+              (async () => {
+                const config: RTCConfiguration = {
+                  iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                  ],
+                };
+                if (peerConnectionRef.current) {
+                  peerConnectionRef.current.close();
+                  peerConnectionRef.current = null;
+                }
+                setRemoteStreamActive(false);
+                const pc = new RTCPeerConnection(config);
+                peerConnectionRef.current = pc;
+                if (localStreamRef.current) {
+                  localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+                }
+                pc.ontrack = (e) => {
+                  if (remoteVideoRef.current && e.streams[0]) {
+                    remoteVideoRef.current.srcObject = e.streams[0];
+                    setRemoteStreamActive(true);
+                  }
+                };
+                pc.onicecandidate = (e) => {
+                  if (e.candidate) {
+                    sendRoomEventRef.current?.('webrtc_ice', { candidate: JSON.parse(JSON.stringify(e.candidate)) });
+                  }
+                };
+                pc.onconnectionstatechange = () => {
+                  if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+                    setRemoteStreamActive(false);
+                  }
+                };
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp }));
+                for (const c of pendingIceCandidates.current) {
+                  await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+                }
+                pendingIceCandidates.current = [];
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await sendRoomEventRef.current?.('webrtc_answer', { sdp: answer.sdp, type: answer.type });
+              })().catch(() => {});
+            }
+          } else if (evt.event_type === "webrtc_answer") {
+            // Host receives answer
+            if (!isGuest && peerConnectionRef.current && payload?.sdp) {
+              peerConnectionRef.current.setRemoteDescription(
+                new RTCSessionDescription({ type: payload.type, sdp: payload.sdp })
+              ).then(async () => {
+                for (const c of pendingIceCandidates.current) {
+                  await peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+                }
+                pendingIceCandidates.current = [];
+              }).catch(() => {});
+            }
+          } else if (evt.event_type === "webrtc_ice") {
+            // Both sides receive ICE candidates
+            if (payload?.candidate && !isCompanionMode) {
+              const pc = peerConnectionRef.current;
+              if (pc && pc.remoteDescription) {
+                pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(() => {});
+              } else {
+                pendingIceCandidates.current.push(payload.candidate);
+              }
+            }
           }
         });
         const last = rows[rows.length - 1];
@@ -1374,6 +1442,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     audioContextRef.current?.close();
     if (animationFrameRef.current)
       cancelAnimationFrame(animationFrameRef.current);
+    peerConnectionRef.current?.close();
+    peerConnectionRef.current = null;
+    setRemoteStreamActive(false);
   };
 
   // --- Toggle Functions ---
@@ -2389,11 +2460,22 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 className="w-full h-full object-contain bg-black"
               />
             ) : remoteUserConnected ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-3xl font-bold">
-                  {remoteInitial}
-                </div>
-                <div className="text-sm text-slate-300">{remoteDisplayName}</div>
+              <div className="relative w-full h-full flex items-center justify-center">
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className={`w-full h-full object-cover ${remoteStreamActive ? '' : 'hidden'}`}
+                />
+                {!remoteStreamActive && (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-3xl font-bold">
+                      {remoteInitial}
+                    </div>
+                    <div className="text-sm text-slate-300">{remoteDisplayName}</div>
+                    <div className="text-xs text-slate-500 animate-pulse">Conectando vídeo...</div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-slate-500 text-sm">
@@ -3296,8 +3378,25 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 <div className="text-left bg-[#101216] border border-white/10 rounded-2xl p-4 mb-6">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-                      Relatorio da transcricao
+                      Transcrição da sessão
                     </div>
+                    <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([transcriptText || 'Sem transcrição registrada.'], { type: 'text/plain;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `transcricao-${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                    >
+                      <Download size={12} /> Baixar .txt
+                    </button>
                     <button
                       onClick={handleCopyTranscript}
                       className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
@@ -3309,6 +3408,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                       )}
                       {copiedTranscript ? "Copiado" : "Copiar"}
                     </button>
+                    </div>
                   </div>
                   <textarea
                     readOnly
