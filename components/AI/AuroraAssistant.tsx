@@ -94,7 +94,15 @@ export const AuroraAssistant: React.FC = () => {
       const data = await res.json();
 
       const aiResponse = data.text || "Desculpe, não consegui processar sua resposta agora.";
-      
+
+      // Notifica o sistema quando Aurora criou dados
+      if (data.actions_taken?.includes('patients_created')) {
+        window.dispatchEvent(new CustomEvent('aurora:data-updated', { detail: { type: 'patients' } }));
+      }
+      if (data.actions_taken?.includes('appointment_created')) {
+        window.dispatchEvent(new CustomEvent('aurora:data-updated', { detail: { type: 'appointments' } }));
+      }
+
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'model',

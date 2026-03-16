@@ -417,6 +417,7 @@ Responda sempre em Portugues-BR.`
     });
 
     let assistantMessage = response.choices[0].message;
+    const actionsTaken = [];
 
     if (assistantMessage.tool_calls) {
       chatMessages.push(assistantMessage);
@@ -429,8 +430,8 @@ Responda sempre em Portugues-BR.`
         if (functionName === 'list_patients') result = await listPatients(tenantId);
         else if (functionName === 'get_patient_details') result = await getPatientDetails(tenantId, args.patient_id);
         else if (functionName === 'list_appointments') result = await listAppointments(tenantId, args.start_date, args.end_date);
-        else if (functionName === 'create_appointment') result = await createAppointment(tenantId, args);
-        else if (functionName === 'bulk_create_patients') result = await bulkCreatePatients(tenantId, args.patients || []);
+        else if (functionName === 'create_appointment') { result = await createAppointment(tenantId, args); actionsTaken.push('appointment_created'); }
+        else if (functionName === 'bulk_create_patients') { result = await bulkCreatePatients(tenantId, args.patients || []); actionsTaken.push('patients_created'); }
 
         chatMessages.push({
           tool_call_id: toolCall.id,
@@ -447,7 +448,7 @@ Responda sempre em Portugues-BR.`
       assistantMessage = response.choices[0].message;
     }
 
-    res.json({ text: assistantMessage.content });
+    res.json({ text: assistantMessage.content, actions_taken: actionsTaken });
   } catch (err) {
     console.error('Erro na Aurora:', err);
     res.status(500).json({ error: 'Erro ao processar conversa com a Aurora' });

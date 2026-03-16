@@ -3,13 +3,14 @@ import {
   Users, Search, Plus, Phone, Mail, Calendar, FileText,
   Edit2, Trash2, X, AlertCircle, Eye, ClipboardList,
   FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight,
-  FileUp, FileDown, Download, MapPin, Heart, Shield, User, ChevronDown,
-  MoreVertical, Filter, Activity, TrendingUp
+  FileUp, FileDown, Download, MapPin, Shield, User,
+  Activity, TrendingUp, CheckSquare, Square, History
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { Patient } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
+import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
 import { useNavigate } from 'react-router-dom';
 
 interface PatientSummary {
@@ -54,8 +55,52 @@ export const Patients: React.FC = () => {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [historyPatient, setHistoryPatient] = useState<Patient | null>(null);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredPatients.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredPatients.map(p => String(p.id))));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      await Promise.all([...selectedIds].map(id => api.delete(`/patients/${id}`)));
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      await fetchPatients();
+    } catch (err) {
+      alert('Erro ao excluir pacientes.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   useEffect(() => { fetchPatients(); }, []);
+
+  // Escuta Aurora criar pacientes e atualiza a tela sem perder a conversa
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.type === 'patients') fetchPatients();
+    };
+    window.addEventListener('aurora:data-updated', handler);
+    return () => window.removeEventListener('aurora:data-updated', handler);
+  }, []);
 
   const fetchPatients = async () => {
     setIsLoading(true);
@@ -433,12 +478,45 @@ export const Patients: React.FC = () => {
           </div>
         </div>
 
-        {/* Results Count */}
+        {/* Results Count + Bulk Actions */}
         {!isLoading && (
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs text-slate-400 font-medium">
-              {filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''} encontrado{filteredPatients.length !== 1 ? 's' : ''}
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-slate-400 font-medium">
+                {filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''} encontrado{filteredPatients.length !== 1 ? 's' : ''}
+              </p>
+              {filteredPatients.length > 0 && (
+                <button
+                  onClick={toggleSelectAll}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+                >
+                  {selectedIds.size === filteredPatients.length && filteredPatients.length > 0
+                    ? <CheckSquare size={14} className="text-indigo-600" />
+                    : <Square size={14} />
+                  }
+                  {selectedIds.size === filteredPatients.length && filteredPatients.length > 0 ? 'Desmarcar todos' : 'Selecionar todos'}
+                </button>
+              )}
+            </div>
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2 animate-fadeIn">
+                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">
+                  {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={() => setConfirmBulkDelete(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors shadow-sm"
+                >
+                  <Trash2 size={13} /> Excluir selecionados
+                </button>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs text-slate-400 hover:text-slate-600 transition-colors px-2"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -456,17 +534,26 @@ export const Patients: React.FC = () => {
               const age = calcAge(patient.birth_date);
               const active = isActive(patient);
               const avatarGrad = getAvatarColor(patient.full_name || 'A');
+              const isSelected = selectedIds.has(String(patient.id));
               return (
                 <div
                   key={patient.id}
-                  className="bg-white border border-slate-200 rounded-2xl hover:border-indigo-200 hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer"
-                  onClick={() => openPatientSummary(patient)}
+                  className={`bg-white border rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'}`}
+                  onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : openPatientSummary(patient)}
                 >
                   {/* Card Top */}
                   <div className="p-4">
                     <div className="flex items-start gap-3">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shrink-0 shadow-sm`}>
-                        {(patient.full_name || '?').charAt(0).toUpperCase()}
+                      <div className="relative shrink-0">
+                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shadow-sm`}>
+                          {(patient.full_name || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <button
+                          onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelect(String(patient.id)); }}
+                          className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-indigo-400'}`}
+                        >
+                          {isSelected && <CheckSquare size={12} />}
+                        </button>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -522,13 +609,20 @@ export const Patients: React.FC = () => {
                   {/* Card Footer */}
                   <div className="border-t border-slate-100 px-3 py-2.5 flex items-center gap-1.5 bg-slate-50/70">
                     <button
-                      onClick={e => { e.stopPropagation(); openPatientSummary(patient); }}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all flex-1 justify-center"
+                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); openPatientSummary(patient); }}
+                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all flex-1 justify-center"
                     >
-                      <Eye size={12} /> Ver perfil
+                      <Eye size={12} /> Ver
                     </button>
                     <button
-                      onClick={e => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }}
+                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }}
+                      title="Histórico"
+                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all flex-1 justify-center"
+                    >
+                      <History size={12} /> Histórico
+                    </button>
+                    <button
+                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }}
                       title="Editar"
                       className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all"
                     >
@@ -552,6 +646,13 @@ export const Patients: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">
+                  <th className="px-4 py-3 w-8">
+                    <button onClick={toggleSelectAll} className="text-slate-400 hover:text-indigo-600 transition-colors">
+                      {selectedIds.size === filteredPatients.length && filteredPatients.length > 0
+                        ? <CheckSquare size={15} className="text-indigo-600" />
+                        : <Square size={15} />}
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wide">Paciente</th>
                   <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wide hidden md:table-cell">Contato</th>
                   <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wide hidden lg:table-cell">Idade</th>
@@ -564,12 +665,18 @@ export const Patients: React.FC = () => {
                   const age = calcAge(patient.birth_date);
                   const active = isActive(patient);
                   const avatarGrad = getAvatarColor(patient.full_name || 'A');
+                  const isSelected = selectedIds.has(String(patient.id));
                   return (
                     <tr
                       key={patient.id}
-                      className="hover:bg-slate-50/60 transition-colors cursor-pointer"
-                      onClick={() => openPatientSummary(patient)}
+                      className={`transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/60' : 'hover:bg-slate-50/60'}`}
+                      onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : openPatientSummary(patient)}
                     >
+                      <td className="px-4 py-3" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                        <button onClick={() => toggleSelect(String(patient.id))} className="text-slate-300 hover:text-indigo-600 transition-colors">
+                          {isSelected ? <CheckSquare size={15} className="text-indigo-600" /> : <Square size={15} />}
+                        </button>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}>
@@ -609,13 +716,20 @@ export const Patients: React.FC = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                           <button
                             onClick={() => openPatientSummary(patient)}
                             className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all"
                             title="Ver perfil"
                           >
                             <Eye size={13} />
+                          </button>
+                          <button
+                            onClick={() => setHistoryPatient(patient)}
+                            className="p-1.5 text-violet-500 bg-violet-50 border border-violet-100 rounded-lg hover:bg-violet-100 transition-all"
+                            title="Histórico"
+                          >
+                            <History size={13} />
                           </button>
                           <button
                             onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
@@ -668,6 +782,40 @@ export const Patients: React.FC = () => {
               onSave={handleSavePatient}
               onCancel={() => setIsWizardOpen(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirm Modal */}
+      {confirmBulkDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shrink-0">
+                <Trash2 size={22} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Excluir {selectedIds.size} paciente{selectedIds.size > 1 ? 's' : ''}?</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Esta ação não pode ser desfeita.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => setConfirmBulkDelete(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-semibold hover:bg-slate-200 transition-colors"
+                disabled={bulkDeleting}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+              >
+                {bulkDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {bulkDeleting ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -907,6 +1055,12 @@ export const Patients: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Patient History Drawer */}
+      <PatientHistoryDrawer
+        patient={historyPatient}
+        onClose={() => setHistoryPatient(null)}
+      />
     </div>
   );
 };

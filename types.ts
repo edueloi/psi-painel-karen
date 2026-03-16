@@ -76,49 +76,57 @@ export enum EducationLevel {
 
 export interface Patient {
   id: string;
-  tenant_id: number;
+  tenant_id?: number;
   full_name: string;
-  name?: string; // Compatibility alias
+  name?: string;
   email?: string;
   whatsapp?: string;
-  phone?: string; // Compatibility alias
+  phone?: string;
+  phone2?: string;
   cpf_cnpj?: string;
-  cpf?: string; // Compatibility alias
+  cpf?: string;
   rg?: string;
   birth_date?: string;
-  birthDate?: string; // Compatibility alias
-  // Endereço (achatado conforme API)
+  birthDate?: string;
+  gender?: string;
+  // Endereço
   street?: string;
   house_number?: string;
   neighborhood?: string;
+  address?: string;
   city?: string;
   state?: string;
   address_zip?: string;
+  zip_code?: string;
   country?: string;
   // Sociais
-  marital_status?: MaritalStatus;
-  education?: EducationLevel;
+  marital_status?: MaritalStatus | string;
+  education?: EducationLevel | string;
   profession?: string;
   nationality?: string;
   naturality?: string;
   // Familiar
-  has_children: boolean;
+  has_children?: boolean;
   children_count?: number;
   minor_children_count?: number;
   spouse_name?: string;
   family_contact?: string;
   emergency_contact?: string;
-  phone2?: string;
   notes?: string;
+  diagnosis?: string;
   // Clínico/Financeiro
-  status: 'ativo' | 'inativo';
-  convenio: boolean;
+  status: 'ativo' | 'inativo' | 'active' | 'inactive';
+  convenio?: boolean;
   convenio_name?: string;
-  needs_reimbursement: boolean;
-  needsReimbursement?: boolean; // Compatibility alias
+  health_plan?: string;
+  needs_reimbursement?: boolean;
+  needsReimbursement?: boolean;
   psychologist_id?: string;
+  responsible_professional_id?: string;
   photoUrl?: string;
   active?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export type AppointmentType = 'consulta' | 'bloqueio' | 'pessoal';
