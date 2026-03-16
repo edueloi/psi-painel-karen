@@ -255,7 +255,8 @@ export const Agenda: React.FC = () => {
                   recurrence_end_date: a.recurrence_end_date || null,
                   recurrence_count: a.recurrence_count ?? null,
                   parent_appointment_id: a.parent_appointment_id ?? null,
-                  recurrence_index: a.recurrence_index ?? null
+                  recurrence_index: a.recurrence_index ?? null,
+                  professional_id: a.professional_id || a.psychologist_id // Normalização
               };
           }));
           setPatients(pts);
@@ -357,10 +358,10 @@ export const Agenda: React.FC = () => {
           const payload = {
               patient_id: formData.patient_id || null,
               patient_name_text: formData.patient_id ? null : (formData.patient_name_text || null),
-              psychologist_id: formData.psychologist_id || null,
-              professional_name_text: formData.psychologist_id ? null : (formData.professional_name_text || null),
+              professional_id: formData.psychologist_id || formData.professional_id || null,
+              professional_name_text: (formData.psychologist_id || formData.professional_id) ? null : (formData.professional_name_text || null),
               service_id: formData.type === 'consulta' ? formData.service_id || null : null,
-              appointment_date: formData.appointment_date,
+              start_time: formData.appointment_date, // Alinhado com o backend
               duration_minutes: formData.duration_minutes,
               status: formData.status || 'scheduled',
               modality: formData.type === 'consulta' ? formData.modality : 'presencial',
@@ -389,7 +390,7 @@ export const Agenda: React.FC = () => {
           if (!payload.patient_id && filterPatientId) {
               setFilterPatientId(null);
           }
-          if (!payload.psychologist_id && filterProfessionalId) {
+          if (!payload.professional_id && filterProfessionalId) {
               setFilterProfessionalId(null);
           }
           fetchData();
@@ -1067,8 +1068,10 @@ export const Agenda: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-1 gap-2 text-xs text-slate-500">
                         <div className="flex items-center gap-2"><Clock size={14}/> {formData.duration_minutes || 50} min</div>
-                        <div className="flex items-center gap-2"><UserCheck size={14}/> {getProfessionalById(formData.psychologist_id)?.name || formData.professional_name_text || 'Sem profissional'}</div>
-                        <div className="flex items-center gap-2"><UserIcon size={14}/> {getPatientById(formData.patient_id)?.full_name || formData.patient_name_text || 'Sem paciente'}</div>
+                        <div className="flex items-center gap-2"><UserCheck size={14}/> {getProfessionalById(formData.psychologist_id || formData.professional_id)?.name || formData.professional_name_text || 'Sem profissional'}</div>
+                        {formData.type === 'consulta' && (
+                            <div className="flex items-center gap-2"><UserIcon size={14}/> {getPatientById(formData.patient_id)?.full_name || formData.patient_name_text || 'Sem paciente'}</div>
+                        )}
                         {formData.meeting_url && <div className="flex items-center gap-2"><Link2 size={14}/> Link definido</div>}
                     </div>
                 </div>
