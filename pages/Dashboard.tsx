@@ -14,7 +14,8 @@ import {
   CheckCircle,
   Loader2,
   Layers,
-  FileText
+  FileText,
+  Send
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
@@ -181,13 +182,13 @@ export const Dashboard: React.FC = () => {
   };
 
   const StatCard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; hint?: string }> = ({ label, value, icon, hint }) => (
-    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 transition-all hover:border-indigo-100">
+    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all hover:border-indigo-100 group">
       <div className="flex items-start justify-between">
-        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">{icon}</div>
-        {hint && <span className="text-[10px] font-bold text-slate-400">{hint}</span>}
+        <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">{icon}</div>
+        {hint && <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{hint}</span>}
       </div>
-      <h3 className="text-2xl font-display font-bold text-slate-800 mt-3">{value}</h3>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">{label}</p>
+      <h3 className="text-3xl font-black text-slate-800 mt-5 group-hover:text-indigo-600 transition-colors">{value}</h3>
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 pr-2 leading-tight">{label}</p>
     </div>
   );
 
@@ -197,21 +198,22 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 md:space-y-8 animate-fadeIn pb-20">
-      <div className="bg-white border border-slate-100 shadow-sm rounded-3xl p-6 md:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="relative overflow-hidden bg-white border border-slate-100 shadow-sm rounded-[2.5rem] p-8 md:p-10 group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full -mr-20 -mt-20 opacity-40 blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-1000"></div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div>
-            <h1 className="font-display font-bold text-2xl md:text-3xl text-slate-900">Ola, {greetingName}</h1>
-            <p className="text-slate-500 text-sm capitalize">{formattedDate}</p>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-indigo-600 text-[10px] font-black uppercase tracking-widest mb-4">
+                👋 {formattedDate}
+            </div>
+            <h1 className="font-black text-3xl md:text-4xl text-slate-900 tracking-tight">Bom dia, <span className="text-indigo-600">{greetingName}</span></h1>
+            <p className="text-slate-400 text-sm font-bold mt-2 max-w-md leading-relaxed">Sua clínica está pronta. Você tem {todaysAppointments.length} atendimentos programados para hoje.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => navigate('/agenda')} className="flex items-center gap-2 bg-slate-900 text-white px-4 h-10 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-all">
-              <Calendar size={16} /> Ver agenda
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => navigate('/agenda')} className="flex items-center gap-2 bg-slate-950 text-white px-6 h-12 rounded-[1.2rem] font-black text-[11px] shadow-xl hover:bg-slate-800 transition-all active:scale-95 uppercase tracking-widest">
+              <Calendar size={18} /> Ver agenda
             </button>
-            <button onClick={() => navigate('/pacientes')} className="flex items-center gap-2 bg-indigo-600 text-white px-4 h-10 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
-              <Plus size={16} /> {t('patients.new')}
-            </button>
-            <button onClick={() => navigate('/prontuario')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 h-10 rounded-xl font-bold text-sm hover:border-indigo-200 hover:text-indigo-700 transition-all">
-              <FileText size={16} /> Novo prontuario
+            <button onClick={() => navigate('/pacientes')} className="flex items-center gap-2 bg-indigo-600 text-white px-6 h-12 rounded-[1.2rem] font-black text-[11px] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 uppercase tracking-widest">
+              <Plus size={18} /> {t('patients.new')}
             </button>
           </div>
         </div>
@@ -315,23 +317,58 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wide">Aniversarios</h3>
+          {/* SECTION: BIRTHDAYS */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2">
+                    <Sparkles size={16} className="text-amber-500" />
+                    Aniversários
+                </h3>
+            </div>
             {isLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="animate-spin text-indigo-300" /></div>
             ) : birthdays.length === 0 ? (
-              <div className="text-center text-slate-400 text-sm py-6">Sem datas registradas.</div>
+              <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-50 rounded-2xl">Sem aniversários próximos.</div>
             ) : (
-              <div className="space-y-3">
-                {birthdays.map(({ patient, next }) => (
-                  <div key={patient.id} className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold text-slate-700 truncate">{patient.full_name}</div>
-                      <div className="text-[10px] text-slate-400">{next.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short' })}</div>
+              <div className="space-y-4">
+                {birthdays.map(({ patient, next }) => {
+                  const birthDate = new Date(patient.birth_date || patient.birthDate || '');
+                  const age = Number.isNaN(birthDate.getTime()) ? null : now.getFullYear() - birthDate.getFullYear();
+                  const isToday = next.getDate() === now.getDate() && next.getMonth() === now.getMonth();
+                  const phone = (patient.whatsapp || patient.phone || '').replace(/\D/g, '');
+
+                  const handleSendBirthdayMsg = () => {
+                    const msg = `Olá ${patient.full_name || patient.name}, parabéns pelo seu aniversário! Desejo muita saúde, paz e realizações. Um grande abraço!`;
+                    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                  };
+
+                  return (
+                    <div key={patient.id} className={`flex items-center justify-between p-3.5 rounded-2xl transition-all border ${isToday ? 'bg-amber-50 border-amber-100' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:shadow-md'}`}>
+                      <div className="min-w-0 flex items-center gap-3">
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-black text-xs ${isToday ? 'bg-amber-200 text-amber-700' : 'bg-white text-slate-400 shadow-sm border border-slate-100'}`}>
+                            {next.getDate()}/{next.getMonth() + 1}
+                        </div>
+                        <div className="truncate">
+                          <div className="text-sm font-black text-slate-800 truncate">{patient.full_name || patient.name}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {age && <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{age} anos</span>}
+                            {isToday && <span className="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-md uppercase tracking-tighter animate-pulse">Hoje!</span>}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {phone && (
+                        <button 
+                          onClick={handleSendBirthdayMsg}
+                          className={`p-2.5 rounded-xl transition-all active:scale-95 ${isToday ? 'bg-amber-500 text-white shadow-lg shadow-amber-200 hover:bg-amber-600' : 'text-emerald-600 bg-white border border-slate-100 hover:bg-emerald-50 hover:border-emerald-100'}`}
+                          title="Mandar mensagem"
+                        >
+                          <Send size={16} />
+                        </button>
+                      )}
                     </div>
-                    <span className="text-[10px] font-bold text-amber-600">Em breve</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
