@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// Normaliza status pt-BR para valores aceitos pelo banco
+const normalizeStatus = (s) => {
+  if (s === 'ativo') return 'active';
+  if (s === 'inativo') return 'inactive';
+  if (['active', 'inactive', 'waiting'].includes(s)) return s;
+  return 'active';
+};
+
 // GET /patients
 router.get('/', async (req, res) => {
   try {
@@ -72,7 +80,7 @@ router.post('/', async (req, res) => {
         req.user.tenant_id, name, email || null, phone || null,
         birth_date || null, cpf || null, rg || null, gender || null,
         address || null, city || null, state || null, zip_code || null,
-        notes || null, status || 'active',
+        notes || null, normalizeStatus(status),
         responsible_professional_id || null, responsible_name || null,
         responsible_phone || null, health_plan || null, diagnosis || null
       ]
@@ -125,7 +133,7 @@ router.put('/:id', async (req, res) => {
       WHERE id = ? AND tenant_id = ?`,
       [
         name, email, phone, birth_date, cpf, rg, gender,
-        address, city, state, zip_code, notes, status,
+        address, city, state, zip_code, notes, status ? normalizeStatus(status) : undefined,
         responsible_professional_id, responsible_name,
         responsible_phone, health_plan, diagnosis,
         req.params.id, req.user.tenant_id
