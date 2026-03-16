@@ -1,11 +1,16 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  DollarSign, TrendingUp, TrendingDown, Calendar, CreditCard, 
+  DollarSign, TrendingUp, TrendingDown, Calendar, CreditCard,
   Wallet, PieChart, ArrowUpRight, ArrowDownRight, Filter, Download, 
-  Banknote, Smartphone, Receipt, FileText, Briefcase, Calculator, BookOpen, AlertCircle
+  Briefcase, Calculator, BookOpen, AlertCircle, Trash2, Loader2,
+  Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { api } from '../services/api';
+import { FinancialTransaction, Patient } from '../types';
+import { Modal } from '../components/UI/Modal';
+import { Input, Select, TextArea } from '../components/UI/Input';
 
 const PAYMENT_METHODS = [
   { id: 'pix', label: 'Pix', icon: <Smartphone size={16} />, color: 'bg-emerald-500' },
@@ -17,98 +22,174 @@ const PAYMENT_METHODS = [
   { id: 'courtesy', label: 'Cortesia', icon: <Wallet size={16} />, color: 'bg-rose-400' },
 ];
 
-const generateDailyData = (year: number, month: number) => {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const data = [];
-
-  for (let i = 1; i <= daysInMonth; i++) {
-    const isWeekend = new Date(year, month, i).getDay() % 6 === 0;
-    const baseRevenue = isWeekend ? 0 : Math.floor(Math.random() * 2000) + 500;
-    const baseExpense = Math.floor(Math.random() * 800) + 100;
-
-    const methods = PAYMENT_METHODS.reduce((acc, method) => {
-        let amount = 0;
-        if (baseRevenue > 0) {
-            const pct = Math.random();
-            amount = Math.floor(baseRevenue * (pct / PAYMENT_METHODS.length)); 
-        }
-        return { ...acc, [method.id]: amount };
-    }, {} as Record<string, number>);
-
-    data.push({
-      day: i,
-      date: new Date(year, month, i),
-      revenue: baseRevenue,
-      expense: baseExpense,
-      balance: baseRevenue - baseExpense,
-      methods
-    });
-  }
-  return data;
-};
-
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
+
+const CATEGORIES_INCOME = [
+    'Sessão Individual', 'Pacote de Sessões', 'Avaliação', 'Supervisão', 'Palestra/Curso', 'Outros'
+];
+
+const CATEGORIES_EXPENSE = [
+    'Aluguel/Sublocação', 'Marketing/Anúncios', 'Impostos/CRP', 'Software/Sistemas', 'Educação/Livros', 'Material de Escritório', 'Outros'
+];
 
 export const Finance: React.FC = () => {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'tax'>('dashboard');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'year'>('month');
+  
+  // States para Dados Reais
+  const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const currentMonthData = useMemo(() => {
-    return generateDailyData(currentDate.getFullYear(), currentDate.getMonth());
+  // States para Modal de Lançamento
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<FinancialTransaction | null>(null);
+  const [txType, setTxType] = useState<'income' | 'expense'>('income');
+  const [txAmount, setTxAmount] = useState('');
+  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [txDescription, setTxDescription] = useState('');
+  const [txCategory, setTxCategory] = useState('');
+  const [txPatientId, setTxPatientId] = useState('');
+  const [txMethod, setTxMethod] = useState('pix');
+  const [txStatus, setTxStatus] = useState<'paid' | 'pending'>('paid');
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+        const month = currentDate.getMonth() + 1;
+        const year = currentDate.getFullYear();
+        
+        const [txs, sum, pts] = await Promise.all([
+            api.get<FinancialTransaction[]>('/finance', { 
+                start: new Date(year, month - 1, 1).toISOString().split('T')[0],
+                end: new Date(year, month, 0).toISOString().split('T')[0]
+            }),
+            api.get<any>('/finance/summary', { month: month.toString(), year: year.toString() }),
+            api.get<Patient[]>('/patients')
+        ]);
+        
+        setTransactions(txs);
+        setSummary(sum);
+        setPatients(pts);
+    } catch (err) {
+        console.error('Erro ao buscar dados financeiros:', err);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, [currentDate]);
 
-  const yearData = useMemo(() => {
-      return Array.from({ length: 12 }, (_, i) => {
-          const monthDays = generateDailyData(currentDate.getFullYear(), i);
-          const totalRev = monthDays.reduce((acc, d) => acc + d.revenue, 0);
-          const totalExp = monthDays.reduce((acc, d) => acc + d.expense, 0);
-          return { month: i, label: new Date(2023, i, 1).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'short' }), revenue: totalRev, expense: totalExp };
-      });
-  }, [currentDate.getFullYear(), language]);
+  const handleOpenModal = (type: 'income' | 'expense', tx?: FinancialTransaction) => {
+      if (tx) {
+          setEditingTx(tx);
+          setTxType(tx.type);
+          setTxAmount(tx.amount.toString());
+          setTxDate(tx.date.split('T')[0]);
+          setTxDescription(tx.description);
+          setTxCategory(tx.category);
+          setTxPatientId(tx.patient_id || '');
+          setTxMethod(tx.payment_method || 'pix');
+          setTxStatus(tx.status === 'pending' ? 'pending' : 'paid');
+      } else {
+          setEditingTx(null);
+          setTxType(type);
+          setTxAmount('');
+          setTxDate(new Date().toISOString().split('T')[0]);
+          setTxDescription('');
+          setTxCategory('');
+          setTxPatientId('');
+          setTxMethod('pix');
+          setTxStatus('paid');
+      }
+      setIsModalOpen(true);
+  };
+
+  const handleSaveTransaction = async () => {
+      if (!txAmount || !txDate || !txCategory) {
+          alert('Preencha os campos obrigatórios');
+          return;
+      }
+
+      const payload = {
+          type: txType,
+          amount: parseFloat(txAmount),
+          date: txDate,
+          description: txDescription,
+          category: txCategory,
+          patient_id: txPatientId || null,
+          payment_method: txMethod,
+          status: txStatus
+      };
+
+      try {
+          if (editingTx) {
+              await api.put(`/finance/${editingTx.id}`, payload);
+          } else {
+              await api.post('/finance', payload);
+          }
+          setIsModalOpen(false);
+          fetchData();
+      } catch (err) {
+          console.error('Erro ao salvar transação:', err);
+      }
+  };
+
+  const handleDeleteTransaction = async (id: string) => {
+      if (!confirm('Tem certeza que deseja excluir este lançamento?')) return;
+      try {
+          await api.delete(`/finance/${id}`);
+          fetchData();
+      } catch (err) {
+          console.error('Erro ao excluir transação:', err);
+      }
+  };
 
   const stats = useMemo(() => {
-      let dataSubset = currentMonthData;
-      
-      if (periodFilter === 'today') {
-          const today = new Date().getDate();
-          dataSubset = currentMonthData.filter(d => d.day === today);
-      } else if (periodFilter === 'week') {
-          dataSubset = currentMonthData.slice(0, 7);
-      } 
-
-      const totalRevenue = dataSubset.reduce((acc, d) => acc + d.revenue, 0);
-      const totalExpense = dataSubset.reduce((acc, d) => acc + d.expense, 0);
-      
       const methodTotals: Record<string, number> = {};
       PAYMENT_METHODS.forEach(m => methodTotals[m.id] = 0);
       
-      dataSubset.forEach(d => {
-          Object.keys(d.methods).forEach(key => {
-              methodTotals[key] = (methodTotals[key] || 0) + (d.methods[key] || 0);
-          });
+      transactions.forEach(tx => {
+          if (tx.type === 'income') {
+              const method = tx.payment_method?.toLowerCase();
+              if (method && methodTotals[method] !== undefined) {
+                  methodTotals[method] += tx.amount;
+              }
+          }
       });
 
-      const sortedMonths = [...yearData].sort((a, b) => b.revenue - a.revenue);
-      const bestMonth = sortedMonths[0];
-      const worstMonth = sortedMonths[sortedMonths.length - 1];
-      const avgRevenue = yearData.reduce((acc, m) => acc + m.revenue, 0) / 12;
-
       return {
-          revenue: totalRevenue,
-          expense: totalExpense,
-          balance: totalRevenue - totalExpense,
+          revenue: summary.income,
+          expense: summary.expense,
+          balance: summary.balance,
           methods: methodTotals,
-          bestMonth,
-          worstMonth,
-          avgRevenue
+          bestMonth: { label: 'Nov', revenue: summary.income * 1.1 }, // Simplified for now
+          worstMonth: { label: 'Jan', revenue: summary.income * 0.8 },
+          avgRevenue: summary.income
       };
-  }, [currentMonthData, periodFilter, yearData]);
+  }, [transactions, summary]);
 
-  const maxChartValue = Math.max(...yearData.map(d => Math.max(d.revenue, d.expense)));
+  const yearData = useMemo(() => {
+    // Generate dummy historical data based on current summary for chart visualization
+    return Array.from({ length: 12 }, (_, i) => {
+        const isCurrent = i === currentDate.getMonth();
+        return {
+            month: i,
+            label: new Date(2024, i, 1).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'short' }),
+            revenue: isCurrent ? summary.income : summary.income * (0.7 + Math.random() * 0.5),
+            expense: isCurrent ? summary.expense : summary.expense * (0.7 + Math.random() * 0.5)
+        };
+    });
+  }, [summary, currentDate.getMonth(), language]);
+
+  const maxChartValue = Math.max(...yearData.map(d => Math.max(d.revenue, d.expense, 1)));
 
   // --- CARNÊ LEÃO SIMULATION LOGIC ---
   const taxSimulation = useMemo(() => {
@@ -143,96 +224,131 @@ export const Finance: React.FC = () => {
 
   const renderTaxHelper = () => (
       <div className="space-y-8 animate-fadeIn">
-          
-          <div className="bg-slate-900 rounded-[24px] p-8 text-white shadow-xl shadow-indigo-900/20 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none"></div>
-              <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
-                  <div className="flex items-center gap-4">
-                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
-                          <Calculator size={32} className="text-emerald-400" />
+          {/* Main Simulation Header Card */}
+          <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/20 rounded-full blur-[100px] -mr-20 -mt-20 pointer-events-none group-hover:bg-indigo-500/30 transition-all duration-700"></div>
+              <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-10">
+                  <div className="flex items-center gap-6">
+                      <div className="h-20 w-20 bg-white/10 rounded-[2rem] backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-inner">
+                          <Calculator size={36} className="text-emerald-400" />
                       </div>
                       <div>
-                          <h2 className="text-2xl font-bold">{t('finance.tax.carneLeao')}</h2>
-                          <p className="text-slate-300 text-sm max-w-md">
+                          <h2 className="text-3xl font-black tracking-tight mb-2">{t('finance.tax.carneLeao')}</h2>
+                          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] max-w-sm leading-relaxed">
                               Simulação automática baseada nos recebimentos e despesas lançados no mês atual.
                           </p>
                       </div>
                   </div>
                   
-                  <div className="flex flex-col items-end">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{t('finance.tax.estimatedTax')}</p>
-                      <div className="text-4xl font-display font-bold text-emerald-400">{formatCurrency(taxSimulation.tax)}</div>
-                      <p className="text-xs text-emerald-200/70 mt-1 bg-emerald-900/30 px-2 py-1 rounded">
-                          {t('finance.tax.effectiveRate')}: {taxSimulation.effectiveRate.toFixed(2)}%
-                      </p>
+                  <div className="flex flex-col items-end bg-white/5 p-6 rounded-[2rem] border border-white/10 backdrop-blur-sm">
+                      <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em] mb-3">{t('finance.tax.estimatedTax')}</p>
+                      <div className="text-5xl font-black text-emerald-400 tracking-tighter">{formatCurrency(taxSimulation.tax)}</div>
+                      <div className="flex items-center gap-2 mt-4 bg-emerald-500/10 px-4 py-1.5 rounded-xl border border-emerald-500/20">
+                          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <p className="text-[10px] font-black text-emerald-300 uppercase tracking-widest">
+                              {t('finance.tax.effectiveRate')}: {taxSimulation.effectiveRate.toFixed(2)}%
+                          </p>
+                      </div>
                   </div>
               </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Left: Bookkeeping Summary */}
-              <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-6 flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-6">
-                      <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                          <BookOpen size={20} className="text-indigo-600" /> {t('finance.tax.bookkeeping')}
-                      </h3>
-                      <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-md">{currentDate.toLocaleString('default', { month: 'long' })}</span>
-                  </div>
-
-                  <div className="space-y-4 flex-1">
-                      <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 border border-slate-100">
-                          <span className="text-slate-600 font-medium">{t('finance.tax.taxableIncome')}</span>
-                          <span className="text-lg font-bold text-emerald-600">{formatCurrency(taxSimulation.grossIncome)}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-4 rounded-xl bg-amber-50 border border-amber-100">
-                          <span className="text-amber-800 font-medium">{t('finance.tax.deductibleExpenses')}</span>
-                          <span className="text-lg font-bold text-amber-600">-{formatCurrency(taxSimulation.deductibleExpenses)}</span>
-                      </div>
-                      <div className="px-2 text-xs text-slate-400 flex gap-2">
-                          <AlertCircle size={14} className="shrink-0" />
-                          {t('finance.tax.deductibleTip')}
-                      </div>
-                      <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 border border-slate-100 opacity-70">
-                          <span className="text-slate-500 font-medium">Despesas Não Dedutíveis</span>
-                          <span className="text-lg font-bold text-slate-500">{formatCurrency(taxSimulation.nonDeductibleExpenses)}</span>
+              <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 flex flex-col h-full relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-10">
+                      <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+                             <BookOpen size={20} />
+                          </div>
+                          <div>
+                              <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">{t('finance.tax.bookkeeping')}</h3>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{currentDate.toLocaleString('pt-BR', { month: 'long' })}</p>
+                          </div>
                       </div>
                   </div>
 
-                  <div className="mt-6 pt-6 border-t border-slate-100">
-                      <div className="flex justify-between items-center">
-                          <span className="font-bold text-slate-800 uppercase text-sm tracking-wider">{t('finance.tax.taxBase')}</span>
-                          <span className="text-2xl font-bold text-indigo-700">{formatCurrency(taxSimulation.taxBase)}</span>
+                  <div className="space-y-6 flex-1">
+                      <div className="flex justify-between items-center p-6 rounded-[1.8rem] bg-slate-50 border border-slate-100 group hover:bg-white hover:shadow-md transition-all">
+                          <div>
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('finance.tax.taxableIncome')}</p>
+                              <span className="text-xl font-black text-emerald-600 font-mono tracking-tighter">{formatCurrency(taxSimulation.grossIncome)}</span>
+                          </div>
+                          <TrendingUp className="text-emerald-200" size={24} />
+                      </div>
+
+                      <div className="flex justify-between items-center p-6 rounded-[1.8rem] bg-amber-50/50 border border-amber-100 group hover:bg-white hover:shadow-md transition-all">
+                          <div>
+                              <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1">{t('finance.tax.deductibleExpenses')}</p>
+                              <span className="text-xl font-black text-amber-600 font-mono tracking-tighter">-{formatCurrency(taxSimulation.deductibleExpenses)}</span>
+                          </div>
+                          <TrendingDown className="text-amber-200" size={24} />
+                      </div>
+
+                      <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100/50 flex gap-4">
+                          <AlertCircle size={18} className="text-indigo-400 shrink-0" />
+                          <p className="text-[10px] font-black text-indigo-900/60 uppercase tracking-widest leading-relaxed">
+                              {t('finance.tax.deductibleTip')}
+                          </p>
+                      </div>
+
+                      <div className="flex justify-between items-center p-6 rounded-[1.8rem] bg-slate-50 border border-slate-100 opacity-60">
+                          <div>
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Despesas Não Dedutíveis</p>
+                              <span className="text-lg font-black text-slate-500 font-mono tracking-tighter">{formatCurrency(taxSimulation.nonDeductibleExpenses)}</span>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="mt-10 pt-8 border-t border-slate-50">
+                      <div className="flex justify-between items-center px-2">
+                          <div>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('finance.tax.taxBase')}</p>
+                              <span className="text-3xl font-black text-indigo-700 tracking-tighter">{formatCurrency(taxSimulation.taxBase)}</span>
+                          </div>
+                          <div className="h-14 w-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+                              <DollarSign size={24} />
+                          </div>
                       </div>
                   </div>
               </div>
 
               {/* Right: Actions & Export */}
-              <div className="space-y-6">
-                  <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-6">
-                      <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
-                          <FileText size={20} className="text-blue-600" /> Exportação Contábil
-                      </h3>
-                      <p className="text-slate-500 text-sm mb-6">
+              <div className="flex flex-col gap-8">
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10">
+                      <div className="flex items-center gap-4 mb-8">
+                          <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                             <FileText size={20} />
+                          </div>
+                          <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">Contabilidade & Exportação</h3>
+                      </div>
+                      
+                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-10 leading-relaxed">
                           Gere relatórios prontos para envio ao seu contador ou para importação no programa da Receita Federal.
                       </p>
                       
-                      <div className="space-y-3">
-                          <button className="w-full py-4 flex items-center justify-between px-6 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all group">
-                              <span className="font-bold text-slate-700 group-hover:text-indigo-700">Relatório Mensal (PDF)</span>
-                              <Download size={20} className="text-slate-400 group-hover:text-indigo-500" />
+                      <div className="space-y-4">
+                          <button className="w-full h-18 py-6 flex items-center justify-between px-8 bg-slate-50 hover:bg-white hover:shadow-xl hover:border-indigo-200 border border-slate-100 rounded-[1.8rem] transition-all group">
+                              <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest group-hover:text-indigo-600">Relatório Mensal (PDF)</span>
+                              <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-500 shadow-sm">
+                                  <Download size={18} />
+                              </div>
                           </button>
-                          <button className="w-full py-4 flex items-center justify-between px-6 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 rounded-xl transition-all group">
-                              <span className="font-bold text-slate-700 group-hover:text-emerald-700">{t('finance.tax.dmed')} (CSV)</span>
-                              <Download size={20} className="text-slate-400 group-hover:text-emerald-500" />
+                          <button className="w-full h-18 py-6 flex items-center justify-between px-8 bg-slate-50 hover:bg-white hover:shadow-xl hover:border-emerald-200 border border-slate-100 rounded-[1.8rem] transition-all group">
+                              <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest group-hover:text-emerald-700">{t('finance.tax.dmed')} (CSV)</span>
+                              <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-emerald-500 shadow-sm">
+                                  <Download size={18} />
+                              </div>
                           </button>
                       </div>
                   </div>
 
-                  <div className="bg-indigo-600 rounded-[24px] p-6 text-white shadow-lg shadow-indigo-200">
-                      <h4 className="font-bold text-lg mb-2">Precisa de ajuda com o Carnê-Leão?</h4>
-                      <p className="text-indigo-100 text-sm mb-4">Nossa IA pode analisar seus lançamentos e sugerir categorias dedutíveis.</p>
-                      <button className="w-full py-3 bg-white text-indigo-700 font-bold rounded-xl hover:bg-indigo-50 transition-colors">
-                          Analisar Lançamentos
+                  <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden group">
+                      <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none group-hover:bg-white/20 transition-all"></div>
+                      <h4 className="text-xl font-black mb-3">Assistência Fiscal IA</h4>
+                      <p className="text-indigo-100 text-[10px] font-black uppercase tracking-[0.2em] mb-8 leading-relaxed">Nossa inteligência pode analisar seus lançamentos e sugerir categorias dedutíveis para reduzir sua carga fiscal.</p>
+                      <button className="w-full py-5 bg-white text-indigo-700 text-[11px] font-black uppercase tracking-[0.2em] rounded-[1.5rem] hover:bg-indigo-50 transition-all shadow-xl active:scale-95">
+                          Ativar Analisador Fiscal
                       </button>
                   </div>
               </div>
@@ -242,292 +358,480 @@ export const Finance: React.FC = () => {
 
   const renderDashboard = () => (
     <div className="space-y-6 animate-fadeIn">
-       {/* Filters */}
-       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
-           <div className="flex bg-slate-100 p-1 rounded-xl">
-               {['today', 'week', 'month', 'year'].map((p) => (
-                   <button 
-                       key={p}
-                       onClick={() => setPeriodFilter(p as any)}
-                       className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${periodFilter === p ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                   >
-                       {t(`finance.${p}`)}
-                   </button>
-               ))}
-           </div>
-           <div className="flex items-center gap-2 text-slate-500 text-sm font-medium">
-               <Calendar size={16} />
-               {periodFilter === 'year' 
-                 ? currentDate.getFullYear() 
-                 : currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
-           </div>
-       </div>
+        {/* Main Chart & Methods breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Chart Area */}
+            <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+                <div className="flex justify-between items-center mb-8 relative z-10">
+                    <div>
+                        <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest flex items-center gap-2">
+                             <PieChart size={14} className="text-indigo-500"/>
+                             {t('finance.balance')}
+                        </h3>
+                        <p className="text-lg font-black text-slate-600 mt-0.5">{t('finance.year')}</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-wider">
+                       <div className="flex items-center gap-2 px-2 py-1 bg-emerald-50 rounded-lg text-emerald-600 border border-emerald-100"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {t('finance.income')}</div>
+                       <div className="flex items-center gap-2 px-2 py-1 bg-rose-50 rounded-lg text-rose-600 border border-rose-100"><span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span> {t('finance.expense')}</div>
+                    </div>
+                </div>
+                
+                <div className="h-64 flex items-end gap-3 md:gap-4 relative z-10">
+                    {yearData.map((m, i) => (
+                        <div key={i} className="flex-1 flex gap-1 justify-center items-end h-full group/bar relative">
+                            {/* Bars */}
+                            <div className="w-full max-w-[12px] bg-emerald-500 rounded-t-full hover:opacity-80 transition-all shadow-lg shadow-emerald-100" style={{ height: `${(m.revenue / maxChartValue) * 100}%` }}></div>
+                            <div className="w-full max-w-[12px] bg-rose-400 rounded-t-full hover:opacity-80 transition-all shadow-lg shadow-rose-100" style={{ height: `${(m.expense / maxChartValue) * 100}%` }}></div>
+                            
+                            {/* Tooltip */}
+                            <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white text-[9px] p-3 rounded-2xl opacity-0 group-hover/bar:opacity-100 pointer-events-none transition-all z-20 whitespace-nowrap shadow-2xl border border-white/10 scale-90 group-hover/bar:scale-100">
+                                <div className="font-black mb-1.5 text-indigo-300 uppercase tracking-widest">{m.label}</div>
+                                <div className="flex justify-between gap-4 font-bold">
+                                    <span className="text-emerald-400">REC:</span> 
+                                    <span>{formatCurrency(m.revenue)}</span>
+                                </div>
+                                <div className="flex justify-between gap-4 font-bold border-t border-white/10 mt-1 pt-1">
+                                    <span className="text-rose-400">DES:</span> 
+                                    <span>{formatCurrency(m.expense)}</span>
+                                </div>
+                            </div>
 
-       {/* KPIs */}
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between h-full group hover:-translate-y-1 transition-all duration-300">
-               <div className="flex justify-between items-start mb-4">
-                   <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
-                       <TrendingUp size={24} />
-                   </div>
-                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full flex items-center gap-1">
-                       <ArrowUpRight size={12} /> {t('finance.income')}
-                   </span>
-               </div>
-               <div>
-                   <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('finance.totalRevenue')}</span>
-                   <h3 className="text-3xl font-display font-bold text-slate-800 mt-1">{formatCurrency(stats.revenue)}</h3>
-               </div>
-           </div>
+                            {/* Label */}
+                            <div className="absolute -bottom-7 text-[8px] font-black text-slate-300 uppercase tracking-tighter">{m.label}</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
 
-           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between h-full group hover:-translate-y-1 transition-all duration-300">
-               <div className="flex justify-between items-start mb-4">
-                   <div className="p-3 rounded-xl bg-rose-50 text-rose-600">
-                       <TrendingDown size={24} />
-                   </div>
-                   <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-full flex items-center gap-1">
-                       <ArrowDownRight size={12} /> {t('finance.expense')}
-                   </span>
-               </div>
-               <div>
-                   <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('finance.expenses')}</span>
-                   <h3 className="text-3xl font-display font-bold text-slate-800 mt-1">{formatCurrency(stats.expense)}</h3>
-               </div>
-           </div>
+            {/* Methods Breakdown */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-8 flex items-center gap-2 text-indigo-500">
+                    <Smartphone size={14}/>
+                    {t('finance.methods')}
+                </h3>
+                <div className="space-y-6">
+                    {PAYMENT_METHODS.filter(m => (stats.methods[m.id] || 0) > 0).map(method => {
+                        const amount = stats.methods[method.id] || 0;
+                        const percentage = stats.revenue > 0 ? (amount / stats.revenue) * 100 : 0;
+                        
+                        return (
+                            <div key={method.id} className="group">
+                                <div className="flex justify-between items-center mb-2.5">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-white shadow-lg ${method.color}`}>
+                                            {React.cloneElement(method.icon as React.ReactElement, { size: 14 })}
+                                        </div>
+                                        <span className="text-xs font-black text-slate-600 uppercase tracking-tight">{method.label}</span>
+                                    </div>
+                                    <div className="text-sm font-black text-slate-800 text-right">{formatCurrency(amount)}</div>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-50">
+                                    <div className={`h-full rounded-full ${method.color} transition-all duration-1000 group-hover:brightness-110`} style={{ width: `${percentage}%` }}></div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {Object.values(stats.methods).every(v => v === 0) && (
+                         <div className="text-center py-10 opacity-30">
+                             <AlertCircle className="mx-auto mb-2" size={24}/>
+                             <p className="text-[10px] font-black uppercase tracking-widest">Sem lançamentos</p>
+                         </div>
+                    )}
+                </div>
+            </div>
+        </div>
 
-           <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 shadow-lg shadow-indigo-200 text-white flex flex-col justify-between h-full group hover:-translate-y-1 transition-all duration-300">
-               <div className="flex justify-between items-start mb-4">
-                   <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm text-white">
-                       <DollarSign size={24} />
-                   </div>
-                   <span className="text-xs font-bold text-white/90 bg-white/10 px-2 py-1 rounded-full border border-white/20">
-                       {t('finance.result')}
-                   </span>
-               </div>
-               <div>
-                   <span className="text-indigo-100 text-xs font-bold uppercase tracking-wider">{t('finance.netProfit')}</span>
-                   <h3 className="text-3xl font-display font-bold text-white mt-1">{formatCurrency(stats.balance)}</h3>
-               </div>
-           </div>
-       </div>
+        {/* Comparison Insight Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all overflow-hidden relative">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 opacity-20 pointer-events-none"></div>
+                <div className="h-14 w-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 relative z-10">
+                    <TrendingUp size={28} />
+                </div>
+                <div className="relative z-10">
+                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-0.5">{t('finance.bestMonth')}</p>
+                    <p className="text-base font-black text-slate-800 uppercase tracking-tighter">{stats.bestMonth.label} <span className="opacity-40 text-sm font-bold bg-slate-100 px-2 py-0.5 rounded-lg ml-1">{formatCurrency(stats.bestMonth.revenue)}</span></p>
+                </div>
+            </div>
 
-       {/* Charts & Breakdown */}
-       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-           {/* Main Chart */}
-           <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-               <div className="flex justify-between items-center mb-8">
-                   <h3 className="font-bold text-lg text-slate-800">{t('finance.balance')}</h3>
-                   <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-wider">
-                      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {t('finance.income')}</div>
-                      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-rose-400"></span> {t('finance.expense')}</div>
-                   </div>
-               </div>
-               
-               <div className="h-64 flex items-end gap-2 md:gap-4">
-                   {yearData.map((m, i) => (
-                       <div key={i} className="flex-1 flex gap-1 justify-center items-end h-full group relative">
-                           {/* Bars */}
-                           <div className="w-full max-w-[16px] bg-emerald-500 rounded-t-sm hover:opacity-80 transition-all" style={{ height: `${(m.revenue / maxChartValue) * 100}%` }}></div>
-                           <div className="w-full max-w-[16px] bg-rose-400 rounded-t-sm hover:opacity-80 transition-all" style={{ height: `${(m.expense / maxChartValue) * 100}%` }}></div>
-                           
-                           {/* Tooltip */}
-                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] p-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 whitespace-nowrap shadow-xl">
-                               <div className="font-bold mb-1">{m.label}</div>
-                               <div className="text-emerald-400">R: {formatCurrency(m.revenue)}</div>
-                               <div className="text-rose-400">D: {formatCurrency(m.expense)}</div>
-                           </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-rose-200 transition-all overflow-hidden relative">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-rose-50 rounded-bl-full -mr-8 -mt-8 opacity-20 pointer-events-none"></div>
+                <div className="h-14 w-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center border border-rose-100 relative z-10">
+                    <TrendingDown size={28} />
+                </div>
+                <div className="relative z-10">
+                    <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5">{t('finance.worstMonth')}</p>
+                    <p className="text-base font-black text-slate-800 uppercase tracking-tighter">{stats.worstMonth.label} <span className="opacity-40 text-sm font-bold bg-slate-100 px-2 py-0.5 rounded-lg ml-1">{formatCurrency(stats.worstMonth.revenue)}</span></p>
+                </div>
+            </div>
 
-                           {/* Label */}
-                           <div className="absolute -bottom-6 text-[10px] font-bold text-slate-400 uppercase">{m.label.charAt(0)}</div>
-                       </div>
-                   ))}
-               </div>
-           </div>
-
-           {/* Payment Methods Breakdown */}
-           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-               <h3 className="font-bold text-lg text-slate-800 mb-6">{t('finance.methods')}</h3>
-               <div className="space-y-4">
-                   {PAYMENT_METHODS.map(method => {
-                       const amount = stats.methods[method.id] || 0;
-                       const percentage = stats.revenue > 0 ? (amount / stats.revenue) * 100 : 0;
-                       
-                       if (amount === 0) return null;
-
-                       return (
-                           <div key={method.id}>
-                               <div className="flex justify-between items-center mb-1 text-sm">
-                                   <div className="flex items-center gap-2 text-slate-600 font-medium">
-                                       <div className={`p-1 rounded text-white ${method.color}`}>{method.icon}</div>
-                                       {method.label}
-                                   </div>
-                                   <div className="text-slate-800 font-bold">{formatCurrency(amount)}</div>
-                               </div>
-                               <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                   <div className={`h-full rounded-full ${method.color}`} style={{ width: `${percentage}%` }}></div>
-                               </div>
-                           </div>
-                       );
-                   })}
-               </div>
-           </div>
-       </div>
-
-       {/* Insights Cards */}
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex items-center gap-4">
-               <div className="p-3 bg-white rounded-full text-emerald-600 shadow-sm">
-                   <TrendingUp size={24} />
-               </div>
-               <div>
-                   <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide">{t('finance.bestMonth')}</p>
-                   <p className="font-bold text-slate-800">{stats.bestMonth.label} <span className="text-xs text-slate-500 font-normal">({formatCurrency(stats.bestMonth.revenue)})</span></p>
-               </div>
-           </div>
-           
-           <div className="bg-rose-50 rounded-2xl p-5 border border-rose-100 flex items-center gap-4">
-               <div className="p-3 bg-white rounded-full text-rose-500 shadow-sm">
-                   <TrendingDown size={24} />
-               </div>
-               <div>
-                   <p className="text-xs font-bold text-rose-700 uppercase tracking-wide">{t('finance.worstMonth')}</p>
-                   <p className="font-bold text-slate-800">{stats.worstMonth.label} <span className="text-xs text-slate-500 font-normal">({formatCurrency(stats.worstMonth.revenue)})</span></p>
-               </div>
-           </div>
-
-           <div className="bg-indigo-50 rounded-2xl p-5 border border-indigo-100 flex items-center gap-4">
-               <div className="p-3 bg-white rounded-full text-indigo-600 shadow-sm">
-                   <PieChart size={24} />
-               </div>
-               <div>
-                   <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">{t('finance.avgMonthly')}</p>
-                   <p className="font-bold text-slate-800">{formatCurrency(stats.avgRevenue)}</p>
-               </div>
-           </div>
-       </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all overflow-hidden relative">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-8 -mt-8 opacity-20 pointer-events-none"></div>
+                <div className="h-14 w-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 relative z-10">
+                    <PieChart size={28} />
+                </div>
+                <div className="relative z-10">
+                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">{t('finance.avgMonthly')}</p>
+                    <p className="text-lg font-black text-slate-800 uppercase tracking-tighter">{formatCurrency(stats.avgRevenue)}</p>
+                </div>
+            </div>
+        </div>
     </div>
   );
 
   const renderDailyFlow = () => (
-    <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm animate-fadeIn overflow-hidden flex flex-col">
-        {/* Table Controls */}
-        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
-            <div className="flex items-center gap-4">
-                <h3 className="font-display font-bold text-lg text-slate-800">{t('finance.daily')}</h3>
-                <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
-                    <button 
-                        onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}
-                        className="p-1 hover:bg-slate-100 rounded text-slate-500"
-                    >
-                        <TrendingDown className="rotate-90" size={16} />
-                    </button>
-                    <span className="px-4 text-sm font-bold text-slate-700 capitalize">
-                        {currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
-                    </span>
-                    <button 
-                        onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}
-                        className="p-1 hover:bg-slate-100 rounded text-slate-500"
-                    >
-                        <TrendingUp className="rotate-90" size={16} />
-                    </button>
-                </div>
-            </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all">
-                <Download size={16} /> {t('finance.export')}
-            </button>
-        </div>
+    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden animate-fadeIn">
+         {/* Table Header Controls */}
+         <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-6 bg-slate-50/30">
+             <div className="flex items-center gap-4">
+                 <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center border border-indigo-200">
+                     <ListIcon size={20}/>
+                 </div>
+                 <div>
+                     <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">{t('finance.daily')}</h3>
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{transactions.length} LANÇAMENTOS</p>
+                 </div>
+             </div>
+             
+             <button className="h-11 px-5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all uppercase tracking-widest flex items-center gap-2">
+                 <Download size={14} /> {t('finance.export')}
+             </button>
+         </div>
 
-        {/* Table Header */}
-        <div className="grid grid-cols-12 gap-4 p-4 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-            <div className="col-span-2">{t('finance.table.date')}</div>
-            <div className="col-span-3 text-right">{t('finance.table.in')}</div>
-            <div className="col-span-3 text-right">{t('finance.table.out')}</div>
-            <div className="col-span-2 text-right">{t('finance.table.balance')}</div>
-            <div className="col-span-2 text-center">{t('finance.table.status')}</div>
-        </div>
-
-        {/* Table Body */}
-        <div className="overflow-y-auto max-h-[600px] custom-scrollbar">
-            {currentMonthData.map((day) => (
-                <div key={day.day} className="grid grid-cols-12 gap-4 p-4 border-b border-slate-100 items-center hover:bg-slate-50 transition-colors group">
-                    <div className="col-span-2 flex flex-col">
-                        <span className="font-bold text-slate-700 text-sm">
-                            {day.date.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { day: '2-digit', month: '2-digit' })}
-                        </span>
-                        <span className="text-xs text-slate-400 capitalize">
-                            {day.date.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'short' })}
-                        </span>
+         {/* Transactions List */}
+         <div className="divide-y divide-slate-50 overflow-y-auto max-h-[600px] custom-scrollbar">
+            {transactions.length === 0 ? (
+                <div className="p-32 text-center flex flex-col items-center gap-6 text-slate-300">
+                    <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center border border-slate-100 border-dashed">
+                        <AlertCircle size={48} className="opacity-20" />
                     </div>
-                    <div className="col-span-3 text-right font-medium text-emerald-600">
-                        {formatCurrency(day.revenue)}
-                    </div>
-                    <div className="col-span-3 text-right font-medium text-rose-500">
-                        {day.expense > 0 ? `-${formatCurrency(day.expense)}` : '-'}
-                    </div>
-                    <div className={`col-span-2 text-right font-bold ${day.balance >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
-                        {formatCurrency(day.balance)}
-                    </div>
-                    <div className="col-span-2 flex justify-center">
-                        {day.balance > 0 ? (
-                            <span className="px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase rounded-md border border-emerald-100">+</span>
-                        ) : day.balance < 0 ? (
-                            <span className="px-2 py-1 bg-rose-50 text-rose-600 text-[10px] font-bold uppercase rounded-md border border-rose-100">-</span>
-                        ) : (
-                            <span className="px-2 py-1 bg-slate-100 text-slate-400 text-[10px] font-bold uppercase rounded-md">-</span>
-                        )}
-                    </div>
+                    <p className="font-black text-[10px] uppercase tracking-[0.3em]">Nenhum lançamento encontrado</p>
                 </div>
-            ))}
-        </div>
+            ) : (
+                transactions.map((tx) => (
+                    <div key={tx.id} className="group hover:bg-slate-50 transition-all p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
+                        <div className="flex items-center gap-5 md:flex-1">
+                            {/* Date Badge */}
+                            <div className="flex flex-col items-center justify-center w-14 h-14 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-0.5">
+                                    {new Date(tx.date).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
+                                </span>
+                                <span className="text-lg font-black text-slate-800 leading-none">
+                                    {new Date(tx.date).getDate().toString().padStart(2, '0')}
+                                </span>
+                            </div>
+
+                            <div className="flex flex-col overflow-hidden">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={`h-2 w-2 rounded-full ${tx.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                                    <h4 className="font-black text-slate-700 text-sm capitalize truncate max-w-[200px] md:max-w-md">{tx.description}</h4>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50">
+                                        {tx.category}
+                                    </span>
+                                    {tx.patient_name && (
+                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/50 flex items-center gap-1">
+                                            <User size={10} /> {tx.patient_name}
+                                        </span>
+                                    )}
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50 flex items-center gap-1">
+                                        <CreditCard size={10} /> {tx.payment_method}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between md:justify-end gap-10">
+                            <div className="text-right">
+                                <p className={`text-lg font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                </p>
+                                <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                                    <span className={`h-1.5 w-1.5 rounded-full ${tx.status === 'paid' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${tx.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        {tx.status === 'paid' ? t('finance.status.paid') : t('finance.status.pending')}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => handleOpenModal(tx.type, tx)}
+                                    className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-slate-100"
+                                >
+                                    <Edit3 size={16} />
+                                </button>
+                                <button 
+                                    onClick={() => handleDeleteTransaction(tx.id)}
+                                    className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-rose-600 transition-all border border-slate-100"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))
+            )}
+         </div>
     </div>
   );
 
   return (
-    <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-indigo-900/20 border border-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 opacity-90"></div>
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-        
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-            <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-indigo-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
-                    <DollarSign size={14} />
-                    <span>{t('finance.title')}</span>
-                </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('finance.title')}</h1>
-                <p className="text-indigo-100/70 text-lg leading-relaxed max-w-xl">
-                    {t('finance.subtitle')}
-                </p>
-            </div>
+    <div className="space-y-6 animate-fadeIn font-sans pb-24">
+      {/* HEADER & TOP CONTROLS */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><DollarSign size={20}/></div>
+                  {t('finance.title')}
+              </h1>
+              <p className="text-slate-400 text-xs mt-1 font-bold">{t('finance.subtitle')}</p>
+          </div>
+          <div className="flex gap-2">
+              <button 
+                  onClick={() => handleOpenModal('income')} 
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
+              >
+                  <Plus size={16} /> {t('finance.addIncome')}
+              </button>
+              <button 
+                  onClick={() => handleOpenModal('expense')} 
+                  className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-rose-100 transition-all active:scale-95 tracking-widest"
+              >
+                  <Plus size={16} /> {t('finance.addExpense')}
+              </button>
+          </div>
+      </div>
 
-            <div className="flex bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-x-auto no-scrollbar">
+      {/* STATS BAR (KPIs Restyled) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                  <TrendingUp size={22} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">{t('finance.totalRevenue')}</p>
+                  <p className="text-xl font-black text-slate-800">{formatCurrency(summary.income)}</p>
+              </div>
+          </div>
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-rose-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 group-hover:bg-rose-500 group-hover:text-white transition-all">
+                  <TrendingDown size={22} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-rose-500">{t('finance.expenses')}</p>
+                  <p className="text-xl font-black text-slate-800">{formatCurrency(summary.expense)}</p>
+              </div>
+          </div>
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                  <Wallet size={22} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-indigo-500">{t('finance.netProfit')}</p>
+                  <p className="text-xl font-black text-slate-800">{formatCurrency(summary.balance)}</p>
+              </div>
+          </div>
+      </div>
+
+      {/* FILTERS & TABS BAR */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center z-40">
+           <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full lg:w-auto">
+               {[
+                   { id: 'dashboard', label: t('finance.dashboard'), icon: <PieChart size={14}/> },
+                   { id: 'daily', label: t('finance.daily'), icon: <ListIcon size={14}/> },
+                   { id: 'tax', label: t('finance.fiscal'), icon: <Calculator size={14}/> }
+               ].map(tab => (
+                   <button 
+                       key={tab.id}
+                       onClick={() => setActiveTab(tab.id as any)}
+                       className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 flex-1 lg:flex-none justify-center ${activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-indigo-400'}`}
+                   >
+                       {tab.icon}
+                       {tab.label}
+                   </button>
+               ))}
+           </div>
+
+           <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 <button 
-                    onClick={() => setActiveTab('dashboard')}
-                    className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
+                    className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-slate-400 transition-all"
                 >
-                    <PieChart size={18} /> {t('finance.dashboard')}
+                    <ArrowUpRight className="rotate-[225deg]" size={16}/>
                 </button>
+                <div className="flex items-center gap-2 px-3 text-sm font-black text-slate-700 uppercase tracking-tighter text-center">
+                   <Calendar size={16} className="text-indigo-500"/>
+                   {currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
+                </div>
                 <button 
-                    onClick={() => setActiveTab('daily')}
-                    className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'daily' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
+                    className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-slate-400 transition-all"
                 >
-                    <Filter size={18} /> {t('finance.daily')}
+                    <ArrowUpRight size={16}/>
                 </button>
-                <button 
-                    onClick={() => setActiveTab('tax')}
-                    className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'tax' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                >
-                    <Calculator size={18} /> {t('finance.fiscal')}
-                </button>
-            </div>
-        </div>
+           </div>
       </div>
 
       {/* Content Switch */}
-      {activeTab === 'dashboard' && renderDashboard()}
-      {activeTab === 'daily' && renderDailyFlow()}
-      {activeTab === 'tax' && renderTaxHelper()}
+      <div className="opacity-100 transition-opacity duration-300">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center p-40 gap-6 text-indigo-500">
+                <div className="relative">
+                    <Loader2 className="animate-spin" size={64} />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <DollarSign size={20} className="animate-pulse" />
+                    </div>
+                </div>
+                <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-30">Processando Fluxo...</span>
+            </div>
+          ) : (
+            <>
+                {activeTab === 'dashboard' && renderDashboard()}
+                {activeTab === 'daily' && renderDailyFlow()}
+                {activeTab === 'tax' && renderTaxHelper()}
+            </>
+          )}
+      </div>
+
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        maxWidth="max-w-lg"
+        title={editingTx ? 'Revisar Lançamento' : txType === 'income' ? t('finance.addIncome') : t('finance.addExpense')}
+        subtitle={txType === 'income' ? 'CREDITAR EM CAIXA' : 'DEBITAR EM CAIXA'}
+        footer={
+          <>
+            <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">{t('common.cancel')}</button>
+            <button 
+              onClick={handleSaveTransaction}
+              className={`px-8 py-3 rounded-2xl text-[10px] font-black text-white shadow-xl transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 ${txType === 'income' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-100'}`}
+            >
+                <CheckCircle2 size={16}/>
+                {editingTx ? 'SALVAR ALTERAÇÕES' : 'CONFIRMAR'}
+            </button>
+          </>
+        }
+      >
+          <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.form.amount')}</label>
+                      <div className="relative group">
+                          <DollarSign className={`absolute left-4 top-1/2 -translate-y-1/2 ${txType === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} size={16} />
+                          <input 
+                            type="number"
+                            value={txAmount}
+                            onChange={e => setTxAmount(e.target.value)}
+                            placeholder="0,00"
+                            className={`w-full text-lg font-black p-3.5 pl-10 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white transition-all ${txType === 'income' ? 'focus:border-emerald-400 text-emerald-700' : 'focus:border-rose-400 text-rose-700'}`}
+                          />
+                      </div>
+                  </div>
+                  <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.date')}</label>
+                      <div className="relative group">
+                          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                          <input 
+                            type="date"
+                            value={txDate}
+                            onChange={e => setTxDate(e.target.value)}
+                            className="w-full text-xs font-black p-3.5 pl-11 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all text-slate-700"
+                          />
+                      </div>
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.form.category')}</label>
+                  <div className="relative group">
+                      <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <select 
+                        value={txCategory}
+                        onChange={e => setTxCategory(e.target.value)}
+                        className="w-full text-xs font-black p-3.5 pl-11 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 appearance-none transition-all"
+                      >
+                          <option value="">Selecione uma categoria</option>
+                          {(txType === 'income' ? CATEGORIES_INCOME : CATEGORIES_EXPENSE).map(c => (
+                              <option key={c} value={c}>{c}</option>
+                          ))}
+                      </select>
+                  </div>
+              </div>
+
+              {txType === 'income' && (
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      {!txPatientId && !editingTx ? (
+                          <button 
+                            type="button"
+                            onClick={() => setTxPatientId('select_pending')}
+                            className="flex items-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700 transition-colors"
+                          >
+                              <Plus size={14} /> Vincular Paciente
+                          </button>
+                      ) : (
+                          <div>
+                              <div className="flex justify-between items-center mb-2">
+                                  <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest px-1">{t('finance.form.patient')}</label>
+                                  <button onClick={() => setTxPatientId('')} className="text-[8px] font-black text-rose-500 uppercase tracking-widest hover:underline">Remover</button>
+                              </div>
+                              <div className="relative group">
+                                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400" size={16} />
+                                  <select 
+                                    value={txPatientId === 'select_pending' ? '' : txPatientId}
+                                    onChange={e => setTxPatientId(e.target.value)}
+                                    className="w-full text-xs font-black p-3 pl-11 rounded-xl border border-indigo-100 bg-white outline-none focus:ring-4 focus:ring-indigo-100 appearance-none transition-all"
+                                  >
+                                        <option value="">Selecionar paciente...</option>
+                                        {patients.map(p => (
+                                            <option key={p.id} value={p.id}>{p.full_name || p.name}</option>
+                                        ))}
+                                  </select>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.form.method')}</label>
+                      <select 
+                        value={txMethod}
+                        onChange={e => setTxMethod(e.target.value)}
+                        className="w-full text-xs font-black p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white appearance-none transition-all"
+                      >
+                          {PAYMENT_METHODS.map(m => (
+                              <option key={m.id} value={m.id}>{m.label}</option>
+                          ))}
+                      </select>
+                  </div>
+                  <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.status')}</label>
+                      <select 
+                        value={txStatus}
+                        onChange={e => setTxStatus(e.target.value as any)}
+                        className="w-full text-xs font-black p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white appearance-none transition-all"
+                      >
+                          <option value="paid">{t('finance.status.paid')}</option>
+                          <option value="pending">{t('finance.status.pending')}</option>
+                      </select>
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.form.description')}</label>
+                  <textarea 
+                    value={txDescription}
+                    onChange={e => setTxDescription(e.target.value)}
+                    placeholder="Detalhes internos do lançamento..."
+                    rows={2}
+                    className="w-full text-xs font-bold p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all resize-none"
+                  />
+              </div>
+          </div>
+      </Modal>
     </div>
   );
 };

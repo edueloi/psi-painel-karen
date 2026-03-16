@@ -190,6 +190,25 @@ export interface VirtualRoom {
 
 export type PaymentType = 'pix' | 'credit' | 'debit' | 'cash' | 'transfer' | 'check' | 'courtesy';
 
+export type TransactionType = 'income' | 'expense';
+export type TransactionStatus = 'pending' | 'paid' | 'cancelled';
+
+export interface FinancialTransaction {
+  id: string;
+  type: TransactionType;
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+  patient_id?: string;
+  patient_name?: string;
+  appointment_id?: string;
+  comanda_id?: string;
+  payment_method?: PaymentType | string;
+  status: TransactionStatus;
+  created_at?: string;
+}
+
 export interface Document {
   id: string;
   title: string;
