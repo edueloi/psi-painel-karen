@@ -88,15 +88,15 @@ router.get('/doc-templates/:id', async (req, res) => {
 // POST /doc-generator/doc-templates
 router.post('/doc-templates', async (req, res) => {
   try {
-    const { title, content, category_id, variables } = req.body;
-    if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
+    const { title, doc_type, template_body, category_id, header_logo_url, footer_logo_url, signature_name, signature_crp } = req.body;
+    if (!title || !template_body) return res.status(400).json({ error: 'Título e corpo são obrigatórios' });
 
     const [result] = await db.query(
-      'INSERT INTO doc_templates (tenant_id, title, content, category_id, variables) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO doc_templates (tenant_id, title, doc_type, template_body, category_id, header_logo_url, footer_logo_url, signature_name, signature_crp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        req.user.tenant_id, title, content || null,
-        category_id || null,
-        variables ? JSON.stringify(variables) : null
+        req.user.tenant_id, title, doc_type || 'outros', template_body,
+        category_id || null, header_logo_url || null, footer_logo_url || null,
+        signature_name || null, signature_crp || null
       ]
     );
 
@@ -111,18 +111,24 @@ router.post('/doc-templates', async (req, res) => {
 // PUT /doc-generator/doc-templates/:id
 router.put('/doc-templates/:id', async (req, res) => {
   try {
-    const { title, content, category_id, variables } = req.body;
+    const { title, doc_type, template_body, category_id, header_logo_url, footer_logo_url, signature_name, signature_crp } = req.body;
 
     await db.query(
       `UPDATE doc_templates SET
         title = COALESCE(?, title),
-        content = COALESCE(?, content),
-        category_id = COALESCE(?, category_id),
-        variables = COALESCE(?, variables)
+        doc_type = ?,
+        template_body = ?,
+        category_id = ?,
+        header_logo_url = ?,
+        footer_logo_url = ?,
+        signature_name = ?,
+        signature_crp = ?
        WHERE id = ? AND tenant_id = ?`,
       [
-        title, content, category_id,
-        variables !== undefined ? JSON.stringify(variables) : undefined,
+        title, doc_type || 'outros', template_body,
+        category_id || null, 
+        header_logo_url || null, footer_logo_url || null,
+        signature_name || null, signature_crp || null,
         req.params.id, req.user.tenant_id
       ]
     );
@@ -132,6 +138,80 @@ router.put('/doc-templates/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar template' });
+  }
+});
+
+// POST /doc-generator/doc-templates/:id/render
+router.post('/doc-templates/:id/render', async (req, res) => {
+  try {
+    const { patient_id, data } = req.body;
+    const [templates] = await db.query(
+      'SELECT * FROM doc_templates WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (!templates.length) return res.status(404).json({ error: 'Template não encontrado' });
+    const tpl = templates[0];
+
+    let rendered = tpl.template_body;
+
+    // Se houver paciente, busca dados reais para garantir placeholders
+    let patientData = {};
+    if (patient_id) {
+      const [p] = await db.query('SELECT * FROM patients WHERE id = ? AND tenant_id = ?', [patient_id, req.user.tenant_id]);
+      if (p.length) patientData = p[0];
+    }
+
+    const replacements = {
+      '{{patient_name}}': data.patient_name || patientData.full_name || '',
+      '{{nome_paciente}}': data.patient_name || patientData.full_name || '',
+      '{{cpf_paciente}}': patientData.cpf || '',
+      '{{patient_cpf}}': patientData.cpf || '',
+      '{{date}}': data.date || '',
+      '{{data}}': data.date || '',
+      '{{city}}': data.city || '',
+      '{{cidade}}': data.city || '',
+      '{{professional_name}}': data.professional_name || '',
+      '{{nome_profissional}}': data.professional_name || '',
+      '{{professional_crp}}': data.professional_crp || '',
+      '{{crp_profissional}}': data.professional_crp || '',
+      '{{hora_inicio}}': data.time_start || '',
+      '{{time_start}}': data.time_start || '',
+      '{{hora_fim}}': data.time_end || '',
+      '{{time_end}}': data.time_end || '',
+      '{{valor}}': data.amount || '',
+      '{{amount}}': data.amount || '',
+      '{{servico}}': data.service_name || '',
+      '{{service_name}}': data.service_name || '',
+      '{{ano}}': data.year || '',
+      '{{year}}': data.year || '',
+      '{{mes_nome}}': data.month_name || '',
+      '{{month_name}}': data.month_name || ''
+    };
+
+    Object.keys(replacements).forEach(key => {
+      const regex = new RegExp(key, 'g');
+      rendered = rendered.replace(regex, replacements[key]);
+    });
+
+    res.json({ rendered_html: rendered });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao renderizar documento' });
+  }
+});
+
+// POST /doc-generator/doc-instances
+router.post('/doc-instances', async (req, res) => {
+  try {
+    const { template_id, patient_id, title, rendered_html, data_json } = req.body;
+    const [result] = await db.query(
+      'INSERT INTO doc_instances (tenant_id, patient_id, template_id, title, rendered_html) VALUES (?, ?, ?, ?, ?)',
+      [req.user.tenant_id, patient_id || null, template_id || null, title, rendered_html]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar histórico de documento' });
   }
 });
 

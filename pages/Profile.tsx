@@ -283,22 +283,34 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
-              {/* Side Action (e.g. Clinic Logo) */}
-              <div className="hidden lg:flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-3xl border border-slate-100 min-w-[140px]">
-                <button onClick={() => logoInputRef.current?.click()} className="group relative">
-                   <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden transition-colors group-hover:border-indigo-300">
-                     {user.clinicLogoUrl ? (
-                       <img src={getStaticUrl(user.clinicLogoUrl)} alt="Logo" className="w-full h-full object-contain p-1" />
-                     ) : (
-                       <ImageIcon size={24} className="text-slate-300 group-hover:text-indigo-400" />
-                     )}
-                   </div>
-                   <div className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-lg shadow-md border border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <Camera size={10} className="text-indigo-600" />
-                   </div>
-                   <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => onLogoPick(e.target.files?.[0])} />
+              {/* Actions Header */}
+              <div className="flex flex-col items-center md:items-end gap-3 pt-4">
+                <button
+                  onClick={handleSave}
+                  disabled={saveStatus === 'saving'}
+                  className={`flex items-center gap-3 px-8 py-3.5 rounded-2xl shadow-xl transition-all font-black text-xs uppercase tracking-widest active:scale-95 ${
+                    saveStatus === 'saved' 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-indigo-600 text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {saveStatus === 'saving' ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Salvando...</span>
+                    </>
+                  ) : saveStatus === 'saved' ? (
+                    <>
+                      <Award size={18} className="animate-bounce" />
+                      <span>Salvo!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      <span>Salvar Perfil</span>
+                    </>
+                  )}
                 </button>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Logo da Clínica</span>
               </div>
             </div>
 
@@ -380,24 +392,63 @@ export const Profile: React.FC = () => {
 
             {activeTab === 'clinic' && (
               <Card title="Identidade da Clínica" icon={<Building2 className="text-violet-500" />}>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 group hover:border-indigo-300 transition-all cursor-pointer" onClick={() => logoInputRef.current?.click()}>
-                        <div className="w-24 h-24 rounded-3xl bg-white shadow-md flex items-center justify-center overflow-hidden mb-4 p-2">
-                          {user.clinicLogoUrl ? (
-                            <img src={getStaticUrl(user.clinicLogoUrl)} alt="Logo" className="w-full h-full object-contain" />
-                          ) : (
-                            <ImageIcon size={32} className="text-slate-200" />
-                          )}
+                <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     {/* Logo Upload Area */}
+                     <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Logomarca Oficial</label>
+                        <div 
+                          className="relative h-48 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden p-6"
+                          onClick={() => logoInputRef.current?.click()}
+                        >
+                           {user.clinicLogoUrl ? (
+                             <img src={getStaticUrl(user.clinicLogoUrl)} alt="Logo" className="w-full h-full object-contain" />
+                           ) : (
+                             <div className="text-center">
+                               <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3 text-slate-300 group-hover:text-indigo-500 group-hover:scale-110 transition-all">
+                                 <ImageIcon size={32} />
+                               </div>
+                               <p className="text-[11px] font-black text-slate-400 group-hover:text-indigo-600">ANEXAR LOGO</p>
+                             </div>
+                           )}
+                           <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-all flex items-center justify-center">
+                              <div className="p-3 bg-white rounded-2xl shadow-xl scale-0 group-hover:scale-100 transition-all">
+                                <Camera size={20} className="text-indigo-600" />
+                              </div>
+                           </div>
                         </div>
-                        <p className="text-xs font-black text-slate-600 group-hover:text-indigo-600 transition-colors">LogoMarca da Clínica</p>
-                        <p className="text-[10px] text-slate-400 mt-1 font-bold">Resolução sugerida: 512x512</p>
+                        <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => onLogoPick(e.target.files?.[0])} />
                      </div>
 
-                     <div className="space-y-4 pt-4">
-                        <ProfileInput label="Razão Social / Nome Fantasia" icon={<Building2 size={16} />} value={user.companyName} onChange={v => setUser(p => ({ ...p, companyName: v }))} />
-                        <ProfileInput label="Registro Profissional (CRP/CRM)" icon={<Shield size={16} />} value={user.crp} onChange={v => setUser(p => ({ ...p, crp: v }))} />
+                     {/* Cover Upload Area */}
+                     <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Imagem de Capa / Banner</label>
+                        <div 
+                          className="relative h-48 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden"
+                          onClick={() => coverInputRef.current?.click()}
+                        >
+                           {user.coverUrl ? (
+                             <img src={getStaticUrl(user.coverUrl)} alt="Cover" className="w-full h-full object-cover" />
+                           ) : (
+                             <div className="text-center">
+                               <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3 text-slate-300 group-hover:text-indigo-500 group-hover:scale-110 transition-all">
+                                 <ImageIcon size={32} />
+                               </div>
+                               <p className="text-[11px] font-black text-slate-400 group-hover:text-indigo-600">ANEXAR CAPA</p>
+                             </div>
+                           )}
+                           <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-all flex items-center justify-center">
+                              <div className="p-3 bg-white rounded-2xl shadow-xl scale-0 group-hover:scale-100 transition-all">
+                                <Camera size={20} className="text-indigo-600" />
+                              </div>
+                           </div>
+                        </div>
                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
+                    <ProfileInput label="Razão Social / Nome Fantasia" icon={<Building2 size={16} />} value={user.companyName} onChange={v => setUser(p => ({ ...p, companyName: v }))} />
+                    <ProfileInput label="Registro Profissional (CRP/CRM)" icon={<Shield size={16} />} value={user.crp} onChange={v => setUser(p => ({ ...p, crp: v }))} />
                   </div>
                   <ProfileInput label="Endereço Físico Completo" icon={<MapPin size={16} />} value={user.address} onChange={v => setUser(p => ({ ...p, address: v }))} />
                 </div>
@@ -452,35 +503,7 @@ export const Profile: React.FC = () => {
         </div>
       </div>
 
-      {/* Save FAB */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-4">
-        <button
-          onClick={handleSave}
-          disabled={saveStatus === 'saving'}
-          className={`w-full group relative overflow-hidden flex items-center justify-center gap-3 py-4 rounded-3xl shadow-2xl transition-all ${
-            saveStatus === 'saved' 
-            ? 'bg-emerald-500 text-white translate-y-[-2px]' 
-            : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 active:scale-95'
-          }`}
-        >
-          {saveStatus === 'saving' ? (
-            <div className="flex items-center gap-3">
-               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-               <span className="text-sm font-black uppercase tracking-widest">Salvando Perfil...</span>
-            </div>
-          ) : saveStatus === 'saved' ? (
-            <div className="flex items-center gap-3">
-               <Award size={20} className="animate-bounce" />
-               <span className="text-sm font-black uppercase tracking-widest">Perfil Atualizado!</span>
-            </div>
-          ) : (
-            <>
-              <Save size={20} className="group-hover:rotate-12 transition-transform" />
-              <span className="text-sm font-black uppercase tracking-widest">Salvar Alterações</span>
-            </>
-          )}
-        </button>
-      </div>
+      {/* Save FAB - Removida pois agora está no header */}
     </div>
   );
 };

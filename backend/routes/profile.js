@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const fs = require('fs');
+const path = require('path');
 
 // Add extra profile columns if they don't exist (safe migration)
 const ensureColumns = async () => {
@@ -101,7 +103,7 @@ router.post('/avatar', async (req, res) => {
           cb(null, `avatar-${req.user.id}-${Date.now()}${require('path').extname(file.originalname)}`);
         }
       }),
-      limits: { fileSize: 3 * 1024 * 1024 },
+      limits: { fileSize: 10 * 1024 * 1024 },
       fileFilter: (req2, file, cb) => {
         if (file.mimetype.startsWith('image/')) cb(null, true);
         else cb(new Error('Apenas imagens são permitidas'));
@@ -111,6 +113,13 @@ router.post('/avatar', async (req, res) => {
     multerAvatar(req, res, async (err) => {
       if (err) return res.status(400).json({ error: err.message });
       if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+      // Deletar antigo
+      const [old] = await db.query('SELECT avatar_url FROM users WHERE id = ?', [req.user.id]);
+      if (old.length && old[0].avatar_url && old[0].avatar_url.startsWith('/uploads-static/')) {
+        const oldFile = path.join(__dirname, '../public', old[0].avatar_url.replace('/uploads-static/', 'uploads/'));
+        if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+      }
 
       const avatar_url = `/uploads-static/avatars/${req.file.filename}`;
       await db.query('UPDATE users SET avatar_url = ? WHERE id = ?', [avatar_url, req.user.id]);
@@ -136,7 +145,7 @@ router.post('/logo', async (req, res) => {
           cb(null, `logo-${req.user.id}-${Date.now()}${require('path').extname(file.originalname)}`);
         }
       }),
-      limits: { fileSize: 2 * 1024 * 1024 },
+      limits: { fileSize: 10 * 1024 * 1024 },
       fileFilter: (req2, file, cb) => {
         if (file.mimetype.startsWith('image/')) cb(null, true);
         else cb(new Error('Apenas imagens são permitidas'));
@@ -146,6 +155,13 @@ router.post('/logo', async (req, res) => {
     multerLogo(req, res, async (err) => {
       if (err) return res.status(400).json({ error: err.message });
       if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+      // Deletar antigo
+      const [old] = await db.query('SELECT clinic_logo_url FROM users WHERE id = ?', [req.user.id]);
+      if (old.length && old[0].clinic_logo_url && old[0].clinic_logo_url.startsWith('/uploads-static/')) {
+        const oldFile = path.join(__dirname, '../public', old[0].clinic_logo_url.replace('/uploads-static/', 'uploads/'));
+        if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+      }
 
       const logo_url = `/uploads-static/logos/${req.file.filename}`;
       await db.query('UPDATE users SET clinic_logo_url = ? WHERE id = ?', [logo_url, req.user.id]);
@@ -171,7 +187,7 @@ router.post('/cover', async (req, res) => {
           cb(null, `cover-${req.user.id}-${Date.now()}${require('path').extname(file.originalname)}`);
         }
       }),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: 10 * 1024 * 1024 },
       fileFilter: (req2, file, cb) => {
         if (file.mimetype.startsWith('image/')) cb(null, true);
         else cb(new Error('Apenas imagens são permitidas'));
@@ -181,6 +197,13 @@ router.post('/cover', async (req, res) => {
     multerCover(req, res, async (err) => {
       if (err) return res.status(400).json({ error: err.message });
       if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+      // Deletar antigo
+      const [old] = await db.query('SELECT cover_url FROM users WHERE id = ?', [req.user.id]);
+      if (old.length && old[0].cover_url && old[0].cover_url.startsWith('/uploads-static/')) {
+        const oldFile = path.join(__dirname, '../public', old[0].cover_url.replace('/uploads-static/', 'uploads/'));
+        if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+      }
 
       const cover_url = `/uploads-static/covers/${req.file.filename}`;
       await db.query('UPDATE users SET cover_url = ? WHERE id = ?', [cover_url, req.user.id]);

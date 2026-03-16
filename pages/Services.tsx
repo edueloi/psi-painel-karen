@@ -412,11 +412,10 @@ export const Services: React.FC = () => {
               label="Modalidade"
               value={editingService.modality || 'presencial'}
               onChange={e => setEditingService({...editingService, modality: e.target.value as any})}
-              options={[
-                { label: 'Presencial', value: 'presencial' },
-                { label: 'Online', value: 'online' }
-              ]}
-            />
+            >
+              <option value="presencial">Presencial</option>
+              <option value="online">Online</option>
+            </Select>
 
             <TextArea 
               label="Observações / Descrição"

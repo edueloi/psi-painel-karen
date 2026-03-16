@@ -487,6 +487,14 @@ router.delete('/:id/photo', async (req, res) => {
 // DELETE /patients/:id
 router.delete('/:id', async (req, res) => {
   try {
+    // Buscar foto para deletar arquivo
+    const [existing] = await db.query('SELECT photo_url FROM patients WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    
+    if (existing.length && existing[0].photo_url) {
+      const filePath = path.join(__dirname, '../public', existing[0].photo_url.replace('/uploads-static', 'uploads'));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
     const [result] = await db.query(
       'DELETE FROM patients WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
@@ -752,47 +760,6 @@ router.get('/:id/history', async (req, res) => {
   }
 });
 
-// POST /patients/:id/photo — Upload foto do paciente
-router.post('/:id/photo', async (req, res) => {
-  try {
-    const multerPhoto = multer({
-      storage: multer.diskStorage({
-        destination: (req2, file, cb) => {
-          const dir = require('path').join(__dirname, '../public/uploads/photos');
-          require('fs').mkdirSync(dir, { recursive: true });
-          cb(null, dir);
-        },
-        filename: (req2, file, cb) => {
-          cb(null, `patient-${req.params.id}-${Date.now()}${require('path').extname(file.originalname)}`);
-        }
-      }),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (req2, file, cb) => {
-        if (file.mimetype.startsWith('image/')) cb(null, true);
-        else cb(new Error('Apenas imagens são permitidas'));
-      }
-    }).single('photo');
 
-    multerPhoto(req, res, async (err) => {
-      if (err) return res.status(400).json({ error: err.message });
-      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
-
-      const [existing] = await db.query(
-        'SELECT id FROM patients WHERE id = ? AND tenant_id = ?',
-        [req.params.id, req.user.tenant_id]
-      );
-      if (existing.length === 0) return res.status(404).json({ error: 'Paciente não encontrado' });
-
-      const photo_url = `/uploads-static/photos/${req.file.filename}`;
-      await db.query('UPDATE patients SET photo_url = ? WHERE id = ? AND tenant_id = ?',
-        [photo_url, req.params.id, req.user.tenant_id]);
-
-      res.json({ photo_url });
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao fazer upload da foto' });
-  }
-});
 
 module.exports = router;

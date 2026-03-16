@@ -27,10 +27,10 @@ export const Input: React.FC<InputProps> = ({
         <input
           className={`
             w-full transition-all duration-200
-            ${icon ? 'pl-11' : 'pl-5'} pr-5 py-3
+            ${icon ? 'pl-11' : 'pl-5'} pr-5 py-2.5
             bg-slate-50 border border-slate-100/80
             text-slate-700 text-sm font-medium
-            rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500
+            rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500
             placeholder:text-slate-300
             ${error ? 'border-red-200 ring-4 ring-red-500/10' : ''}
             ${className}
@@ -47,14 +47,13 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
   icon?: React.ReactNode;
   error?: string;
-  options: { label: string; value: string | number }[];
 }
 
 export const Select: React.FC<SelectProps> = ({ 
   label, 
   icon, 
   error, 
-  options,
+  children,
   className = '', 
   ...props 
 }) => {
@@ -72,18 +71,16 @@ export const Select: React.FC<SelectProps> = ({
         <select
           className={`
             w-full transition-all duration-200 appearance-none
-            ${icon ? 'pl-11' : 'pl-5'} pr-10 py-3
+            ${icon ? 'pl-11' : 'pl-5'} pr-10 py-2.5
             bg-slate-50 border border-slate-100/80
-            text-slate-700 text-sm font-medium
-            rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500
+            text-slate-700 text-sm font-bold
+            rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500
             ${error ? 'border-red-200 ring-4 ring-red-500/10' : ''}
             ${className}
           `}
           {...props}
         >
-          {options.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
+          {children}
         </select>
         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,9 +102,9 @@ export const TextArea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement
       <textarea
         className={`
           w-full transition-all duration-200
-          px-5 py-4 bg-slate-50 border border-slate-100/80
+          px-5 py-3 bg-slate-50 border border-slate-100/80
           text-slate-700 text-sm font-medium
-          rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500
+          rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500
           placeholder:text-slate-300 min-h-[100px] resize-none
           ${className}
         `}
