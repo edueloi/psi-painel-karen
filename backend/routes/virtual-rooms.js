@@ -109,11 +109,6 @@ router.post('/', async (req, res) => {
     const hash = uuidv4().replace(/-/g, '').substring(0, 20);
     const roomCode = (code || Math.random().toString(36).substr(2, 9)).toString().trim();
 
-    const [colRows] = await db.query(
-      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'virtual_rooms'`
-    );
-    const existingCols = new Set(colRows.map(r => r.COLUMN_NAME));
-
     const cols = ['tenant_id', 'name', 'host_id', 'max_participants', 'hash'];
     const vals = [req.user.tenant_id, roomTitle, req.user.id, max_participants || 10, hash];
 
@@ -126,7 +121,8 @@ router.post('/', async (req, res) => {
       ['expiration_date', expiration_date || null],
     ];
     for (const [col, val] of optionals) {
-      if (existingCols.has(col)) { cols.push(col); vals.push(val); }
+      cols.push(col); 
+      vals.push(val);
     }
 
     const placeholders = cols.map(() => '?').join(', ');
