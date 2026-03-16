@@ -520,10 +520,21 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       remoteVideoRef.current?.play().catch(() => {});
       localVideoRef.current?.play().catch(() => {});
       lobbyVideoRef.current?.play().catch(() => {});
+      if (waitingAudioRef.current) {
+        // Play and immediately pause to "unlock" the audio element for the browser
+        waitingAudioRef.current.play()
+          .then(() => {
+            if (waitingList.length === 0) {
+              waitingAudioRef.current?.pause();
+              waitingAudioRef.current!.currentTime = 0;
+            }
+          })
+          .catch(() => {});
+      }
     };
     window.addEventListener("click", handleGesture, { once: true });
     return () => window.removeEventListener("click", handleGesture);
-  }, []);
+  }, [waitingList.length]);
 
   useEffect(() => {
     if (isGuest || !hasAuthToken) return;
@@ -591,11 +602,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (isGuest) return;
     if (waitingList.length > 0) {
       if (!waitingAudioRef.current) {
-        waitingAudioRef.current = new Audio("/som/Chamadas 6.mp3");
+        waitingAudioRef.current = new Audio("/som/video-chamada.mp3");
         waitingAudioRef.current.loop = true;
       }
       waitingAudioRef.current.play().catch(() => {
-        console.warn("Audio play blocked by browser. Interaction required.");
+        // Silent catch: Browser will block until first interaction
       });
     } else {
       if (waitingAudioRef.current) {

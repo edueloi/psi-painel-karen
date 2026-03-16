@@ -131,7 +131,7 @@ export const VirtualRooms: React.FC = () => {
         provider: 'interno',
       });
       const roomCode = room.code || room.hash || code;
-      navigate(`/sala/${roomCode}`);
+      window.open(`/sala/${roomCode}`, '_blank');
     } catch (e: any) {
       pushToast('error', 'Erro ao criar sala: ' + (e.message || ''));
     } finally {
@@ -187,7 +187,7 @@ export const VirtualRooms: React.FC = () => {
   const handleJoinByCode = (e: React.FormEvent) => {
     e.preventDefault();
     if (meetingCode.trim()) {
-      navigate(`/sala/${meetingCode.trim()}`);
+      window.open(`/sala/${meetingCode.trim()}`, '_blank');
     }
   };
 
@@ -399,7 +399,7 @@ export const VirtualRooms: React.FC = () => {
                       Copiar link publico
                     </button>
                     <button
-                      onClick={() => navigate(`/sala/${createdRoom.code}`)}
+                      onClick={() => window.open(`/sala/${createdRoom.code}`, '_blank')}
                       className="px-3 py-2 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
                     >
                       Abrir sala
@@ -515,7 +515,7 @@ export const VirtualRooms: React.FC = () => {
                                             {copiedId === room.id ? <Check size={18}/> : <Copy size={18} />}
                                         </button>
                                         <button 
-                                            onClick={() => navigate(`/sala/${room.code}`)} 
+                                            onClick={() => window.open(`/sala/${room.code}`, '_blank')} 
                                             className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md transition-all"
                                             title={t('rooms.join')}
                                         >
@@ -596,7 +596,7 @@ export const VirtualRooms: React.FC = () => {
                                           {copiedId === room.id ? <Check size={20} /> : <Copy size={20} />}
                                       </button>
                                       <button 
-                                        onClick={() => navigate(`/sala/${room.code}`)}
+                                        onClick={() => window.open(`/sala/${room.code}`, '_blank')}
                                         className="flex-1 sm:flex-none px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 group-hover:shadow-indigo-200"
                                       >
                                           <Play size={16} fill="currentColor" /> {t('rooms.startNow')}
