@@ -12,42 +12,41 @@ async function patch() {
 
   console.log('👷 Remendando banco de dados para Produtos e Pacotes...');
 
-  // Atualizar Produtos
-  const productCols = [
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(100) DEFAULT 'Geral'",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS cost DECIMAL(10,2) DEFAULT 0",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS minStock INT DEFAULT 5",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS brand VARCHAR(100)",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS type ENUM('physical','digital') DEFAULT 'physical'",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS imageUrl VARCHAR(500)",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS expirationDate DATE",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode VARCHAR(100)",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS salesCount INT DEFAULT 0"
-  ];
+  const dbName = process.env.DB_NAME || 'psiflux';
 
-  for (const col of productCols) {
+  async function addColumn(tableName, colName, colDefinition) {
     try {
-      await conn.query(col);
+      const [cols] = await conn.query(
+        `SELECT COLUMN_NAME FROM information_schema.columns 
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+        [dbName, tableName, colName]
+      );
+
+      if (cols.length === 0) {
+        console.log(`   Adicionando coluna ${colName} em ${tableName}...`);
+        await conn.query(`ALTER TABLE ${tableName} ADD COLUMN ${colName} ${colDefinition}`);
+      }
     } catch (e) {
-      console.log(`   Nota: ${e.message}`);
+      console.log(`   Erro ao processar coluna ${colName}: ${e.message}`);
     }
   }
+
+  // Atualizar Produtos
+  await addColumn('products', 'category', "VARCHAR(100) DEFAULT 'Geral'");
+  await addColumn('products', 'cost', "DECIMAL(10,2) DEFAULT 0");
+  await addColumn('products', 'minStock', "INT DEFAULT 5");
+  await addColumn('products', 'brand', "VARCHAR(100)");
+  await addColumn('products', 'type', "ENUM('physical','digital') DEFAULT 'physical'");
+  await addColumn('products', 'imageUrl', "VARCHAR(500)");
+  await addColumn('products', 'expirationDate', "DATE");
+  await addColumn('products', 'barcode', "VARCHAR(100)");
+  await addColumn('products', 'salesCount', "INT DEFAULT 0");
 
   // Atualizar Serviços
-  const serviceCols = [
-    "ALTER TABLE services ADD COLUMN IF NOT EXISTS category VARCHAR(100) DEFAULT 'Geral'",
-    "ALTER TABLE services ADD COLUMN IF NOT EXISTS cost DECIMAL(10,2) DEFAULT 0",
-    "ALTER TABLE services ADD COLUMN IF NOT EXISTS color VARCHAR(20) DEFAULT '#6366f1'",
-    "ALTER TABLE services ADD COLUMN IF NOT EXISTS modality ENUM('online','presencial') DEFAULT 'presencial'"
-  ];
-
-  for (const col of serviceCols) {
-    try {
-      await conn.query(col);
-    } catch (e) {
-      console.log(`   Nota: ${e.message}`);
-    }
-  }
+  await addColumn('services', 'category', "VARCHAR(100) DEFAULT 'Geral'");
+  await addColumn('services', 'cost', "DECIMAL(10,2) DEFAULT 0");
+  await addColumn('services', 'color', "VARCHAR(20) DEFAULT '#6366f1'");
+  await addColumn('services', 'modality', "ENUM('online','presencial') DEFAULT 'presencial'");
 
   // Criar Pacotes
   await conn.query(`
