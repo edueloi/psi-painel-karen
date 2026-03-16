@@ -28,7 +28,8 @@ async function patch() {
     { name: 'minor_children_count', type: 'INT DEFAULT 0', after: 'children_count' },
     { name: 'spouse_name', type: 'VARCHAR(255)', after: 'minor_children_count' },
     { name: 'family_contact', type: 'VARCHAR(255)', after: 'spouse_name' },
-    { name: 'emergency_contact', type: 'VARCHAR(255)', after: 'family_contact' }
+    { name: 'emergency_contact', type: 'VARCHAR(255)', after: 'family_contact' },
+    { name: 'photo_url', type: 'VARCHAR(500)', after: 'diagnosis' }
   ];
 
   for (const col of columnsToAdd) {

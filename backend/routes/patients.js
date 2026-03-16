@@ -1,11 +1,28 @@
-const express = require('express');
-const router = express.Router();
-const db = require('../db');
-const multer = require('multer');
-const xlsx = require('xlsx');
-const ExcelJS = require('exceljs');
+const path = require('path');
+const fs = require('fs');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const memoryUpload = multer({ storage: multer.memoryStorage() });
+
+const diskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../public/uploads/photos');
+    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'patient-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const photoUpload = multer({ 
+  storage: diskStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Apenas imagens são permitidas'), false);
+  }
+});
 
 // Normaliza status pt-BR para valores aceitos pelo banco
 const normalizeStatus = (s) => {
@@ -296,8 +313,8 @@ router.post('/', async (req, res) => {
         spouse_name, family_contact, emergency_contact,
         address, city, state, zip_code, notes, status,
         responsible_professional_id, responsible_name,
-        responsible_phone, health_plan, diagnosis
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        responsible_phone, health_plan, diagnosis, photo_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, name, email || null, phone || null, phone2 || null,
         birth_date || null, cpf || null, rg || null, gender || null,
@@ -308,7 +325,7 @@ router.post('/', async (req, res) => {
         address || null, city || null, state || null, zip_code || null,
         notes || null, normalizeStatus(status),
         responsible_professional_id || null, responsible_name || null,
-        responsible_phone || null, health_plan || null, diagnosis || null
+        responsible_phone || null, health_plan || null, diagnosis || null, photo_url || null
       ]
     );
 
@@ -370,7 +387,8 @@ router.put('/:id', async (req, res) => {
         responsible_name = COALESCE(?, responsible_name),
         responsible_phone = COALESCE(?, responsible_phone),
         health_plan = COALESCE(?, health_plan),
-        diagnosis = COALESCE(?, diagnosis)
+        diagnosis = COALESCE(?, diagnosis),
+        photo_url = COALESCE(?, photo_url)
       WHERE id = ? AND tenant_id = ?`,
       [
         name, email, phone, phone2, birth_date, cpf, rg, gender,
@@ -380,7 +398,7 @@ router.put('/:id', async (req, res) => {
         spouse_name, family_contact, emergency_contact,
         address, city, state, zip_code, notes, status ? normalizeStatus(status) : undefined,
         responsible_professional_id, responsible_name,
-        responsible_phone, health_plan, diagnosis,
+        responsible_phone, health_plan, diagnosis, photo_url,
         req.params.id, req.user.tenant_id
       ]
     );
@@ -390,6 +408,48 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar paciente' });
+  }
+});
+
+// POST /patients/:id/photo - Upload de foto
+router.post('/:id/photo', photoUpload.single('photo'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Nenhuma foto enviada' });
+
+    const photo_url = `/uploads-static/photos/${req.file.filename}`;
+    
+    // Opcional: deletar foto antiga se existir
+    const [existing] = await db.query('SELECT photo_url FROM patients WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    if (existing.length > 0 && existing[0].photo_url) {
+      const oldPath = path.join(__dirname, '../public', existing[0].photo_url.replace('/uploads-static', 'uploads'));
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    await db.query('UPDATE patients SET photo_url = ? WHERE id = ? AND tenant_id = ?', [photo_url, req.params.id, req.user.tenant_id]);
+    
+    res.json({ photo_url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao enviar foto' });
+  }
+});
+
+// DELETE /patients/:id/photo - Remover foto
+router.delete('/:id/photo', async (req, res) => {
+  try {
+    const [existing] = await db.query('SELECT photo_url FROM patients WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    if (existing.length === 0) return res.status(404).json({ error: 'Paciente não encontrado' });
+    
+    if (existing[0].photo_url) {
+        const filePath = path.join(__dirname, '../public', existing[0].photo_url.replace('/uploads-static', 'uploads'));
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await db.query('UPDATE patients SET photo_url = NULL WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    }
+    
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao remover foto' });
   }
 });
 
@@ -409,7 +469,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // POST /patients/import
-router.post('/import', upload.single('file'), async (req, res) => {
+router.post('/import', memoryUpload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
 

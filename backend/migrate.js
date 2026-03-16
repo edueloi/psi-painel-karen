@@ -138,6 +138,7 @@ async function migrate() {
       responsible_phone VARCHAR(50),
       health_plan VARCHAR(255),
       diagnosis TEXT,
+      photo_url VARCHAR(500),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
