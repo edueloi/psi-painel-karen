@@ -1249,9 +1249,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     };
   }, [isGuest, participantToken, id]);
 
-  // --- Initialize Media ---
+  // --- Initialize Media (once, not on hasJoined changes) ---
   useEffect(() => {
     if (isCompanionMode) return;
+    let mounted = true;
 
     const initMedia = async () => {
       try {
@@ -1259,18 +1260,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           video: true,
           audio: true,
         });
+        if (!mounted) { stream.getTracks().forEach(t => t.stop()); return; }
 
         localStreamRef.current = stream;
 
-        if (!hasJoined && lobbyVideoRef.current) {
-          lobbyVideoRef.current.srcObject = stream;
-        } else if (hasJoined && localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
+        // Assign to both video refs immediately — the visible one will display it
+        if (lobbyVideoRef.current) lobbyVideoRef.current.srcObject = stream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
         setupAudioAnalysis(stream);
       } catch (err) {
         console.error("Error accessing media:", err);
+        if (!mounted) return;
         setCameraOn(false);
         setMicOn(false);
       }
@@ -1278,21 +1279,22 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
     initMedia();
 
-    return () => cleanupMedia();
-  }, [hasJoined, isCompanionMode]);
+    return () => {
+      mounted = false;
+      cleanupMedia();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCompanionMode]);
 
-  // Handle Video Element Ref Update when joining or when status changes to connected
+  // Re-assign stream to correct video element when join state changes
   useEffect(() => {
-    if (
-      hasJoined &&
-      connectionStatus === "connected" &&
-      !isCompanionMode &&
-      localStreamRef.current &&
-      localVideoRef.current
-    ) {
+    if (isCompanionMode || !localStreamRef.current) return;
+    if (hasJoined && localVideoRef.current) {
       localVideoRef.current.srcObject = localStreamRef.current;
+    } else if (!hasJoined && lobbyVideoRef.current) {
+      lobbyVideoRef.current.srcObject = localStreamRef.current;
     }
-  }, [hasJoined, isCompanionMode, connectionStatus]);
+  }, [hasJoined, connectionStatus, isCompanionMode]);
 
   useEffect(() => {
     if (!remoteUserConnected) return;
@@ -1971,8 +1973,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         <div className="flex-1 relative overflow-hidden bg-white" style={{ backgroundImage: "radial-gradient(#e5e7eb 1px, transparent 1px)", backgroundSize: "20px 20px" }}>
           <canvas
             ref={canvasRef}
-            width={window.innerWidth}
-            height={window.innerHeight - 56}
+            width={1200}
+            height={900}
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
@@ -2395,7 +2397,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         </div>
       )}
 
-      <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
+      <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden min-h-0">
         {!isGuest && waitingEntries.length > 0 && (
           <div className="absolute top-20 right-6 z-[100] animate-[slideLeft_0.3s_ease-out] w-full max-w-sm">
             <div className="bg-[#111319] border border-white/10 p-4 rounded-2xl shadow-2xl">
@@ -2444,13 +2446,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           </div>
         )}
         <section
-          className={`flex-1 grid gap-4 ${
+          className={`flex-1 grid gap-3 min-h-0 ${
             useGridLayout
-              ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-2"
+              ? "grid-cols-1 sm:grid-cols-2"
               : "grid-cols-1"
           }`}
         >
-          <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center">
+          <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center min-h-[160px] sm:min-h-[200px]">
             {screenShare ? (
               <video
                 ref={screenShareRef}
@@ -2468,8 +2470,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   className={`w-full h-full object-cover ${remoteStreamActive ? '' : 'hidden'}`}
                 />
                 {!remoteStreamActive && (
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-3xl font-bold">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-slate-800 flex items-center justify-center text-2xl sm:text-3xl font-bold">
                       {remoteInitial}
                     </div>
                     <div className="text-sm text-slate-300">{remoteDisplayName}</div>
@@ -2478,16 +2480,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 )}
               </div>
             ) : (
-              <div className="text-slate-500 text-sm">
+              <div className="text-slate-500 text-sm text-center px-4">
                 Aguardando participante entrar...
               </div>
             )}
-            <div className="absolute top-3 left-3 text-xs text-slate-300 bg-black/40 px-3 py-1 rounded-full">
+            <div className="absolute top-2 left-2 text-xs text-slate-300 bg-black/50 px-2 py-0.5 rounded-full truncate max-w-[70%]">
               {screenShare ? "Compartilhando tela" : remoteDisplayName}
             </div>
           </div>
 
-          <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center">
+          <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center min-h-[160px] sm:min-h-[200px]">
             <video
               ref={localVideoRef}
               autoPlay
@@ -2497,20 +2499,42 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             />
             {!cameraOn && (
               <div className="flex flex-col items-center gap-3 text-slate-400">
-                <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-2xl font-bold">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-800 flex items-center justify-center text-2xl font-bold">
                   {localInitial}
                 </div>
-                <div className="text-sm">Camera desativada</div>
+                <div className="text-sm">Câmera desativada</div>
               </div>
             )}
-            <div className="absolute top-3 left-3 text-xs text-slate-300 bg-black/40 px-3 py-1 rounded-full">
+            <div className="absolute top-2 left-2 text-xs text-slate-300 bg-black/50 px-2 py-0.5 rounded-full truncate max-w-[70%]">
               {localDisplayName}
             </div>
+            {/* Mic indicator */}
+            {micOn && (
+              <div className="absolute bottom-2 right-2 flex gap-0.5 h-4 items-end">
+                {[1,2,3].map(i => (
+                  <div key={i} className="w-1 rounded-full bg-emerald-400 transition-all duration-75"
+                    style={{ height: `${Math.max(30, audioLevel * (i * 0.5))}%` }} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
         {activeSidePanel !== "none" && (
-          <aside className="w-full lg:w-96 bg-[#111319] border border-white/10 rounded-2xl p-4 flex flex-col overflow-hidden">
+          <>
+          {/* Mobile backdrop */}
+          <div
+            className="lg:hidden fixed inset-0 z-40 bg-black/60"
+            onClick={() => setActiveSidePanel("none")}
+          />
+          <aside className="fixed inset-x-0 bottom-16 top-16 z-50 lg:static lg:inset-auto lg:z-auto w-full lg:w-96 bg-[#111319] border border-white/10 lg:rounded-2xl rounded-t-2xl p-4 flex flex-col overflow-hidden shadow-2xl lg:shadow-none">
+            {/* Mobile close button */}
+            <button
+              className="lg:hidden absolute top-3 right-3 p-1.5 rounded-lg bg-white/10 text-slate-300 hover:bg-white/20"
+              onClick={() => setActiveSidePanel("none")}
+            >
+              <X size={16} />
+            </button>
             {activeSidePanel === "chat" && (
               <>
                 <div className="text-sm font-bold mb-3">Chat</div>
@@ -2585,9 +2609,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
                 {/* Toolbar */}
                 {(!isGuest || guestCanDraw) && (
-                  <div className="flex flex-col gap-2 mb-3 flex-shrink-0">
+                  <div className="flex flex-col gap-1.5 mb-2 flex-shrink-0">
                     {/* Colors */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1 flex-wrap">
                       {[
                         "#000000", "#ffffff", "#ef4444", "#f97316",
                         "#eab308", "#22c55e", "#3b82f6", "#8b5cf6",
@@ -2597,7 +2621,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                           key={color}
                           onClick={() => { setDrawColor(color); setIsEraser(false); }}
                           title={color}
-                          className={`w-6 h-6 rounded-full transition-all flex-shrink-0 ${
+                          className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-all flex-shrink-0 ${
                             !isEraser && drawColor === color
                               ? "ring-2 ring-white ring-offset-1 ring-offset-[#111319] scale-110"
                               : "opacity-80 hover:opacity-100 hover:scale-105"
@@ -2607,13 +2631,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                       ))}
                     </div>
                     {/* Size + Eraser */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       {[1, 3, 6, 12].map((size) => (
                         <button
                           key={size}
                           onClick={() => { setDrawSize(size); setIsEraser(false); }}
                           title={`Espessura ${size}px`}
-                          className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                          className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all ${
                             !isEraser && drawSize === size
                               ? "bg-white/20 ring-1 ring-white/40"
                               : "hover:bg-white/10"
@@ -2621,33 +2645,33 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                         >
                           <div
                             className="rounded-full bg-white"
-                            style={{ width: Math.min(size * 2, 20), height: Math.min(size * 2, 20) }}
+                            style={{ width: Math.min(size * 2, 18), height: Math.min(size * 2, 18) }}
                           />
                         </button>
                       ))}
-                      <div className="w-px h-6 bg-white/10 mx-1" />
+                      <div className="w-px h-5 bg-white/10 mx-0.5" />
                       <button
                         onClick={() => setIsEraser(!isEraser)}
                         title="Borracha"
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
                           isEraser
                             ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/30"
                             : "text-slate-400 hover:bg-white/10 hover:text-white"
                         }`}
                       >
-                        <Eraser size={13} />
-                        Borracha
+                        <Eraser size={12} />
+                        <span className="hidden sm:inline">Borracha</span>
                       </button>
                     </div>
                   </div>
                 )}
 
                 {/* Canvas */}
-                <div className="flex-1 bg-white rounded-xl overflow-hidden border border-white/10 shadow-inner">
+                <div className="flex-1 min-h-[280px] bg-white rounded-xl overflow-hidden border border-white/10 shadow-inner">
                   <canvas
                     ref={canvasRef}
-                    width={800}
-                    height={600}
+                    width={1200}
+                    height={900}
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
@@ -2947,72 +2971,53 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               </>
             )}
           </aside>
+          </>
         )}
       </main>
 
       {/* --- FOOTER CONTROLS --- */}
-        <footer className="h-24 flex items-center justify-center gap-4 relative z-50 pointer-events-none px-4">
-          <div className="pointer-events-auto bg-[#181a1f]/90 backdrop-blur-xl border border-white/10 p-2 rounded-[2rem] shadow-2xl flex items-center gap-2 mb-6 transform hover:scale-[1.02] transition-transform duration-300 overflow-x-auto max-w-full">
-            {/* ... controls ... */}
+        <footer className="shrink-0 flex items-center justify-center relative z-50 pointer-events-none px-2 py-2 sm:px-4 sm:py-3">
+          <div className="pointer-events-auto bg-[#181a1f]/90 backdrop-blur-xl border border-white/10 p-1.5 sm:p-2 rounded-2xl shadow-2xl flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-full">
             <button
               onClick={toggleMic}
-              className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
                 micOn
                   ? "bg-[#252830] hover:bg-[#2d313a] text-white"
                   : "bg-red-500/20 text-red-500 hover:bg-red-500/30"
               }`}
               title={micOn ? "Desativar Microfone" : "Ativar Microfone"}
             >
-              {micOn ? <Mic size={24} /> : <MicOff size={24} />}
+              {micOn ? <Mic size={18} className="sm:hidden" /> : <MicOff size={18} className="sm:hidden" />}
+              {micOn ? <Mic size={22} className="hidden sm:block" /> : <MicOff size={22} className="hidden sm:block" />}
             </button>
             <button
               onClick={toggleCam}
-              className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
                 cameraOn
                   ? "bg-[#252830] hover:bg-[#2d313a] text-white"
                   : "bg-red-500/20 text-red-500 hover:bg-red-500/30"
               }`}
               title={cameraOn ? "Desativar Câmera" : "Ativar Câmera"}
             >
-              {cameraOn ? <Video size={24} /> : <VideoOff size={24} />}
+              {cameraOn ? <Video size={18} className="sm:hidden" /> : <VideoOff size={18} className="sm:hidden" />}
+              {cameraOn ? <Video size={22} className="hidden sm:block" /> : <VideoOff size={22} className="hidden sm:block" />}
             </button>
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 bg-[#252830] hover:bg-[#2d313a] text-slate-300"
-              title="Configuracoes"
-            >
-              <Settings size={22} />
-            </button>
-            <div className="w-px h-8 bg-white/10 mx-1 shrink-0"></div>
+            <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
 
             {/* Hidden for Guests */}
             {!isGuest && (
               <>
                 <button
-                  onClick={() => setCaptionsOn(!captionsOn)}
-                  className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${
-                    captionsOn
-                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                      : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
-                  }`}
-                  title="Legendas"
-                >
-                  <Subtitles size={24} />
-                </button>
-                <button
                   onClick={toggleScreenShare}
-                  className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${
+                  className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
                     screenShare
-                      ? "bg-green-600 text-white shadow-lg shadow-green-500/30"
+                      ? "bg-green-600 text-white"
                       : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
                   }`}
                   title="Compartilhar Tela"
                 >
-                  {screenShare ? (
-                    <MonitorUp size={24} />
-                  ) : (
-                    <ScreenShare size={24} />
-                  )}
+                  {screenShare ? <MonitorUp size={18} className="sm:hidden" /> : <ScreenShare size={18} className="sm:hidden" />}
+                  {screenShare ? <MonitorUp size={22} className="hidden sm:block" /> : <ScreenShare size={22} className="hidden sm:block" />}
                 </button>
                 <button
                   onClick={() =>
@@ -3020,14 +3025,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                       activeSidePanel === "assessments" ? "none" : "assessments"
                     )
                   }
-                  className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${
+                  className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
                     activeSidePanel === "assessments"
                       ? "bg-indigo-600 text-white"
                       : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
                   }`}
-                  title="Avaliações em Tempo Real"
+                  title="Avaliações"
                 >
-                  <ClipboardCheck size={24} />
+                  <ClipboardCheck size={18} className="sm:hidden" />
+                  <ClipboardCheck size={22} className="hidden sm:block" />
                 </button>
                 <button
                   onClick={() =>
@@ -3035,16 +3041,28 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                       activeSidePanel === "whiteboard" ? "none" : "whiteboard"
                     )
                   }
-                  className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 ${
+                  className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
                     activeSidePanel === "whiteboard"
                       ? "bg-indigo-600 text-white"
                       : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
                   }`}
                   title="Lousa Interativa"
                 >
-                  <PenTool size={24} />
+                  <PenTool size={18} className="sm:hidden" />
+                  <PenTool size={22} className="hidden sm:block" />
                 </button>
-                <div className="w-px h-8 bg-white/10 mx-1 shrink-0"></div>
+                <button
+                  onClick={() => setCaptionsOn(!captionsOn)}
+                  className={`hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl items-center justify-center transition-all ${
+                    captionsOn
+                      ? "bg-indigo-600 text-white"
+                      : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
+                  }`}
+                  title="Legendas"
+                >
+                  <Subtitles size={22} />
+                </button>
+                <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
               </>
             )}
 
@@ -3052,24 +3070,26 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               onClick={() =>
                 setActiveSidePanel(activeSidePanel === "chat" ? "none" : "chat")
               }
-              className={`w-14 h-14 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all duration-300 relative ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all relative ${
                 activeSidePanel === "chat"
                   ? "bg-indigo-600 text-white"
                   : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
               }`}
               title="Chat"
             >
-              <MessageSquare size={24} />
+              <MessageSquare size={18} className="sm:hidden" />
+              <MessageSquare size={22} className="hidden sm:block" />
               {messages.length > 1 && activeSidePanel !== "chat" && (
-                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#252830]"></span>
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
               )}
             </button>
             <button
               onClick={() => setShowEndModal(true)}
-              className="w-20 h-14 shrink-0 rounded-[1.2rem] bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-900/40 ml-2 transition-all hover:scale-105 active:scale-95"
+              className="w-12 h-10 sm:w-16 sm:h-12 shrink-0 rounded-xl bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg ml-1 transition-all active:scale-95"
               title="Encerrar"
             >
-              <PhoneOff size={28} />
+              <PhoneOff size={18} className="sm:hidden" />
+              <PhoneOff size={22} className="hidden sm:block" />
             </button>
           </div>
         </footer>
