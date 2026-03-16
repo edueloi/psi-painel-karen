@@ -35,12 +35,12 @@ router.get('/:id', async (req, res) => {
 // POST /services
 router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
   try {
-    const { name, description, price, duration } = req.body;
+    const { name, description, price, duration, category, cost, color, modality } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
 
     const [result] = await db.query(
-      'INSERT INTO services (tenant_id, name, description, price, duration) VALUES (?, ?, ?, ?, ?)',
-      [req.user.tenant_id, name, description || null, price || 0, duration || 60]
+      'INSERT INTO services (tenant_id, name, description, price, duration, category, cost, color, modality) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.tenant_id, name, description || null, price || 0, duration || 60, category || 'Geral', cost || 0, color || '#6366f1', modality || 'presencial']
     );
 
     const [service] = await db.query('SELECT * FROM services WHERE id = ?', [result.insertId]);
@@ -54,7 +54,7 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
 // PUT /services/:id
 router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
   try {
-    const { name, description, price, duration, active } = req.body;
+    const { name, description, price, duration, category, cost, color, modality, active } = req.body;
 
     await db.query(
       `UPDATE services SET
@@ -62,9 +62,13 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
         description = COALESCE(?, description),
         price = COALESCE(?, price),
         duration = COALESCE(?, duration),
+        category = COALESCE(?, category),
+        cost = COALESCE(?, cost),
+        color = COALESCE(?, color),
+        modality = COALESCE(?, modality),
         active = COALESCE(?, active)
        WHERE id = ? AND tenant_id = ?`,
-      [name, description, price, duration, active !== undefined ? active : undefined, req.params.id, req.user.tenant_id]
+      [name, description, price, duration, category, cost, color, modality, active !== undefined ? active : undefined, req.params.id, req.user.tenant_id]
     );
 
     const [updated] = await db.query('SELECT * FROM services WHERE id = ?', [req.params.id]);

@@ -390,29 +390,29 @@ export const Agenda: React.FC = () => {
       {/* APPOINTMENT MODAL */}
       {isModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-              <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-white/20">
-                  <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                      <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-indigo-600 text-white rounded-[1.8rem] flex items-center justify-center shadow-xl shadow-indigo-100">
-                          {formData.id ? <Edit3 size={28} /> : <Plus size={32} />}
+              <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-white/20">
+                  <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                      <div className="flex items-center gap-5">
+                        <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100">
+                          {formData.id ? <Edit3 size={20} /> : <Plus size={24} />}
                         </div>
                         <div>
-                          <h3 className="text-3xl font-black text-slate-800 tracking-tighter leading-none mb-1">{formData.id ? 'Editar Sessão' : 'Novo Agendamento'}</h3>
-                          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{new Date(formData.appointment_date).toLocaleDateString(locale, { dateStyle: 'full' })}</p>
+                          <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter leading-none mb-1">{formData.id ? 'Editar Sessão' : 'Novo Agendamento'}</h3>
+                          <p className="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{new Date(formData.appointment_date).toLocaleDateString(locale, { dateStyle: 'full' })}</p>
                         </div>
                       </div>
-                      <button onClick={() => setIsModalOpen(false)} className="p-4 bg-white hover:bg-slate-50 rounded-2xl text-slate-400 shadow-sm ring-1 ring-slate-200 transition-all active:scale-95"><X size={24} /></button>
+                      <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white hover:bg-slate-50 rounded-2xl text-slate-400 shadow-sm ring-1 ring-slate-200 transition-all active:scale-95"><X size={20} /></button>
                   </div>
                   
-                  <div className="p-12 overflow-y-auto custom-scrollbar flex-1 bg-white">
+                  <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1 bg-white">
                       <div className="space-y-12">
                           {/* TYPE SELECTOR */}
                           <div className="space-y-4">
                               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Natureza do Agendamento</label>
-                              <div className="bg-slate-50 p-2 rounded-[2.2rem] flex border border-slate-100 shadow-inner">
+                              <div className="bg-slate-50 p-1 rounded-2xl flex border border-slate-100 shadow-inner">
                                   {['consulta', 'pessoal', 'bloqueio'].map(t => (
-                                      <button key={t} onClick={() => setFormData({...formData, type: t})} className={`flex-1 py-5 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${formData.type === t ? 'bg-white shadow-xl text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                                          {t === 'consulta' ? <Briefcase size={18}/> : t === 'pessoal' ? <UserIcon size={18}/> : <Ban size={18}/>}
+                                      <button key={t} onClick={() => setFormData({...formData, type: t})} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${formData.type === t ? 'bg-white shadow-lg text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                          {t === 'consulta' ? <Briefcase size={16}/> : t === 'pessoal' ? <UserIcon size={16}/> : <Ban size={16}/>}
                                           {t}
                                       </button>
                                   ))}
@@ -427,43 +427,43 @@ export const Agenda: React.FC = () => {
                                         <div className="space-y-3">
                                             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Paciente</label>
                                             <div className="relative group">
-                                                <select className="w-full p-5 pl-14 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-lg focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.patient_id || ''} onChange={e => setFormData({...formData, patient_id: e.target.value})}>
+                                                <select className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.patient_id || ''} onChange={e => setFormData({...formData, patient_id: e.target.value})}>
                                                     <option value="">Selecionar paciente...</option>
                                                     {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                                                 </select>
-                                                <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={24} />
-                                                <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 rotate-90 pointer-events-none" size={20} />
+                                                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={18} />
+                                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 rotate-90 pointer-events-none" size={18} />
                                             </div>
                                         </div>
                                         <div className="space-y-3">
                                             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Serviço / Atendimento</label>
                                             <div className="relative group">
-                                                <select className="w-full p-5 pl-14 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-lg focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.service_id || ''} onChange={e => setFormData({...formData, service_id: e.target.value})}>
+                                                <select className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.service_id || ''} onChange={e => setFormData({...formData, service_id: e.target.value})}>
                                                     <option value="">Tipo de atendimento...</option>
                                                     {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
                                                 </select>
-                                                <Package className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={24} />
+                                                <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={18} />
                                             </div>
                                         </div>
                                     </div>
                                   ) : (
                                     <div className="space-y-3">
                                         <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Título do Evento</label>
-                                        <input type="text" className="w-full p-5 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-2xl focus:bg-white focus:border-indigo-400 transition-all" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ex: Supervisão Clínica" />
+                                        <input type="text" className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-lg focus:bg-white focus:border-indigo-400 transition-all" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ex: Supervisão Clínica" />
                                     </div>
                                   )}
 
                                   <div className="grid grid-cols-2 gap-6">
                                       <div className="space-y-3">
                                           <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Modalidade</label>
-                                          <div className="flex bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-100">
-                                              <button onClick={() => setFormData({...formData, modality: 'presencial'})} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>Presencial</button>
-                                              <button onClick={() => setFormData({...formData, modality: 'online'})} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'online' ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>Online</button>
+                                          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
+                                              <button onClick={() => setFormData({...formData, modality: 'presencial'})} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>Presencial</button>
+                                              <button onClick={() => setFormData({...formData, modality: 'online'})} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'online' ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>Online</button>
                                           </div>
                                       </div>
                                       <div className="space-y-3">
                                           <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Status</label>
-                                          <select className="w-full p-4 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-600 text-[10px] uppercase tracking-widest focus:bg-white focus:border-indigo-400 transition-all cursor-pointer" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                                          <select className="w-full p-3.5 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-600 text-[10px] uppercase tracking-widest focus:bg-white focus:border-indigo-400 transition-all cursor-pointer" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                                               {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                                           </select>
                                       </div>
@@ -476,15 +476,15 @@ export const Agenda: React.FC = () => {
                                       <div className="space-y-3">
                                           <label className="block text-[11px] font-black text-indigo-900/40 uppercase tracking-widest px-1">Início da Sessão</label>
                                           <div className="relative group">
-                                            <Clock className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-400" size={24} />
-                                            <input type="datetime-local" className="w-full p-5 pl-14 rounded-[1.8rem] border-2 border-indigo-100/50 bg-white outline-none font-black text-indigo-700 text-lg focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all tabular-nums" value={formData.appointment_date} onChange={e => setFormData({...formData, appointment_date: e.target.value})} />
+                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400" size={20} />
+                                            <input type="datetime-local" className="w-full p-4 pl-12 rounded-xl border-2 border-indigo-100/50 bg-white outline-none font-black text-indigo-700 text-sm focus:border-indigo-500 transition-all tabular-nums" value={formData.appointment_date} onChange={e => setFormData({...formData, appointment_date: e.target.value})} />
                                           </div>
                                       </div>
                                       <div className="space-y-3">
                                           <label className="block text-[11px] font-black text-indigo-900/40 uppercase tracking-widest px-1">Profissional Responsável</label>
                                           <div className="relative group">
-                                            <UserCheck className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={24} />
-                                            <select className="w-full p-5 pl-14 rounded-[1.8rem] border-2 border-white bg-white/60 outline-none font-black text-slate-700 text-lg focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.psychologist_id || ''} onChange={e => setFormData({...formData, psychologist_id: e.target.value})}>
+                                            <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={18} />
+                                            <select className="w-full p-4 pl-12 rounded-xl border-2 border-white bg-white/60 outline-none font-black text-slate-700 text-sm focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.psychologist_id || ''} onChange={e => setFormData({...formData, psychologist_id: e.target.value})}>
                                                 <option value="">Selecionar profissional...</option>
                                                 {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                             </select>
@@ -494,7 +494,7 @@ export const Agenda: React.FC = () => {
                                   
                                   <div className="space-y-3">
                                       <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Observações do Atendimento</label>
-                                      <textarea className="w-full p-6 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none font-bold text-slate-600 text-sm focus:bg-white focus:border-indigo-400 transition-all min-h-[120px] resize-none" value={formData.notes || ''} onChange={e => setFormData({...formData, notes: e.target.value})} placeholder="Ex: Paciente relatou ansiedade leve sobre o novo emprego..."></textarea>
+                                      <textarea className="w-full p-5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-bold text-slate-600 text-sm focus:bg-white focus:border-indigo-400 transition-all min-h-[100px] resize-none" value={formData.notes || ''} onChange={e => setFormData({...formData, notes: e.target.value})} placeholder="Ex: Paciente relatou ansiedade leve sobre o novo emprego..."></textarea>
                                   </div>
                               </div>
                           </div>
@@ -516,14 +516,14 @@ export const Agenda: React.FC = () => {
                       </div>
                   </div>
 
-                  <div className="p-10 border-t border-slate-50 bg-slate-50/30 flex justify-between items-center px-14 pb-14">
+                  <div className="p-6 md:p-8 border-t border-slate-50 bg-slate-50/30 flex justify-between items-center px-8 md:px-12 pb-8 md:pb-12">
                       {formData.id ? (
-                        <button onClick={() => setIsDeleteModalOpen(true)} className="p-4 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all shadow-sm border border-rose-100"><Trash2 size={24}/></button>
+                        <button onClick={() => setIsDeleteModalOpen(true)} className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm border border-rose-100"><Trash2 size={20}/></button>
                       ) : <div className="w-10"></div>}
-                      <div className="flex gap-6">
-                        <button onClick={() => setIsModalOpen(false)} className="px-8 py-4 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">DESCARTAR</button>
-                        <button onClick={handleSave} className="px-14 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-[1.8rem] shadow-2xl shadow-indigo-600/30 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                            <CheckCircle2 size={24} /> {formData.id ? 'ATUALIZAR' : 'CONFIRMAR'} AGENDAMENTO
+                      <div className="flex gap-4">
+                        <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">DESCARTAR</button>
+                        <button onClick={handleSave} className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
+                            <CheckCircle2 size={20} /> {formData.id ? 'ATUALIZAR' : 'CONFIRMAR'} AGENDAMENTO
                         </button>
                       </div>
                   </div>

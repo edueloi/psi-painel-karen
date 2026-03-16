@@ -308,26 +308,26 @@ export const Professionals: React.FC = () => {
       {/* --- MODAL DE USUÁRIO --- */}
       {isModalOpen && editingPro && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-              <div className="bg-white w-full max-w-2xl rounded-[3.5rem] shadow-2xl animate-bounceIn overflow-hidden flex flex-col max-h-[92vh] border border-white/20">
+              <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-bounceIn overflow-hidden flex flex-col max-h-[92vh] border border-white/20">
                   
                   <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
                       <div className="flex items-center gap-5">
-                          <div className="w-14 h-14 bg-indigo-600 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-100">
-                              {editingPro.id ? <Edit3 size={24} /> : <UserPlus size={28} />}
+                          <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100">
+                              {editingPro.id ? <Edit3 size={20} /> : <UserPlus size={22} />}
                           </div>
                           <div>
-                              <h3 className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-1">
+                              <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight leading-none mb-1">
                                 {editingPro.id ? 'Editar Cadastro' : 'Novo Integrante'}
                               </h3>
-                              <p className="text-[10px] text-indigo-400 font-black uppercase tracking-[0.2em]">Controle de Staff & Acesso</p>
+                              <p className="text-[9px] sm:text-[10px] text-indigo-400 font-black uppercase tracking-[0.2em]">Controle de Staff & Acesso</p>
                           </div>
                       </div>
-                      <button onClick={() => setIsModalOpen(false)} className="p-4 hover:bg-white hover:shadow-md rounded-2xl text-slate-400 ring-1 ring-slate-200 transition-all active:scale-95">
-                          <X size={24}/>
+                      <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white hover:bg-slate-50 rounded-2xl text-slate-400 shadow-sm ring-1 ring-slate-200 transition-all active:scale-95">
+                          <X size={20}/>
                       </button>
                   </div>
 
-                  <div className="p-10 overflow-y-auto custom-scrollbar flex-1 space-y-10">
+                  <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1 space-y-10">
                       
                       <div className="space-y-8">
                           <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Dados de Identificação</label>
@@ -336,7 +336,7 @@ export const Professionals: React.FC = () => {
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Nome Completo *</label>
                                   <input 
                                     type="text" 
-                                    className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all text-sm"
+                                    className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
                                     value={editingPro.name} 
                                     onChange={e => setEditingPro({...editingPro, name: e.target.value})} 
                                     placeholder="Ex: Dr. Ricardo Silva"
@@ -346,7 +346,7 @@ export const Professionals: React.FC = () => {
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Telefone / WhatsApp</label>
                                   <input 
                                     type="tel" 
-                                    className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
+                                    className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
                                     value={editingPro.phone || ''} 
                                     onChange={e => setEditingPro({...editingPro, phone: e.target.value})} 
                                     placeholder="(00) 00000-0000"
@@ -359,7 +359,7 @@ export const Professionals: React.FC = () => {
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Especialidade / Título</label>
                                   <input 
                                     type="text" 
-                                    className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
+                                    className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
                                     value={editingPro.specialty || ''} 
                                     onChange={e => setEditingPro({...editingPro, specialty: e.target.value})} 
                                     placeholder="Ex: TCC, Neuropsi..."
@@ -369,7 +369,7 @@ export const Professionals: React.FC = () => {
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Registro Profissional (CRP/CRM)</label>
                                   <input 
                                     type="text" 
-                                    className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
+                                    className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
                                     value={editingPro.crp || ''} 
                                     onChange={e => setEditingPro({...editingPro, crp: e.target.value})} 
                                     placeholder="Ex: CRP 12/3456"
@@ -380,15 +380,15 @@ export const Professionals: React.FC = () => {
 
                       <div className="space-y-4">
                           <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Credenciais de Acesso</label>
-                          <div className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100 space-y-8">
+                          <div className="bg-slate-50/50 p-6 md:p-8 rounded-3xl border border-slate-100 space-y-8">
                               <div className="space-y-3">
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">E-mail Corporativo *</label>
                                   <div className="relative group">
-                                      <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
                                       <input 
                                         type="email" 
                                         disabled={!!editingPro.id}
-                                        className="w-full p-4.5 pl-14 rounded-2xl border-2 border-slate-100 bg-white outline-none font-black text-slate-700 focus:border-indigo-400 focus:ring-8 focus:ring-indigo-500/5 transition-all disabled:bg-slate-100 disabled:text-slate-400 text-sm"
+                                        className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-white outline-none font-black text-slate-700 focus:border-indigo-400 transition-all disabled:bg-slate-100 disabled:text-slate-400 text-sm"
                                         value={editingPro.email} 
                                         onChange={e => setEditingPro({...editingPro, email: e.target.value})} 
                                         placeholder="usuario@clinica.com"
@@ -403,37 +403,37 @@ export const Professionals: React.FC = () => {
                                           {editingPro.id ? 'Redefinir Senha' : 'Senha Inicial *'}
                                       </label>
                                       <div className="relative group">
-                                          <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
-                                          <input 
-                                            type={showPassword ? "text" : "password"} 
-                                            className="w-full p-4.5 pl-14 rounded-2xl border-2 border-slate-100 bg-white outline-none font-black text-slate-700 focus:border-indigo-400 transition-all text-sm"
-                                            value={editingPro.password || ''} 
-                                            onChange={e => setEditingPro({...editingPro, password: e.target.value})} 
-                                            placeholder={editingPro.id ? "Manter atual" : "••••••••"}
-                                          />
-                                          <button 
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
-                                          >
-                                              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                          </button>
-                                      </div>
+                                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
+                                           <input 
+                                             type={showPassword ? "text" : "password"} 
+                                             className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-white outline-none font-black text-slate-700 focus:border-indigo-400 transition-all text-sm"
+                                             value={editingPro.password || ''} 
+                                             onChange={e => setEditingPro({...editingPro, password: e.target.value})} 
+                                             placeholder={editingPro.id ? "Manter atual" : "••••••••"}
+                                           />
+                                           <button 
+                                             onClick={() => setShowPassword(!showPassword)}
+                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                           >
+                                               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                           </button>
+                                       </div>
                                   </div>
                                   <div className="space-y-3">
                                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Cargo e Permissão</label>
                                       <div className="relative group">
-                                          <Shield className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-amber-500 transition-colors" size={20} />
-                                          <select 
-                                            className="w-full p-4.5 pl-14 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-indigo-400 transition-all font-black text-slate-700 text-sm appearance-none cursor-pointer"
-                                            value={editingPro.role}
-                                            onChange={e => setEditingPro({...editingPro, role: e.target.value})}
-                                          >
-                                              <option value="profissional">Psicólogo(a)</option>
-                                              <option value="admin">Administrador(a)</option>
-                                              <option value="secretario">Secretário(a)</option>
-                                          </select>
-                                          <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={18} />
-                                      </div>
+                                           <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-amber-500 transition-colors" size={18} />
+                                           <select 
+                                             className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-white outline-none focus:border-indigo-400 transition-all font-black text-slate-700 text-sm appearance-none cursor-pointer"
+                                             value={editingPro.role}
+                                             onChange={e => setEditingPro({...editingPro, role: e.target.value})}
+                                           >
+                                               <option value="profissional">Psicólogo(a)</option>
+                                               <option value="admin">Administrador(a)</option>
+                                               <option value="secretario">Secretário(a)</option>
+                                           </select>
+                                           <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={18} />
+                                       </div>
                                   </div>
                               </div>
                           </div>
@@ -467,23 +467,14 @@ export const Professionals: React.FC = () => {
 
                   </div>
 
-                  <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex gap-4 px-12 pb-12">
-                      <button 
-                        onClick={() => setIsModalOpen(false)} 
-                        className="flex-1 py-4.5 font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest text-[10px] transition-colors"
-                      >
-                        DESCARTAR
-                      </button>
-                      <button 
-                        onClick={handleSave} 
-                        disabled={isSaving}
-                        className="flex-[2] py-4.5 font-black text-white bg-indigo-600 rounded-[1.8rem] shadow-2xl shadow-indigo-600/30 hover:bg-slate-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50 text-xs uppercase tracking-widest transform active:scale-95"
-                      >
-                        {isSaving ? <Loader2 className="animate-spin" size={20} /> : <><CheckCircle size={22} /> SALVAR ALTERAÇÕES</>}
-                      </button>
-                  </div>
-              </div>
-          </div>
+                  <div className="p-6 md:p-8 border-t border-slate-50 bg-slate-50/30 flex justify-end items-center gap-4 px-8 md:px-12 pb-8 md:pb-12">
+                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">DESCARTAR</button>
+                    <button onClick={handleSave} className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
+                        <CheckCircle size={20} /> SALVAR ALTERAÇÕES
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
       {/* CONFIRM DELETE MODAL */}
       {deleteConfirmPro && (

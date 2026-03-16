@@ -124,22 +124,32 @@ export const Products: React.FC = () => {
       const finalProduct = {
           ...editingProduct,
           category: categoryToSave,
-          id: editingProduct.id || Math.random().toString(36).substr(2, 9),
-      } as Product;
+      };
 
-      if (editingProduct.id) {
-          setProducts(prev => prev.map(p => p.id === finalProduct.id ? finalProduct : p));
-      } else {
-          setProducts(prev => [finalProduct, ...prev]);
+      try {
+          if (editingProduct.id) {
+              const updated = await api.put<Product>(`/products/${editingProduct.id}`, finalProduct);
+              setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+          } else {
+              const saved = await api.post<Product>('/products', finalProduct);
+              setProducts(prev => [saved, ...prev]);
+          }
+          setIsModalOpen(false);
+          setNewCategory('');
+      } catch (err) {
+          console.error('Erro ao salvar produto:', err);
       }
-      setIsModalOpen(false);
-      setNewCategory('');
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteConfirmId) {
-      setProducts(prev => prev.filter(p => p.id !== deleteConfirmId));
-      setDeleteConfirmId(null);
+      try {
+          await api.delete(`/products/${deleteConfirmId}`);
+          setProducts(prev => prev.filter(p => p.id !== deleteConfirmId));
+          setDeleteConfirmId(null);
+      } catch (err) {
+          console.error('Erro ao deletar produto:', err);
+      }
     }
   };
 

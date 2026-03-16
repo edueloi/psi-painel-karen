@@ -82,22 +82,34 @@ export const Services: React.FC = () => {
   const handleSaveService = async () => {
     if (!editingService?.name || !editingService.price) return;
     
-    if (editingService.id) {
-      setServices(prev => prev.map(s => s.id === editingService.id ? { ...s, ...editingService } as Service : s));
-    } else {
-      setServices(prev => [{ ...editingService, id: Math.random().toString(36).substr(2, 9) } as Service, ...prev]);
+    try {
+      if (editingService.id) {
+        const updated = await api.put<Service>(`/services/${editingService.id}`, editingService);
+        setServices(prev => prev.map(s => s.id === updated.id ? updated : s));
+      } else {
+        const saved = await api.post<Service>('/services', editingService);
+        setServices(prev => [saved, ...prev]);
+      }
+      setIsServiceModalOpen(false);
+    } catch (err) {
+      console.error('Erro ao salvar serviço:', err);
     }
-    setIsServiceModalOpen(false);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteId) return;
-    if (deleteId.type === 'service') {
-      setServices(prev => prev.filter(s => s.id !== deleteId.id));
-    } else {
-      setPackages(prev => prev.filter(p => p.id !== deleteId.id));
+    try {
+      if (deleteId.type === 'service') {
+        await api.delete(`/services/${deleteId.id}`);
+        setServices(prev => prev.filter(s => s.id !== deleteId.id));
+      } else {
+        await api.delete(`/packages/${deleteId.id}`);
+        setPackages(prev => prev.filter(p => p.id !== deleteId.id));
+      }
+      setDeleteId(null);
+    } catch (err) {
+      console.error('Erro ao deletar:', err);
     }
-    setDeleteId(null);
   };
 
   const handleOpenPackageModal = (pkg?: ServicePackage) => {
@@ -137,14 +149,20 @@ export const Services: React.FC = () => {
     setEditingPackage({ ...editingPackage, discountType: type, discountValue: value, totalPrice: total });
   };
 
-  const handleSavePackage = () => {
+  const handleSavePackage = async () => {
     if (!editingPackage?.name || !editingPackage.items?.length) return;
-    if (editingPackage.id) {
-      setPackages(prev => prev.map(p => p.id === editingPackage.id ? { ...p, ...editingPackage } as ServicePackage : p));
-    } else {
-      setPackages(prev => [{ ...editingPackage, id: Math.random().toString(36).substr(2, 9) } as ServicePackage, ...prev]);
+    try {
+      if (editingPackage.id) {
+        const updated = await api.put<ServicePackage>(`/packages/${editingPackage.id}`, editingPackage);
+        setPackages(prev => prev.map(p => p.id === updated.id ? updated : p));
+      } else {
+        const saved = await api.post<ServicePackage>('/packages', editingPackage);
+        setPackages(prev => [saved, ...prev]);
+      }
+      setIsPackageModalOpen(false);
+    } catch (err) {
+      console.error('Erro ao salvar pacote:', err);
     }
-    setIsPackageModalOpen(false);
   };
 
   return (
