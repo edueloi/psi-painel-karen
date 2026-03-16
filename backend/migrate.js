@@ -29,13 +29,27 @@ async function migrate() {
     'case_study_cards','case_study_columns','case_study_boards',
     'clinical_tools','pei_abc','pei_goal_history','pei_goals','pei',
     'medical_records','virtual_rooms','appointments','services',
-    'patients','users','tenants','plans'
+    'patients','users','tenants','plans','master_permission_profiles'
   ];
   for (const table of oldTables) {
     await conn.query(`DROP TABLE IF EXISTS \`${table}\``);
   }
   await conn.query('SET FOREIGN_KEY_CHECKS = 1');
   console.log('   Tabelas antigas removidas, criando novo schema...');
+
+  // ---- MASTER PERMISSION PROFILES ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS master_permission_profiles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      role ENUM('super_admin','vendedor','suporte','visualizador','financeiro') NOT NULL DEFAULT 'suporte',
+      description TEXT,
+      permissions JSON,
+      access_token VARCHAR(255) UNIQUE,
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   // ---- PLANS ----
   await conn.query(`
@@ -81,9 +95,11 @@ async function migrate() {
       phone VARCHAR(50),
       avatar_url VARCHAR(500),
       active BOOLEAN DEFAULT true,
+      permission_profile_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY unique_email_tenant (email, tenant_id),
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      FOREIGN KEY (permission_profile_id) REFERENCES master_permission_profiles(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
