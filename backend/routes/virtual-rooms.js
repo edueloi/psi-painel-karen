@@ -317,9 +317,12 @@ router.post('/:id/waiting/:entryId/deny', (req, res) => {
 // POST /virtual-rooms/public/:id/join
 router.post('/public/:id/join', async (req, res) => {
   try {
+    await withSchema();
+    const rid = req.params.id;
+    const numId = parseInt(rid) || 0;
     const [rooms] = await db.query(
       'SELECT id, name, title, status, code, hash FROM virtual_rooms WHERE hash = ? OR code = ? OR id = ?',
-      [req.params.id, req.params.id, req.params.id]
+      [rid, rid, numId]
     );
     if (rooms.length === 0) return res.status(404).json({ error: 'Sala não encontrada' });
     if (rooms[0].status === 'ended') return res.status(410).json({ error: 'Esta sala já foi encerrada' });
