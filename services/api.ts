@@ -1,5 +1,6 @@
 
-const BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3013';
+export const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3013';
+const BASE_URL = API_BASE_URL;
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>;

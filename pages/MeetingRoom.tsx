@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { ClinicalForm, FormQuestion } from "../types";
-import { api } from "../services/api";
+import { api, API_BASE_URL } from "../services/api";
 
 interface MeetingRoomProps {
   isGuest?: boolean;
@@ -272,6 +272,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawColor, setDrawColor] = useState("#000000");
+  const [drawSize, setDrawSize] = useState(3);
+  const [isEraser, setIsEraser] = useState(false);
   const lastPointRef = useRef<Point | null>(null);
 
   const meetingUrl = window.location.href.split("?")[0];
@@ -1120,7 +1122,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   useEffect(() => {
     if (!isGuest || !participantToken || !id) return;
     const leavePayload = JSON.stringify({ token: participantToken });
-    const leaveUrl = `http://localhost:3013/virtual-rooms/public/${id}/leave`;
+    const leaveUrl = `${API_BASE_URL}/virtual-rooms/public/${id}/leave`;
     const handleUnload = () => {
       if (navigator.sendBeacon) {
         navigator.sendBeacon(leaveUrl, leavePayload);
@@ -1171,17 +1173,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     return () => cleanupMedia();
   }, [hasJoined, isCompanionMode]);
 
-  // Handle Video Element Ref Update when joining
+  // Handle Video Element Ref Update when joining or when status changes to connected
   useEffect(() => {
     if (
       hasJoined &&
+      connectionStatus === "connected" &&
       !isCompanionMode &&
       localStreamRef.current &&
       localVideoRef.current
     ) {
       localVideoRef.current.srcObject = localStreamRef.current;
     }
-  }, [hasJoined, isCompanionMode]);
+  }, [hasJoined, isCompanionMode, connectionStatus]);
 
   useEffect(() => {
     if (!remoteUserConnected) return;
@@ -1458,9 +1461,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
     const pos = getCoordinates(e, canvas);
 
-    ctx.lineWidth = 3;
+    const activeColor = isEraser ? "#ffffff" : drawColor;
+    const activeSize = isEraser ? drawSize * 4 : drawSize;
+    ctx.lineWidth = activeSize;
     ctx.lineCap = "round";
-    ctx.strokeStyle = drawColor;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = activeColor;
 
     ctx.beginPath();
     ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
@@ -1475,7 +1481,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         startY: lastPointRef.current.y,
         endX: pos.x,
         endY: pos.y,
-        color: drawColor,
+        color: activeColor,
+        size: activeSize,
       },
     });
     sendRoomEvent("whiteboard_move", {
@@ -1483,7 +1490,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       startY: lastPointRef.current.y,
       endX: pos.x,
       endY: pos.y,
-      color: drawColor,
+      color: activeColor,
+      size: activeSize,
     });
 
     lastPointRef.current = pos;
@@ -1512,14 +1520,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     endX: number;
     endY: number;
     color: string;
+    size?: number;
   }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.lineWidth = 3;
+    ctx.lineWidth = data.size || 3;
     ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     ctx.strokeStyle = data.color;
 
     ctx.beginPath();
@@ -1775,7 +1785,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             <Eraser size={20} />
           </button>
         </div>
-        <div className="flex-1 relative overflow-hidden bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
+        <div className="flex-1 relative overflow-hidden bg-white" style={{ backgroundImage: "radial-gradient(#e5e7eb 1px, transparent 1px)", backgroundSize: "20px 20px" }}>
           <canvas
             ref={canvasRef}
             width={window.innerWidth}
@@ -1790,25 +1800,47 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             className={`touch-none block ${
               isGuest && !guestCanDraw
                 ? "cursor-default pointer-events-none"
-                : "cursor-crosshair"
+                : isEraser ? "cursor-cell" : "cursor-crosshair"
             }`}
           />
           {!isGuest && (
-            <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/90 p-2 rounded-xl border border-slate-200 shadow-sm">
-              {["#000000", "#ef4444", "#3b82f6", "#10b981", "#f59e0b"].map(
+            <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/95 p-2 rounded-2xl border border-slate-200 shadow-lg backdrop-blur-sm">
+              {["#000000", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#ffffff"].map(
                 (color) => (
                   <button
                     key={color}
-                    onClick={() => setDrawColor(color)}
-                    className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                      drawColor === color
-                        ? "border-slate-800 scale-110"
-                        : "border-transparent"
+                    onClick={() => { setDrawColor(color); setIsEraser(false); }}
+                    className={`w-8 h-8 rounded-full transition-all ${
+                      !isEraser && drawColor === color
+                        ? "ring-2 ring-slate-800 ring-offset-1 scale-110"
+                        : "hover:scale-105"
                     }`}
-                    style={{ backgroundColor: color }}
+                    style={{ backgroundColor: color, border: color === "#ffffff" ? "1px solid #e2e8f0" : "none" }}
                   />
                 )
               )}
+              <div className="w-full h-px bg-slate-200 my-1" />
+              {[2, 5, 10].map((size) => (
+                <button
+                  key={size}
+                  onClick={() => { setDrawSize(size); setIsEraser(false); }}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                    !isEraser && drawSize === size ? "bg-slate-200" : "hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="rounded-full bg-slate-800" style={{ width: Math.min(size * 2, 20), height: Math.min(size * 2, 20) }} />
+                </button>
+              ))}
+              <div className="w-full h-px bg-slate-200 my-1" />
+              <button
+                onClick={() => setIsEraser(!isEraser)}
+                className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                  isEraser ? "bg-amber-100 text-amber-700" : "hover:bg-slate-100 text-slate-500"
+                }`}
+                title="Borracha"
+              >
+                <Eraser size={16} />
+              </button>
             </div>
           )}
         </div>
@@ -2320,43 +2352,97 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
             {activeSidePanel === "whiteboard" && (
               <>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm font-bold">Lousa</div>
+                {/* Lousa Header */}
+                <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <PenTool size={14} className="text-slate-400" />
+                    <span className="text-sm font-bold">Lousa</span>
+                    {isGuest && !guestCanDraw && (
+                      <span className="text-[10px] text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">Somente leitura</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     {!isGuest && (
                       <button
                         onClick={() => setShowLinkDeviceModal(true)}
-                        className="text-xs text-slate-300 hover:text-white flex items-center gap-1"
+                        className="text-xs text-slate-400 hover:text-white flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
                         title="Vincular dispositivo"
                       >
-                        <QrCode size={14} /> QR Code
+                        <QrCode size={12} /> QR
                       </button>
                     )}
-                    <button
-                      onClick={clearCanvas}
-                      className="text-xs text-slate-300 hover:text-white"
-                    >
-                      Limpar
-                    </button>
+                    {(!isGuest || guestCanDraw) && (
+                      <button
+                        onClick={clearCanvas}
+                        className="text-xs text-slate-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors"
+                      >
+                        <Eraser size={12} /> Limpar
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 mb-3">
-                  {["#000000", "#ef4444", "#3b82f6", "#10b981", "#f59e0b"].map(
-                    (color) => (
+
+                {/* Toolbar */}
+                {(!isGuest || guestCanDraw) && (
+                  <div className="flex flex-col gap-2 mb-3 flex-shrink-0">
+                    {/* Colors */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[
+                        "#000000", "#ffffff", "#ef4444", "#f97316",
+                        "#eab308", "#22c55e", "#3b82f6", "#8b5cf6",
+                        "#ec4899", "#64748b",
+                      ].map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => { setDrawColor(color); setIsEraser(false); }}
+                          title={color}
+                          className={`w-6 h-6 rounded-full transition-all flex-shrink-0 ${
+                            !isEraser && drawColor === color
+                              ? "ring-2 ring-white ring-offset-1 ring-offset-[#111319] scale-110"
+                              : "opacity-80 hover:opacity-100 hover:scale-105"
+                          }`}
+                          style={{ backgroundColor: color, border: color === "#ffffff" ? "1px solid rgba(255,255,255,0.2)" : "none" }}
+                        />
+                      ))}
+                    </div>
+                    {/* Size + Eraser */}
+                    <div className="flex items-center gap-2">
+                      {[1, 3, 6, 12].map((size) => (
+                        <button
+                          key={size}
+                          onClick={() => { setDrawSize(size); setIsEraser(false); }}
+                          title={`Espessura ${size}px`}
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                            !isEraser && drawSize === size
+                              ? "bg-white/20 ring-1 ring-white/40"
+                              : "hover:bg-white/10"
+                          }`}
+                        >
+                          <div
+                            className="rounded-full bg-white"
+                            style={{ width: Math.min(size * 2, 20), height: Math.min(size * 2, 20) }}
+                          />
+                        </button>
+                      ))}
+                      <div className="w-px h-6 bg-white/10 mx-1" />
                       <button
-                        key={color}
-                        onClick={() => setDrawColor(color)}
-                        className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                          drawColor === color
-                            ? "border-white scale-110"
-                            : "border-transparent"
+                        onClick={() => setIsEraser(!isEraser)}
+                        title="Borracha"
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          isEraser
+                            ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/30"
+                            : "text-slate-400 hover:bg-white/10 hover:text-white"
                         }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    )
-                  )}
-                </div>
-                <div className="flex-1 bg-white rounded-xl overflow-hidden">
+                      >
+                        <Eraser size={13} />
+                        Borracha
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Canvas */}
+                <div className="flex-1 bg-white rounded-xl overflow-hidden border border-white/10 shadow-inner">
                   <canvas
                     ref={canvasRef}
                     width={800}
@@ -2371,8 +2457,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                     className={`w-full h-full touch-none block ${
                       isGuest && !guestCanDraw
                         ? "cursor-default pointer-events-none"
+                        : isEraser
+                        ? "cursor-cell"
                         : "cursor-crosshair"
                     }`}
+                    style={{ background: "radial-gradient(#e5e7eb 1px, transparent 1px)", backgroundSize: "20px 20px", backgroundColor: "#ffffff" }}
                   />
                 </div>
               </>
