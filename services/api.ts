@@ -5,7 +5,20 @@ export const getStaticUrl = (path?: string) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
   if (path.startsWith('data:')) return path;
-  return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  
+  // Se o path já contém o prefixo da API (ex: /api), não duplicamos
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const apiUrl = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
+  
+  // Se o cleanPath já começa com o que está no final da apiUrl, evitamos duplicação
+  // Ex: apiUrl = .../api, cleanPath = /api/uploads... -> result = .../api/uploads...
+  const apiSuffix = apiUrl.split('/').pop() || '';
+  if (apiSuffix && cleanPath.startsWith(`/${apiSuffix}/`)) {
+    const rootUrl = apiUrl.split('/').slice(0, -1).join('/');
+    return `${rootUrl}${cleanPath}`;
+  }
+
+  return `${apiUrl}${cleanPath}`;
 };
 
 interface RequestOptions extends RequestInit {

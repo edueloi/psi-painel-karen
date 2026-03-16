@@ -122,4 +122,74 @@ router.post('/avatar', async (req, res) => {
   }
 });
 
+// POST /profile/logo — Upload da logo da clínica
+router.post('/logo', async (req, res) => {
+  try {
+    const multerLogo = require('multer')({
+      storage: require('multer').diskStorage({
+        destination: (req2, file, cb) => {
+          const dir = require('path').join(__dirname, '../public/uploads/logos');
+          require('fs').mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req2, file, cb) => {
+          cb(null, `logo-${req.user.id}-${Date.now()}${require('path').extname(file.originalname)}`);
+        }
+      }),
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (req2, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Apenas imagens são permitidas'));
+      }
+    }).single('logo');
+
+    multerLogo(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+      const logo_url = `/uploads-static/logos/${req.file.filename}`;
+      await db.query('UPDATE users SET clinic_logo_url = ? WHERE id = ?', [logo_url, req.user.id]);
+      res.json({ logo_url });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao fazer upload da logo' });
+  }
+});
+
+// POST /profile/cover — Upload da capa do perfil
+router.post('/cover', async (req, res) => {
+  try {
+    const multerCover = require('multer')({
+      storage: require('multer').diskStorage({
+        destination: (req2, file, cb) => {
+          const dir = require('path').join(__dirname, '../public/uploads/covers');
+          require('fs').mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req2, file, cb) => {
+          cb(null, `cover-${req.user.id}-${Date.now()}${require('path').extname(file.originalname)}`);
+        }
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req2, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Apenas imagens são permitidas'));
+      }
+    }).single('cover');
+
+    multerCover(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+      const cover_url = `/uploads-static/covers/${req.file.filename}`;
+      await db.query('UPDATE users SET cover_url = ? WHERE id = ?', [cover_url, req.user.id]);
+      res.json({ cover_url });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao fazer upload da capa' });
+  }
+});
+
 module.exports = router;
