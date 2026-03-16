@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Mic,
@@ -290,6 +290,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const waitingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const entryAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Canvas
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1270,6 +1271,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         if (!active) return;
         const names = rows.map((r) => r.name);
         const prev = participantsRef.current;
+        if (!prev.length && names.length) {
+          if (!entryAudioRef.current) {
+            entryAudioRef.current = new Audio("/som/video-chamada.mp3");
+          }
+          entryAudioRef.current.currentTime = 0;
+          entryAudioRef.current.play().catch(() => {});
+        }
         if (prev.length && names.length === 0) {
           setEntryNotice(`${prev[0]} saiu da sala.`);
           setRemoteUserConnected(false);
@@ -3663,3 +3671,4 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       </div>
     );
   }
+
