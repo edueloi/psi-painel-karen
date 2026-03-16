@@ -786,7 +786,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             : msg.sender_role === "host";
           return {
             sender: msg.sender_name,
-            text: msg.message,
+            text: msg.message || (msg as any).content || '',
             time: new Date(msg.created_at).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",

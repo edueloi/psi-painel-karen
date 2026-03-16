@@ -217,8 +217,9 @@ router.post('/:id/messages', (req, res) => {
   const { sender_name, message } = req.body || {};
   const item = pushItem(messagesMap, key, {
     id: nextId(),
+    sender_role: 'host',
     sender_name: sender_name || 'Profissional',
-    content: message || '',
+    message: message || '',
     created_at: new Date().toISOString(),
   });
   res.json({ ok: true, id: item.id, timestamp: item.created_at });
@@ -419,8 +420,9 @@ router.post('/public/:id/messages', (req, res) => {
   const { sender_name, message } = req.body || {};
   const item = pushItem(messagesMap, key, {
     id: nextId(),
+    sender_role: 'guest',
     sender_name: sender_name || 'Paciente',
-    content: message || '',
+    message: message || '',
     created_at: new Date().toISOString(),
   });
   res.json({ ok: true, id: item.id, timestamp: item.created_at });
