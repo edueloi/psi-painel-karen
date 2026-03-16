@@ -54,6 +54,15 @@ export const Records: React.FC = () => {
 
   const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
+  const recordTypeLabel: Record<string, string> = {
+    Evolucao: 'Evolução',
+    Anamnese: 'Anamnese',
+    Avaliacao: 'Avaliação',
+    Encaminhamento: 'Encaminhamento',
+    Plano: 'Plano Terapêutico',
+    Relatorio: 'Relatório',
+  };
+
   const sectionMap: Record<string, Array<'demand' | 'procedures' | 'analysis' | 'free'>> = {
     Evolucao: ['demand', 'procedures', 'analysis'],
     Anamnese: ['demand', 'free'],
@@ -212,8 +221,8 @@ export const Records: React.FC = () => {
     [selectedPatientId, patients]
   );
 
-  const filteredPatients = useMemo(() => 
-    patients.filter(p => p.full_name.toLowerCase().includes(searchTerm.toLowerCase())),
+  const filteredPatients = useMemo(() =>
+    patients.filter(p => (p.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())),
   [searchTerm, patients]);
 
   const patientRecords = useMemo(() => 
@@ -253,7 +262,7 @@ export const Records: React.FC = () => {
           date: new Date().toISOString(),
           type: 'Evolucao',
           status: 'Rascunho',
-          title: `Sessao - ${new Date().toLocaleDateString()}`,
+          title: `Sessão - ${new Date().toLocaleDateString()}`,
           tags: [],
           attachments: []
       });
@@ -396,7 +405,7 @@ export const Records: React.FC = () => {
               patient_id: selectedPatient.id,
               record_type: currentRecord.type || 'Evolucao',
               status: currentRecord.status || 'Rascunho',
-              title: currentRecord.title || `Sessao - ${new Date().toLocaleDateString()}`,
+              title: currentRecord.title || `Sessão - ${new Date().toLocaleDateString()}`,
               content: buildRecordHtml(editorSections),
               tags,
               attachments: currentRecord.attachments || []
@@ -450,7 +459,7 @@ export const Records: React.FC = () => {
                               <button onClick={() => setIsMobileListVisible(true)} className="md:hidden p-2 -ml-2 text-slate-500"><ArrowLeft size={20} /></button>
                               <div className="flex items-center gap-3">
                                   <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-lg font-bold text-slate-600 border-2 border-white shadow-sm">{(selectedPatient.full_name || '?').charAt(0)}</div>
-                                  <div><h2 className="text-xl font-display font-bold text-slate-800 leading-none">{selectedPatient.full_name}</h2><p className="text-xs text-slate-400 mt-1">{selectedPatient.status.toUpperCase()}</p></div>
+                                  <div><h2 className="text-xl font-display font-bold text-slate-800 leading-none">{selectedPatient.full_name}</h2><p className="text-xs text-slate-400 mt-1">{(selectedPatient.status || '').toUpperCase()}</p></div>
                               </div>
                           </div>
                           <button onClick={handleNewRecord} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg"><Plus size={18} /> {t('records.new')}</button>
@@ -459,7 +468,7 @@ export const Records: React.FC = () => {
                           <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
                               <span className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full"><FileText size={14} /> {recordStats.total} registros</span>
                               {recordStats.lastDate && (
-                                  <span className="bg-slate-100 px-3 py-1.5 rounded-full">Ultima atualizacao: {new Date(recordStats.lastDate).toLocaleDateString()}</span>
+                                  <span className="bg-slate-100 px-3 py-1.5 rounded-full">Última atualização: {new Date(recordStats.lastDate).toLocaleDateString()}</span>
                               )}
                           </div>
                           <div className="flex flex-col sm:flex-row gap-3">
@@ -503,7 +512,7 @@ export const Records: React.FC = () => {
                                               <p className="text-xs text-slate-500">{new Date(record.date).toLocaleString()}</p>
                                           </div>
                                           <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase">
-                                              <span className="px-2 py-1 rounded-full border border-slate-200 text-slate-500">{record.type}</span>
+                                              <span className="px-2 py-1 rounded-full border border-slate-200 text-slate-500">{recordTypeLabel[record.type] || record.type}</span>
                                               <span className={`px-2 py-1 rounded-full border ${record.status === 'Finalizado' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{record.status}</span>
                                           </div>
                                       </div>
@@ -527,30 +536,37 @@ export const Records: React.FC = () => {
                   </div>
               </>
           ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center">
-                  <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6"><Search size={40} className="opacity-30" /></div>
-                  <h2 className="text-2xl font-bold text-slate-700 mb-2">{t('records.select')}</h2>
-                  <p className="max-w-sm">{t('records.selectDesc')}</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center p-8">
+                  <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4 border border-indigo-100">
+                      <FileText size={28} className="text-indigo-300" />
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-600 mb-1">{t('records.select')}</h2>
+                  <p className="text-sm max-w-xs text-slate-400">{t('records.selectDesc')}</p>
               </div>
           )}
       </div>
 
       {isEditorOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
-              <div className="bg-white w-full h-full md:h-[90vh] md:w-[90vw] md:max-w-5xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-                  <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50 shrink-0">
-                      <h3 className="text-xl font-bold">{editorMode === 'new' ? t('records.editor.new') : t('records.editor.edit')}</h3>
-                      <button onClick={() => setIsEditorOpen(false)}><X size={24}/></button>
+              <div className="bg-white w-full h-full md:h-[92vh] md:w-[92vw] md:max-w-5xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-white shrink-0">
+                      <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                              <FileText size={16} />
+                          </div>
+                          <h3 className="text-base font-bold text-slate-800">{editorMode === 'new' ? t('records.editor.new') : t('records.editor.edit')}</h3>
+                      </div>
+                      <button onClick={() => setIsEditorOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><X size={18}/></button>
                   </div>
-                  <div className="p-6 border-b border-slate-200 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/50 grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Titulo</label>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Título</label>
                           <input
                             type="text"
                             className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
                             value={currentRecord.title || ''}
                             onChange={e => setCurrentRecord({ ...currentRecord, title: e.target.value })}
-                            placeholder="Ex: Sessao de acompanhamento"
+                            placeholder="Ex: Sessão de acompanhamento"
                           />
                       </div>
                       <div>
@@ -560,12 +576,12 @@ export const Records: React.FC = () => {
                             value={currentRecord.type || 'Evolucao'}
                             onChange={e => setCurrentRecord({ ...currentRecord, type: e.target.value })}
                           >
-                              <option value="Evolucao">Evolucao</option>
+                              <option value="Evolucao">Evolução</option>
                               <option value="Anamnese">Anamnese</option>
-                              <option value="Avaliacao">Avaliacao</option>
+                              <option value="Avaliacao">Avaliação</option>
                               <option value="Encaminhamento">Encaminhamento</option>
-                              <option value="Plano">Plano</option>
-                              <option value="Relatorio">Relatorio</option>
+                              <option value="Plano">Plano Terapêutico</option>
+                              <option value="Relatorio">Relatório</option>
                           </select>
                       </div>
                       <div>
@@ -594,7 +610,7 @@ export const Records: React.FC = () => {
                       </div>
                   </div>
                   <div className="flex-1 overflow-y-auto">
-                      <div className="px-6 md:px-8 pt-6 space-y-6">
+                      <div className="px-5 md:px-6 pt-5 space-y-5">
                           <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500 uppercase">
                               <span>Editor</span>
                               <div className="flex flex-wrap gap-2">
@@ -610,7 +626,7 @@ export const Records: React.FC = () => {
                                     onClick={() => execCommand('italic')}
                                     className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
                                   >
-                                    Italico
+                                    Itálico
                                   </button>
                                   <button
                                     onMouseDown={(e) => e.preventDefault()}
@@ -624,7 +640,7 @@ export const Records: React.FC = () => {
                                     onClick={() => execCommand('formatBlock', 'H2')}
                                     className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
                                   >
-                                    Titulo
+                                    Título
                                   </button>
                                   <button
                                     onMouseDown={(e) => e.preventDefault()}
@@ -652,7 +668,7 @@ export const Records: React.FC = () => {
 
                           {getVisibleSections(currentRecord.type).includes('demand') ? (
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Descricao da demanda</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Descrição da demanda</label>
                                 <div
                                 className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
                                 contentEditable
@@ -684,7 +700,7 @@ export const Records: React.FC = () => {
 
                           {getVisibleSections(currentRecord.type).includes('analysis') ? (
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Analise e conclusao</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Análise e conclusão</label>
                                 <div
                                 className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
                                 contentEditable
@@ -714,7 +730,7 @@ export const Records: React.FC = () => {
                             </div>
                           ) : null}
                       </div>
-                      <div className="px-8 pb-8">
+                      <div className="px-5 md:px-6 pb-6">
                           <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">
                                   <Paperclip size={14} /> Anexos
@@ -800,9 +816,9 @@ export const Records: React.FC = () => {
                           </div>
                       </div>
                   </div>
-                  <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 shrink-0">
-                      <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 font-bold text-slate-500">{t('records.editor.cancel')}</button>
-                      <button onClick={handleSaveRecord} className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">{t('records.editor.save')}</button>
+                  <div className="px-5 py-4 bg-white border-t border-slate-200 flex justify-end gap-3 shrink-0">
+                      <button onClick={() => setIsEditorOpen(false)} className="px-5 py-2 font-bold text-slate-500 hover:bg-slate-100 rounded-xl text-sm">{t('records.editor.cancel')}</button>
+                      <button onClick={handleSaveRecord} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl shadow-lg text-sm hover:bg-indigo-700">{t('records.editor.save')}</button>
                   </div>
               </div>
           </div>

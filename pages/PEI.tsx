@@ -32,7 +32,7 @@ const GoalsTab: React.FC<{ pei: PEIType, onUpdate: (id: string, val: number) => 
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newGoal, setNewGoal] = useState<Partial<ClinicalGoal>>({
-        area: 'ComunicaÃ§Ã£o',
+        area: 'Comunicação',
         status: 'acquisition',
         currentValue: 0,
         targetValue: 80,
@@ -48,7 +48,7 @@ const GoalsTab: React.FC<{ pei: PEIType, onUpdate: (id: string, val: number) => 
         } as ClinicalGoal;
         onAdd(goal);
         setIsModalOpen(false);
-        setNewGoal({ area: 'ComunicaÃ§Ã£o', status: 'acquisition', currentValue: 0, targetValue: 80, startDate: new Date().toISOString().split('T')[0] });
+        setNewGoal({ area: 'Comunicação', status: 'acquisition', currentValue: 0, targetValue: 80, startDate: new Date().toISOString().split('T')[0] });
     };
 
     return (
@@ -136,12 +136,12 @@ const GoalsTab: React.FC<{ pei: PEIType, onUpdate: (id: string, val: number) => 
                                     value={newGoal.area}
                                     onChange={e => setNewGoal({...newGoal, area: e.target.value})}
                                 >
-                                    <option>ComunicaÃ§Ã£o</option>
+                                    <option>Comunicação</option>
                                     <option>Social</option>
                                     <option>Motor</option>
                                     <option>Autonomia</option>
                                     <option>Cognitivo</option>
-                                    <option>AcadÃªmico</option>
+                                    <option>Acadêmico</option>
                                 </select>
                             </div>
                             <div>
@@ -233,7 +233,7 @@ const ABCTab: React.FC<{ pei: PEIType, onAdd: (abc: ABCRecord) => void }> = ({ p
                     <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
                         <List size={20} className="text-amber-500" /> {t('pei.tab.abc')}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1">AnÃ¡lise funcional do comportamento</p>
+                    <p className="text-xs text-slate-500 mt-1">Análise funcional do comportamento</p>
                 </div>
                 <button 
                     onClick={() => setIsModalOpen(true)}
@@ -260,7 +260,7 @@ const ABCTab: React.FC<{ pei: PEIType, onAdd: (abc: ABCRecord) => void }> = ({ p
                                     abc.intensity === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-100' : 
                                     'bg-blue-50 text-blue-600 border-blue-100'
                                 }`}>
-                                    Intensidade: {abc.intensity}
+                                    Intensidade: {abc.intensity === 'high' ? 'Alta' : abc.intensity === 'medium' ? 'Média' : 'Baixa'}
                                 </span>
                             </div>
                             
@@ -359,7 +359,7 @@ const SensoryTab: React.FC<{ pei: PEIType }> = ({ pei }) => {
             </div>
             <div className="bg-indigo-50 rounded-2xl p-5 sm:p-6 border border-indigo-100">
                 <div className="flex items-center gap-3 mb-4"><Zap size={24} className="text-indigo-600" /><h4 className="font-bold text-indigo-900">Dieta Sensorial Sugerida</h4></div>
-                <p className="text-sm text-indigo-700">Com base nos indicadores acima, as estratÃ©gias de regulaÃ§Ã£o aparecerÃ£o aqui.</p>
+                <p className="text-sm text-indigo-700">Com base nos indicadores acima, as estratégias de regulação aparecerão aqui.</p>
             </div>
         </div>
     );
@@ -371,7 +371,7 @@ const AssessmentsTabLegacy = () => {
     const assessmentsList = [
         { id: 'mchat', name: 'M-CHAT-R/F', desc: 'Rastreio de Autismo', color: 'bg-blue-500' },
         { id: 'snap', name: 'SNAP-IV', desc: 'Sintomas TDAH', color: 'bg-orange-500' },
-        { id: 'ata', name: 'Escala ATA', desc: 'TraÃ§os AutÃ­sticos', color: 'bg-emerald-500' },
+        { id: 'ata', name: 'Escala ATA', desc: 'Traços Autísticos', color: 'bg-emerald-500' },
     ];
 
     return (
@@ -444,7 +444,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
         const trimmed = score.trim();
         const parsedScore = trimmed === '' ? null : Number(trimmed);
         if (trimmed !== '' && Number.isNaN(parsedScore)) {
-            setError('Invalid score');
+            setError('Score inválido');
             return;
         }
 
@@ -453,7 +453,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
             try {
                 parsedAnswers = JSON.parse(answersJson);
             } catch (e) {
-                setError('Invalid JSON');
+                setError('JSON inválido');
                 return;
             }
         }
@@ -517,7 +517,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                                 onClick={() => openAssessment(item)}
                                 className="mt-2 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700"
                             >
-                                Registrar resultado
+                                <Plus size={14} /> Registrar resultado
                             </button>
                         </div>
                     ))}
@@ -533,7 +533,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                         </div>
                         <div className="p-5 space-y-4 overflow-y-auto">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Score</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pontuação</label>
                                 <input
                                     type="number"
                                     className="w-full p-3 rounded-xl border border-slate-200"
@@ -543,7 +543,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Answers JSON (optional)</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Respostas JSON (opcional)</label>
                                 <textarea
                                     className="w-full p-3 rounded-xl border border-slate-200 h-28 resize-none"
                                     value={answersJson}
@@ -552,11 +552,11 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                                 />
                             </div>
                             <div className="border-t border-slate-100 pt-3">
-                                <div className="text-xs font-bold text-slate-500 uppercase mb-2">Recent results</div>
+                                <div className="text-xs font-bold text-slate-500 uppercase mb-2">Resultados recentes</div>
                                 {resultsLoading ? (
-                                    <div className="text-xs text-slate-400">Loading...</div>
+                                    <div className="text-xs text-slate-400">Carregando...</div>
                                 ) : results.length === 0 ? (
-                                    <div className="text-xs text-slate-400">No results yet</div>
+                                    <div className="text-xs text-slate-400">Sem resultados ainda</div>
                                 ) : (
                                     <div className="space-y-2">
                                         {results.slice(0, 5).map(r => (
@@ -782,11 +782,13 @@ export const PEI: React.FC = () => {
   return (
     <div className="space-y-6 sm:space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-16 sm:pb-20 px-4 sm:px-6 lg:px-0">
       
-      <div className="relative overflow-hidden rounded-[26px] p-5 sm:p-8 bg-slate-900 shadow-2xl text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-900 via-slate-900 to-slate-950 opacity-90"></div>
-        <div className="relative z-10">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-white mb-2 leading-tight">{t('pei.title')}</h1>
-            <p className="text-violet-200 text-sm sm:text-lg">{t('pei.subtitle')}</p>
+      <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+        <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 shrink-0">
+          <BrainCircuit size={20} />
+        </div>
+        <div>
+          <h1 className="text-lg font-bold text-slate-800 leading-tight">{t('pei.title')}</h1>
+          <p className="text-xs text-slate-500">{t('pei.subtitle')}</p>
         </div>
       </div>
 
@@ -830,7 +832,7 @@ export const PEI: React.FC = () => {
                           <div className="min-w-0">
                                 <h2 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{patient?.full_name}</h2>
                                 <p className="text-xs sm:text-sm text-slate-500 flex items-center gap-2">
-                                  <Calendar size={14} /> RevisÃ£o PEI: {new Date(selectedPei.reviewDate).toLocaleDateString()}
+                                  <Calendar size={14} /> Revisão PEI: {selectedPei.reviewDate ? new Date(selectedPei.reviewDate).toLocaleDateString() : '—'}
                                 </p>
                           </div>
                       </div>
@@ -858,12 +860,13 @@ export const PEI: React.FC = () => {
               ) : selectedPatientId && peiMissing ? (
                   <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400">
                       <BrainCircuit size={48} className="mb-4 opacity-20" />
-                      <p className="font-medium text-lg">No PEI for this patient</p>
+                      <p className="font-medium text-lg">Nenhum PEI encontrado</p>
+                      <p className="text-sm mt-1 mb-4">Crie um plano educacional para este paciente</p>
                       <button
                           onClick={handleCreatePei}
-                          className="mt-4 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700"
+                          className="mt-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 flex items-center gap-2"
                       >
-                          Create PEI
+                          <Plus size={16} /> Criar PEI
                       </button>
                   </div>
               ) : (
