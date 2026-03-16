@@ -183,6 +183,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [remoteTranscriptionRequested, setRemoteTranscriptionRequested] =
     useState(false);
   const [transcriptionActive, setTranscriptionActive] = useState(false);
+  const [remoteStreamActive, setRemoteStreamActive] = useState(false);
 
   useEffect(() => {
     if (!isGuest || !id) return;
@@ -265,6 +266,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random()}`
   );
+
+  // WebRTC
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const pendingIceCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const sendRoomEventRef = useRef<((type: string, payload?: Record<string, any>) => Promise<void>) | null>(null);
 
   // Audio Analysis
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -1227,6 +1234,52 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     return () => clearTimeout(timeout);
   }, [remoteUserConnected, remoteDisplayName]);
 
+  // WebRTC: host creates offer when remote user connects
+  useEffect(() => {
+    if (!remoteUserConnected || isGuest || isCompanionMode) return;
+    const timer = setTimeout(async () => {
+      if (!localStreamRef.current) return;
+      const config: RTCConfiguration = {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ],
+      };
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      setRemoteStreamActive(false);
+      const pc = new RTCPeerConnection(config);
+      peerConnectionRef.current = pc;
+      localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+      pc.ontrack = (e) => {
+        if (remoteVideoRef.current && e.streams[0]) {
+          remoteVideoRef.current.srcObject = e.streams[0];
+          setRemoteStreamActive(true);
+        }
+      };
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          sendRoomEventRef.current?.('webrtc_ice', { candidate: JSON.parse(JSON.stringify(e.candidate)) });
+        }
+      };
+      pc.onconnectionstatechange = () => {
+        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+          setRemoteStreamActive(false);
+        }
+      };
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await sendRoomEventRef.current?.('webrtc_offer', { sdp: offer.sdp, type: offer.type });
+      } catch (err) {
+        console.error('WebRTC offer error:', err);
+      }
+    }, 800);
+    return () => { clearTimeout(timer); };
+  }, [remoteUserConnected, isGuest, isCompanionMode]);
+
   const handleAdmitGuest = async (entry?: WaitingEntry) => {
     const name =
       entry?.guest_name ||
@@ -1457,6 +1510,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       // ignore event errors
     }
   };
+
+  // Always keep ref pointing to latest sendRoomEvent closure
+  sendRoomEventRef.current = sendRoomEvent;
 
   const startDrawing = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>

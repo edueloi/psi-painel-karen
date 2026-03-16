@@ -26,6 +26,26 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /forms/responses?patient_id=X
+router.get('/responses', authMiddleware, async (req, res) => {
+  try {
+    const { patient_id } = req.query;
+    if (!patient_id) return res.json([]);
+    const [rows] = await db.query(
+      `SELECT r.id, r.form_id, r.created_at, f.title as form_title
+       FROM form_responses r
+       JOIN forms f ON f.id = r.form_id
+       WHERE r.patient_id = ? AND f.tenant_id = ?
+       ORDER BY r.created_at DESC`,
+      [patient_id, req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.json([]);
+  }
+});
+
 // GET /forms/:id
 router.get('/:id', authMiddleware, async (req, res) => {
   try {

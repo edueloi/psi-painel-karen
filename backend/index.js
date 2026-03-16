@@ -25,6 +25,8 @@ const neuroAssessmentsRoutes = require('./routes/neuro-assessments');
 const plansRoutes = require('./routes/plans');
 const masterUsersRoutes = require('./routes/master-users');
 const masterPermissionsRoutes = require('./routes/master-permissions');
+const notesRoutes = require('./routes/notes');
+const documentsRoutes = require('./routes/documents');
 
 const app = express();
 const PORT = process.env.PORT || 3013;
@@ -70,6 +72,8 @@ app.use('/neuro-assessments', neuroAssessmentsRoutes);
 app.use('/plans', plansRoutes);
 app.use('/master-users', masterUsersRoutes);
 app.use('/master-permissions', masterPermissionsRoutes);
+app.use('/notes', notesRoutes);
+app.use('/documents', documentsRoutes);
 
 // ---- 404 handler ----
 app.use((req, res) => {
