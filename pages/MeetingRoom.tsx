@@ -289,6 +289,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const waitingAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Canvas
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -585,6 +586,29 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       clearInterval(interval);
     };
   }, [isGuest, id, hasAuthToken, remoteUserConnected]);
+
+  useEffect(() => {
+    if (isGuest) return;
+    if (waitingList.length > 0) {
+      if (!waitingAudioRef.current) {
+        waitingAudioRef.current = new Audio("/som/Chamadas 6.mp3");
+        waitingAudioRef.current.loop = true;
+      }
+      waitingAudioRef.current.play().catch(() => {
+        console.warn("Audio play blocked by browser. Interaction required.");
+      });
+    } else {
+      if (waitingAudioRef.current) {
+        waitingAudioRef.current.pause();
+        waitingAudioRef.current.currentTime = 0;
+      }
+    }
+    return () => {
+      if (waitingAudioRef.current) {
+        waitingAudioRef.current.pause();
+      }
+    };
+  }, [waitingList.length, isGuest]);
 
   useEffect(() => {
     if (!isGuest || !waitingToken) return;
