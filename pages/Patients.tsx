@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users, Search, Plus, Phone, Mail, Calendar, FileText,
   Edit2, Trash2, X, AlertCircle, Eye, ClipboardList,
-  FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight
+  FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight,
+  FileUp, FileDown, Download
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, API_BASE_URL } from '../services/api';
 import { Patient } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
@@ -79,7 +80,30 @@ export const Patients: React.FC = () => {
     inactive: patients.filter(p => p.status === 'inativo').length,
   }), [patients]);
 
-  const handleSavePatient = async (data: Partial<Patient>) => {
+  const uploadPatientDocuments = async (patientId: string | number, files: File[]) => {
+    if (!files.length) return;
+
+    const token = localStorage.getItem('psi_token');
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', file.name);
+      formData.append('category', 'Paciente');
+      formData.append('patient_id', String(patientId));
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3013'}/uploads`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Falha ao enviar o arquivo ${file.name}`);
+      }
+    }
+  };
+
+  const handleSavePatient = async (data: Partial<Patient>, files: File[]) => {
     try {
       const payload = {
         name: data.full_name,
@@ -95,12 +119,19 @@ export const Patients: React.FC = () => {
         status: data.status || 'ativo',
         health_plan: data.convenio ? data.convenio_name || 'Sim' : null,
         responsible_professional_id: data.psychologist_id || null,
+        phone2: data.phone2 || null,
+        notes: data.notes || null,
       };
-      if (data.id) {
-        await api.put(`/patients/${data.id}`, payload);
-      } else {
-        await api.post('/patients', payload);
+
+      const savedPatient = data.id
+        ? await api.put<any>(`/patients/${data.id}`, payload)
+        : await api.post<any>('/patients', payload);
+
+      const patientId = savedPatient?.id || data.id;
+      if (patientId && files.length) {
+        await uploadPatientDocuments(patientId, files);
       }
+
       await fetchPatients();
       setIsWizardOpen(false);
     } catch (err) {
@@ -202,7 +233,73 @@ export const Patients: React.FC = () => {
     return age;
   };
 
-  const isActive = (p: Patient) => p.status === 'ativo' || p.status === 'active';
+  const isActive = (p: Patient) => (p.status as string) === 'ativo' || (p.status as string) === 'active';
+
+  const handleExportTemplate = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/patients/export-template`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('psi_token')}`
+        }
+      });
+      if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'modelo_importacao_pacientes.xlsx';
+      a.click();
+    } catch (err) {
+      console.error('Erro ao baixar modelo:', err);
+      alert('Erro ao baixar modelo.');
+    }
+  };
+
+  const handleExportPatients = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/patients/export`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('psi_token')}`
+        }
+      });
+      if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'pacientes_exportados.xlsx';
+      a.click();
+    } catch (err) {
+      console.error('Erro ao exportar pacientes:', err);
+      alert('Erro ao exportar pacientes.');
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const result = await api.request<any>('/patients/import', {
+        method: 'POST',
+        body: formData
+      });
+      alert(result.message);
+      if (result.errors && result.errors.length > 0) {
+        console.warn('Erros na importação:', result.errors);
+        alert('Algumas linhas tiveram erros. Verifique o console.');
+      }
+      fetchPatients();
+    } catch (err) {
+      console.error('Erro ao importar:', err);
+      alert('Erro ao importar pacientes.');
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 animate-fadeIn">
@@ -217,12 +314,35 @@ export const Patients: React.FC = () => {
             <p className="text-xs text-slate-400 mt-0.5">{t('patients.subtitle')}</p>
           </div>
         </div>
-        <button
-          onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
-          className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <Plus size={16} /> {t('patients.new')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportTemplate}
+            title="Baixar Modelo de Exemplo"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            <Download size={16} /> <span className="hidden sm:inline">Modelo</span>
+          </button>
+          
+          <button
+            onClick={handleExportPatients}
+            title="Exportar Pacientes"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            <FileDown size={16} /> <span className="hidden sm:inline">Exportar</span>
+          </button>
+
+          <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
+            <FileUp size={16} /> <span className="hidden sm:inline">Importar</span>
+            <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} />
+          </label>
+
+          <button
+            onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <Plus size={16} /> {t('patients.new')}
+          </button>
+        </div>
       </div>
 
       {/* Stats row */}
@@ -302,6 +422,12 @@ export const Patients: React.FC = () => {
                         <div className="flex items-center gap-1.5 text-xs text-slate-500">
                           <Phone size={12} className="text-slate-300 shrink-0" />
                           <span className="truncate">{patient.whatsapp}</span>
+                        </div>
+                      )}
+                      {patient.phone2 && (
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                          <Phone size={12} className="text-slate-300 shrink-0 opacity-60" />
+                          <span className="truncate">{patient.phone2}</span>
                         </div>
                       )}
                       {patient.email && (
@@ -450,6 +576,9 @@ export const Patients: React.FC = () => {
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Telefone</div>
                   <div className="text-xs font-semibold text-slate-700">{selectedPatient.whatsapp || selectedPatient.phone || '—'}</div>
+                  {selectedPatient.phone2 && (
+                    <div className="text-[10px] text-slate-400">{selectedPatient.phone2} (Alt)</div>
+                  )}
                 </div>
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Email</div>
@@ -491,6 +620,18 @@ export const Patients: React.FC = () => {
                 )}
                 {summaryError && <p className="text-xs text-rose-500 mt-2">{summaryError}</p>}
               </div>
+
+              {/* Notes/Observation */}
+              {selectedPatient.notes && (
+                <div className="px-4 pb-4">
+                  <div className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5">
+                    <StickyNote size={14} className="text-amber-500" /> Observações / Referência
+                  </div>
+                  <div className="text-xs text-slate-500 bg-amber-50/50 border border-amber-100/50 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
+                    {selectedPatient.notes}
+                  </div>
+                </div>
+              )}
 
               {/* Upcoming */}
               {(summary?.upcomingAppointments?.length ?? 0) > 0 && (
@@ -573,3 +714,4 @@ export const Patients: React.FC = () => {
     </div>
   );
 };
+

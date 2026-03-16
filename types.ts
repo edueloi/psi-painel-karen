@@ -108,6 +108,8 @@ export interface Patient {
   spouse_name?: string;
   family_contact?: string;
   emergency_contact?: string;
+  phone2?: string;
+  notes?: string;
   // Clínico/Financeiro
   status: 'ativo' | 'inativo';
   convenio: boolean;

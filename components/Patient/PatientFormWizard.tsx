@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Patient, MaritalStatus, EducationLevel } from '../../types';
 import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, X, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -24,7 +24,7 @@ const maskCep = (v: string) => {
 
 interface PatientFormWizardProps {
   initialData?: Partial<Patient>;
-  onSave: (data: Partial<Patient>) => void;
+  onSave: (data: Partial<Patient>, files: File[]) => void;
   onCancel: () => void;
 }
 
@@ -32,6 +32,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [cepLoading, setCepLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState<Partial<Patient>>({
     status: 'ativo',
     convenio: false,
@@ -138,6 +139,16 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
             </div>
             <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-600">Telefone 2</label>
+              <input
+                type="tel"
+                placeholder="(00) 00000-0000"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none"
+                value={formData.phone2 || ''}
+                onChange={e => updateField('phone2', maskPhone(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.taxId')}</label>
               <input
                 type="text"
@@ -154,6 +165,15 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none"
                 value={formData.birth_date ? formData.birth_date.split('T')[0] : ''} 
                 onChange={e => updateField('birth_date', e.target.value)}
+              />
+            </div>
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-xs font-semibold text-slate-600">Observações / Referência</label>
+              <textarea 
+                rows={3}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none resize-none"
+                value={formData.notes || ''} 
+                onChange={e => updateField('notes', e.target.value)}
               />
             </div>
           </div>
@@ -422,8 +442,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 const files = Array.from(e.target.files || []);
                 if (!files.length) return;
                 
-                // Modo simples: vamos apenas guardar os nomes por enquanto ou enviar se o ID existir
-                alert(`Selecionados ${files.length} arquivos. Em uma integração real, eles seriam enviados para o servidor.`);
+                setSelectedFiles(files);
               }}
             />
             <label 
@@ -439,6 +458,20 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             <div className="text-center">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">{t('wizard.lgpd')}</span>
             </div>
+            {selectedFiles.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+                <div className="text-xs font-semibold text-slate-600">
+                  {selectedFiles.length} arquivo(s) selecionado(s)
+                </div>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {selectedFiles.map(file => (
+                    <div key={`${file.name}-${file.size}`} className="text-xs text-slate-500 truncate">
+                      {file.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -504,7 +537,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
 
         {currentStep === STEPS.length - 1 ? (
           <button
-            onClick={() => onSave(formData)}
+            onClick={() => onSave(formData, selectedFiles)}
             className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
           >
             <Save size={15} /> {t('wizard.finish')}

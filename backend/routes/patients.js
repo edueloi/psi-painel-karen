@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const multer = require('multer');
+const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Normaliza status pt-BR para valores aceitos pelo banco
 const normalizeStatus = (s) => {
@@ -42,6 +47,217 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /patients/export-template
+router.get('/export-template', async (req, res) => {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Dados para Importar');
+  
+  worksheet.columns = [
+    { header: 'Nome', key: 'name', width: 30 },
+    { header: 'Email', key: 'email', width: 30 },
+    { header: 'Telefone', key: 'phone', width: 20 },
+    { header: 'Telefone 2', key: 'phone2', width: 20 },
+    { header: 'CPF', key: 'cpf', width: 20 },
+    { header: 'RG', key: 'rg', width: 20 },
+    { header: 'Data Nascimento', key: 'birth_date', width: 20 },
+    { header: 'Gênero', key: 'gender', width: 15 },
+    { header: 'Estado Civil', key: 'marital_status', width: 20 },
+    { header: 'Escolaridade', key: 'education', width: 20 },
+    { header: 'Profissão', key: 'profession', width: 20 },
+    { header: 'Nacionalidade', key: 'nationality', width: 20 },
+    { header: 'Naturalidade', key: 'naturality', width: 20 },
+    { header: 'Tem Filhos?', key: 'has_children', width: 15 },
+    { header: 'Qtd Filhos', key: 'children_count', width: 15 },
+    { header: 'Qtd Filhos Menores', key: 'minor_children_count', width: 20 },
+    { header: 'Nome Cônjuge', key: 'spouse_name', width: 30 },
+    { header: 'Contato Familiar', key: 'family_contact', width: 20 },
+    { header: 'Contato Emergência', key: 'emergency_contact', width: 20 },
+    { header: 'Endereço', key: 'address', width: 40 },
+    { header: 'Cidade', key: 'city', width: 20 },
+    { header: 'Estado', key: 'state', width: 10 },
+    { header: 'CEP', key: 'zip_code', width: 15 },
+    { header: 'Convênio?', key: 'convenio', width: 15 },
+    { header: 'Nome Convênio', key: 'health_plan', width: 25 },
+    { header: 'Observação / Referência', key: 'notes', width: 40 },
+    { header: 'Diagnóstico', key: 'diagnosis', width: 40 }
+  ];
+
+  // Estilo do cabeçalho
+  worksheet.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    cell.alignment = { horizontal: 'center' };
+  });
+
+  worksheet.addRow({
+    name: 'Paciente Exemplo',
+    email: 'exemplo@email.com',
+    phone: '(11) 99999-9999',
+    phone2: '(11) 88888-8888',
+    cpf: '123.456.789-00',
+    rg: '12.345.678-9',
+    birth_date: '1990-05-15',
+    gender: 'Masculino',
+    marital_status: 'Solteiro(a)',
+    education: 'Ensino Superior Completo',
+    profession: 'Engenheiro',
+    nationality: 'Brasileira',
+    naturality: 'São Paulo',
+    has_children: 'Não',
+    children_count: 0,
+    minor_children_count: 0,
+    spouse_name: '',
+    family_contact: '(11) 97777-7777',
+    emergency_contact: '(11) 96666-6666',
+    address: 'Rua Exemplo, 123',
+    city: 'São Paulo',
+    state: 'SP',
+    zip_code: '01234-567',
+    convenio: 'Não',
+    health_plan: '',
+    notes: 'Paciente prefere atendimento vespertino',
+    diagnosis: 'Ansiedade leve'
+  });
+
+  worksheet.autoFilter = 'A1:AA1';
+
+  const wsInst = workbook.addWorksheet('Instruções');
+  wsInst.columns = [
+    { header: 'Coluna', key: 'col', width: 25 },
+    { header: 'Obrigatório', key: 'req', width: 15 },
+    { header: 'Formato / Descrição', key: 'desc', width: 60 }
+  ];
+
+  wsInst.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+  });
+
+    wsInst.addRows([
+    ['Nome', 'Sim', 'Nome completo do paciente'],
+    ['Email', 'Não', 'exemplo@dominio.com'],
+    ['Telefone', 'Não', '(00) 00000-0000 ou apenas números'],
+    ['Telefone 2', 'Não', 'Segundo contato ou contato de emergência'],
+    ['CPF', 'Não', '000.000.000-00 ou apenas números'],
+    ['RG', 'Não', 'Apenas números e letras'],
+    ['Data Nascimento', 'Não', 'AAAA-MM-DD (Ex: 1990-05-15)'],
+    ['Gênero', 'Não', 'Masculino, Feminino, Outro'],
+    ['Estado Civil', 'Não', 'Solteiro(a), Casado(a), etc.'],
+    ['Escolaridade', 'Não', 'Ensino Médio, Superior, etc.'],
+    ['Profissão', 'Não', 'Cargo ou área de atuação'],
+    ['Nacionalidade', 'Não', 'Brasileira, etc.'],
+    ['Naturalidade', 'Não', 'Cidade onde nasceu'],
+    ['Tem Filhos?', 'Não', 'Sim ou Não'],
+    ['Qtd Filhos', 'Não', 'Número total'],
+    ['Qtd Filhos Menores', 'Não', 'Número de menores de idade'],
+    ['Nome Cônjuge', 'Não', 'Nome completo'],
+    ['Contato Familiar', 'Não', 'Telefone de um familiar'],
+    ['Contato Emergência', 'Não', 'Telefone para emergências'],
+    ['Endereço', 'Não', 'Rua e número'],
+    ['Cidade', 'Não', 'Nome da cidade'],
+    ['Estado', 'Não', 'UF (Ex: SP)'],
+    ['CEP', 'Não', '00000-000'],
+    ['Convênio?', 'Não', 'Sim ou Não'],
+    ['Nome Convênio', 'Não', 'Nome da operadora'],
+    ['Observação / Referência', 'Não', 'Qualquer informação relevante'],
+    ['Diagnóstico', 'Não', 'Resumo clínico']
+  ]);
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=modelo_importacao_pacientes.xlsx');
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+// GET /patients/export
+router.get('/export', async (req, res) => {
+  try {
+    const [patients] = await db.query('SELECT * FROM patients WHERE tenant_id = ? ORDER BY name', [req.user.tenant_id]);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Pacientes');
+
+    worksheet.columns = [
+      { header: 'Nome', key: 'name', width: 30 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Telefone', key: 'phone', width: 20 },
+      { header: 'Telefone 2', key: 'phone2', width: 20 },
+      { header: 'CPF', key: 'cpf', width: 20 },
+      { header: 'RG', key: 'rg', width: 20 },
+      { header: 'Data Nascimento', key: 'birth_date', width: 20 },
+      { header: 'Gênero', key: 'gender', width: 15 },
+      { header: 'Estado Civil', key: 'marital_status', width: 20 },
+      { header: 'Escolaridade', key: 'education', width: 20 },
+      { header: 'Profissão', key: 'profession', width: 20 },
+      { header: 'Nacionalidade', key: 'nationality', width: 20 },
+      { header: 'Naturalidade', key: 'naturality', width: 20 },
+      { header: 'Tem Filhos?', key: 'has_children', width: 15 },
+      { header: 'Qtd Filhos', key: 'children_count', width: 15 },
+      { header: 'Qtd Filhos Menores', key: 'minor_children_count', width: 20 },
+      { header: 'Nome Cônjuge', key: 'spouse_name', width: 30 },
+      { header: 'Contato Familiar', key: 'family_contact', width: 20 },
+      { header: 'Contato Emergência', key: 'emergency_contact', width: 20 },
+      { header: 'Endereço', key: 'address', width: 40 },
+      { header: 'Cidade', key: 'city', width: 20 },
+      { header: 'Estado', key: 'state', width: 10 },
+      { header: 'CEP', key: 'zip_code', width: 15 },
+      { header: 'Convênio?', key: 'convenio', width: 15 },
+      { header: 'Nome Convênio', key: 'health_plan', width: 25 },
+      { header: 'Observação / Referência', key: 'notes', width: 40 },
+      { header: 'Diagnóstico', key: 'diagnosis', width: 40 },
+      { header: 'Status', key: 'status', width: 15 }
+    ];
+
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    });
+
+    patients.forEach(p => {
+      worksheet.addRow({
+        name: p.name,
+        email: p.email,
+        phone: p.phone,
+        phone2: p.phone2,
+        cpf: p.cpf,
+        rg: p.rg,
+        birth_date: p.birth_date ? new Date(p.birth_date).toISOString().split('T')[0] : '',
+        gender: p.gender,
+        marital_status: p.marital_status,
+        education: p.education,
+        profession: p.profession,
+        nationality: p.nationality,
+        naturality: p.naturality,
+        has_children: p.has_children ? 'Sim' : 'Não',
+        children_count: p.children_count,
+        minor_children_count: p.minor_children_count,
+        spouse_name: p.spouse_name,
+        family_contact: p.family_contact,
+        emergency_contact: p.emergency_contact,
+        address: p.address,
+        city: p.city,
+        state: p.state,
+        zip_code: p.zip_code,
+        convenio: p.health_plan ? 'Sim' : 'Não',
+        health_plan: p.health_plan,
+        notes: p.notes,
+        diagnosis: p.diagnosis,
+        status: p.status === 'active' ? 'Ativo' : 'Inativo'
+      });
+    });
+
+    worksheet.autoFilter = 'A1:AB1';
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=pacientes_exportados.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao exportar pacientes' });
+  }
+});
+
 // GET /patients/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -61,24 +277,34 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      name, email, phone, birth_date, cpf, rg, gender,
+      name, email, phone, phone2, birth_date, cpf, rg, gender,
+      marital_status, education, profession, nationality, naturality,
+      has_children, children_count, minor_children_count,
+      spouse_name, family_contact, emergency_contact,
       address, city, state, zip_code, notes, status,
       responsible_professional_id, responsible_name,
       responsible_phone, health_plan, diagnosis
     } = req.body;
 
-    if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
+    if (!name) return res.status(404).json({ error: 'Nome é obrigatório' });
 
     const [result] = await db.query(
       `INSERT INTO patients (
-        tenant_id, name, email, phone, birth_date, cpf, rg, gender,
+        tenant_id, name, email, phone, phone2, birth_date, cpf, rg, gender,
+        marital_status, education, profession, nationality, naturality,
+        has_children, children_count, minor_children_count,
+        spouse_name, family_contact, emergency_contact,
         address, city, state, zip_code, notes, status,
         responsible_professional_id, responsible_name,
         responsible_phone, health_plan, diagnosis
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.user.tenant_id, name, email || null, phone || null,
+        req.user.tenant_id, name, email || null, phone || null, phone2 || null,
         birth_date || null, cpf || null, rg || null, gender || null,
+        marital_status || null, education || null, profession || null, 
+        nationality || null, naturality || null,
+        has_children ? 1 : 0, children_count || 0, minor_children_count || 0,
+        spouse_name || null, family_contact || null, emergency_contact || null,
         address || null, city || null, state || null, zip_code || null,
         notes || null, normalizeStatus(status),
         responsible_professional_id || null, responsible_name || null,
@@ -98,7 +324,10 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const {
-      name, email, phone, birth_date, cpf, rg, gender,
+      name, email, phone, phone2, birth_date, cpf, rg, gender,
+      marital_status, education, profession, nationality, naturality,
+      has_children, children_count, minor_children_count,
+      spouse_name, family_contact, emergency_contact,
       address, city, state, zip_code, notes, status,
       responsible_professional_id, responsible_name,
       responsible_phone, health_plan, diagnosis
@@ -115,10 +344,22 @@ router.put('/:id', async (req, res) => {
         name = COALESCE(?, name),
         email = COALESCE(?, email),
         phone = COALESCE(?, phone),
+        phone2 = COALESCE(?, phone2),
         birth_date = COALESCE(?, birth_date),
         cpf = COALESCE(?, cpf),
         rg = COALESCE(?, rg),
         gender = COALESCE(?, gender),
+        marital_status = COALESCE(?, marital_status),
+        education = COALESCE(?, education),
+        profession = COALESCE(?, profession),
+        nationality = COALESCE(?, nationality),
+        naturality = COALESCE(?, naturality),
+        has_children = COALESCE(?, has_children),
+        children_count = COALESCE(?, children_count),
+        minor_children_count = COALESCE(?, minor_children_count),
+        spouse_name = COALESCE(?, spouse_name),
+        family_contact = COALESCE(?, family_contact),
+        emergency_contact = COALESCE(?, emergency_contact),
         address = COALESCE(?, address),
         city = COALESCE(?, city),
         state = COALESCE(?, state),
@@ -132,7 +373,11 @@ router.put('/:id', async (req, res) => {
         diagnosis = COALESCE(?, diagnosis)
       WHERE id = ? AND tenant_id = ?`,
       [
-        name, email, phone, birth_date, cpf, rg, gender,
+        name, email, phone, phone2, birth_date, cpf, rg, gender,
+        marital_status, education, profession, nationality, naturality,
+        has_children !== undefined ? (has_children ? 1 : 0) : undefined,
+        children_count, minor_children_count,
+        spouse_name, family_contact, emergency_contact,
         address, city, state, zip_code, notes, status ? normalizeStatus(status) : undefined,
         responsible_professional_id, responsible_name,
         responsible_phone, health_plan, diagnosis,
@@ -160,6 +405,84 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao deletar paciente' });
+  }
+});
+
+// POST /patients/import
+router.post('/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+
+    const imported = [];
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const name = row['Nome'];
+        if (!name) {
+            errors.push(`Linha ${i + 2}: Nome é obrigatório`);
+            continue;
+        }
+
+        try {
+            const [result] = await db.query(
+                `INSERT INTO patients (
+                    tenant_id, name, email, phone, phone2, cpf, rg, birth_date, gender,
+                    marital_status, education, profession, nationality, naturality,
+                    has_children, children_count, minor_children_count,
+                    spouse_name, family_contact, emergency_contact,
+                    address, city, state, zip_code, health_plan, notes, diagnosis, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    req.user.tenant_id,
+                    name,
+                    row['Email'] || null,
+                    row['Telefone'] || null,
+                    row['Telefone 2'] || null,
+                    row['CPF'] || null,
+                    row['RG'] || null,
+                    row['Data Nascimento'] || null,
+                    row['Gênero'] || null,
+                    row['Estado Civil'] || null,
+                    row['Escolaridade'] || null,
+                    row['Profissão'] || null,
+                    row['Nacionalidade'] || null,
+                    row['Naturalidade'] || null,
+                    row['Tem Filhos?']?.toLowerCase() === 'sim' ? 1 : 0,
+                    parseInt(row['Qtd Filhos']) || 0,
+                    parseInt(row['Qtd Filhos Menores']) || 0,
+                    row['Nome Cônjuge'] || null,
+                    row['Contato Familiar'] || null,
+                    row['Contato Emergência'] || null,
+                    row['Endereço'] || null,
+                    row['Cidade'] || null,
+                    row['Estado'] || null,
+                    row['CEP'] || null,
+                    row['Convênio?']?.toLowerCase() === 'sim' ? (row['Nome Convênio'] || 'Sim') : null,
+                    row['Observação / Referência'] || null,
+                    row['Diagnóstico'] || null,
+                    'active'
+                ]
+            );
+            imported.push({ id: result.insertId, name });
+        } catch (e) {
+            errors.push(`Linha ${i + 2}: ${e.message}`);
+        }
+    }
+
+    res.json({
+        message: `${imported.length} pacientes importados com sucesso`,
+        importedLength: imported.length,
+        errors
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao importar pacientes' });
   }
 });
 

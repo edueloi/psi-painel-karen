@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const OpenAI = require('openai');
 const multer = require('multer');
@@ -6,23 +6,158 @@ const xlsx = require('xlsx');
 const pdfParse = require('pdf-parse');
 const db = require('../db');
 
-// Configuração da OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Configuração do Multer (em memória para rapidez)
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Normaliza status pt-BR para valores aceitos pelo banco
-const normalizeStatus = (s) => {
-  if (s === 'ativo') return 'active';
-  if (s === 'inativo') return 'inactive';
-  if (['active', 'inactive', 'waiting'].includes(s)) return s;
+const normalizeStatus = (value) => {
+  const s = String(value || '').trim().toLowerCase();
+  if (s === 'ativo' || s === 'active') return 'active';
+  if (s === 'inativo' || s === 'inactive') return 'inactive';
+  if (s === 'aguardando' || s === 'waiting') return 'waiting';
   return 'active';
 };
 
-// --- Funções Internas (Tools) ---
+const normalizeHeader = (value) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
+const onlyDigits = (value) => String(value || '').replace(/\D/g, '');
+
+const normalizeCpf = (value) => {
+  const digits = onlyDigits(value);
+  return digits || null;
+};
+
+const normalizePhone = (value) => {
+  const digits = onlyDigits(value);
+  return digits || null;
+};
+
+const normalizeZipCode = (value) => {
+  const digits = onlyDigits(value);
+  return digits || null;
+};
+
+const normalizeDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === 'number') {
+    const parsed = xlsx.SSF.parse_date_code(value);
+    if (parsed) {
+      const date = new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
+      return date.toISOString().slice(0, 10);
+    }
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const br = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (br) {
+    const [, d, m, y] = br;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  return null;
+};
+
+const headerAliases = {
+  name: ['nome', 'paciente', 'nome paciente', 'nome completo', 'cliente'],
+  email: ['email', 'e mail', 'correio'],
+  phone: ['telefone', 'celular', 'whatsapp', 'fone', 'contato'],
+  cpf: ['cpf', 'documento', 'cpf paciente'],
+  rg: ['rg', 'identidade'],
+  birth_date: ['data nascimento', 'nascimento', 'dt nascimento', 'data de nascimento'],
+  address: ['endereco', 'logradouro', 'rua', 'endereco completo'],
+  city: ['cidade', 'municipio'],
+  state: ['estado', 'uf'],
+  zip_code: ['cep', 'codigo postal'],
+  gender: ['sexo', 'genero'],
+  health_plan: ['convenio', 'plano', 'plano de saude'],
+  notes: ['observacoes', 'observacao', 'notas', 'obs'],
+  status: ['status', 'situacao']
+};
+
+const pickMappedValue = (row, aliases) => {
+  for (const [key, value] of Object.entries(row)) {
+    const normalized = normalizeHeader(key);
+    if (aliases.some(alias => normalized === alias || normalized.includes(alias))) {
+      return value;
+    }
+  }
+  return null;
+};
+
+function parseSpreadsheetPatients(buffer) {
+  const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+
+  const patients = rows
+    .map((row) => {
+      const mapped = {
+        name: pickMappedValue(row, headerAliases.name),
+        email: pickMappedValue(row, headerAliases.email),
+        phone: pickMappedValue(row, headerAliases.phone),
+        cpf: pickMappedValue(row, headerAliases.cpf),
+        rg: pickMappedValue(row, headerAliases.rg),
+        birth_date: pickMappedValue(row, headerAliases.birth_date),
+        address: pickMappedValue(row, headerAliases.address),
+        city: pickMappedValue(row, headerAliases.city),
+        state: pickMappedValue(row, headerAliases.state),
+        zip_code: pickMappedValue(row, headerAliases.zip_code),
+        gender: pickMappedValue(row, headerAliases.gender),
+        health_plan: pickMappedValue(row, headerAliases.health_plan),
+        notes: pickMappedValue(row, headerAliases.notes),
+        status: pickMappedValue(row, headerAliases.status),
+      };
+
+      return {
+        name: String(mapped.name || '').trim(),
+        email: String(mapped.email || '').trim() || null,
+        phone: normalizePhone(mapped.phone),
+        cpf: normalizeCpf(mapped.cpf),
+        rg: String(mapped.rg || '').trim() || null,
+        birth_date: normalizeDate(mapped.birth_date),
+        address: String(mapped.address || '').trim() || null,
+        city: String(mapped.city || '').trim() || null,
+        state: String(mapped.state || '').trim().toUpperCase() || null,
+        zip_code: normalizeZipCode(mapped.zip_code),
+        gender: String(mapped.gender || '').trim() || null,
+        health_plan: String(mapped.health_plan || '').trim() || null,
+        notes: String(mapped.notes || '').trim() || null,
+        status: String(mapped.status || '').trim() || 'ativo',
+      };
+    })
+    .filter((row) => row.name);
+
+  return {
+    sheetName,
+    headers: rows.length ? Object.keys(rows[0]) : [],
+    totalRows: rows.length,
+    patients,
+  };
+}
 
 async function listPatients(tenantId) {
   const [rows] = await db.query('SELECT id, name, phone, email, status, cpf FROM patients WHERE tenant_id = ?', [tenantId]);
@@ -31,14 +166,14 @@ async function listPatients(tenantId) {
 
 async function getPatientDetails(tenantId, patientId) {
   const [rows] = await db.query('SELECT * FROM patients WHERE id = ? AND tenant_id = ?', [patientId, tenantId]);
-  return rows[0] || { error: 'Paciente não encontrado' };
+  return rows[0] || { error: 'Paciente nao encontrado' };
 }
 
 async function listAppointments(tenantId, startDate, endDate) {
   let query = `
-    SELECT a.*, p.name as patient_name 
-    FROM appointments a 
-    LEFT JOIN patients p ON p.id = a.patient_id 
+    SELECT a.*, p.name as patient_name
+    FROM appointments a
+    LEFT JOIN patients p ON p.id = a.patient_id
     WHERE a.tenant_id = ?
   `;
   const params = [tenantId];
@@ -51,17 +186,16 @@ async function listAppointments(tenantId, startDate, endDate) {
 
 async function createAppointment(tenantId, data) {
   const { patient_id, title, start_time, end_time, notes } = data;
-  if (!start_time) return { error: 'Início é obrigatório' };
-  
+  if (!start_time) return { error: 'Inicio e obrigatorio' };
+
   let finalEndTime = end_time;
   if (!finalEndTime) {
-    // Padrão 50 minutos se não informado
     const start = new Date(start_time);
     finalEndTime = new Date(start.getTime() + 50 * 60000).toISOString();
   }
 
   const [result] = await db.query(
-    `INSERT INTO appointments (tenant_id, patient_id, title, start_time, end_time, notes, status) 
+    `INSERT INTO appointments (tenant_id, patient_id, title, start_time, end_time, notes, status)
      VALUES (?, ?, ?, ?, ?, ?, 'scheduled')`,
     [tenantId, patient_id || null, title || 'Consulta', start_time, finalEndTime, notes || null]
   );
@@ -77,10 +211,9 @@ async function bulkCreatePatients(tenantId, patientsList) {
 
   for (const p of patientsList) {
     try {
-      // Verifica se já existe por nome ou CPF
       const [existing] = await db.query(
-        'SELECT id, name FROM patients WHERE (name = ? OR (cpf IS NOT NULL AND cpf = ?)) AND tenant_id = ?',
-        [p.name, p.cpf || '---', tenantId]
+        'SELECT id, name FROM patients WHERE ((cpf IS NOT NULL AND cpf = ?) OR name = ?) AND tenant_id = ?',
+        [p.cpf || '---', p.name, tenantId]
       );
 
       if (existing.length > 0) {
@@ -89,9 +222,27 @@ async function bulkCreatePatients(tenantId, patientsList) {
       }
 
       const [insert] = await db.query(
-        `INSERT INTO patients (tenant_id, name, email, phone, cpf, status) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [tenantId, p.name, p.email || null, p.phone || null, p.cpf || null, normalizeStatus(p.status)]
+        `INSERT INTO patients (
+          tenant_id, name, email, phone, birth_date, cpf, rg, gender,
+          address, city, state, zip_code, notes, status, health_plan
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          tenantId,
+          p.name,
+          p.email || null,
+          normalizePhone(p.phone),
+          normalizeDate(p.birth_date),
+          normalizeCpf(p.cpf),
+          p.rg || null,
+          p.gender || null,
+          p.address || null,
+          p.city || null,
+          p.state || null,
+          normalizeZipCode(p.zip_code),
+          p.notes || null,
+          normalizeStatus(p.status),
+          p.health_plan || null,
+        ]
       );
       results.created.push({ name: p.name, id: insert.insertId });
     } catch (err) {
@@ -102,26 +253,29 @@ async function bulkCreatePatients(tenantId, patientsList) {
   return results;
 }
 
-// --- Rota Principal ---
-
 router.post('/chat', upload.single('file'), async (req, res) => {
   try {
     let { messages } = req.body;
     if (typeof messages === 'string') messages = JSON.parse(messages);
 
     const tenantId = req.user.tenant_id;
-    const userName = req.user.name || 'Psicólogo(a)';
+    const userName = req.user.name || 'Psicologo(a)';
 
     let fileContent = '';
+    let structuredSpreadsheetData = null;
+
     if (req.file) {
       const { originalname, buffer, mimetype } = req.file;
       console.log(`Aurora recebendo arquivo: ${originalname} (${mimetype})`);
 
       if (mimetype.includes('spreadsheet') || mimetype.includes('excel') || originalname.endsWith('.xlsx') || originalname.endsWith('.xls')) {
-        const workbook = xlsx.read(buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        fileContent = xlsx.utils.sheet_to_txt(sheet);
+        structuredSpreadsheetData = parseSpreadsheetPatients(buffer);
+        fileContent = JSON.stringify({
+          sheet_name: structuredSpreadsheetData.sheetName,
+          headers: structuredSpreadsheetData.headers,
+          total_rows: structuredSpreadsheetData.totalRows,
+          detected_patients: structuredSpreadsheetData.patients.slice(0, 20),
+        }, null, 2);
       } else if (mimetype === 'application/pdf') {
         const pdfData = await pdfParse(buffer);
         fileContent = pdfData.text;
@@ -129,10 +283,11 @@ router.post('/chat', upload.single('file'), async (req, res) => {
         fileContent = buffer.toString('utf-8');
       }
 
-      // Adiciona o conteúdo do arquivo como contexto no início das mensagens ou como uma mensagem do sistema "oculta"
       messages.push({
         role: 'system',
-        content: `O usuário enviou um arquivo chamado "${originalname}". Conteúdo extraído do arquivo:\n\n${fileContent.slice(0, 15000)}` // Limite para não estourar contexto
+        content: structuredSpreadsheetData
+          ? `O usuario enviou uma planilha chamada "${originalname}". Eu ja extraI os cabecalhos e montei um JSON preliminar de pacientes. Antes de cadastrar qualquer pessoa, voce deve mostrar um resumo dos campos identificados, citar os cabecalhos originais, explicar como mapeou os dados para o cadastro de pacientes do sistema e perguntar se o usuario deseja cadastrar. So chame bulk_create_patients se o usuario confirmar explicitamente. Dados extraidos:\n\n${fileContent}`
+          : `O usuario enviou um arquivo chamado "${originalname}". Conteudo extraido:\n\n${fileContent.slice(0, 15000)}`
       });
     }
 
@@ -149,7 +304,7 @@ router.post('/chat', upload.single('file'), async (req, res) => {
         type: 'function',
         function: {
           name: 'get_patient_details',
-          description: 'Obtém detalhes completos de um paciente específico pelo ID.',
+          description: 'Obtem detalhes completos de um paciente especifico pelo ID.',
           parameters: {
             type: 'object',
             properties: { patient_id: { type: 'number', description: 'O ID do paciente' } },
@@ -165,7 +320,7 @@ router.post('/chat', upload.single('file'), async (req, res) => {
           parameters: {
             type: 'object',
             properties: {
-              start_date: { type: 'string', description: 'Data de início (YYYY-MM-DD)' },
+              start_date: { type: 'string', description: 'Data de inicio (YYYY-MM-DD)' },
               end_date: { type: 'string', description: 'Data de fim (YYYY-MM-DD)' }
             }
           }
@@ -180,10 +335,10 @@ router.post('/chat', upload.single('file'), async (req, res) => {
             type: 'object',
             properties: {
               patient_id: { type: 'number', description: 'ID do paciente (opcional)' },
-              title: { type: 'string', description: 'Título da consulta' },
-              start_time: { type: 'string', description: 'Início (ISO 8601)' },
-              end_time: { type: 'string', description: 'Fim (ISO 8601, opcional, será calculado se omitido)' },
-              notes: { type: 'string', description: 'Observações' }
+              title: { type: 'string', description: 'Titulo da consulta' },
+              start_time: { type: 'string', description: 'Inicio (ISO 8601)' },
+              end_time: { type: 'string', description: 'Fim (ISO 8601, opcional)' },
+              notes: { type: 'string', description: 'Observacoes' }
             },
             required: ['start_time']
           }
@@ -193,7 +348,7 @@ router.post('/chat', upload.single('file'), async (req, res) => {
         type: 'function',
         function: {
           name: 'bulk_create_patients',
-          description: 'Cria vários pacientes de uma vez (útil para importação de planilhas).',
+          description: 'Cria varios pacientes de uma vez a partir de dados confirmados pelo usuario.',
           parameters: {
             type: 'object',
             properties: {
@@ -206,7 +361,16 @@ router.post('/chat', upload.single('file'), async (req, res) => {
                     email: { type: 'string' },
                     phone: { type: 'string' },
                     cpf: { type: 'string' },
-                    status: { type: 'string', enum: ['ativo', 'inativo'] }
+                    rg: { type: 'string' },
+                    birth_date: { type: 'string', description: 'YYYY-MM-DD' },
+                    address: { type: 'string' },
+                    city: { type: 'string' },
+                    state: { type: 'string' },
+                    zip_code: { type: 'string' },
+                    gender: { type: 'string' },
+                    health_plan: { type: 'string' },
+                    notes: { type: 'string' },
+                    status: { type: 'string', enum: ['ativo', 'inativo', 'active', 'inactive', 'waiting'] }
                   },
                   required: ['name']
                 }
@@ -220,21 +384,27 @@ router.post('/chat', upload.single('file'), async (req, res) => {
 
     const systemMessage = {
       role: 'system',
-      content: `Você é a Aurora, a Inteligência Artificial avançada do sistema "PsiFlux".
-Seu tom é extremamente educado, empático, profissional e acolhedor. Você é uma parceira do psicólogo(a) ${userName}.
+      content: `Voce e a Aurora, a inteligencia artificial do sistema PsiFlux.
+Seu tom e educado, claro, profissional e acolhedor. Voce e parceira do psicologo(a) ${userName}.
 
 Capacidades:
-- Acesso a dados do sistema (pacientes e agenda) via ferramentas.
-- Ajuda clínica e teórica sobre psicologia baseada em evidências.
-- Consciência de data e hora atual.
-- Análise de arquivos (Excel, PDF, TXT): Quando o usuário enviar um arquivo, você verá o texto extraído. Analise-o e pergunte o que deseja fazer.
-- Se houver dados de pacientes no arquivo, ofereça para cadastrá-los usando bulk_create_patients.
-- Se houver conflitos (pacientes que já existem), informe ao usuário quais são e peça orientação (se deve pular ou se há algo a atualizar manualmente).
+- Acesso a dados do sistema via ferramentas.
+- Ajuda clinica e teorica sobre psicologia baseada em evidencias.
+- Analise de arquivos (Excel, PDF, TXT).
+- Quando o usuario enviar planilha com possiveis pacientes, voce deve:
+  1. identificar os cabecalhos originais;
+  2. explicar como cada coluna foi mapeada para o cadastro do paciente;
+  3. montar um resumo estruturado em JSON com os pacientes detectados;
+  4. perguntar se o usuario quer cadastrar;
+  5. so executar bulk_create_patients se o usuario confirmar explicitamente.
+- Para cadastro de pacientes, priorize estes campos do sistema: name, email, phone, cpf, rg, birth_date, address, city, state, zip_code, gender, health_plan, notes, status.
+- Se houver conflitos, informe quais pacientes ja existem antes de seguir.
+- Nunca invente dados ausentes. Se alguma coluna estiver ambigua, diga isso claramente.
 
 Data/Hora Atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-Hoje é: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+Hoje e: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
 
-Responda sempre em Português-BR.`
+Responda sempre em Portugues-BR.`
     };
 
     let chatMessages = [systemMessage, ...messages];
@@ -260,7 +430,7 @@ Responda sempre em Português-BR.`
         else if (functionName === 'get_patient_details') result = await getPatientDetails(tenantId, args.patient_id);
         else if (functionName === 'list_appointments') result = await listAppointments(tenantId, args.start_date, args.end_date);
         else if (functionName === 'create_appointment') result = await createAppointment(tenantId, args);
-        else if (functionName === 'bulk_create_patients') result = await bulkCreatePatients(tenantId, args.patients);
+        else if (functionName === 'bulk_create_patients') result = await bulkCreatePatients(tenantId, args.patients || []);
 
         chatMessages.push({
           tool_call_id: toolCall.id,
