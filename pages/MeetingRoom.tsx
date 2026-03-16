@@ -299,7 +299,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     : incomingRequest
     ? [{ id: 0, guest_name: incomingRequest.name, status: "waiting" as const }]
     : [];
-  const guestCanDraw = isGuest ? remoteAllowGuestDraw : allowGuestDraw;
+  const guestCanDraw = isCompanionMode ? true : (isGuest ? remoteAllowGuestDraw : allowGuestDraw);
   const hasSpeechSupport =
     typeof window !== "undefined" &&
     ((window as any).SpeechRecognition ||
@@ -404,6 +404,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           if (!isGuest) setIncomingRequest(null);
           break;
 
+        case "COMPANION_JOINED":
+          if (!isGuest || hasAuthToken) {
+            setShowLinkDeviceModal(false);
+            setActiveSidePanel("whiteboard");
+            setCompanionConnected(true);
+            setTimeout(() => setCompanionConnected(false), 3000);
+          }
+          break;
+
         case "DRAW_START":
           remoteDrawStart(payload);
           break;
@@ -461,12 +470,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         case "COMPANION_CONNECTED":
           if (!isGuest && !isCompanionMode) {
             setShowLinkDeviceModal(false);
+            setActiveSidePanel("whiteboard");
             setCompanionConnected(true);
             setTimeout(() => setCompanionConnected(false), 4000);
           }
           break;
       }
     };
+
+    if (isCompanionMode) {
+      channel.postMessage({ type: "COMPANION_CONNECTED" });
+    }
 
     return () => {
       channel.close();
@@ -1845,9 +1859,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 : isEraser ? "cursor-cell" : "cursor-crosshair"
             }`}
           />
-          {!isGuest && (
-            <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/95 p-2 rounded-2xl border border-slate-200 shadow-lg backdrop-blur-sm">
-              {["#000000", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#ffffff"].map(
+          <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 bg-white/95 p-2 rounded-2xl border border-slate-200 shadow-lg backdrop-blur-sm">
+            {["#000000", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#ffffff"].map(
                 (color) => (
                   <button
                     key={color}
@@ -1884,7 +1897,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 <Eraser size={16} />
               </button>
             </div>
-          )}
         </div>
       </div>
     );
