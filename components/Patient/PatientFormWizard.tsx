@@ -403,7 +403,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
         </div>
       </div>
 
-      <div className="flex-1 p-8 overflow-y-auto min-h-[400px]">
+      <div className="flex-1 p-6 overflow-y-auto min-h-[300px]">
         {renderStepContent()}
       </div>
 

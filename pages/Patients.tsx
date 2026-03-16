@@ -68,8 +68,15 @@ export const Patients: React.FC = () => {
   const fetchPatients = async () => {
     setIsLoading(true);
     try {
-      const data = await api.get<Patient[]>('/patients');
-      setPatients(data || []);
+      const data = await api.get<any[]>('/patients');
+      const mapped = (data || []).map(p => ({
+        ...p,
+        full_name: p.name || p.full_name || '',
+        whatsapp: p.phone || p.whatsapp || '',
+        cpf_cnpj: p.cpf || p.cpf_cnpj || '',
+        birth_date: p.birth_date || p.birthDate || '',
+      })) as Patient[];
+      setPatients(mapped);
     } catch (error) {
       console.error('Erro ao buscar pacientes', error);
     } finally {
@@ -108,20 +115,49 @@ export const Patients: React.FC = () => {
     setIsWizardOpen(true);
   };
 
-  const handleSavePatient = (data: Partial<Patient>) => {
-    if (data.id) {
-      setPatients(prev => prev.map(p => p.id === data.id ? { ...p, ...data } as Patient : p));
-    } else {
-      const newPatient = { ...data, id: Date.now().toString(), status: 'ativo' } as Patient;
-      setPatients(prev => [newPatient, ...prev]);
+  const handleSavePatient = async (data: Partial<Patient>) => {
+    try {
+      const payload = {
+        name: data.full_name,
+        email: data.email,
+        phone: data.whatsapp || data.phone,
+        birth_date: data.birth_date,
+        cpf: data.cpf_cnpj || data.cpf,
+        rg: data.rg || null,
+        address: data.street ? `${data.street}${data.house_number ? ', ' + data.house_number : ''}` : null,
+        city: data.city,
+        state: data.state,
+        zip_code: data.address_zip,
+        status: data.status || 'ativo',
+        health_plan: data.convenio ? data.convenio_name || 'Sim' : null,
+        responsible_professional_id: data.psychologist_id || null,
+      };
+
+      if (data.id) {
+        await api.put(`/patients/${data.id}`, payload);
+      } else {
+        await api.post('/patients', payload);
+      }
+      
+      await fetchPatients();
+      setIsWizardOpen(false);
+    } catch (err) {
+      console.error('Erro ao salvar paciente:', err);
+      alert('Erro ao salvar paciente. Verifique os dados e tente novamente.');
     }
-    setIsWizardOpen(false);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteId) {
-      setPatients(prev => prev.filter(p => p.id !== deleteId));
-      setDeleteId(null);
+      try {
+        await api.delete(`/patients/${deleteId}`);
+        await fetchPatients();
+      } catch (err) {
+        console.error('Erro ao excluir paciente:', err);
+        alert('Erro ao excluir paciente. Verifique os dados e tente novamente.');
+      } finally {
+        setDeleteId(null);
+      }
     }
   };
 
@@ -405,7 +441,7 @@ export const Patients: React.FC = () => {
 
       {isWizardOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-4xl h-[90vh] overflow-hidden rounded-[2rem] shadow-2xl bg-white">
+          <div className="w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-[2rem] shadow-2xl bg-white flex flex-col">
             <PatientFormWizard
               initialData={editingPatient || {}}
               onSave={handleSavePatient}
@@ -444,7 +480,7 @@ export const Patients: React.FC = () => {
 
       {selectedPatient && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-4xl max-h-[90vh] bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
+          <div className="w-full max-w-3xl max-h-[85vh] bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
             <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold border border-indigo-100">
