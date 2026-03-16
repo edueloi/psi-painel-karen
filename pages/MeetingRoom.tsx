@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Mic,
@@ -86,14 +86,29 @@ type WaitingEntry = {
   created_at?: string;
 };
 
+const iceServers: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+];
+
+const turnUrls = (import.meta.env.VITE_TURN_URL || "")
+  .split(",")
+  .map((value: string) => value.trim())
+  .filter(Boolean);
+
+if (turnUrls.length) {
+  iceServers.push({
+    urls: turnUrls,
+    username: import.meta.env.VITE_TURN_USERNAME,
+    credential: import.meta.env.VITE_TURN_CREDENTIAL,
+  });
+}
+
 const ICE_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-  ],
+  iceServers,
   iceCandidatePoolSize: 10,
 };
 
@@ -3671,4 +3686,5 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       </div>
     );
   }
+
 
