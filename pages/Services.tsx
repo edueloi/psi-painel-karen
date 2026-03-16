@@ -66,7 +66,7 @@ export const Services: React.FC = () => {
   const stats = useMemo(() => ({
     totalServices: services.length,
     totalPackages: packages.length,
-    avgPrice: services.length ? services.reduce((acc, s) => acc + s.price, 0) / services.length : 0
+    avgPrice: services.length ? services.reduce((acc, s) => acc + (Number(s.price) || 0), 0) / services.length : 0
   }), [services, packages]);
 
   const handleOpenServiceModal = (service?: Service) => {

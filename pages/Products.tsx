@@ -64,8 +64,8 @@ export const Products: React.FC = () => {
   }), [products, searchTerm, selectedCategory]);
 
   const stats = useMemo(() => {
-      const totalInventoryValue = products.reduce((acc, p) => acc + (p.price * p.stock), 0);
-      const totalCostValue = products.reduce((acc, p) => acc + (p.cost * p.stock), 0);
+      const totalInventoryValue = products.reduce((acc, p) => acc + (Number(p.price || 0) * Number(p.stock || 0)), 0);
+      const totalCostValue = products.reduce((acc, p) => acc + (Number(p.cost || 0) * Number(p.stock || 0)), 0);
       const lowStockItems = products.filter(p => p.type === 'physical' && p.stock <= p.minStock);
       
       const today = new Date();
