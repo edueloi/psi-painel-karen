@@ -453,8 +453,8 @@ export const Agenda: React.FC = () => {
                               <CalendarDays size={16}/> Mes
                           </button>
                       </div>
-                      <button onClick={openNewModal} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all active:scale-95">
-                          <Plus size={20} /> Novo Atendimento
+                      <button onClick={openNewModal} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-1.5 shadow-md shadow-indigo-200 transition-all active:scale-95">
+                          <Plus size={16} /> Novo Atendimento
                       </button>
                   </div>
               </div>
@@ -919,11 +919,11 @@ export const Agenda: React.FC = () => {
               <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Modalidade</label>
                   <div className="flex gap-4">
-                      <button onClick={() => setFormData({...formData, modality: 'presencial'})} className={`flex-1 py-4 rounded-2xl font-bold border-2 transition-all flex items-center justify-center gap-2 ${formData.modality === 'presencial' ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-md' : 'bg-white border-slate-100 text-slate-400'}`}>
-                          <MapPin size={18}/> {t('agenda.presential')}
+                      <button onClick={() => setFormData({...formData, modality: 'presencial'})} className={`flex-1 py-2.5 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${formData.modality === 'presencial' ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm' : 'bg-white border-slate-100 text-slate-400'}`}>
+                          <MapPin size={16}/> {t('agenda.presential')}
                       </button>
-                      <button onClick={() => setFormData({...formData, modality: 'online'})} className={`flex-1 py-4 rounded-2xl font-bold border-2 transition-all flex items-center justify-center gap-2 ${formData.modality === 'online' ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-md' : 'bg-white border-slate-100 text-slate-400'}`}>
-                          <Video size={18}/> {t('agenda.online')}
+                      <button onClick={() => setFormData({...formData, modality: 'online'})} className={`flex-1 py-2.5 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${formData.modality === 'online' ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-sm' : 'bg-white border-slate-100 text-slate-400'}`}>
+                          <Video size={16}/> {t('agenda.online')}
                       </button>
                   </div>
               </div>

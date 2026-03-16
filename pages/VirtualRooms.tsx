@@ -252,16 +252,16 @@ export const VirtualRooms: React.FC = () => {
               <button
                 onClick={handleInstantMeeting}
                 disabled={isCreatingInstant}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-70 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0"
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-70 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-indigo-900/30 flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
-                {isCreatingInstant ? <Loader2 size={22} className="animate-spin" /> : <Play size={22} fill="currentColor" />}
+                {isCreatingInstant ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} fill="currentColor" />}
                 Sala Instantânea
               </button>
               <button
                 onClick={() => openCreateModal()}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all"
+                className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
               >
-                <Plus size={20} />
+                <Plus size={16} />
                 Agendar Sala
               </button>
             </div>
@@ -454,7 +454,7 @@ export const VirtualRooms: React.FC = () => {
                               <input 
                                 type="text" 
                                 placeholder={t('rooms.placeholderCode')} 
-                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400 font-medium text-slate-700 transition-all"
+                                className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 text-sm text-slate-700 transition-all"
                                 value={meetingCode}
                                 onChange={(e) => setMeetingCode(e.target.value)}
                               />
@@ -462,7 +462,7 @@ export const VirtualRooms: React.FC = () => {
                           <button 
                             type="submit"
                             disabled={!meetingCode}
-                            className="px-8 py-4 bg-slate-900 text-white font-bold rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                            className="px-5 py-2.5 bg-slate-900 text-white font-bold text-sm rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
                           >
                               {t('rooms.join')} <ArrowRight size={18} />
                           </button>

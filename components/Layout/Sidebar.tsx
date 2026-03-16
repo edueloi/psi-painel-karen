@@ -82,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                   <h3 className={`px-4 text-[10px] font-bold ${sectionTitle} uppercase tracking-widest mb-1.5`}>{t(section.title)}</h3>
                   <div className="space-y-0.5">
                     {section.items.map((item) => {
-                      const isActive = item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path);
+                      const isActive = item.path === '/dashboard' ? location.pathname === '/dashboard' : location.pathname.startsWith(item.path);
                       return (
                         <Link
                           key={item.path}
