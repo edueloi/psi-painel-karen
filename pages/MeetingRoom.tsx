@@ -163,10 +163,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLinkDeviceModal, setShowLinkDeviceModal] = useState(false);
+  const [linkDeviceTab, setLinkDeviceTab] = useState<"qr" | "link">("qr");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [lobbyTab, setLobbyTab] = useState<"info" | "companion">("info");
   const [copied, setCopied] = useState(false);
+  const [copiedCompanionLink, setCopiedCompanionLink] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [participantToken, setParticipantToken] = useState<string | null>(null);
   const [remoteScreenShareActive, setRemoteScreenShareActive] = useState(false);
@@ -1546,6 +1548,29 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       broadcastChannelRef.current?.postMessage({ type: "CLEAR_BOARD" });
       sendRoomEvent("whiteboard_clear");
     }
+  };
+
+  const sendCompanionLinkToChat = async () => {
+    if (!id) return;
+    const link = getCompanionUrl();
+    const message = `📋 Link da Lousa Interativa: ${link}`;
+    try {
+      await api.post(`/virtual-rooms/${id}/messages`, {
+        sender_name: hostDisplayName,
+        message,
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: hostDisplayName,
+          text: message,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          isLocal: true,
+        },
+      ]);
+      setActiveSidePanel("chat");
+      setShowLinkDeviceModal(false);
+    } catch {}
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -3051,46 +3076,104 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
         {showLinkDeviceModal && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-[#181a1f] border border-white/10 p-8 rounded-[2rem] max-w-md w-full text-center shadow-2xl animate-[slideUpFade_0.3s_ease-out]">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Tablet size={20} className="text-indigo-400" /> Vincular
-                  Dispositivo
+            <div className="bg-[#181a1f] border border-white/10 p-6 rounded-[2rem] max-w-md w-full shadow-2xl animate-[slideUpFade_0.3s_ease-out]">
+
+              {/* Header */}
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Tablet size={18} className="text-indigo-400" />
+                  Vincular Lousa Interativa
                 </h3>
-                <button
-                  onClick={() => setShowLinkDeviceModal(false)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X size={20} />
+                <button onClick={() => setShowLinkDeviceModal(false)} className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                  <X size={18} />
                 </button>
               </div>
-              <div className="bg-white p-6 rounded-xl mb-6 flex flex-col items-center">
-                <QrCode size={160} className="text-slate-900" />
-                <p className="text-slate-500 text-xs mt-2 font-mono">
-                  Scan to join as companion
-                </p>
+
+              {/* Tabs */}
+              <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-5">
+                <button
+                  onClick={() => setLinkDeviceTab("qr")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${linkDeviceTab === "qr" ? "bg-white/15 text-white" : "text-slate-400 hover:text-white"}`}
+                >
+                  <QrCode size={14} /> QR Code
+                </button>
+                <button
+                  onClick={() => setLinkDeviceTab("link")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${linkDeviceTab === "link" ? "bg-white/15 text-white" : "text-slate-400 hover:text-white"}`}
+                >
+                  <Copy size={14} /> Copiar Link
+                </button>
               </div>
-              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                Abra a câmera do seu tablet ou celular e escaneie o código para
-                usar como{" "}
-                <span className="text-indigo-400 font-bold">
-                  {" "}
-                  Lousa Interativa
-                </span>
-                .
+
+              {/* QR Tab */}
+              {linkDeviceTab === "qr" && (
+                <div className="flex flex-col items-center mb-5">
+                  <div className="bg-white p-4 rounded-2xl shadow-lg">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getCompanionUrl())}&format=png&margin=1&color=0f172a`}
+                      alt="QR Code Lousa"
+                      className="w-48 h-48 block"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                      }}
+                    />
+                    <div className="hidden w-48 h-48 flex-col items-center justify-center text-slate-400 gap-2">
+                      <QrCode size={64} />
+                      <p className="text-xs text-center">Sem conexão para gerar QR</p>
+                    </div>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-3 text-center">
+                    Aponte a câmera do celular ou tablet para abrir a lousa
+                  </p>
+                </div>
+              )}
+
+              {/* Link Tab */}
+              {linkDeviceTab === "link" && (
+                <div className="space-y-3 mb-5">
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-3">
+                    <span className="flex-1 text-xs text-slate-300 font-mono truncate select-all">
+                      {getCompanionUrl()}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(getCompanionUrl());
+                        setCopiedCompanionLink(true);
+                        setTimeout(() => setCopiedCompanionLink(false), 2000);
+                      }}
+                      className={`p-2 rounded-lg transition-all shrink-0 ${copiedCompanionLink ? "bg-emerald-500/20 text-emerald-400" : "hover:bg-white/10 text-slate-400 hover:text-white"}`}
+                      title="Copiar link"
+                    >
+                      {copiedCompanionLink ? <Check size={14} /> : <Copy size={14} />}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={sendCompanionLinkToChat}
+                    className="w-full py-2.5 rounded-xl font-bold text-sm bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/20 flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Send size={14} /> Enviar link ao paciente via chat
+                  </button>
+
+                  <button
+                    onClick={() => window.open(getCompanionUrl(), "_blank")}
+                    className="w-full py-2.5 rounded-xl font-bold text-sm bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <MonitorUp size={14} /> Abrir neste dispositivo
+                  </button>
+                </div>
+              )}
+
+              <p className="text-slate-500 text-xs text-center leading-relaxed mb-5">
+                O dispositivo vinculado acessa a{" "}
+                <span className="text-indigo-400 font-semibold">Lousa Interativa</span>{" "}
+                — você pode habilitar o desenho para o paciente nas configurações da lousa.
               </p>
-              <div className="flex items-center gap-2 bg-white/5 p-3 rounded-xl border border-white/10 text-xs text-slate-300 font-mono mb-6 break-all">
-                <span className="truncate">{getCompanionUrl()}</span>
-                <button
-                  className="p-2 hover:bg-white/10 rounded-lg shrink-0"
-                  title="Copiar"
-                >
-                  <Share2 size={14} />
-                </button>
-              </div>
+
               <button
                 onClick={() => setShowLinkDeviceModal(false)}
-                className="w-full py-3.5 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-50 shadow-lg shadow-indigo-900/30 transition-colors"
+                className="w-full py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-900/30"
               >
                 Concluído
               </button>
