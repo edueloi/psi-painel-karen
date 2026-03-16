@@ -148,15 +148,15 @@ const groupByMonth = (items: TimelineItem[]) => {
   return groups;
 };
 
-const FILTER_OPTIONS = [
-  { id: 'all', label: 'Tudo' },
-  { id: 'appointment', label: 'Consultas' },
-  { id: 'record', label: 'Prontuários' },
+const FILTER_OPTIONS = (t: any) => [
+  { id: 'all', label: t('common.all') },
+  { id: 'appointment', label: t('nav.agenda') },
+  { id: 'record', label: t('nav.records') },
   { id: 'pei', label: 'PEI' },
-  { id: 'comanda', label: 'Comandas' },
-  { id: 'finance', label: 'Financeiro' },
-  { id: 'tool', label: 'Avaliações' },
-  { id: 'document', label: 'Documentos' },
+  { id: 'comanda', label: t('nav.comandas') },
+  { id: 'finance', label: t('nav.finance') },
+  { id: 'tool', label: t('nav.tools') },
+  { id: 'document', label: t('nav.documents') },
   { id: 'note', label: 'Anotações' },
 ];
 
@@ -240,7 +240,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
 
         {/* Filter Scroll */}
         <div className="px-6 py-4 border-b border-slate-50 flex gap-2 overflow-x-auto no-scrollbar shrink-0 bg-white sticky top-0 z-20">
-          {FILTER_OPTIONS.map(f => (
+          {FILTER_OPTIONS(t).map(f => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
@@ -248,7 +248,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                 filter === f.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 border border-slate-100'
               }`}
             >
-              {f.id === 'all' ? t('common.all') : f.label}
+              {f.label}
             </button>
           ))}
         </div>

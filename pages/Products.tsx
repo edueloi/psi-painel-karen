@@ -502,47 +502,47 @@ export const Products: React.FC = () => {
                         {editingProduct.id ? <Edit3 size={24} /> : <Plus size={28} />}
                       </div>
                       <div>
-                        <h3 className="text-3xl font-black text-slate-800 tracking-tight leading-none mb-1">{editingProduct.id ? t('products.edit') : t('products.new')}</h3>
-                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{editingProduct.id ? `#${editingProduct.id}` : 'CADASTRO DE ITEM'}</p>
+                        <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight leading-none mb-1">{editingProduct.id ? t('products.edit') : t('products.new')}</h3>
+                        <p className="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{editingProduct.id ? `#${editingProduct.id}` : t('products.creation')}</p>
                       </div>
                     </div>
-                    <button onClick={() => setIsModalOpen(false)} className="p-4 bg-white hover:bg-slate-50 rounded-2xl text-slate-400 shadow-sm ring-1 ring-slate-200 transition-all active:scale-95"><X size={24} /></button>
+                    <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white hover:bg-slate-50 rounded-2xl text-slate-400 shadow-sm ring-1 ring-slate-200 transition-all active:scale-95"><X size={20} /></button>
                 </div>
                 
-                <div className="p-12 overflow-y-auto custom-scrollbar flex-1">
-                    <div className="flex flex-col lg:flex-row gap-12">
+                <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1">
+                    <div className="flex flex-col lg:flex-row gap-8 md:gap-12">
                         
                         {/* LEFT: IMAGE & TYPE */}
                         <div className="w-full lg:w-80 space-y-8">
                             <div className="space-y-4">
-                              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Natureza do Item</label>
-                              <div className="bg-slate-50 p-1.5 rounded-[1.8rem] flex border border-slate-100 shadow-inner">
-                                  <button onClick={() => setEditingProduct({...editingProduct, type: 'physical'})} className={`flex-1 py-4.5 rounded-[1.4rem] text-[10px] font-black flex items-center justify-center gap-3 uppercase tracking-widest transition-all ${editingProduct.type === 'physical' ? 'bg-white shadow-xl text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                                      <Box size={18} /> FÍSICO
+                              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">{t('products.nature')}</label>
+                              <div className="bg-slate-50 p-1 rounded-2xl flex border border-slate-100 shadow-inner">
+                                  <button onClick={() => setEditingProduct({...editingProduct, type: 'physical'})} className={`flex-1 py-3 rounded-xl text-[9px] font-black flex items-center justify-center gap-3 uppercase tracking-widest transition-all ${editingProduct.type === 'physical' ? 'bg-white shadow-lg text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                      <Box size={16} /> {t('products.type.physical')}
                                   </button>
-                                  <button onClick={() => setEditingProduct({...editingProduct, type: 'digital'})} className={`flex-1 py-4.5 rounded-[1.4rem] text-[10px] font-black flex items-center justify-center gap-3 uppercase tracking-widest transition-all ${editingProduct.type === 'digital' ? 'bg-white shadow-xl text-purple-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                                      <BookOpen size={18} /> DIGITAL
+                                  <button onClick={() => setEditingProduct({...editingProduct, type: 'digital'})} className={`flex-1 py-3 rounded-xl text-[9px] font-black flex items-center justify-center gap-3 uppercase tracking-widest transition-all ${editingProduct.type === 'digital' ? 'bg-white shadow-xl text-purple-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                      <BookOpen size={16} /> {t('products.type.digital')}
                                   </button>
                               </div>
                             </div>
 
                             <div className="space-y-4">
-                              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Visual do Produto</label>
-                              <div className="w-full aspect-square bg-slate-50 border-4 border-dashed border-slate-100 rounded-[2.5rem] flex flex-col items-center justify-center relative overflow-hidden group hover:border-indigo-400 hover:bg-indigo-50/30 transition-all cursor-pointer shadow-inner">
+                              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">{t('products.visual')}</label>
+                              <div className="w-full aspect-square md:aspect-auto md:h-64 bg-slate-50 border-4 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group hover:border-indigo-400 hover:bg-indigo-50/30 transition-all cursor-pointer shadow-inner">
                                   {editingProduct.imageUrl ? (
                                       <>
-                                          <img src={editingProduct.imageUrl} className="w-full h-full object-cover rounded-[2rem] p-2" />
+                                          <img src={editingProduct.imageUrl} className="w-full h-full object-cover rounded-2xl p-2" />
                                           <div className="absolute inset-0 bg-indigo-600/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-full group-hover:translate-y-0">
-                                              <span className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2"><UploadCloud size={18}/> ALTERAR IMAGEM</span>
+                                              <span className="text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2"><UploadCloud size={16}/> {t('products.image.change')}</span>
                                           </div>
                                       </>
                                   ) : (
-                                      <div className="text-center p-8">
-                                          <div className="w-20 h-20 bg-white shadow-lg text-indigo-500 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all">
-                                              <Image size={36} />
+                                      <div className="text-center p-6">
+                                          <div className="w-16 h-16 bg-white shadow-lg text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all">
+                                              <Image size={28} />
                                           </div>
-                                          <p className="text-xs font-black text-slate-600 uppercase tracking-widest mb-1">{t('products.image.drag')}</p>
-                                          <p className="text-[10px] text-slate-400 font-bold uppercase">{t('products.image.click')}</p>
+                                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">{t('products.image.drag')}</p>
+                                          <p className="text-[8px] text-slate-400 font-bold uppercase">{t('products.image.click')}</p>
                                       </div>
                                   )}
                                   <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
@@ -553,13 +553,13 @@ export const Products: React.FC = () => {
                         {/* RIGHT: DATA FIELDS */}
                         <div className="flex-1 space-y-10">
                             <div className="group">
-                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Nome de Exibição do Produto</label>
-                                <input type="text" className="w-full p-6 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all text-2xl tracking-tighter" value={editingProduct.name || ''} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder={t('products.placeholder.name')} />
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">{t('products.productName')}</label>
+                                <input type="text" className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-lg tracking-tight" value={editingProduct.name || ''} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder={t('products.placeholder.name')} />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Categoria de Inventário</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{t('products.category')}</label>
                                     {showNewCategoryInput ? (
                                         <div className="flex gap-2 animate-fadeIn">
                                           <input type="text" className="flex-1 p-4.5 rounded-2xl border-2 border-indigo-400 bg-indigo-50/30 outline-none font-black text-indigo-700 text-sm" placeholder="Nova Categoria..." value={newCategory} onChange={e => setNewCategory(e.target.value)} autoFocus />
@@ -569,31 +569,31 @@ export const Products: React.FC = () => {
                                         <div className="relative group">
                                             <select className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-600 text-sm appearance-none focus:bg-white focus:border-indigo-400 transition-all cursor-pointer" value={editingProduct.category || ''} onChange={e => {if(e.target.value === 'new') setShowNewCategoryInput(true); else setEditingProduct({...editingProduct, category: e.target.value});}}>
                                                 {categories.filter(c => c !== 'ALL').map(c => <option key={c} value={c}>{c}</option>)}
-                                                <option value="new" className="font-black text-indigo-600">+ NOVA CATEGORIA</option>
+                                                <option value="new" className="font-black text-indigo-600">+ {t('products.newCategory')}</option>
                                             </select>
                                             <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none group-focus-within:text-indigo-600" size={20} />
                                         </div>
                                     )}
                                 </div>
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Fabricante / Marca</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{t('products.brand')}</label>
                                     <input type="text" className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:bg-white focus:border-indigo-400 transition-all" value={editingProduct.brand || ''} onChange={e => setEditingProduct({...editingProduct, brand: e.target.value})} />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-slate-50/50 rounded-[2.5rem] border border-slate-100">
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Preço Final de Venda</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">{t('products.price')}</label>
                                     <div className="relative group">
-                                       <DollarSign size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-emerald-500" />
-                                       <input type="number" className="w-full pl-14 p-5 rounded-[1.5rem] border-2 border-slate-100 bg-white outline-none font-black text-emerald-600 text-2xl focus:border-emerald-400 focus:ring-8 focus:ring-emerald-500/5 transition-all tabular-nums" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: parseFloat(e.target.value)})} />
+                                       <DollarSign size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
+                                       <input type="number" className="w-full pl-12 p-4 rounded-xl border-2 border-slate-100 bg-white outline-none font-black text-emerald-600 text-xl focus:border-emerald-400 transition-all tabular-nums" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: parseFloat(e.target.value)})} />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Custo de Aquisição</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">{t('products.cost')}</label>
                                     <div className="relative group">
-                                      <CreditCard size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                      <input type="number" className="w-full pl-14 p-5 rounded-[1.5rem] border-2 border-slate-100 bg-white outline-none font-black text-slate-500 text-2xl focus:border-indigo-400 focus:ring-8 focus:ring-indigo-500/5 transition-all tabular-nums" value={editingProduct.cost} onChange={e => setEditingProduct({...editingProduct, cost: parseFloat(e.target.value)})} />
+                                      <CreditCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                      <input type="number" className="w-full pl-12 p-4 rounded-xl border-2 border-slate-100 bg-white outline-none font-black text-slate-500 text-xl focus:border-indigo-400 transition-all tabular-nums" value={editingProduct.cost} onChange={e => setEditingProduct({...editingProduct, cost: parseFloat(e.target.value)})} />
                                     </div>
                                 </div>
                             </div>
@@ -602,19 +602,19 @@ export const Products: React.FC = () => {
                             {editingProduct.type === 'physical' && (
                                 <div className="space-y-6 animate-slideIn">
                                     <h4 className="text-[11px] font-black text-indigo-900 uppercase tracking-[0.2em] flex items-center gap-3 px-2">
-                                       <Archive size={16} /> Parâmetros de Estoque
+                                       <Archive size={16} /> {t('products.stockParams')}
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Qtd em Estoque</label>
+                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('products.inventory')}</label>
                                           <input type="number" className="w-full p-2.5 bg-slate-50 border-b-2 border-slate-200 outline-none font-black text-slate-800 text-xl focus:border-indigo-500 transition-all text-center" value={editingProduct.stock} onChange={e => setEditingProduct({...editingProduct, stock: parseInt(e.target.value)})} />
                                         </div>
                                         <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Estoque Mínimo</label>
+                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('products.minStock')}</label>
                                           <input type="number" className="w-full p-2.5 bg-slate-50 border-b-2 border-slate-200 outline-none font-black text-amber-600 text-xl focus:border-amber-500 transition-all text-center" value={editingProduct.minStock} onChange={e => setEditingProduct({...editingProduct, minStock: parseInt(e.target.value)})} />
                                         </div>
                                         <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm col-span-1 md:col-span-2 lg:col-span-1">
-                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Data de Validade</label>
+                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('products.validity')}</label>
                                           <input type="date" className="w-full p-2.5 bg-slate-50 border-b-2 border-slate-200 outline-none font-black text-slate-700 text-base focus:border-indigo-500 transition-all" value={editingProduct.expirationDate || ''} onChange={e => setEditingProduct({...editingProduct, expirationDate: e.target.value})} />
                                         </div>
                                     </div>
@@ -640,10 +640,10 @@ export const Products: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="p-10 border-t border-slate-50 bg-slate-50/30 flex justify-end gap-5 px-14 pb-14">
-                    <button onClick={() => setIsModalOpen(false)} className="px-8 py-4 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">DESCARTAR</button>
-                    <button onClick={handleSaveProduct} className="px-14 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-[1.8rem] shadow-2xl shadow-indigo-600/30 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                        <CheckCircle2 size={24} /> SALVAR ALTERAÇÕES
+                <div className="p-6 md:p-8 border-t border-slate-50 bg-slate-50/30 flex justify-end items-center gap-4 px-8 md:px-12">
+                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">{t('common.cancel')}</button>
+                    <button onClick={handleSaveProduct} className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
+                        <CheckCircle2 size={20} /> {t('profile.saveChanges')}
                     </button>
                 </div>
             </div>

@@ -273,6 +273,10 @@ export const translations = {
     'products.placeholder.name': 'Ex: Livro Terapia Cognitiva',
     'products.placeholder.category': 'Nova categoria...',
     'products.category.general': 'Geral',
+    'products.nature': 'Natureza do Item',
+    'products.visual': 'Visual do Produto',
+    'products.stockParams': 'Parâmetros de Estoque',
+    'products.creation': 'CADASTRO DE ITEM',
 
     // PEI (Neurodesenvolvimento)
     'pei.title': 'Plano de Ensino Individualizado',
@@ -1338,6 +1342,10 @@ export const translations = {
     'services.fillErrorPackage': 'Please fill in the name and add items to the package.',
     'services.sessions': 'sessions',
     'services.off': 'OFF',
+    'products.nature': 'Item Nature',
+    'products.visual': 'Product Visual',
+    'products.stockParams': 'Stock Parameters',
+    'products.creation': 'ITEM REGISTRATION',
 
     // Tool Names
     'tools.ysq.name': 'Schema Questionnaire (YSQ-S3)',
@@ -2112,7 +2120,11 @@ export const translations = {
     'tools.clearSelection': 'Limpiar selección',
     'tools.moduleDevTitle': 'Módulo en desarrollo',
     'tools.schemaDev': 'Módulo de Terapia de Esquemas en desarrollo.',
-    'tools.psychoDev': 'Módulo de Psicoanálisis en desarrollo.',
+    'psycho.psychoDev': 'Psychoanalysis module under development.',
+    'products.nature': 'Naturaleza del Item',
+    'products.visual': 'Visual del Producto',
+    'products.stockParams': 'Parámetros de Stock',
+    'products.creation': 'REGISTRO DE ITEM',
     'patients.status.inactive': 'Inactivo',
     'common.create': 'Crear',
     'common.clear': 'Limpiar',
