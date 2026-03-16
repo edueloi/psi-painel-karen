@@ -3667,7 +3667,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
                   <button
                     onClick={() => {
-                      const msg = `Olá! Entre na nossa consulta virtual por este link: ${meetingUrl}`;
+                      const msg = `*Prepare-se, sua sessão já vai começar!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${meetingUrl}`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                     }}
                     className="w-full h-14 rounded-2xl font-black text-xs uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2 active:scale-95"

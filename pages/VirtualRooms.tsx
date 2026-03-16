@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Video, Calendar, Clock, Copy, ArrowRight, Link as LinkIcon,
-  Plus, History, Play, Trash2, Loader2, Search, Check, ShieldCheck, X
+  Plus, History, Play, Trash2, Loader2, Search, Check, ShieldCheck, X, Send
 } from 'lucide-react';
 import { api } from '../services/api';
 import { VirtualRoom, Patient, User } from '../types';
@@ -515,6 +515,17 @@ export const VirtualRooms: React.FC = () => {
                                             {copiedId === room.id ? <Check size={18}/> : <Copy size={18} />}
                                         </button>
                                         <button 
+                                            onClick={() => {
+                                              const url = `${window.location.origin}/sala/${room.code}`;
+                                              const msg = `*Prepare-se, sua sessão já vai começar!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${url}`;
+                                              window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                                            }}
+                                            className="p-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-md transition-all"
+                                            title="Compartilhar no WhatsApp"
+                                        >
+                                            <Send size={18} />
+                                        </button>
+                                        <button 
                                             onClick={() => window.open(`/sala/${room.code}`, '_blank')} 
                                             className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md transition-all"
                                             title={t('rooms.join')}
@@ -594,6 +605,17 @@ export const VirtualRooms: React.FC = () => {
                                         onClick={() => handleCopyLink(room)}
                                       >
                                           {copiedId === room.id ? <Check size={20} /> : <Copy size={20} />}
+                                      </button>
+                                      <button 
+                                        onClick={() => {
+                                          const url = `${window.location.origin}/sala/${room.code}`;
+                                          const msg = `*Prepare-se, sua sessão já vai começar!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${url}`;
+                                          window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                                        }}
+                                        className="p-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-md transition-all"
+                                        title="Compartilhar no WhatsApp"
+                                      >
+                                          <Send size={20} />
                                       </button>
                                       <button 
                                         onClick={() => window.open(`/sala/${room.code}`, '_blank')}
