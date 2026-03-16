@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 type ToolTab = 'tcc' | 'schema' | 'psycho';
 type TccSubTab = 'rpd' | 'cards';
@@ -685,6 +685,12 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
 
   const [savedPulse, setSavedPulse] = useState(false);
 
+  // Custom schema input
+  const [newSchemaInput, setNewSchemaInput] = useState('');
+  // Custom mode form
+  const [newModeName, setNewModeName] = useState('');
+  const [newModeGroup, setNewModeGroup] = useState<SchemaMode['group']>('child');
+
   const loadLatest = async () => {
     if (!scopeKey || scopeKey === 'none') return;
     setLoading(true);
@@ -724,6 +730,25 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
   };
 
   const activeModesCount = modes.filter((m) => m.active).length;
+
+  const addCustomSchema = () => {
+    const name = newSchemaInput.trim();
+    if (!name) return;
+    if (!activeSchemas.includes(name)) setActiveSchemas((prev) => [...prev, name]);
+    setNewSchemaInput('');
+  };
+
+  const addCustomMode = () => {
+    const name = newModeName.trim();
+    if (!name) return;
+    const id = `custom_${Date.now()}`;
+    setModes((prev) => [...prev, { id, name, group: newModeGroup, active: false, intensity: 5 }]);
+    setNewModeName('');
+  };
+
+  const deleteMode = (id: string) => {
+    setModes((prev) => prev.filter((m) => m.id !== id));
+  };
 
   const saveRegister = async () => {
     // POST snapshot (registro)
@@ -830,6 +855,46 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
               })}
             </div>
           </div>
+
+          {/* Custom schema input */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <div className="text-[12px] font-extrabold text-slate-500 uppercase mb-2">Adicionar Esquema Personalizado</div>
+            <div className="flex gap-2">
+              <input
+                value={newSchemaInput}
+                onChange={(e) => setNewSchemaInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addCustomSchema()}
+                placeholder="Nome do esquema..."
+                className="flex-1 h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:bg-white focus:ring-4 focus:ring-rose-100"
+              />
+              <button
+                onClick={addCustomSchema}
+                disabled={!newSchemaInput.trim()}
+                className="px-4 h-10 rounded-xl bg-rose-600 text-white text-sm font-extrabold inline-flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <Plus size={15} /> Adicionar
+              </button>
+            </div>
+          </div>
+
+          {/* Save bar for schemas */}
+          <div className="sticky bottom-4">
+            <div className="bg-slate-900 text-white rounded-2xl shadow-lg border border-slate-800 px-5 py-4 flex items-center justify-between gap-4">
+              <div className="font-extrabold text-sm">
+                {activeSchemas.length} esquema{activeSchemas.length !== 1 ? 's' : ''} ativo{activeSchemas.length !== 1 ? 's' : ''}
+              </div>
+              <button
+                onClick={saveRegister}
+                disabled={loading}
+                className={[
+                  'px-5 h-10 rounded-xl font-extrabold text-sm transition-all',
+                  loading ? 'bg-slate-700/60 cursor-not-allowed' : savedPulse ? 'bg-emerald-600' : 'bg-slate-700 hover:bg-slate-600',
+                ].join(' ')}
+              >
+                {savedPulse ? t('schema.modes.saved') : t('schema.modes.save')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -838,6 +903,7 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {modes.map((m) => {
               const badge = groupBadge(m.group);
+              const isCustom = m.id.startsWith('custom_');
               return (
                 <div
                   key={m.id}
@@ -854,16 +920,27 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
                       <div className="mt-2 font-extrabold text-slate-900">{m.name}</div>
                     </div>
 
-                    <button
-                      onClick={() => toggleMode(m.id)}
-                      className={[
-                        'w-9 h-9 rounded-xl border flex items-center justify-center',
-                        m.active ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-400 hover:bg-slate-50',
-                      ].join(' ')}
-                      title={m.active ? t('schema.modes.deactivate') : t('schema.modes.activate')}
-                    >
-                      <CheckCircle2 size={18} className={m.active ? '' : 'opacity-40'} />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isCustom && (
+                        <button
+                          onClick={() => deleteMode(m.id)}
+                          className="w-9 h-9 rounded-xl border border-slate-200 text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 flex items-center justify-center"
+                          title="Remover modo"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => toggleMode(m.id)}
+                        className={[
+                          'w-9 h-9 rounded-xl border flex items-center justify-center',
+                          m.active ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-400 hover:bg-slate-50',
+                        ].join(' ')}
+                        title={m.active ? t('schema.modes.deactivate') : t('schema.modes.activate')}
+                      >
+                        <CheckCircle2 size={18} className={m.active ? '' : 'opacity-40'} />
+                      </button>
+                    </div>
                   </div>
 
                   {m.active && (
@@ -883,6 +960,37 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
                 </div>
               );
             })}
+          </div>
+
+          {/* Custom mode creation */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <div className="text-[12px] font-extrabold text-slate-500 uppercase mb-3">Adicionar Modo Personalizado</div>
+            <div className="flex gap-2 flex-wrap">
+              <input
+                value={newModeName}
+                onChange={(e) => setNewModeName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addCustomMode()}
+                placeholder="Nome do modo..."
+                className="flex-1 min-w-[160px] h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:bg-white focus:ring-4 focus:ring-indigo-100"
+              />
+              <select
+                value={newModeGroup}
+                onChange={(e) => setNewModeGroup(e.target.value as SchemaMode['group'])}
+                className="h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:bg-white"
+              >
+                <option value="child">Criança</option>
+                <option value="parent">Pais</option>
+                <option value="coping">Enfrentamento</option>
+                <option value="healthy">Saudável</option>
+              </select>
+              <button
+                onClick={addCustomMode}
+                disabled={!newModeName.trim()}
+                className="px-4 h-10 rounded-xl bg-indigo-600 text-white text-sm font-extrabold inline-flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <Plus size={15} /> Adicionar
+              </button>
+            </div>
           </div>
 
           <div className="sticky bottom-4">
@@ -1343,6 +1451,7 @@ const PsychoPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
 
 export const ClinicalTools: React.FC = () => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -1354,8 +1463,13 @@ export const ClinicalTools: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const data = await api.get<Patient[]>('/patients');
-      setPatients(Array.isArray(data) ? data : []);
+      const raw = await api.get<any[]>('/patients');
+      const normalized = (Array.isArray(raw) ? raw : []).map((p: any) => ({
+        ...p,
+        full_name: p.name || p.full_name || '',
+        status: p.status === 'active' ? 'ativo' : p.status === 'inactive' ? 'inativo' : (p.status || ''),
+      })) as Patient[];
+      setPatients(normalized);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1508,8 +1622,22 @@ export const ClinicalTools: React.FC = () => {
                     <p className="text-[11px] text-slate-400">{t('tools.patientHeaderHint')}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                   <StatusBadge status={selectedPatient.status} t={t} />
+                  <button
+                    onClick={() => navigate(`/prontuario?patient_id=${selectedPatient.id}`)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50"
+                    title="Abrir prontuário"
+                  >
+                    <PenLine size={12} /> Prontuário
+                  </button>
+                  <button
+                    onClick={() => navigate(`/neurodesenvolvimento?patient_id=${selectedPatient.id}`)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-50"
+                    title="Abrir Neurodesenvolvimento"
+                  >
+                    <BrainCircuit size={12} /> Neuro
+                  </button>
                   <button
                     onClick={() => setSelectedPatientId(null)}
                     className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
