@@ -503,6 +503,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   }, [isCompanionMode, id]);
 
   useEffect(() => {
+    const handleGesture = () => {
+      remoteVideoRef.current?.play().catch(() => {});
+      localVideoRef.current?.play().catch(() => {});
+      lobbyVideoRef.current?.play().catch(() => {});
+    };
+    window.addEventListener("click", handleGesture, { once: true });
+    return () => window.removeEventListener("click", handleGesture);
+  }, []);
+
+  useEffect(() => {
     if (isGuest || !hasAuthToken) return;
     let active = true;
     const fetchForms = async () => {
@@ -557,7 +567,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchWaiting();
-    const interval = setInterval(fetchWaiting, 2000);
+    const interval = setInterval(fetchWaiting, 1000);
     return () => {
       active = false;
       clearInterval(interval);
@@ -842,7 +852,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchMessages();
-    const interval = setInterval(fetchMessages, 2000);
+    const interval = setInterval(fetchMessages, 800);
     return () => {
       active = false;
       clearInterval(interval);
@@ -961,6 +971,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
                   ],
                 };
                 if (peerConnectionRef.current) {
@@ -1021,6 +1034,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 pendingIceCandidates.current.push(payload.candidate);
               }
             }
+          } else if (evt.event_type === "request_renegotiation") {
+            if (!isGuest && !isCompanionMode) {
+              const trigger = remoteUserConnected;
+              setRemoteUserConnected(false);
+              setTimeout(() => setRemoteUserConnected(trigger), 100);
+            }
           }
         });
         const last = rows[rows.length - 1];
@@ -1031,7 +1050,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchEvents();
-    const interval = setInterval(fetchEvents, 2000);
+    const interval = setInterval(fetchEvents, 800);
     return () => {
       active = false;
       clearInterval(interval);
@@ -1152,7 +1171,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchAssessments();
-    const interval = setInterval(fetchAssessments, 2000);
+    const interval = setInterval(fetchAssessments, 800);
     return () => {
       active = false;
       clearInterval(interval);
@@ -1186,7 +1205,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchTranscripts();
-    const interval = setInterval(fetchTranscripts, 2000);
+    const interval = setInterval(fetchTranscripts, 800);
     return () => {
       active = false;
       clearInterval(interval);
@@ -1220,7 +1239,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchParticipants();
-    const interval = setInterval(fetchParticipants, 2000);
+    const interval = setInterval(fetchParticipants, 1500); // Participants check can be slightly slower
     return () => {
       active = false;
       clearInterval(interval);
@@ -1313,6 +1332,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
         ],
       };
       if (peerConnectionRef.current) {
@@ -1348,7 +1370,27 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     }, 800);
     return () => { clearTimeout(timer); };
-  }, [remoteUserConnected, isGuest, isCompanionMode]);
+  }, [remoteUserConnected, isGuest, isCompanionMode, hasJoined]);
+
+  const restartRoomConnection = () => {
+    if (!remoteUserConnected) return;
+    setRemoteStreamActive(false);
+    if (isGuest) {
+      // Guest sends a signal to host to re-offer
+      sendRoomEvent('request_renegotiation');
+    } else {
+      // Host forced offer
+      const trigger = remoteUserConnected;
+      setRemoteUserConnected(false);
+      setTimeout(() => setRemoteUserConnected(trigger), 100);
+    }
+  };
+
+  useEffect(() => {
+    if (isGuest && hasJoined) {
+      // Logic to handle renegotiation request from host or manual
+    }
+  }, [isGuest, hasJoined]);
 
   const handleAdmitGuest = async (entry?: WaitingEntry) => {
     const name =
@@ -2374,9 +2416,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-400">
-          <Clock size={14} />
-          {formatTime(elapsedTime)}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={restartRoomConnection}
+            className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-400 transition-colors"
+          >
+            Refazer Conexão
+          </button>
+          <div className="flex items-center gap-3 text-xs text-slate-400">
+            <Clock size={14} />
+            {formatTime(elapsedTime)}
+          </div>
         </div>
       </header>
 
