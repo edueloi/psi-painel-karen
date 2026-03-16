@@ -264,7 +264,7 @@ export const ExternalForm: React.FC = () => {
             <img src={branding.clinic_logo_url} alt="logo" className="w-24 h-24 rounded-full border-4 border-white/20 shadow-lg object-cover bg-white" />
           ) : (
             <div className="w-24 h-24 rounded-full border-4 border-white/20 shadow-lg bg-indigo-600 overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl font-bold">
-              {professional.name.charAt(0)}
+              {(professional.name || '?').charAt(0)}
             </div>
           )}
           <div className="text-center md:text-left flex-1">
@@ -368,7 +368,7 @@ export const ExternalForm: React.FC = () => {
             ) : (
               <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 flex items-center gap-4 animate-fadeIn">
                 <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-indigo-600 font-bold border border-indigo-100 text-lg shadow-sm">
-                  {patient.full_name.charAt(0)}
+                  {(patient.full_name || '?').charAt(0)}
                 </div>
                 <div>
                   <p className="text-sm text-indigo-900 font-medium opacity-80">Respondendo como:</p>

@@ -148,7 +148,12 @@ export const Records: React.FC = () => {
   const fetchPatients = async () => {
     setIsLoading(true);
     try {
-        const data = await api.get<Patient[]>('/patients');
+        const raw = await api.get<any[]>('/patients');
+        const data = (raw || []).map((p: any) => ({
+            ...p,
+            full_name: p.name || p.full_name || '',
+            status: p.status === 'active' ? 'ativo' : p.status === 'inactive' ? 'inativo' : (p.status || ''),
+        })) as Patient[];
         setPatients(data);
     } catch (e) {
         console.error(e);
@@ -429,7 +434,7 @@ export const Records: React.FC = () => {
                   const isSelected = selectedPatientId === pid;
                   return (
                   <button key={pid} onClick={() => handlePatientSelect(pid)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 ${isSelected ? 'bg-white/20 border-white/20' : 'bg-slate-200 border-white text-slate-500'}`}>{patient.full_name.charAt(0)}</div>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 ${isSelected ? 'bg-white/20 border-white/20' : 'bg-slate-200 border-white text-slate-500'}`}>{(patient.full_name || '?').charAt(0)}</div>
                       <div className="flex-1 min-w-0"><p className="font-bold text-sm truncate">{patient.full_name}</p><p className={`text-[10px] uppercase font-bold ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>{patient.status}</p></div>
                   </button>
               )})}
@@ -444,7 +449,7 @@ export const Records: React.FC = () => {
                           <div className="flex items-center gap-4">
                               <button onClick={() => setIsMobileListVisible(true)} className="md:hidden p-2 -ml-2 text-slate-500"><ArrowLeft size={20} /></button>
                               <div className="flex items-center gap-3">
-                                  <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-lg font-bold text-slate-600 border-2 border-white shadow-sm">{selectedPatient.full_name.charAt(0)}</div>
+                                  <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-lg font-bold text-slate-600 border-2 border-white shadow-sm">{(selectedPatient.full_name || '?').charAt(0)}</div>
                                   <div><h2 className="text-xl font-display font-bold text-slate-800 leading-none">{selectedPatient.full_name}</h2><p className="text-xs text-slate-400 mt-1">{selectedPatient.status.toUpperCase()}</p></div>
                               </div>
                           </div>

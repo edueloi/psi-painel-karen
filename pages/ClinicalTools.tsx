@@ -20,6 +20,7 @@ import {
   PenLine,
   ScanSearch,
   RefreshCcw,
+  X,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
@@ -1384,70 +1385,77 @@ export const ClinicalTools: React.FC = () => {
   const scopeKey = useMemo(() => (selectedPatientId ? String(selectedPatientId) : 'none'), [selectedPatientId]);
 
   return (
-    <div className="space-y-6 pb-20">
-      <div className="relative overflow-hidden rounded-3xl p-8 bg-slate-900 shadow-xl border border-slate-800 text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 opacity-90" />
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded-full bg-slate-800/80 border border-slate-700 text-indigo-200 text-[10px] font-extrabold uppercase tracking-widest">
-            <Boxes size={12} />
-            <span>{t('tools.badge')}</span>
+    <div className="space-y-4 pb-16">
+      {/* Header compacto */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+            <Boxes size={18} />
           </div>
-          <h1 className="text-2xl md:text-3xl font-display font-extrabold text-white mb-2 leading-tight">{t('tools.title')}</h1>
-          <p className="text-indigo-200 text-sm leading-relaxed max-w-xl">{t('tools.subtitle')}</p>
+          <div>
+            <h1 className="text-lg font-bold text-slate-800">{t('tools.title')}</h1>
+            <p className="text-xs text-slate-400">{t('tools.subtitle')}</p>
+          </div>
         </div>
+        <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-[11px] font-bold">
+          <Boxes size={11} /> {t('tools.badge')}
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-6 items-start">
-        {/* LEFT */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100">
-            <div className="text-[12px] font-extrabold text-slate-500 uppercase">{t('tools.patientListTitle')}</div>
-            <div className="relative mt-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-4 items-start">
+        {/* LEFT — lista de pacientes */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-3 py-3 border-b border-slate-100">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">{t('tools.patientListTitle')}</p>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <input
                 value={patientSearch}
                 onChange={(e) => setPatientSearch(e.target.value)}
                 placeholder={t('tools.patientSearchPh')}
-                className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:ring-4 focus:ring-indigo-100 outline-none"
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none"
               />
             </div>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <div className="max-h-[calc(100vh-280px)] overflow-y-auto divide-y divide-slate-100">
             {isLoading ? (
-              <div className="p-10 flex justify-center">
-                <Loader2 className="animate-spin text-indigo-600" />
+              <div className="p-8 flex justify-center">
+                <Loader2 className="animate-spin text-indigo-500" size={20} />
               </div>
             ) : filteredPatients.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">
-                <div className="font-extrabold">{t('tools.noPatients')}</div>
-                <div className="text-sm text-slate-400 mt-1">{t('tools.noPatientsHint')}</div>
+              <div className="p-6 text-center">
+                <p className="text-xs font-bold text-slate-500">{t('tools.noPatients')}</p>
+                <p className="text-xs text-slate-400 mt-1">{t('tools.noPatientsHint')}</p>
               </div>
             ) : (
               filteredPatients.map((p) => {
                 const selected = selectedPatientId === p.id;
+                const isAct = (p.status === 'ativo' || p.status === 'active');
                 return (
                   <button
                     key={p.id}
                     onClick={() => setSelectedPatientId(p.id)}
                     className={[
-                      'w-full flex items-center gap-3 p-4 text-left transition-colors',
-                      selected ? 'bg-indigo-50/70' : 'hover:bg-slate-50',
+                      'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
+                      selected ? 'bg-indigo-50' : 'hover:bg-slate-50',
                     ].join(' ')}
                   >
-                    <div className={['w-1 self-stretch rounded-full', selected ? 'bg-indigo-600' : 'bg-transparent'].join(' ')} />
-                    <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-sm font-extrabold text-slate-600 shrink-0">
-                      {p.full_name?.charAt(0) || '?'}
+                    <div className={[
+                      'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0',
+                      selected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500',
+                    ].join(' ')}>
+                      {(p.full_name || '?').charAt(0).toUpperCase()}
                     </div>
-
                     <div className="flex-1 min-w-0">
-                      <p className={['text-sm font-extrabold truncate', selected ? 'text-indigo-800' : 'text-slate-800'].join(' ')}>
-                        {p.full_name}
+                      <p className={['text-xs font-semibold truncate', selected ? 'text-indigo-800' : 'text-slate-700'].join(' ')}>
+                        {p.full_name || 'Sem nome'}
                       </p>
-                      <div className="mt-1">
-                        <StatusBadge status={p.status} t={t} />
-                      </div>
+                      <span className={['text-[10px] font-bold', isAct ? 'text-emerald-600' : 'text-slate-400'].join(' ')}>
+                        {isAct ? '● Ativo' : '○ Inativo'}
+                      </span>
                     </div>
+                    {selected && <div className="w-1 h-6 rounded-full bg-indigo-600 shrink-0" />}
                   </button>
                 );
               })
@@ -1456,12 +1464,13 @@ export const ClinicalTools: React.FC = () => {
         </div>
 
         {/* RIGHT */}
-        <div className="space-y-4 min-w-0">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-1 flex gap-1 overflow-x-auto no-scrollbar">
+        <div className="space-y-3 min-w-0">
+          {/* Tool tabs */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-1 flex gap-1">
             {[
-              { id: 'tcc', label: t('tools.tcc'), icon: <BrainCircuit size={16} />, activeCls: 'text-indigo-700', onCls: 'bg-indigo-50 border-indigo-100' },
-              { id: 'schema', label: t('tools.schema'), icon: <LayoutGrid size={16} />, activeCls: 'text-rose-700', onCls: 'bg-rose-50 border-rose-100' },
-              { id: 'psycho', label: t('tools.psycho'), icon: <Feather size={16} />, activeCls: 'text-amber-700', onCls: 'bg-amber-50 border-amber-100' },
+              { id: 'tcc', label: t('tools.tcc'), icon: <BrainCircuit size={14} />, activeCls: 'bg-indigo-600 text-white shadow-sm' },
+              { id: 'schema', label: t('tools.schema'), icon: <LayoutGrid size={14} />, activeCls: 'bg-rose-500 text-white shadow-sm' },
+              { id: 'psycho', label: t('tools.psycho'), icon: <Feather size={14} />, activeCls: 'bg-amber-500 text-white shadow-sm' },
             ].map((tab) => {
               const on = activeTool === tab.id;
               return (
@@ -1469,8 +1478,8 @@ export const ClinicalTools: React.FC = () => {
                   key={tab.id}
                   onClick={() => setActiveTool(tab.id as ToolTab)}
                   className={[
-                    'flex-1 min-w-[190px] py-3 px-4 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all whitespace-nowrap border',
-                    on ? `${tab.onCls} ${tab.activeCls}` : 'border-transparent text-slate-600 hover:bg-slate-50',
+                    'flex-1 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+                    on ? tab.activeCls : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700',
                   ].join(' ')}
                 >
                   {tab.icon} {tab.label}
@@ -1480,20 +1489,35 @@ export const ClinicalTools: React.FC = () => {
           </div>
 
           {!selectedPatient ? (
-            <EmptyDashed text={t('tools.selectPatientHint')} icon={<Boxes size={22} className="opacity-30" />} />
+            <div className="bg-white rounded-xl border border-dashed border-slate-200 p-12 flex flex-col items-center justify-center text-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
+                <Boxes size={22} className="text-slate-300" />
+              </div>
+              <p className="text-sm font-semibold text-slate-500">{t('tools.selectPatientHint')}</p>
+            </div>
           ) : (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold">
-                    {selectedPatient.full_name?.charAt(0) || '?'}
+            <div className="space-y-4">
+              {/* Patient info strip */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
+                    {(selectedPatient.full_name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-extrabold text-slate-900 truncate">{selectedPatient.full_name}</div>
-                    <div className="text-sm text-slate-500">{t('tools.patientHeaderHint')}</div>
+                    <p className="text-sm font-bold text-slate-800 truncate">{selectedPatient.full_name || 'Sem nome'}</p>
+                    <p className="text-[11px] text-slate-400">{t('tools.patientHeaderHint')}</p>
                   </div>
                 </div>
-                <StatusBadge status={selectedPatient.status} t={t} />
+                <div className="flex items-center gap-2 shrink-0">
+                  <StatusBadge status={selectedPatient.status} t={t} />
+                  <button
+                    onClick={() => setSelectedPatientId(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    title="Limpar seleção"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
 
               {activeTool === 'tcc' && <TCCPanel t={t} scopeKey={scopeKey} />}

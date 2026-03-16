@@ -170,7 +170,7 @@ export const Professionals: React.FC = () => {
 
                       <div className="flex items-center gap-4 mb-6">
                           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl transition-colors ${!pro.is_active ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'}`}>
-                              {pro.name.charAt(0)}
+                              {(pro.name || '?').charAt(0)}
                           </div>
                           <div className="min-w-0">
                               <h3 className="font-bold text-slate-800 truncate pr-16">{pro.name}</h3>

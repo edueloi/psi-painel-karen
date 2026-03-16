@@ -379,7 +379,7 @@ const AssessmentsTabLegacy = () => {
             {assessmentsList.map(item => (
                 <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 group">
                     <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-lg ${item.color} flex items-center justify-center text-white font-bold text-lg`}>{item.name.charAt(0)}</div>
+                        <div className={`w-12 h-12 rounded-lg ${item.color} flex items-center justify-center text-white font-bold text-lg`}>{(item.name || '?').charAt(0)}</div>
                         <div><h4 className="font-bold text-slate-800 group-hover:text-indigo-700">{item.name}</h4><p className="text-xs text-slate-500">{item.desc}</p></div>
                     </div>
                     <ChevronRight className="text-slate-300 group-hover:text-indigo-500" size={20} />
@@ -597,7 +597,14 @@ export const PEI: React.FC = () => {
     const fetchPatients = async () => {
       setIsLoading(true);
       try {
-          const data = await api.get<Patient[]>('/patients');
+          const raw = await api.get<any[]>('/patients');
+          const data = (raw || []).map((p: any) => ({
+            ...p,
+            full_name: p.name || p.full_name || '',
+            whatsapp: p.phone || p.whatsapp || '',
+            cpf_cnpj: p.cpf || p.cpf_cnpj || '',
+            status: p.status === 'active' ? 'ativo' : p.status === 'inactive' ? 'inativo' : p.status,
+          })) as Patient[];
           setPatients(data);
       } catch (e) {
           console.error(e);
@@ -800,7 +807,7 @@ export const PEI: React.FC = () => {
                             className={`w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors text-left ${selectedPatientId === String(p.id) ? 'bg-indigo-50 border-l-4 border-indigo-600 shadow-inner' : ''}`}
                           >
                               <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-500 shrink-0">
-                                  {p.full_name.charAt(0)}
+                                  {(p.full_name || '?').charAt(0).toUpperCase()}
                               </div>
                               <div className="flex-1 min-w-0">
                                   <p className={`text-sm font-bold truncate ${selectedPatientId === p.id ? 'text-indigo-700' : 'text-slate-700'}`}>{p.full_name}</p>
@@ -818,7 +825,7 @@ export const PEI: React.FC = () => {
                   <div className="space-y-6 animate-fadeIn">
                   <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                           <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-bold">
-                            {patient?.full_name.charAt(0)}
+                            {(patient?.full_name || '?').charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
                                 <h2 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{patient?.full_name}</h2>
