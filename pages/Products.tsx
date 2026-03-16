@@ -386,63 +386,109 @@ export const Products: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 animate-fadeIn font-sans pb-24">
+    <div className="space-y-6 animate-fadeIn font-sans pb-24">
       
-      {/* HEADER HERO */}
-      <div className="relative overflow-hidden rounded-[3rem] p-10 md:p-14 bg-slate-900 border border-slate-800 shadow-2xl">
-          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-indigo-500/10 to-transparent pointer-events-none"></div>
-          <div className="absolute bottom-[-10%] left-[-5%] w-72 h-72 bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none"></div>
-          
-          <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
-              <div className="max-w-2xl">
-                  <div className="inline-flex items-center gap-3 px-5 py-2 mb-6 rounded-2xl bg-indigo-500/10 border border-indigo-400/30 text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-md">
-                      <Sparkles size={16} className="text-indigo-400" />
-                      <span>{t('products.management')}</span>
-                  </div>
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 tracking-tighter leading-none">{t('products.title')}</h1>
-                  <p className="text-slate-400 text-base md:text-lg font-bold leading-relaxed max-w-xl">{t('products.subtitle')}</p>
-              </div>
+      {/* HEADER & TOP CONTROLS */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><Package size={20}/></div>
+                  {t('products.title')}
+              </h1>
+              <p className="text-slate-400 text-xs mt-1 font-bold">{t('products.management')}</p>
+          </div>
+          <button 
+              onClick={() => handleOpenModal()} 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+          >
+              <Plus size={18} /> {t('products.new')}
+          </button>
+      </div>
 
-              <div className="flex flex-col gap-4 w-full lg:w-auto">
-                <div className="bg-slate-800/80 backdrop-blur-md p-1.5 rounded-[1.8rem] border border-slate-700/50 flex self-start lg:self-auto">
-                    <button onClick={() => setActiveTab('list')} className={`px-8 py-4 rounded-[1.4rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'list' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-400 hover:text-white'}`}>
-                      <Package size={18} /> {t('products.products')}
-                    </button>
-                    <button onClick={() => setActiveTab('dashboard')} className={`px-8 py-4 rounded-[1.4rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-400 hover:text-white'}`}>
-                      <BarChart size={18} /> {t('products.inventory')}
-                    </button>
-                </div>
-                
-                {activeTab === 'list' && (
-                  <button onClick={() => handleOpenModal()} className="bg-white hover:bg-slate-50 text-indigo-700 px-8 py-4.5 rounded-[1.8rem] font-black text-xs uppercase tracking-widest shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 group">
-                      <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-                      {t('products.new')}
-                  </button>
-                )}
+      {/* STATS BAR */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                  <DollarSign size={22} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('products.valueStock')}</p>
+                  <p className="text-lg font-black text-slate-800">{formatCurrency(stats.totalInventoryValue)}</p>
+              </div>
+          </div>
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                  <AlertTriangle size={22} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">{t('products.lowStock')}</p>
+                  <p className="text-xl font-black text-slate-800">{stats.lowStockItems.length}</p>
+              </div>
+          </div>
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-rose-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 group-hover:bg-rose-500 group-hover:text-white transition-all">
+                  <AlertOctagon size={22} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-rose-500">Expira em breve</p>
+                  <p className="text-xl font-black text-slate-800">{stats.expiredItems.length + stats.expiringItems.length}</p>
+              </div>
+          </div>
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                  <TrendingUp size={22} />
+              </div>
+              <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">Mais Vendidos</p>
+                  <p className="text-xl font-black text-slate-800">{stats.topSellers[0]?.salesCount || 0}</p>
               </div>
           </div>
       </div>
 
-      {/* FILTER BAR - Always Visible for List */}
-      <div className="sticky top-6 z-50 px-1">
-        <div className="bg-white/90 backdrop-blur-xl p-4 rounded-[2.8rem] border border-slate-100 shadow-xl flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-1 w-full gap-4">
-                <div className="relative flex-1 max-w-md group">
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={20} />
-                    <input type="text" placeholder={t('products.search')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-[1.8rem] outline-none text-sm font-bold text-slate-700 focus:bg-white focus:border-indigo-300 focus:ring-8 focus:ring-indigo-500/5 transition-all placeholder:text-slate-400" />
-                </div>
-                <div className="relative group lg:w-64">
-                     <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-700 font-black text-[11px] uppercase tracking-widest rounded-[1.8rem] px-6 py-4 pr-12 focus:outline-none focus:border-indigo-300 focus:bg-white shadow-sm cursor-pointer transition-all">
-                        {categories.map(cat => <option key={cat} value={cat}>{cat === 'ALL' ? t('common.all') : cat}</option>)}
-                     </select>
-                     <div className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-indigo-600"><Filter size={18} /></div>
-                </div>
-            </div>
-        </div>
+      {/* FILTERS & SEARCH */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full lg:w-96 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
+              <input 
+                  type="text" 
+                  placeholder={t('products.search')} 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)} 
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
+              />
+          </div>
+
+          <div className="flex gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar">
+              {/* Category Filter */}
+              <select 
+                  value={selectedCategory} 
+                  onChange={(e) => setSelectedCategory(e.target.value)} 
+                  className="bg-slate-50 border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest rounded-2xl px-4 py-2 outline-none focus:border-indigo-200 transition-all cursor-pointer"
+              >
+                  {categories.map(cat => <option key={cat} value={cat}>{cat === 'ALL' ? t('common.all') : cat}</option>)}
+              </select>
+
+              {/* View/Tab Toggle */}
+              <div className="flex bg-slate-100 p-1 rounded-2xl">
+                  {[
+                      { id: 'list', label: t('products.products'), icon: <Package size={14}/> },
+                      { id: 'dashboard', label: t('products.inventory'), icon: <BarChart size={14}/> }
+                  ].map(tab => (
+                      <button 
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id as any)}
+                          className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                      >
+                          {tab.icon}
+                          {tab.label}
+                      </button>
+                  ))}
+              </div>
+          </div>
       </div>
 
       {/* Main Content Render */}
-      <div className="px-1">
+      <div className="animate-fadeIn">
         {activeTab === 'list' ? renderList() : renderDashboard()}
       </div>
 
