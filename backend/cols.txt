@@ -1,0 +1,13 @@
+id
+tenant_id
+name
+email
+password
+role
+specialty
+crp
+phone
+avatar_url
+active
+created_at
+permission_profile_id

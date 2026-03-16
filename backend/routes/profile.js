@@ -5,15 +5,26 @@ const db = require('../db');
 // Add extra profile columns if they don't exist (safe migration)
 const ensureColumns = async () => {
   const extras = [
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT NULL",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name VARCHAR(255) NULL",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS address VARCHAR(500) NULL",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS clinic_logo_url VARCHAR(500) NULL",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_url VARCHAR(500) NULL",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS schedule JSON NULL",
+    "ALTER TABLE users ADD COLUMN bio TEXT NULL",
+    "ALTER TABLE users ADD COLUMN company_name VARCHAR(255) NULL",
+    "ALTER TABLE users ADD COLUMN address VARCHAR(500) NULL",
+    "ALTER TABLE users ADD COLUMN clinic_logo_url VARCHAR(500) NULL",
+    "ALTER TABLE users ADD COLUMN cover_url VARCHAR(500) NULL",
+    "ALTER TABLE users ADD COLUMN schedule JSON NULL",
+    "ALTER TABLE users ADD COLUMN specialty VARCHAR(255) NULL",
+    "ALTER TABLE users ADD COLUMN crp VARCHAR(50) NULL",
+    "ALTER TABLE users ADD COLUMN phone VARCHAR(255) NULL",
+    "ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500) NULL",
   ];
   for (const sql of extras) {
-    try { await db.query(sql); } catch { /* column already exists */ }
+    try { 
+      await db.query(sql); 
+    } catch (err) { 
+      // Ignora erro 1060 (coluna já existe)
+      if (err.errno !== 1060 && err.code !== 'ER_DUP_FIELDNAME') {
+        console.error(`Erro ao adicionar coluna: ${sql}`, err.message);
+      }
+    }
   }
 };
 ensureColumns();

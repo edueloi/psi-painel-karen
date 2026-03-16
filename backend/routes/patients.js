@@ -393,18 +393,18 @@ router.put('/:id', async (req, res) => {
         responsible_name = COALESCE(?, responsible_name),
         responsible_phone = COALESCE(?, responsible_phone),
         health_plan = COALESCE(?, health_plan),
-        diagnosis = COALESCE(?, diagnosis),
-        photo_url = COALESCE(?, photo_url)
+        diagnosis = COALESCE(?, diagnosis)
       WHERE id = ? AND tenant_id = ?`,
       [
-        name, email, phone, phone2, birth_date, cpf, rg, gender,
-        marital_status, education, profession, nationality, naturality,
-        has_children !== undefined ? (has_children ? 1 : 0) : undefined,
-        children_count, minor_children_count,
-        spouse_name, family_contact, emergency_contact,
-        address, city, state, zip_code, notes, status ? normalizeStatus(status) : undefined,
-        responsible_professional_id, responsible_name,
-        responsible_phone, health_plan, diagnosis, photo_url,
+        name ?? null, email ?? null, phone ?? null, phone2 ?? null, birth_date ?? null, cpf ?? null, rg ?? null, gender ?? null,
+        marital_status ?? null, education ?? null, profession ?? null, nationality ?? null, naturality ?? null,
+        has_children !== undefined ? (has_children ? 1 : 0) : null,
+        children_count ?? null, minor_children_count ?? null,
+        spouse_name ?? null, family_contact ?? null, emergency_contact ?? null,
+        address ?? null, city ?? null, state ?? null, zip_code ?? null,
+        notes ?? null, status ? normalizeStatus(status) : null,
+        responsible_professional_id ?? null, responsible_name ?? null,
+        responsible_phone ?? null, health_plan ?? null, diagnosis ?? null,
         req.params.id, req.user.tenant_id
       ]
     );
@@ -417,22 +417,22 @@ router.put('/:id', async (req, res) => {
         `INSERT INTO patient_events (tenant_id, patient_id, type, title, description, old_value, new_value, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [req.user.tenant_id, req.params.id, 'status_change', 'Alteração de Status', `Status alterado de ${oldStatus} para ${newStatus}`, oldStatus, newStatus, req.user.id]
-      ).catch(console.error);
+      ).catch(err => console.error('Erro ao registrar evento de status:', err.message));
     }
 
     if (health_plan !== undefined && existing[0].health_plan !== health_plan) {
       await db.query(
         `INSERT INTO patient_events (tenant_id, patient_id, type, title, description, old_value, new_value, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.user.tenant_id, req.params.id, 'plan_change', 'Alteração de Plano', `Plano/Convênio alterado para ${health_plan || 'Nenhum'}`, existing[0].health_plan, health_plan, req.user.id]
-      ).catch(console.error);
+        [req.user.tenant_id, req.params.id, 'plan_change', 'Alteração de Plano', `Plano/Convênio alterado para ${health_plan || 'Nenhum'}`, existing[0].health_plan, health_plan || null, req.user.id]
+      ).catch(err => console.error('Erro ao registrar evento de plano:', err.message));
     }
 
     const [updated] = await db.query('SELECT * FROM patients WHERE id = ?', [req.params.id]);
     res.json(updated[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao atualizar paciente' });
+    console.error('ERRO PUT /patients/:id ->', err);
+    res.status(500).json({ error: 'Erro ao atualizar paciente: ' + err.message });
   }
 });
 
