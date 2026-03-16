@@ -1,5 +1,4 @@
-
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3013';
+﻿export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3013';
 const BASE_URL = API_BASE_URL;
 
 interface RequestOptions extends RequestInit {
@@ -15,10 +14,30 @@ interface Api {
   delete<T>(endpoint: string): Promise<T>;
 }
 
+async function parseResponseBody(response: Response): Promise<any> {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (response.status === 204) {
+    return {};
+  }
+
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  return { raw: text, contentType };
+}
+
 export const api: Api = {
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const token = localStorage.getItem('psi_token');
-    
+
     const headers = new Headers(options.headers || {});
     if (!(options.body instanceof FormData)) {
       headers.set('Content-Type', 'application/json');
@@ -44,27 +63,27 @@ export const api: Api = {
       if (response.status === 401) {
         localStorage.removeItem('psi_token');
         window.location.href = '/login';
-        throw new Error('Sessão expirada');
+        throw new Error('Sessao expirada');
       }
 
-      // Se a resposta for vazia (ex: 204 No Content), retornar objeto vazio
-      if (response.status === 204) {
-          return {} as T;
-      }
-
-      const data = await response.json();
+      const data = await parseResponseBody(response);
       if (!response.ok) {
-        throw new Error(data.error || `Erro ${response.status}: ${response.statusText}`);
+        const rawPreview = typeof data?.raw === 'string'
+          ? data.raw.replace(/\s+/g, ' ').trim().slice(0, 140)
+          : '';
+        const message = data?.error
+          || (rawPreview ? `Erro ${response.status}: resposta nao-JSON do servidor (${rawPreview})` : `Erro ${response.status}: ${response.statusText}`);
+        throw new Error(message);
       }
 
-      return data;
+      return data as T;
     } catch (err: any) {
       console.error(`ERRO API [${config.method || 'GET'}] ${endpoint}:`, err);
-      
+
       if (err.name === 'TypeError' && (err.message === 'Failed to fetch' || err.message.includes('NetworkError'))) {
-        throw new Error('Erro de Conexão: Não foi possível alcançar o servidor em ' + BASE_URL + '. Verifique se o backend está rodando, se o firewall permite a conexão e se o CORS está devidamente habilitado no Node.js.');
+        throw new Error('Erro de conexao: nao foi possivel alcancar o servidor em ' + BASE_URL + '. Verifique se o backend esta rodando, se o firewall permite a conexao e se o CORS esta habilitado no Node.js.');
       }
-      
+
       throw err;
     }
   },
@@ -89,4 +108,3 @@ export const api: Api = {
     return this.request(endpoint, { method: 'DELETE' });
   }
 };
-
