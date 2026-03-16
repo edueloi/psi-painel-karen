@@ -421,11 +421,23 @@ router.post('/import', upload.single('file'), async (req, res) => {
     const imported = [];
     const errors = [];
 
+    // Helper para encontrar valor em colunas com nomes variados
+    const findValue = (row, ...names) => {
+        const rowKeys = Object.keys(row);
+        for (const name of names) {
+            const normalizedName = name.toLowerCase().trim();
+            const key = rowKeys.find(k => k.toLowerCase().trim() === normalizedName);
+            if (key && row[key] !== undefined && row[key] !== '') return row[key];
+        }
+        return null;
+    };
+
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        const name = row['Nome'];
-        if (!name) {
-            errors.push(`Linha ${i + 2}: Nome é obrigatório`);
+        const name = findValue(row, 'Nome', 'Nome Completo', 'Paciente');
+        
+        if (!name || String(name).toLowerCase().includes('exemplo')) {
+            if (!name) errors.push(`Linha ${i + 2}: Nome não encontrado`);
             continue;
         }
 
@@ -441,31 +453,33 @@ router.post('/import', upload.single('file'), async (req, res) => {
                 [
                     req.user.tenant_id,
                     name,
-                    row['Email'] || null,
-                    row['Telefone'] || null,
-                    row['Telefone 2'] || null,
-                    row['CPF'] || null,
-                    row['RG'] || null,
-                    row['Data Nascimento'] || null,
-                    row['Gênero'] || null,
-                    row['Estado Civil'] || null,
-                    row['Escolaridade'] || null,
-                    row['Profissão'] || null,
-                    row['Nacionalidade'] || null,
-                    row['Naturalidade'] || null,
-                    row['Tem Filhos?']?.toLowerCase() === 'sim' ? 1 : 0,
-                    parseInt(row['Qtd Filhos']) || 0,
-                    parseInt(row['Qtd Filhos Menores']) || 0,
-                    row['Nome Cônjuge'] || null,
-                    row['Contato Familiar'] || null,
-                    row['Contato Emergência'] || null,
-                    row['Endereço'] || null,
-                    row['Cidade'] || null,
-                    row['Estado'] || null,
-                    row['CEP'] || null,
-                    row['Convênio?']?.toLowerCase() === 'sim' ? (row['Nome Convênio'] || 'Sim') : null,
-                    row['Observação / Referência'] || null,
-                    row['Diagnóstico'] || null,
+                    findValue(row, 'Email', 'E-mail'),
+                    findValue(row, 'Telefone', 'Celular', 'WhatsApp', 'Fone'),
+                    findValue(row, 'Telefone 2', 'Fone 2', 'Contato'),
+                    findValue(row, 'CPF', 'Documento'),
+                    findValue(row, 'RG'),
+                    findValue(row, 'Data Nascimento', 'Nascimento', 'Data Nasc'),
+                    findValue(row, 'Gênero', 'Sexo'),
+                    findValue(row, 'Estado Civil', 'Marital'),
+                    findValue(row, 'Escolaridade', 'Educação'),
+                    findValue(row, 'Profissão', 'Cargo'),
+                    findValue(row, 'Nacionalidade'),
+                    findValue(row, 'Naturalidade'),
+                    String(findValue(row, 'Tem Filhos?', 'Filhos') || '').toLowerCase().includes('sim') ? 1 : 0,
+                    parseInt(findValue(row, 'Qtd Filhos', 'Filhos Total')) || 0,
+                    parseInt(findValue(row, 'Qtd Filhos Menores', 'Filhos Menores')) || 0,
+                    findValue(row, 'Nome Cônjuge', 'Cônjuge'),
+                    findValue(row, 'Contato Familiar', 'Familiar'),
+                    findValue(row, 'Contato Emergência', 'Emergência'),
+                    findValue(row, 'Endereço', 'Logradouro'),
+                    findValue(row, 'Cidade'),
+                    findValue(row, 'Estado', 'UF'),
+                    findValue(row, 'CEP'),
+                    String(findValue(row, 'Convênio?', 'Plano?') || '').toLowerCase().includes('sim') 
+                        ? (findValue(row, 'Nome Convênio', 'Convênio', 'Plano') || 'Sim') 
+                        : null,
+                    findValue(row, 'Observação / Referência', 'Observação', 'Obs', 'Referência'),
+                    findValue(row, 'Diagnóstico', 'Queixa'),
                     'active'
                 ]
             );
