@@ -1,13 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { Sparkles, Send, X, MessageSquare, ChevronDown, Minimize2, Paperclip, Bot } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { api } from '../../services/api';
 
 // --- Types ---
 interface Message {
   id: string;
-  role: 'user' | 'model';
+  role: 'user' | 'model' | 'assistant';
   text: string;
   timestamp: Date;
 }
@@ -22,7 +22,7 @@ export const AuroraAssistant: React.FC = () => {
     {
       id: 'welcome',
       role: 'model',
-      text: 'Olá! Sou a Aurora, sua assistente inteligente do PsiFlux. 🧠✨\n\nPosso te ajudar com agendamentos, explicar como funcionam as salas virtuais ou dar dicas sobre o sistema. Como posso ser útil hoje?',
+      text: 'Olá! Sou a Aurora, sua assistente inteligente do PsiFlux. 🧠✨\n\nSou uma parceira para te ajudar na gestão da clínica e também com dúvidas sobre psicologia. Posso consultar seus pacientes, agenda e até realizar marcações para você. Como posso ser útil hoje?',
       timestamp: new Date()
     }
   ]);
@@ -64,90 +64,36 @@ export const AuroraAssistant: React.FC = () => {
     setIsTyping(true);
 
     try {
-      // 2. Call Gemini API
-      // Note: In a real app, API_KEY should be present. 
-      // If missing, we fall back to simulated responses for UI demonstration.
-      if (process.env.API_KEY) {
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          
-          const systemInstruction = `
-            Você é a Aurora, a Inteligência Artificial avançada do sistema "PsiFlux".
-            Seu tom é empático, profissional, acolhedor e eficiente (persona de uma secretária executiva clínica de alto nível).
-            
-            O sistema possui os seguintes módulos principais:
-            1. Dashboard: Visão geral e métricas.
-            2. Agenda: Gestão de horários e sessões.
-            3. Pacientes: Prontuários e cadastro.
-            4. Salas Virtuais: Telemedicina segura com vídeo e lousa.
-            5. Financeiro: Fluxo de caixa e comandas.
-            6. Estudo de Caso: Kanban para supervisão clínica.
+      // 2. Call Backend API
+      const response = await api.post<{ text: string }>('/ai/chat', {
+        messages: messages.concat(newUserMsg).map(m => ({
+          role: m.role === 'model' ? 'assistant' : m.role,
+          content: m.text
+        }))
+      });
 
-            Regras:
-            - Responda de forma concisa.
-            - Se perguntarem sobre "Salas Virtuais", explique que é um ambiente seguro com criptografia e lousa interativa.
-            - Se perguntarem sobre "Agendamento", explique que é possível criar recorrências e enviar lembretes.
-            - Use emojis moderadamente para manter a leveza.
-          `;
-
-          /* Changed model to gemini-3-flash-preview */
-          const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: messages.concat(newUserMsg).map(m => ({
-                role: m.role,
-                parts: [{ text: m.text }]
-            })),
-            config: {
-                systemInstruction: systemInstruction,
-            }
-          });
-
-          const aiResponse = response.text || "Desculpe, não consegui processar sua resposta agora.";
-          
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: 'model',
-            text: aiResponse,
-            timestamp: new Date()
-          }]);
-
-      } else {
-          // --- SIMULATED RESPONSE (FALLBACK) ---
-          // This ensures the UI works even without the API Key setup in the preview environment
-          await new Promise(resolve => setTimeout(resolve, 1500)); // Fake network delay
-          
-          let responseText = "";
-          const lowerText = text.toLowerCase();
-
-          if (lowerText.includes('sala') || lowerText.includes('virtual') || lowerText.includes('vídeo')) {
-              responseText = "As **Salas Virtuais** são ambientes seguros e criptografados para seus atendimentos online. \n\nElas incluem:\n- Vídeo em HD\n- Lousa Interativa compartilhada\n- Chat integrado\n\nVocê pode criar um link instantâneo no menu 'Sala Virtual' ou agendar diretamente na Agenda.";
-          } else if (lowerText.includes('agenda') || lowerText.includes('marcar')) {
-              responseText = "Para agendar, vá até o menu **Agenda**. Você pode clicar em qualquer horário vazio para criar uma consulta, definir recorrência (semanal/mensal) e escolher se é presencial ou online.";
-          } else if (lowerText.includes('prontuário') || lowerText.includes('paciente')) {
-              responseText = "Os **Prontuários** ficam no menu Pacientes. Lá você pode registrar evoluções (SOAP), anexar documentos e visualizar o histórico completo. Tudo é salvo com segurança.";
-          } else {
-              responseText = "Entendi. Como sou uma assistente focada na gestão da sua clínica, posso te ajudar a encontrar funcionalidades, explicar ferramentas ou dar dicas de uso do PsiFlux. O que gostaria de explorar?";
-          }
-
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: 'model',
-            text: responseText,
-            timestamp: new Date()
-          }]);
-      }
+      const aiResponse = response.text || "Desculpe, não consegui processar sua resposta agora.";
+      
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'model',
+        text: aiResponse,
+        timestamp: new Date()
+      }]);
 
     } catch (error) {
       console.error("Erro na Aurora:", error);
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: "Tive um pequeno problema de conexão. Poderia repetir?",
+        text: "Tive um pequeno problema ao processar sua solicitação. Por favor, tente novamente.",
         timestamp: new Date()
       }]);
     } finally {
       setIsTyping(false);
     }
   };
+
 
   const suggestions = [
     "Como crio uma sala virtual?",
@@ -291,7 +237,7 @@ export const AuroraAssistant: React.FC = () => {
                 </button>
             </div>
             <div className="text-center mt-2">
-                <span className="text-[10px] text-slate-400">Powered by Gemini AI • PsiFlux</span>
+                <span className="text-[10px] text-slate-400">Powered by Aurora AI • PsiFlux</span>
             </div>
         </div>
       </div>

@@ -27,6 +27,7 @@ const masterUsersRoutes = require('./routes/master-users');
 const masterPermissionsRoutes = require('./routes/master-permissions');
 const notesRoutes = require('./routes/notes');
 const documentsRoutes = require('./routes/documents');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 3013;
@@ -74,6 +75,7 @@ app.use('/master-users', masterUsersRoutes);
 app.use('/master-permissions', masterPermissionsRoutes);
 app.use('/notes', notesRoutes);
 app.use('/documents', documentsRoutes);
+app.use('/ai', aiRoutes);
 
 // ---- 404 handler ----
 app.use((req, res) => {
