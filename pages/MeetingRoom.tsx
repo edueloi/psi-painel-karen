@@ -86,6 +86,17 @@ type WaitingEntry = {
   created_at?: string;
 };
 
+const ICE_CONFIG: RTCConfiguration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+  ],
+  iceCandidatePoolSize: 10,
+};
+
 export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   isGuest: isGuestProp = false,
 }) => {
@@ -968,39 +979,39 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             // Guest receives offer → create answer
             if (isGuest && !isCompanionMode && payload?.sdp) {
               (async () => {
-                const config: RTCConfiguration = {
-                  iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' },
-                  ],
-                };
                 if (peerConnectionRef.current) {
                   peerConnectionRef.current.close();
                   peerConnectionRef.current = null;
                 }
                 setRemoteStreamActive(false);
-                const pc = new RTCPeerConnection(config);
+                const pc = new RTCPeerConnection(ICE_CONFIG);
                 peerConnectionRef.current = pc;
                 if (localStreamRef.current) {
                   localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
                 }
-                pc.ontrack = (e) => {
-                  if (remoteVideoRef.current && e.streams[0]) {
-                    remoteVideoRef.current.srcObject = e.streams[0];
-                    setRemoteStreamActive(true);
-                  }
-                };
                 pc.onicecandidate = (e) => {
                   if (e.candidate) {
-                    sendRoomEventRef.current?.('webrtc_ice', { candidate: JSON.parse(JSON.stringify(e.candidate)) });
+                    sendRoomEventRef.current?.('webrtc_ice', { candidate: e.candidate.toJSON() });
                   }
                 };
                 pc.onconnectionstatechange = () => {
+                  console.log("Connection State:", pc.connectionState);
                   if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
                     setRemoteStreamActive(false);
+                  }
+                };
+                pc.oniceconnectionstatechange = () => {
+                  console.log("ICE State:", pc.iceConnectionState);
+                };
+                pc.ontrack = (e) => {
+                  if (remoteVideoRef.current) {
+                    if (e.streams[0]) {
+                      remoteVideoRef.current.srcObject = e.streams[0];
+                    } else {
+                      remoteVideoRef.current.srcObject = new MediaStream([e.track]);
+                    }
+                    remoteVideoRef.current.play().catch(() => {});
+                    setRemoteStreamActive(true);
                   }
                 };
                 await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp }));
@@ -1329,33 +1340,32 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (!remoteUserConnected || isGuest || isCompanionMode) return;
     const timer = setTimeout(async () => {
       if (!localStreamRef.current) return;
-      const config: RTCConfiguration = {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' },
-        ],
-      };
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
       setRemoteStreamActive(false);
-      const pc = new RTCPeerConnection(config);
+      const pc = new RTCPeerConnection(ICE_CONFIG);
       peerConnectionRef.current = pc;
       localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
       pc.ontrack = (e) => {
-        if (remoteVideoRef.current && e.streams[0]) {
-          remoteVideoRef.current.srcObject = e.streams[0];
+        if (remoteVideoRef.current) {
+          if (e.streams[0]) {
+            remoteVideoRef.current.srcObject = e.streams[0];
+          } else {
+            remoteVideoRef.current.srcObject = new MediaStream([e.track]);
+          }
+          remoteVideoRef.current.play().catch(() => {});
           setRemoteStreamActive(true);
         }
       };
       pc.onicecandidate = (e) => {
         if (e.candidate) {
-          sendRoomEventRef.current?.('webrtc_ice', { candidate: JSON.parse(JSON.stringify(e.candidate)) });
+          sendRoomEventRef.current?.('webrtc_ice', { candidate: e.candidate.toJSON() });
         }
+      };
+      pc.oniceconnectionstatechange = () => {
+        console.log("Host ICE State:", pc.iceConnectionState);
       };
       pc.onconnectionstatechange = () => {
         if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
@@ -3126,6 +3136,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             )}
 
             <button
+              onClick={() => setShowSettingsModal(true)}
+              className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all bg-[#252830] hover:bg-[#2d313a] text-slate-300"
+              title="Configurações"
+            >
+              <Settings size={18} className="sm:hidden" />
+              <Settings size={22} className="hidden sm:block" />
+            </button>
+            <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
+
+            <button
               onClick={() =>
                 setActiveSidePanel(activeSidePanel === "chat" ? "none" : "chat")
               }
@@ -3315,6 +3335,30 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   <button className="text-xs text-indigo-400 font-bold hover:underline">
                     Testar Som
                   </button>
+                </div>
+                
+                <div className="pt-4 border-t border-white/5">
+                   <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Status da Conexão</div>
+                   <div className="flex flex-col gap-1.5">
+                     <div className="flex justify-between text-[11px]">
+                       <span className="text-slate-400">Usuário remoto:</span>
+                       <span className={remoteUserConnected ? "text-emerald-400 font-bold" : "text-amber-400"}>
+                         {remoteUserConnected ? "Conectado" : "Aguardando"}
+                       </span>
+                     </div>
+                     <div className="flex justify-between text-[11px]">
+                       <span className="text-slate-400">Fluxo de Vídeo:</span>
+                       <span className={remoteStreamActive ? "text-emerald-400 font-bold" : "text-slate-500"}>
+                         {remoteStreamActive ? "Ativo" : "Inativo"}
+                       </span>
+                     </div>
+                     <button
+                       onClick={restartRoomConnection}
+                       className="mt-2 w-full py-2 bg-indigo-600/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-indigo-500/20 hover:bg-indigo-600/30 transition-all"
+                     >
+                       Reiniciar Fluxo de Mídia
+                     </button>
+                   </div>
                 </div>
               </div>
               <div className="p-6 border-t border-white/10 flex justify-end">
