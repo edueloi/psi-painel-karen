@@ -375,6 +375,8 @@ export const Agenda: React.FC = () => {
         // NOVO FLOW: Redireciona para a comanda gerada automaticamente se houver comanda_id
         if (savedAppointment.comanda_id) {
             pushToast('success', 'Agendamento e Comanda gerada automaticamente!');
+            fetchData();
+            setIsModalOpen(false);
             setTimeout(() => {
                 navigate('/comandas', { state: { openComandaId: savedAppointment.comanda_id } });
             }, 1000);

@@ -456,7 +456,9 @@ router.post('/', async (req, res) => {
                 const price = service ? service.price : 0;
                 const serviceName = service ? service.name : 'Atendimento';
 
+                // MULTIPLICA O PREÇO PELA QUANTIDADE DE AGENDAMENTOS CRIADOS (REPETIÇÃO)
                 totalAmount = price * createdIds.length;
+                
                 items = [{
                     id: service_id,
                     name: serviceName,
