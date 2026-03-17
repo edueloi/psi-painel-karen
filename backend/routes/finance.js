@@ -524,6 +524,17 @@ router.get('/analytics/performance', async (req, res) => {
       ORDER BY day_index ASC
     `, [tenantId]);
 
+    // Peak Hours (Hour of day distribution)
+    const [peakHours] = await db.query(`
+      SELECT 
+        HOUR(start_time) as hour,
+        COUNT(*) as count
+      FROM appointments
+      WHERE tenant_id = ? AND status = 'completed'
+      GROUP BY hour
+      ORDER BY hour ASC
+    `, [tenantId]);
+
     // Hours Distribution Series
     const [hoursSeries] = await db.query(`
       SELECT DATE_FORMAT(start_time, '${timeFormat}') as label,
@@ -538,6 +549,7 @@ router.get('/analytics/performance', async (req, res) => {
       series,
       hoursSeries,
       peakDays,
+      peakHours,
       totals: {
         income: parseFloat(totals[0].income || 0),
         expense: parseFloat(totals[0].expense || 0),
