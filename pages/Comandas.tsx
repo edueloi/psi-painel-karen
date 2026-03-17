@@ -264,24 +264,46 @@ export const Comandas: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24 px-4 max-w-7xl mx-auto">
-      
-      {/* HEADER & TOP CONTROLS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><ShoppingBag size={20}/></div>
-                  Gestão de Comandas
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">Controle seus atendimentos e pacotes de sessões</p>
+    <div className="min-h-screen bg-slate-50">
+      {toasts.length > 0 && (
+        <div className="fixed right-6 top-6 z-[60] space-y-2">
+          {toasts.map(t => (
+            <div
+              key={t.id}
+              className={`rounded-xl px-4 py-3 text-sm font-semibold shadow-lg border ${t.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}
+            >
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Page Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-5">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-sm">
+                <ShoppingBag size={20} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900">Gestão de Comandas</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Controle seus atendimentos e pacotes de sessões</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleOpenModal()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-sm"
+              >
+                <Plus size={14} /> NOVA COMANDA
+              </button>
+            </div>
           </div>
-          <button 
-              onClick={() => handleOpenModal()} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
-          >
-              <Plus size={18} /> NOVA COMANDA
-          </button>
+        </div>
       </div>
+
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
 
       {/* STATS BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -865,6 +887,7 @@ export const Comandas: React.FC = () => {
             <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

@@ -79,34 +79,43 @@ export const Performance: React.FC = () => {
   const { totals, series, hoursSeries, peakDays } = data;
 
   return (
-    <div className="space-y-8 animate-fadeIn font-sans pb-24 px-4 max-w-7xl mx-auto">
-      
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100 shadow-sm"><BarChart2 size={24}/></div>
-                  Performance e Analytics
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">Indicadores estratégicos para gestão da sua clínica</p>
+    <div className="min-h-screen bg-slate-50">
+      {/* Page Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-5">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm">
+                <BarChart2 size={24} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900">Performance e Analytics</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Indicadores estratégicos para gestão da sua clínica</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
+                  {[
+                      { id: 'week', label: 'Semana' },
+                      { id: 'month', label: 'Mês' },
+                      { id: 'year', label: 'Ano' }
+                  ].map(p => (
+                      <button 
+                          key={p.id}
+                          onClick={() => setPeriod(p.id)}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${period === p.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                      >
+                          {p.label}
+                      </button>
+                  ))}
+              </div>
+            </div>
           </div>
-          
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl shadow-inner border border-slate-200">
-              {[
-                  { id: 'week', label: 'Semana' },
-                  { id: 'month', label: 'Mês' },
-                  { id: 'year', label: 'Ano' }
-              ].map(p => (
-                  <button 
-                      key={p.id}
-                      onClick={() => setPeriod(p.id)}
-                      className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${period === p.id ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200/50' : 'text-slate-500 hover:text-indigo-400'}`}
-                  >
-                      {p.label}
-                  </button>
-              ))}
-          </div>
+        </div>
       </div>
+
+      <div className="max-w-7xl mx-auto p-6 space-y-8">
 
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -318,6 +327,7 @@ export const Performance: React.FC = () => {
                   </div>
               </div>
           </div>
+      </div>
       </div>
     </div>
   );
