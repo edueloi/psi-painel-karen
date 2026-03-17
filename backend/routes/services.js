@@ -3,6 +3,12 @@ const router = express.Router();
 const db = require('../db');
 const { authorize } = require('../middleware/auth');
 
+const multer = require('multer');
+const ExcelJS = require('exceljs');
+const xlsx = require('xlsx');
+
+const memoryUpload = multer({ storage: multer.memoryStorage() });
+
 // GET /services
 router.get('/', async (req, res) => {
   try {
@@ -14,6 +20,157 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar serviços' });
+  }
+});
+
+// GET /services/export-template
+router.get('/export-template', async (req, res) => {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Dados para Importar');
+  
+  worksheet.columns = [
+    { header: 'Nome', key: 'name', width: 30 },
+    { header: 'Categoria', key: 'category', width: 20 },
+    { header: 'Preço/Valor', key: 'price', width: 15 },
+    { header: 'Duração (min)', key: 'duration', width: 15 },
+    { header: 'Custo Profissional', key: 'cost', width: 20 },
+    { header: 'Modalidade', key: 'modality', width: 15 },
+    { header: 'Descrição', key: 'description', width: 40 }
+  ];
+
+  // Estilo do cabeçalho
+  worksheet.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    cell.alignment = { horizontal: 'center' };
+  });
+
+  worksheet.addRow({
+    name: 'Psicoterapia Individual',
+    category: 'Geral',
+    price: 150.00,
+    duration: 50,
+    cost: 50.00,
+    modality: 'presencial',
+    description: 'Sessão de terapia individual presencial'
+  });
+
+  worksheet.autoFilter = 'A1:G1';
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=modelo_importacao_servicos.xlsx');
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+// GET /services/export
+router.get('/export', async (req, res) => {
+  try {
+    const [services] = await db.query('SELECT * FROM services WHERE tenant_id = ? ORDER BY name', [req.user.tenant_id]);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Serviços');
+
+    worksheet.columns = [
+      { header: 'Nome', key: 'name', width: 30 },
+      { header: 'Categoria', key: 'category', width: 20 },
+      { header: 'Preço/Valor', key: 'price', width: 15 },
+      { header: 'Duração (min)', key: 'duration', width: 15 },
+      { header: 'Custo Profissional', key: 'cost', width: 20 },
+      { header: 'Modalidade', key: 'modality', width: 15 },
+      { header: 'Descrição', key: 'description', width: 40 },
+      { header: 'Ativo', key: 'active', width: 10 }
+    ];
+
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    });
+
+    services.forEach(s => {
+      worksheet.addRow({
+        name: s.name,
+        category: s.category,
+        price: s.price,
+        duration: s.duration,
+        cost: s.cost,
+        modality: s.modality,
+        description: s.description,
+        active: s.active ? 'Sim' : 'Não'
+      });
+    });
+
+    worksheet.autoFilter = 'A1:H1';
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=servicos_exportados.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao exportar serviços' });
+  }
+});
+
+// POST /services/import
+router.post('/import', memoryUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json(sheet);
+
+    const imported = [];
+    const errors = [];
+
+    const findValue = (row, ...names) => {
+        const rowKeys = Object.keys(row);
+        for (const name of names) {
+            const normalizedName = name.toLowerCase().trim();
+            const key = rowKeys.find(k => k.toLowerCase().trim() === normalizedName);
+            if (key && row[key] !== undefined && row[key] !== '') return row[key];
+        }
+        return null;
+    };
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const name = findValue(row, 'Nome', 'Serviço', 'Atendimento');
+        
+        if (!name || String(name).toLowerCase().includes('exemplo')) continue;
+
+        try {
+            const [result] = await db.query(
+                `INSERT INTO services (
+                    tenant_id, name, category, price, duration, cost, modality, description
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    req.user.tenant_id,
+                    name,
+                    findValue(row, 'Categoria', 'Grupo') || 'Geral',
+                    parseFloat(findValue(row, 'Preço', 'Valor', 'Preço/Valor')) || 0,
+                    parseInt(findValue(row, 'Duração', 'Minutos')) || 50,
+                    parseFloat(findValue(row, 'Custo', 'Custo Profissional')) || 0,
+                    findValue(row, 'Modalidade', 'Tipo') || 'presencial',
+                    findValue(row, 'Descrição', 'Obs', 'Observação')
+                ]
+            );
+            imported.push({ id: result.insertId, name });
+        } catch (e) {
+            errors.push(`Linha ${i + 2}: ${e.message}`);
+        }
+    }
+
+    res.json({
+        message: `${imported.length} serviços importados com sucesso`,
+        importedLength: imported.length,
+        errors
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao importar serviços' });
   }
 });
 

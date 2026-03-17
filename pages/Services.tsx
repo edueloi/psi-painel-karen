@@ -230,7 +230,10 @@ export const Services: React.FC = () => {
 
   const handleExportTemplate = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/services/export-template`, {
+      const endpoint = activeTab === 'services' ? '/services/export-template' : '/packages/export-template';
+      const filename = activeTab === 'services' ? 'modelo_importacao_servicos.xlsx' : 'modelo_importacao_pacotes.xlsx';
+      
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
       });
       if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
@@ -238,7 +241,7 @@ export const Services: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'modelo_importacao_servicos.xlsx';
+      a.download = filename;
       a.click();
     } catch (err) {
       console.error('Erro ao baixar modelo:', err);
@@ -246,9 +249,12 @@ export const Services: React.FC = () => {
     }
   };
 
-  const handleExportServices = async () => {
+  const handleExportData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/services/export`, {
+      const endpoint = activeTab === 'services' ? '/services/export' : '/packages/export';
+      const filename = activeTab === 'services' ? 'servicos_exportados.xlsx' : 'pacotes_exportados.xlsx';
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
       });
       if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
@@ -256,11 +262,11 @@ export const Services: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'servicos_exportados.xlsx';
+      a.download = filename;
       a.click();
     } catch (err) {
-      console.error('Erro ao exportar serviços:', err);
-      pushToast('error', 'Erro ao exportar serviços.');
+      console.error('Erro ao exportar:', err);
+      pushToast('error', 'Erro ao exportar dados.');
     }
   };
 
@@ -270,18 +276,24 @@ export const Services: React.FC = () => {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const result = await api.request<any>('/services/import', { method: 'POST', body: formData });
+      const endpoint = activeTab === 'services' ? '/services/import' : '/packages/import';
+      const result = await api.request<any>(endpoint, { method: 'POST', body: formData });
       pushToast('success', result.message);
       if (result.errors && result.errors.length > 0) {
         console.warn('Erros na importação:', result.errors);
         pushToast('error', 'Algumas linhas tiveram erros. Verifique o console.');
       }
       // Re-fetch data
-      const srvs = await api.get<Service[]>('/services');
-      setServices(srvs || []);
+      if (activeTab === 'services') {
+        const srvs = await api.get<Service[]>('/services');
+        setServices(srvs || []);
+      } else {
+        const pkgs = await api.get<ServicePackage[]>('/packages');
+        setPackages(pkgs || []);
+      }
     } catch (err) {
       console.error('Erro ao importar:', err);
-      pushToast('error', 'Erro ao importar serviços.');
+      pushToast('error', `Erro ao importar ${activeTab === 'services' ? 'serviços' : 'pacotes'}.`);
     } finally {
       e.target.value = '';
     }
@@ -324,8 +336,8 @@ export const Services: React.FC = () => {
                 <Download size={14} /> <span className="hidden sm:inline">Modelo</span>
               </button>
               <button
-                onClick={handleExportServices}
-                title="Exportar Serviços"
+                onClick={handleExportData}
+                title={activeTab === 'services' ? "Exportar Serviços" : "Exportar Pacotes"}
                 className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
               >
                 <FileDown size={14} /> <span className="hidden sm:inline">Exportar</span>

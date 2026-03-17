@@ -284,7 +284,7 @@ export const Messages: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-slate-900">Mensagens Pré-definidas</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Crie modelos inteligentes com variáveis dinâmicas.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Crie modelos inteligentes com variáveis dinâmicas para seu atendimento.</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -528,15 +528,15 @@ export const Messages: React.FC = () => {
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
               <button
                 onClick={() => setIsSendModalOpen(false)}
-                className="px-6 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors"
+                className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
               >
-                Cancelar
+                DESCARTAR
               </button>
               <button
                 onClick={handleSendWhatsApp}
-                className="px-8 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg shadow-lg shadow-emerald-600/20 transition-all font-bold text-xs uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
+                className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl shadow-xl shadow-emerald-600/20 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
               >
-                <Send size={16}/> Enviar ({selectedPatientIds.length})
+                <Send size={16}/> ENVIAR ({selectedPatientIds.length})
               </button>
             </div>
           </div>
@@ -624,15 +624,15 @@ export const Messages: React.FC = () => {
                 <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
                     <button 
                         onClick={() => setIsModalOpen(false)}
-                        className="px-6 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors"
+                        className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
                     >
-                        Cancelar
+                        DESCARTAR
                     </button>
                     <button 
                         onClick={handleSave}
-                        className="px-8 py-2.5 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-lg shadow-lg shadow-sky-600/20 transition-all font-bold text-xs uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
+                        className="px-8 py-3 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-2xl shadow-xl shadow-sky-600/20 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
                     >
-                        <Check size={18}/> Salvar Modelo
+                        <Check size={18}/> SALVAR MODELO
                     </button>
                 </div>
             </div>

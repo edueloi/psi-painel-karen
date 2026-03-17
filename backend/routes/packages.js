@@ -3,6 +3,12 @@ const router = express.Router();
 const db = require('../db');
 const { authorize } = require('../middleware/auth');
 
+const multer = require('multer');
+const ExcelJS = require('exceljs');
+const xlsx = require('xlsx');
+
+const memoryUpload = multer({ storage: multer.memoryStorage() });
+
 // GET /packages
 router.get('/', async (req, res) => {
   try {
@@ -24,6 +30,194 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar pacotes' });
+  }
+});
+
+// GET /packages/export-template
+router.get('/export-template', async (req, res) => {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Dados para Importar');
+  
+  worksheet.columns = [
+    { header: 'Nome do Pacote', key: 'name', width: 30 },
+    { header: 'Descrição', key: 'description', width: 40 },
+    { header: 'Tipo Desconto (percentage/fixed)', key: 'discountType', width: 30 },
+    { header: 'Valor Desconto', key: 'discountValue', width: 15 },
+    { header: 'Serviços (Nome:Qtd; Nome:Qtd)', key: 'items', width: 60 }
+  ];
+
+  // Estilo do cabeçalho
+  worksheet.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
+    cell.alignment = { horizontal: 'center' };
+  });
+
+  worksheet.addRow({
+    name: 'Combo Terapia Mensal',
+    description: '4 sessões de terapia individual com desconto',
+    discountType: 'percentage',
+    discountValue: 10,
+    items: 'Psicoterapia Individual:4'
+  });
+
+  worksheet.autoFilter = 'A1:E1';
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=modelo_importacao_pacotes.xlsx');
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+// GET /packages/export
+router.get('/export', async (req, res) => {
+  try {
+    const [packages] = await db.query('SELECT * FROM packages WHERE tenant_id = ? ORDER BY name', [req.user.tenant_id]);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Pacotes');
+
+    worksheet.columns = [
+      { header: 'Nome', key: 'name', width: 30 },
+      { header: 'Descrição', key: 'description', width: 40 },
+      { header: 'Tipo Desconto', key: 'discountType', width: 20 },
+      { header: 'Valor Desconto', key: 'discountValue', width: 15 },
+      { header: 'Preço Total', key: 'totalPrice', width: 15 },
+      { header: 'Serviços Incluídos', key: 'items', width: 60 }
+    ];
+
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
+    });
+
+    for (const pkg of packages) {
+      const [items] = await db.query(
+        'SELECT s.name, pi.quantity FROM package_items pi JOIN services s ON s.id = pi.service_id WHERE pi.package_id = ?',
+        [pkg.id]
+      );
+      const itemsStr = items.map(i => `${i.name}:${i.quantity}`).join('; ');
+
+      worksheet.addRow({
+        name: pkg.name,
+        description: pkg.description,
+        discountType: pkg.discountType,
+        discountValue: pkg.discountValue,
+        totalPrice: pkg.totalPrice,
+        items: itemsStr
+      });
+    }
+
+    worksheet.autoFilter = 'A1:F1';
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=pacotes_exportados.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao exportar pacotes' });
+  }
+});
+
+// POST /packages/import
+router.post('/import', memoryUpload.single('file'), async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json(sheet);
+
+    const imported = [];
+    const errors = [];
+
+    const findValue = (row, ...names) => {
+        const rowKeys = Object.keys(row);
+        for (const name of names) {
+            const normalizedName = name.toLowerCase().trim();
+            const key = rowKeys.find(k => k.toLowerCase().trim() === normalizedName);
+            if (key && row[key] !== undefined && row[key] !== '') return row[key];
+        }
+        return null;
+    };
+
+    await connection.beginTransaction();
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const name = findValue(row, 'Nome', 'Pacote', 'Nome do Pacote');
+        
+        if (!name || String(name).toLowerCase().includes('exemplo')) continue;
+
+        try {
+            const description = findValue(row, 'Descrição', 'Obs');
+            const discountType = findValue(row, 'Tipo Desconto', 'Tipo') || 'percentage';
+            const discountValue = parseFloat(findValue(row, 'Valor Desconto', 'Desconto')) || 0;
+            const itemsStr = findValue(row, 'Serviços', 'Itens') || '';
+
+            // Inserir pacote
+            const [pkgResult] = await connection.query(
+                'INSERT INTO packages (tenant_id, name, description, discountType, discountValue, totalPrice) VALUES (?, ?, ?, ?, ?, ?)',
+                [req.user.tenant_id, name, description, discountType, discountValue, 0]
+            );
+            const packageId = pkgResult.insertId;
+
+            let subtotal = 0;
+            const serviceItems = itemsStr.split(';').map(s => s.trim()).filter(Boolean);
+            
+            for (const item of serviceItems) {
+                const [sName, sQty] = item.split(':').map(val => val.trim());
+                const qty = parseInt(sQty) || 1;
+                
+                // Buscar serviço por nome
+                const [services] = await connection.query(
+                    'SELECT id, price FROM services WHERE name = ? AND tenant_id = ?',
+                    [sName, req.user.tenant_id]
+                );
+
+                if (services.length > 0) {
+                    const service = services[0];
+                    await connection.query(
+                        'INSERT INTO package_items (package_id, service_id, quantity) VALUES (?, ?, ?)',
+                        [packageId, service.id, qty]
+                    );
+                    subtotal += service.price * qty;
+                }
+            }
+
+            // Recalcular preço total
+            let totalPrice = subtotal;
+            if (discountType === 'percentage') {
+                totalPrice = subtotal - (subtotal * (discountValue / 100));
+            } else {
+                totalPrice = subtotal - discountValue;
+            }
+            totalPrice = Math.max(0, totalPrice);
+
+            await connection.query('UPDATE packages SET totalPrice = ? WHERE id = ?', [totalPrice, packageId]);
+
+            imported.push({ id: packageId, name });
+        } catch (e) {
+            errors.push(`Linha ${i + 2}: ${e.message}`);
+        }
+    }
+
+    await connection.commit();
+
+    res.json({
+        message: `${imported.length} pacotes importados com sucesso`,
+        importedLength: imported.length,
+        errors
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao importar pacotes' });
+  } finally {
+    connection.release();
   }
 });
 

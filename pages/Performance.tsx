@@ -57,6 +57,11 @@ export const Performance: React.FC = () => {
     return Math.max(...data.peakDays.map((d: any) => Number(d.count) || 0));
   }, [data]);
 
+  const maxPeakHours = useMemo(() => {
+    if (!data?.peakHours?.length) return 1;
+    return Math.max(...data.peakHours.map((d: any) => Number(d.count) || 0));
+  }, [data]);
+
   if (loading) {
     return (
       <div className="h-96 flex flex-col items-center justify-center gap-4">
@@ -76,7 +81,7 @@ export const Performance: React.FC = () => {
     );
   }
 
-  const { totals, series, hoursSeries, peakDays } = data;
+  const { totals, series, hoursSeries, peakDays, peakHours } = data;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -224,11 +229,11 @@ export const Performance: React.FC = () => {
           </div>
       </div>
 
-      {/* BOTTOM SECTION: Peak Days & Best Clients */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* BOTTOM SECTION: Peak Days, Peak Hours, Best Clients & Metrics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
           
           {/* Peak Days Chart */}
-          <div className="lg:col-span-1 bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-8">
                   <div>
                       <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
@@ -244,7 +249,7 @@ export const Performance: React.FC = () => {
                       const dayIdx = i + 1; // MySQL DAYOFWEEK is 1-7
                       const dataDay = peakDays?.find((d: any) => d.day_index === dayIdx);
                       const count = dataDay ? dataDay.count : 0;
-                      const pct = (count / maxPeak) * 100;
+                      const pct = (count / (maxPeak || 1)) * 100;
 
                       return (
                           <div key={name} className="flex-1 flex flex-col items-center gap-3 h-full group">
@@ -262,8 +267,47 @@ export const Performance: React.FC = () => {
               </div>
           </div>
 
+          {/* Peak Hours Chart */}
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-8">
+                  <div>
+                      <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
+                          <Clock size={18} className="text-indigo-500"/>
+                          Horários de Pico
+                      </h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Distribuição por Hora</p>
+                  </div>
+                  <div className="px-2 py-1 bg-indigo-50 text-indigo-600 text-[8px] font-black rounded-lg">8h - 21h</div>
+              </div>
+
+              <div className="h-56 flex items-end gap-1 px-1">
+                  {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => {
+                      const dataHour = peakHours?.find((d: any) => d.hour === hour);
+                      const count = dataHour ? dataHour.count : 0;
+                      const pct = (count / (maxPeakHours || 1)) * 100;
+
+                      return (
+                          <div key={hour} className="flex-1 flex flex-col items-center gap-2 h-full group">
+                              <div className="flex-1 w-full bg-slate-50/50 rounded-lg relative overflow-hidden flex items-end border border-slate-100/50 group-hover:border-indigo-100 transition-all">
+                                  <div 
+                                      className="w-full bg-gradient-to-t from-indigo-500 to-indigo-400 opacity-80 group-hover:opacity-100 transition-all rounded-t-md"
+                                      style={{ height: count > 0 ? `${pct}%` : '4px' }}
+                                  />
+                                  {count > 0 && (
+                                    <div className="absolute top-1 left-0 w-full text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                      <span className="text-[8px] font-black text-indigo-600 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-full shadow-sm border border-indigo-100">{count}</span>
+                                    </div>
+                                  )}
+                              </div>
+                              <span className="text-[7px] font-black text-slate-400 tracking-tighter">{hour}h</span>
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
+
           {/* Best Clients */}
-          <div className="lg:col-span-1 bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm flex flex-col">
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm flex flex-col">
               <div className="flex items-center gap-3 mb-8">
                   <div className="p-2 bg-amber-50 rounded-xl text-amber-600"><Trophy size={18}/></div>
                   <div>
@@ -293,7 +337,7 @@ export const Performance: React.FC = () => {
           </div>
 
           {/* Metrics List */}
-          <div className="lg:col-span-1 bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
               <div className="flex items-center gap-3 mb-8">
                   <div className="p-2 bg-rose-50 rounded-xl text-rose-600"><Activity size={18}/></div>
                   <h3 className="font-black text-slate-800 text-lg">Métricas Extras</h3>
@@ -302,7 +346,7 @@ export const Performance: React.FC = () => {
               <div className="space-y-4">
                   <EffortItem 
                      label="Dias em Clínica" 
-                     value={`${totals.worked_days} dias`} 
+                     value={`${totals.worked_days || 0} dias`} 
                      icon={<Calendar size={18} />} 
                   />
                   <EffortItem 
@@ -316,7 +360,7 @@ export const Performance: React.FC = () => {
                      icon={<Zap size={18} />} 
                   />
 
-                  <div className="mt-6 pt-6 border-t border-slate-50">
+                  <div className="mt-6 pt-6 border-t border-slate-50/50">
                       <div className="flex justify-between items-center mb-3">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saúde Operacional</span>
                           <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">ESTÁVEL</span>
