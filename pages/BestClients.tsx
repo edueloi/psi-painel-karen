@@ -1,29 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Trophy, TrendingUp, Users, Calendar, Filter, Star, Medal, Crown, ArrowUpRight, DollarSign } from 'lucide-react';
-
-// --- MOCK DATA GENERATOR FOR RANKING ---
-// Creating a larger dataset to demonstrate ranking capabilities
-const generateRankingData = () => {
-  const names = [
-    "Ana Silva", "Bruno Santos", "Carla Dias", "Daniel Oliveira", "Eduarda Costa",
-    "Felipe Pereira", "Gabriela Martins", "Henrique Souza", "Isabela Lima", "João Ferreira",
-    "Karina Alves", "Lucas Rocha", "Mariana Gomes", "Nicolas Ribeiro", "Olivia Carvalho",
-    "Pedro Mendes", "Quintino Ramos", "Rafael Teixeira", "Sophia Nunes", "Thiago Barbosa"
-  ];
-
-  return names.map((name, i) => ({
-    id: `cli-${i}`,
-    name,
-    totalRevenue: Math.floor(Math.random() * 8000) + 1200, // Revenue between 1200 and 9200
-    appointmentCount: Math.floor(Math.random() * 40) + 5, // 5 to 45 appointments
-    lastVisit: new Date(2023, Math.floor(Math.random() * 11), Math.floor(Math.random() * 28) + 1),
-    since: new Date(2022, 0, 1).toLocaleDateString(),
-    status: Math.random() > 0.8 ? 'novo' : 'recorrente',
-    avatarColor: ['bg-blue-100 text-blue-600', 'bg-purple-100 text-purple-600', 'bg-emerald-100 text-emerald-600', 'bg-amber-100 text-amber-600'][Math.floor(Math.random() * 4)]
-  }));
-};
-
-const MOCK_RANKING_DATA = generateRankingData();
+import React, { useState, useMemo, useEffect } from 'react';
+import { Trophy, TrendingUp, Users, Calendar, Filter, Star, Medal, Crown, ArrowUpRight, DollarSign, Loader2, AlertCircle } from 'lucide-react';
+import { api } from '../services/api';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -34,10 +11,38 @@ export const BestClients: React.FC = () => {
   const [period, setPeriod] = useState('all');
   const [topN, setTopN] = useState<5 | 10 | 30>(10);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [clients, setClients] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const data = await api.get<any[]>('/finance/analytics/best-clients');
+        
+        // Add avatar colors based on name hash or just index
+        const colors = ['bg-blue-600', 'bg-purple-600', 'bg-emerald-600', 'bg-amber-600', 'bg-indigo-600', 'bg-pink-600'];
+        const processedData = data.map((c, i) => ({
+          ...c,
+          avatarColor: colors[i % colors.length]
+        }));
+
+        setClients(processedData);
+        setError(null);
+      } catch (err: any) {
+        setError('Ocorreu um erro ao carregar o ranking de clientes.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   // --- LOGIC ---
   const sortedClients = useMemo(() => {
-    let data = [...MOCK_RANKING_DATA];
+    let data = [...clients];
 
     // Filter by Search
     if (searchTerm) {
@@ -51,14 +56,23 @@ export const BestClients: React.FC = () => {
     });
 
     return data.slice(0, topN);
-  }, [metric, topN, searchTerm]);
+  }, [metric, topN, searchTerm, clients]);
 
   const maxVal = metric === 'revenue' ? sortedClients[0]?.totalRevenue : sortedClients[0]?.appointmentCount;
 
   // Stats
-  const totalClients = 142; // Mock total
-  const newClientsMonth = 12; // Mock new
-  const avgTicket = 350; // Mock ticket
+  const totalClients = clients.length;
+  const newClientsMonth = clients.filter(c => {
+    const sinceDate = new Date(c.since);
+    const now = new Date();
+    return sinceDate.getMonth() === now.getMonth() && sinceDate.getFullYear() === now.getFullYear();
+  }).length;
+  
+  const avgTicket = useMemo(() => {
+    const totalRev = clients.reduce((acc, c) => acc + (Number(c.totalRevenue) || 0), 0);
+    const totalApps = clients.reduce((acc, c) => acc + (Number(c.appointmentCount) || 0), 0);
+    return totalApps > 0 ? totalRev / totalApps : 0;
+  }, [clients]);
 
   const getRankIcon = (index: number) => {
       if (index === 0) return <Crown size={24} className="text-yellow-500 fill-yellow-500 animate-pulse" />;
@@ -66,6 +80,25 @@ export const BestClients: React.FC = () => {
       if (index === 2) return <Medal size={24} className="text-amber-700 fill-amber-700" />;
       return <span className="text-lg font-bold text-slate-400 w-6 text-center">{index + 1}º</span>;
   };
+
+  if (loading) {
+    return (
+      <div className="h-96 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-indigo-500" size={48} />
+        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Carregando inteligência de mercado...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-96 flex flex-col items-center justify-center gap-4">
+        <AlertCircle className="text-rose-500" size={48} />
+        <p className="text-slate-500 font-bold">{error}</p>
+        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest">Tentar Novamente</button>
+      </div>
+    );
+  }
 
   const getRankColor = (index: number) => {
       if (index === 0) return 'border-yellow-400 bg-yellow-50/30';

@@ -4,7 +4,8 @@ import { api } from '../services/api';
 import { 
   Search, Plus, User, 
   X, ArrowLeft, Loader2, Tag, Filter, FileText, Paperclip, Trash2,
-  Calendar, ChevronRight, Link, Info, Save, Clock, Video, Activity, Package, Briefcase, UserCheck, Repeat, CheckCircle2, Layers
+  Calendar, ChevronRight, Link, Info, Save, Clock, Video, Activity, Package, Briefcase, UserCheck, Repeat, CheckCircle2, Layers,
+  AlertCircle
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
@@ -87,6 +88,13 @@ export const Records: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isPatientStatusOpen, setIsPatientStatusOpen] = useState(false);
   const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  };
   
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const editorActiveRef = useRef<HTMLDivElement | null>(null);
@@ -449,7 +457,7 @@ export const Records: React.FC = () => {
           setIsPatientStatusOpen(false);
       } catch (e) {
           console.error(e);
-          alert('Erro ao mudar status do paciente');
+          pushToast('error', 'Erro ao mudar status do paciente');
       }
   };
 
@@ -465,7 +473,7 @@ export const Records: React.FC = () => {
           await fetchRecords(selectedPatientId!);
       } catch (e) {
           console.error(e);
-          alert('Erro ao mudar status do registro');
+          pushToast('error', 'Erro ao mudar status do registro');
       } finally {
           setIsChangingStatus(null);
       }
@@ -496,7 +504,7 @@ export const Records: React.FC = () => {
           await fetchRecords(selectedPatient.id);
           setIsEditorOpen(false);
       } catch (e: any) {
-          alert(e.message || 'Erro ao salvar prontuario');
+          pushToast('error', e.message || 'Erro ao salvar prontuario');
       }
   };
 
@@ -954,6 +962,15 @@ export const Records: React.FC = () => {
           </div>
         </div>
       )}
+      {/* TOASTS */}
+      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
+        {toasts.map(t => (
+          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+            {t.type === 'success' ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}
+            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

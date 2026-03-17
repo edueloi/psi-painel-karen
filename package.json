@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "migrate": "cd backend && node migrate.js",
-    "patch-db": "cd backend && node patch_database.js"
+    "patch-db": "cd backend && node patch_database.js",`r`n    "reset-db": "cd backend && node reset_database.js"
   },
   "dependencies": {
     "@google/genai": "^1.33.0",

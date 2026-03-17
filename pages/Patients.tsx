@@ -59,6 +59,13 @@ export const Patients: React.FC = () => {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [historyPatient, setHistoryPatient] = useState<Patient | null>(null);
+  const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -217,7 +224,7 @@ export const Patients: React.FC = () => {
       setIsWizardOpen(false);
     } catch (err) {
       console.error('Erro ao salvar paciente:', err);
-      alert('Erro ao salvar paciente. Verifique os dados e tente novamente.');
+      pushToast('error', 'Erro ao salvar paciente. Verifique os dados e tente novamente.');
     }
   };
 
@@ -229,7 +236,7 @@ export const Patients: React.FC = () => {
       if (selectedPatient && String(selectedPatient.id) === deleteId) setSelectedPatient(null);
     } catch (err) {
       console.error('Erro ao excluir paciente:', err);
-      alert('Erro ao excluir paciente.');
+      pushToast('error', 'Erro ao excluir paciente.');
     } finally {
       setDeleteId(null);
     }
@@ -256,7 +263,7 @@ export const Patients: React.FC = () => {
       await fetchPatients();
     } catch (err: any) {
       console.error(err);
-      alert('Erro ao mudar status: ' + (err.message || 'Erro interno'));
+      pushToast('error', 'Erro ao mudar status: ' + (err.message || 'Erro interno'));
     }
   };
 
@@ -355,7 +362,7 @@ export const Patients: React.FC = () => {
       a.click();
     } catch (err) {
       console.error('Erro ao baixar modelo:', err);
-      alert('Erro ao baixar modelo.');
+      pushToast('error', 'Erro ao baixar modelo.');
     }
   };
 
@@ -373,7 +380,7 @@ export const Patients: React.FC = () => {
       a.click();
     } catch (err) {
       console.error('Erro ao exportar pacientes:', err);
-      alert('Erro ao exportar pacientes.');
+      pushToast('error', 'Erro ao exportar pacientes.');
     }
   };
 
@@ -384,15 +391,15 @@ export const Patients: React.FC = () => {
     formData.append('file', file);
     try {
       const result = await api.request<any>('/patients/import', { method: 'POST', body: formData });
-      alert(result.message);
+      pushToast('success', result.message);
       if (result.errors && result.errors.length > 0) {
         console.warn('Erros na importação:', result.errors);
-        alert('Algumas linhas tiveram erros. Verifique o console.');
+        pushToast('error', 'Algumas linhas tiveram erros. Verifique o console.');
       }
       fetchPatients();
     } catch (err) {
       console.error('Erro ao importar:', err);
-      alert('Erro ao importar pacientes.');
+      pushToast('error', 'Erro ao importar pacientes.');
     } finally {
       e.target.value = '';
     }
@@ -1096,6 +1103,15 @@ export const Patients: React.FC = () => {
         patient={historyPatient}
         onClose={() => setHistoryPatient(null)}
       />
+      {/* TOASTS */}
+      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
+        {toasts.map(t => (
+          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+            {t.type === 'success' ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}
+            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

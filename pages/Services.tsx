@@ -59,6 +59,13 @@ export const Services: React.FC = () => {
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [editingPackage, setEditingPackage] = useState<Partial<ServicePackage> | null>(null);
   const [deleteId, setDeleteId] = useState<{id: string, type: 'service' | 'package'} | null>(null);
+  const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  };
 
   // Carregar Dados
   useEffect(() => {
@@ -134,9 +141,10 @@ export const Services: React.FC = () => {
         setServices(prev => [saved, ...prev]);
       }
       setIsServiceModalOpen(false);
+      pushToast('success', 'Serviço salvo com sucesso!');
     } catch (err) {
       console.error('Erro ao salvar serviço:', err);
-      alert('Erro ao salvar serviço. Verifique se todos os campos estão corretos.');
+      pushToast('error', 'Erro ao salvar serviço. Verifique os dados e tente novamente.');
     }
   };
 
@@ -151,8 +159,10 @@ export const Services: React.FC = () => {
         setPackages(prev => prev.filter(p => p.id !== deleteId.id));
       }
       setDeleteId(null);
+      pushToast('success', 'Excluído com sucesso!');
     } catch (err) {
       console.error('Erro ao deletar:', err);
+      pushToast('error', 'Erro ao excluir item.');
     }
   };
 
@@ -210,9 +220,10 @@ export const Services: React.FC = () => {
         setPackages(prev => [saved, ...prev]);
       }
       setIsPackageModalOpen(false);
+      pushToast('success', 'Pacote salvo com sucesso!');
     } catch (err) {
       console.error('Erro ao salvar pacote:', err);
-      alert('Erro ao salvar pacote. Verifique se todos os campos estão corretos.');
+      pushToast('error', 'Erro ao salvar pacote. Verifique os dados e tente novamente.');
     }
   };
 

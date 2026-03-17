@@ -62,6 +62,15 @@ export const Finance: React.FC = () => {
   const [txBeneficiaryName, setTxBeneficiaryName] = useState('');
   const [txBeneficiaryCpf, setTxBeneficiaryCpf] = useState('');
   const [txObservation, setTxObservation] = useState('');
+  
+  const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -138,7 +147,7 @@ export const Finance: React.FC = () => {
 
   const handleSaveTransaction = async () => {
       if (!txAmount || !txDate || !txCategory) {
-          alert('Preencha os campos obrigatórios');
+          pushToast('error', 'Preencha os campos obrigatórios');
           return;
       }
 
@@ -168,16 +177,24 @@ export const Finance: React.FC = () => {
           fetchData();
       } catch (err) {
           console.error('Erro ao salvar transação:', err);
+          pushToast('error', 'Erro ao salvar transação');
       }
   };
 
-  const handleDeleteTransaction = async (id: string) => {
-      if (!confirm('Tem certeza que deseja excluir este lançamento?')) return;
+  const handleDeleteTransaction = (id: string) => {
+      setDeleteConfirmId(id);
+  };
+
+  const confirmDelete = async () => {
+      if (!deleteConfirmId) return;
       try {
-          await api.delete(`/finance/${id}`);
+          await api.delete(`/finance/${deleteConfirmId}`);
+          setDeleteConfirmId(null);
+          pushToast('success', 'Lançamento excluído com sucesso');
           fetchData();
       } catch (err) {
           console.error('Erro ao excluir transação:', err);
+          pushToast('error', 'Erro ao excluir transação');
       }
   };
 
@@ -854,6 +871,45 @@ export const Finance: React.FC = () => {
               </div>
           </div>
       </Modal>
+
+      {/* DELETE CONFIRMATION */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
+              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-red-100">
+                <Trash2 size={40} />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mb-3">Excluir Lançamento?</h3>
+              <p className="text-sm font-bold text-slate-400 mb-8 leading-relaxed">
+                Esta ação é irreversível e afetará seu balanço mensal.
+              </p>
+              <div className="flex flex-col gap-3">
+                 <button 
+                  onClick={confirmDelete}
+                  className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-100 transition-all"
+                 >
+                   CONFIRMAR EXCLUSÃO
+                 </button>
+                 <button 
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                 >
+                   CANCELAR
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* TOASTS */}
+      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
+        {toasts.map(t => (
+          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+            {t.type === 'success' ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}
+            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

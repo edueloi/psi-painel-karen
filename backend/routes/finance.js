@@ -449,4 +449,80 @@ router.delete('/comandas/:id', async (req, res) => {
   }
 });
 
+// GET /finance/analytics/best-clients
+router.get('/analytics/best-clients', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const [data] = await db.query(`
+      SELECT 
+        p.id, 
+        p.name, 
+        p.created_at as since,
+        COALESCE((SELECT SUM(amount) FROM financial_transactions WHERE patient_id = p.id AND type = 'income' AND tenant_id = ?), 0) as totalRevenue,
+        (SELECT COUNT(*) FROM appointments WHERE patient_id = p.id AND status = 'completed' AND tenant_id = ?) as appointmentCount,
+        (SELECT MAX(start_time) FROM appointments WHERE patient_id = p.id AND tenant_id = ?) as lastVisit
+      FROM patients p
+      WHERE p.tenant_id = ?
+      HAVING totalRevenue > 0 OR appointmentCount > 0
+      ORDER BY totalRevenue DESC
+      LIMIT 30
+    `, [tenantId, tenantId, tenantId, tenantId]);
+    
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar melhores clientes' });
+  }
+});
+
+// GET /finance/analytics/performance
+router.get('/analytics/performance', async (req, res) => {
+  try {
+    const { period } = req.query; 
+    const tenantId = req.user.tenant_id;
+    
+    let timeGroup = "DATE_FORMAT(date, '%Y-%m-%d')";
+    if (period === 'year') timeGroup = "DATE_FORMAT(date, '%Y-%m')";
+
+    const [series] = await db.query(`
+      SELECT ${timeGroup} as label, 
+             SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
+             SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expense
+      FROM financial_transactions
+      WHERE tenant_id = ?
+      GROUP BY label
+      ORDER BY MIN(date) ASC
+    `, [tenantId]);
+
+    const [totals] = await db.query(`
+      SELECT 
+        SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expense,
+        COUNT(DISTINCT DATE(date)) as worked_days
+      FROM financial_transactions
+      WHERE tenant_id = ?
+    `, [tenantId]);
+
+    const [sessions] = await db.query(`
+      SELECT COUNT(*) as count 
+      FROM appointments 
+      WHERE tenant_id = ? AND status = 'completed'
+    `, [tenantId]);
+
+    res.json({
+      series,
+      totals: {
+        income: parseFloat(totals[0].income || 0),
+        expense: parseFloat(totals[0].expense || 0),
+        profit: parseFloat((totals[0].income || 0) - (totals[0].expense || 0)),
+        worked_days: totals[0].worked_days || 0,
+        sessions: sessions[0].count || 0
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar performance' });
+  }
+});
+
 module.exports = router;

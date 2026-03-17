@@ -1,6 +1,7 @@
 /**
  * Migração do banco de dados PsiFlux
  * Execute: node migrate.js
+ * Seguro para dados existentes: nao remove tabelas.
  */
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
@@ -21,21 +22,8 @@ async function migrate() {
   await conn.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'psiflux'}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
   await conn.query(`USE \`${process.env.DB_NAME || 'psiflux'}\``);
 
-  // ---- DROP tabelas antigas (schema novo) ----
-  await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-  const oldTables = [
-    'message_templates','uploads','doc_templates','doc_categories',
-    'financial_transactions','comandas','form_responses','forms',
-    'case_study_cards','case_study_columns','case_study_boards',
-    'clinical_tools','pei_abc','pei_goal_history','pei_goals','pei',
-    'medical_records','virtual_rooms','appointments','services',
-    'patients','users','tenants','plans','master_permission_profiles'
-  ];
-  for (const table of oldTables) {
-    await conn.query(`DROP TABLE IF EXISTS \`${table}\``);
-  }
-  await conn.query('SET FOREIGN_KEY_CHECKS = 1');
-  console.log('   Tabelas antigas removidas, criando novo schema...');
+  console.log('   Preservando tabelas existentes e aplicando schema incremental...');
+  console.log('   Para reset destrutivo, use reset_database.js com ALLOW_DESTRUCTIVE_MIGRATION=true.');
 
   // ---- MASTER PERMISSION PROFILES ----
   await conn.query(`
