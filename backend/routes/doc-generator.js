@@ -226,4 +226,115 @@ router.delete('/doc-templates/:id', async (req, res) => {
   }
 });
 
+// POST /doc-generator/seed-defaults
+router.post('/seed-defaults', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+
+    // 1. Criar Categorias Padrão
+    const categories = ['Psicologia', 'Documentos Oficiais', 'Financeiro', 'Relatórios'];
+    const catMap = {};
+
+    for (const catName of categories) {
+      const [existing] = await db.query('SELECT id FROM doc_categories WHERE tenant_id = ? AND name = ?', [tenantId, catName]);
+      if (existing.length > 0) {
+        catMap[catName] = existing[0].id;
+      } else {
+        const [result] = await db.query('INSERT INTO doc_categories (tenant_id, name) VALUES (?, ?)', [tenantId, catName]);
+        catMap[catName] = result.insertId;
+      }
+    }
+
+    // 2. Definir Templates Padrão
+    const defaultTemplates = [
+      {
+        title: 'Atestado Psicológico',
+        category: 'Psicologia',
+        doc_type: 'atestado',
+        body: `Atesto para os devidos fins que o(a) Sr(a). {{patient_name}}, portador(a) do CPF {{patient_cpf}}, encontra-se em acompanhamento psicológico nesta data, no período de {{time_start}} às {{time_end}}.
+
+O referido paciente apresenta condições que o(a) impossibilitam de exercer suas atividades laborais/escolares pelo período de _______ dia(s).
+
+{{city}}, {{date}}.`
+      },
+      {
+        title: 'Declaração de Comparecimento',
+        category: 'Documentos Oficiais',
+        doc_type: 'declaracao',
+        body: `Declaro para os devidos fins que {{patient_name}}, portador(a) do CPF {{patient_cpf}}, compareceu à sessão de psicoterapia no dia {{date}}, no horário das {{time_start}} às {{time_end}}.
+
+A presente declaração é a expressão da verdade.
+
+{{city}}, {{date}}.`
+      },
+      {
+        title: 'Recibo (Valor)',
+        category: 'Financeiro',
+        doc_type: 'recibo',
+        body: `Recebi de {{patient_name}}, portador(a) do CPF {{patient_cpf}}, a importância de R$ {{amount}} ({{amount_text}}), referente aos serviços de {{service_name}} realizados no período de __________.
+
+Damos plena quitação pelo valor recebido.
+
+{{city}}, {{date}}.`
+      },
+      {
+        title: 'Evolução de Prontuário',
+        category: 'Relatórios',
+        doc_type: 'prontuario',
+        body: `Sessão realizada em: {{date}}
+Horário: {{time_start}} - {{time_end}}
+Paciente: {{patient_name}}
+
+SÍNTESE DA SESSÃO:
+__________________________________________________________________
+__________________________________________________________________
+__________________________________________________________________
+
+OBSERVAÇÕES:
+__________________________________________________________________
+
+PLANO DE AÇÃO:
+__________________________________________________________________`
+      },
+      {
+        title: 'Ficha de Anamnese (Simplificada)',
+        category: 'Relatórios',
+        doc_type: 'ficha',
+        body: `DADOS DO PACIENTE:
+Nome: {{patient_name}}
+CPF: {{patient_cpf}}
+Data da Entrevista: {{date}}
+
+QUEIXA PRINCIPAL:
+__________________________________________________________________
+
+HISTÓRICO FAMILIAR:
+__________________________________________________________________
+
+HISTÓRICO DE SAÚDE:
+__________________________________________________________________
+
+OBSERVAÇÕES CLÍNICAS:
+__________________________________________________________________`
+      }
+    ];
+
+    for (const tpl of defaultTemplates) {
+      const [existing] = await db.query('SELECT id FROM doc_templates WHERE tenant_id = ? AND title = ?', [tenantId, tpl.title]);
+      if (existing.length === 0) {
+        await db.query(
+          `INSERT INTO doc_templates (tenant_id, title, doc_type, template_body, category_id, signature_name, signature_crp) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [tenantId, tpl.title, tpl.doc_type, tpl.body, catMap[tpl.category], req.user.name, req.user.crp || '']
+        );
+      }
+    }
+
+    res.json({ message: 'Modelos padrão importados com sucesso!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao importar modelos padrão' });
+  }
+});
+
 module.exports = router;

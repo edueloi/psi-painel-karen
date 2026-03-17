@@ -21,7 +21,8 @@ import {
   Briefcase,
   MapPin,
   Stethoscope,
-  Info
+  Info,
+  Sparkles
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
@@ -109,6 +110,7 @@ export const DocGenerator: React.FC = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploadError, setUploadError] = useState('');
   const [uploadingTarget, setUploadingTarget] = useState<string | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -446,6 +448,22 @@ export const DocGenerator: React.FC = () => {
     }
   };
 
+  const handleSeedDefaults = async () => {
+    if (!window.confirm('Deseja importar os modelos de documentos padrão? Isso não apagará seus modelos atuais.')) return;
+    
+    setIsSeeding(true);
+    try {
+      await api.post('/doc-generator/seed-defaults', {});
+      await fetchData();
+      alert('Modelos padrão importados com sucesso!');
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao importar modelos padrão.');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-4 lg:p-8">
       {/* Search and Filters Header */}
@@ -460,6 +478,13 @@ export const DocGenerator: React.FC = () => {
             </div>
         </div>
         <div className="flex items-center gap-3">
+             <button 
+                onClick={handleSeedDefaults} 
+                disabled={isSeeding}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-2xl text-[11px] font-black border border-emerald-100 hover:bg-emerald-100 transition-all disabled:opacity-50"
+             >
+                <Sparkles size={14} /> {isSeeding ? 'IMPORTANDO...' : 'IMPORTAR PADRÕES'}
+             </button>
              <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-50 text-slate-600 rounded-2xl text-[11px] font-black border border-slate-100 hover:bg-slate-100 transition-all">
                 <Settings size={14} /> CATEGORIAS
              </button>
