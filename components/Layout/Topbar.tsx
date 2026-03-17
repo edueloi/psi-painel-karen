@@ -6,6 +6,7 @@ import { User } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { getStaticUrl } from '../../services/api';
+import { SystemAlerts } from '../SystemAlerts';
 
 
 interface TopbarProps {
@@ -66,10 +67,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
       <div className="flex items-center gap-2 md:gap-4">
 
         {/* Notifications */}
-        <button className="relative p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-200">
-          <Bell size={20} />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white shadow-sm"></span>
-        </button>
+        <SystemAlerts />
 
         <div className="h-7 w-px bg-slate-200/70 hidden md:block"></div>
 

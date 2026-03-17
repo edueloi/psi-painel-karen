@@ -123,6 +123,7 @@ export const DocGenerator: React.FC = () => {
   const [templateFooterLogo, setTemplateFooterLogo] = useState('');
   const [templateSignatureName, setTemplateSignatureName] = useState('');
   const [templateSignatureCrp, setTemplateSignatureCrp] = useState('');
+  const [isConfirmSeedModalOpen, setIsConfirmSeedModalOpen] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
 
   const pushToast = (type: 'success' | 'error', message: string) => {
@@ -456,9 +457,8 @@ export const DocGenerator: React.FC = () => {
   };
 
   const handleSeedDefaults = async () => {
-    if (!window.confirm('Deseja importar os modelos de documentos padrão? Isso não apagará seus modelos atuais.')) return;
-    
     setIsSeeding(true);
+    setIsConfirmSeedModalOpen(false);
     try {
       await api.post('/doc-generator/seed-defaults', {});
       await fetchData();
@@ -482,31 +482,40 @@ export const DocGenerator: React.FC = () => {
           </div>
         ))}
       </div>
-      {/* Search and Filters Header */}
-      <div className="bg-white rounded-[2rem] p-6 mb-8 border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
-                <FileText size={24} />
+      {/* Page Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-5 mb-8 rounded-3xl shadow-sm">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm">
+                <FileText size={20} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900">Emissor de Documentos</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Laudos, atestados e prontuários profissionais inteligentes.</p>
+              </div>
             </div>
-            <div>
-                <h1 className="text-xl font-black text-slate-800 tracking-tight">Emissor de Documentos</h1>
-                <p className="text-xs font-bold text-slate-400">Gere laudos, atestados e prontuários profissionais.</p>
-            </div>
-        </div>
-        <div className="flex items-center gap-3">
-             <button 
-                onClick={handleSeedDefaults} 
+            
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsConfirmSeedModalOpen(true)}
                 disabled={isSeeding}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-2xl text-[11px] font-black border border-emerald-100 hover:bg-emerald-100 transition-all disabled:opacity-50"
-             >
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg hover:bg-emerald-100 transition-all border border-emerald-100/50 shadow-sm"
+              >
                 <Sparkles size={14} /> {isSeeding ? 'IMPORTANDO...' : 'IMPORTAR PADRÕES'}
-             </button>
-             <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-50 text-slate-600 rounded-2xl text-[11px] font-black border border-slate-100 hover:bg-slate-100 transition-all">
+              </button>
+              <button 
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+              >
                 <Settings size={14} /> CATEGORIAS
-             </button>
-             <button onClick={() => openTemplateModal()} className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-2xl text-[11px] font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+              </button>
+              <button
+                onClick={() => openTemplateModal()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-violet-700 transition-all shadow-sm"
+              >
                 <Plus size={14} /> NOVO TEMPLATE
-             </button>
+              </button>
+            </div>
         </div>
       </div>
 
@@ -813,144 +822,194 @@ export const DocGenerator: React.FC = () => {
           </div>
       </Modal>
 
-      {/* Category Modal */}
-      <Modal 
-        isOpen={isCategoryModalOpen} 
-        onClose={() => setIsCategoryModalOpen(false)} 
-        title="Gerenciar Categorias"
-      >
-        <div className="space-y-6">
+      {/* Category Manager Modal */}
+      {isCategoryModalOpen && (
+        <Modal 
+          isOpen={isCategoryModalOpen} 
+          onClose={() => setIsCategoryModalOpen(false)} 
+          title="Categorias de Documentos"
+        >
+          <div className="space-y-6">
             <div className="flex gap-2">
-                <Input 
-                    label="Nova Categoria"
-                    placeholder="Ex: Laudos, Avaliações..."
-                    value={newCategoryName}
-                    onChange={e => setNewCategoryName(e.target.value)}
-                />
-                <div className="pt-2">
+              <Input 
+                placeholder="Nova Categoria" 
+                value={newCategoryName} 
+                onChange={e => setNewCategoryName(e.target.value)} 
+                containerClassName="flex-1"
+              />
+              <button 
+                onClick={handleAddCategory}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-2xl text-[11px] font-black hover:bg-indigo-700 transition-all self-end mb-1"
+              >
+                ADC.
+              </button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              {categories.map(c => (
+                <div key={c.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-xs font-bold text-slate-700">{c.name}</span>
+                  <button 
+                    onClick={async () => {
+                      if (window.confirm('Deseja excluir esta categoria?')) {
+                        await api.request(`/doc-generator/doc-categories/${c.id}`, { method: 'DELETE' });
+                        await fetchData();
+                      }
+                    }}
+                    className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Confirmation Modal for Seed Defaults */}
+      {isConfirmSeedModalOpen && (
+        <Modal 
+          isOpen={isConfirmSeedModalOpen} 
+          onClose={() => setIsConfirmSeedModalOpen(false)} 
+          title="Importar Modelos Padrão"
+        >
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Sparkles size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Deseja importar os modelos padrão?</h3>
+            <p className="text-sm text-slate-500 mb-8">
+              Isso adicionará modelos de Atestado, Declaração, Recibo e Relatórios pré-configurados. Seus modelos atuais não serão alterados.
+            </p>
+            
+            <div className="flex justify-center gap-3">
+              <button 
+                onClick={() => setIsConfirmSeedModalOpen(false)}
+                className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+              >
+                CANCELAR
+              </button>
+              <button 
+                onClick={handleSeedDefaults}
+                className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl shadow-xl shadow-emerald-600/20 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95"
+              >
+                SIM, IMPORTAR
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Template Manager Modal */}
+      {isTemplateModalOpen && (
+        <Modal 
+          isOpen={isTemplateModalOpen} 
+          onClose={() => setIsTemplateModalOpen(false)} 
+          title={editingTemplateId ? "Editar Modelo" : "Criar Novo Modelo"}
+          maxWidth="max-w-4xl"
+        >
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input 
+                label="Título do Documento" 
+                value={templateTitle} 
+                onChange={e => setTemplateTitle(e.target.value)} 
+                placeholder="Ex: Laudo Psicológico" 
+              />
+              <Select 
+                label="Tipo de Documento" 
+                value={templateDocType} 
+                onChange={e => setTemplateDocType(e.target.value)}
+              >
+                <option value="atestado">Atestado</option>
+                <option value="declaracao">Declaração</option>
+                <option value="recibo">Recibo</option>
+                <option value="prontuario">Prontuário</option>
+                <option value="ficha">Ficha de Anamnese</option>
+                <option value="laudo">Laudo</option>
+                <option value="outros">Outros</option>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select 
+                label="Categoria" 
+                value={templateCategoryId} 
+                onChange={e => setTemplateCategoryId(e.target.value)}
+              >
+                <option value="">Sem categoria</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+              
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Inserir Variáveis</p>
+                <div className="flex flex-wrap gap-1.5 px-1">
+                  {[
+                    { label: 'Nome', tag: '{{patient_name}}' },
+                    { label: 'CPF', tag: '{{patient_cpf}}' },
+                    { label: 'Data', tag: '{{date}}' },
+                    { label: 'Hora Início', tag: '{{time_start}}' },
+                    { label: 'Hora Fim', tag: '{{time_end}}' },
+                    { label: 'Valor', tag: '{{amount}}' },
+                    { label: 'Cidade', tag: '{{city}}' },
+                  ].map(v => (
                     <button 
-                        onClick={handleAddCategory}
-                        className="h-11 px-6 bg-slate-900 text-white rounded-xl font-black text-xs hover:bg-slate-800 transition-colors"
+                      key={v.tag}
+                      onClick={() => setTemplateBody(prev => prev + ' ' + v.tag)}
+                      className="px-2 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-lg text-[9px] font-black hover:bg-slate-100 transition-colors uppercase tracking-widest"
                     >
-                        ADICIONAR
+                      {v.label}
                     </button>
+                  ))}
                 </div>
+              </div>
             </div>
-
+            
             <div className="space-y-2">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Existentes</h4>
-                {categories.map(c => (
-                    <div key={c.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                        <span className="text-sm font-bold text-slate-700">{c.name}</span>
-                        <button 
-                            onClick={async () => {
-                                if(window.confirm('Excluir categoria?')) {
-                                    await api.delete(`/doc-generator/doc-categories/${c.id}`);
-                                    await fetchData();
-                                }
-                            }}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    </div>
-                ))}
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Corpo do Template (Tags Dinâmicas)</label>
+              <textarea 
+                value={templateBody}
+                onChange={e => setTemplateBody(e.target.value)}
+                className="w-full h-64 p-5 rounded-3xl border border-slate-200 bg-slate-50 text-slate-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none text-[13px] leading-relaxed font-serif"
+                placeholder="Digite o texto do documento aqui..."
+              />
             </div>
-        </div>
-      </Modal>
-
-      {/* Template Modal */}
-      <Modal 
-        isOpen={isTemplateModalOpen} 
-        onClose={() => setIsTemplateModalOpen(false)} 
-        title={editingTemplateId ? "Editar Modelo" : "Criar Novo Modelo"}
-        size="3xl"
-      >
-         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input 
-                   label="Título do Documento"
-                   placeholder="Ex: Laudo Psicológico"
-                   value={templateTitle}
-                   onChange={e => setTemplateTitle(e.target.value)}
-                />
-                <Select
-                  label="Tipo de Documento"
-                  value={templateDocType}
-                  onChange={e => setTemplateDocType(e.target.value)}
-                >
-                    <option value="laudo">Laudo / Relatório</option>
-                    <option value="atestado">Atestado</option>
-                    <option value="receituario">Receituário</option>
-                    <option value="outros">Outros / Papel Timbrado</option>
-                </Select>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select
-                  label="Categoria"
-                  value={templateCategoryId}
-                  onChange={e => setTemplateCategoryId(e.target.value)}
-                >
-                    <option value="">Sem categoria</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </Select>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{patient_name}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: Nome</button>
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{patient_cpf}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: CPF</button>
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{patient_age}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: Idade</button>
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{patient_address}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: Endereço</button>
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{date}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: Data</button>
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{amount}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: Valor R$</button>
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{amount_text}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: Extenso</button>
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{service_name}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: Serviço</button>
-                     <button onClick={() => setTemplateBody(prev => prev + ' {{time_start}}')} className="h-10 bg-slate-50 rounded-xl border border-slate-100 text-[9px] font-black text-slate-500 hover:bg-indigo-50 transition-colors uppercase">Tag: H. Início</button>
-                </div>
-            </div>
-
-            <TextArea 
-               label="Conteúdo do Documento (Corpo)"
-               rows={15}
-               placeholder="Escreva o texto do seu documento aqui. Use {{patient_name}} para o nome do paciente, {{date}} para a data..."
-               value={templateBody}
-               onChange={e => setTemplateBody(e.target.value)}
-               className="font-serif leading-relaxed"
-            />
 
             <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50">
-                <h4 className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-4">
-                    <CheckCircle2 size={14} /> Assinatura do Template
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input 
-                       label="Assinado por (Nome)"
-                       value={templateSignatureName}
-                       onChange={e => setTemplateSignatureName(e.target.value)}
-                    />
-                    <Input 
-                       label="Reg. Profissional (Ex: CRP/CRM/ABPp)"
-                       value={templateSignatureCrp}
-                       onChange={e => setTemplateSignatureCrp(e.target.value)}
-                    />
-                </div>
+              <h4 className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-4">
+                <CheckCircle2 size={14} /> Assinatura do Template
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input 
+                  label="Assinado por (Nome)" 
+                  value={templateSignatureName} 
+                  onChange={e => setTemplateSignatureName(e.target.value)} 
+                />
+                <Input 
+                  label="Reg. Profissional (Ex: CRP/CRM)" 
+                  value={templateSignatureCrp} 
+                  onChange={e => setTemplateSignatureCrp(e.target.value)} 
+                />
+              </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-                <button 
-                  onClick={() => setIsTemplateModalOpen(false)}
-                  className="px-6 py-3 text-sm font-black text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                    CANCELAR
-                </button>
-                <button 
-                  onClick={saveTemplate}
-                  className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                >
-                    SALVAR MODELO
-                </button>
+            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+              <button 
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+              >
+                DESCARTAR
+              </button>
+              <button 
+                onClick={saveTemplate}
+                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
+              >
+                <Save size={18}/> SALVAR TEMPLATE
+              </button>
             </div>
-         </div>
-      </Modal>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

@@ -19,6 +19,7 @@ const servicesRoutes = require('./routes/services');
 const tenantsRoutes = require('./routes/tenants');
 const financeRoutes = require('./routes/finance');
 const docGeneratorRoutes = require('./routes/doc-generator');
+const alertsRoutes = require('./routes/alerts');
 const messagesRoutes = require('./routes/messages');
 const uploadsRoutes = require('./routes/uploads');
 const neuroAssessmentsRoutes = require('./routes/neuro-assessments');
@@ -64,6 +65,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/tenants`, tenantsRoutes);
   app.use(`${prefix}/finance`, financeRoutes);
   app.use(`${prefix}/doc-generator`, docGeneratorRoutes);
+  app.use(`${prefix}/alerts`, alertsRoutes);
   app.use(`${prefix}/messages`, messagesRoutes);
   app.use(`${prefix}/uploads`, uploadsRoutes);
   app.use(`${prefix}/neuro-assessments`, neuroAssessmentsRoutes);
