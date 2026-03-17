@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { api, API_BASE_URL } from '../services/api';
+import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Appointment, Service, Patient, User, AppointmentType } from '../types';
 import { 
     ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin, 
@@ -16,6 +16,10 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
+
+function formatCurrency(value: number) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
 
 const recurrenceOptions = [
     { label: 'Não Repete', freq: '', interval: 1, count: 1 },
@@ -66,7 +70,7 @@ export const Agenda: React.FC = () => {
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [managerTab, setManagerTab] = useState<'atendimentos' | 'pagamentos' | 'pacote'>('atendimentos');
-  const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Dinheiro' });
+  const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
   const [isNewComandaModalOpen, setIsNewComandaModalOpen] = useState(false);
   const [newComandaData, setNewComandaData] = useState({
       type: 'normal' as 'normal' | 'package',
@@ -101,6 +105,10 @@ export const Agenda: React.FC = () => {
       reschedule_reason: '',
       comanda_id: ''
   });
+
+
+  const [profileData, setProfileData] = useState<any>({});
+
 
   const locale = language === 'pt' ? 'pt-BR' : 'en-US';
   const startHour = 6;
@@ -163,13 +171,16 @@ export const Agenda: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-        const [apts, pts, srvs, pkgs, pros] = await Promise.all([
+        const [apts, pts, srvs, pkgs, pros, profile] = await Promise.all([
             api.get<any[]>('/appointments'),
             api.get<any[]>('/patients'),
             api.get<Service[]>('/services'),
             api.get<any[]>('/packages'),
-            api.get<any[]>('/users')
+            api.get<any[]>('/users'),
+            api.get<any>('/profile/me')
         ]);
+        
+        setProfileData(profile || {});
         
         setAppointments(apts.map(a => {
             const start = new Date(a.start_time || a.appointment_date);
@@ -307,28 +318,240 @@ export const Agenda: React.FC = () => {
         await api.put(`/finance/comandas/${comandaId}`, {
             ...cmnd,
             paid_value: newPaidValue,
+            receipt_code: newPayment.receiptCode || cmnd.receipt_code,
             status: newPaidValue >= parseFloat(String(cmnd.totalValue || cmnd.total)) ? 'closed' : 'open'
         });
 
         pushToast('success', 'Pagamento registrado com sucesso!');
         setIsAddPaymentModalOpen(false);
-        setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix' });
+        setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
         
         // Recarregar dados para refletir saldo
         fetchData();
         
         // Recarregar comandas do paciente selecionado
-        const pId = selectedApt?.patient_id;
-        if (pId) {
-            const data = await api.get<any[]>(`/finance/comandas/patient/${pId}`);
-            setPatientComandas(data || []);
+        if (selectedApt?.patient_id) {
+            const res = await api.get(`/finance/comandas?patient_id=${selectedApt.patient_id}`);
+            setPatientComandas(res as any[]);
         }
     } catch (err) {
-        console.error('Erro ao salvar pagamento:', err);
-        pushToast('error', 'Erro ao processar pagamento');
+        console.error(err);
+        pushToast('error', 'Erro ao salvar pagamento');
     }
-};
+  };
 
+  const handleRemoveCharge = async () => {
+    if (!selectedApt) return;
+    if (!window.confirm('Deseja realmente remover o vínculo financeiro deste agendamento?')) return;
+    
+    try {
+        await api.put(`/appointments/${selectedApt.id}`, {
+            ...selectedApt,
+            comanda_id: null
+        });
+        pushToast('success', 'Vínculo financeiro removido.');
+        setIsDetailModalOpen(false);
+        fetchData();
+    } catch (err) {
+        console.error(err);
+        pushToast('error', 'Erro ao remover cobrança.');
+    }
+  };
+
+  const handleGenerateReceipt = () => {
+    if (!selectedApt) return;
+    const srv = services.find(s => String(s.id) === String(selectedApt.service_id));
+    const patientName = selectedApt.patient_name || selectedApt.title || 'Paciente';
+    const amount = srv ? formatCurrency(srv.price) : 'R$ 0,00';
+    const dateStr = selectedApt.start.toLocaleDateString('pt-BR');
+    const fullDateStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const location = (profileData.address || '').split(',').pop()?.trim() || 'São Paulo';
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Recibo - ${patientName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            body { 
+              margin: 0; 
+              padding: 0; 
+              font-family: 'Inter', sans-serif; 
+              color: #00214d; 
+              display: flex;
+              min-height: 100vh;
+            }
+            .sidebar { 
+              width: 40px; 
+              background: #00214d; 
+              height: 100vh; 
+              position: fixed; 
+              left: 0; 
+              top: 0;
+            }
+            .container { 
+              margin-left: 40px; 
+              padding: 60px 80px; 
+              flex: 1; 
+              position: relative;
+            }
+            .header-info { 
+              position: absolute; 
+              top: 60px; 
+              right: 80px; 
+              text-align: right; 
+              font-size: 11px; 
+              color: #00214d;
+              line-height: 1.4;
+            }
+            .logo-circle {
+              width: 120px;
+              height: 120px;
+              background: #00214d;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-size: 10px;
+              font-weight: 900;
+              text-align: center;
+              padding: 10px;
+              box-sizing: border-box;
+              margin-bottom: 40px;
+              overflow: hidden;
+            }
+            .logo-circle img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+            }
+            .date-line {
+              text-align: right;
+              margin: 40px 0 60px 0;
+              font-size: 13px;
+            }
+            .title {
+              text-align: center;
+              font-size: 18px;
+              font-weight: 900;
+              letter-spacing: 2px;
+              margin-bottom: 50px;
+              color: #00214d;
+            }
+            .content {
+              font-size: 14px;
+              line-height: 1.8;
+              text-align: justify;
+              margin-bottom: 30px;
+              color: #334155;
+            }
+            .content b { color: #00214d; }
+            .signature-block {
+              margin-top: 100px;
+              text-align: center;
+              position: relative;
+            }
+            .signature-line {
+              border-top: 1.5px solid #00214d;
+              width: 350px;
+              margin: 0 auto;
+              padding-top: 10px;
+            }
+            .slanted-text {
+              position: absolute;
+              top: -40px;
+              left: 50%;
+              transform: translateX(-50%) rotate(-15deg);
+              font-size: 10px;
+              font-weight: 700;
+              color: #00214d;
+              width: 200px;
+              font-style: italic;
+            }
+            .footer {
+              position: absolute;
+              bottom: 40px;
+              left: 0;
+              right: 0;
+              text-align: center;
+              font-size: 9px;
+              color: #94a3b8;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .print-btn {
+              position: fixed;
+              top: 20px;
+              left: 60px;
+              background: #00214d;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: bold;
+              z-index: 100;
+            }
+            @media print {
+              .print-btn { display: none; }
+              body { -webkit-print-color-adjust: exact; }
+              .sidebar { background: #00214d !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <button class="print-btn" onclick="window.print()">IMPRIMIR RECIBO</button>
+          <div class="sidebar"></div>
+          <div class="container">
+            <div class="header-info">
+              <b>${profileData.name || ''}</b><br/>
+              Psicóloga<br/>
+              CRP: ${profileData.crp || ''}<br/>
+              ${profileData.cpf ? `CPF: ${profileData.cpf}` : ''}
+            </div>
+
+            <div class="logo-circle">
+              ${profileData.clinic_logo_url ? `<img src="${getStaticUrl(profileData.clinic_logo_url)}" />` : 'SEU LOGO AQUI'}
+            </div>
+
+            <div class="date-line">
+              ${location}, ${fullDateStr}
+            </div>
+
+            <div class="title">RECIBO</div>
+
+            <div class="content">
+              Serviço de atendimento psicológico prestados ao(à) <b>${patientName}</b>. 
+              As sessões foram realizadas no dia <b>${dateStr}</b>.
+              <br/><br/>
+              Valor total dos atendimentos prestados na data citada acima: <b>${amount}</b>.
+              <br/><br/>
+              Psicóloga responsável pelos atendimentos prestados: <b>${profileData.name}</b>, CRP: <b>${profileData.crp}</b>.
+            </div>
+
+            <div class="signature-block">
+              <div class="slanted-text">Assinatura e carimbo com constando o CRP</div>
+              <div class="signature-line">
+                <b style="text-transform: uppercase; font-size: 13px;">${profileData.name}</b><br/>
+                <span style="font-size: 11px;">Psicóloga</span>
+              </div>
+            </div>
+
+            <div class="footer">
+              ${profileData.address || ''} | ${profileData.phone || ''}
+            </div>
+          </div>
+          <script>window.onload = () => { setTimeout(() => { window.print(); }, 500); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+    
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -809,56 +1032,60 @@ export const Agenda: React.FC = () => {
                 </div>
             </div>
         ) : (
-            <div className="flex overflow-hidden custom-scrollbar bg-white">
-                {/* Time labels column */}
-                <div className="w-14 flex-shrink-0 bg-slate-50 border-r border-indigo-100/50 select-none">
-                    <div className="h-20 border-b border-indigo-100/50 bg-white"></div>
-                    {hours.map(h => (
-                        <div key={h} className="h-[80px] flex items-start justify-center pt-2 group relative border-b border-indigo-100/5">
-                            <span className="text-[10px] font-black text-indigo-400/40 tabular-nums group-hover:text-indigo-600 transition-colors uppercase tracking-widest">{String(h).padStart(2, '0')}H</span>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Main scrollable area */}
-                <div className="flex-1 overflow-x-auto no-scrollbar">
-                    <div className="flex min-w-full relative" style={{ height: (hours.length * 80) + 80 }}>
-                        {/* THE RED TIME INDICATOR (Now Line) */}
-                        {isSameDay(currentDate, new Date()) && view === 'day' && (
-                            <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center gap-2" 
-                                style={{ top: 80 + (((new Date().getHours() + new Date().getMinutes()/60) - startHour) * 80) }}>
-                                <div className="w-2 h-2 rounded-full bg-rose-500 shadow-lg shadow-rose-200 ml-[-4px]"></div>
-                                <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500 to-transparent"></div>
+            <div className="flex-1 overflow-auto custom-scrollbar bg-white relative">
+                {/* MASTER FLEX CONTAINER */}
+                <div className="flex min-w-max relative" style={{ height: (hours.length * 80) + 50 }}>
+                    
+                    {/* 1. TIME LABELS COLUMN (Sticky Left) */}
+                    <div className="w-14 sticky left-0 z-40 bg-white border-r border-indigo-100/50 flex-shrink-0 select-none">
+                        {/* Intersection (Sticky Top Left) */}
+                        <div className="h-[50px] sticky top-0 z-50 bg-white border-b border-indigo-100/50"></div>
+                        {hours.map(h => (
+                            <div key={h} className="h-[80px] flex items-start justify-center pt-2 group relative border-b border-indigo-100/5">
+                                <span className="text-[10px] font-black text-indigo-400/40 tabular-nums group-hover:text-indigo-600 transition-colors uppercase tracking-widest">{String(h).padStart(2, '0')}H</span>
                             </div>
-                        )}
+                        ))}
+                    </div>
 
-                        {(view === 'day' ? [currentDate] : weekDays).map(day => (
-                            <div key={day.toISOString()} className={`flex-1 border-r border-slate-100 relative min-w-[150px] ${isSameDay(day, new Date()) ? 'bg-slate-50/30' : ''}`}>
-                                {/* Header for each day (Matches Reference Photo) */}
-                                <div className={`h-[50px] flex items-center justify-center sticky top-0 z-30 border-b border-slate-200 transition-all bg-white`}>
+                    {/* 2. THE MAIN GRID AREA */}
+                    <div className="flex-1 flex flex-col">
+                        
+                        {/* DAY HEADERS (Sticky Top) */}
+                        <div className="flex sticky top-0 z-30 bg-white border-b border-slate-200">
+                            {(view === 'day' ? [currentDate] : weekDays).map(day => (
+                                <div key={day.toISOString()} className={`flex-1 min-w-[200px] h-[50px] flex items-center justify-center border-r border-slate-100 transition-all bg-white`}>
                                     <span className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 ${isSameDay(day, new Date()) ? 'text-rose-500' : 'text-slate-500'}`}>
                                         {day.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')} 
                                         <span className="text-sm font-black tabular-nums">{day.getDate()}/{String(day.getMonth() + 1).padStart(2, '0')}</span>
                                     </span>
                                 </div>
+                            ))}
+                        </div>
 
-                                {/* Hours grid */}
-                                <div className="relative h-full">
-                                    {hours.map(h => (
-                                        <div 
-                                            key={h} 
-                                            className="h-[80px] border-b border-slate-100 hover:bg-slate-50/50 transition-colors cursor-crosshair group relative"
-                                            onClick={() => {
-                                                const d = new Date(day);
-                                                d.setHours(h);
-                                                d.setMinutes(0);
-                                                openNewModal(d);
-                                            }}
-                                        >
-                                            <div className="absolute inset-x-0 top-0 h-[1px] bg-slate-200 opacity-0 group-hover:opacity-100"></div>
-                                        </div>
-                                    ))}
+                        {/* APPOINTMENTS GRID */}
+                        <div className="flex relative flex-1">
+                            {/* Horizontal Grid Lines */}
+                            <div className="absolute inset-0 pointer-events-none flex flex-col">
+                                {hours.map(h => (
+                                    <div key={h} className="h-[80px] border-b border-indigo-100/5 w-full"></div>
+                                ))}
+                            </div>
 
+                            {/* THE RED TIME INDICATOR (Now Line) */}
+                            {isSameDay(currentDate, new Date()) && view === 'day' && (
+                                <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center gap-2" 
+                                    style={{ top: (((new Date().getHours() + new Date().getMinutes()/60) - startHour) * 80) }}>
+                                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-lg shadow-rose-200 ml-[-4px]"></div>
+                                    <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500 to-transparent"></div>
+                                </div>
+                            )}
+
+                            {(view === 'day' ? [currentDate] : weekDays).map(day => (
+                                <div 
+                                    key={day.toISOString()} 
+                                    className={`flex-1 border-r border-slate-100 relative min-w-[200px] ${isSameDay(day, new Date()) ? 'bg-slate-50/20' : ''}`}
+                                    onClick={() => openNewModal(day)}
+                                >
                                     {/* APPOINTMENTS CARDS (Precise Reference Match) */}
                                     {getAppointmentsForDay(day)
                                         .sort((a, b) => {
@@ -871,9 +1098,7 @@ export const Agenda: React.FC = () => {
                                             const durMin = (apt.end.getTime() - apt.start.getTime()) / 60000;
                                             const top = (startMin/60) * 80;
                                             const height = (durMin/60) * 80;
-                                            const st = statusMeta[apt.status as keyof typeof statusMeta || 'scheduled'];
 
-                                            const isConsult = apt.type === 'consulta';
                                             const cardBg = apt.type === 'bloqueio' ? '#f1f5f9' : '#800040';
                                             const textColor = apt.type === 'bloqueio' ? '#64748b' : '#ffffff';
 
@@ -917,11 +1142,10 @@ export const Agenda: React.FC = () => {
                                                     </div>
                                                 </button>
                                             );
-                                        })
-                                    }
+                                        })}
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1698,13 +1922,20 @@ export const Agenda: React.FC = () => {
                 <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60" onClick={() => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); }}>
                     <div className="text-indigo-500 shrink-0"><Clock size={16} /></div>
                     <div className="flex-1 min-w-0 flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <h4 className="text-[12px] font-bold text-slate-700">
+                        <div className="flex flex-col">
+                            <h4 className="text-[12px] font-bold text-slate-700 leading-tight">
                                 {selectedApt ? `${selectedApt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${selectedApt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '--:--'}
                             </h4>
-                            <span className="text-[11px] font-medium text-slate-400">
-                                {selectedApt?.start.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {selectedApt?.start.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
+                                </span>
+                                {selectedApt?.recurrence_index && (
+                                    <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded uppercase tracking-widest">
+                                        Sessão {selectedApt.recurrence_index} de {selectedApt.recurrence_count}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <ChevronRight size={14} className="text-slate-300" />
                     </div>
@@ -1771,9 +2002,16 @@ export const Agenda: React.FC = () => {
                                 const paid = cmnd?.paidValue || 0;
                                 const remaining = (cmnd?.totalValue || cmnd?.total || 0) - paid;
                                 return (
-                                    <p className="text-[10px] font-black text-slate-500 uppercase">
-                                        Pago <span className="text-indigo-600">{formatCurrency(paid)}</span> <span className="text-slate-300 mx-1">|</span> Devedor <span className="text-rose-500">{formatCurrency(remaining)}</span>
-                                    </p>
+                                    <div className="flex flex-col">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase">
+                                            Pago <span className="text-indigo-600">{formatCurrency(paid)}</span> <span className="text-slate-300 mx-1">|</span> Devedor <span className="text-rose-500">{formatCurrency(remaining)}</span>
+                                        </p>
+                                        {cmnd?.receipt_code && (
+                                            <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                                                Cód. Recibo: <span className="text-slate-600">#{cmnd.receipt_code}</span>
+                                            </p>
+                                        )}
+                                    </div>
                                 );
                             })()}
                             <ChevronRight size={14} className="text-slate-300" />
@@ -1784,8 +2022,16 @@ export const Agenda: React.FC = () => {
 
             <div className="pt-4 flex flex-col items-center gap-4">
                 <div className="flex gap-10">
-                    <button className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors">REMOVER COBRANÇA</button>
-                    <button className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-slate-900 transition-colors flex items-center gap-1.5">
+                    <button 
+                        onClick={handleRemoveCharge}
+                        className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
+                    >
+                        REMOVER COBRANÇA
+                    </button>
+                    <button 
+                        onClick={handleGenerateReceipt}
+                        className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-slate-900 transition-colors flex items-center gap-1.5"
+                    >
                         <FileText size={14} /> GERAR RECIBO
                     </button>
                 </div>
@@ -1803,205 +2049,295 @@ export const Agenda: React.FC = () => {
       </Modal>
 
       {/* COMANDA MANAGER MODAL */}
+      {/* COMANDA MANAGER MODAL */}
       <Modal
         isOpen={isComandaManagerOpen}
         onClose={() => setIsComandaManagerOpen(false)}
-        title="Comanda Detalhada"
-        maxWidth="max-w-4xl"
+        title={(() => {
+            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+            return `Comanda - ${cmnd?.description || 'Detalhes'}`;
+        })()}
+        maxWidth="max-w-6xl"
       >
-        <div className="space-y-4 pt-2 pb-2">
-            {/* Custom Tabs */}
-            <div className="flex border-b border-slate-100 bg-white sticky top-0 z-10">
-                {[
-                    { id: 'atendimentos', label: 'ATENDIMENTOS' },
-                    { id: 'pagamentos', label: 'HISTÓRICO DE PAGAMENTOS' },
-                    { id: 'pacote', label: 'USO DO PACOTE' },
-                ].filter(tab => {
-                    if (tab.id === 'pacote') {
-                        const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                        return cmnd && (cmnd.sessions_total > 1 || cmnd.package_id);
-                    }
-                    return true;
-                }).map(tab => (
-                    <button 
-                        key={tab.id}
-                        onClick={() => setManagerTab(tab.id as any)}
-                        className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${managerTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/10' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-
-            <div className="min-h-[400px]">
-                {managerTab === 'atendimentos' && (
-                    <div className="animate-fadeIn">
-                        <div className="bg-slate-50 py-2.5 px-4 text-center mb-1">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Atendimentos</span>
+        <div className="flex flex-col lg:flex-row gap-8 py-2 min-h-[500px]">
+            {/* LEFT SIDEBAR - PATIENT & SUMMARY */}
+            <div className="w-full lg:w-1/3 flex flex-col gap-6 border-r border-slate-100 pr-0 lg:pr-8">
+                {/* Patient Basic Info */}
+                <div className="space-y-6">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                            <UserIcon size={24} />
                         </div>
-                        <table className="w-full">
-                            <thead className="border-b border-slate-100">
-                                <tr>
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Nº</th>
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Horario</th>
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Serviço</th>
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(() => {
-                                    const cmndId = selectedApt?.comanda_id;
-                                    const cmndApts = appointments.filter(a => String(a.comanda_id) === String(cmndId))
-                                        .sort((a,b) => a.start.getTime() - b.start.getTime());
-                                    
-                                    if (cmndApts.length === 0) return (
-                                        <tr><td colSpan={5} className="py-8 text-center text-slate-400 text-xs italic">Nenhum atendimento vinculado.</td></tr>
-                                    );
-
-                                    return cmndApts.map((apt, idx) => (
-                                        <tr key={apt.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
-                                            <td className="py-4 px-2 text-[11px] font-bold text-slate-600">{apt.recurrence_index || idx + 1} de {apt.recurrence_count || cmndApts.length}</td>
-                                            <td className="py-4 px-2 text-[11px] font-bold text-slate-700">{apt.start.toLocaleDateString(locale, { dateStyle: 'medium' })}</td>
-                                            <td className="py-4 px-2 text-[11px] font-black text-slate-400">{apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                                            <td className="py-4 px-2 text-[11px] font-bold text-indigo-600">{services.find(s => String(s.id) === String(apt.service_id))?.name || 'Consulta'}</td>
-                                            <td className="py-4 px-2">
-                                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${statusMeta[apt.status || 'scheduled'].chip}`}>
-                                                    {statusMeta[apt.status || 'scheduled'].label}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ));
-                                })()}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
-                {managerTab === 'pagamentos' && (
-                    <div className="animate-fadeIn space-y-8">
-                        {(() => {
-                            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                            const total = cmnd?.totalValue || cmnd?.total || 0;
-                            const paid = cmnd?.paidValue || 0;
-                            const remaining = total - paid;
-                            
-                            return (
-                                <>
-                                    <div className="flex justify-between items-start">
-                                        <div className="space-y-1">
-                                            <div className="flex gap-4 items-center">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">Total:</span>
-                                                <span className="text-sm font-black text-slate-800">{formatCurrency(total)}</span>
-                                            </div>
-                                            <div className="flex gap-4 items-center">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">Valor pago:</span>
-                                                <span className="text-sm font-black text-indigo-600">{formatCurrency(cmnd?.paidValue || 0)}</span>
-                                            </div>
-                                            <div className="flex gap-4 items-center">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">Devendo:</span>
-                                                <span className={`text-sm font-black ${remaining > 0 ? 'text-rose-600 animate-pulse' : 'text-emerald-500'}`}>
-                                                    {formatCurrency(remaining)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <Button 
-                                            onClick={() => setIsAddPaymentModalOpen(true)}
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100"
-                                        >
-                                            ADICIONAR PAGAMENTO
-                                        </Button>
-                                    </div>
-
-                                    <div className="bg-slate-50 py-2.5 px-4 text-center mb-1">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Histórico de Transações</span>
-                                    </div>
-                                    
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className="border-b border-slate-100">
-                                                <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Valor</th>
-                                                <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Forma de pgto.</th>
-                                                <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
-                                                <th className="py-4 px-2 text-right"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {/* Aqui idealmente viriam as transações vinculadas à comanda */}
-                                            {cmnd?.paidValue && cmnd.paidValue > 0 ? (
-                                                <tr className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
-                                                    <td className="py-5 px-2 text-[12px] font-black text-slate-700">{formatCurrency(cmnd.paidValue)}</td>
-                                                    <td className="py-5 px-2 text-[11px] font-bold text-slate-500 italic">Total Pago</td>
-                                                    <td className="py-5 px-2 text-[11px] font-bold text-slate-500">{new Date(cmnd.updated_at || cmnd.createdAt).toLocaleDateString()}</td>
-                                                    <td className="py-5 px-2 text-right">
-                                                        {/* Placeholder for actions */}
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                <tr><td colSpan={4} className="py-8 text-center text-slate-400 text-xs italic">Nenhum pagamento registrado.</td></tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </>
-                            );
-                        })()}
-                    </div>
-                )}
-
-                {managerTab === 'pacote' && (
-                    <div className="animate-fadeIn">
-                        <div className="bg-slate-50 py-2.5 px-4 text-center mb-6">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Uso do Pacote</span>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <h4 className="text-sm font-black text-slate-800 truncate uppercase tracking-tight">
+                                    {selectedApt?.patient_name || 'Paciente'}
+                                </h4>
+                                <div className="flex gap-1">
+                                    <button className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><MessageSquare size={16}/></button>
+                                    <button className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"><Send size={16}/></button>
+                                </div>
+                            </div>
+                            <p className="text-[11px] font-bold text-slate-400 truncate lowercase">{patients.find(p => String(p.id) === String(selectedApt?.patient_id))?.email || 'sem email cadastrado'}</p>
                         </div>
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-slate-100">
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Detalhamento</th>
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Contratados</th>
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Realizados</th>
-                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                    </div>
+
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                            <CalendarDays size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Data</p>
+                            <p className="text-xs font-black text-slate-700">{selectedApt?.start.toLocaleDateString(locale, { dateStyle: 'medium' })}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                            <Info size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Detalhes</p>
+                            <p className="text-xs font-black text-slate-700">
+                                {services.find(s => String(s.id) === String(selectedApt?.service_id))?.name || 'Consulta'}
                                 {(() => {
                                     const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                    const remaining = (cmnd?.sessions_total || 0) - (cmnd?.sessions_used || 0);
-                                    
-                                    return (
-                                        <tr className="border-b border-slate-50">
-                                            <td className="py-6 px-2">
-                                                <p className="text-xs font-bold text-slate-700">{cmnd?.description || 'Serviço do Pacote'}</p>
-                                                <p className="text-[9px] text-slate-400 font-medium">Iniciado em {cmnd?.startDate ? new Date(cmnd.startDate).toLocaleDateString() : '-'}</p>
-                                            </td>
-                                            <td className="py-6 px-2 text-center text-xs font-bold text-slate-500">{cmnd?.sessions_total || 0}</td>
-                                            <td className="py-6 px-2 text-center text-xs font-bold text-indigo-600">{cmnd?.sessions_used || 0}</td>
-                                            <td className="py-6 px-2 text-center">
-                                                {cmnd && cmnd.sessions_total > 0 && remaining === 0 ? (
-                                                    <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-rose-100">Esgotado</span>
-                                                ) : cmnd && cmnd.sessions_total > 0 ? (
-                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">{remaining} Restantes</span>
-                                                ) : cmnd && cmnd.sessions_total === 0 ? (
-                                                    <span className="text-[9px] font-bold text-slate-400 italic">Avulso</span>
-                                                ) : (
-                                                    <span className="text-[9px] font-bold text-slate-400 italic">N/A</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
+                                    return cmnd?.sessions_total ? ` (${cmnd.sessions_total})` : '';
                                 })()}
-                            </tbody>
-                        </table>
+                            </p>
+                        </div>
                     </div>
-                )}
+                </div>
+
+                {/* YELLOW SUMMARY CARD */}
+                <div className="mt-4 bg-orange-400 rounded-3xl p-6 text-white shadow-xl shadow-orange-100 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
+                        <DollarSign size={80} strokeWidth={3} />
+                    </div>
+                    <div className="relative z-10">
+                        <h4 className="text-xs font-black uppercase tracking-widest mb-6 opacity-90">Resumo:</h4>
+                        
+                        <div className="space-y-4">
+                            {(() => {
+                                const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                                const total = cmnd?.totalValue || cmnd?.total || 0;
+                                const paid = cmnd?.paidValue || 0;
+                                const pending = total - paid;
+
+                                return (
+                                    <>
+                                        <div className="flex justify-between items-center border-b border-white/20 pb-3">
+                                            <span className="text-[11px] font-bold opacity-80 uppercase">Total da comanda:</span>
+                                            <span className="text-sm font-black tracking-tight">{formatCurrency(total)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/20 pb-3">
+                                            <span className="text-[11px] font-bold opacity-80 uppercase">Valor pago:</span>
+                                            <span className="text-sm font-black tracking-tight">{formatCurrency(paid)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pt-2">
+                                            <span className="text-[11px] font-bold opacity-90 uppercase">Valor pendente:</span>
+                                            <span className="text-lg font-black tracking-tighter">{formatCurrency(pending)}</span>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                </div>
+
+                {/* BOTTOM ACTIONS */}
+                <div className="mt-auto space-y-3 pt-6 border-t border-slate-50">
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => {
+                                const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                                setNewPayment({ 
+                                    value: '', 
+                                    date: new Date().toISOString().slice(0, 10), 
+                                    method: 'Pix',
+                                    receiptCode: cmnd?.receipt_code || ''
+                                });
+                                setIsAddPaymentModalOpen(true);
+                            }}
+                            className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 transition-all active:scale-95"
+                        >
+                            ADICIONAR PAGAMENTO
+                        </button>
+                        <button 
+                            onClick={handleGenerateReceipt}
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <FileText size={14}/> GERAR RECIBO
+                        </button>
+                    </div>
+                    <button 
+                        onClick={() => setIsComandaManagerOpen(false)}
+                        className="w-full py-3 text-rose-500 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest transition-all text-center border border-rose-100 rounded-xl hover:bg-rose-50/30"
+                    >
+                        FECHAR COMANDA
+                    </button>
+                </div>
             </div>
 
-            <div className="pt-8 flex justify-center border-t border-slate-50">
-                <button 
-                    onClick={() => setIsComandaManagerOpen(false)}
-                    className="px-12 py-3 text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em] hover:bg-slate-50 transition-all rounded-full"
-                >
-                    FECHAR
-                </button>
+            {/* RIGHT MAIN CONTENT - TABS & LISTS */}
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* Tabs */}
+                <div className="flex border-b border-slate-100 bg-white sticky top-0 z-20 mb-6">
+                    {[
+                        { id: 'atendimentos', label: 'ATENDIMENTOS' },
+                        { id: 'pagamentos', label: 'HISTÓRICO DE PAGAMENTOS' },
+                        { id: 'pacote', label: 'USO DO PACOTE' },
+                    ].map(tab => (
+                        <button 
+                            key={tab.id}
+                            onClick={() => setManagerTab(tab.id as any)}
+                            className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${managerTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/10' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex-1">
+                    {managerTab === 'atendimentos' && (
+                        <div className="animate-fadeIn">
+                            <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Atendimentos</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="border-b border-slate-100">
+                                        <tr>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Horario</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Serviço</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Profissional</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(() => {
+                                            const cmndId = selectedApt?.comanda_id;
+                                            const cmndApts = appointments.filter(a => String(a.comanda_id) === String(cmndId))
+                                                .sort((a,b) => a.start.getTime() - b.start.getTime());
+                                            
+                                            if (cmndApts.length === 0) return (
+                                                <tr><td colSpan={4} className="py-12 text-center text-slate-400 text-xs italic">Nenhum atendimento vinculado.</td></tr>
+                                            );
+
+                                            return cmndApts.map((apt, idx) => (
+                                                <tr key={apt.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
+                                                    <td className="py-5 px-4 flex flex-col">
+                                                        <span className="text-[9px] font-black text-indigo-400 uppercase mb-1">{apt.recurrence_index || idx + 1} de {apt.recurrence_count || cmndApts.length}</span>
+                                                        <span className="text-xs font-bold text-slate-700 uppercase">{apt.start.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                                                    </td>
+                                                    <td className="py-5 px-4">
+                                                        <span className="text-xs font-black text-slate-400 tabular-nums">{apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {apt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    </td>
+                                                    <td className="py-5 px-4">
+                                                        <span className="text-xs font-bold text-indigo-600 uppercase">{services.find(s => String(s.id) === String(apt.service_id))?.name || 'Psicoterapia Individual'}</span>
+                                                    </td>
+                                                    <td className="py-5 px-4">
+                                                        <span className="text-xs font-bold text-slate-500 uppercase">{professionals.find(p => String(p.id) === String(apt.professional_id))?.name || 'Karen Lais Gomes'}</span>
+                                                    </td>
+                                                </tr>
+                                            ));
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {managerTab === 'pagamentos' && (
+                        <div className="animate-fadeIn">
+                             <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Histórico de Transações</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-100">
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Valor</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Forma de pgto.</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Recibo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(() => {
+                                            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                                            if (!cmnd?.paidValue || cmnd.paidValue === 0) return (
+                                                <tr><td colSpan={4} className="py-12 text-center text-slate-400 text-xs italic">Nenhum pagamento registrado.</td></tr>
+                                            );
+                                            
+                                            return (
+                                                <tr className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
+                                                    <td className="py-5 px-4">
+                                                        <span className="text-sm font-black text-emerald-600">{formatCurrency(cmnd.paidValue)}</span>
+                                                    </td>
+                                                    <td className="py-5 px-4 italic text-xs text-slate-500 font-bold uppercase">Pagamento Registrado</td>
+                                                    <td className="py-5 px-4 text-xs font-black text-slate-400">{new Date(cmnd.updated_at || cmnd.createdAt).toLocaleDateString()}</td>
+                                                    <td className="py-5 px-4">
+                                                        <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 tracking-tighter shadow-sm">#{cmnd.receipt_code || 'N/A'}</span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {managerTab === 'pacote' && (
+                        <div className="animate-fadeIn">
+                            <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Uso do Pacote</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-100">
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Serviço</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Quantidade</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Utilizados</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Restante</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(() => {
+                                            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                                            const used = cmnd?.sessions_used || 0;
+                                            const total = cmnd?.sessions_total || 0;
+                                            const remaining = total - used;
+                                            
+                                            if (!cmnd) return null;
+
+                                            return (
+                                                <tr className="border-b border-slate-50">
+                                                    <td className="py-6 px-4">
+                                                        <p className="text-xs font-bold text-slate-700 uppercase tracking-tight">{cmnd?.description || 'Serviço do Pacote'}</p>
+                                                    </td>
+                                                    <td className="py-6 px-4 text-center text-xs font-black text-slate-400 tabular-nums">{total}</td>
+                                                    <td className="py-6 px-4 text-center text-xs font-black text-indigo-600 tabular-nums">{used}</td>
+                                                    <td className="py-6 px-4 text-center">
+                                                        {total > 0 && remaining === 0 ? (
+                                                            <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-rose-100">Esgotado</span>
+                                                        ) : total > 0 ? (
+                                                            <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">{remaining} Restantes</span>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold text-slate-400 italic">Avulso</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
       </Modal>
@@ -2041,6 +2377,13 @@ export const Agenda: React.FC = () => {
                     value={newPayment.value}
                     onChange={e => setNewPayment({...newPayment, value: e.target.value})}
                 />
+
+                <Input 
+                    label="Código do Recibo (Opcional)" 
+                    placeholder="Ex: REC-123"
+                    value={newPayment.receiptCode}
+                    onChange={e => setNewPayment({...newPayment, receiptCode: e.target.value})}
+                />
             </div>
 
             <div className="flex justify-end pr-2">
@@ -2077,8 +2420,4 @@ export const Agenda: React.FC = () => {
       </Modal>
     </div>
   );
-};
-
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };

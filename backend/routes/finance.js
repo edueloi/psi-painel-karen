@@ -13,6 +13,7 @@ async function ensureSchema() {
     'ALTER TABLE comandas ADD COLUMN sessions_total INT NULL DEFAULT 1',
     'ALTER TABLE comandas ADD COLUMN sessions_used INT NULL DEFAULT 0',
     'ALTER TABLE comandas ADD COLUMN total DECIMAL(10,2) NULL',
+    'ALTER TABLE comandas ADD COLUMN receipt_code VARCHAR(50) NULL',
     'ALTER TABLE comandas ADD COLUMN paid_value DECIMAL(10,2) NULL DEFAULT 0',
     'ALTER TABLE comandas ADD COLUMN items LONGTEXT NULL',
     'ALTER TABLE comandas ADD COLUMN notes TEXT NULL',
@@ -359,7 +360,7 @@ router.post('/comandas', async (req, res) => {
     await withSchema();
     const { 
       patient_id, professional_id, items, notes, 
-      payment_method, discount, start_date, duration_minutes 
+      payment_method, discount, start_date, duration_minutes, receipt_code
     } = req.body;
 
     const itemsArr = items || [];
@@ -369,14 +370,14 @@ router.post('/comandas', async (req, res) => {
     const [result] = await db.query(
       `INSERT INTO comandas (
         tenant_id, patient_id, professional_id, description, total, discount, 
-        items, notes, payment_method, start_date, duration_minutes, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        items, notes, payment_method, start_date, duration_minutes, status, receipt_code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, patient_id || null, professional_id || null, 
         req.body.description || 'Consulta/Serviço',
         total, discount || 0, JSON.stringify(itemsArr), notes || null, 
         payment_method || null, start_date || null, duration_minutes || 60,
-        req.body.status || 'open'
+        req.body.status || 'open', receipt_code || null
       ]
     );
 
@@ -428,7 +429,7 @@ router.put('/comandas/:id', async (req, res) => {
         const { 
             patient_id, professional_id, description, status, items, 
             notes, payment_method, start_date, duration_minutes,
-            sessions_total, sessions_used, paid_value
+            sessions_total, sessions_used, paid_value, receipt_code
         } = req.body;
 
         const itemsArr = items || [];
@@ -439,14 +440,14 @@ router.put('/comandas/:id', async (req, res) => {
                 patient_id = ?, professional_id = ?, description = ?, status = ?, 
                 total = ?, items = ?, notes = ?, payment_method = ?, 
                 start_date = ?, duration_minutes = ? ,
-                sessions_total = ?, sessions_used = ?, paid_value = ?
+                sessions_total = ?, sessions_used = ?, paid_value = ?, receipt_code = ?
             WHERE id = ? AND tenant_id = ?`,
             [
                 patient_id || null, professional_id || null, description || '', status || 'open',
                 total, JSON.stringify(itemsArr), notes || null, payment_method || null,
                 start_date || null, duration_minutes || 60,
                 sessions_total || 0, sessions_used || 0,
-                paid_value || 0,
+                paid_value || 0, receipt_code || null,
                 req.params.id, req.user.tenant_id
             ]
         );

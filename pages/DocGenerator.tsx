@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
 import {
@@ -70,10 +71,22 @@ const formatDate = (value: string) => {
 
 export const DocGenerator: React.FC = () => {
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [categories, setCategories] = useState<DocCategory[]>([]);
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
+
+  // States initialized from searchParams
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(searchParams.get('patient_id') || '');
+  const [patientName, setPatientName] = useState('');
+  const [docDate, setDocDate] = useState(searchParams.get('date') || new Date().toISOString().split('T')[0]);
+  const [timeStart, setTimeStart] = useState(searchParams.get('time_start') || '');
+  const [timeEnd, setTimeEnd] = useState(searchParams.get('time_end') || '');
+  const [serviceName, setServiceName] = useState(searchParams.get('service_name') || '');
+  const [amount, setAmount] = useState(searchParams.get('amount') || '');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [footerLogoUrl, setFooterLogoUrl] = useState('');
 
   // Professional / Clinic Data
   const [professionalData, setProfessionalData] = useState({
@@ -84,19 +97,9 @@ export const DocGenerator: React.FC = () => {
       city: '',
       clinicName: ''
   });
-
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-  const [patientName, setPatientName] = useState('');
   const [professionalName, setProfessionalName] = useState('');
   const [professionalCrp, setProfessionalCrp] = useState('');
   const [city, setCity] = useState('');
-  const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0]);
-  const [timeStart, setTimeStart] = useState('');
-  const [timeEnd, setTimeEnd] = useState('');
-  const [serviceName, setServiceName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [footerLogoUrl, setFooterLogoUrl] = useState('');
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -177,8 +180,20 @@ export const DocGenerator: React.FC = () => {
           });
           setProfessionalName(profileData.name || '');
           setProfessionalCrp(profileData.crp || '');
-          setCity((profileData.address || '').split(',').pop()?.trim() || '');
+          if (!city) setCity((profileData.address || '').split(',').pop()?.trim() || '');
           if (profileData.clinic_logo_url) setLogoUrl(getStaticUrl(profileData.clinic_logo_url));
+      }
+
+      // If we have a patient_id in URL, find the name immediately
+      if (searchParams.get('patient_id')) {
+          const pt = patientsData.find((p: any) => String(p.id) === String(searchParams.get('patient_id')));
+          if (pt) setPatientName(pt.name || pt.full_name || '');
+      }
+
+      // Auto-select receipt template if we have service info
+      if (searchParams.get('service_name')) {
+        const receiptTpl = templatesData.find((t: any) => t.title.toLowerCase().includes('recibo'));
+        if (receiptTpl) setSelectedTemplateId(String(receiptTpl.id));
       }
 
     } catch (e) {
