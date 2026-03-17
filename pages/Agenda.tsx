@@ -18,19 +18,15 @@ import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
 
 const recurrenceOptions = [
-    { label: 'Não Repete', freq: '', interval: 1 },
-    { label: 'Repete a cada 1 semana', freq: 'WEEKLY', interval: 1 },
-    { label: 'Repete a cada 2 semanas', freq: 'WEEKLY', interval: 2 },
-    { label: 'Repete a cada 3 semanas', freq: 'WEEKLY', interval: 3 },
-    { label: 'Repete a cada 4 semanas', freq: 'WEEKLY', interval: 4 },
-    { label: 'A cada 15 dias', freq: 'DAILY', interval: 15 },
-    { label: 'A cada 20 dias', freq: 'DAILY', interval: 20 },
-    { label: 'A cada 25 dias', freq: 'DAILY', interval: 25 },
-    { label: '1 vez por mês', freq: 'MONTHLY', interval: 1 },
-    { label: 'Repete a cada 2 meses', freq: 'MONTHLY', interval: 2 },
-    { label: 'Repete a cada 3 meses', freq: 'MONTHLY', interval: 3 },
-    { label: 'Repete a cada 6 meses', freq: 'MONTHLY', interval: 6 },
-    { label: 'Repete a cada 1 ano', freq: 'YEARLY', interval: 1 },
+    { label: 'Não Repete', freq: '', interval: 1, count: 1 },
+    { label: 'Semanal (Total 4 sessões)', freq: 'WEEKLY', interval: 1, count: 4 },
+    { label: 'Semanal (Total 8 sessões)', freq: 'WEEKLY', interval: 1, count: 8 },
+    { label: 'Semanal (Total 12 sessões)', freq: 'WEEKLY', interval: 1, count: 12 },
+    { label: 'Quinzenal (Total 2 sessões)', freq: 'DAILY', interval: 15, count: 2 },
+    { label: 'Quinzenal (Total 4 sessões)', freq: 'DAILY', interval: 15, count: 4 },
+    { label: 'Mensal (Total 3 sessões)', freq: 'MONTHLY', interval: 1, count: 3 },
+    { label: 'Mensal (Total 6 sessões)', freq: 'MONTHLY', interval: 1, count: 6 },
+    { label: 'Personalizado...', freq: 'CUSTOM', interval: 1, count: 1 },
 ];
 
 export const Agenda: React.FC = () => {
@@ -372,14 +368,11 @@ export const Agenda: React.FC = () => {
             }
         }
 
-        // NOVO FLOW: Redireciona para a comanda gerada automaticamente se houver comanda_id
+        // NOVO FLOW: Informa que a comanda foi gerada mas não redireciona (conforme pedido: "por debaixo dos panos")
         if (savedAppointment.comanda_id) {
-            pushToast('success', 'Agendamento e Comanda gerada automaticamente!');
+            pushToast('success', 'Agendamento e Comanda gerada com sucesso!');
             fetchData();
             setIsModalOpen(false);
-            setTimeout(() => {
-                navigate('/comandas', { state: { openComandaId: savedAppointment.comanda_id } });
-            }, 1000);
             return;
         }
 
@@ -1126,15 +1119,25 @@ export const Agenda: React.FC = () => {
                     <button
                       key={idx}
                       onClick={() => {
-                          setTempRecurrence({
-                              freq: opt.freq,
-                              interval: opt.interval,
-                              endType: formData.recurrence_count ? 'count' : 'until',
-                              endValue: formData.recurrence_count || formData.recurrence_end_date || 1
-                          });
-                          setIsRecurrenceModalOpen(false);
-                          if (opt.freq) {
+                          if (opt.freq === 'CUSTOM') {
+                              setTempRecurrence({
+                                  freq: 'WEEKLY',
+                                  interval: 1,
+                                  endType: 'count',
+                                  endValue: 4
+                              });
+                              setIsRecurrenceModalOpen(false);
                               setIsRecurrenceConfigOpen(true);
+                          } else if (opt.freq) {
+                              setFormData({
+                                  ...formData,
+                                  recurrence_rule: 'custom',
+                                  recurrence_freq: opt.freq,
+                                  recurrence_interval: opt.interval,
+                                  recurrence_count: (opt as any).count || 1,
+                                  recurrence_end_date: ''
+                              });
+                              setIsRecurrenceModalOpen(false);
                           } else {
                               setFormData({
                                   ...formData,
@@ -1144,6 +1147,7 @@ export const Agenda: React.FC = () => {
                                   recurrence_count: '',
                                   recurrence_end_date: ''
                               });
+                              setIsRecurrenceModalOpen(false);
                           }
                       }}
                       className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"

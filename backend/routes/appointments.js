@@ -466,8 +466,8 @@ router.post('/', async (req, res) => {
                     qty: createdIds.length,
                     value: price
                 }];
-                description = createdIds.length > 1 ? `${serviceName} (${createdIds.length} sessões)` : serviceName;
             }
+            description = createdIds.length > 1 ? `${description || serviceName} (${createdIds.length} sessões)` : (description || serviceName);
 
             const [comandaResult] = await db.query(
                 `INSERT INTO comandas (
@@ -480,7 +480,7 @@ router.post('/', async (req, res) => {
                     package_id || null,
                     finalProfessionalId,
                     description, totalAmount, createdIds.length, 0, JSON.stringify(items),
-                    createdIds.length > 1 || package_id ? `Pacote gerado via Agenda` : 'Sessão individual via Agenda',
+                    `Gerado via Agenda (${createdIds.length} sessões)`,
                     'open'
                 ]
             );
