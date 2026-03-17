@@ -139,7 +139,10 @@ export const Agenda: React.FC = () => {
                 duration_minutes: a.duration_minutes || 50
             };
         }));
-        setPatients(pts || []);
+        setPatients((pts || []).map(p => ({
+            ...p,
+            full_name: p.full_name || p.name || 'Sem nome'
+        })));
         setProfessionals(pros?.filter(p => p.role !== 'secretario') || []);
         setServices(srvs || []);
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
@@ -752,7 +755,7 @@ export const Agenda: React.FC = () => {
                         className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${formData.type === t ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                       >
                           {t === 'consulta' ? <Briefcase size={14}/> : t === 'pessoal' ? <UserIcon size={14}/> : <Ban size={14}/>}
-                          {t}
+                          {t.charAt(0).toUpperCase() + t.slice(1)}
                       </button>
                   ))}
               </div>
