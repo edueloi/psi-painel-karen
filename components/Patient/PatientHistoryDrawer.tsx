@@ -19,6 +19,7 @@ interface TimelineItem {
   preview?: string;
   amount?: number;
   financeType?: 'income' | 'expense';
+  reschedule_reason?: string;
 }
 
 interface HistoryData {
@@ -151,15 +152,15 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
               )}
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-800 leading-tight mb-0.5">{patient?.full_name}</h3>
-              <p className="text-sm text-slate-500 font-medium">{t('patients.history')}</p>
+              <h3 className="text-base font-bold text-slate-800 leading-tight mb-0.5">{patient?.full_name}</h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('patients.history')}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2.5 rounded-lg bg-white hover:bg-slate-100 text-slate-500 border border-transparent hover:border-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-400 transition-all border border-slate-100"
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
@@ -167,16 +168,16 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
         {data && (
           <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-100 shrink-0 bg-slate-50/50">
             {[
-              { label: t('nav.agenda'), value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={16}/> },
-              { label: t('nav.records'), value: data.counts.records, color: 'text-blue-600', icon: <FileText size={16}/> },
-              { label: t('nav.comandas'), value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={16}/> },
-              { label: 'Neuro/PEI', value: (data.counts.pei || 0) + (data.counts.tools || 0), color: 'text-emerald-600', icon: <BrainCircuit size={16}/> },
+              { label: t('nav.agenda'), value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={14}/> },
+              { label: t('nav.records'), value: data.counts.records, color: 'text-blue-600', icon: <FileText size={14}/> },
+              { label: t('nav.comandas'), value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={14}/> },
+              { label: 'Neuro/PEI', value: (data.counts.pei || 0) + (data.counts.tools || 0), color: 'text-emerald-600', icon: <BrainCircuit size={14}/> },
             ].map((s, idx) => (
-              <div key={idx} className="py-4 px-3 text-center border-r border-b sm:border-b-0 border-slate-200/60 last:border-r-0 flex flex-col items-center justify-center">
-                <div className={`flex items-center justify-center gap-1.5 text-lg font-semibold ${s.color}`}>
+              <div key={idx} className="py-5 px-3 text-center border-r border-slate-100 last:border-r-0 flex flex-col items-center justify-center hover:bg-white transition-colors">
+                <div className={`flex items-center justify-center gap-2 text-base font-black ${s.color}`}>
                   {s.icon} <span>{s.value}</span>
                 </div>
-                <div className="text-xs font-medium text-slate-500 mt-1">{s.label}</div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-60">{s.label}</div>
               </div>
             ))}
           </div>
@@ -188,10 +189,10 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
                 filter === f.id 
-                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' 
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'
               }`}
             >
               {f.label}
@@ -268,10 +269,17 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                                 )}
                                 
                                 {item.notes && (
-                                  <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-2">
-                                      <Info size={14} className="shrink-0 mt-0.5 text-slate-400"/> 
+                                  <p className="text-[10px] font-bold text-slate-400 italic flex items-start gap-1.5 mt-2">
+                                      <Info size={12} className="shrink-0 mt-0.5"/> 
                                       <span>{item.notes}</span>
                                   </p>
+                                )}
+
+                                {item.reschedule_reason && (
+                                  <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-100 border-dashed">
+                                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Motivo do Reagendamento</p>
+                                    <p className="text-xs font-bold text-amber-700 leading-relaxed italic">{item.reschedule_reason}</p>
+                                  </div>
                                 )}
                               </div>
 

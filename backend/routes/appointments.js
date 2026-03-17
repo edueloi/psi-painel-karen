@@ -421,7 +421,8 @@ router.put('/:id', async (req, res) => {
     const { 
       patient_id, professional_id, service_id, title, 
       start_time, end_time, status, notes, color,
-      modality, type, duration_minutes, meeting_url
+      modality, type, duration_minutes, meeting_url,
+      reschedule_reason
     } = req.body;
 
     const [existing] = await db.query(
@@ -454,7 +455,8 @@ router.put('/:id', async (req, res) => {
         modality = ?,
         type = ?,
         duration_minutes = ?,
-        meeting_url = ?
+        meeting_url = ?,
+        reschedule_reason = ?
        WHERE id = ? AND tenant_id = ?`,
       [
         patient_id || null, 
@@ -470,6 +472,7 @@ router.put('/:id', async (req, res) => {
         type || 'consulta',
         parseInt(duration_minutes) || 50,
         meeting_url || null,
+        reschedule_reason || null,
         req.params.id, 
         req.user.tenant_id
       ]

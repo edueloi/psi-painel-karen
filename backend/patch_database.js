@@ -43,7 +43,8 @@ async function patch() {
         { name: 'meeting_url', type: 'VARCHAR(500)', after: 'duration_minutes' },
         { name: 'recurrence_rule', type: 'VARCHAR(255)', after: 'meeting_url' },
         { name: 'recurrence_id', type: 'INT', after: 'recurrence_rule' },
-        { name: 'comanda_id', type: 'INT', after: 'recurrence_id' }
+        { name: 'comanda_id', type: 'INT', after: 'recurrence_id' },
+        { name: 'reschedule_reason', type: 'TEXT', after: 'comanda_id' }
       ]
     },
     {
@@ -52,7 +53,8 @@ async function patch() {
         { name: 'description', type: 'TEXT', after: 'professional_id' },
         { name: 'sessions_total', type: 'INT DEFAULT 0', after: 'total' },
         { name: 'sessions_used', type: 'INT DEFAULT 0', after: 'sessions_total' },
-        { name: 'service_id', type: 'INT', after: 'patient_id' }
+        { name: 'service_id', type: 'INT', after: 'patient_id' },
+        { name: 'financial_transaction_id', type: 'INT', after: 'service_id' }
       ]
     }
   ];

@@ -59,7 +59,8 @@ export const Agenda: React.FC = () => {
       recurrence_rule: null,
       recurrence_end_date: '',
       recurrence_count: '',
-      is_all_day: false
+      is_all_day: false,
+      reschedule_reason: ''
   });
 
   const locale = language === 'pt' ? 'pt-BR' : 'en-US';
@@ -275,7 +276,8 @@ export const Agenda: React.FC = () => {
         notes: '',
         status: 'scheduled',
         meeting_url: '',
-        recurrence_enabled: false
+        recurrence_enabled: false,
+        reschedule_reason: ''
     });
     setIsModalOpen(true);
   };
@@ -284,7 +286,8 @@ export const Agenda: React.FC = () => {
     setFormData({
         ...apt,
         appointment_date: toLocalISO(apt.start),
-        psychologist_id: apt.professional_id || apt.psychologist_id
+        psychologist_id: apt.professional_id || apt.psychologist_id,
+        reschedule_reason: apt.reschedule_reason || ''
     });
     setIsModalOpen(true);
   };
@@ -901,6 +904,18 @@ export const Agenda: React.FC = () => {
                 onChange={e => setFormData({...formData, notes: e.target.value})}
                 className="min-h-[80px]"
               />
+
+              {formData.id && (
+                <div className="bg-amber-50/50 p-4 rounded-2xl border border-dashed border-amber-200">
+                  <TextArea 
+                    label="Motivo do Reagendamento / Alteração" 
+                    placeholder="Opcional: Por que o horário ou status foi alterado?" 
+                    value={formData.reschedule_reason || ''} 
+                    onChange={e => setFormData({...formData, reschedule_reason: e.target.value})}
+                    className="!bg-transparent !border-none !p-0 min-h-[60px]"
+                  />
+                </div>
+              )}
           </div>
       </Modal>
 

@@ -185,9 +185,13 @@ router.get('/comandas', async (req, res) => {
         // Sincroniza no banco se houver discrepância
         await db.query('UPDATE comandas SET sessions_used = ? WHERE id = ?', [c.sessions_used, c.id]);
         
-        c.items = JSON.parse(c.items || '[]');
+        try { 
+          c.itemsArray = JSON.parse(c.items || '[]'); 
+        } catch { 
+          c.itemsArray = []; 
+        }
       } catch (err) {
-        c.items = [];
+        c.itemsArray = [];
         console.error('Erro ao processar comanda:', err.message);
       }
     }
@@ -290,6 +294,34 @@ router.put('/comandas/:id', async (req, res) => {
                 req.params.id, req.user.tenant_id
             ]
         );
+
+        // Se o status mudou para 'closed', gera lançamento financeiro
+        if (status === 'closed') {
+            const [existing] = await db.query(
+                'SELECT financial_transaction_id FROM comandas WHERE id = ?',
+                [req.params.id]
+            );
+            
+            if (existing[0] && !existing[0].financial_transaction_id) {
+                const [ftResult] = await db.query(
+                    `INSERT INTO financial_transactions 
+                        (tenant_id, type, category, description, amount, date, patient_id, payment_method, status)
+                    VALUES (?, 'income', 'Atendimento', ?, ?, NOW(), ?, ?, 'paid')`,
+                    [
+                        req.user.tenant_id,
+                        description || 'Pagamento de Comanda',
+                        total,
+                        patient_id || null,
+                        payment_method || 'pending'
+                    ]
+                );
+                
+                await db.query(
+                    'UPDATE comandas SET financial_transaction_id = ? WHERE id = ?',
+                    [ftResult.insertId, req.params.id]
+                );
+            }
+        }
 
         res.json({ id: req.params.id, success: true });
     } catch (err) {

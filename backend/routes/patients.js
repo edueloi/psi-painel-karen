@@ -612,7 +612,8 @@ router.get('/:id/history', async (req, res) => {
     const [appointments, transactions, records, documents, notes, comandas, events, peis, clinicalTools] = await Promise.all([
       safeQuery(
         `SELECT a.id, a.start_time as date, a.status, a.title, a.notes, a.modality,
-                s.name as service_name, u.name as professional_name, a.duration_minutes
+                s.name as service_name, u.name as professional_name, a.duration_minutes,
+                a.reschedule_reason
          FROM appointments a
          LEFT JOIN services s ON s.id = a.service_id
          LEFT JOIN users u ON u.id = a.professional_id
@@ -687,6 +688,7 @@ router.get('/:id/history', async (req, res) => {
         status: a.status, 
         notes: a.notes,
         preview: a.duration_minutes ? `${a.duration_minutes} min` : null,
+        reschedule_reason: a.reschedule_reason,
       })),
       ...transactions.map(t => ({
         id: `fin-${t.id}`, type: 'finance', date: t.date,
