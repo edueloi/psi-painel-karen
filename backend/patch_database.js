@@ -1,5 +1,8 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config({ path: 'backend/.env' });
+const path = require('path');
+require('dotenv').config(); // Tenta no diretório atual
+require('dotenv').config({ path: path.join(__dirname, '.env') }); // Tenta na mesma pasta do script
+require('dotenv').config({ path: path.join(__dirname, 'backend', '.env') }); // Tenta se estiver na raiz
 
 async function patch() {
   const conn = await mysql.createConnection({
