@@ -69,8 +69,22 @@ export const SystemAlerts: React.FC = () => {
     }
   };
 
+  const alertsRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (alertsRef.current && !alertsRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={alertsRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-xl hover:bg-slate-100"
@@ -82,14 +96,9 @@ export const SystemAlerts: React.FC = () => {
           </span>
         )}
       </button>
-
+ 
       {isOpen && (
-        <>
-          <div 
-            className="fixed inset-0 z-[100]" 
-            onClick={() => setIsOpen(false)} 
-          />
-          <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-slideIn">
+        <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-slideIn">
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                 <Bell size={14} className="text-indigo-600" /> Alertas do Sistema
@@ -150,7 +159,6 @@ export const SystemAlerts: React.FC = () => {
                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Psiflux Analytics & Intelligence</p>
             </div>
           </div>
-        </>
       )}
     </div>
   );

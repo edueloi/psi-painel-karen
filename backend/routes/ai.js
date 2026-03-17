@@ -218,6 +218,53 @@ async function getFinancialSummary(tenantId, month, year) {
   };
 }
 
+async function getAdvancedAnalytics(tenantId) {
+  // Top 5 clientes que mais geraram receita
+  const [topRevenue] = await db.query(`
+    SELECT p.name, SUM(t.amount) as total_paid
+    FROM financial_transactions t
+    JOIN patients p ON p.id = t.patient_id
+    WHERE t.tenant_id = ? AND t.type = 'income' AND t.status = 'paid'
+    GROUP BY p.id ORDER BY total_paid DESC LIMIT 5
+  `, [tenantId]);
+
+  // Pacientes com mais faltas (no_show)
+  const [absenteeism] = await db.query(`
+    SELECT p.name, 
+           COUNT(CASE WHEN a.status = 'no_show' THEN 1 END) as absences,
+           COUNT(*) as total_sessions
+    FROM appointments a
+    JOIN patients p ON p.id = a.patient_id
+    WHERE a.tenant_id = ?
+    GROUP BY p.id
+    HAVING absences > 0
+    ORDER BY absences DESC LIMIT 5
+  `, [tenantId]);
+
+  // Resumo de inadimplência (pagamentos pendentes)
+  const [pendingPayments] = await db.query(`
+    SELECT p.name, SUM(t.amount) as total_pending
+    FROM financial_transactions t
+    JOIN patients p ON p.id = t.patient_id
+    WHERE t.tenant_id = ? AND t.type = 'income' AND t.status = 'pending'
+    GROUP BY p.id ORDER BY total_pending DESC
+  `, [tenantId]);
+
+  return {
+    top_revenue_clients: topRevenue,
+    top_absentee_clients: absenteeism,
+    pending_payments_by_client: pendingPayments
+  };
+}
+
+async function listCatalog(tenantId) {
+  const [services] = await db.query('SELECT name, price, duration FROM services WHERE tenant_id = ? AND active = true', [tenantId]);
+  const [products] = await db.query('SELECT name, price, stock FROM products WHERE tenant_id = ? AND active = true', [tenantId]);
+  const [forms] = await db.query('SELECT title, description FROM forms WHERE tenant_id = ?', [tenantId]);
+  
+  return { services, products, forms };
+}
+
 async function createAppointment(tenantId, data) {
   const { patient_id, title, start_time, end_time, notes } = data;
   if (!start_time) return { error: 'Inicio e obrigatorio' };
@@ -427,6 +474,22 @@ router.post('/chat', upload.single('file'), async (req, res) => {
             }
           }
         }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_advanced_analytics',
+          description: 'Obtém inteligência avançada sobre o negócio: melhores clientes em receita, clientes com mais faltas e pagamentos pendentes.',
+          parameters: { type: 'object', properties: {} }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'list_catalog',
+          description: 'Lista todos os serviços, pacotes/produtos e formulários clínicos disponíveis no sistema.',
+          parameters: { type: 'object', properties: {} }
+        }
       }
     ];
 
@@ -436,9 +499,12 @@ router.post('/chat', upload.single('file'), async (req, res) => {
 Seu tom e educado, claro, profissional e acolhedor. Voce e parceira do psicologo(a) ${userName}.
 
 Capacidades:
-- Acesso a dados do sistema via ferramentas.
+- Acesso a dados do sistema via ferramentas (pacientes, agendamentos, financeiro, analise de performance).
 - Ajuda clinica e teorica sobre psicologia baseada em evidencias.
 - Analise de arquivos (Excel, PDF, TXT).
+- Inteligencia de Negocio: Voce pode identificar os melhores clientes (em receita), os que mais faltam (no-show), servicos oferecidos, pacotes e formularios.
+- Quando o usuario perguntar sobre "quem mais gera receita", "quem mais falta" ou "clintes inadimplentes", use get_advanced_analytics.
+- Quando o usuario perguntar sobre servicos ou formularios disponiveis, use list_catalog.
 - Quando o usuario enviar planilha com possiveis pacientes, voce deve:
   1. identificar os cabecalhos originais;
   2. explicar como cada coluna foi mapeada para o cadastro do paciente;
@@ -448,7 +514,7 @@ Capacidades:
 - Para cadastro de pacientes, priorize estes campos do sistema: name, email, phone, cpf, rg, birth_date, address, city, state, zip_code, gender, health_plan, notes, status.
 - Se houver conflitos, informe quais pacientes ja existem antes de seguir.
 - Nunca invente dados ausentes. Se alguma coluna estiver ambigua, diga isso claramente.
-
+ 
 Data/Hora Atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
 Hoje e: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
 
@@ -479,6 +545,8 @@ Responda sempre em Portugues-BR.`
         else if (functionName === 'get_patient_details') result = await getPatientDetails(tenantId, args.patient_id);
         else if (functionName === 'list_appointments') result = await listAppointments(tenantId, args.start_date, args.end_date);
         else if (functionName === 'get_financial_summary') result = await getFinancialSummary(tenantId, args.month, args.year);
+        else if (functionName === 'get_advanced_analytics') result = await getAdvancedAnalytics(tenantId);
+        else if (functionName === 'list_catalog') result = await listCatalog(tenantId);
         else if (functionName === 'create_appointment') { result = await createAppointment(tenantId, args); actionsTaken.push('appointment_created'); }
         else if (functionName === 'bulk_create_patients') { result = await bulkCreatePatients(tenantId, args.patients || []); actionsTaken.push('patients_created'); }
 
