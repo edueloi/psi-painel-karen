@@ -470,12 +470,13 @@ async function migrate() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       tenant_id INT NOT NULL,
       patient_id INT,
-      filename VARCHAR(255) NOT NULL,
-      original_name VARCHAR(255),
-      mime_type VARCHAR(100),
-      size INT,
-      url VARCHAR(500),
-      uploaded_by INT,
+      professional_id INT,
+      file_name VARCHAR(255) NOT NULL,
+      file_url VARCHAR(500),
+      file_type VARCHAR(100),
+      file_size INT,
+      category VARCHAR(100),
+      title VARCHAR(255),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -508,6 +509,13 @@ async function migrate() {
     "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS description VARCHAR(255)",
     "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS sessions_total INT DEFAULT 1",
     "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS sessions_used INT DEFAULT 0",
+    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS category VARCHAR(100)",
+    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS title VARCHAR(255)",
+    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS professional_id INT",
+    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)",
+    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)",
+    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS file_type VARCHAR(100)",
+    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS file_size INT"
   ];
 
   for (const stmt of alterStatements) {
