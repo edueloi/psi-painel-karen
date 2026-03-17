@@ -358,198 +358,100 @@ export const Agenda: React.FC = () => {
     }
   };
 
-  const handleGenerateReceipt = () => {
+  const handleGenerateReceipt = async () => {
     if (!selectedApt) return;
+    
+    pushToast('success', 'Gerando recibo para download...');
+
+    const { default: jsPDF } = await import('jspdf');
+    const { default: html2canvas } = await import('html2canvas');
+
     const srv = services.find(s => String(s.id) === String(selectedApt.service_id));
     const patientName = selectedApt.patient_name || selectedApt.title || 'Paciente';
     const amount = srv ? formatCurrency(srv.price) : 'R$ 0,00';
     const dateStr = selectedApt.start.toLocaleDateString('pt-BR');
     const fullDateStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     const location = (profileData.address || '').split(',').pop()?.trim() || 'São Paulo';
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    const logoUrl = profileData.clinic_logo_url ? getStaticUrl(profileData.clinic_logo_url) : '';
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Recibo - ${patientName}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-            body { 
-              margin: 0; 
-              padding: 0; 
-              font-family: 'Inter', sans-serif; 
-              color: #00214d; 
-              display: flex;
-              min-height: 100vh;
-            }
-            .sidebar { 
-              width: 40px; 
-              background: #00214d; 
-              height: 100vh; 
-              position: fixed; 
-              left: 0; 
-              top: 0;
-            }
-            .container { 
-              margin-left: 40px; 
-              padding: 60px 80px; 
-              flex: 1; 
-              position: relative;
-            }
-            .header-info { 
-              position: absolute; 
-              top: 60px; 
-              right: 80px; 
-              text-align: right; 
-              font-size: 11px; 
-              color: #00214d;
-              line-height: 1.4;
-            }
-            .logo-circle {
-              width: 120px;
-              height: 120px;
-              background: #00214d;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              color: white;
-              font-size: 10px;
-              font-weight: 900;
-              text-align: center;
-              padding: 10px;
-              box-sizing: border-box;
-              margin-bottom: 40px;
-              overflow: hidden;
-            }
-            .logo-circle img {
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-            }
-            .date-line {
-              text-align: right;
-              margin: 40px 0 60px 0;
-              font-size: 13px;
-            }
-            .title {
-              text-align: center;
-              font-size: 18px;
-              font-weight: 900;
-              letter-spacing: 2px;
-              margin-bottom: 50px;
-              color: #00214d;
-            }
-            .content {
-              font-size: 14px;
-              line-height: 1.8;
-              text-align: justify;
-              margin-bottom: 30px;
-              color: #334155;
-            }
-            .content b { color: #00214d; }
-            .signature-block {
-              margin-top: 100px;
-              text-align: center;
-              position: relative;
-            }
-            .signature-line {
-              border-top: 1.5px solid #00214d;
-              width: 350px;
-              margin: 0 auto;
-              padding-top: 10px;
-            }
-            .slanted-text {
-              position: absolute;
-              top: -40px;
-              left: 50%;
-              transform: translateX(-50%) rotate(-15deg);
-              font-size: 10px;
-              font-weight: 700;
-              color: #00214d;
-              width: 200px;
-              font-style: italic;
-            }
-            .footer {
-              position: absolute;
-              bottom: 40px;
-              left: 0;
-              right: 0;
-              text-align: center;
-              font-size: 9px;
-              color: #94a3b8;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-            }
-            .print-btn {
-              position: fixed;
-              top: 20px;
-              left: 60px;
-              background: #00214d;
-              color: white;
-              border: none;
-              padding: 10px 20px;
-              border-radius: 4px;
-              cursor: pointer;
-              font-weight: bold;
-              z-index: 100;
-            }
-            @media print {
-              .print-btn { display: none; }
-              body { -webkit-print-color-adjust: exact; }
-              .sidebar { background: #00214d !important; }
-            }
-          </style>
-        </head>
-        <body>
-          <button class="print-btn" onclick="window.print()">IMPRIMIR RECIBO</button>
-          <div class="sidebar"></div>
-          <div class="container">
-            <div class="header-info">
-              <b>${profileData.name || ''}</b><br/>
-              Psicóloga<br/>
-              CRP: ${profileData.crp || ''}<br/>
-              ${profileData.cpf ? `CPF: ${profileData.cpf}` : ''}
-            </div>
+    // Cria um div invisível no DOM para renderizar o recibo
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;font-family:Arial,sans-serif;color:#00214d;';
+    container.innerHTML = `
+      <div style="display:flex;min-height:1123px;">
+        <div style="width:40px;background:#00214d;min-height:1123px;flex-shrink:0;"></div>
+        <div style="padding:60px 80px;flex:1;position:relative;">
+          <div style="position:absolute;top:60px;right:80px;text-align:right;font-size:11px;color:#00214d;line-height:1.6;">
+            <b>${profileData.name || ''}</b><br/>
+            Psicóloga<br/>
+            ${profileData.crp ? `CRP: ${profileData.crp}<br/>` : ''}
+            ${profileData.cpf ? `CPF: ${profileData.cpf}` : ''}
+          </div>
 
-            <div class="logo-circle">
-              ${profileData.clinic_logo_url ? `<img src="${getStaticUrl(profileData.clinic_logo_url)}" />` : 'SEU LOGO AQUI'}
-            </div>
+          <div style="width:120px;height:120px;background:white;border:1px solid #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:40px;overflow:hidden;">
+            ${logoUrl 
+              ? `<img src="${logoUrl}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous" />`
+              : `<span style="font-size:10px;font-weight:900;text-align:center;padding:10px;">SEU LOGO AQUI</span>`
+            }
+          </div>
 
-            <div class="date-line">
-              ${location}, ${fullDateStr}
-            </div>
+          <div style="text-align:right;margin:40px 0 60px 0;font-size:13px;">
+            ${location}, ${fullDateStr}
+          </div>
 
-            <div class="title">RECIBO</div>
+          <div style="text-align:center;font-size:18px;font-weight:900;letter-spacing:2px;margin-bottom:50px;color:#00214d;">
+            RECIBO
+          </div>
 
-            <div class="content">
-              Serviço de atendimento psicológico prestados ao(à) <b>${patientName}</b>. 
-              As sessões foram realizadas no dia <b>${dateStr}</b>.
-              <br/><br/>
-              Valor total dos atendimentos prestados na data citada acima: <b>${amount}</b>.
-              <br/><br/>
-              Psicóloga responsável pelos atendimentos prestados: <b>${profileData.name}</b>, CRP: <b>${profileData.crp}</b>.
-            </div>
+          <div style="font-size:14px;line-height:1.8;text-align:justify;margin-bottom:30px;color:#334155;">
+            Serviço de atendimento psicológico prestados ao(à) <b style="color:#00214d;">${patientName}</b>. 
+            As sessões foram realizadas no dia <b style="color:#00214d;">${dateStr}</b>.
+            <br/><br/>
+            Valor total dos atendimentos prestados na data citada acima: <b style="color:#00214d;">${amount}</b>.
+            <br/><br/>
+            Psicóloga responsável pelos atendimentos prestados: <b style="color:#00214d;">${profileData.name}</b>${profileData.crp ? `, CRP: <b style="color:#00214d;">${profileData.crp}</b>` : ''}.
+          </div>
 
-            <div class="signature-block">
-              <div class="slanted-text">Assinatura e carimbo com constando o CRP</div>
-              <div class="signature-line">
-                <b style="text-transform: uppercase; font-size: 13px;">${profileData.name}</b><br/>
-                <span style="font-size: 11px;">Psicóloga</span>
-              </div>
-            </div>
-
-            <div class="footer">
-              ${profileData.address || ''} | ${profileData.phone || ''}
+          <div style="margin-top:100px;text-align:center;">
+            <div style="border-top:1.5px solid #00214d;width:350px;margin:0 auto;padding-top:10px;">
+              <b style="text-transform:uppercase;font-size:13px;">${profileData.name}</b><br/>
+              <span style="font-size:11px;">Psicóloga</span>
             </div>
           </div>
-          <script>window.onload = () => { setTimeout(() => { window.print(); }, 500); }</script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+
+          <div style="position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">
+            ${profileData.address || ''} | ${profileData.phone || ''}
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(container);
+
+    try {
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: 794,
+        height: 1123,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+      const fileName = `Recibo_${patientName.replace(/\s+/g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
+      pdf.save(fileName);
+      pushToast('success', 'Recibo baixado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err);
+      pushToast('error', 'Erro ao gerar recibo.');
+    } finally {
+      document.body.removeChild(container);
+    }
+
   };
     
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
