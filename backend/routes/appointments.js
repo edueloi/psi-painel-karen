@@ -7,6 +7,27 @@ const db = require('../db');
 
 const memoryUpload = multer({ storage: multer.memoryStorage() });
 
+async function ensureSchema() {
+  const tableCols = [
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN package_id INT NULL' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN comanda_id INT NULL' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN recurrence_rule VARCHAR(500) NULL' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN duration_minutes INT NULL DEFAULT 60' },
+    { table: 'services', sql: 'ALTER TABLE services ADD COLUMN category VARCHAR(100) NULL' },
+  ];
+  for (const item of tableCols) {
+    try { await db.query(item.sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) throw e; }
+  }
+}
+
+let schemaReady = false;
+async function withSchema() {
+  if (!schemaReady) {
+    await ensureSchema();
+    schemaReady = true;
+  }
+}
+
 // GET /appointments/export-template
 router.get('/export-template', async (req, res) => {
   const workbook = new ExcelJS.Workbook();
@@ -188,6 +209,7 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
     };
 
     for (let i = 0; i < rows.length; i++) {
+        await withSchema();
       const row = rows[i];
       const title = findValue(row, 'Título', 'Title', 'Nome');
       const startTime = findValue(row, 'Data Início', 'Data', 'Start', 'Início');
@@ -242,6 +264,7 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
 // GET /appointments
 router.get('/', async (req, res) => {
   try {
+    await withSchema();
     const { patient_id, professional_id, start, end, status } = req.query;
 
     let query = `
@@ -295,6 +318,7 @@ router.get('/:id', async (req, res) => {
 // POST /appointments
 router.post('/', async (req, res) => {
   try {
+    await withSchema();
     const { 
       patient_id, professional_id, psychologist_id, service_id, package_id, title,
       start_time, appointment_date, duration_minutes, notes, color,
