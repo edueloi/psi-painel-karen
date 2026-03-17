@@ -12,6 +12,40 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
 
+const CurrencyInput: React.FC<{
+  label: string;
+  value: number;
+  onChange: (val: number) => void;
+  icon?: React.ReactNode;
+}> = ({ label, value, onChange, icon }) => {
+  const [displayValue, setDisplayValue] = useState('');
+
+  useEffect(() => {
+    if (value === 0 && !displayValue) return;
+    const formatted = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+    }).format(value);
+    setDisplayValue(formatted);
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    const num = parseInt(val || '0') / 100;
+    setDisplayValue(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(num));
+    onChange(num);
+  };
+
+  return (
+    <Input
+      label={label}
+      value={displayValue}
+      onChange={handleChange}
+      icon={icon}
+      placeholder="0,00"
+    />
+  );
+};
+
 export const Services: React.FC = () => {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'services' | 'packages'>('services');
@@ -82,19 +116,27 @@ export const Services: React.FC = () => {
   };
 
   const handleSaveService = async () => {
-    if (!editingService?.name || !editingService.price) return;
+    if (!editingService?.name) return;
     
     try {
+      const payload = {
+        ...editingService,
+        price: Number(editingService.price) || 0,
+        cost: Number(editingService.cost) || 0,
+        duration: Number(editingService.duration) || 50
+      };
+
       if (editingService.id) {
-        const updated = await api.put<Service>(`/services/${editingService.id}`, editingService);
+        const updated = await api.put<Service>(`/services/${editingService.id}`, payload);
         setServices(prev => prev.map(s => s.id === updated.id ? updated : s));
       } else {
-        const saved = await api.post<Service>('/services', editingService);
+        const saved = await api.post<Service>('/services', payload);
         setServices(prev => [saved, ...prev]);
       }
       setIsServiceModalOpen(false);
     } catch (err) {
       console.error('Erro ao salvar serviço:', err);
+      alert('Erro ao salvar serviço. Verifique se todos os campos estão corretos.');
     }
   };
 
@@ -154,16 +196,23 @@ export const Services: React.FC = () => {
   const handleSavePackage = async () => {
     if (!editingPackage?.name || !editingPackage.items?.length) return;
     try {
+      const payload = {
+        ...editingPackage,
+        totalPrice: Number(editingPackage.totalPrice) || 0,
+        discountValue: Number(editingPackage.discountValue) || 0
+      };
+
       if (editingPackage.id) {
-        const updated = await api.put<ServicePackage>(`/packages/${editingPackage.id}`, editingPackage);
+        const updated = await api.put<ServicePackage>(`/packages/${editingPackage.id}`, payload);
         setPackages(prev => prev.map(p => p.id === updated.id ? updated : p));
       } else {
-        const saved = await api.post<ServicePackage>('/packages', editingPackage);
+        const saved = await api.post<ServicePackage>('/packages', payload);
         setPackages(prev => [saved, ...prev]);
       }
       setIsPackageModalOpen(false);
     } catch (err) {
       console.error('Erro ao salvar pacote:', err);
+      alert('Erro ao salvar pacote. Verifique se todos os campos estão corretos.');
     }
   };
 
@@ -392,19 +441,17 @@ export const Services: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Input 
+              <CurrencyInput 
                 label="Valor Venda"
-                type="number"
                 icon={<DollarSign size={16}/>}
                 value={editingService.price || 0}
-                onChange={e => setEditingService({...editingService, price: parseFloat(e.target.value)})}
+                onChange={val => setEditingService({...editingService, price: val})}
               />
-              <Input 
+              <CurrencyInput 
                 label="Custo Prof."
-                type="number"
                 icon={<DollarSign size={16}/>}
                 value={editingService.cost || 0}
-                onChange={e => setEditingService({...editingService, cost: parseFloat(e.target.value)})}
+                onChange={val => setEditingService({...editingService, cost: val})}
               />
             </div>
 
@@ -415,6 +462,7 @@ export const Services: React.FC = () => {
             >
               <option value="presencial">Presencial</option>
               <option value="online">Online</option>
+              <option value="geral">Geral (Ambos)</option>
             </Select>
 
             <TextArea 
@@ -492,13 +540,32 @@ export const Services: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
               <div className="space-y-4">
                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Configurar Desconto</label>
                   <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
                       <button onClick={() => handlePackageDiscountChange('percentage', editingPackage.discountValue || 0)} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${editingPackage.discountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>%</button>
                       <button onClick={() => handlePackageDiscountChange('fixed', editingPackage.discountValue || 0)} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${editingPackage.discountType === 'fixed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>$</button>
-                      <input type="number" className="w-16 bg-transparent border-0 font-black text-indigo-700 text-center text-sm outline-none" value={editingPackage.discountValue || 0} onChange={(e) => handlePackageDiscountChange(editingPackage.discountType || 'percentage', parseFloat(e.target.value) || 0)} />
+                      
+                      {editingPackage.discountType === 'percentage' ? (
+                        <div className="flex items-center px-2">
+                           <input 
+                            type="number" 
+                            className="w-12 bg-transparent border-0 font-black text-indigo-700 text-center text-sm outline-none" 
+                            value={editingPackage.discountValue || 0} 
+                            onChange={(e) => handlePackageDiscountChange('percentage', parseFloat(e.target.value) || 0)} 
+                          />
+                          <span className="text-indigo-600 font-bold text-xs">%</span>
+                        </div>
+                      ) : (
+                        <div className="flex-1">
+                          <CurrencyInput
+                            label=""
+                            value={editingPackage.discountValue || 0}
+                            onChange={val => handlePackageDiscountChange('fixed', val)}
+                          />
+                        </div>
+                      )}
                   </div>
               </div>
               <div className="bg-slate-900 rounded-[1.5rem] p-4 text-white text-right">

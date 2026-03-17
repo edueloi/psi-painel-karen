@@ -46,7 +46,12 @@ async function patch() {
   await addColumn('services', 'category', "VARCHAR(100) DEFAULT 'Geral'");
   await addColumn('services', 'cost', "DECIMAL(10,2) DEFAULT 0");
   await addColumn('services', 'color', "VARCHAR(20) DEFAULT '#6366f1'");
-  await addColumn('services', 'modality', "ENUM('online','presencial') DEFAULT 'presencial'");
+  await addColumn('services', 'modality', "ENUM('online','presencial','geral') DEFAULT 'presencial'");
+
+  // Atualizar Pacotes (caso a tabela já exista com esquema antigo)
+  await addColumn('packages', 'discountType', "ENUM('percentage','fixed') DEFAULT 'percentage'");
+  await addColumn('packages', 'discountValue', "DECIMAL(10,2) DEFAULT 0");
+  await addColumn('packages', 'totalPrice', "DECIMAL(10,2) DEFAULT 0");
 
   // Criar Pacotes
   await conn.query(`
