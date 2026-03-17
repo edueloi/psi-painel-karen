@@ -42,6 +42,7 @@ export const Agenda: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [professionals, setProfessionals] = useState<User[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const [view, setView] = useState<'day' | 'week' | 'month'>('week');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -147,10 +148,11 @@ export const Agenda: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-        const [apts, pts, srvs, pros] = await Promise.all([
+        const [apts, pts, srvs, pkgs, pros] = await Promise.all([
             api.get<any[]>('/appointments'),
             api.get<any[]>('/patients'),
             api.get<Service[]>('/services'),
+            api.get<any[]>('/packages'),
             api.get<any[]>('/users')
         ]);
         
@@ -173,6 +175,7 @@ export const Agenda: React.FC = () => {
         })));
         setProfessionals(pros?.filter(p => p.role !== 'secretario') || []);
         setServices(srvs || []);
+        setPackages(pkgs || []);
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
   };
 
@@ -320,10 +323,15 @@ export const Agenda: React.FC = () => {
 
   const handleSave = async () => {
     try {
+        const isPackage = String(formData.service_id).startsWith('pkg_');
+        const cleanServiceId = isPackage ? formData.service_id.replace('pkg_', '') : formData.service_id;
+
         const payload = {
             ...formData,
             start_time: formData.appointment_date,
-            professional_id: formData.psychologist_id || formData.professional_id
+            professional_id: formData.psychologist_id || formData.professional_id,
+            service_id: isPackage ? null : cleanServiceId,
+            package_id: isPackage ? cleanServiceId : null
         };
 
         let response;
@@ -810,15 +818,23 @@ export const Agenda: React.FC = () => {
                           </div>
 
                           <div className="space-y-2">
-                              <Select 
-                                label="Serviço / Atendimento" 
-                                icon={<Package size={18} className="text-emerald-400" />}
-                                value={formData.service_id || ''} 
-                                onChange={e => setFormData({...formData, service_id: e.target.value})}
-                              >
-                                  <option value="">Tipo de atendimento...</option>
-                                  {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
-                              </Select>
+                               <Select 
+                                 label="Serviço ou Pacote" 
+                                 icon={<Package size={18} className="text-emerald-400" />}
+                                 value={formData.service_id || ''} 
+                                 onChange={e => {
+                                   const val = e.target.value;
+                                   setFormData({...formData, service_id: val});
+                                 }}
+                               >
+                                   <option value="">Selecionar...</option>
+                                   <optgroup label="Serviços Individuais">
+                                     {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
+                                   </optgroup>
+                                   <optgroup label="Pacotes">
+                                     {packages.map(p => <option key={`pkg_${p.id}`} value={`pkg_${p.id}`}>{p.name} - {formatCurrency(p.totalPrice)} ({p.items?.length || 0} itens)</option>)}
+                                   </optgroup>
+                               </Select>
                           </div>
                         </>
                       ) : (

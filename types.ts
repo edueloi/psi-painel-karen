@@ -146,6 +146,7 @@ export interface Appointment {
   professional_name_text?: string;
   psychologistName?: string; // Compatibility alias
   service_id?: string;
+  package_id?: string;
   service_name?: string;
   title: string;
   start: Date;

@@ -296,7 +296,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { 
-      patient_id, professional_id, service_id, title, 
+      patient_id, professional_id, service_id, package_id, title, 
       start_time, end_time, notes, color, duration_minutes,
       status, modality, type, meeting_url, recurrence_rule 
     } = req.body;
@@ -327,15 +327,16 @@ router.post('/', async (req, res) => {
 
         const [result] = await db.query(
           `INSERT INTO appointments (
-            tenant_id, patient_id, professional_id, service_id, title, 
+            tenant_id, patient_id, professional_id, service_id, package_id, title, 
             start_time, end_time, status, notes, color,
             modality, type, duration_minutes, meeting_url, recurrence_rule
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.user.tenant_id, 
             patient_id || null, 
             professional_id || null, 
             service_id || null,
+            package_id || null,
             title || null, 
             formattedStart, 
             formattedEnd, 
@@ -354,34 +355,57 @@ router.post('/', async (req, res) => {
 
     // 3. Se for consulta com paciente, cria a COMANDA integrada
     let comandaId = null;
-    if (patient_id && service_id && type === 'consulta') {
+    if (patient_id && (service_id || package_id) && type === 'consulta') {
         try {
-            // Busca o preço do serviço
-            const [services] = await db.query('SELECT name, price FROM services WHERE id = ?', [service_id]);
-            const service = services[0];
-            const price = service ? service.price : 0;
-            const serviceName = service ? service.name : 'Atendimento';
+            let totalAmount = 0;
+            let items = [];
+            let description = '';
 
-            const totalAmount = price * createdIds.length;
-            const items = [{
-                id: service_id,
-                name: serviceName,
-                price: price,
-                qty: createdIds.length,
-                value: price
-            }];
+            if (package_id) {
+                // Se for pacote, busca dados do pacote
+                const [pkgs] = await db.query('SELECT name, totalPrice FROM packages WHERE id = ?', [package_id]);
+                const pkg = pkgs[0];
+                if (pkg) {
+                  totalAmount = pkg.totalPrice;
+                  description = pkg.name;
+                  items = [{
+                    id: `pkg_${package_id}`,
+                    name: pkg.name,
+                    price: pkg.totalPrice,
+                    qty: 1,
+                    value: pkg.totalPrice
+                  }];
+                }
+            } else if (service_id) {
+                // Busca o preço do serviço
+                const [services] = await db.query('SELECT name, price FROM services WHERE id = ?', [service_id]);
+                const service = services[0];
+                const price = service ? service.price : 0;
+                const serviceName = service ? service.name : 'Atendimento';
 
-            const description = createdIds.length > 1 ? `${serviceName} (${createdIds.length} sessões)` : serviceName;
+                totalAmount = price * createdIds.length;
+                items = [{
+                    id: service_id,
+                    name: serviceName,
+                    price: price,
+                    qty: createdIds.length,
+                    value: price
+                }];
+                description = createdIds.length > 1 ? `${serviceName} (${createdIds.length} sessões)` : serviceName;
+            }
 
             const [comandaResult] = await db.query(
                 `INSERT INTO comandas (
-                    tenant_id, patient_id, service_id, professional_id, 
+                    tenant_id, patient_id, service_id, package_id, professional_id, 
                     description, total, sessions_total, sessions_used, items, notes, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    req.user.tenant_id, patient_id, service_id, professional_id || null,
+                    req.user.tenant_id, patient_id, 
+                    package_id ? null : service_id,
+                    package_id || null,
+                    professional_id || null,
                     description, totalAmount, createdIds.length, 0, JSON.stringify(items),
-                    createdIds.length > 1 ? `Pacote recorrente gerado via Agenda` : 'Sessão individual via Agenda',
+                    createdIds.length > 1 || package_id ? `Pacote gerado via Agenda` : 'Sessão individual via Agenda',
                     'open'
                 ]
             );
@@ -419,7 +443,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { 
-      patient_id, professional_id, service_id, title, 
+      patient_id, professional_id, service_id, package_id, title, 
       start_time, end_time, status, notes, color,
       modality, type, duration_minutes, meeting_url,
       reschedule_reason
@@ -446,6 +470,7 @@ router.put('/:id', async (req, res) => {
         patient_id = ?,
         professional_id = ?,
         service_id = ?,
+        package_id = ?,
         title = ?,
         start_time = COALESCE(?, start_time),
         end_time = COALESCE(?, end_time),
@@ -462,6 +487,7 @@ router.put('/:id', async (req, res) => {
         patient_id || null, 
         professional_id || null, 
         service_id || null, 
+        package_id || null, 
         title || null, 
         formattedStart, 
         formattedEnd, 

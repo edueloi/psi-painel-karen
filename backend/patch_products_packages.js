@@ -41,6 +41,7 @@ async function patch() {
   await addColumn('products', 'expirationDate', "DATE");
   await addColumn('products', 'barcode', "VARCHAR(100)");
   await addColumn('products', 'salesCount', "INT DEFAULT 0");
+  await addColumn('appointments', 'package_id', "INT");
 
   // Atualizar Serviços
   await addColumn('services', 'category', "VARCHAR(100) DEFAULT 'Geral'");
@@ -79,6 +80,13 @@ async function patch() {
       FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // Atualizar Comandas
+  await addColumn('comandas', 'service_id', "INT");
+  await addColumn('comandas', 'package_id', "INT");
+  await addColumn('comandas', 'description', "TEXT");
+  await addColumn('comandas', 'sessions_total', "INT DEFAULT 1");
+  await addColumn('comandas', 'sessions_used', "INT DEFAULT 0");
 
   console.log('✅ Banco de dados atualizado!');
   await conn.close();
