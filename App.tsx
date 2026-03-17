@@ -40,6 +40,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LandingPage } from './pages/LandingPage';
+import { AuroraAssistant } from './components/AI/AuroraAssistant';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
@@ -72,7 +73,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <MainLayout>{children}</MainLayout>;
+  return (
+    <MainLayout>
+      {children}
+      <AuroraAssistant />
+    </MainLayout>
+  );
 };
 
 // Rota exclusiva para super_admin — sem o MainLayout da clínica

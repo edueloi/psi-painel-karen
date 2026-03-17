@@ -39,6 +39,12 @@ export const AuroraAssistant: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // --- Global Trigger ---
+  useEffect(() => {
+    (window as any).openAuroraChat = () => setIsOpen(true);
+    return () => { delete (window as any).openAuroraChat; };
+  }, []);
+
   // --- Auto Scroll ---
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

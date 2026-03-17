@@ -296,9 +296,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { 
-      patient_id, professional_id, service_id, package_id, title, 
-      start_time, end_time, notes, color, duration_minutes,
-      status, modality, type, meeting_url, recurrence_rule 
+      status, modality, type, meeting_url, 
+      recurrence_freq, recurrence_interval, recurrence_count, recurrence_end_date 
     } = req.body;
 
     if (!start_time) {
@@ -308,17 +307,27 @@ router.post('/', async (req, res) => {
     const start = new Date(start_time);
     const duration = parseInt(duration_minutes) || 50;
     
-    // Lista para guardar os IDs criados (para retorno ou log)
-    const createdIds = [];
-    const recurrenceCount = recurrence_rule ? 12 : 1; // Padrão de 12 repetições se tiver regra
+    // Padrão de repetição
+    const freq = recurrence_freq || null;
+    const interval = parseInt(recurrence_interval) || 1;
+    let count = parseInt(recurrence_count) || 1;
+    const until = recurrence_end_date ? new Date(recurrence_end_date) : null;
 
-    for (let i = 0; i < recurrenceCount; i++) {
+    if (freq && count === 1 && !until) {
+        count = 12; // Default if freq is set but no limit
+    }
+
+    for (let i = 0; i < count; i++) {
         const currentStart = new Date(start);
         
-        if (recurrence_rule === 'weekly') currentStart.setDate(start.getDate() + (i * 7));
-        else if (recurrence_rule === 'biweekly') currentStart.setDate(start.getDate() + (i * 14));
-        else if (recurrence_rule === 'monthly') currentStart.setMonth(start.getMonth() + i);
-        else if (i > 0) break; // Só repete se houver regra válida
+        if (freq === 'DAILY') currentStart.setDate(start.getDate() + (i * interval));
+        else if (freq === 'WEEKLY') currentStart.setDate(start.getDate() + (i * 7 * interval));
+        else if (freq === 'MONTHLY') currentStart.setMonth(start.getMonth() + (i * interval));
+        else if (freq === 'YEARLY') currentStart.setFullYear(start.getFullYear() + (i * interval));
+        else if (i > 0) break;
+
+        // Se passar da data limite, para
+        if (until && currentStart > until) break;
 
         const currentEnd = new Date(currentStart.getTime() + duration * 60000);
         
@@ -347,7 +356,7 @@ router.post('/', async (req, res) => {
             type || 'consulta',
             duration,
             meeting_url || null,
-            recurrence_rule || null
+            freq ? JSON.stringify({ freq, interval, count, until }) : null
           ]
         );
         createdIds.push(result.insertId);

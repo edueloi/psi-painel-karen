@@ -167,6 +167,8 @@ async function migrate() {
       patient_id INT,
       professional_id INT,
       service_id INT,
+      package_id INT,
+      comanda_id INT,
       title VARCHAR(255),
       start_time DATETIME NOT NULL,
       end_time DATETIME NOT NULL,
@@ -178,6 +180,9 @@ async function migrate() {
       notes TEXT,
       room_id INT,
       color VARCHAR(20),
+      recurrence_rule VARCHAR(50),
+      recurrence_id INT,
+      reschedule_reason TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
       FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL,
@@ -397,8 +402,13 @@ async function migrate() {
       tenant_id INT NOT NULL,
       patient_id INT,
       professional_id INT,
+      service_id INT,
+      package_id INT,
+      description VARCHAR(255),
       total DECIMAL(10,2) DEFAULT 0,
       discount DECIMAL(10,2) DEFAULT 0,
+      sessions_total INT DEFAULT 1,
+      sessions_used INT DEFAULT 0,
       status ENUM('open','closed','cancelled') DEFAULT 'open',
       payment_method VARCHAR(100),
       items LONGTEXT,
@@ -500,6 +510,16 @@ async function migrate() {
     "ALTER TABLE patients ADD COLUMN IF NOT EXISTS responsible_phone VARCHAR(50)",
     "ALTER TABLE patients ADD COLUMN IF NOT EXISTS health_plan VARCHAR(255)",
     "ALTER TABLE patients ADD COLUMN IF NOT EXISTS diagnosis TEXT",
+    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS package_id INT",
+    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS comanda_id INT",
+    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS recurrence_rule VARCHAR(50)",
+    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS recurrence_id INT",
+    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reschedule_reason TEXT",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS service_id INT",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS package_id INT",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS description VARCHAR(255)",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS sessions_total INT DEFAULT 1",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS sessions_used INT DEFAULT 0",
   ];
 
   for (const stmt of alterStatements) {
@@ -580,3 +600,4 @@ migrate().catch(err => {
   console.error('❌ Erro na migração:', err);
   process.exit(1);
 });
+

@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const OpenAI = require('openai');
 const multer = require('multer');
@@ -182,6 +182,40 @@ async function listAppointments(tenantId, startDate, endDate) {
   query += ' ORDER BY a.start_time';
   const [rows] = await db.query(query, params);
   return rows;
+}
+
+async function getFinancialSummary(tenantId, month, year) {
+  const m = month || (new Date().getMonth() + 1);
+  const y = year || new Date().getFullYear();
+
+  const [income] = await db.query(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
+     WHERE tenant_id = ? AND type = 'income' AND MONTH(date) = ? AND YEAR(date) = ?`,
+    [tenantId, m, y]
+  );
+  const [expense] = await db.query(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
+     WHERE tenant_id = ? AND type = 'expense' AND MONTH(date) = ? AND YEAR(date) = ?`,
+    [tenantId, m, y]
+  );
+
+  const [topPatient] = await db.query(
+    `SELECT p.name, SUM(t.amount) as total 
+     FROM financial_transactions t
+     JOIN patients p ON p.id = t.patient_id
+     WHERE t.tenant_id = ? AND t.type = 'income'
+     GROUP BY p.id ORDER BY total DESC LIMIT 1`,
+    [tenantId]
+  );
+
+  return {
+    income: income[0].total,
+    expense: expense[0].total,
+    balance: income[0].total - expense[0].total,
+    top_patient: topPatient[0] || null,
+    month: m,
+    year: y
+  };
 }
 
 async function createAppointment(tenantId, data) {
@@ -379,6 +413,20 @@ router.post('/chat', upload.single('file'), async (req, res) => {
             required: ['patients']
           }
         }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_financial_summary',
+          description: 'Obtém um resumo financeiro do mês (receitas, despesas, saldo e melhor cliente).',
+          parameters: {
+            type: 'object',
+            properties: {
+              month: { type: 'number', description: 'O mês (1-12)' },
+              year: { type: 'number', description: 'O ano (ex: 2024)' }
+            }
+          }
+        }
       }
     ];
 
@@ -430,6 +478,7 @@ Responda sempre em Portugues-BR.`
         if (functionName === 'list_patients') result = await listPatients(tenantId);
         else if (functionName === 'get_patient_details') result = await getPatientDetails(tenantId, args.patient_id);
         else if (functionName === 'list_appointments') result = await listAppointments(tenantId, args.start_date, args.end_date);
+        else if (functionName === 'get_financial_summary') result = await getFinancialSummary(tenantId, args.month, args.year);
         else if (functionName === 'create_appointment') { result = await createAppointment(tenantId, args); actionsTaken.push('appointment_created'); }
         else if (functionName === 'bulk_create_patients') { result = await bulkCreatePatients(tenantId, args.patients || []); actionsTaken.push('patients_created'); }
 

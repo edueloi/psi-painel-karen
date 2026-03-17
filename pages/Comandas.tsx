@@ -36,6 +36,7 @@ export const Comandas: React.FC = () => {
   const [comandas, setComandas] = useState<Comanda[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
@@ -50,10 +51,11 @@ export const Comandas: React.FC = () => {
   const fetchData = async () => {
       setIsLoading(true);
       try {
-          const [ptsData, srvsData, usrsData] = await Promise.all([
+          const [ptsData, srvsData, usrsData, pkgsData] = await Promise.all([
               api.get<any[]>('/patients'),
               api.get<Service[]>('/services'),
-              api.get<any[]>('/users')
+              api.get<any[]>('/users'),
+              api.get<any[]>('/packages')
           ]);
           
           const mappedPatients = (ptsData || []).map(p => ({
@@ -64,6 +66,7 @@ export const Comandas: React.FC = () => {
           setPatients(mappedPatients);
           setServices(srvsData);
           setProfessionals(usrsData || []);
+          setPackages(pkgsData || []);
           
           // Carregar comandas reais da API
           try {
@@ -507,16 +510,105 @@ export const Comandas: React.FC = () => {
                       </div>
 
                       <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Descrição do Pacote / Serviço</label>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Descrição</label>
                           <div className="relative group">
                               <input 
                                   type="text" 
                                   className="w-full text-sm font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all" 
-                                  placeholder="Ex: Terapia Semanal (Pacote 4 sessões)"
+                                  placeholder="Ex: Consulta Avulsa"
                                   value={editingComanda.description || ''} 
                                   onChange={e => setEditingComanda({...editingComanda, description: e.target.value})} 
                               />
-                              <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                              <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                          </div>
+                      </div>
+
+                      <div className="space-y-4">
+                          <div className="flex justify-between items-center px-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Serviços / Pacotes</label>
+                              <div className="flex gap-2">
+                                <button 
+                                    onClick={() => {
+                                        const newItem = { id: Date.now().toString(), name: 'Novo Serviço', price: 0, qty: 1, type: 'service' };
+                                        setEditingComanda({...editingComanda, items: [...(editingComanda.items || []), newItem]});
+                                    }}
+                                    className="text-[9px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest flex items-center gap-1"
+                                >
+                                    <Plus size={12}/> ADICIONAR
+                                </button>
+                              </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                              {(editingComanda.items || []).map((item: any, idx: number) => (
+                                  <div key={item.id || idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                                      <div className="flex gap-3">
+                                          <select 
+                                            className="flex-1 text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-white"
+                                            value={item.service_id || item.package_id || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                const isPkg = val.startsWith('pkg_');
+                                                const id = isPkg ? val.replace('pkg_', '') : val;
+                                                const source = isPkg ? packages : services;
+                                                const found = source.find(s => String(s.id) === String(id));
+                                                
+                                                const newItems = [...(editingComanda.items || [])];
+                                                newItems[idx] = {
+                                                    ...newItems[idx],
+                                                    name: found?.name || 'Item',
+                                                    price: found?.price || found?.totalPrice || 0,
+                                                    [isPkg ? 'package_id' : 'service_id']: id,
+                                                    type: isPkg ? 'package' : 'service'
+                                                };
+                                                // Remove the other id field
+                                                if (isPkg) delete newItems[idx].service_id;
+                                                else delete newItems[idx].package_id;
+
+                                                const newTotal = newItems.reduce((acc, curr) => acc + (curr.price * (curr.qty || 1)), 0);
+                                                setEditingComanda({...editingComanda, items: newItems, totalValue: newTotal});
+                                            }}
+                                          >
+                                              <option value="">Selecionar...</option>
+                                              <optgroup label="Serviços">
+                                                  {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
+                                              </optgroup>
+                                              <optgroup label="Pacotes">
+                                                  {packages.map(p => <option key={p.id} value={`pkg_${p.id}`}>{p.name} - {formatCurrency(p.totalPrice)}</option>)}
+                                              </optgroup>
+                                          </select>
+                                          <button 
+                                            onClick={() => {
+                                                const newItems = editingComanda.items.filter((_: any, i: number) => i !== idx);
+                                                const newTotal = newItems.reduce((acc: number, curr: any) => acc + (curr.price * (curr.qty || 1)), 0);
+                                                setEditingComanda({...editingComanda, items: newItems, totalValue: newTotal});
+                                            }}
+                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                          >
+                                              <Trash2 size={16}/>
+                                          </button>
+                                      </div>
+                                      <div className="flex items-center justify-between gap-4">
+                                          <div className="flex items-center gap-2">
+                                              <span className="text-[9px] font-black text-slate-400">QTD</span>
+                                              <input 
+                                                type="number" 
+                                                className="w-16 p-1.5 text-xs font-bold rounded-lg border border-slate-200"
+                                                value={item.qty || 1}
+                                                onChange={(e) => {
+                                                    const newItems = [...(editingComanda.items || [])];
+                                                    newItems[idx].qty = parseInt(e.target.value) || 1;
+                                                    const newTotal = newItems.reduce((acc, curr) => acc + (curr.price * (curr.qty || 1)), 0);
+                                                    setEditingComanda({...editingComanda, items: newItems, totalValue: newTotal});
+                                                }}
+                                              />
+                                          </div>
+                                          <div className="text-xs font-black text-indigo-600">
+                                              {formatCurrency(item.price * (item.qty || 1))}
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
                           </div>
                       </div>
 

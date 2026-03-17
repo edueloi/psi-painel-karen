@@ -89,7 +89,11 @@ router.get('/summary', async (req, res) => {
 // POST /finance
 router.post('/', async (req, res) => {
   try {
-    const { type, category, description, amount, date, patient_id, appointment_id, payment_method, status } = req.body;
+    const { 
+      type, category, description, amount, date, 
+      patient_id, appointment_id, payment_method, status,
+      payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation
+    } = req.body;
 
     if (!type || !amount || !date) {
       return res.status(400).json({ error: 'Tipo, valor e data são obrigatórios' });
@@ -97,12 +101,14 @@ router.post('/', async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO financial_transactions
-        (tenant_id, type, category, description, amount, date, patient_id, appointment_id, payment_method, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (tenant_id, type, category, description, amount, date, patient_id, appointment_id, payment_method, status,
+         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, type, category || null, description || null,
         amount, date, patient_id || null, appointment_id || null,
-        payment_method || null, status || 'paid'
+        payment_method || null, status || 'paid',
+        payer_name || null, beneficiary_name || null, payer_cpf || null, beneficiary_cpf || null, observation || null
       ]
     );
 
@@ -117,7 +123,10 @@ router.post('/', async (req, res) => {
 // PUT /finance/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { type, category, description, amount, date, payment_method, status } = req.body;
+    const { 
+      type, category, description, amount, date, payment_method, status,
+      payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation
+    } = req.body;
 
     await db.query(
       `UPDATE financial_transactions SET
@@ -127,9 +136,18 @@ router.put('/:id', async (req, res) => {
         amount = COALESCE(?, amount),
         date = COALESCE(?, date),
         payment_method = COALESCE(?, payment_method),
-        status = COALESCE(?, status)
+        status = COALESCE(?, status),
+        payer_name = COALESCE(?, payer_name),
+        beneficiary_name = COALESCE(?, beneficiary_name),
+        payer_cpf = COALESCE(?, payer_cpf),
+        beneficiary_cpf = COALESCE(?, beneficiary_cpf),
+        observation = COALESCE(?, observation)
        WHERE id = ? AND tenant_id = ?`,
-      [type, category, description, amount, date, payment_method, status, req.params.id, req.user.tenant_id]
+      [
+        type, category, description, amount, date, payment_method, status,
+        payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation,
+        req.params.id, req.user.tenant_id
+      ]
     );
 
     const [updated] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [req.params.id]);
@@ -152,6 +170,74 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao deletar transação' });
+  }
+});
+
+// POST /finance/repeat/:id - Duplicar para o próximo mês
+router.post('/repeat/:id', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Lançamento não encontrado' });
+
+    const original = rows[0];
+    const dt = new Date(original.date);
+    dt.setMonth(dt.getMonth() + 1);
+    
+    const nextMonthDate = dt.toISOString().split('T')[0];
+
+    const [result] = await db.query(
+      `INSERT INTO financial_transactions
+        (tenant_id, type, category, description, amount, date, patient_id, payment_method, status, 
+         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        original.tenant_id, original.type, original.category, original.description, original.amount, 
+        nextMonthDate, original.patient_id, original.payment_method, 'pending',
+        original.payer_name, original.beneficiary_name, original.payer_cpf, original.beneficiary_cpf, original.observation
+      ]
+    );
+
+    const [newTx] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [result.insertId]);
+    res.status(201).json(newTx[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao repetir lançamento' });
+  }
+});
+
+// ── Session Types ────────────────────────────────────────────────────────────
+router.get('/session-types', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM session_types WHERE tenant_id = ? ORDER BY name ASC', [req.user.tenant_id]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar tipos de sessão' });
+  }
+});
+
+router.post('/session-types', async (req, res) => {
+  try {
+    const { id, name, default_value } = req.body;
+    const finalId = id || uuidv4();
+    await db.query(
+      'REPLACE INTO session_types (id, tenant_id, name, default_value) VALUES (?, ?, ?, ?)',
+      [finalId, req.user.tenant_id, name, default_value]
+    );
+    res.json({ id: finalId, name, default_value });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar tipo de sessão' });
+  }
+});
+
+router.delete('/session-types/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM session_types WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao deletar tipo de sessão' });
   }
 });
 

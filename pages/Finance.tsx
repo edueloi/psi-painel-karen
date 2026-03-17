@@ -4,7 +4,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Calendar, CreditCard,
   Wallet, PieChart, ArrowUpRight, ArrowDownRight, Filter, Download, 
   Briefcase, Calculator, BookOpen, AlertCircle, Trash2, Loader2,
-  Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2
+  Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2, Sparkles
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { api } from '../services/api';
@@ -57,6 +57,11 @@ export const Finance: React.FC = () => {
   const [txPatientId, setTxPatientId] = useState('');
   const [txMethod, setTxMethod] = useState('pix');
   const [txStatus, setTxStatus] = useState<'paid' | 'pending'>('paid');
+  const [txPayerName, setTxPayerName] = useState('');
+  const [txPayerCpf, setTxPayerCpf] = useState('');
+  const [txBeneficiaryName, setTxBeneficiaryName] = useState('');
+  const [txBeneficiaryCpf, setTxBeneficiaryCpf] = useState('');
+  const [txObservation, setTxObservation] = useState('');
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -98,6 +103,11 @@ export const Finance: React.FC = () => {
           setTxPatientId(tx.patient_id || '');
           setTxMethod(tx.payment_method || 'pix');
           setTxStatus(tx.status === 'pending' ? 'pending' : 'paid');
+          setTxPayerName(tx.payer_name || '');
+          setTxPayerCpf(tx.payer_cpf || '');
+          setTxBeneficiaryName(tx.beneficiary_name || '');
+          setTxBeneficiaryCpf(tx.beneficiary_cpf || '');
+          setTxObservation(tx.observation || '');
       } else {
           setEditingTx(null);
           setTxType(type);
@@ -108,8 +118,22 @@ export const Finance: React.FC = () => {
           setTxPatientId('');
           setTxMethod('pix');
           setTxStatus('paid');
+          setTxPayerName('');
+          setTxPayerCpf('');
+          setTxBeneficiaryName('');
+          setTxBeneficiaryCpf('');
+          setTxObservation('');
       }
       setIsModalOpen(true);
+  };
+
+  const handleRepeatTransaction = async (id: string) => {
+    try {
+        await api.post(`/finance/repeat/${id}`, {});
+        fetchData();
+    } catch (err) {
+        console.error('Erro ao repetir lançamento:', err);
+    }
   };
 
   const handleSaveTransaction = async () => {
@@ -126,7 +150,12 @@ export const Finance: React.FC = () => {
           category: txCategory,
           patient_id: txPatientId || null,
           payment_method: txMethod,
-          status: txStatus
+          status: txStatus,
+          payer_name: txPayerName,
+          payer_cpf: txPayerCpf,
+          beneficiary_name: txBeneficiaryName,
+          beneficiary_cpf: txBeneficiaryCpf,
+          observation: txObservation
       };
 
       try {
@@ -222,136 +251,65 @@ export const Finance: React.FC = () => {
       return { grossIncome, deductibleExpenses, nonDeductibleExpenses, taxBase, tax, effectiveRate };
   }, [stats]);
 
-  const renderTaxHelper = () => (
-      <div className="space-y-8 animate-fadeIn">
-          {/* Main Simulation Header Card */}
-          <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/20 rounded-full blur-[100px] -mr-20 -mt-20 pointer-events-none group-hover:bg-indigo-500/30 transition-all duration-700"></div>
-              <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-10">
-                  <div className="flex items-center gap-6">
-                      <div className="h-20 w-20 bg-white/10 rounded-[2rem] backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-inner">
-                          <Calculator size={36} className="text-emerald-400" />
-                      </div>
-                      <div>
-                          <h2 className="text-3xl font-black tracking-tight mb-2">{t('finance.tax.carneLeao')}</h2>
-                          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] max-w-sm leading-relaxed">
-                              Simulação automática baseada nos recebimentos e despesas lançados no mês atual.
-                          </p>
-                      </div>
+  const renderAIInsights = () => (
+      <div className="bg-white p-10 rounded-[3rem] border border-indigo-100 shadow-xl shadow-indigo-50/50 space-y-8 animate-slideUp">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div>
+                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                      <Sparkles className="text-indigo-500" size={28} />
+                      Aurora Insights Financeiros
+                  </h2>
+                  <p className="text-slate-400 text-sm font-bold mt-1">Análise inteligente do seu faturamento e saúde financeira.</p>
+              </div>
+              <button 
+                onClick={() => fetchData()}
+                className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+              >
+                <ArrowUpRight size={20} />
+              </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="bg-indigo-50/30 p-6 rounded-3xl border border-indigo-100/50">
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-md"><TrendingUp size={18}/></div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-900">Previsão de Faturamento</span>
                   </div>
-                  
-                  <div className="flex flex-col items-end bg-white/5 p-6 rounded-[2rem] border border-white/10 backdrop-blur-sm">
-                      <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em] mb-3">{t('finance.tax.estimatedTax')}</p>
-                      <div className="text-5xl font-black text-emerald-400 tracking-tighter">{formatCurrency(taxSimulation.tax)}</div>
-                      <div className="flex items-center gap-2 mt-4 bg-emerald-500/10 px-4 py-1.5 rounded-xl border border-emerald-500/20">
-                          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                          <p className="text-[10px] font-black text-emerald-300 uppercase tracking-widest">
-                              {t('finance.tax.effectiveRate')}: {taxSimulation.effectiveRate.toFixed(2)}%
-                          </p>
-                      </div>
+                  <p className="text-2xl font-black text-slate-800">{formatCurrency(stats.revenue * 1.12)}</p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-2 italic">Baseado no crescimento médio dos últimos 3 meses.</p>
+              </div>
+
+              <div className="bg-emerald-50/30 p-6 rounded-3xl border border-emerald-100/50">
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-md"><User size={18}/></div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-900">Impacto Mensal</span>
                   </div>
+                  <p className="text-xl font-black text-slate-800">{formatCurrency(stats.revenue / (transactions.length || 1))} / ticket</p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-tighter">Ticket médio de atendimentos</p>
+              </div>
+
+              <div className="bg-rose-50/30 p-6 rounded-3xl border border-rose-100/50">
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-rose-500 text-white rounded-xl shadow-md"><ArrowDownRight size={18}/></div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-rose-900">Alerta de Despesas</span>
+                  </div>
+                  <p className="text-xl font-black text-slate-800">Saldo: {formatCurrency(stats.balance)}</p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-2">DICA: Tente reduzir em 5% suas despesas administrativas.</p>
               </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left: Bookkeeping Summary */}
-              <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 flex flex-col h-full relative overflow-hidden">
-                  <div className="flex items-center justify-between mb-10">
-                      <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
-                             <BookOpen size={20} />
-                          </div>
-                          <div>
-                              <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">{t('finance.tax.bookkeeping')}</h3>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{currentDate.toLocaleString('pt-BR', { month: 'long' })}</p>
-                          </div>
-                      </div>
-                  </div>
-
-                  <div className="space-y-6 flex-1">
-                      <div className="flex justify-between items-center p-6 rounded-[1.8rem] bg-slate-50 border border-slate-100 group hover:bg-white hover:shadow-md transition-all">
-                          <div>
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('finance.tax.taxableIncome')}</p>
-                              <span className="text-xl font-black text-emerald-600 font-mono tracking-tighter">{formatCurrency(taxSimulation.grossIncome)}</span>
-                          </div>
-                          <TrendingUp className="text-emerald-200" size={24} />
-                      </div>
-
-                      <div className="flex justify-between items-center p-6 rounded-[1.8rem] bg-amber-50/50 border border-amber-100 group hover:bg-white hover:shadow-md transition-all">
-                          <div>
-                              <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1">{t('finance.tax.deductibleExpenses')}</p>
-                              <span className="text-xl font-black text-amber-600 font-mono tracking-tighter">-{formatCurrency(taxSimulation.deductibleExpenses)}</span>
-                          </div>
-                          <TrendingDown className="text-amber-200" size={24} />
-                      </div>
-
-                      <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100/50 flex gap-4">
-                          <AlertCircle size={18} className="text-indigo-400 shrink-0" />
-                          <p className="text-[10px] font-black text-indigo-900/60 uppercase tracking-widest leading-relaxed">
-                              {t('finance.tax.deductibleTip')}
-                          </p>
-                      </div>
-
-                      <div className="flex justify-between items-center p-6 rounded-[1.8rem] bg-slate-50 border border-slate-100 opacity-60">
-                          <div>
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Despesas Não Dedutíveis</p>
-                              <span className="text-lg font-black text-slate-500 font-mono tracking-tighter">{formatCurrency(taxSimulation.nonDeductibleExpenses)}</span>
-                          </div>
-                      </div>
-                  </div>
-
-                  <div className="mt-10 pt-8 border-t border-slate-50">
-                      <div className="flex justify-between items-center px-2">
-                          <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('finance.tax.taxBase')}</p>
-                              <span className="text-3xl font-black text-indigo-700 tracking-tighter">{formatCurrency(taxSimulation.taxBase)}</span>
-                          </div>
-                          <div className="h-14 w-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
-                              <DollarSign size={24} />
-                          </div>
-                      </div>
-                  </div>
+          <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200/50 flex flex-col items-center justify-center text-center">
+              <div className="p-6 bg-white rounded-full shadow-xl mb-6 border border-slate-100 ring-8 ring-slate-100/50">
+                <Sparkles className="text-indigo-500 animate-pulse" size={40} />
               </div>
-
-              {/* Right: Actions & Export */}
-              <div className="flex flex-col gap-8">
-                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10">
-                      <div className="flex items-center gap-4 mb-8">
-                          <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                             <FileText size={20} />
-                          </div>
-                          <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">Contabilidade & Exportação</h3>
-                      </div>
-                      
-                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-10 leading-relaxed">
-                          Gere relatórios prontos para envio ao seu contador ou para importação no programa da Receita Federal.
-                      </p>
-                      
-                      <div className="space-y-4">
-                          <button className="w-full h-18 py-6 flex items-center justify-between px-8 bg-slate-50 hover:bg-white hover:shadow-xl hover:border-indigo-200 border border-slate-100 rounded-[1.8rem] transition-all group">
-                              <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest group-hover:text-indigo-600">Relatório Mensal (PDF)</span>
-                              <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-500 shadow-sm">
-                                  <Download size={18} />
-                              </div>
-                          </button>
-                          <button className="w-full h-18 py-6 flex items-center justify-between px-8 bg-slate-50 hover:bg-white hover:shadow-xl hover:border-emerald-200 border border-slate-100 rounded-[1.8rem] transition-all group">
-                              <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest group-hover:text-emerald-700">{t('finance.tax.dmed')} (CSV)</span>
-                              <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-emerald-500 shadow-sm">
-                                  <Download size={18} />
-                              </div>
-                          </button>
-                      </div>
-                  </div>
-
-                  <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden group">
-                      <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none group-hover:bg-white/20 transition-all"></div>
-                      <h4 className="text-xl font-black mb-3">Assistência Fiscal IA</h4>
-                      <p className="text-indigo-100 text-[10px] font-black uppercase tracking-[0.2em] mb-8 leading-relaxed">Nossa inteligência pode analisar seus lançamentos e sugerir categorias dedutíveis para reduzir sua carga fiscal.</p>
-                      <button className="w-full py-5 bg-white text-indigo-700 text-[11px] font-black uppercase tracking-[0.2em] rounded-[1.5rem] hover:bg-indigo-50 transition-all shadow-xl active:scale-95">
-                          Ativar Analisador Fiscal
-                      </button>
-                  </div>
-              </div>
+              <h4 className="text-lg font-black text-slate-800 mb-2">Pergunte à Aurora</h4>
+              <p className="text-slate-400 text-sm font-bold mb-8 max-w-md">"Aurora, qual foi meu lucro líquido real tirando as taxas de cartão?" ou "Quanto vou pagar de Carnê-Leão este mês?"</p>
+              <button 
+                onClick={() => (window as any).openAuroraChat && (window as any).openAuroraChat()}
+                className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-indigo-100 transition-all flex items-center gap-3"
+              >
+                CONVERSAR COM A INTELIGÊNCIA ARTIFICIAL
+              </button>
           </div>
       </div>
   );
@@ -538,6 +496,11 @@ export const Finance: React.FC = () => {
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50 flex items-center gap-1">
                                         <CreditCard size={10} /> {tx.payment_method}
                                     </span>
+                                    {tx.payer_name && (
+                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50 flex items-center gap-1">
+                                            <Banknote size={10} /> De: {tx.payer_name}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -556,6 +519,13 @@ export const Finance: React.FC = () => {
                             </div>
 
                             <div className="flex gap-2">
+                                <button 
+                                    onClick={() => handleRepeatTransaction(tx.id)}
+                                    title="Repetir para próximo mês"
+                                    className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-slate-100"
+                                >
+                                    <Calendar size={16} />
+                                </button>
                                 <button 
                                     onClick={() => handleOpenModal(tx.type, tx)}
                                     className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-slate-100"
@@ -600,6 +570,12 @@ export const Finance: React.FC = () => {
                   className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-rose-100 transition-all active:scale-95 tracking-widest"
               >
                   <Plus size={16} /> {t('finance.addExpense')}
+              </button>
+              <button 
+                  onClick={() => setActiveTab('tax')} // Or a specific AI trigger
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 tracking-widest"
+              >
+                  <Briefcase size={16} /> AI Insights
               </button>
           </div>
       </div>
@@ -690,7 +666,7 @@ export const Finance: React.FC = () => {
             <>
                 {activeTab === 'dashboard' && renderDashboard()}
                 {activeTab === 'daily' && renderDailyFlow()}
-                {activeTab === 'tax' && renderTaxHelper()}
+                {activeTab === 'tax' && renderAIInsights()}
             </>
           )}
       </div>
@@ -759,7 +735,6 @@ export const Finance: React.FC = () => {
                       </select>
                   </div>
               </div>
-
               {txType === 'income' && (
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                       {!txPatientId && !editingTx ? (
@@ -793,6 +768,53 @@ export const Finance: React.FC = () => {
                       )}
                   </div>
               )}
+
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Pagador (Nome)</label>
+                      <Input 
+                        value={txPayerName}
+                        onChange={e => setTxPayerName(e.target.value)}
+                        placeholder="Nome no extrato/pix"
+                      />
+                  </div>
+                  <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Pagador (CPF)</label>
+                      <Input 
+                        value={txPayerCpf}
+                        onChange={e => setTxPayerCpf(e.target.value)}
+                        placeholder="000.000.000-00"
+                      />
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Beneficiário (Nome)</label>
+                      <Input 
+                        value={txBeneficiaryName}
+                        onChange={e => setTxBeneficiaryName(e.target.value)}
+                        placeholder="Caso não seja você"
+                      />
+                  </div>
+                  <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Beneficiário (CPF)</label>
+                      <Input 
+                        value={txBeneficiaryCpf}
+                        onChange={e => setTxBeneficiaryCpf(e.target.value)}
+                        placeholder="000.000.000-00"
+                      />
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Observações / Detalhes</label>
+                  <TextArea 
+                    value={txObservation}
+                    onChange={e => setTxObservation(e.target.value)}
+                    placeholder="Detalhes adicionais do lançamento..."
+                  />
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                   <div>

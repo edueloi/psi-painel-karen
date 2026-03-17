@@ -208,6 +208,12 @@ export interface FinancialTransaction {
   comanda_id?: string;
   payment_method?: PaymentType | string;
   status: TransactionStatus;
+  payer_name?: string;
+  payer_cpf?: string;
+  beneficiary_name?: string;
+  beneficiary_cpf?: string;
+  observation?: string;
+  receipt_status?: 'pending' | 'issued';
   created_at?: string;
 }
 
