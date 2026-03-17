@@ -63,7 +63,7 @@ export const Services: React.FC = () => {
   const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
 
   const pushToast = (type: 'success' | 'error', message: string) => {
-    const id = Date.now();
+    const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, type, message }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
   };
