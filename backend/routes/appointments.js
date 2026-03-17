@@ -319,8 +319,8 @@ router.post('/', async (req, res) => {
     let count = parseInt(recurrence_count) || 1;
     const until = recurrence_end_date ? new Date(recurrence_end_date) : null;
 
-    if (freq && count === 1 && !until) {
-        count = 12; // Default if freq is set but no limit
+    if (freq && (!count || count <= 0)) {
+        count = 12; // Default if freq is set but no limit or 0
     }
 
     for (let i = 0; i < count; i++) {
@@ -433,7 +433,7 @@ router.post('/', async (req, res) => {
             // Vincula todos os agendamentos criados à comanda
             await db.query(
                 'UPDATE appointments SET comanda_id = ? WHERE id IN (?)',
-                [comandaId, [createdIds]]
+                [comandaId, createdIds]
             );
         } catch (comandaErr) {
             console.error('Erro ao gerar comanda automática no agendamento:', comandaErr);

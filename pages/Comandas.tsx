@@ -10,6 +10,9 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Modal } from '../components/UI/Modal';
+import { Button } from '../components/UI/Button';
+import { Input, Select, TextArea } from '../components/UI/Input';
 
 export const Comandas: React.FC = () => {
   const { t, language } = useLanguage();
@@ -168,15 +171,17 @@ export const Comandas: React.FC = () => {
       
       try {
         const payload = {
-          patient_id: editingComanda.patientId,
-          professional_id: editingComanda.professionalId,
+          patient_id: editingComanda.patientId || (editingComanda as any).patient_id,
+          professional_id: editingComanda.professionalId || (editingComanda as any).professional_id,
           description: editingComanda.description,
           status: editingComanda.status,
           items: editingComanda.items,
           discount: 0,
-          start_date: editingComanda.startDate,
+          start_date: editingComanda.startDate || (editingComanda as any).start_date,
           duration_minutes: editingComanda.duration_minutes || 60,
-          payment_method: editingComanda.payment_method || 'pending'
+          payment_method: editingComanda.payment_method || 'pending',
+          sessions_total: editingComanda.sessions_total || 0,
+          sessions_used: editingComanda.sessions_used || 0
         };
 
         if (editingComanda.id) {
@@ -531,200 +536,221 @@ export const Comandas: React.FC = () => {
       </div>
 
       {/* MODAL LANÇAMENTO */}
-      {isModalOpen && editingComanda && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-              <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20 max-h-[90vh]">
-                  <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                      <div>
-                          <h3 className="text-xl font-black text-slate-800">Detalhes da Comanda</h3>
-                          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{editingComanda.id ? `#${editingComanda.id}` : 'Novo Lançamento'}</p>
-                      </div>
-                      <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl text-slate-400 ring-1 ring-slate-200 transition-all"><X size={18}/></button>
-                  </div>
-                  
-                  <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
-                      <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Paciente</label>
-                          <div className="relative group">
-                              <select 
-                                  className="w-full text-sm font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all appearance-none" 
-                                  value={editingComanda.patientId} 
-                                  onChange={e => setEditingComanda({...editingComanda, patientId: e.target.value})}
-                              >
-                                  <option value="">Selecione o Paciente</option>
-                                  {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                              </select>
-                              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                          </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-5">
-                          <div>
-                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Status</label>
-                              <select 
-                                  className="w-full text-sm font-black p-4 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all appearance-none" 
-                                  value={editingComanda.status} 
-                                  onChange={e => setEditingComanda({...editingComanda, status: e.target.value as any})}
-                              >
-                                  <option value="open">Em Aberto</option>
-                                  <option value="closed">Pago</option>
-                                  <option value="cancelled">Cancelado</option>
-                              </select>
-                          </div>
-                          <div>
-                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Valor Total</label>
-                              <div className="relative group">
-                                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={18} />
-                                  <input 
-                                      type="number" 
-                                      className="w-full text-lg font-black p-4 pl-11 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-emerald-400 transition-all text-emerald-700" 
-                                      value={editingComanda.totalValue || editingComanda.total || 0} 
-                                      onChange={e => setEditingComanda({...editingComanda, totalValue: parseFloat(e.target.value)})} 
-                                  />
-                              </div>
-                          </div>
+      <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title="Detalhes da Comanda"
+          subtitle={editingComanda?.id ? `#${editingComanda.id} • ${editingComanda.patientName || 'Novo Registro'}` : 'Novo Lançamento'}
+          maxWidth="max-w-2xl"
+          footer={
+            <div className="flex justify-between items-center w-full gap-4">
+               <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="uppercase tracking-widest text-[10px] font-black">
+                  Cancelar
+               </Button>
+               <Button 
+                onClick={handleSave} 
+                className="px-10 h-11 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 uppercase tracking-widest text-[10px] font-black transition-all transform active:scale-95"
+               >
+                  <CheckCircle size={18} className="mr-2"/> SALVAR ALTERAÇÕES
+               </Button>
+            </div>
+          }
+      >
+          <div className="space-y-8 py-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* IDENTIFICAÇÃO */}
+                  <div className="space-y-6">
+                      <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Identificação</h4>
                       </div>
 
-                      <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Descrição</label>
-                          <div className="relative group">
-                              <input 
-                                  type="text" 
-                                  className="w-full text-sm font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all" 
-                                  placeholder="Ex: Consulta Avulsa"
-                                  value={editingComanda.description || ''} 
-                                  onChange={e => setEditingComanda({...editingComanda, description: e.target.value})} 
-                              />
-                              <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                          </div>
-                      </div>
+                      <Select 
+                        label="Paciente" 
+                        icon={<User size={18} className="text-indigo-400" />}
+                        value={editingComanda?.patientId || ''} 
+                        onChange={e => setEditingComanda({...editingComanda!, patientId: e.target.value})}
+                      >
+                          <option value="">Selecionar paciente...</option>
+                          {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                      </Select>
 
-                      <div className="space-y-4">
-                          <div className="flex justify-between items-center px-1">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Serviços / Pacotes</label>
-                              <div className="flex gap-2">
-                                <button 
-                                    onClick={() => {
-                                        const newItem = { id: Date.now().toString(), name: 'Novo Serviço', price: 0, qty: 1, type: 'service' };
-                                        setEditingComanda({...editingComanda, items: [...(editingComanda.items || []), newItem]});
-                                    }}
-                                    className="text-[9px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest flex items-center gap-1"
-                                >
-                                    <Plus size={12}/> ADICIONAR
-                                </button>
-                              </div>
-                          </div>
-                          
-                          <div className="space-y-3">
-                              {(editingComanda.items || []).map((item: any, idx: number) => (
-                                  <div key={item.id || idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
-                                      <div className="flex gap-3">
-                                          <select 
-                                            className="flex-1 text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-white"
-                                            value={item.service_id || item.package_id || ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                const isPkg = val.startsWith('pkg_');
-                                                const id = isPkg ? val.replace('pkg_', '') : val;
-                                                const source = isPkg ? packages : services;
-                                                const found = source.find(s => String(s.id) === String(id));
-                                                
-                                                const newItems = [...(editingComanda.items || [])];
-                                                newItems[idx] = {
-                                                    ...newItems[idx],
-                                                    name: found?.name || 'Item',
-                                                    price: found?.price || found?.totalPrice || 0,
-                                                    [isPkg ? 'package_id' : 'service_id']: id,
-                                                    type: isPkg ? 'package' : 'service'
-                                                };
-                                                // Remove the other id field
-                                                if (isPkg) delete newItems[idx].service_id;
-                                                else delete newItems[idx].package_id;
+                      <Select 
+                        label="Status" 
+                        value={editingComanda?.status || 'open'} 
+                        onChange={e => setEditingComanda({...editingComanda!, status: e.target.value as any})}
+                      >
+                          <option value="open">Em Aberto</option>
+                          <option value="closed">Pago</option>
+                          <option value="cancelled">Cancelado</option>
+                      </Select>
 
-                                                const newTotal = newItems.reduce((acc, curr) => acc + (curr.price * (curr.qty || 1)), 0);
-                                                setEditingComanda({...editingComanda, items: newItems, totalValue: newTotal});
-                                            }}
-                                          >
-                                              <option value="">Selecionar...</option>
-                                              <optgroup label="Serviços">
-                                                  {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
-                                              </optgroup>
-                                              <optgroup label="Pacotes">
-                                                  {packages.map(p => <option key={p.id} value={`pkg_${p.id}`}>{p.name} - {formatCurrency(p.totalPrice)}</option>)}
-                                              </optgroup>
-                                          </select>
-                                          <button 
-                                            onClick={() => {
-                                                const newItems = editingComanda.items.filter((_: any, i: number) => i !== idx);
-                                                const newTotal = newItems.reduce((acc: number, curr: any) => acc + (curr.price * (curr.qty || 1)), 0);
-                                                setEditingComanda({...editingComanda, items: newItems, totalValue: newTotal});
-                                            }}
-                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                          >
-                                              <Trash2 size={16}/>
-                                          </button>
-                                      </div>
-                                      <div className="flex items-center justify-between gap-4">
-                                          <div className="flex items-center gap-2">
-                                              <span className="text-[9px] font-black text-slate-400">QTD</span>
-                                              <input 
-                                                type="number" 
-                                                className="w-16 p-1.5 text-xs font-bold rounded-lg border border-slate-200"
-                                                value={item.qty || 1}
-                                                onChange={(e) => {
-                                                    const newItems = [...(editingComanda.items || [])];
-                                                    newItems[idx].qty = parseInt(e.target.value) || 1;
-                                                    const newTotal = newItems.reduce((acc, curr) => acc + (curr.price * (curr.qty || 1)), 0);
-                                                    setEditingComanda({...editingComanda, items: newItems, totalValue: newTotal});
-                                                }}
-                                              />
-                                          </div>
-                                          <div className="text-xs font-black text-indigo-600">
-                                              {formatCurrency(item.price * (item.qty || 1))}
-                                          </div>
-                                      </div>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-
-                      {(editingComanda.sessions_total || 0) > 1 && (
-                          <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100">
-                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progresso do Pacote</span>
-                                <span className="text-sm font-black text-indigo-600">{editingComanda.sessions_used}/{editingComanda.sessions_total}</span>
-                             </div>
-                             <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                                <div 
-                                    className="bg-indigo-500 h-full transition-all duration-500" 
-                                    style={{ width: `${((editingComanda.sessions_used || 0) / (editingComanda.sessions_total || 1)) * 100}%` }}
-                                ></div>
-                             </div>
-                             <p className="text-[9px] text-slate-400 font-bold mt-2.5 leading-tight italic">
-                                * O progresso é calculado automaticamente baseado nos agendamentos realizados na agenda vinculados a esta comanda.
-                             </p>
-                          </div>
-                      )}
-
-                      <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Observações Privadas</label>
-                          <textarea 
-                              className="w-full text-sm font-bold p-4 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all min-h-[100px]" 
-                              value={editingComanda.notes || ''} 
-                              onChange={e => setEditingComanda({...editingComanda, notes: e.target.value})}
-                          />
-                      </div>
+                      <Input 
+                        label="Descrição" 
+                        icon={<FileText size={18} className="text-slate-400" />}
+                        placeholder="Ex: Consulta Avulsa"
+                        value={editingComanda?.description || ''} 
+                        onChange={e => setEditingComanda({...editingComanda!, description: e.target.value})}
+                      />
                   </div>
 
-                  <div className="p-8 border-t border-slate-50 bg-slate-50/20 flex justify-end gap-4 px-10 pb-10">
-                      <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-xs font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">CANCELAR</button>
-                      <button onClick={handleSave} className="px-10 py-3 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-[1.5rem] shadow-xl shadow-indigo-200 transition-all flex items-center gap-2 uppercase tracking-widest transform active:scale-95">
-                          <CheckCircle size={18}/> SALVAR ALTERAÇÕES
-                      </button>
+                  {/* VALORES E SESSÕES */}
+                  <div className="space-y-6">
+                      <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
+                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Financeiro</h4>
+                      </div>
+
+                      <Input 
+                        label="Valor Total" 
+                        type="number"
+                        icon={<DollarSign size={18} className="text-emerald-500" />}
+                        value={editingComanda?.totalValue || editingComanda?.total || 0} 
+                        onChange={e => setEditingComanda({...editingComanda!, totalValue: parseFloat(e.target.value)})}
+                      />
+
+                      <Select 
+                        label="Profissional Responsável" 
+                        icon={<User size={18} className="text-indigo-400" />}
+                        value={editingComanda?.professionalId || ''} 
+                        onChange={e => setEditingComanda({...editingComanda!, professionalId: e.target.value})}
+                      >
+                          <option value="">Selecionar profissional...</option>
+                          {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </Select>
+
+                      <Input 
+                        label="Data Prevista" 
+                        type="datetime-local"
+                        icon={<Calendar size={18} className="text-slate-400" />}
+                        value={editingComanda?.startDate ? editingComanda.startDate.slice(0, 16) : ''} 
+                        onChange={e => setEditingComanda({...editingComanda!, startDate: e.target.value})}
+                      />
                   </div>
               </div>
+
+              {/* SERVIÇOS E ITENS */}
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center px-1">
+                      <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-4 bg-amber-500 rounded-full"></div>
+                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Serviços / Itens</h4>
+                      </div>
+                      <button 
+                          type="button"
+                          onClick={() => {
+                              const newItem = { id: Date.now().toString(), name: 'Novo Serviço', price: 0, qty: 1, type: 'service' };
+                              setEditingComanda({...editingComanda!, items: [...(editingComanda?.items || []), newItem]});
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-100 rounded-xl font-black text-indigo-600 uppercase text-[9px] hover:bg-indigo-50 transition-all shadow-sm"
+                      >
+                          <Plus size={12}/> ADICIONAR ITEM
+                      </button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                      {(editingComanda?.items || []).map((item: any, idx: number) => (
+                          <div key={item.id || idx} className="bg-slate-50/50 p-5 rounded-3xl border border-slate-200/50 flex flex-col gap-4 group">
+                              <div className="flex gap-4 items-start">
+                                  <div className="flex-1">
+                                    <Select 
+                                      value={item.service_id || item.package_id || ''}
+                                      onChange={(e) => {
+                                          const val = e.target.value;
+                                          const isPkg = val.startsWith('pkg_');
+                                          const id = isPkg ? val.replace('pkg_', '') : val;
+                                          const source = isPkg ? packages : services;
+                                          const found = source.find(s => String(s.id) === String(id));
+                                          
+                                          const newItems = [...(editingComanda?.items || [])];
+                                          newItems[idx] = {
+                                              ...newItems[idx],
+                                              name: found?.name || 'Item',
+                                              price: found?.price || found?.totalPrice || 0,
+                                              [isPkg ? 'package_id' : 'service_id']: id,
+                                              type: isPkg ? 'package' : 'service'
+                                          };
+                                          if (isPkg) delete newItems[idx].service_id;
+                                          else delete newItems[idx].package_id;
+
+                                          const newTotal = newItems.reduce((acc, curr) => acc + (curr.price * (curr.qty || 1)), 0);
+                                          setEditingComanda({...editingComanda!, items: newItems, totalValue: newTotal});
+                                      }}
+                                    >
+                                        <option value="">Selecionar...</option>
+                                        <optgroup label="Serviços Individuais">
+                                            {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
+                                        </optgroup>
+                                        <optgroup label="Pacotes">
+                                            {packages.map(p => <option key={p.id} value={`pkg_${p.id}`}>{p.name} - {formatCurrency(p.totalPrice)}</option>)}
+                                        </optgroup>
+                                    </Select>
+                                  </div>
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                        const newItems = editingComanda!.items.filter((_: any, i: number) => i !== idx);
+                                        const newTotal = newItems.reduce((acc: number, curr: any) => acc + (curr.price * (curr.qty || 1)), 0);
+                                        setEditingComanda({...editingComanda!, items: newItems, totalValue: newTotal});
+                                    }}
+                                    className="p-3 text-rose-500 hover:bg-rose-50 rounded-2xl transition-all border border-transparent hover:border-rose-100"
+                                  >
+                                      <Trash2 size={18}/>
+                                  </button>
+                              </div>
+                              <div className="flex items-center justify-between gap-4 px-1">
+                                  <div className="flex items-center gap-3">
+                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qtd</span>
+                                      <input 
+                                        type="number" 
+                                        className="w-20 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-black text-slate-700 outline-none focus:border-indigo-400"
+                                        value={item.qty || 1}
+                                        onChange={(e) => {
+                                            const newItems = [...(editingComanda?.items || [])];
+                                            newItems[idx].qty = parseInt(e.target.value) || 1;
+                                            const newTotal = newItems.reduce((acc, curr) => acc + (curr.price * (curr.qty || 1)), 0);
+                                            setEditingComanda({...editingComanda!, items: newItems, totalValue: newTotal});
+                                        }}
+                                      />
+                                  </div>
+                                  <div className="text-sm font-black text-indigo-600 bg-indigo-50/50 px-4 py-1.5 rounded-xl border border-indigo-100/50">
+                                      {formatCurrency(item.price * (item.qty || 1))}
+                                  </div>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+
+              {/* PROGRESSO E NOTAS */}
+              <div className="space-y-6">
+                  {(editingComanda?.sessions_total || 0) > 1 && (
+                      <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100/50">
+                          <div className="flex justify-between items-center mb-3">
+                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Progresso do Pacote</span>
+                              <span className="text-xs font-black text-indigo-600 bg-white px-3 py-1 rounded-full border border-indigo-100">
+                                {editingComanda?.sessions_used}/{editingComanda?.sessions_total} Sessões
+                              </span>
+                          </div>
+                          <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden shadow-inner">
+                              <div 
+                                  className="bg-indigo-500 h-full transition-all duration-1000 ease-out shadow-lg shadow-indigo-200" 
+                                  style={{ width: `${Math.min(((editingComanda?.sessions_used || 0) / (editingComanda?.sessions_total || 1)) * 100, 100)}%` }}
+                              ></div>
+                          </div>
+                      </div>
+                  )}
+
+                  <TextArea 
+                    label="Observações Privadas" 
+                    placeholder="Adicione detalhes internos sobre este faturamento..."
+                    value={editingComanda?.notes || ''} 
+                    onChange={e => setEditingComanda({...editingComanda!, notes: e.target.value})}
+                    className="min-h-[120px] !rounded-[2rem]"
+                  />
+              </div>
           </div>
-      )}
+      </Modal>
 
       {/* SIDEBAR DE HISTÓRICO / DETALHES */}
       {isHistoryOpen && historyComanda && (

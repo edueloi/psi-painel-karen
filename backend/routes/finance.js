@@ -9,9 +9,10 @@ async function ensureSchema() {
     'ALTER TABLE comandas ADD COLUMN start_date DATETIME NULL',
     'ALTER TABLE comandas ADD COLUMN duration_minutes INT NULL DEFAULT 60',
     'ALTER TABLE comandas ADD COLUMN appointment_id INT NULL',
+    'ALTER TABLE comandas ADD COLUMN financial_transaction_id INT NULL',
   ];
   for (const sql of cols) {
-    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) throw e; }
   }
 }
 let schemaReady = false;
@@ -244,6 +245,7 @@ router.delete('/session-types/:id', async (req, res) => {
 // GET /finance/comandas
 router.get('/comandas', async (req, res) => {
   try {
+    await withSchema();
     const { status } = req.query;
     let query = `
       SELECT c.*, p.name as patient_name, u.name as professional_name
@@ -374,24 +376,28 @@ router.post('/comandas', async (req, res) => {
 // PUT /finance/comandas/:id
 router.put('/comandas/:id', async (req, res) => {
     try {
+        await withSchema();
         const { 
             patient_id, professional_id, description, status, items, 
-            notes, payment_method, start_date, duration_minutes 
+            notes, payment_method, start_date, duration_minutes,
+            sessions_total, sessions_used
         } = req.body;
 
         const itemsArr = items || [];
-        const total = itemsArr.reduce((sum, item) => sum + (item.price || item.value || 0) * (item.qty || item.quantity || 1), 0);
+        const total = itemsArr.reduce((sum, item) => sum + (parseFloat(item.price || item.value || 0) * (item.qty || item.quantity || 1)), 0);
 
         await db.query(
             `UPDATE comandas SET 
                 patient_id = ?, professional_id = ?, description = ?, status = ?, 
                 total = ?, items = ?, notes = ?, payment_method = ?, 
-                start_date = ?, duration_minutes = ?
+                start_date = ?, duration_minutes = ? ,
+                sessions_total = ?, sessions_used = ?
             WHERE id = ? AND tenant_id = ?`,
             [
                 patient_id || null, professional_id || null, description || '', status || 'open',
                 total, JSON.stringify(itemsArr), notes || null, payment_method || null,
                 start_date || null, duration_minutes || 60,
+                sessions_total || 0, sessions_used || 0,
                 req.params.id, req.user.tenant_id
             ]
         );
@@ -403,7 +409,7 @@ router.put('/comandas/:id', async (req, res) => {
                 [req.params.id]
             );
             
-            if (existing[0] && !existing[0].financial_transaction_id) {
+            if (!existing[0]?.financial_transaction_id) {
                 const [ftResult] = await db.query(
                     `INSERT INTO financial_transactions 
                         (tenant_id, type, category, description, amount, date, patient_id, payment_method, status)
@@ -426,8 +432,8 @@ router.put('/comandas/:id', async (req, res) => {
 
         res.json({ id: req.params.id, success: true });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Erro ao atualizar comanda' });
+        console.error('Erro ao atualizar comanda:', err);
+        res.status(500).json({ error: 'Erro ao atualizar comanda', details: err.message });
     }
 });
 
