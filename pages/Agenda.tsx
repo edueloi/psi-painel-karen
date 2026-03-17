@@ -10,7 +10,7 @@ import {
     Edit3, Download, Upload, FileDown, FileUp
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea } from '../components/UI/Input';
@@ -18,6 +18,7 @@ import { Input, Select, TextArea } from '../components/UI/Input';
 export const Agenda: React.FC = () => {
   const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -83,10 +84,10 @@ export const Agenda: React.FC = () => {
       },
       bloqueio: { 
           label: 'Bloqueio', 
-          chip: 'bg-slate-50/50 text-slate-500 border-slate-200/50 backdrop-blur-sm', 
-          solid: 'bg-slate-400', 
-          dot: 'bg-slate-400', 
-          event: 'bg-slate-50/80 text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-white' 
+          chip: 'bg-slate-100/80 text-slate-600 border-slate-300 shadow-inner', 
+          solid: 'bg-slate-500', 
+          dot: 'bg-slate-500', 
+          event: 'bg-slate-100/90 text-slate-600 border-dashed border-slate-400 opacity-80' 
       },
   } as const;
 
@@ -126,15 +127,16 @@ export const Agenda: React.FC = () => {
         ]);
         
         setAppointments(apts.map(a => {
-            const start = new Date(a.appointment_date);
-            const end = new Date(start.getTime() + (a.duration_minutes || 50) * 60000);
+            const start = new Date(a.start_time || a.appointment_date);
+            const end = a.end_time ? new Date(a.end_time) : new Date(start.getTime() + (a.duration_minutes || 50) * 60000);
             return {
                 ...a,
                 start,
                 end,
                 type: a.type || 'consulta',
                 status: a.status || 'scheduled',
-                professional_id: a.professional_id || a.psychologist_id
+                professional_id: a.professional_id || a.psychologist_id,
+                duration_minutes: a.duration_minutes || 50
             };
         }));
         setPatients(pts || []);
@@ -250,12 +252,17 @@ export const Agenda: React.FC = () => {
     return currentDate.toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
   };
 
+  const toLocalISO = (date: Date) => {
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
   const openNewModal = (date?: Date) => {
     const initialDate = date || new Date();
     setFormData({
         type: 'consulta',
         modality: 'presencial',
-        appointment_date: initialDate.toISOString().slice(0, 16),
+        appointment_date: toLocalISO(initialDate),
         duration_minutes: 50,
         title: '',
         service_id: '',
@@ -272,7 +279,7 @@ export const Agenda: React.FC = () => {
   const openEditModal = (apt: Appointment) => {
     setFormData({
         ...apt,
-        appointment_date: new Date(apt.start).toISOString().slice(0, 16),
+        appointment_date: toLocalISO(apt.start),
         psychologist_id: apt.professional_id || apt.psychologist_id
     });
     setIsModalOpen(true);
@@ -296,7 +303,7 @@ export const Agenda: React.FC = () => {
         const savedAppointment = response;
 
         // SE FOR ONLINE E NÃO TEM URL AINDA, CRIA UMA SALA VIRTUAL
-        if (formData.modality === 'online' && !formData.meeting_url) {
+        if (formData.type === 'consulta' && formData.modality === 'online' && !formData.meeting_url) {
             try {
                 const roomCode = Math.random().toString(36).substr(2, 9);
                 const patient = patients.find(p => String(p.id) === String(formData.patient_id));
@@ -322,6 +329,36 @@ export const Agenda: React.FC = () => {
                 });
             } catch (roomError) {
                 console.error("Erro ao criar sala virtual:", roomError);
+            }
+        }
+
+        // NOVO FLOW: Se for um novo agendamento com paciente, cria comanda e redireciona
+        if (!formData.id && formData.type === 'consulta' && formData.patient_id) {
+            try {
+                const selectedService = services.find(s => String(s.id) === String(formData.service_id));
+                const comandaData = {
+                    patient_id: formData.patient_id,
+                    professional_id: formData.psychologist_id || formData.professional_id,
+                    start_date: formData.appointment_date,
+                    duration_minutes: formData.duration_minutes || 50,
+                    items: selectedService ? [{
+                        id: selectedService.id,
+                        name: selectedService.name,
+                        value: selectedService.price,
+                        qty: 1
+                    }] : [],
+                    notes: `Gerada automaticamente via Agenda`
+                };
+
+                const newComanda = await api.post<any>('/finance/comandas', comandaData);
+                
+                pushToast('success', 'Agendamento salvo e comanda gerada!');
+                setTimeout(() => {
+                    navigate('/comandas', { state: { openComandaId: newComanda.id } });
+                }, 1000);
+                return;
+            } catch (comandaErr) {
+                console.error("Erro ao criar comanda automática:", comandaErr);
             }
         }
 
@@ -595,7 +632,13 @@ export const Agenda: React.FC = () => {
                                     ))}
 
                                     {/* APPOINTMENTS CARDS */}
-                                    {getAppointmentsForDay(day).map(apt => {
+                                    {getAppointmentsForDay(day)
+                                        .sort((a, b) => {
+                                            if (a.type === 'bloqueio' && b.type !== 'bloqueio') return -1;
+                                            if (a.type !== 'bloqueio' && b.type === 'bloqueio') return 1;
+                                            return 0;
+                                        })
+                                        .map(apt => {
                                         const startMin = (apt.start.getHours() * 60 + apt.start.getMinutes()) - (startHour * 60);
                                         const durMin = (apt.end.getTime() - apt.start.getTime()) / 60000;
                                         const top = (startMin/60) * 80;
@@ -610,8 +653,15 @@ export const Agenda: React.FC = () => {
                                             >
                                                 <div className="flex flex-col h-full relative z-10">
                                                     <div className="flex justify-between items-start mb-1">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[10px] font-black text-slate-800 leading-none mb-1">{apt.patient_name || apt.title}</span>
+                                                        <div className="flex flex-col flex-1 min-w-0">
+                                                            <span className="text-[10px] font-black text-slate-800 leading-none mb-0.5 truncate">
+                                                                {apt.patient_name || apt.title || (apt.type === 'bloqueio' ? 'Bloqueio' : 'Evento')}
+                                                            </span>
+                                                            {apt.professional_name && (
+                                                                <span className="text-[8px] font-bold text-slate-400 truncate mb-1">
+                                                                    {apt.professional_name}
+                                                                </span>
+                                                            )}
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-[8px] font-black opacity-40 uppercase tracking-widest tabular-nums flex items-center gap-1">
                                                                     <Clock size={8}/> {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

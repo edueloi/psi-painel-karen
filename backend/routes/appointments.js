@@ -209,8 +209,8 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
         const [result] = await db.query(
           `INSERT INTO appointments (
             tenant_id, patient_id, professional_id, service_id, title,
-            start_time, end_time, status, modality, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            start_time, end_time, status, modality, type, duration_minutes, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.user.tenant_id,
             parseInt(findValue(row, 'ID Paciente', 'paciente_id', 'patient_id')) || null,
@@ -221,6 +221,8 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
             end.toISOString().slice(0, 19).replace('T', ' '),
             findValue(row, 'Status') || 'scheduled',
             findValue(row, 'Modalidade', 'Tipo') || 'presencial',
+            findValue(row, 'Tipo Agendamento', 'type') || 'consulta',
+            duration,
             findValue(row, 'Observações', 'Notes', 'Notas')
           ]
         );
@@ -293,28 +295,51 @@ router.get('/:id', async (req, res) => {
 // POST /appointments
 router.post('/', async (req, res) => {
   try {
-    const { patient_id, professional_id, service_id, title, start_time, end_time, notes, color, duration_minutes } = req.body;
+    const { 
+      patient_id, professional_id, service_id, title, 
+      start_time, end_time, notes, color, duration_minutes,
+      status, modality, type, meeting_url 
+    } = req.body;
 
     if (!start_time) {
       return res.status(400).json({ error: 'Data de início é obrigatória' });
     }
 
+    const start = new Date(start_time);
     let finalEndTime = end_time;
-    if (!finalEndTime && start_time) {
-      const duration = duration_minutes || 50;
-      const start = new Date(start_time);
-      finalEndTime = new Date(start.getTime() + duration * 60000).toISOString();
-    }
+    const duration = parseInt(duration_minutes) || 50;
 
     if (!finalEndTime) {
-      return res.status(400).json({ error: 'Data de início e duração são necessários para calcular o fim.' });
+      finalEndTime = new Date(start.getTime() + duration * 60000);
+    } else {
+      finalEndTime = new Date(finalEndTime);
     }
 
+    const formattedStart = start.toISOString().slice(0, 19).replace('T', ' ');
+    const formattedEnd = finalEndTime.toISOString().slice(0, 19).replace('T', ' ');
+
     const [result] = await db.query(
-      `INSERT INTO appointments (tenant_id, patient_id, professional_id, service_id, title, start_time, end_time, notes, color)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.user.tenant_id, patient_id || null, professional_id || null, service_id || null,
-       title || null, start_time, finalEndTime, notes || null, color || null]
+      `INSERT INTO appointments (
+        tenant_id, patient_id, professional_id, service_id, title, 
+        start_time, end_time, status, notes, color,
+        modality, type, duration_minutes, meeting_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.user.tenant_id, 
+        patient_id || null, 
+        professional_id || null, 
+        service_id || null,
+        title || null, 
+        formattedStart, 
+        formattedEnd, 
+        status || 'scheduled',
+        notes || null, 
+        color || null,
+        modality || 'presencial',
+        type || 'consulta',
+        duration,
+        meeting_url || null
+      ]
     );
 
     const [created] = await db.query(
@@ -336,7 +361,11 @@ router.post('/', async (req, res) => {
 // PUT /appointments/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { patient_id, professional_id, service_id, title, start_time, end_time, status, notes, color } = req.body;
+    const { 
+      patient_id, professional_id, service_id, title, 
+      start_time, end_time, status, notes, color,
+      modality, type, duration_minutes, meeting_url
+    } = req.body;
 
     const [existing] = await db.query(
       'SELECT id FROM appointments WHERE id = ? AND tenant_id = ?',
@@ -344,20 +373,49 @@ router.put('/:id', async (req, res) => {
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
 
+    let formattedStart = start_time;
+    let formattedEnd = end_time;
+
+    if (start_time) {
+        formattedStart = new Date(start_time).toISOString().slice(0, 19).replace('T', ' ');
+    }
+    if (end_time) {
+        formattedEnd = new Date(end_time).toISOString().slice(0, 19).replace('T', ' ');
+    }
+
     await db.query(
       `UPDATE appointments SET
-        patient_id = COALESCE(?, patient_id),
-        professional_id = COALESCE(?, professional_id),
-        service_id = COALESCE(?, service_id),
-        title = COALESCE(?, title),
+        patient_id = ?,
+        professional_id = ?,
+        service_id = ?,
+        title = ?,
         start_time = COALESCE(?, start_time),
         end_time = COALESCE(?, end_time),
-        status = COALESCE(?, status),
-        notes = COALESCE(?, notes),
-        color = COALESCE(?, color)
+        status = ?,
+        notes = ?,
+        color = ?,
+        modality = ?,
+        type = ?,
+        duration_minutes = ?,
+        meeting_url = ?
        WHERE id = ? AND tenant_id = ?`,
-      [patient_id, professional_id, service_id, title, start_time, end_time, status, notes, color,
-       req.params.id, req.user.tenant_id]
+      [
+        patient_id || null, 
+        professional_id || null, 
+        service_id || null, 
+        title || null, 
+        formattedStart, 
+        formattedEnd, 
+        status || 'scheduled', 
+        notes || null, 
+        color || null,
+        modality || 'presencial',
+        type || 'consulta',
+        parseInt(duration_minutes) || 50,
+        meeting_url || null,
+        req.params.id, 
+        req.user.tenant_id
+      ]
     );
 
     const [updated] = await db.query(

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import { Comanda, Patient, Service } from '../types';
 import { 
@@ -12,6 +13,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 export const Comandas: React.FC = () => {
   const { t, language } = useLanguage();
+  const location = useLocation();
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', { 
@@ -70,6 +72,26 @@ export const Comandas: React.FC = () => {
       };
       fetchData();
   }, []);
+  
+  // Abrir comanda automaticamente se vier redirecionado da agenda
+  useEffect(() => {
+    const state = location.state as { openComandaId?: string };
+    if (state?.openComandaId && comandas.length > 0) {
+      const comanda = comandas.find(c => String(c.id) === String(state.openComandaId));
+      if (comanda) {
+        setEditingComanda({ 
+          ...comanda,
+          patientId: comanda.patient_id || comanda.patientId,
+          professionalId: comanda.professional_id || comanda.professionalId,
+          startDate: comanda.start_date || comanda.startDate,
+          totalValue: comanda.total || comanda.totalValue
+        });
+        setIsModalOpen(true);
+        // Limpa o state para não reabrir em refresh
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, comandas]);
 
   // Lógica de Filtragem
   const filteredComandas = useMemo(() => {
