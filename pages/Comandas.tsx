@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, getStaticUrl } from '../services/api';
 import { Comanda, Patient, Service } from '../types';
 import { 
   ShoppingBag, Search, Plus, Edit3, Trash2, 
@@ -46,6 +46,7 @@ export const Comandas: React.FC = () => {
   const [dateRangeFilter, setDateRangeFilter] = useState<'today' | 'month' | 'year' | 'all'>('month');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyComanda, setHistoryComanda] = useState<Comanda | null>(null);
+  const [profileData, setProfileData] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   
   // Modals
@@ -85,32 +86,94 @@ export const Comandas: React.FC = () => {
 
   const handleGenerateReceipt = async () => {
     if (!historyComanda) return;
+    
+    pushToast('success', 'Gerando recibo para download...');
+
     try {
         const { default: jsPDF } = await import('jspdf');
-        const doc = new jsPDF();
-        
-        doc.setFillColor(79, 70, 229); // indigo-600
-        doc.rect(0, 0, 210, 40, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
-        doc.text("RECIBO DE PAGAMENTO", 105, 25, { align: "center" });
+        const { default: html2canvas } = await import('html2canvas');
 
-        doc.setTextColor(60, 60, 60);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
+        const patientName = historyComanda.patientName || historyComanda.patient_name || 'Paciente';
+        const amount = formatCurrency(historyComanda.totalValue || historyComanda.total || 0);
+        const dateStr = historyComanda.createdAt ? new Date(historyComanda.createdAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+        const fullDateStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+        const location = (profileData?.address || '').split(',').pop()?.trim() || 'São Paulo';
+        const logoUrl = profileData?.clinic_logo_url ? getStaticUrl(profileData.clinic_logo_url) : '';
+
+        // Cria um div invisível no DOM para renderizar o recibo
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;font-family:Arial,sans-serif;color:#00214d;';
+        container.innerHTML = `
+          <div style="display:flex;min-height:1123px;">
+            <div style="width:40px;background:#00214d;min-height:1123px;flex-shrink:0;"></div>
+            <div style="padding:60px 80px;flex:1;position:relative;">
+              <div style="position:absolute;top:60px;right:80px;text-align:right;font-size:11px;color:#00214d;line-height:1.6;">
+                <b>${profileData?.name || ''}</b><br/>
+                Psicóloga<br/>
+                ${profileData?.crp ? `CRP: ${profileData.crp}<br/>` : ''}
+                ${profileData?.cpf ? `CPF: ${profileData.cpf}` : ''}
+              </div>
+
+              <div style="width:120px;height:120px;background:white;border:1px solid #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:40px;overflow:hidden;">
+                ${logoUrl 
+                  ? `<img src="${logoUrl}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous" />`
+                  : `<span style="font-size:10px;font-weight:900;text-align:center;padding:10px;">SEU LOGO AQUI</span>`
+                }
+              </div>
+
+              <div style="text-align:right;margin:40px 0 60px 0;font-size:13px;">
+                ${location}, ${fullDateStr}
+              </div>
+
+              <div style="text-align:center;font-size:18px;font-weight:900;letter-spacing:2px;margin-bottom:50px;color:#00214d;">
+                RECIBO
+              </div>
+
+              <div style="font-size:14px;line-height:1.8;text-align:justify;margin-bottom:30px;color:#334155;">
+                Serviço de atendimento psicológico prestados ao(à) <b style="color:#00214d;">${patientName}</b>. 
+                Referente à comanda criada no dia <b style="color:#00214d;">${dateStr}</b>.
+                <br/><br/>
+                Valor total dos atendimentos prestados na data citada acima: <b style="color:#00214d;">${amount}</b>.
+                <br/><br/>
+                Psicóloga responsável pelos atendimentos prestados: <b style="color:#00214d;">${profileData?.name || ''}</b>${profileData?.crp ? `, CRP: <b style="color:#00214d;">${profileData.crp}</b>` : ''}.
+              </div>
+
+              <div style="margin-top:100px;text-align:center;">
+                <div style="border-top:1.5px solid #00214d;width:350px;margin:0 auto;padding-top:10px;">
+                  <b style="text-transform:uppercase;font-size:13px;">${profileData?.name || ''}</b><br/>
+                  <span style="font-size:11px;">Psicóloga</span>
+                </div>
+              </div>
+
+              <div style="position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">
+                ${profileData?.address || ''} | ${profileData?.phone || ''}
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(container);
+
+        const canvas = await html2canvas(container, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          width: 794,
+          height: 1123,
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+        const fileName = `Recibo_${patientName.replace(/\s+/g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
+        pdf.save(fileName);
+        document.body.removeChild(container);
         
-        doc.text(`Paciente: ${historyComanda.patientName || historyComanda.patient_name || 'Não informado'}`, 20, 60);
-        doc.text(`Comanda: #${historyComanda.id}`, 20, 70);
-        doc.text(`Referência: ${historyComanda.description || 'Consulta'}`, 20, 80);
-        
-        doc.setFont("helvetica", "bold");
-        doc.text(`VALOR TOTAL: ${formatCurrency(historyComanda.totalValue || historyComanda.total || 0)}`, 20, 100);
-        doc.text(`VALOR PAGO: ${formatCurrency(historyComanda.paidValue || 0)}`, 20, 110);
-        
-        doc.save(`Recibo_Comanda_${historyComanda.id}.pdf`);
         pushToast('success', 'Recibo baixado com sucesso!');
     } catch (e) {
+        console.error('Erro ao gerar PDF:', e);
         pushToast('error', 'Erro ao gerar o PDF do recibo.');
     }
   };
@@ -119,12 +182,15 @@ export const Comandas: React.FC = () => {
   const fetchData = async () => {
       setIsLoading(true);
       try {
-          const [ptsData, srvsData, usrsData, pkgsData] = await Promise.all([
+          const [ptsData, srvsData, usrsData, pkgsData, profileRes] = await Promise.all([
               api.get<any[]>('/patients'),
               api.get<Service[]>('/services'),
               api.get<any[]>('/users'),
-              api.get<any[]>('/packages')
+              api.get<any[]>('/packages'),
+              api.get<any>('/profile/me')
           ]);
+          
+          setProfileData(profileRes || {});
           
           const mappedPatients = (ptsData || []).map(p => ({
             ...p,
