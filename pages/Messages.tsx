@@ -260,8 +260,7 @@ export const Messages: React.FC = () => {
     }
   };
 
-  return (
-    <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
+    <div className="min-h-screen bg-slate-50">
       {toasts.length > 0 && (
         <div className="fixed right-6 top-6 z-[60] space-y-2">
           {toasts.map(t => (
@@ -274,36 +273,33 @@ export const Messages: React.FC = () => {
           ))}
         </div>
       )}
-      
-      {/* --- HERO SECTION --- */}
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-sky-900/20 border border-slate-800 text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-900 via-slate-900 to-indigo-950 opacity-90"></div>
-        <div className="absolute -right-32 -top-32 w-96 h-96 bg-sky-500/20 rounded-full blur-[100px] pointer-events-none"></div>
-        <div className="absolute left-10 bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
 
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-            <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-sky-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
-                    <MessageCircle size={14} />
-                    <span>Comunicação</span>
-                </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">Mensagens Pré-definidas</h1>
-                <p className="text-sky-200 text-lg leading-relaxed max-w-xl">
-                    Crie modelos inteligentes com variáveis dinâmicas para agilizar seu atendimento via WhatsApp e E-mail.
-                </p>
+      {/* Page Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-5">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+                <MessageCircle size={20} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900">Mensagens Pré-definidas</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Crie modelos inteligentes com variáveis dinâmicas.</p>
+              </div>
             </div>
-
-            <div className="flex gap-4 w-full lg:w-auto">
-                <button 
-                    onClick={() => handleOpenModal()}
-                    className="w-full lg:w-auto bg-sky-600 hover:bg-sky-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-sky-900/50 flex items-center justify-center gap-2 transition-all hover:-translate-y-1 active:translate-y-0"
-                >
-                    <Plus size={20} />
-                    Nova Mensagem
-                </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleOpenModal()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 text-white text-xs font-semibold rounded-lg hover:from-sky-700 hover:to-indigo-700 transition-all shadow-sm"
+              >
+                <Plus size={14} /> Nova Mensagem
+              </button>
             </div>
+          </div>
         </div>
       </div>
+
+      <div className="max-w-7xl mx-auto p-6 space-y-8">
 
       {/* --- TOOLBAR --- */}
       <div className="flex flex-col gap-6 sticky top-0 bg-slate-50/95 backdrop-blur z-20 py-4 -my-4 px-1">
@@ -532,15 +528,15 @@ export const Messages: React.FC = () => {
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
               <button
                 onClick={() => setIsSendModalOpen(false)}
-                className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors"
+                className="px-6 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSendWhatsApp}
-                className="px-8 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 hover:-translate-y-0.5 transition-all"
+                className="px-8 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg shadow-lg shadow-emerald-600/20 transition-all font-bold text-xs uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
               >
-                Enviar ({selectedPatientIds.length})
+                <Send size={16}/> Enviar ({selectedPatientIds.length})
               </button>
             </div>
           </div>
@@ -628,20 +624,20 @@ export const Messages: React.FC = () => {
                 <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
                     <button 
                         onClick={() => setIsModalOpen(false)}
-                        className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors"
+                        className="px-6 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors"
                     >
                         Cancelar
                     </button>
                     <button 
                         onClick={handleSave}
-                        className="px-8 py-3 rounded-xl font-bold bg-sky-600 text-white hover:bg-sky-700 shadow-lg shadow-sky-200 hover:-translate-y-0.5 transition-all"
+                        className="px-8 py-2.5 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-lg shadow-lg shadow-sky-600/20 transition-all font-bold text-xs uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
                     >
-                        Salvar Modelo
+                        <Check size={18}/> Salvar Modelo
                     </button>
                 </div>
             </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

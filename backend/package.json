@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "patch-db": "node patch_database.js",`r`n    "reset-db": "node reset_database.js"
+    "patch-db": "node patch_database.js",
+    "reset-db": "node reset_database.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
