@@ -91,7 +91,7 @@ export const Patients: React.FC = () => {
       setConfirmBulkDelete(false);
       await fetchPatients();
     } catch (err) {
-      alert('Erro ao excluir pacientes.');
+      pushToast('error', 'Erro ao excluir pacientes.');
     } finally {
       setBulkDeleting(false);
     }
@@ -222,6 +222,7 @@ export const Patients: React.FC = () => {
 
       await fetchPatients();
       setIsWizardOpen(false);
+      pushToast('success', data.id ? 'Paciente atualizado com sucesso!' : 'Paciente criado com sucesso!');
     } catch (err) {
       console.error('Erro ao salvar paciente:', err);
       pushToast('error', 'Erro ao salvar paciente. Verifique os dados e tente novamente.');

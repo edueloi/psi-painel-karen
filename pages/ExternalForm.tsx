@@ -14,6 +14,13 @@ export const ExternalForm: React.FC = () => {
   const [patient, setPatient] = useState<Patient | undefined>(undefined);
   const [branding, setBranding] = useState<any>(undefined);
   const [loading, setLoading] = useState(true);
+  const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  };
   const [submitted, setSubmitted] = useState(false);
   const [scoreResult, setScoreResult] = useState<{ total: number, interpretation?: InterpretationRule } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -134,7 +141,7 @@ export const ExternalForm: React.FC = () => {
     e.preventDefault();
 
     if (!patient && (!identification.name || !identification.phone)) {
-      alert('Por favor, preencha seus dados de identificacao.');
+      pushToast('error', 'Por favor, preencha seus dados de identificação.');
       return;
     }
 
@@ -509,6 +516,15 @@ export const ExternalForm: React.FC = () => {
           Powered by <span className="text-slate-500 font-bold">PsiFlux</span>
         </div>
       </main>
+
+      {/* TOASTS */}
+      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
+        {toasts.map(t => (
+          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

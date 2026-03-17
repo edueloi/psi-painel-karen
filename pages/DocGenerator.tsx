@@ -123,6 +123,13 @@ export const DocGenerator: React.FC = () => {
   const [templateFooterLogo, setTemplateFooterLogo] = useState('');
   const [templateSignatureName, setTemplateSignatureName] = useState('');
   const [templateSignatureCrp, setTemplateSignatureCrp] = useState('');
+  const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  };
 
   const headerInputRef = useRef<HTMLInputElement | null>(null);
   const footerInputRef = useRef<HTMLInputElement | null>(null);
@@ -455,10 +462,10 @@ export const DocGenerator: React.FC = () => {
     try {
       await api.post('/doc-generator/seed-defaults', {});
       await fetchData();
-      alert('Modelos padrão importados com sucesso!');
+      pushToast('success', 'Modelos padrão importados com sucesso!');
     } catch (e) {
       console.error(e);
-      alert('Erro ao importar modelos padrão.');
+      pushToast('error', 'Erro ao importar modelos padrão.');
     } finally {
       setIsSeeding(false);
     }
@@ -466,6 +473,15 @@ export const DocGenerator: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-4 lg:p-8">
+      {/* TOASTS */}
+      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
+        {toasts.map(t => (
+          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+            {t.type === 'success' ? <CheckCircle2 size={18}/> : <Info size={18}/>}
+            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+          </div>
+        ))}
+      </div>
       {/* Search and Filters Header */}
       <div className="bg-white rounded-[2rem] p-6 mb-8 border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">

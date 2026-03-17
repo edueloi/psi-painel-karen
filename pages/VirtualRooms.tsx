@@ -198,8 +198,9 @@ export const VirtualRooms: React.FC = () => {
           try {
               await api.delete(`/virtual-rooms/${id}`);
               setRooms(prev => prev.filter(r => r.id !== id));
+              pushToast('success', 'Sala removida com sucesso.');
           } catch (e) {
-              alert(t('rooms.errorDelete'));
+              pushToast('error', t('rooms.errorDelete'));
           }
       }
   };

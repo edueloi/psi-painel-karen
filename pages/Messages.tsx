@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { MessageTemplate } from '../types';
 import { api } from '../services/api';
 import { 
@@ -24,6 +24,21 @@ export const Messages: React.FC = () => {
   const [currentTemplate, setCurrentTemplate] = useState<Partial<MessageTemplate>>({});
   const [isLoading, setIsLoading] = useState(false);
   
+  // WhatsApp Sending States
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [isPatientsLoading, setIsPatientsLoading] = useState(false);
+  const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
+  const [sendTemplate, setSendTemplate] = useState<MessageTemplate | null>(null);
+  const [sendMeta, setSendMeta] = useState({
+    appointmentDate: new Date().toISOString().split('T')[0],
+    appointmentTime: '',
+    service: '',
+    total: '',
+    clinic: ''
+  });
+  
   // States for "Copy" feedback simulation
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
@@ -34,6 +49,31 @@ export const Messages: React.FC = () => {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3200);
+  };
+
+  const normalizePhone = (value?: string) => {
+    if (!value) return '';
+    return value.replace(/\D/g, '');
+  };
+
+  const fillTemplate = (content: string, patient: any) => {
+    const nomePaciente = patient?.full_name || patient?.name || '';
+    const data = {
+      nome_paciente: nomePaciente,
+      data_agendamento: sendMeta.appointmentDate || '',
+      horario: sendMeta.appointmentTime || '',
+      servico: sendMeta.service || '',
+      nome_profissional: '',
+      valor_total: sendMeta.total || '',
+      nome_clinica: sendMeta.clinic || ''
+    };
+
+    let result = content || '';
+    Object.entries(data).forEach(([key, value]) => {
+      const tag = `{{${key}}}`;
+      result = result.split(tag).join(String(value || ''));
+    });
+    return result;
   };
 
   useEffect(() => {
@@ -59,29 +99,37 @@ export const Messages: React.FC = () => {
     loadTemplates();
   }, []);
 
-  const filteredTemplates = templates.filter(t => 
-    t.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    t.content.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTemplates = useMemo(() => {
+     return templates.filter(t => 
+        t.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        t.content.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  }, [templates, searchTerm]);
 
-  const filteredPatients = patients.filter((p) => {
-    const name = (p.full_name || p.name || '').toLowerCase();
-    const email = (p.email || '').toLowerCase();
-    const phone = (p.whatsapp || p.phone || p.celular || '').toLowerCase();
-    const term = patientSearch.toLowerCase();
-    return name.includes(term) || email.includes(term) || phone.includes(term);
-  });
+  const filteredPatients = useMemo(() => {
+    return patients.filter((p) => {
+        const name = (p.full_name || p.name || '').toLowerCase();
+        const email = (p.email || '').toLowerCase();
+        const phone = (p.whatsapp || p.phone || p.celular || '').toLowerCase();
+        const term = patientSearch.toLowerCase();
+        return name.includes(term) || email.includes(term) || phone.includes(term);
+      });
+  }, [patients, patientSearch]);
 
-  const previewPatient = selectedPatientIds.length > 0
-    ? patients.find(p => String(p.id) == String(selectedPatientIds[0]))
-    : null;
-  const previewMessage = sendTemplate
-    ? fillTemplate(sendTemplate.content, previewPatient)
-    : '';
+  const previewPatient = useMemo(() => {
+      return selectedPatientIds.length > 0
+        ? patients.find(p => String(p.id) === String(selectedPatientIds[0]))
+        : null;
+  }, [selectedPatientIds, patients]);
 
-const allFilteredSelected = filteredPatients.length > 0 && filteredPatients.every((p) => selectedPatientIds.includes(String(p.id)));
-const filteredPatientIds = filteredPatients.map((p) => String(p.id));
+  const previewMessage = useMemo(() => {
+    return sendTemplate
+        ? fillTemplate(sendTemplate.content, previewPatient)
+        : '';
+  }, [sendTemplate, previewPatient, sendMeta]);
 
+  const allFilteredSelected = filteredPatients.length > 0 && filteredPatients.every((p) => selectedPatientIds.includes(String(p.id)));
+  const filteredPatientIds = filteredPatients.map((p) => String(p.id));
 
   const handleOpenModal = (template?: MessageTemplate) => {
     if (template) {
@@ -94,7 +142,7 @@ const filteredPatientIds = filteredPatients.map((p) => String(p.id));
 
   const handleSave = async () => {
     if (!currentTemplate.title || !currentTemplate.content) {
-      pushToast('error', 'Preencha o t??tulo e o conte?do da mensagem.');
+      pushToast('error', 'Preencha o título e o conteúdo da mensagem.');
       return;
     }
 
@@ -160,37 +208,12 @@ const filteredPatientIds = filteredPatients.map((p) => String(p.id));
     }
   };
 
-  const normalizePhone = (value?: string) => {
-    if (!value) return '';
-    return value.replace(/\D/g, '');
-  };
-
-  const fillTemplate = (content: string, patient: any) => {
-    const nomePaciente = patient?.full_name || patient?.name || '';
-    const data = {
-      nome_paciente: nomePaciente,
-      data_agendamento: sendMeta.appointmentDate || '',
-      horario: sendMeta.appointmentTime || '',
-      servico: sendMeta.service || '',
-      nome_profissional: '',
-      valor_total: sendMeta.total || '',
-      nome_clinica: sendMeta.clinic || ''
-    };
-
-    let result = content || '';
-    Object.entries(data).forEach(([key, value]) => {
-      const tag = `{{${key}}}`;
-      result = result.split(tag).join(String(value || ''));
-    });
-    return result;
-  };
-
   const handleOpenSendModal = async (template: MessageTemplate) => {
     setSendTemplate(template);
     setIsSendModalOpen(true);
     setSelectedPatientIds([]);
 
-    if (patients.length == 0) {
+    if (patients.length === 0) {
       try {
         setIsPatientsLoading(true);
         const rows = await api.get<any[]>('/patients');
@@ -209,14 +232,14 @@ const filteredPatientIds = filteredPatients.map((p) => String(p.id));
 
   const handleSendWhatsApp = () => {
     if (!sendTemplate) return;
-    if (selectedPatientIds.length == 0) {
+    if (selectedPatientIds.length === 0) {
       pushToast('error', 'Selecione pelo menos um paciente.');
       return;
     }
 
     let opened = 0;
     selectedPatientIds.forEach((id, index) => {
-      const patient = patients.find(p => String(p.id) == String(id));
+      const patient = patients.find(p => String(p.id) === String(id));
       if (!patient) return;
       const phone = normalizePhone(patient.whatsapp || patient.phone || patient.celular);
       const content = fillTemplate(sendTemplate.content, patient);

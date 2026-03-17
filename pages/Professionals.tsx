@@ -21,6 +21,13 @@ export const Professionals: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [editingPro, setEditingPro] = useState<any>(null);
   const [deleteConfirmPro, setDeleteConfirmPro] = useState<any>(null);
+  const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  };
 
   const fetchPros = async () => {
     setIsLoading(true);
@@ -62,7 +69,7 @@ export const Professionals: React.FC = () => {
 
   const handleSave = async () => {
     if (!editingPro.name || !editingPro.email || (!editingPro.id && !editingPro.password)) {
-        alert("Por favor, preencha todos os campos obrigatórios.");
+        pushToast('error', "Por favor, preencha todos os campos obrigatórios.");
         return;
     }
 
@@ -82,8 +89,9 @@ export const Professionals: React.FC = () => {
         
         await fetchPros();
         setIsModalOpen(false);
+        pushToast('success', editingPro.id ? 'Usuário atualizado.' : 'Usuário criado.');
     } catch (e: any) { 
-        alert(e.message || "Erro ao salvar usuário."); 
+        pushToast('error', e.message || "Erro ao salvar usuário."); 
     } finally {
         setIsSaving(false);
     }
@@ -95,8 +103,9 @@ export const Professionals: React.FC = () => {
           await api.delete(`/users/${deleteConfirmPro.id}`);
           setProfessionals(prev => prev.filter(p => p.id !== deleteConfirmPro.id));
           setDeleteConfirmPro(null);
+          pushToast('success', 'Usuário removido.');
       } catch (e: any) {
-          alert("Erro ao remover: " + e.message);
+          pushToast('error', "Erro ao remover: " + e.message);
       }
   };
 
@@ -504,6 +513,15 @@ export const Professionals: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* TOASTS */}
+      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
+        {toasts.map(t => (
+          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
