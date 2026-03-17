@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { api } from '../services/api';
 import { MOCK_SERVICES, MOCK_PACKAGES } from '../constants';
 import { Service, ServicePackage, ServicePackageItem } from '../types';
 import { 
   Briefcase, Search, Plus, Edit3, Trash2, Clock, DollarSign, Tag, 
   Package, X, Percent, CreditCard, ChevronRight, Layers,
   LayoutGrid, Sparkles, Building2, ExternalLink, AlertCircle,
-  CheckCircle2, ShoppingBag, List as ListIcon, Calendar, ArrowUpRight
+  CheckCircle2, ShoppingBag, List as ListIcon, Calendar, ArrowUpRight,
+  Download, FileUp, FileDown
 } from 'lucide-react';
+import { api, API_BASE_URL } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
@@ -227,25 +228,125 @@ export const Services: React.FC = () => {
     }
   };
 
+  const handleExportTemplate = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/services/export-template`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+      });
+      if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'modelo_importacao_servicos.xlsx';
+      a.click();
+    } catch (err) {
+      console.error('Erro ao baixar modelo:', err);
+      pushToast('error', 'Erro ao baixar modelo.');
+    }
+  };
+
+  const handleExportServices = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/services/export`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+      });
+      if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'servicos_exportados.xlsx';
+      a.click();
+    } catch (err) {
+      console.error('Erro ao exportar serviços:', err);
+      pushToast('error', 'Erro ao exportar serviços.');
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const result = await api.request<any>('/services/import', { method: 'POST', body: formData });
+      pushToast('success', result.message);
+      if (result.errors && result.errors.length > 0) {
+        console.warn('Erros na importação:', result.errors);
+        pushToast('error', 'Algumas linhas tiveram erros. Verifique o console.');
+      }
+      // Re-fetch data
+      const srvs = await api.get<Service[]>('/services');
+      setServices(srvs || []);
+    } catch (err) {
+      console.error('Erro ao importar:', err);
+      pushToast('error', 'Erro ao importar serviços.');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24">
-      
-      {/* HEADER & TOP CONTROLS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><Briefcase size={20}/></div>
-                  {t('services.title')}
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">{t('services.management')}</p>
+    <div className="min-h-screen bg-slate-50">
+      {toasts.length > 0 && (
+        <div className="fixed right-6 top-6 z-[60] space-y-2">
+          {toasts.map(t => (
+            <div
+              key={t.id}
+              className={`rounded-xl px-4 py-3 text-sm font-semibold shadow-lg border ${t.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}
+            >
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Page Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-5">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm">
+                <Briefcase size={20} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900">{t('services.title')}</h1>
+                <p className="text-xs text-slate-500 mt-0.5">{t('services.management')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportTemplate}
+                title="Baixar Modelo de Importação"
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                <Download size={14} /> <span className="hidden sm:inline">Modelo</span>
+              </button>
+              <button
+                onClick={handleExportServices}
+                title="Exportar Serviços"
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                <FileDown size={14} /> <span className="hidden sm:inline">Exportar</span>
+              </button>
+              <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
+                <FileUp size={14} /> <span className="hidden sm:inline">Importar</span>
+                <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} />
+              </label>
+              <button
+                onClick={() => activeTab === 'services' ? handleOpenServiceModal() : handleOpenPackageModal()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-violet-700 transition-all shadow-sm"
+              >
+                <Plus size={14} /> {activeTab === 'services' ? t('services.newService') : t('services.newPackage')}
+              </button>
+            </div>
           </div>
-          <button 
-              onClick={() => activeTab === 'services' ? handleOpenServiceModal() : handleOpenPackageModal()} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
-          >
-              <Plus size={18} /> {activeTab === 'services' ? t('services.newService') : t('services.newPackage')}
-          </button>
+        </div>
       </div>
+
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+
 
       {/* STATS BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -623,6 +724,7 @@ export const Services: React.FC = () => {
            </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

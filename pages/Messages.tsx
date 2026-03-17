@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { MessageTemplate } from '../types';
 import { api } from '../services/api';
@@ -260,6 +259,7 @@ export const Messages: React.FC = () => {
     }
   };
 
+  return (
     <div className="min-h-screen bg-slate-50">
       {toasts.length > 0 && (
         <div className="fixed right-6 top-6 z-[60] space-y-2">
@@ -390,9 +390,9 @@ export const Messages: React.FC = () => {
             <span className="font-bold">Criar Nova Mensagem</span>
         </button>
       </div>
+    </div>
 
-
-      {isSendModalOpen && (
+    {isSendModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
           <div className="bg-white w-full max-w-3xl rounded-[28px] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
@@ -637,7 +637,7 @@ export const Messages: React.FC = () => {
                 </div>
             </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

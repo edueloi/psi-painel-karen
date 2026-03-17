@@ -27,12 +27,12 @@ async function resetDatabase() {
   const dbName = process.env.DB_NAME || 'psiflux';
 
   console.log('Iniciando reset destrutivo do banco ' + dbName + '...');
-  await conn.query('CREATE DATABASE IF NOT EXISTS ' + dbName + ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-  await conn.query('USE ' + dbName + '');
+  await conn.query('CREATE DATABASE IF NOT EXISTS '+ dbName +' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+  await conn.query('USE '+ dbName +'');
   await conn.query('SET FOREIGN_KEY_CHECKS = 0');
 
   for (const table of oldTables) {
-    await conn.query('DROP TABLE IF EXISTS ' + table + '');
+    await conn.query('DROP TABLE IF EXISTS '+ table +'');
   }
 
   await conn.query('SET FOREIGN_KEY_CHECKS = 1');
