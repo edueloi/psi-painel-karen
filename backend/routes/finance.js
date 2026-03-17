@@ -171,8 +171,25 @@ router.get('/comandas', async (req, res) => {
     query += ' ORDER BY c.created_at DESC';
 
     const [comandas] = await db.query(query, params);
+    
+    // Atualiza o contador de sessões usadas baseado na agenda
     for (const c of comandas) {
-      try { c.items = JSON.parse(c.items); } catch { c.items = []; }
+      try {
+        const [usedCount] = await db.query(
+          `SELECT COUNT(*) as used FROM appointments 
+           WHERE comanda_id = ? AND (status IN ('confirmed', 'completed') OR (start_time < NOW() AND status != 'cancelled'))`,
+          [c.id]
+        );
+        c.sessions_used = usedCount[0].used;
+        
+        // Sincroniza no banco se houver discrepância
+        await db.query('UPDATE comandas SET sessions_used = ? WHERE id = ?', [c.sessions_used, c.id]);
+        
+        c.items = JSON.parse(c.items || '[]');
+      } catch (err) {
+        c.items = [];
+        console.error('Erro ao processar comanda:', err.message);
+      }
     }
     res.json(comandas);
   } catch (err) {
@@ -196,26 +213,27 @@ router.post('/comandas', async (req, res) => {
     // 1. Criar a Comanda
     const [result] = await db.query(
       `INSERT INTO comandas (
-        tenant_id, patient_id, professional_id, total, discount, 
-        items, notes, payment_method, start_date, duration_minutes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        tenant_id, patient_id, professional_id, description, total, discount, 
+        items, notes, payment_method, start_date, duration_minutes, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.user.tenant_id, patient_id || null, professional_id || null,
+        req.user.tenant_id, patient_id || null, professional_id || null, 
+        req.body.description || 'Consulta/Serviço',
         total, discount || 0, JSON.stringify(itemsArr), notes || null, 
-        payment_method || null, start_date || null, duration_minutes || 60
+        payment_method || null, start_date || null, duration_minutes || 60,
+        req.body.status || 'open'
       ]
     );
 
     const comandaId = result.insertId;
     let appointment_id = null;
 
-    // 2. Se tiver data, cria um agendamento automático na agenda
-    if (start_date) {
+    // 2. Se tiver data, cria um agendamento automático na agenda (caso não tenha vindo da agenda)
+    if (start_date && !req.body.skip_appointment) {
       try {
         const start = new Date(start_date);
         const end = new Date(start.getTime() + (duration_minutes || 60) * 60000);
         
-        // Busca nome do paciente para o título do agendamento
         const [patients] = await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]);
         const patientName = patients[0] ? patients[0].name : 'Paciente';
         const title = `Sessão: ${patientName} (via Comanda #${comandaId})`;
@@ -223,16 +241,15 @@ router.post('/comandas', async (req, res) => {
         const [aptResult] = await db.query(
           `INSERT INTO appointments (
             tenant_id, patient_id, professional_id, title, 
-            start_time, end_time, status, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            start_time, end_time, status, notes, comanda_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.user.tenant_id, patient_id || null, professional_id || null, 
-            title, start, end, 'scheduled', notes || 'Gerado via comanda'
+            title, start, end, 'scheduled', notes || 'Gerado via comanda', comandaId
           ]
         );
         appointment_id = aptResult.insertId;
 
-        // Atualiza a comanda com o ID do agendamento
         await db.query('UPDATE comandas SET appointment_id = ? WHERE id = ?', [appointment_id, comandaId]);
       } catch (aptErr) {
         console.error('Erro ao gerar agendamento automático via comanda:', aptErr);
@@ -247,6 +264,38 @@ router.post('/comandas', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar comanda' });
   }
+});
+
+// PUT /finance/comandas/:id
+router.put('/comandas/:id', async (req, res) => {
+    try {
+        const { 
+            patient_id, professional_id, description, status, items, 
+            notes, payment_method, start_date, duration_minutes 
+        } = req.body;
+
+        const itemsArr = items || [];
+        const total = itemsArr.reduce((sum, item) => sum + (item.price || item.value || 0) * (item.qty || item.quantity || 1), 0);
+
+        await db.query(
+            `UPDATE comandas SET 
+                patient_id = ?, professional_id = ?, description = ?, status = ?, 
+                total = ?, items = ?, notes = ?, payment_method = ?, 
+                start_date = ?, duration_minutes = ?
+            WHERE id = ? AND tenant_id = ?`,
+            [
+                patient_id || null, professional_id || null, description || '', status || 'open',
+                total, JSON.stringify(itemsArr), notes || null, payment_method || null,
+                start_date || null, duration_minutes || 60,
+                req.params.id, req.user.tenant_id
+            ]
+        );
+
+        res.json({ id: req.params.id, success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao atualizar comanda' });
+    }
 });
 
 module.exports = router;

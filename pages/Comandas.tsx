@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Comanda, Patient, Service } from '../types';
 import { 
@@ -14,12 +14,21 @@ import { useLanguage } from '../contexts/LanguageContext';
 export const Comandas: React.FC = () => {
   const { t, language } = useLanguage();
   const location = useLocation();
+  const navigate = useNavigate();
   
+  const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
+  
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', { 
         style: 'currency', 
         currency: 'BRL' 
-    }).format(value);
+    }).format(value || 0);
   };
 
   // Estados
@@ -38,38 +47,39 @@ export const Comandas: React.FC = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Carregar Dados
-  useEffect(() => {
-      const fetchData = async () => {
-          setIsLoading(true);
-          try {
-              const [ptsData, srvsData, usrsData] = await Promise.all([
-                  api.get<any[]>('/patients'),
-                  api.get<Service[]>('/services'),
-                  api.get<any[]>('/users')
-              ]);
-              
-              const mappedPatients = (ptsData || []).map(p => ({
-                ...p,
-                full_name: p.full_name || p.name || 'Sem nome'
-              })) as Patient[];
+  const fetchData = async () => {
+      setIsLoading(true);
+      try {
+          const [ptsData, srvsData, usrsData] = await Promise.all([
+              api.get<any[]>('/patients'),
+              api.get<Service[]>('/services'),
+              api.get<any[]>('/users')
+          ]);
+          
+          const mappedPatients = (ptsData || []).map(p => ({
+            ...p,
+            full_name: p.full_name || p.name || 'Sem nome'
+          })) as Patient[];
 
-              setPatients(mappedPatients);
-              setServices(srvsData);
-              setProfessionals(usrsData || []);
-              
-              // Carregar comandas reais da API
-              try {
-                const fetchedComandas = await api.get<Comanda[]>('/finance/comandas');
-                setComandas(fetchedComandas || []);
-              } catch (e) {
-                console.error("Erro ao carregar comandas:", e);
-              }
-          } catch (e) { 
-            console.error(e); 
-          } finally { 
-            setIsLoading(false); 
+          setPatients(mappedPatients);
+          setServices(srvsData);
+          setProfessionals(usrsData || []);
+          
+          // Carregar comandas reais da API
+          try {
+            const fetchedComandas = await api.get<Comanda[]>('/finance/comandas');
+            setComandas(fetchedComandas || []);
+          } catch (e) {
+            console.error("Erro ao carregar comandas:", e);
           }
-      };
+      } catch (e) { 
+        console.error(e); 
+      } finally { 
+        setIsLoading(false); 
+      }
+  };
+
+  useEffect(() => {
       fetchData();
   }, []);
   
@@ -108,8 +118,8 @@ export const Comandas: React.FC = () => {
   // Estatísticas
   const stats = useMemo(() => {
       const total = comandas.reduce((acc, c) => acc + (c.totalValue || 0), 0);
-      const open = comandas.filter(c => c.status === 'aberta').reduce((acc, c) => acc + (c.totalValue || 0), 0);
-      const paid = comandas.filter(c => c.status === 'paga').reduce((acc, c) => acc + (c.totalValue || 0), 0);
+      const open = comandas.filter(c => c.status === 'open').reduce((acc, c) => acc + (c.totalValue || 0), 0);
+      const paid = comandas.filter(c => c.status === 'closed').reduce((acc, c) => acc + (c.totalValue || 0), 0);
       return { total, open, paid };
   }, [comandas]);
 
@@ -146,35 +156,41 @@ export const Comandas: React.FC = () => {
           discount: 0,
           start_date: editingComanda.startDate,
           duration_minutes: editingComanda.duration_minutes || 60,
-          payment_method: 'pending'
+          payment_method: editingComanda.payment_method || 'pending'
         };
 
-        let saved: Comanda;
         if (editingComanda.id) {
-            saved = await api.put<Comanda>(`/finance/comandas/${editingComanda.id}`, payload);
-            setComandas(prev => prev.map(c => c.id === saved.id ? saved : c));
+            await api.put(`/finance/comandas/${editingComanda.id}`, payload);
+            pushToast('success', 'Comanda atualizada!');
         } else {
-            saved = await api.post<Comanda>('/finance/comandas', payload);
-            setComandas(prev => [saved, ...prev]);
+            await api.post('/finance/comandas', payload);
+            pushToast('success', 'Comanda criada!');
         }
         
+        fetchData();
         setIsModalOpen(false);
       } catch (err) {
         console.error("Erro ao salvar comanda:", err);
-        alert("Erro ao salvar comanda.");
+        pushToast('error', "Erro ao salvar comanda.");
       }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteConfirmId) {
-      setComandas(prev => prev.filter(c => c.id !== deleteConfirmId));
+      try {
+        await api.delete(`/finance/comandas/${deleteConfirmId}`);
+        setComandas(prev => prev.filter(c => c.id !== deleteConfirmId));
+        pushToast('success', 'Comanda removida!');
+      } catch {
+        pushToast('error', 'Erro ao remover comanda.');
+      }
       setDeleteConfirmId(null);
     }
   };
 
   const handleAddItem = () => {
       if (!editingComanda) return;
-    const newItem: any = { id: Math.random().toString(), name: '', value: 0, quantity: 1 };
+    const newItem: any = { id: Math.random().toString(), name: '', value: 0, qty: 1 };
       setEditingComanda({
           ...editingComanda,
           items: [...(editingComanda.items || []), newItem]
@@ -189,28 +205,28 @@ export const Comandas: React.FC = () => {
       };
       return (
           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${styles[status as keyof typeof styles]}`}>
-              {status}
+              {status === 'closed' ? 'Pago' : status === 'open' ? 'Aberto' : 'Cancelado'}
           </span>
       );
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24">
+    <div className="space-y-6 animate-fadeIn font-sans pb-24 px-4 max-w-7xl mx-auto">
       
       {/* HEADER & TOP CONTROLS */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
               <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
                   <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><ShoppingBag size={20}/></div>
-                  {t('comandas.title')}
+                  Gestão de Comandas
               </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">{t('finance.subtitle')}</p>
+              <p className="text-slate-400 text-xs mt-1 font-bold">Controle seus atendimentos e pacotes de sessões</p>
           </div>
           <button 
               onClick={() => handleOpenModal()} 
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
           >
-              <Plus size={18} /> {t('comandas.newEntry')}
+              <Plus size={18} /> NOVA COMANDA
           </button>
       </div>
 
@@ -221,7 +237,7 @@ export const Comandas: React.FC = () => {
                   <FileText size={22} />
               </div>
               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('common.total')}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Geral</p>
                   <p className="text-xl font-black text-slate-800">{formatCurrency(stats.total)}</p>
               </div>
           </div>
@@ -230,7 +246,7 @@ export const Comandas: React.FC = () => {
                   <Clock size={22} />
               </div>
               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">{t('comandas.status.open')}</p>
+                  <p className="text-[10px] font-black tracking-widest text-amber-500 uppercase">Em Aberto</p>
                   <p className="text-xl font-black text-slate-800">{formatCurrency(stats.open)}</p>
               </div>
           </div>
@@ -239,7 +255,7 @@ export const Comandas: React.FC = () => {
                   <CheckCircle2 size={22} />
               </div>
               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">{t('comandas.status.paid')}</p>
+                  <p className="text-[10px] font-black tracking-widest text-emerald-500 uppercase">Total Recebido</p>
                   <p className="text-xl font-black text-slate-800">{formatCurrency(stats.paid)}</p>
               </div>
           </div>
@@ -251,7 +267,7 @@ export const Comandas: React.FC = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
               <input 
                   type="text" 
-                  placeholder={t('comandas.search')} 
+                  placeholder="Pesquisar por paciente ou descrição..." 
                   value={searchTerm} 
                   onChange={e => setSearchTerm(e.target.value)} 
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
@@ -262,9 +278,9 @@ export const Comandas: React.FC = () => {
               {/* Status Filter */}
               <div className="flex bg-slate-100 p-1.5 rounded-2xl flex-1 lg:flex-none">
                   {[
-                      { id: 'all', label: t('common.all') },
-                      { id: 'open', label: t('comandas.status.open') },
-                      { id: 'closed', label: t('comandas.status.paid') }
+                      { id: 'all', label: 'Todos' },
+                      { id: 'open', label: 'Abertos' },
+                      { id: 'closed', label: 'Pagos' }
                   ].map(st => (
                       <button 
                           key={st.id}
@@ -288,9 +304,9 @@ export const Comandas: React.FC = () => {
       {viewMode === 'kanban' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[
-                  { id: 'open', title: t('comandas.status.open'), color: 'amber', icon: <Clock size={16}/> },
-                  { id: 'closed', title: t('comandas.status.paid'), color: 'emerald', icon: <CheckCircle2 size={16}/> },
-                  { id: 'cancelled', title: t('comandas.status.canceled'), color: 'slate', icon: <AlertCircle size={16}/> }
+                  { id: 'open', title: 'Abertos', color: 'amber', icon: <Clock size={16}/> },
+                  { id: 'closed', title: 'Pagos', color: 'emerald', icon: <CheckCircle2 size={16}/> },
+                  { id: 'cancelled', title: 'Cancelados', color: 'slate', icon: <AlertCircle size={16}/> }
               ].map(col => (
                   <div key={col.id} className="flex flex-col gap-5">
                       <div className="flex items-center justify-between px-3">
@@ -308,11 +324,18 @@ export const Comandas: React.FC = () => {
                                   <div className="flex justify-between items-start mb-5">
                                       <div className="flex items-center gap-4">
                                           <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[12px] font-black shadow-lg shadow-indigo-100`}>
-                                              {comanda.patientName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                              {(comanda.patientName || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
                                           </div>
                                           <div>
                                               <h4 className="font-black text-slate-800 text-[13px]">{comanda.patientName}</h4>
-                                              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">#{comanda.id}</p>
+                                              <div className="flex items-center gap-2">
+                                                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">#{comanda.id}</p>
+                                                  {(comanda.sessions_total || 0) > 1 && (
+                                                      <span className="text-[9px] font-black px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100">
+                                                          {comanda.sessions_used || 0}/{comanda.sessions_total} SESSÕES
+                                                      </span>
+                                                  )}
+                                              </div>
                                           </div>
                                       </div>
                                       <div className="flex gap-1.5">
@@ -325,11 +348,11 @@ export const Comandas: React.FC = () => {
                                       <div className="bg-slate-50/50 border border-slate-100/50 p-3.5 rounded-3xl">
                                           <p className="text-xs font-bold text-slate-600 flex items-center gap-2.5 leading-relaxed">
                                               <div className="h-6 w-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500"><FileText size={12}/></div>
-                                              {comanda.description}
+                                              {comanda.description || 'Sem descrição'}
                                           </p>
                                       </div>
                                       <div className="mt-3 flex items-center justify-between text-[10px] font-black text-slate-400 px-1">
-                                          <span className="flex items-center gap-1.5"><Calendar size={13}/> {new Date(comanda.createdAt || '').toLocaleDateString()}</span>
+                                          <span className="flex items-center gap-1.5"><Calendar size={13}/> {new Date(comanda.createdAt || new Date()).toLocaleDateString()}</span>
                                           {comanda.status === 'open' && (
                                               <span className="text-amber-500 flex items-center gap-1.5 animate-pulse"><Clock size={13}/> Pendente</span>
                                           )}
@@ -351,14 +374,14 @@ export const Comandas: React.FC = () => {
               ))}
           </div>
       ) : (
-          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-              <table className="w-full text-left">
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden overflow-x-auto">
+              <table className="w-full text-left min-w-[600px]">
                   <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] border-b border-slate-100">
                       <tr>
                           <th className="px-8 py-5">Status</th>
-                          <th className="px-8 py-5 text-center">{t('comandas.patient')}</th>
-                          <th className="px-8 py-5">{t('comandas.description')}</th>
-                          <th className="px-8 py-5">{t('comandas.totalValue')}</th>
+                          <th className="px-8 py-5">Paciente</th>
+                          <th className="px-8 py-5">Descrição</th>
+                          <th className="px-8 py-5">Valor</th>
                           <th className="px-8 py-5 text-center">Ações</th>
                       </tr>
                   </thead>
@@ -369,12 +392,21 @@ export const Comandas: React.FC = () => {
                               <td className="px-8 py-5">
                                   <div className="flex items-center gap-3">
                                       <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px] font-black border border-indigo-100">
-                                          {c.patientName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                          {(c.patientName || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
                                       </div>
                                       <span className="font-black text-slate-700 text-sm whitespace-nowrap">{c.patientName}</span>
                                   </div>
                               </td>
-                              <td className="px-8 py-5 font-bold text-slate-500 text-sm leading-relaxed">{c.description}</td>
+                              <td className="px-8 py-5">
+                                  <div className="flex flex-col">
+                                      <span className="font-bold text-slate-500 text-sm leading-relaxed">{c.description}</span>
+                                      {(c.sessions_total || 0) > 1 && (
+                                          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                                              Sessões: {c.sessions_used || 0}/{c.sessions_total}
+                                          </span>
+                                      )}
+                                  </div>
+                              </td>
                               <td className="px-8 py-5 font-black text-indigo-600 text-sm">{formatCurrency(c.totalValue)}</td>
                               <td className="px-8 py-5">
                                   <div className="flex justify-center gap-2">
@@ -392,57 +424,28 @@ export const Comandas: React.FC = () => {
       {/* MODAL LANÇAMENTO */}
       {isModalOpen && editingComanda && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-              <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+              <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20 max-h-[90vh]">
                   <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
                       <div>
-                          <h3 className="text-xl font-black text-slate-800">{t('comandas.modalTitle')}</h3>
-                          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{editingComanda.id ? `#${editingComanda.id}` : t('comandas.newEntry')}</p>
+                          <h3 className="text-xl font-black text-slate-800">Detalhes da Comanda</h3>
+                          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{editingComanda.id ? `#${editingComanda.id}` : 'Novo Lançamento'}</p>
                       </div>
                       <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl text-slate-400 ring-1 ring-slate-200 transition-all"><X size={18}/></button>
                   </div>
                   
-                  <div className="p-10 space-y-6">
+                  <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
                       <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">{t('comandas.patient')}</label>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Paciente</label>
                           <div className="relative group">
                               <select 
                                   className="w-full text-sm font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all appearance-none" 
                                   value={editingComanda.patientId} 
                                   onChange={e => setEditingComanda({...editingComanda, patientId: e.target.value})}
                               >
-                                  <option value="">{t('comandas.selectPatient')}</option>
+                                  <option value="">Selecione o Paciente</option>
                                   {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                               </select>
-                              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={20} />
-                          </div>
-                      </div>
-
-                      <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Profissional Responsável</label>
-                          <div className="relative group">
-                              <select 
-                                  className="w-full text-sm font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all appearance-none" 
-                                  value={editingComanda.professionalId} 
-                                  onChange={e => setEditingComanda({...editingComanda, professionalId: e.target.value})}
-                              >
-                                  <option value="">Selecione o Profissional</option>
-                                  {professionals.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                              </select>
-                              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={20} />
-                          </div>
-                      </div>
-                      
-                      <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">{t('comandas.description')}</label>
-                          <div className="relative group">
-                              <input 
-                                  type="text" 
-                                  className="w-full text-sm font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all" 
-                                  placeholder={t('comandas.descriptionPlaceholder')}
-                                  value={editingComanda.description || ''} 
-                                  onChange={e => setEditingComanda({...editingComanda, description: e.target.value})} 
-                              />
-                              <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={20} />
+                              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                           </div>
                       </div>
 
@@ -454,9 +457,9 @@ export const Comandas: React.FC = () => {
                                   value={editingComanda.status} 
                                   onChange={e => setEditingComanda({...editingComanda, status: e.target.value as any})}
                               >
-                                  <option value="open">{t('comandas.status.open')}</option>
-                                  <option value="closed">{t('comandas.status.paid')}</option>
-                                  <option value="cancelled">{t('comandas.status.canceled')}</option>
+                                  <option value="open">Em Aberto</option>
+                                  <option value="closed">Pago</option>
+                                  <option value="cancelled">Cancelado</option>
                               </select>
                           </div>
                           <div>
@@ -465,95 +468,60 @@ export const Comandas: React.FC = () => {
                                   <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={18} />
                                   <input 
                                       type="number" 
-                                      className="w-full text-lg font-black p-4 pl-11 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-emerald-400 focus:ring-8 focus:ring-emerald-100/30 transition-all text-emerald-700" 
-                                      value={editingComanda.totalValue} 
+                                      className="w-full text-lg font-black p-4 pl-11 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-emerald-400 transition-all text-emerald-700" 
+                                      value={editingComanda.totalValue || editingComanda.total || 0} 
                                       onChange={e => setEditingComanda({...editingComanda, totalValue: parseFloat(e.target.value)})} 
                                   />
                               </div>
                           </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-5 pt-2">
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Data/Hora da Sessão</label>
-                            <div className="relative group">
-                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                <input 
-                                    type="datetime-local" 
-                                    className="w-full text-xs font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all" 
-                                    value={editingComanda.startDate?.slice(0, 16) || ''} 
-                                    onChange={e => setEditingComanda({...editingComanda, startDate: e.target.value})} 
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Duração (min)</label>
-                            <div className="relative group">
-                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                <input 
-                                    type="number" 
-                                    className="w-full text-xs font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all" 
-                                    value={editingComanda.duration_minutes || 60} 
-                                    onChange={e => setEditingComanda({...editingComanda, duration_minutes: Number(e.target.value)})} 
-                                />
-                            </div>
-                        </div>
+                      <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Descrição do Pacote / Serviço</label>
+                          <div className="relative group">
+                              <input 
+                                  type="text" 
+                                  className="w-full text-sm font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all" 
+                                  placeholder="Ex: Terapia Semanal (Pacote 4 sessões)"
+                                  value={editingComanda.description || ''} 
+                                  onChange={e => setEditingComanda({...editingComanda, description: e.target.value})} 
+                              />
+                              <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                          </div>
                       </div>
 
-                      {/* ITEMS */}
-                      <div className="bg-indigo-50/40 p-6 rounded-[2rem] border border-indigo-100/50">
-                          <div className="flex justify-between items-center mb-5">
-                              <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2">
-                                  <ListIcon size={16}/> {t('comandas.items')}
-                              </h4>
-                              <button onClick={handleAddItem} className="h-9 w-9 rounded-2xl bg-white border border-indigo-200 flex items-center justify-center text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
-                                  <Plus size={18}/>
-                              </button>
+                      {(editingComanda.sessions_total || 0) > 1 && (
+                          <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100">
+                             <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progresso do Pacote</span>
+                                <span className="text-sm font-black text-indigo-600">{editingComanda.sessions_used}/{editingComanda.sessions_total}</span>
+                             </div>
+                             <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                <div 
+                                    className="bg-indigo-500 h-full transition-all duration-500" 
+                                    style={{ width: `${((editingComanda.sessions_used || 0) / (editingComanda.sessions_total || 1)) * 100}%` }}
+                                ></div>
+                             </div>
+                             <p className="text-[9px] text-slate-400 font-bold mt-2.5 leading-tight italic">
+                                * O progresso é calculado automaticamente baseado nos agendamentos realizados na agenda vinculados a esta comanda.
+                             </p>
                           </div>
-                          <div className="space-y-3 max-h-40 overflow-y-auto custom-scrollbar pr-3">
-                              {(!editingComanda.items || editingComanda.items.length === 0) ? (
-                                  <div className="text-center py-6 border-2 border-dashed border-indigo-100 rounded-3xl bg-white/50">
-                                      <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">{t('comandas.noItems')}</p>
-                                  </div>
-                              ) : (
-                                  editingComanda.items.map((item, idx) => (
-                                      <div key={idx} className="flex gap-3 items-center animate-slideIn">
-                                          <input 
-                                              type="text" 
-                                              placeholder="Nome do Item / Serviço" 
-                                              className="flex-1 text-xs font-black p-3.5 rounded-2xl border border-indigo-100 bg-white shadow-sm outline-none focus:border-indigo-400 transition-all" 
-                                              value={(item as any).name || (item as any).description || ''} 
-                                              onChange={e => {
-                                                  const newItems = [...(editingComanda.items || [])];
-                                                  (newItems[idx] as any).name = e.target.value;
-                                                  (newItems[idx] as any).description = e.target.value;
-                                                  setEditingComanda({...editingComanda, items: newItems});
-                                              }} 
-                                          />
-                                          <div className="relative w-28">
-                                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" size={14} />
-                                              <input 
-                                                  type="number" 
-                                                  className="w-full text-right text-xs font-black p-3.5 pl-8 rounded-2xl border border-indigo-100 bg-white shadow-sm outline-none focus:border-indigo-400 transition-all text-indigo-600" 
-                                                  value={item.value} 
-                                                  onChange={e => {
-                                                      const newItems = [...(editingComanda.items || [])];
-                                                      newItems[idx].value = parseFloat(e.target.value) || 0;
-                                                      setEditingComanda({...editingComanda, items: newItems});
-                                                  }}
-                                              />
-                                          </div>
-                                      </div>
-                                  ))
-                              )}
-                          </div>
+                      )}
+
+                      <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Observações Privadas</label>
+                          <textarea 
+                              className="w-full text-sm font-bold p-4 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all min-h-[100px]" 
+                              value={editingComanda.notes || ''} 
+                              onChange={e => setEditingComanda({...editingComanda, notes: e.target.value})}
+                          />
                       </div>
                   </div>
 
                   <div className="p-8 border-t border-slate-50 bg-slate-50/20 flex justify-end gap-4 px-10 pb-10">
-                      <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-xs font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">{t('common.cancel')}</button>
+                      <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-xs font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">CANCELAR</button>
                       <button onClick={handleSave} className="px-10 py-3 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-[1.5rem] shadow-xl shadow-indigo-200 transition-all flex items-center gap-2 uppercase tracking-widest transform active:scale-95">
-                          <CheckCircle size={18}/> {t('common.save')}
+                          <CheckCircle size={18}/> SALVAR ALTERAÇÕES
                       </button>
                   </div>
               </div>
@@ -588,6 +556,16 @@ export const Comandas: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* TOASTS */}
+      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
+        {toasts.map(t => (
+          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+            {t.type === 'success' ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}
+            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

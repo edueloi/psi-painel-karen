@@ -354,6 +354,8 @@ export interface Comanda {
   duration_minutes?: number;
   appointment_id?: number;
   frequency?: 'unica' | 'semanal' | 'quinzenal' | 'mensal';
+  sessions_total?: number;
+  sessions_used?: number;
   createdAt: string;
 }
 

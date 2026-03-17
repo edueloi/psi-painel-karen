@@ -311,10 +311,10 @@ export const Agenda: React.FC = () => {
             try {
                 const roomCode = Math.random().toString(36).substr(2, 9);
                 const patient = patients.find(p => String(p.id) === String(formData.patient_id));
-                const title = `Sessão: ${patient?.full_name || 'Paciente'} - ${new Date(formData.appointment_date).toLocaleDateString()}`;
+                const titleText = `Sessão: ${patient?.full_name || 'Paciente'} - ${new Date(formData.appointment_date).toLocaleDateString()}`;
                 
                 const roomData = {
-                    title,
+                    title: titleText,
                     code: roomCode,
                     patient_id: formData.patient_id,
                     professional_id: formData.psychologist_id || formData.professional_id,
@@ -326,7 +326,6 @@ export const Agenda: React.FC = () => {
                 const room = await api.post<any>('/virtual-rooms', roomData);
                 const meetingUrl = `${window.location.origin}/sala/${room.code || roomCode}`;
                 
-                // Atualiza o agendamento com a nova URL
                 await api.put(`/appointments/${savedAppointment.id}`, {
                     ...payload,
                     meeting_url: meetingUrl
@@ -336,34 +335,13 @@ export const Agenda: React.FC = () => {
             }
         }
 
-        // NOVO FLOW: Se for um novo agendamento com paciente, cria comanda e redireciona
-        if (!formData.id && formData.type === 'consulta' && formData.patient_id) {
-            try {
-                const selectedService = services.find(s => String(s.id) === String(formData.service_id));
-                const comandaData = {
-                    patient_id: formData.patient_id,
-                    professional_id: formData.psychologist_id || formData.professional_id,
-                    start_date: formData.appointment_date,
-                    duration_minutes: formData.duration_minutes || 50,
-                    items: selectedService ? [{
-                        id: selectedService.id,
-                        name: selectedService.name,
-                        value: selectedService.price,
-                        qty: 1
-                    }] : [],
-                    notes: `Gerada automaticamente via Agenda`
-                };
-
-                const newComanda = await api.post<any>('/finance/comandas', comandaData);
-                
-                pushToast('success', 'Agendamento salvo e comanda gerada!');
-                setTimeout(() => {
-                    navigate('/comandas', { state: { openComandaId: newComanda.id } });
-                }, 1000);
-                return;
-            } catch (comandaErr) {
-                console.error("Erro ao criar comanda automática:", comandaErr);
-            }
+        // NOVO FLOW: Redireciona para a comanda gerada automaticamente se houver comanda_id
+        if (savedAppointment.comanda_id) {
+            pushToast('success', 'Agendamento e Comanda gerada automaticamente!');
+            setTimeout(() => {
+                navigate('/comandas', { state: { openComandaId: savedAppointment.comanda_id } });
+            }, 1000);
+            return;
         }
 
         fetchData();

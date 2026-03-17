@@ -352,6 +352,51 @@ router.post('/', async (req, res) => {
         createdIds.push(result.insertId);
     }
 
+    // 3. Se for consulta com paciente, cria a COMANDA integrada
+    let comandaId = null;
+    if (patient_id && service_id && type === 'consulta') {
+        try {
+            // Busca o preço do serviço
+            const [services] = await db.query('SELECT name, price FROM services WHERE id = ?', [service_id]);
+            const service = services[0];
+            const price = service ? service.price : 0;
+            const serviceName = service ? service.name : 'Atendimento';
+
+            const totalAmount = price * createdIds.length;
+            const items = [{
+                id: service_id,
+                name: serviceName,
+                price: price,
+                qty: createdIds.length,
+                value: price
+            }];
+
+            const description = createdIds.length > 1 ? `${serviceName} (${createdIds.length} sessões)` : serviceName;
+
+            const [comandaResult] = await db.query(
+                `INSERT INTO comandas (
+                    tenant_id, patient_id, service_id, professional_id, 
+                    description, total, sessions_total, sessions_used, items, notes, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    req.user.tenant_id, patient_id, service_id, professional_id || null,
+                    description, totalAmount, createdIds.length, 0, JSON.stringify(items),
+                    createdIds.length > 1 ? `Pacote recorrente gerado via Agenda` : 'Sessão individual via Agenda',
+                    'open'
+                ]
+            );
+            comandaId = comandaResult.insertId;
+
+            // Vincula todos os agendamentos criados à comanda
+            await db.query(
+                'UPDATE appointments SET comanda_id = ? WHERE id IN (?)',
+                [comandaId, createdIds]
+            );
+        } catch (comandaErr) {
+            console.error('Erro ao gerar comanda automática no agendamento:', comandaErr);
+        }
+    }
+
     const [created] = await db.query(
       `SELECT a.*, p.name as patient_name, u.name as professional_name
        FROM appointments a
@@ -361,7 +406,9 @@ router.post('/', async (req, res) => {
       [createdIds[0]]
     );
 
-    res.status(201).json(created[0]);
+    // Adiciona o comanda_id no retorno para o frontend redirecionar se necessário
+    const resultData = { ...created[0], comanda_id: comandaId };
+    res.status(201).json(resultData);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar agendamento' });
