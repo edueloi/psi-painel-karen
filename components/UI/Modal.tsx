@@ -89,7 +89,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Conteúdo (Body) */}
-        <div className="px-6 py-5 overflow-y-auto max-h-[70vh] custom-scrollbar text-slate-600">
+        <div className="px-6 py-5 overflow-y-auto max-h-[calc(100vh-180px)] sm:max-h-[75vh] custom-scrollbar text-slate-600">
           {children}
         </div>
 
