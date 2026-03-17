@@ -327,7 +327,7 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
     const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const rows = xlsx.utils.sheet_to_json(sheet);
+    const rows = xlsx.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd HH:mm' });
 
     const imported = [];
     const errors = [];
@@ -349,8 +349,15 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
       if (!startTime || (title && String(title).toLowerCase().includes('exemplo'))) continue;
 
       try {
-        const duration = findValue(row, 'Duração (min)', 'Duração', 'Duration') || 50;
+        const rawDuration = findValue(row, 'Duração (min)', 'Duração', 'Duration');
+        const duration = parseInt(rawDuration) || 50;
         const start = new Date(startTime);
+        
+        if (isNaN(start.getTime())) {
+          errors.push(`Linha ${i + 2}: Data de início inválida (${startTime})`);
+          continue;
+        }
+
         const end = new Date(start.getTime() + duration * 60000);
 
         const [result] = await db.query(
@@ -360,9 +367,9 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.user.tenant_id,
-            findValue(row, 'ID Paciente', 'paciente_id', 'patient_id'),
-            findValue(row, 'ID Profissional', 'profissional_id', 'professional_id'),
-            findValue(row, 'ID Serviço', 'service_id'),
+            parseInt(findValue(row, 'ID Paciente', 'paciente_id', 'patient_id')) || null,
+            parseInt(findValue(row, 'ID Profissional', 'profissional_id', 'professional_id')) || null,
+            parseInt(findValue(row, 'ID Serviço', 'service_id')) || null,
             title,
             start.toISOString().slice(0, 19).replace('T', ' '),
             end.toISOString().slice(0, 19).replace('T', ' '),
