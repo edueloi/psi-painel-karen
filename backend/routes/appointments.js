@@ -296,16 +296,22 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { 
+      patient_id, professional_id, psychologist_id, service_id, package_id, title,
+      start_time, appointment_date, duration_minutes, notes, color,
       status, modality, type, meeting_url, 
       recurrence_freq, recurrence_interval, recurrence_count, recurrence_end_date 
     } = req.body;
 
-    if (!start_time) {
+    const createdIds = [];
+    const actualStartTime = start_time || appointment_date;
+
+    if (!actualStartTime) {
       return res.status(400).json({ error: 'Data de início é obrigatória' });
     }
 
-    const start = new Date(start_time);
+    const start = new Date(actualStartTime);
     const duration = parseInt(duration_minutes) || 50;
+    const finalProfessionalId = professional_id || psychologist_id || null;
     
     // Padrão de repetição
     const freq = recurrence_freq || null;
@@ -343,7 +349,7 @@ router.post('/', async (req, res) => {
           [
             req.user.tenant_id, 
             patient_id || null, 
-            professional_id || null, 
+            finalProfessionalId, 
             service_id || null,
             package_id || null,
             title || null, 
@@ -360,6 +366,10 @@ router.post('/', async (req, res) => {
           ]
         );
         createdIds.push(result.insertId);
+    }
+
+    if (createdIds.length === 0) {
+        return res.status(500).json({ error: 'Nenhum agendamento foi gerado. Verifique os parâmetros de repetição.' });
     }
 
     // 3. Se for consulta com paciente, cria a COMANDA integrada
@@ -412,7 +422,7 @@ router.post('/', async (req, res) => {
                     req.user.tenant_id, patient_id, 
                     package_id ? null : service_id,
                     package_id || null,
-                    professional_id || null,
+                    finalProfessionalId,
                     description, totalAmount, createdIds.length, 0, JSON.stringify(items),
                     createdIds.length > 1 || package_id ? `Pacote gerado via Agenda` : 'Sessão individual via Agenda',
                     'open'
@@ -423,7 +433,7 @@ router.post('/', async (req, res) => {
             // Vincula todos os agendamentos criados à comanda
             await db.query(
                 'UPDATE appointments SET comanda_id = ? WHERE id IN (?)',
-                [comandaId, createdIds]
+                [comandaId, [createdIds]]
             );
         } catch (comandaErr) {
             console.error('Erro ao gerar comanda automática no agendamento:', comandaErr);
@@ -452,7 +462,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { 
-      patient_id, professional_id, service_id, package_id, title, 
+      patient_id, professional_id, psychologist_id, service_id, package_id, title, 
       start_time, end_time, status, notes, color,
       modality, type, duration_minutes, meeting_url,
       reschedule_reason
@@ -474,6 +484,8 @@ router.put('/:id', async (req, res) => {
         formattedEnd = new Date(end_time).toISOString().slice(0, 19).replace('T', ' ');
     }
 
+    const finalProfessionalId = professional_id || psychologist_id || null;
+
     await db.query(
       `UPDATE appointments SET
         patient_id = ?,
@@ -494,7 +506,7 @@ router.put('/:id', async (req, res) => {
        WHERE id = ? AND tenant_id = ?`,
       [
         patient_id || null, 
-        professional_id || null, 
+        finalProfessionalId, 
         service_id || null, 
         package_id || null, 
         title || null, 
