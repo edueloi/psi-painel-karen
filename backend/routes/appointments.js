@@ -156,4 +156,39 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST /appointments/import
+router.post('/import', async (req, res) => {
+  try {
+    const { appointments } = req.body;
+    if (!appointments || !Array.isArray(appointments)) {
+      return res.status(400).json({ error: 'Lista de agendamentos é obrigatória' });
+    }
+
+    const tenant_id = req.user.tenant_id;
+    const values = appointments.map(a => [
+      tenant_id,
+      a.patient_id || null,
+      a.professional_id || null,
+      a.service_id || null,
+      a.title || null,
+      a.start_time,
+      a.end_time || a.start_time, // Fallback if end_time not provided
+      a.status || 'scheduled',
+      a.notes || null,
+      a.color || null
+    ]);
+
+    await db.query(
+      `INSERT INTO appointments (tenant_id, patient_id, professional_id, service_id, title, start_time, end_time, status, notes, color)
+       VALUES ?`,
+      [values]
+    );
+
+    res.status(201).json({ message: `${appointments.length} agendamentos importados com sucesso` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao importar agendamentos' });
+  }
+});
+
 module.exports = router;

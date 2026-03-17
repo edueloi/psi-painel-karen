@@ -7,7 +7,7 @@ import {
     DollarSign, Package, Layers, Loader2, Briefcase, FileText, UserCheck, Ban, Link2, Search,
     Filter, LayoutGrid, List as ListIcon, ExternalLink, Sparkles, CheckCircle2, AlertCircle,
     ArrowUpRight, Info,
-    Edit3
+    Edit3, Download, Upload, FileDown, FileUp
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
@@ -25,7 +25,9 @@ export const Agenda: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [view, setView] = useState<'day' | 'week' | 'month'>('week');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessingImport, setIsProcessingImport] = useState(false);
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [filterPatientId, setFilterPatientId] = useState<string | null>(null);
   const [filterProfessionalId, setFilterProfessionalId] = useState<string | null>(null);
@@ -152,6 +154,103 @@ export const Agenda: React.FC = () => {
     setCurrentDate(d);
   };
 
+  const handleDateChange = (dateStr: string) => {
+    if (dateStr) {
+      setCurrentDate(new Date(dateStr + 'T12:00:00'));
+    }
+  };
+
+  const handleExport = () => {
+    if (filteredAppointments.length === 0) {
+      pushToast('error', 'Nenhum agendamento para exportar.');
+      return;
+    }
+
+    const headers = ['Título', 'Paciente', 'Profissional', 'Data', 'Duração (min)', 'Status', 'Observações'];
+    const rows = filteredAppointments.map(a => [
+      a.title || (a.type === 'consulta' ? 'Consulta' : 'Evento'),
+      patients.find(p => String(p.id) === String(a.patient_id))?.full_name || '',
+      professionals.find(p => String(p.id) === String(a.professional_id))?.name || '',
+      new Date(a.start).toLocaleString('pt-BR'),
+      a.duration_minutes || 50,
+      statusMeta[a.status || 'scheduled'].label,
+      a.notes || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `agenda_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    pushToast('success', 'Agenda exportada com sucesso.');
+  };
+
+  const downloadTemplate = () => {
+    const headers = ['titulo', 'paciente_id', 'profissional_id', 'data_inicio', 'duracao_min', 'notas'];
+    const example = ['Consulta Exemplo', '1', '1', '2023-10-27 14:00', '50', 'Observação'];
+    const csvContent = [headers.join(','), example.join(',')].join('\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'modelo_importacao_agenda.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingImport(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      
+      const importedData = lines.slice(1).filter(l => l.trim() !== '').map(line => {
+        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const obj: any = {};
+        headers.forEach((header, i) => {
+          obj[header] = values[i];
+        });
+        return {
+          title: obj.titulo,
+          patient_id: obj.paciente_id ? parseInt(obj.paciente_id) : null,
+          professional_id: obj.profissional_id ? parseInt(obj.profissional_id) : null,
+          start_time: obj.data_inicio,
+          duration_minutes: obj.duracao_min ? parseInt(obj.duracao_min) : 50,
+          end_time: obj.data_inicio ? new Date(new Date(obj.data_inicio).getTime() + (parseInt(obj.duracao_min || '50')) * 60000).toISOString() : null,
+          notes: obj.notas,
+          status: 'scheduled'
+        };
+      });
+
+      try {
+        await api.post('/appointments/import', { appointments: importedData });
+        fetchData();
+        pushToast('success', `${importedData.length} agendamentos importados.`);
+        setIsImportModalOpen(false);
+      } catch (err) {
+        pushToast('error', 'Erro ao importar dados. Verifique o formato.');
+      } finally {
+        setIsProcessingImport(false);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const getRangeLabel = () => {
     if (view === 'month') return currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' });
     if (view === 'week') {
@@ -271,12 +370,26 @@ export const Agenda: React.FC = () => {
               </h1>
               <p className="text-slate-400 text-xs mt-1 font-bold">{t('agenda.subtitle') || 'Organize sua rotina clínica e compromissos'}</p>
           </div>
-          <button 
-              onClick={() => openNewModal()} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
-          >
-              <Plus size={18} /> Novo Agendamento
-          </button>
+          <div className="flex gap-2">
+              <button 
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="bg-white hover:bg-slate-50 text-slate-600 px-5 py-2.5 rounded-2xl text-[10px] font-black flex items-center gap-2 border border-slate-200 transition-all active:scale-95 uppercase tracking-widest shadow-sm"
+              >
+                  <Upload size={16} className="text-indigo-500" /> Importar
+              </button>
+              <button 
+                  onClick={handleExport}
+                  className="bg-white hover:bg-slate-50 text-slate-600 px-5 py-2.5 rounded-2xl text-[10px] font-black flex items-center gap-2 border border-slate-200 transition-all active:scale-95 uppercase tracking-widest shadow-sm"
+              >
+                  <Download size={16} className="text-emerald-500" /> Exportar
+              </button>
+              <button 
+                  onClick={() => openNewModal()} 
+                  className="bg-indigo-600 hover:bg-slate-800 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 uppercase tracking-widest"
+              >
+                  <Plus size={18} /> Novo Agendamento
+              </button>
+          </div>
       </div>
 
       {/* STATS BAR */}
@@ -312,13 +425,25 @@ export const Agenda: React.FC = () => {
 
       {/* FILTERS & NAVIGATION BAR */}
       <div className="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center sticky top-4 z-40 backdrop-blur-md bg-white/90">
-          <div className="flex items-center gap-4 w-full lg:w-auto">
+          <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto justify-center lg:justify-start">
               <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] shadow-inner border border-slate-200">
                   <button onClick={() => handleNavigate(-1)} className="p-2.5 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronLeft size={20}/></button>
                   <button onClick={() => setCurrentDate(new Date())} className="px-4 text-[10px] font-black text-slate-700 uppercase tracking-widest underline decoration-indigo-300 underline-offset-4">Hoje</button>
                   <button onClick={() => handleNavigate(1)} className="p-2.5 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronRight size={20}/></button>
               </div>
-              <h2 className="text-base font-black text-slate-800 truncate px-2">{getRangeLabel()}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-black text-slate-800 truncate px-2">{getRangeLabel()}</h2>
+                <div className="relative group">
+                  <input 
+                    type="date" 
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-8"
+                  />
+                  <div className="p-2 bg-slate-50 rounded-lg text-slate-400 group-hover:text-indigo-600 transition-all cursor-pointer">
+                    <CalendarDays size={18} />
+                  </div>
+                </div>
+              </div>
           </div>
 
           <div className="flex gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar py-1">
@@ -592,6 +717,69 @@ export const Agenda: React.FC = () => {
                 className="min-h-[80px]"
               />
           </div>
+      </Modal>
+
+      {/* IMPORT MODAL */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => !isProcessingImport && setIsImportModalOpen(false)}
+        title="Importar Agenda"
+        subtitle="Siga o modelo para importar seus agendamentos via CSV"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-6">
+          <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100 flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm mb-4 border border-indigo-50">
+              <FileUp size={32} />
+            </div>
+            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-2">Modelo de Importação</h4>
+            <p className="text-[10px] font-bold text-slate-500 mb-6 leading-relaxed">
+              Para que a importação funcione, seu arquivo CSV deve conter as colunas exatamente como no nosso modelo.
+            </p>
+            <button 
+              onClick={downloadTemplate}
+              className="px-6 py-3 bg-white hover:bg-slate-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-indigo-100 transition-all flex items-center gap-2 shadow-sm"
+            >
+              <Download size={14} /> Baixar Modelo CSV
+            </button>
+          </div>
+
+          <div className="relative group">
+            <input 
+              type="file" 
+              accept=".csv" 
+              onChange={handleImport}
+              disabled={isProcessingImport}
+              className="absolute inset-0 opacity-0 cursor-pointer z-10"
+              id="file-upload"
+            />
+            <div className={`p-10 border-2 border-dashed rounded-[2.5rem] flex flex-col items-center justify-center transition-all ${isProcessingImport ? 'bg-slate-50 border-slate-200' : 'bg-slate-50 hover:bg-white hover:border-indigo-300 border-slate-200'}`}>
+              {isProcessingImport ? (
+                <>
+                  <Loader2 size={32} className="text-indigo-500 animate-spin mb-4" />
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Processando dados...</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg mb-4 group-hover:scale-110 transition-transform">
+                    <Plus size={24} />
+                  </div>
+                  <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Selecionar Arquivo</p>
+                  <p className="text-[9px] font-bold text-slate-400 mt-2">Arraste ou clique para selecionar seu CSV</p>
+                </>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex justify-center">
+            <button 
+              onClick={() => setIsImportModalOpen(false)}
+              className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-colors"
+            >
+              Cancelar e Voltar
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* DELETE CONFIRM */}
