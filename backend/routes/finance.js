@@ -13,6 +13,7 @@ async function ensureSchema() {
     'ALTER TABLE comandas ADD COLUMN sessions_total INT NULL DEFAULT 1',
     'ALTER TABLE comandas ADD COLUMN sessions_used INT NULL DEFAULT 0',
     'ALTER TABLE comandas ADD COLUMN total DECIMAL(10,2) NULL',
+    'ALTER TABLE comandas ADD COLUMN paid_value DECIMAL(10,2) NULL DEFAULT 0',
     'ALTER TABLE comandas ADD COLUMN items LONGTEXT NULL',
     'ALTER TABLE comandas ADD COLUMN notes TEXT NULL',
   ];
@@ -427,7 +428,7 @@ router.put('/comandas/:id', async (req, res) => {
         const { 
             patient_id, professional_id, description, status, items, 
             notes, payment_method, start_date, duration_minutes,
-            sessions_total, sessions_used
+            sessions_total, sessions_used, paid_value
         } = req.body;
 
         const itemsArr = items || [];
@@ -438,13 +439,14 @@ router.put('/comandas/:id', async (req, res) => {
                 patient_id = ?, professional_id = ?, description = ?, status = ?, 
                 total = ?, items = ?, notes = ?, payment_method = ?, 
                 start_date = ?, duration_minutes = ? ,
-                sessions_total = ?, sessions_used = ?
+                sessions_total = ?, sessions_used = ?, paid_value = ?
             WHERE id = ? AND tenant_id = ?`,
             [
                 patient_id || null, professional_id || null, description || '', status || 'open',
                 total, JSON.stringify(itemsArr), notes || null, payment_method || null,
                 start_date || null, duration_minutes || 60,
                 sessions_total || 0, sessions_used || 0,
+                paid_value || 0,
                 req.params.id, req.user.tenant_id
             ]
         );

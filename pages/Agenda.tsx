@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api, API_BASE_URL } from '../services/api';
-import { Appointment, Service, Patient, User } from '../types';
+import { Appointment, Service, Patient, User, AppointmentType } from '../types';
 import { 
     ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin, 
     Calendar as CalendarIcon, CalendarDays, CalendarRange, X, Check, Repeat, Trash2, User as UserIcon, 
@@ -9,7 +9,7 @@ import {
     ArrowUpRight, Info,
     Edit3, Download, Upload, FileDown, FileUp,
     Activity,
-    AlignLeft,
+    AlignLeft, MessageSquare, Send, Stethoscope, Tag,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -61,6 +61,12 @@ export const Agenda: React.FC = () => {
       endValue: 1 as number | string
   });
   const [patientComandas, setPatientComandas] = useState<any[]>([]);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isComandaManagerOpen, setIsComandaManagerOpen] = useState(false);
+  const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
+  const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
+  const [managerTab, setManagerTab] = useState<'atendimentos' | 'pagamentos' | 'pacote'>('atendimentos');
+  const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Dinheiro' });
   const [isNewComandaModalOpen, setIsNewComandaModalOpen] = useState(false);
   const [newComandaData, setNewComandaData] = useState({
       type: 'normal' as 'normal' | 'package',
@@ -108,30 +114,30 @@ export const Agenda: React.FC = () => {
           chip: 'bg-indigo-50/50 text-indigo-700 border-indigo-100/50 backdrop-blur-sm', 
           solid: 'bg-indigo-600', 
           dot: 'bg-indigo-500', 
-          event: 'bg-indigo-50/80 text-indigo-700 border-indigo-100 hover:border-indigo-300 hover:bg-white' 
+          event: 'bg-white text-slate-700 border-slate-100 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-100/50' 
       },
       pessoal: { 
           label: 'Pessoal', 
           chip: 'bg-amber-50/50 text-amber-700 border-amber-100/50 backdrop-blur-sm', 
           solid: 'bg-amber-500', 
           dot: 'bg-amber-500', 
-          event: 'bg-amber-50/80 text-amber-700 border-amber-100 hover:border-amber-300 hover:bg-white' 
+          event: 'bg-amber-50/40 text-amber-900 border-amber-100 hover:border-amber-300 hover:shadow-xl hover:shadow-amber-100/50' 
       },
       bloqueio: { 
           label: 'Feriado/Bloqueio', 
           chip: 'bg-slate-900 text-white border-slate-800 shadow-xl', 
           solid: 'bg-slate-900', 
           dot: 'bg-slate-900', 
-          event: 'bg-slate-900/95 text-white border-none shadow-2xl backdrop-blur-sm ring-1 ring-white/10' 
+          event: 'bg-slate-900 text-white border-none shadow-xl backdrop-blur-sm ring-1 ring-white/10' 
       },
   } as const;
 
   const statusMeta = {
-      scheduled: { label: 'Agendado', chip: 'bg-slate-100/50 text-slate-500 border-slate-200/30', dot: 'bg-slate-400' },
-      confirmed: { label: 'Confirmado', chip: 'bg-emerald-50/50 text-emerald-700 border-emerald-100/50', dot: 'bg-emerald-500' },
-      completed: { label: 'Realizado', chip: 'bg-indigo-50/50 text-indigo-700 border-indigo-100/50', dot: 'bg-indigo-500' },
-      cancelled: { label: 'Cancelado', chip: 'bg-rose-50/50 text-rose-700 border-rose-100/50', dot: 'bg-rose-500' },
-      'no-show': { label: 'Faltou', chip: 'bg-amber-50/50 text-amber-700 border-amber-100/50', dot: 'bg-amber-500' },
+      scheduled: { label: 'Agendado', chip: 'bg-slate-100/60 text-slate-500 border-slate-200/40', dot: 'bg-slate-400' },
+      confirmed: { label: 'Confirmado', chip: 'bg-emerald-50/60 text-emerald-700 border-emerald-100/60', dot: 'bg-emerald-500' },
+      completed: { label: 'Realizado', chip: 'bg-indigo-50/60 text-indigo-700 border-indigo-100/60', dot: 'bg-indigo-500' },
+      cancelled: { label: 'Cancelado', chip: 'bg-rose-50/60 text-rose-700 border-rose-100/60', dot: 'bg-rose-500' },
+      'no-show': { label: 'Faltou', chip: 'bg-amber-50/60 text-amber-700 border-amber-100/60', dot: 'bg-amber-500' },
   } as const;
 
   const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -190,12 +196,13 @@ export const Agenda: React.FC = () => {
 
   useEffect(() => {
     const fetchComandas = async () => {
-        if (!formData.patient_id || isNaN(parseInt(formData.patient_id))) {
+        const pId = selectedApt?.patient_id || formData.patient_id;
+        if (!pId || isNaN(parseInt(String(pId)))) {
             setPatientComandas([]);
             return;
         }
         try {
-            const data = await api.get<any[]>(`/finance/comandas/patient/${formData.patient_id}`);
+            const data = await api.get<any[]>(`/finance/comandas/patient/${pId}`);
             setPatientComandas(data || []);
         } catch (err) {
             console.error('Erro ao buscar comandas:', err);
@@ -203,7 +210,7 @@ export const Agenda: React.FC = () => {
         }
     };
     fetchComandas();
-  }, [formData.patient_id]);
+  }, [formData.patient_id, selectedApt?.patient_id]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -277,6 +284,51 @@ export const Agenda: React.FC = () => {
     }
   };
 
+  const handleSavePayment = async () => {
+    const comandaId = selectedApt?.comanda_id;
+    if (!comandaId) {
+        pushToast('error', 'Nenhuma comanda vinculada a este agendamento');
+        return;
+    }
+
+    const valueToAdd = parseFloat(newPayment.value) || 0;
+    if (valueToAdd <= 0) {
+        pushToast('error', 'Por favor, insira um valor válido para o pagamento');
+        return;
+    }
+
+    try {
+        const cmnd = patientComandas.find(c => String(c.id) === String(comandaId));
+        if (!cmnd) throw new Error('Comanda não encontrada');
+
+        const currentPaid = parseFloat(String(cmnd.paid_value || cmnd.paidValue || 0));
+        const newPaidValue = currentPaid + valueToAdd;
+
+        await api.put(`/finance/comandas/${comandaId}`, {
+            ...cmnd,
+            paid_value: newPaidValue,
+            status: newPaidValue >= parseFloat(String(cmnd.totalValue || cmnd.total)) ? 'closed' : 'open'
+        });
+
+        pushToast('success', 'Pagamento registrado com sucesso!');
+        setIsAddPaymentModalOpen(false);
+        setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix' });
+        
+        // Recarregar dados para refletir saldo
+        fetchData();
+        
+        // Recarregar comandas do paciente selecionado
+        const pId = selectedApt?.patient_id;
+        if (pId) {
+            const data = await api.get<any[]>(`/finance/comandas/patient/${pId}`);
+            setPatientComandas(data || []);
+        }
+    } catch (err) {
+        console.error('Erro ao salvar pagamento:', err);
+        pushToast('error', 'Erro ao processar pagamento');
+    }
+};
+
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -338,6 +390,12 @@ export const Agenda: React.FC = () => {
     setIsModalOpen(true);
   };
 
+   const openDetailModal = (apt: Appointment) => {
+    setSelectedApt(apt);
+    setFormData(prev => ({ ...prev, id: apt.id }));
+    setIsDetailModalOpen(true);
+  };
+
   const openEditModal = (apt: Appointment) => {
     setFormData({
         ...apt,
@@ -346,6 +404,7 @@ export const Agenda: React.FC = () => {
         reschedule_reason: apt.reschedule_reason || '',
         comanda_id: apt.comanda_id || ''
     });
+    setIsDetailModalOpen(false);
     setIsModalOpen(true);
   };
 
@@ -414,6 +473,81 @@ export const Agenda: React.FC = () => {
     } catch (e: any) {
         pushToast('error', 'Erro ao salvar agendamento.');
     }
+  };
+
+  const handleSelectComanda = (c: any) => {
+    let targetServiceId = formData.service_id;
+    let targetDuration = formData.duration_minutes;
+    
+    // Tenta encontrar serviço pelo nome ou ID
+    const srv = services.find(s => 
+        (c.service_id && String(s.id) === String(c.service_id)) || 
+        (c.description?.toLowerCase().includes(s.name?.toLowerCase()))
+    );
+    
+    if (srv) {
+        targetServiceId = String(srv.id);
+        targetDuration = srv.duration;
+    } else {
+        // Tenta encontrar pacote
+        const pkg = packages.find(p => 
+            (c.package_id && String(p.id) === String(c.package_id)) || 
+            (c.description?.toLowerCase().includes(p.name?.toLowerCase()))
+        );
+        if (pkg) {
+            targetServiceId = `pkg_${pkg.id}`;
+            const firstItem = pkg.items?.[0];
+            if (firstItem) {
+                const srvObj = services.find(s => String(s.id) === String(firstItem.serviceId));
+                if (srvObj) targetDuration = srvObj.duration;
+            }
+        }
+    }
+    
+    setFormData((prev: any) => ({
+        ...prev, 
+        comanda_id: c.id,
+        service_id: targetServiceId,
+        duration_minutes: targetDuration
+    }));
+  };
+
+  const openNewComandaModal = () => {
+    let type = 'normal' as 'normal' | 'package';
+    let description = '';
+    let value = '';
+    let sessions = 1;
+
+    const val = formData.service_id;
+    if (val) {
+        const isPkg = val.startsWith('pkg_');
+        const id = isPkg ? val.replace('pkg_', '') : val;
+        
+        if (isPkg) {
+            type = 'package';
+            const pkg = packages.find(p => String(p.id) === id);
+            if (pkg) {
+                description = pkg.name;
+                value = String(pkg.totalPrice);
+                sessions = pkg.items?.length || 1;
+            }
+        } else {
+            const srv = services.find(s => String(s.id) === id);
+            if (srv) {
+                description = srv.name;
+                value = String(srv.price);
+            }
+        }
+    }
+
+    setNewComandaData({
+        type,
+        description,
+        value,
+        sessions,
+        date: new Date().toISOString().slice(0, 10)
+    });
+    setIsNewComandaModalOpen(true);
   };
 
   const handleCreateComanda = async () => {
@@ -499,8 +633,8 @@ export const Agenda: React.FC = () => {
 
       {/* STATS BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+          <div className="bg-indigo-50/30 p-5 rounded-[2rem] border border-indigo-100 shadow-sm flex items-center gap-4 group hover:bg-white hover:border-indigo-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center border border-indigo-500 shadow-lg shadow-indigo-200 group-hover:scale-110 transition-all">
                   <CalendarRange size={22} />
               </div>
               <div>
@@ -508,8 +642,8 @@ export const Agenda: React.FC = () => {
                   <p className="text-xl font-black text-slate-800">{stats.todayCount}</p>
               </div>
           </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+          <div className="bg-emerald-50/30 p-5 rounded-[2rem] border border-emerald-100 shadow-sm flex items-center gap-4 group hover:bg-white hover:border-emerald-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center border border-emerald-400 shadow-lg shadow-emerald-100 group-hover:scale-110 transition-all">
                   <UserCheck size={22} />
               </div>
               <div>
@@ -517,8 +651,8 @@ export const Agenda: React.FC = () => {
                   <p className="text-xl font-black text-slate-800">{stats.confirmedCount}</p>
               </div>
           </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-all">
+          <div className="bg-amber-50/30 p-5 rounded-[2rem] border border-amber-100 shadow-sm flex items-center gap-4 group hover:bg-white hover:border-amber-200 transition-all">
+              <div className="h-12 w-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center border border-amber-400 shadow-lg shadow-amber-100 group-hover:scale-110 transition-all">
                   <Video size={22} />
               </div>
               <div>
@@ -529,7 +663,7 @@ export const Agenda: React.FC = () => {
       </div>
 
       {/* FILTERS & NAVIGATION BAR */}
-      <div className="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
+      <div className="bg-gradient-to-r from-white to-indigo-50/40 p-4 rounded-[2.5rem] border border-indigo-100/50 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
           <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto justify-center lg:justify-start">
               <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] shadow-inner border border-slate-200">
                   <button onClick={() => handleNavigate(-1)} className="p-2.5 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronLeft size={20}/></button>
@@ -572,7 +706,7 @@ export const Agenda: React.FC = () => {
       </div>
 
       {/* CALENDAR CONTENT */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden animate-fadeIn relative">
+      <div className="bg-white rounded-[2.5rem] border border-indigo-100/60 shadow-xl shadow-indigo-500/5 overflow-hidden animate-fadeIn relative">
         {isLoading ? (
             <div className="flex flex-col h-full animate-pulse">
                 {/* Header Skeleton */}
@@ -607,10 +741,10 @@ export const Agenda: React.FC = () => {
                 </div>
             </div>
         ) : view === 'month' ? (
-            <div className="flex flex-col h-full">
-                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/30">
-                    {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'].map((day, idx) => (
-                        <div key={day} className={`py-4 text-center text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase ${idx === 5 || idx === 6 ? 'bg-slate-100/20' : ''}`}>{day}</div>
+            <div className="flex flex-col h-full bg-slate-50/50 rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-2xl shadow-indigo-100/20">
+                <div className="grid grid-cols-7 border-b border-slate-100 bg-indigo-50/30 backdrop-blur-md sticky top-0 z-20">
+                    {['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'].map((day, idx) => (
+                        <div key={day} className={`py-4 text-center text-[9px] font-black tracking-[0.2em] text-indigo-400 uppercase`}>{day}</div>
                     ))}
                 </div>
                 <div className="grid grid-cols-7 flex-1">
@@ -623,37 +757,51 @@ export const Agenda: React.FC = () => {
                         return (
                             <div 
                                 key={day.toISOString()} 
-                                className={`min-h-[120px] p-2 border-b border-r border-slate-50 transition-all group relative
-                                    ${inMonth ? 'bg-white' : 'bg-slate-50/30'} 
-                                    ${isWeekend ? 'bg-slate-200/5' : ''}
-                                    hover:bg-indigo-50/10 cursor-alias
+                                className={`min-h-[140px] p-2 border-b border-r border-slate-100/60 transition-all group relative
+                                    ${inMonth ? 'bg-white' : 'bg-slate-50/40 opacity-40'} 
+                                    ${isWeekend && inMonth ? 'bg-slate-50/30' : ''}
+                                    hover:bg-indigo-50/20 cursor-alias
                                 `}
-                                onClick={() => openNewModal(day)}
+                                onClick={() => inMonth && openNewModal(day)}
                             >
-                                <div className="flex justify-between items-start mb-2 px-1">
-                                    <span className={`text-xs font-black transition-all ${isToday ? 'h-7 w-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center shadow-lg shadow-indigo-200 -mt-1' : inMonth ? 'text-slate-800' : 'text-slate-300'}`}>
+                                <div className="flex justify-between items-start mb-3 px-1 sticky top-14">
+                                    <span className={`text-[12px] font-black transition-all ${isToday ? 'h-7 w-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center shadow-lg shadow-indigo-400 ring-2 ring-indigo-50' : inMonth ? 'text-slate-800' : 'text-slate-300'}`}>
                                         {day.getDate()}
                                     </span>
-                                    {dayApts.length > 0 && !isToday && <div className="h-1.5 w-1.5 rounded-full bg-indigo-400/50 mt-1"></div>}
-                                </div>
-                                <div className="space-y-1">
-                                    {dayApts.slice(0, 3).map(apt => (
-                                        <button 
-                                            key={apt.id} 
-                                            onClick={(e) => { e.stopPropagation(); openEditModal(apt); }} 
-                                            className={`w-full text-left px-2 py-1 rounded-lg border text-[9px] font-bold truncate transition-all hover:translate-x-1 active:scale-95 shadow-sm overflow-hidden flex items-center gap-1.5 ${typeMeta[apt.type].event}`}
-                                        >
-                                            <div className={`w-1 h-3 rounded-full ${typeMeta[apt.type].solid}`}></div>
-                                            <span className="shrink-0 opacity-50">{apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                            <span className="truncate">{apt.patient_name || apt.title}</span>
-                                        </button>
-                                    ))}
-                                    {dayApts.length > 3 && (
-                                        <p className="text-[8px] font-black text-slate-400 bg-slate-100 py-0.5 rounded-lg text-center mx-1">+ {dayApts.length - 3} itens</p>
+                                    {dayApts.length > 0 && (
+                                        <div className="flex gap-0.5">
+                                            {Array.from(new Set(dayApts.map(a => a.type)) as Set<AppointmentType>).map(type => (
+                                                <div key={type} className={`w-1 h-1 rounded-full ${typeMeta[type].dot}`}></div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
-                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-50 text-indigo-600 p-1 rounded-md">
-                                    <Plus size={10} />
+                                <div className="space-y-1.5 relative">
+                                    {dayApts.slice(0, 4).map(apt => (
+                                        <button 
+                                            key={apt.id} 
+                                            onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }} 
+                                            className={`w-full text-left px-2.5 py-1.5 rounded-xl border text-[9px] font-bold truncate transition-all hover:scale-[1.02] active:scale-95 shadow-sm overflow-hidden flex items-center gap-2 group/item ${typeMeta[apt.type].event}`}
+                                        >
+                                            <div className={`w-1 h-4 rounded-full ${typeMeta[apt.type].solid}`}></div>
+                                            <span className="truncate flex-1">{apt.patient_name || apt.title}</span>
+                                            {apt.recurrence_index && apt.recurrence_count && (
+                                                <span className="text-[7px] font-black opacity-40 tabular-nums shrink-0">{apt.recurrence_index}/{apt.recurrence_count}</span>
+                                            )}
+                                            {apt.modality === 'online' && <Video size={10} className="text-indigo-400 shrink-0"/>}
+                                        </button>
+                                    ))}
+                                    {dayApts.length > 4 && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setCurrentDate(day); setView('day'); }}
+                                            className="w-full py-1 text-[8px] font-black text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/50 rounded-lg transition-colors border border-indigo-100/50 uppercase tracking-widest text-center"
+                                        >
+                                            + {dayApts.length - 4} mais
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0 text-indigo-600 bg-white shadow-xl border border-indigo-50 p-1.5 rounded-lg z-10 shrink-0">
+                                    <Plus size={12} />
                                 </div>
                             </div>
                         );
@@ -663,11 +811,11 @@ export const Agenda: React.FC = () => {
         ) : (
             <div className="flex overflow-hidden custom-scrollbar bg-white">
                 {/* Time labels column */}
-                <div className="w-16 flex-shrink-0 bg-slate-50/50 border-r border-slate-100 select-none">
-                    <div className="h-20 border-b border-slate-100"></div>
+                <div className="w-14 flex-shrink-0 bg-slate-50 border-r border-indigo-100/50 select-none">
+                    <div className="h-20 border-b border-indigo-100/50 bg-white"></div>
                     {hours.map(h => (
-                        <div key={h} className="h-[80px] flex items-start justify-center pt-2 group relative">
-                            <span className="text-[9px] font-black text-slate-300 tabular-nums group-hover:text-indigo-400 transition-colors">{String(h).padStart(2, '0')}:00</span>
+                        <div key={h} className="h-[80px] flex items-start justify-center pt-2 group relative border-b border-indigo-100/5">
+                            <span className="text-[10px] font-black text-indigo-400/40 tabular-nums group-hover:text-indigo-600 transition-colors uppercase tracking-widest">{String(h).padStart(2, '0')}H</span>
                         </div>
                     ))}
                 </div>
@@ -685,12 +833,13 @@ export const Agenda: React.FC = () => {
                         )}
 
                         {(view === 'day' ? [currentDate] : weekDays).map(day => (
-                            <div key={day.toISOString()} className="flex-1 border-r border-slate-50 relative min-w-[180px]">
-                                {/* Header for each day */}
-                                <div className={`h-20 flex flex-col items-center justify-center gap-1.5 sticky top-0 z-30 border-b border-slate-100 transition-all ${isSameDay(day, new Date()) ? 'bg-indigo-50/40 backdrop-blur-md' : 'bg-white/95 backdrop-blur-md'}`}>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{day.toLocaleDateString(locale, { weekday: 'short' })}</span>
-                                    <span className={`text-xl font-black ${isSameDay(day, new Date()) ? 'text-indigo-600' : 'text-slate-800'}`}>{day.getDate()}</span>
-                                    {isSameDay(day, new Date()) && <div className="h-1 w-8 rounded-full bg-indigo-600"></div>}
+                            <div key={day.toISOString()} className={`flex-1 border-r border-slate-100 relative min-w-[150px] ${isSameDay(day, new Date()) ? 'bg-slate-50/30' : ''}`}>
+                                {/* Header for each day (Matches Reference Photo) */}
+                                <div className={`h-[50px] flex items-center justify-center sticky top-0 z-30 border-b border-slate-200 transition-all bg-white`}>
+                                    <span className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 ${isSameDay(day, new Date()) ? 'text-rose-500' : 'text-slate-500'}`}>
+                                        {day.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')} 
+                                        <span className="text-sm font-black tabular-nums">{day.getDate()}/{String(day.getMonth() + 1).padStart(2, '0')}</span>
+                                    </span>
                                 </div>
 
                                 {/* Hours grid */}
@@ -698,7 +847,7 @@ export const Agenda: React.FC = () => {
                                     {hours.map(h => (
                                         <div 
                                             key={h} 
-                                            className="h-[80px] border-b border-slate-50/50 hover:bg-slate-50/30 transition-colors cursor-crosshair group relative"
+                                            className="h-[80px] border-b border-slate-100 hover:bg-slate-50/50 transition-colors cursor-crosshair group relative"
                                             onClick={() => {
                                                 const d = new Date(day);
                                                 d.setHours(h);
@@ -706,11 +855,11 @@ export const Agenda: React.FC = () => {
                                                 openNewModal(d);
                                             }}
                                         >
-                                            <div className="absolute inset-x-0 top-0 h-[1px] bg-slate-100 opacity-0 group-hover:opacity-100"></div>
+                                            <div className="absolute inset-x-0 top-0 h-[1px] bg-slate-200 opacity-0 group-hover:opacity-100"></div>
                                         </div>
                                     ))}
 
-                                    {/* APPOINTMENTS CARDS */}
+                                    {/* APPOINTMENTS CARDS (Precise Reference Match) */}
                                     {getAppointmentsForDay(day)
                                         .sort((a, b) => {
                                             if (a.type === 'bloqueio' && b.type !== 'bloqueio') return -1;
@@ -718,79 +867,58 @@ export const Agenda: React.FC = () => {
                                             return 0;
                                         })
                                         .map(apt => {
-                                        const startMin = (apt.start.getHours() * 60 + apt.start.getMinutes()) - (startHour * 60);
-                                        const durMin = (apt.end.getTime() - apt.start.getTime()) / 60000;
-                                        const top = (startMin/60) * 80;
-                                        const height = (durMin/60) * 80;
-                                        const st = statusMeta[apt.status as keyof typeof statusMeta || 'scheduled'];
+                                            const startMin = (apt.start.getHours() * 60 + apt.start.getMinutes()) - (startHour * 60);
+                                            const durMin = (apt.end.getTime() - apt.start.getTime()) / 60000;
+                                            const top = (startMin/60) * 80;
+                                            const height = (durMin/60) * 80;
+                                            const st = statusMeta[apt.status as keyof typeof statusMeta || 'scheduled'];
 
-                                        return (
-                                            <button 
-                                                key={apt.id} 
-                                                onClick={(e) => { e.stopPropagation(); openEditModal(apt); }} 
-                                                className={`absolute left-2 right-2 rounded-[1.25rem] p-4 border shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all overflow-hidden text-left group z-10 flex flex-col gap-2 ${typeMeta[apt.type].event} glass-effect`} 
-                                                style={{ top: top + 4, height: Math.max(height - 8, 40) }}
-                                            >
-                                                <div className="flex flex-col h-full relative z-10">
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <div className="flex flex-col flex-1 min-w-0">
-                                                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                                                                 {apt.type === 'bloqueio' ? (
-                                                                     <span className="text-[10px] font-black text-white leading-none flex items-center gap-1.5 uppercase tracking-tighter">
-                                                                        <Ban size={10} className="text-white/50" /> {apt.title || 'Agenda Bloqueada'}
-                                                                     </span>
-                                                                 ) : (
-                                                                     <span className="text-[10px] font-black text-slate-800 leading-none truncate">
-                                                                        {apt.patient_name || apt.title || (apt.type === 'pessoal' ? 'Evento Pessoal' : 'Consulta')}
-                                                                     </span>
-                                                                 )}
-                                                                 {st && apt.type === 'consulta' && (
-                                                                     <div className={`w-1.5 h-1.5 rounded-full ${st.dot} animate-pulse`}></div>
-                                                                 )}
-                                                             </div>
-                                                             {apt.professional_name && (
-                                                                 <span className={`text-[8px] font-bold truncate mb-1.5 opacity-80 uppercase tracking-widest flex items-center gap-1 ${apt.type === 'bloqueio' ? 'text-white/60' : 'text-slate-400'}`}>
-                                                                     <UserIcon size={8} className={apt.type === 'bloqueio' ? 'text-white/40' : 'text-indigo-400'}/> {apt.professional_name}
-                                                                 </span>
-                                                             )}
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className="text-[8px] font-black opacity-50 uppercase tracking-widest tabular-nums flex items-center gap-1 bg-white/50 px-1.5 py-0.5 rounded-md">
-                                                                    <Clock size={8}/> {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                </span>
-                                                                {apt.modality === 'online' && (
-                                                                    <div className="flex items-center gap-1 text-indigo-500 font-black text-[7px] uppercase tracking-tighter bg-indigo-100/50 px-1.5 py-0.5 rounded-md border border-indigo-200/50">
-                                                                        <Video size={8}/> Online
-                                                                    </div>
-                                                                )}
+                                            const isConsult = apt.type === 'consulta';
+                                            const cardBg = apt.type === 'bloqueio' ? '#f1f5f9' : '#800040';
+                                            const textColor = apt.type === 'bloqueio' ? '#64748b' : '#ffffff';
+
+                                            return (
+                                                <button 
+                                                    key={apt.id} 
+                                                    onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }} 
+                                                    className={`absolute left-0 right-0 border-r border-b border-black/5 hover:brightness-110 transition-all text-left group z-10 flex flex-col p-2 select-none`} 
+                                                    style={{ 
+                                                        top: top, 
+                                                        height: Math.max(height, 40), 
+                                                        backgroundColor: cardBg,
+                                                        color: textColor
+                                                    }}
+                                                >
+                                                    <div className="flex flex-col h-full relative">
+                                                        {/* Time Range & Repeat Icon */}
+                                                        <div className="flex items-center justify-between mb-0.5">
+                                                            <span className="text-[10px] font-black tabular-nums opacity-90">
+                                                                {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {apt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                            {(apt.recurrence_rule || apt.parent_appointment_id) && <Repeat size={10} className="opacity-80"/>}
+                                                        </div>
+
+                                                        {/* Patient Name */}
+                                                        <h4 className="text-[11px] font-black leading-tight mb-0.5 truncate uppercase">
+                                                            {apt.patient_name || apt.title || (apt.type === 'pessoal' ? 'Evento Pessoal' : 'Consulta')}
+                                                        </h4>
+
+                                                        {/* Service/Description */}
+                                                        <p className="text-[9px] font-bold opacity-70 truncate line-clamp-1">
+                                                            {apt.notes || 'Consulta Psicológica'}
+                                                        </p>
+
+                                                        {/* Session Counter (Bottom Right) */}
+                                                        {apt.recurrence_index && (
+                                                            <div className="absolute bottom-0 right-0 bg-black/20 px-1 py-0.5 rounded text-[8px] font-black tabular-nums text-white/90">
+                                                                {apt.recurrence_index}/{apt.recurrence_count}
                                                             </div>
-                                                        </div>
-                                                        <div className="p-1.5 bg-white/50 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm border border-white/50">
-                                                            <ArrowUpRight size={12}/>
-                                                        </div>
+                                                        )}
                                                     </div>
-                                                    
-                                                    {height > 60 && (
-                                                        <div className="mt-auto flex items-center justify-between">
-                                                            <div className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest border border-current opacity-60`}>
-                                                                {statusMeta[apt.status || 'scheduled'].label}
-                                                            </div>
-                                                            <div className="h-6 w-6 rounded-lg overflow-hidden border-2 border-white shadow-md ring-1 ring-slate-100 group-hover:rotate-12 transition-transform">
-                                                                <div className="w-full h-full bg-slate-200 flex items-center justify-center text-[10px] text-slate-400">
-                                                                    <UserIcon size={12}/>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                
-                                                {/* Left accent line */}
-                                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${typeMeta[apt.type].solid}`}></div>
-                                                
-                                                {/* Soft shadow accent */}
-                                                <div className={`absolute -right-4 -bottom-4 w-20 h-20 opacity-[0.03] rounded-full pointer-events-none group-hover:opacity-10 transition-opacity ${typeMeta[apt.type].solid} blur-xl`}></div>
-                                            </button>
-                                        );
-                                    })}
+                                                </button>
+                                            );
+                                        })
+                                    }
                                 </div>
                             </div>
                         ))}
@@ -914,7 +1042,7 @@ export const Agenda: React.FC = () => {
                                                         <button 
                                                             key={c.id}
                                                             type="button"
-                                                            onClick={() => setFormData({...formData, comanda_id: c.id})}
+                                                            onClick={() => handleSelectComanda(c)}
                                                             className="w-full flex items-center justify-between p-2.5 bg-white hover:bg-orange-50 border border-slate-100 hover:border-orange-200 rounded-lg transition-all group shadow-sm"
                                                         >
                                                             <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide group-hover:text-orange-600 transition-colors">{c.description}</span>
@@ -937,7 +1065,7 @@ export const Agenda: React.FC = () => {
                                             <div className="flex justify-end">
                                                 <button 
                                                     type="button"
-                                                    onClick={() => setIsNewComandaModalOpen(true)}
+                                                    onClick={openNewComandaModal}
                                                     className="px-3 py-1.5 border border-orange-200 rounded-lg text-[10px] font-bold text-orange-600 hover:bg-orange-50 transition-all uppercase tracking-wider shadow-sm"
                                                 >
                                                     NOVA COMANDA
@@ -1262,7 +1390,20 @@ export const Agenda: React.FC = () => {
               <h3 className="text-xl font-black text-slate-800 mb-2 tracking-tight">Remover Atendimento?</h3>
               <p className="text-[12px] font-bold text-slate-400 mb-8 leading-relaxed">Deseja remover este compromisso permanentemente? Esta ação não pode ser desfeita.</p>
               <div className="flex flex-col gap-3">
-                 <button onClick={async () => { await api.delete(`/appointments/${formData.id}`); fetchData(); setIsModalOpen(false); setIsDeleteModalOpen(false); pushToast('success', 'Agendamento removido.'); }} className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95">REMOVER SESSÃO</button>
+                 <button onClick={async () => { 
+                    const idToDelete = formData.id || selectedApt?.id;
+                    if (!idToDelete) { pushToast('error', 'ID do agendamento não encontrado.'); return; }
+                    try {
+                        await api.delete(`/appointments/${idToDelete}`); 
+                        fetchData(); 
+                        setIsModalOpen(false); 
+                        setIsDeleteModalOpen(false); 
+                        setIsDetailModalOpen(false);
+                        pushToast('success', 'Agendamento removido.'); 
+                    } catch (err) {
+                        pushToast('error', 'Erro ao remover agendamento.');
+                    }
+                 }} className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95">REMOVER SESSÃO</button>
                  <button onClick={() => setIsDeleteModalOpen(false)} className="w-full py-3 text-slate-400 hover:text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all">MANTER NA AGENDA</button>
               </div>
            </div>
@@ -1523,6 +1664,417 @@ export const Agenda: React.FC = () => {
         </div>
       </Modal>
 
+      {/* APPOINTMENT DETAIL MODAL */}
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title=""
+        maxWidth="max-w-md"
+        hideCloseButton
+      >
+        <div className="space-y-3 pt-1 pb-4">
+            {/* Header Actions - Compact and Readable */}
+            <div className="grid grid-cols-4 gap-1 mb-3 border-b border-slate-50 pb-3">
+                {[
+                    { label: 'WHATS', icon: <MessageSquare size={18} />, active: 'text-emerald-500', onClick: () => {
+                        const patient = patients.find(p => String(p.id) === String(selectedApt?.patient_id));
+                        if (patient?.phone) window.open(`https://wa.me/${patient.phone.replace(/\D/g, '')}`, '_blank');
+                    }},
+                    { label: 'LEMBRETE', icon: <Send size={18} />, active: 'text-emerald-500', onClick: () => pushToast('success', 'Lembrete enviado!') },
+                    { label: 'EDITAR', icon: <Edit3 size={18} />, active: 'text-indigo-600', onClick: () => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); } },
+                    { label: 'DELETAR', icon: <Trash2 size={18} />, active: 'text-rose-500', onClick: () => setIsDeleteModalOpen(true) },
+                ].map((act, i) => (
+                    <button key={i} onClick={act.onClick} className="flex flex-col items-center gap-1 group">
+                        <div className={`p-2 rounded-full bg-slate-50 border border-slate-100 group-hover:bg-white group-hover:shadow-sm transition-all ${act.active}`}>
+                            {act.icon}
+                        </div>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{act.label}</span>
+                    </button>
+                ))}
+            </div>
+
+            {/* List Content - High Density & Clear */}
+            <div className="space-y-1.5 px-1">
+                <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60" onClick={() => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); }}>
+                    <div className="text-indigo-500 shrink-0"><Clock size={16} /></div>
+                    <div className="flex-1 min-w-0 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <h4 className="text-[12px] font-bold text-slate-700">
+                                {selectedApt ? `${selectedApt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${selectedApt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '--:--'}
+                            </h4>
+                            <span className="text-[11px] font-medium text-slate-400">
+                                {selectedApt?.start.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
+                            </span>
+                        </div>
+                        <ChevronRight size={14} className="text-slate-300" />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60">
+                    <div className="text-indigo-500 shrink-0"><UserIcon size={16} /></div>
+                    <div className="flex-1 min-w-0 flex justify-between items-center">
+                        <div>
+                            <h4 className="text-[12px] font-bold text-slate-800 capitalize leading-tight">
+                                {selectedApt?.patient_name || selectedApt?.title || 'Paciente'}
+                            </h4>
+                            <p className="text-[11px] font-bold text-indigo-500 leading-none">
+                                {patients.find(p => String(p.id) === String(selectedApt?.patient_id))?.phone || 'Sem telefone'}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-slate-50 rounded-lg text-slate-400"><FileText size={14} /></div>
+                            <ChevronRight size={14} className="text-slate-300" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 py-2 border-b border-slate-50/60">
+                    <div className="text-indigo-500 shrink-0"><Stethoscope size={16} /></div>
+                    <div className="flex-1 flex justify-between items-center min-w-0">
+                        <p className="text-[12px] font-medium text-slate-600 truncate">
+                            {services.find(s => String(s.id) === String(selectedApt?.service_id))?.name || 'Psicoterapia Individual'}
+                        </p>
+                        {(() => {
+                            const srv = services.find(s => String(s.id) === String(selectedApt?.service_id));
+                            return srv ? <span className="text-[11px] font-black text-slate-400">{formatCurrency(srv.price)}</span> : null;
+                        })()}
+                        <ChevronRight size={14} className="text-slate-300" />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60" onClick={() => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); }}>
+                    <div className="text-indigo-500 shrink-0"><AlignLeft size={16} /></div>
+                    <div className="flex-1 flex justify-between items-center min-w-0">
+                        <p className="text-[11px] font-medium text-slate-500 italic truncate italic">
+                            {selectedApt?.notes || 'Nenhuma observação'}
+                        </p>
+                        <ChevronRight size={14} className="text-slate-300" />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60" onClick={() => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); }}>
+                    <div className="text-indigo-500 shrink-0"><Tag size={16} /></div>
+                    <div className="flex-1 flex justify-between items-center min-w-0">
+                        <p className="text-[12px] font-bold text-slate-700">
+                             {statusMeta[selectedApt?.status as keyof typeof statusMeta || 'scheduled']?.label || 'Nenhum'}
+                        </p>
+                        <ChevronRight size={14} className="text-slate-300" />
+                    </div>
+                </div>
+
+                {selectedApt?.comanda_id && (
+                    <div className="flex items-center gap-3 group cursor-pointer py-2" onClick={() => setIsComandaManagerOpen(true)}>
+                        <div className="text-emerald-500 shrink-0"><DollarSign size={16} /></div>
+                        <div className="flex-1 flex justify-between items-center min-w-0">
+                            {(() => {
+                                const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt.comanda_id));
+                                const paid = cmnd?.paidValue || 0;
+                                const remaining = (cmnd?.totalValue || cmnd?.total || 0) - paid;
+                                return (
+                                    <p className="text-[10px] font-black text-slate-500 uppercase">
+                                        Pago <span className="text-indigo-600">{formatCurrency(paid)}</span> <span className="text-slate-300 mx-1">|</span> Devedor <span className="text-rose-500">{formatCurrency(remaining)}</span>
+                                    </p>
+                                );
+                            })()}
+                            <ChevronRight size={14} className="text-slate-300" />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="pt-4 flex flex-col items-center gap-4">
+                <div className="flex gap-10">
+                    <button className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors">REMOVER COBRANÇA</button>
+                    <button className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-slate-900 transition-colors flex items-center gap-1.5">
+                        <FileText size={14} /> GERAR RECIBO
+                    </button>
+                </div>
+                <div className="w-full flex">
+                    <Button 
+                        variant="ghost" 
+                        onClick={() => setIsDetailModalOpen(false)}
+                        className="w-full text-[11px] font-black uppercase tracking-widest py-3 hover:bg-slate-50 border-none"
+                    >
+                        FECHAR
+                    </Button>
+                </div>
+            </div>
+        </div>
+      </Modal>
+
+      {/* COMANDA MANAGER MODAL */}
+      <Modal
+        isOpen={isComandaManagerOpen}
+        onClose={() => setIsComandaManagerOpen(false)}
+        title="Comanda Detalhada"
+        maxWidth="max-w-4xl"
+      >
+        <div className="space-y-4 pt-2 pb-2">
+            {/* Custom Tabs */}
+            <div className="flex border-b border-slate-100 bg-white sticky top-0 z-10">
+                {[
+                    { id: 'atendimentos', label: 'ATENDIMENTOS' },
+                    { id: 'pagamentos', label: 'HISTÓRICO DE PAGAMENTOS' },
+                    { id: 'pacote', label: 'USO DO PACOTE' },
+                ].filter(tab => {
+                    if (tab.id === 'pacote') {
+                        const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                        return cmnd && (cmnd.sessions_total > 1 || cmnd.package_id);
+                    }
+                    return true;
+                }).map(tab => (
+                    <button 
+                        key={tab.id}
+                        onClick={() => setManagerTab(tab.id as any)}
+                        className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${managerTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/10' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="min-h-[400px]">
+                {managerTab === 'atendimentos' && (
+                    <div className="animate-fadeIn">
+                        <div className="bg-slate-50 py-2.5 px-4 text-center mb-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Atendimentos</span>
+                        </div>
+                        <table className="w-full">
+                            <thead className="border-b border-slate-100">
+                                <tr>
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Nº</th>
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Horario</th>
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Serviço</th>
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(() => {
+                                    const cmndId = selectedApt?.comanda_id;
+                                    const cmndApts = appointments.filter(a => String(a.comanda_id) === String(cmndId))
+                                        .sort((a,b) => a.start.getTime() - b.start.getTime());
+                                    
+                                    if (cmndApts.length === 0) return (
+                                        <tr><td colSpan={5} className="py-8 text-center text-slate-400 text-xs italic">Nenhum atendimento vinculado.</td></tr>
+                                    );
+
+                                    return cmndApts.map((apt, idx) => (
+                                        <tr key={apt.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
+                                            <td className="py-4 px-2 text-[11px] font-bold text-slate-600">{apt.recurrence_index || idx + 1} de {apt.recurrence_count || cmndApts.length}</td>
+                                            <td className="py-4 px-2 text-[11px] font-bold text-slate-700">{apt.start.toLocaleDateString(locale, { dateStyle: 'medium' })}</td>
+                                            <td className="py-4 px-2 text-[11px] font-black text-slate-400">{apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                            <td className="py-4 px-2 text-[11px] font-bold text-indigo-600">{services.find(s => String(s.id) === String(apt.service_id))?.name || 'Consulta'}</td>
+                                            <td className="py-4 px-2">
+                                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${statusMeta[apt.status || 'scheduled'].chip}`}>
+                                                    {statusMeta[apt.status || 'scheduled'].label}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ));
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {managerTab === 'pagamentos' && (
+                    <div className="animate-fadeIn space-y-8">
+                        {(() => {
+                            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                            const total = cmnd?.totalValue || cmnd?.total || 0;
+                            const paid = cmnd?.paidValue || 0;
+                            const remaining = total - paid;
+                            
+                            return (
+                                <>
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <div className="flex gap-4 items-center">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">Total:</span>
+                                                <span className="text-sm font-black text-slate-800">{formatCurrency(total)}</span>
+                                            </div>
+                                            <div className="flex gap-4 items-center">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">Valor pago:</span>
+                                                <span className="text-sm font-black text-indigo-600">{formatCurrency(cmnd?.paidValue || 0)}</span>
+                                            </div>
+                                            <div className="flex gap-4 items-center">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">Devendo:</span>
+                                                <span className={`text-sm font-black ${remaining > 0 ? 'text-rose-600 animate-pulse' : 'text-emerald-500'}`}>
+                                                    {formatCurrency(remaining)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            onClick={() => setIsAddPaymentModalOpen(true)}
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100"
+                                        >
+                                            ADICIONAR PAGAMENTO
+                                        </Button>
+                                    </div>
+
+                                    <div className="bg-slate-50 py-2.5 px-4 text-center mb-1">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Histórico de Transações</span>
+                                    </div>
+                                    
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b border-slate-100">
+                                                <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Valor</th>
+                                                <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Forma de pgto.</th>
+                                                <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
+                                                <th className="py-4 px-2 text-right"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {/* Aqui idealmente viriam as transações vinculadas à comanda */}
+                                            {cmnd?.paidValue && cmnd.paidValue > 0 ? (
+                                                <tr className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
+                                                    <td className="py-5 px-2 text-[12px] font-black text-slate-700">{formatCurrency(cmnd.paidValue)}</td>
+                                                    <td className="py-5 px-2 text-[11px] font-bold text-slate-500 italic">Total Pago</td>
+                                                    <td className="py-5 px-2 text-[11px] font-bold text-slate-500">{new Date(cmnd.updated_at || cmnd.createdAt).toLocaleDateString()}</td>
+                                                    <td className="py-5 px-2 text-right">
+                                                        {/* Placeholder for actions */}
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                <tr><td colSpan={4} className="py-8 text-center text-slate-400 text-xs italic">Nenhum pagamento registrado.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {managerTab === 'pacote' && (
+                    <div className="animate-fadeIn">
+                        <div className="bg-slate-50 py-2.5 px-4 text-center mb-6">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Uso do Pacote</span>
+                        </div>
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-slate-100">
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Detalhamento</th>
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Contratados</th>
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Realizados</th>
+                                    <th className="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(() => {
+                                    const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                                    const remaining = (cmnd?.sessions_total || 0) - (cmnd?.sessions_used || 0);
+                                    
+                                    return (
+                                        <tr className="border-b border-slate-50">
+                                            <td className="py-6 px-2">
+                                                <p className="text-xs font-bold text-slate-700">{cmnd?.description || 'Serviço do Pacote'}</p>
+                                                <p className="text-[9px] text-slate-400 font-medium">Iniciado em {cmnd?.startDate ? new Date(cmnd.startDate).toLocaleDateString() : '-'}</p>
+                                            </td>
+                                            <td className="py-6 px-2 text-center text-xs font-bold text-slate-500">{cmnd?.sessions_total || 0}</td>
+                                            <td className="py-6 px-2 text-center text-xs font-bold text-indigo-600">{cmnd?.sessions_used || 0}</td>
+                                            <td className="py-6 px-2 text-center">
+                                                {cmnd && cmnd.sessions_total > 0 && remaining === 0 ? (
+                                                    <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-rose-100">Esgotado</span>
+                                                ) : cmnd && cmnd.sessions_total > 0 ? (
+                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">{remaining} Restantes</span>
+                                                ) : cmnd && cmnd.sessions_total === 0 ? (
+                                                    <span className="text-[9px] font-bold text-slate-400 italic">Avulso</span>
+                                                ) : (
+                                                    <span className="text-[9px] font-bold text-slate-400 italic">N/A</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            <div className="pt-8 flex justify-center border-t border-slate-50">
+                <button 
+                    onClick={() => setIsComandaManagerOpen(false)}
+                    className="px-12 py-3 text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em] hover:bg-slate-50 transition-all rounded-full"
+                >
+                    FECHAR
+                </button>
+            </div>
+        </div>
+      </Modal>
+
+      {/* ADD PAYMENT MODAL */}
+      <Modal
+        isOpen={isAddPaymentModalOpen}
+        onClose={() => setIsAddPaymentModalOpen(false)}
+        title="Novo Pagamento"
+        maxWidth="max-w-xl"
+      >
+        <div className="space-y-8 py-4">
+            <div className="space-y-6">
+                <Input 
+                    label="Data do Pagamento" 
+                    type="date"
+                    value={newPayment.date}
+                    onChange={e => setNewPayment({...newPayment, date: e.target.value})}
+                />
+                
+                <Select 
+                    label="Forma de pagamento" 
+                    value={newPayment.method}
+                    onChange={e => setNewPayment({...newPayment, method: e.target.value})}
+                >
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Pix">Pix</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Cartão de Débito">Cartão de Débito</option>
+                    <option value="Transferência">Transferência</option>
+                </Select>
+
+                <Input 
+                    label="Valor" 
+                    placeholder="R$ 0,00"
+                    type="number"
+                    value={newPayment.value}
+                    onChange={e => setNewPayment({...newPayment, value: e.target.value})}
+                />
+            </div>
+
+            <div className="flex justify-end pr-2">
+                {(() => {
+                    const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                    const total = parseFloat(String(cmnd?.totalValue || cmnd?.total || 0));
+                    const paid = parseFloat(String(cmnd?.paid_value || cmnd?.paidValue || 0));
+                    const remaining = total - paid;
+                    return (
+                        <span className={`text-[11px] font-black uppercase tracking-widest ${remaining > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                            Valor restante: {formatCurrency(remaining)}
+                        </span>
+                    );
+                })()}
+            </div>
+
+            <div className="flex gap-4 pt-4 border-t border-slate-50">
+                <Button 
+                    variant="ghost" 
+                    onClick={() => setIsAddPaymentModalOpen(false)} 
+                    className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-none hover:bg-slate-50"
+                >
+                    FECHAR
+                </Button>
+                <Button 
+                    variant="primary" 
+                    onClick={handleSavePayment}
+                    className="flex-1 bg-indigo-600 text-white hover:bg-slate-900 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                >
+                    SALVAR PAGAMENTO
+                </Button>
+            </div>
+        </div>
+      </Modal>
     </div>
   );
 };
