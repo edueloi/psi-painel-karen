@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const ExcelJS = require('exceljs');
+const xlsx = require('xlsx');
 const db = require('../db');
+
+const memoryUpload = multer({ storage: multer.memoryStorage() });
 
 // GET /appointments
 router.get('/', async (req, res) => {
@@ -156,38 +161,226 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST /appointments/import
-router.post('/import', async (req, res) => {
+// GET /appointments/export-template
+router.get('/export-template', async (req, res) => {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Dados para Importar');
+  
+  worksheet.columns = [
+    { header: 'Título', key: 'title', width: 25 },
+    { header: 'ID Paciente', key: 'patient_id', width: 15 },
+    { header: 'ID Profissional', key: 'professional_id', width: 15 },
+    { header: 'ID Serviço', key: 'service_id', width: 15 },
+    { header: 'Data Início', key: 'start_time', width: 25 },
+    { header: 'Duração (min)', key: 'duration_minutes', width: 15 },
+    { header: 'Status', key: 'status', width: 15 },
+    { header: 'Modalidade', key: 'modality', width: 15 },
+    { header: 'Observações', key: 'notes', width: 40 }
+  ];
+
+  // Estilo do cabeçalho
+  worksheet.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
+
+  worksheet.addRow({
+    title: 'Sessão de Psicoterapia',
+    patient_id: 1,
+    professional_id: 1,
+    service_id: 1,
+    start_time: '2024-05-20 14:00',
+    duration_minutes: 50,
+    status: 'scheduled',
+    modality: 'presencial',
+    notes: 'Primeira sessão do paciente'
+  });
+
+  worksheet.autoFilter = 'A1:I1';
+
+  // Sheet de Instruções
+  const wsInst = workbook.addWorksheet('Instruções');
+  wsInst.columns = [
+    { header: 'Coluna', key: 'col', width: 25 },
+    { header: 'Obrigatório', key: 'req', width: 15 },
+    { header: 'Formato / Descrição', key: 'desc', width: 60 }
+  ];
+
+  wsInst.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+  });
+
+  wsInst.addRows([
+    ['Título', 'Não', 'Ex: Sessão de TCC / Consulta'],
+    ['ID Paciente', 'Não', 'Pegue o ID na aba "Lista de Pacientes"'],
+    ['ID Profissional', 'Não', 'Pegue o ID na aba "Lista de Profissionais"'],
+    ['ID Serviço', 'Não', 'Pegue o ID na aba "Lista de Serviços"'],
+    ['Data Início', 'Sim', 'AAAA-MM-DD HH:MM (Ex: 2024-05-20 14:30)'],
+    ['Duração (min)', 'Não', 'Padrão: 50'],
+    ['Status', 'Não', 'scheduled, confirmed, completed, cancelled, no-show'],
+    ['Modalidade', 'Não', 'presencial ou online'],
+    ['Observações', 'Não', 'Qualquer informação relevante']
+  ]);
+
+  // Adicionar abas de referência para facilitar o preenchimento dos IDs
   try {
-    const { appointments } = req.body;
-    if (!appointments || !Array.isArray(appointments)) {
-      return res.status(400).json({ error: 'Lista de agendamentos é obrigatória' });
-    }
+    const tenantId = req.user.tenant_id;
+    
+    // Lista de Pacientes
+    const [pts] = await db.query('SELECT id, name FROM patients WHERE tenant_id = ? ORDER BY name', [tenantId]);
+    const wsPts = workbook.addWorksheet('Lista de Pacientes');
+    wsPts.columns = [{ header: 'ID', key: 'id', width: 10 }, { header: 'Nome', key: 'name', width: 40 }];
+    wsPts.getRow(1).font = { bold: true };
+    pts.forEach(p => wsPts.addRow(p));
 
-    const tenant_id = req.user.tenant_id;
-    const values = appointments.map(a => [
-      tenant_id,
-      a.patient_id || null,
-      a.professional_id || null,
-      a.service_id || null,
-      a.title || null,
-      a.start_time,
-      a.end_time || a.start_time, // Fallback if end_time not provided
-      a.status || 'scheduled',
-      a.notes || null,
-      a.color || null
-    ]);
+    // Lista de Profissionais
+    const [pros] = await db.query('SELECT id, name FROM users WHERE tenant_id = ? AND role != "secretario" ORDER BY name', [tenantId]);
+    const wsPros = workbook.addWorksheet('Lista de Profissionais');
+    wsPros.columns = [{ header: 'ID', key: 'id', width: 10 }, { header: 'Nome', key: 'name', width: 40 }];
+    wsPros.getRow(1).font = { bold: true };
+    pros.forEach(p => wsPros.addRow(p));
 
-    await db.query(
-      `INSERT INTO appointments (tenant_id, patient_id, professional_id, service_id, title, start_time, end_time, status, notes, color)
-       VALUES ?`,
-      [values]
-    );
+    // Lista de Serviços
+    const [srvs] = await db.query('SELECT id, name FROM services WHERE tenant_id = ? ORDER BY name', [tenantId]);
+    const wsSrvs = workbook.addWorksheet('Lista de Serviços');
+    wsSrvs.columns = [{ header: 'ID', key: 'id', width: 10 }, { header: 'Nome', key: 'name', width: 40 }];
+    wsSrvs.getRow(1).font = { bold: true };
+    srvs.forEach(s => wsSrvs.addRow(s));
 
-    res.status(201).json({ message: `${appointments.length} agendamentos importados com sucesso` });
+  } catch (err) {
+    console.warn('Erro ao carregar referências para o template:', err.message);
+  }
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=modelo_importacao_agenda.xlsx');
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+// GET /appointments/export
+router.get('/export', async (req, res) => {
+  try {
+    const query = `
+      SELECT a.*, p.name as patient_name, u.name as professional_name, s.name as service_name
+      FROM appointments a
+      LEFT JOIN patients p ON p.id = a.patient_id
+      LEFT JOIN users u ON u.id = a.professional_id
+      LEFT JOIN services s ON s.id = a.service_id
+      WHERE a.tenant_id = ?
+      ORDER BY a.start_time DESC
+    `;
+    const [appointments] = await db.query(query, [req.user.tenant_id]);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Agenda');
+
+    worksheet.columns = [
+      { header: 'Data/Hora', key: 'date', width: 20 },
+      { header: 'Título', key: 'title', width: 25 },
+      { header: 'Paciente', key: 'patient', width: 25 },
+      { header: 'Profissional', key: 'professional', width: 25 },
+      { header: 'Serviço', key: 'service', width: 20 },
+      { header: 'Duração', key: 'duration', width: 10 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'Modalidade', key: 'modality', width: 15 },
+      { header: 'Notas', key: 'notes', width: 40 }
+    ];
+
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    });
+
+    appointments.forEach(a => {
+      worksheet.addRow({
+        date: new Date(a.start_time).toLocaleString('pt-BR'),
+        title: a.title,
+        patient: a.patient_name,
+        professional: a.professional_name,
+        service: a.service_name,
+        duration: a.duration_minutes,
+        status: a.status,
+        modality: a.modality,
+        notes: a.notes
+      });
+    });
+
+    worksheet.autoFilter = 'A1:I1';
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=agenda_exportada.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao importar agendamentos' });
+    res.status(500).json({ error: 'Erro ao exportar agenda' });
+  }
+});
+
+// POST /appointments/import
+router.post('/import', memoryUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json(sheet);
+
+    const imported = [];
+    const errors = [];
+
+    const findValue = (row, ...names) => {
+      const keys = Object.keys(row);
+      for (const name of names) {
+        const key = keys.find(k => k.toLowerCase().trim() === name.toLowerCase().trim());
+        if (key) return row[key];
+      }
+      return null;
+    };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const title = findValue(row, 'Título', 'Title', 'Nome');
+      const startTime = findValue(row, 'Data Início', 'Data', 'Start', 'Início');
+
+      if (!startTime || (title && String(title).toLowerCase().includes('exemplo'))) continue;
+
+      try {
+        const duration = findValue(row, 'Duração (min)', 'Duração', 'Duration') || 50;
+        const start = new Date(startTime);
+        const end = new Date(start.getTime() + duration * 60000);
+
+        const [result] = await db.query(
+          `INSERT INTO appointments (
+            tenant_id, patient_id, professional_id, service_id, title,
+            start_time, end_time, status, modality, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            req.user.tenant_id,
+            findValue(row, 'ID Paciente', 'paciente_id', 'patient_id'),
+            findValue(row, 'ID Profissional', 'profissional_id', 'professional_id'),
+            findValue(row, 'ID Serviço', 'service_id'),
+            title,
+            start.toISOString().slice(0, 19).replace('T', ' '),
+            end.toISOString().slice(0, 19).replace('T', ' '),
+            findValue(row, 'Status') || 'scheduled',
+            findValue(row, 'Modalidade', 'Tipo') || 'presencial',
+            findValue(row, 'Observações', 'Notes', 'Notas')
+          ]
+        );
+        imported.push(result.insertId);
+      } catch (e) {
+        errors.push(`Linha ${i + 2}: ${e.message}`);
+      }
+    }
+
+    res.json({ message: `${imported.length} agendamentos importados`, importedLength: imported.length, errors });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao importar agenda' });
   }
 });
 

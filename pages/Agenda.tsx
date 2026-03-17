@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { api } from '../services/api';
+import { api, API_BASE_URL } from '../services/api';
 import { Appointment, Service, Patient, User } from '../types';
 import { 
     ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin, 
@@ -178,95 +178,66 @@ export const Agenda: React.FC = () => {
     }
   };
 
-  const handleExport = () => {
-    if (filteredAppointments.length === 0) {
-      pushToast('error', 'Nenhum agendamento para exportar.');
-      return;
+  const handleExport = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/appointments/export`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+      });
+      if (!response.ok) throw new Error('Erro ao exportar');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `agenda_exportada_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      pushToast('success', 'Agenda exportada com sucesso.');
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao exportar agenda.');
     }
-
-    const headers = ['Título', 'Paciente', 'Profissional', 'Data', 'Duração (min)', 'Status', 'Observações'];
-    const rows = filteredAppointments.map(a => [
-      a.title || (a.type === 'consulta' ? 'Consulta' : 'Evento'),
-      patients.find(p => String(p.id) === String(a.patient_id))?.full_name || '',
-      professionals.find(p => String(p.id) === String(a.professional_id))?.name || '',
-      new Date(a.start).toLocaleString('pt-BR'),
-      a.duration_minutes || 50,
-      statusMeta[a.status || 'scheduled'].label,
-      a.notes || ''
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `agenda_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    pushToast('success', 'Agenda exportada com sucesso.');
   };
 
-  const downloadTemplate = () => {
-    const headers = ['titulo', 'paciente_id', 'profissional_id', 'data_inicio', 'duracao_min', 'notas'];
-    const example = ['Consulta Exemplo', '1', '1', '2023-10-27 14:00', '50', 'Observação'];
-    const csvContent = [headers.join(','), example.join(',')].join('\n');
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'modelo_importacao_agenda.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadTemplate = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/appointments/export-template`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+      });
+      if (!response.ok) throw new Error('Erro ao baixar modelo');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'modelo_importacao_agenda.xlsx';
+      a.click();
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao baixar modelo.');
+    }
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsProcessingImport(true);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-      
-      const importedData = lines.slice(1).filter(l => l.trim() !== '').map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-        const obj: any = {};
-        headers.forEach((header, i) => {
-          obj[header] = values[i];
-        });
-        return {
-          title: obj.titulo,
-          patient_id: obj.paciente_id ? parseInt(obj.paciente_id) : null,
-          professional_id: obj.profissional_id ? parseInt(obj.profissional_id) : null,
-          start_time: obj.data_inicio,
-          duration_minutes: obj.duracao_min ? parseInt(obj.duracao_min) : 50,
-          end_time: obj.data_inicio ? new Date(new Date(obj.data_inicio).getTime() + (parseInt(obj.duracao_min || '50')) * 60000).toISOString() : null,
-          notes: obj.notas,
-          status: 'scheduled'
-        };
-      });
+    const formData = new FormData();
+    formData.append('file', file);
 
-      try {
-        await api.post('/appointments/import', { appointments: importedData });
-        fetchData();
-        pushToast('success', `${importedData.length} agendamentos importados.`);
-        setIsImportModalOpen(false);
-      } catch (err) {
-        pushToast('error', 'Erro ao importar dados. Verifique o formato.');
-      } finally {
-        setIsProcessingImport(false);
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
+    try {
+      const result = await api.request<any>('/appointments/import', {
+        method: 'POST',
+        body: formData
+      });
+      fetchData();
+      pushToast('success', result.message || 'Dados importados com sucesso.');
+      setIsImportModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao importar dados. Verifique o formato do arquivo.');
+    } finally {
+      setIsProcessingImport(false);
+      e.target.value = '';
+    }
   };
 
   const getRangeLabel = () => {
@@ -892,7 +863,7 @@ export const Agenda: React.FC = () => {
                 Preencha os IDs de pacientes e profissionais conforme listados no seu painel.
               </p>
               <div className="w-full py-3 bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl border border-white/20 backdrop-blur-md">
-                Formato: .CSV
+                Formato: .XLSX / .CSV
               </div>
             </div>
           </div>
@@ -900,7 +871,7 @@ export const Agenda: React.FC = () => {
           <div className="relative group">
             <input 
               type="file" 
-              accept=".csv" 
+              accept=".xlsx, .xls, .csv" 
               onChange={handleImport}
               disabled={isProcessingImport}
               className="absolute inset-0 opacity-0 cursor-pointer z-10"
