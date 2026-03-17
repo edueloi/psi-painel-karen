@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
+import { Modal } from '../components/UI/Modal';
+import { Button } from '../components/UI/Button';
+import { Input, Select, TextArea } from '../components/UI/Input';
 
 export const Agenda: React.FC = () => {
   const { t, language } = useLanguage();
@@ -194,11 +197,46 @@ export const Agenda: React.FC = () => {
             start_time: formData.appointment_date,
             professional_id: formData.psychologist_id || formData.professional_id
         };
+
+        let response;
         if (formData.id) {
-            await api.put(`/appointments/${formData.id}`, payload);
+            response = await api.put<Appointment>(`/appointments/${formData.id}`, payload);
         } else {
-            await api.post('/appointments', payload);
+            response = await api.post<Appointment>('/appointments', payload);
         }
+
+        const savedAppointment = response;
+
+        // SE FOR ONLINE E NÃO TEM URL AINDA, CRIA UMA SALA VIRTUAL
+        if (formData.modality === 'online' && !formData.meeting_url) {
+            try {
+                const roomCode = Math.random().toString(36).substr(2, 9);
+                const patient = patients.find(p => String(p.id) === String(formData.patient_id));
+                const title = `Sessão: ${patient?.full_name || 'Paciente'} - ${new Date(formData.appointment_date).toLocaleDateString()}`;
+                
+                const roomData = {
+                    title,
+                    code: roomCode,
+                    patient_id: formData.patient_id,
+                    professional_id: formData.psychologist_id || formData.professional_id,
+                    appointment_id: savedAppointment.id,
+                    scheduled_start: formData.appointment_date,
+                    provider: 'interno'
+                };
+                
+                const room = await api.post<any>('/virtual-rooms', roomData);
+                const meetingUrl = `${window.location.origin}/sala/${room.code || roomCode}`;
+                
+                // Atualiza o agendamento com a nova URL
+                await api.put(`/appointments/${savedAppointment.id}`, {
+                    ...payload,
+                    meeting_url: meetingUrl
+                });
+            } catch (roomError) {
+                console.error("Erro ao criar sala virtual:", roomError);
+            }
+        }
+
         fetchData();
         setIsModalOpen(false);
         pushToast('success', 'Agenda atualizada com sucesso.');
@@ -388,148 +426,173 @@ export const Agenda: React.FC = () => {
       )}
 
       {/* APPOINTMENT MODAL */}
-      {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-              <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-white/20">
-                  <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                      <div className="flex items-center gap-5">
-                        <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100">
-                          {formData.id ? <Edit3 size={20} /> : <Plus size={24} />}
-                        </div>
-                        <div>
-                          <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter leading-none mb-1">{formData.id ? 'Editar Sessão' : 'Novo Agendamento'}</h3>
-                          <p className="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{new Date(formData.appointment_date).toLocaleDateString(locale, { dateStyle: 'full' })}</p>
-                        </div>
-                      </div>
-                      <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white hover:bg-slate-50 rounded-2xl text-slate-400 shadow-sm ring-1 ring-slate-200 transition-all active:scale-95"><X size={20} /></button>
-                  </div>
-                  
-                  <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1 bg-white">
-                      <div className="space-y-12">
-                          {/* TYPE SELECTOR */}
-                          <div className="space-y-4">
-                              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Natureza do Agendamento</label>
-                              <div className="bg-slate-50 p-1 rounded-2xl flex border border-slate-100 shadow-inner">
-                                  {['consulta', 'pessoal', 'bloqueio'].map(t => (
-                                      <button key={t} onClick={() => setFormData({...formData, type: t})} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${formData.type === t ? 'bg-white shadow-lg text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                                          {t === 'consulta' ? <Briefcase size={16}/> : t === 'pessoal' ? <UserIcon size={16}/> : <Ban size={16}/>}
-                                          {t}
-                                      </button>
-                                  ))}
-                              </div>
+      <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={formData.id ? 'Editar Sessão' : 'Novo Agendamento'}
+          subtitle={new Date(formData.appointment_date).toLocaleDateString(locale, { dateStyle: 'full' })}
+          maxWidth="max-w-3xl"
+          footer={
+            <div className="flex w-full justify-between items-center">
+              {formData.id ? (
+                <Button 
+                  variant="danger" 
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="!rounded-2xl h-12 w-12 p-0"
+                >
+                  <Trash2 size={20}/>
+                </Button>
+              ) : <div />}
+              <div className="flex gap-3">
+                <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="uppercase tracking-widest text-[11px]">
+                  Descartar
+                </Button>
+                <Button 
+                  onClick={handleSave} 
+                  className="px-8 h-12 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 uppercase tracking-widest text-[11px]"
+                >
+                  <CheckCircle2 size={18} className="mr-2" />
+                  {formData.id ? 'Atualizar' : 'Confirmar'} Agendamento
+                </Button>
+              </div>
+            </div>
+          }
+      >
+          <div className="space-y-6">
+              {/* TYPE SELECTOR - Compact */}
+              <div className="bg-slate-50 p-1 rounded-2xl flex border border-slate-100/50 shadow-inner">
+                  {['consulta', 'pessoal', 'bloqueio'].map(t => (
+                      <button 
+                        key={t} 
+                        onClick={() => setFormData({...formData, type: t})} 
+                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${formData.type === t ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                          {t === 'consulta' ? <Briefcase size={14}/> : t === 'pessoal' ? <UserIcon size={14}/> : <Ban size={14}/>}
+                          {t}
+                      </button>
+                  ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* LEFT COLUMN */}
+                  <div className="space-y-5">
+                      {formData.type === 'consulta' ? (
+                        <>
+                          <Select 
+                            label="Paciente" 
+                            icon={<UserIcon size={18} />}
+                            value={formData.patient_id || ''} 
+                            onChange={e => setFormData({...formData, patient_id: e.target.value})}
+                          >
+                              <option value="">Selecionar paciente...</option>
+                              {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                          </Select>
+
+                          <Select 
+                            label="Serviço / Atendimento" 
+                            icon={<Package size={18} />}
+                            value={formData.service_id || ''} 
+                            onChange={e => setFormData({...formData, service_id: e.target.value})}
+                          >
+                              <option value="">Tipo de atendimento...</option>
+                              {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
+                          </Select>
+                        </>
+                      ) : (
+                        <Input 
+                          label="Título do Evento" 
+                          placeholder="Ex: Supervisão Clínica" 
+                          value={formData.title || ''} 
+                          onChange={e => setFormData({...formData, title: e.target.value})}
+                        />
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Modalidade</label>
+                            <div className="flex bg-slate-100 p-1 rounded-xl">
+                                <button 
+                                  onClick={() => setFormData({...formData, modality: 'presencial'})} 
+                                  className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                                >
+                                  Presencial
+                                </button>
+                                <button 
+                                  onClick={() => setFormData({...formData, modality: 'online'})} 
+                                  className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                                >
+                                  Online
+                                </button>
+                            </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                              {/* PRIMARY DATA */}
-                              <div className="space-y-8">
-                                  {formData.type === 'consulta' ? (
-                                    <div className="space-y-8">
-                                        <div className="space-y-3">
-                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Paciente</label>
-                                            <div className="relative group">
-                                                <select className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.patient_id || ''} onChange={e => setFormData({...formData, patient_id: e.target.value})}>
-                                                    <option value="">Selecionar paciente...</option>
-                                                    {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                                                </select>
-                                                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={18} />
-                                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 rotate-90 pointer-events-none" size={18} />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Serviço / Atendimento</label>
-                                            <div className="relative group">
-                                                <select className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.service_id || ''} onChange={e => setFormData({...formData, service_id: e.target.value})}>
-                                                    <option value="">Tipo de atendimento...</option>
-                                                    {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
-                                                </select>
-                                                <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={18} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                  ) : (
-                                    <div className="space-y-3">
-                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Título do Evento</label>
-                                        <input type="text" className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-lg focus:bg-white focus:border-indigo-400 transition-all" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ex: Supervisão Clínica" />
-                                    </div>
-                                  )}
-
-                                  <div className="grid grid-cols-2 gap-6">
-                                      <div className="space-y-3">
-                                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Modalidade</label>
-                                          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
-                                              <button onClick={() => setFormData({...formData, modality: 'presencial'})} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>Presencial</button>
-                                              <button onClick={() => setFormData({...formData, modality: 'online'})} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'online' ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>Online</button>
-                                          </div>
-                                      </div>
-                                      <div className="space-y-3">
-                                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Status</label>
-                                          <select className="w-full p-3.5 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-600 text-[10px] uppercase tracking-widest focus:bg-white focus:border-indigo-400 transition-all cursor-pointer" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-                                              {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                                          </select>
-                                      </div>
-                                  </div>
-                              </div>
-
-                              {/* TIME & PROFESSIONAL */}
-                              <div className="space-y-8">
-                                  <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 space-y-6">
-                                      <div className="space-y-3">
-                                          <label className="block text-[11px] font-black text-indigo-900/40 uppercase tracking-widest px-1">Início da Sessão</label>
-                                          <div className="relative group">
-                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400" size={20} />
-                                            <input type="datetime-local" className="w-full p-4 pl-12 rounded-xl border-2 border-indigo-100/50 bg-white outline-none font-black text-indigo-700 text-sm focus:border-indigo-500 transition-all tabular-nums" value={formData.appointment_date} onChange={e => setFormData({...formData, appointment_date: e.target.value})} />
-                                          </div>
-                                      </div>
-                                      <div className="space-y-3">
-                                          <label className="block text-[11px] font-black text-indigo-900/40 uppercase tracking-widest px-1">Profissional Responsável</label>
-                                          <div className="relative group">
-                                            <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={18} />
-                                            <select className="w-full p-4 pl-12 rounded-xl border-2 border-white bg-white/60 outline-none font-black text-slate-700 text-sm focus:bg-white focus:border-indigo-400 transition-all appearance-none cursor-pointer" value={formData.psychologist_id || ''} onChange={e => setFormData({...formData, psychologist_id: e.target.value})}>
-                                                <option value="">Selecionar profissional...</option>
-                                                {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                            </select>
-                                          </div>
-                                      </div>
-                                  </div>
-                                  
-                                  <div className="space-y-3">
-                                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Observações do Atendimento</label>
-                                      <textarea className="w-full p-5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-bold text-slate-600 text-sm focus:bg-white focus:border-indigo-400 transition-all min-h-[100px] resize-none" value={formData.notes || ''} onChange={e => setFormData({...formData, notes: e.target.value})} placeholder="Ex: Paciente relatou ansiedade leve sobre o novo emprego..."></textarea>
-                                  </div>
-                              </div>
-                          </div>
-                          
-                          {formData.modality === 'online' && (
-                              <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-8 rounded-[2.5rem] text-white animate-slideIn flex flex-col md:flex-row items-center gap-8 shadow-2xl shadow-indigo-200">
-                                  <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-[1.8rem] border border-white/20 flex items-center justify-center">
-                                      <Video size={36}/>
-                                  </div>
-                                  <div className="flex-1 space-y-3">
-                                      <h4 className="text-xl font-black tracking-tight uppercase tracking-widest">Sessão por Vídeo</h4>
-                                      <div className="relative flex-1">
-                                          <Link2 className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-200" size={20} />
-                                          <input type="text" className="w-full p-4 pl-14 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl outline-none text-white font-bold text-sm placeholder:text-indigo-200" placeholder="https://meet.google.com/..." value={formData.meeting_url || ''} onChange={e => setFormData({...formData, meeting_url: e.target.value})} />
-                                      </div>
-                                  </div>
-                              </div>
-                          )}
+                          <Select 
+                            label="Status" 
+                            value={formData.status} 
+                            onChange={e => setFormData({...formData, status: e.target.value})}
+                          >
+                              {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                          </Select>
                       </div>
                   </div>
 
-                  <div className="p-6 md:p-8 border-t border-slate-50 bg-slate-50/30 flex justify-between items-center px-8 md:px-12 pb-8 md:pb-12">
-                      {formData.id ? (
-                        <button onClick={() => setIsDeleteModalOpen(true)} className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm border border-rose-100"><Trash2 size={20}/></button>
-                      ) : <div className="w-10"></div>}
-                      <div className="flex gap-4">
-                        <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">DESCARTAR</button>
-                        <button onClick={handleSave} className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                            <CheckCircle2 size={20} /> {formData.id ? 'ATUALIZAR' : 'CONFIRMAR'} AGENDAMENTO
-                        </button>
+                  {/* RIGHT COLUMN */}
+                  <div className="space-y-5">
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input 
+                          label="Início da Sessão" 
+                          type="datetime-local" 
+                          icon={<Clock size={18} />}
+                          value={formData.appointment_date} 
+                          onChange={e => setFormData({...formData, appointment_date: e.target.value})}
+                        />
+                        <Input 
+                          label="Duração (min)" 
+                          type="number" 
+                          icon={<Clock size={18} />}
+                          value={formData.duration_minutes} 
+                          onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
+                        />
                       </div>
+
+                      <Select 
+                        label="Profissional Responsável" 
+                        icon={<UserCheck size={18} />}
+                        value={formData.psychologist_id || ''} 
+                        onChange={e => setFormData({...formData, psychologist_id: e.target.value})}
+                      >
+                          <option value="">Selecionar profissional...</option>
+                          {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </Select>
                   </div>
               </div>
+
+              {formData.modality === 'online' && (
+                  <div className="bg-indigo-600 p-4 rounded-2xl text-white animate-slideIn flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                          <Video size={20}/>
+                      </div>
+                      <div className="flex-1">
+                          <Input 
+                            label="" 
+                            placeholder="Link da vídeo chamada (Google Meet, Zoom...)" 
+                            value={formData.meeting_url || ''} 
+                            onChange={e => setFormData({...formData, meeting_url: e.target.value})}
+                            className="!bg-white/10 !border-white/20 !text-white !placeholder:text-indigo-200"
+                          />
+                      </div>
+                  </div>
+              )}
+              
+              <TextArea 
+                label="Observações do Atendimento" 
+                placeholder="Ex: Paciente relatou ansiedade leve sobre o novo emprego..." 
+                value={formData.notes || ''} 
+                onChange={e => setFormData({...formData, notes: e.target.value})}
+                className="min-h-[80px]"
+              />
           </div>
-      )}
+      </Modal>
 
       {/* DELETE CONFIRM */}
       {isDeleteModalOpen && (

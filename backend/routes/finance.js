@@ -1,6 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { v4: uuidv4 } = require('uuid');
+
+// ── Auto-migrate comandas table ──────────────────────────────────────────────
+async function ensureSchema() {
+  const cols = [
+    'ALTER TABLE comandas ADD COLUMN start_date DATETIME NULL',
+    'ALTER TABLE comandas ADD COLUMN duration_minutes INT NULL DEFAULT 60',
+    'ALTER TABLE comandas ADD COLUMN appointment_id INT NULL',
+  ];
+  for (const sql of cols) {
+    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+  }
+}
+let schemaReady = false;
+async function withSchema() {
+  if (!schemaReady) { await ensureSchema(); schemaReady = true; }
+}
 
 // GET /finance - Transações com filtros
 router.get('/', async (req, res) => {
@@ -167,20 +184,62 @@ router.get('/comandas', async (req, res) => {
 // POST /finance/comandas
 router.post('/comandas', async (req, res) => {
   try {
-    const { patient_id, professional_id, items, notes, payment_method, discount } = req.body;
+    await withSchema();
+    const { 
+      patient_id, professional_id, items, notes, 
+      payment_method, discount, start_date, duration_minutes 
+    } = req.body;
 
     const itemsArr = items || [];
     const total = itemsArr.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
 
+    // 1. Criar a Comanda
     const [result] = await db.query(
-      'INSERT INTO comandas (tenant_id, patient_id, professional_id, total, discount, items, notes, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      `INSERT INTO comandas (
+        tenant_id, patient_id, professional_id, total, discount, 
+        items, notes, payment_method, start_date, duration_minutes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, patient_id || null, professional_id || null,
-        total, discount || 0, JSON.stringify(itemsArr), notes || null, payment_method || null
+        total, discount || 0, JSON.stringify(itemsArr), notes || null, 
+        payment_method || null, start_date || null, duration_minutes || 60
       ]
     );
 
-    const [comanda] = await db.query('SELECT * FROM comandas WHERE id = ?', [result.insertId]);
+    const comandaId = result.insertId;
+    let appointment_id = null;
+
+    // 2. Se tiver data, cria um agendamento automático na agenda
+    if (start_date) {
+      try {
+        const start = new Date(start_date);
+        const end = new Date(start.getTime() + (duration_minutes || 60) * 60000);
+        
+        // Busca nome do paciente para o título do agendamento
+        const [patients] = await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]);
+        const patientName = patients[0] ? patients[0].name : 'Paciente';
+        const title = `Sessão: ${patientName} (via Comanda #${comandaId})`;
+
+        const [aptResult] = await db.query(
+          `INSERT INTO appointments (
+            tenant_id, patient_id, professional_id, title, 
+            start_time, end_time, status, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            req.user.tenant_id, patient_id || null, professional_id || null, 
+            title, start, end, 'scheduled', notes || 'Gerado via comanda'
+          ]
+        );
+        appointment_id = aptResult.insertId;
+
+        // Atualiza a comanda com o ID do agendamento
+        await db.query('UPDATE comandas SET appointment_id = ? WHERE id = ?', [appointment_id, comandaId]);
+      } catch (aptErr) {
+        console.error('Erro ao gerar agendamento automático via comanda:', aptErr);
+      }
+    }
+
+    const [comanda] = await db.query('SELECT * FROM comandas WHERE id = ?', [comandaId]);
     const c = comanda[0];
     try { c.items = JSON.parse(c.items); } catch {}
     res.status(201).json(c);

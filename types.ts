@@ -317,7 +317,7 @@ export interface ServicePackage {
   totalPrice: number;
 }
 
-export type ComandaStatus = 'aberta' | 'fechada';
+export type ComandaStatus = 'open' | 'closed' | 'cancelled';
 
 export interface ComandaItem {
   id: string;
@@ -340,6 +340,7 @@ export interface Comanda {
   id: string;
   patientId: string;
   patientName: string;
+  professionalId?: string;
   status: ComandaStatus;
   description: string;
   items: ComandaItem[];
@@ -350,6 +351,8 @@ export interface Comanda {
   totalValue: number;
   paidValue: number;
   startDate?: string;
+  duration_minutes?: number;
+  appointment_id?: number;
   frequency?: 'unica' | 'semanal' | 'quinzenal' | 'mensal';
   createdAt: string;
 }

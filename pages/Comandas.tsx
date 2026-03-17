@@ -25,8 +25,9 @@ export const Comandas: React.FC = () => {
   const [comandas, setComandas] = useState<Comanda[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'aberta' | 'paga'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
   const [isLoading, setIsLoading] = useState(true);
   
   // Modals
@@ -39,29 +40,27 @@ export const Comandas: React.FC = () => {
       const fetchData = async () => {
           setIsLoading(true);
           try {
-              const [pts, srvs] = await Promise.all([
+              const [ptsData, srvsData, usrsData] = await Promise.all([
                   api.get<any[]>('/patients'),
-                  api.get<Service[]>('/services')
+                  api.get<Service[]>('/services'),
+                  api.get<any[]>('/users')
               ]);
               
-              const mappedPatients = (pts || []).map(p => ({
+              const mappedPatients = (ptsData || []).map(p => ({
                 ...p,
                 full_name: p.full_name || p.name || 'Sem nome'
               })) as Patient[];
 
               setPatients(mappedPatients);
-              setServices(srvs);
+              setServices(srvsData);
+              setProfessionals(usrsData || []);
               
-              // Tenta carregar comandas reais se a rota existir, senão usa mocks
+              // Carregar comandas reais da API
               try {
-                const fetchedComandas = await api.get<Comanda[]>('/comandas');
+                const fetchedComandas = await api.get<Comanda[]>('/finance/comandas');
                 setComandas(fetchedComandas || []);
-              } catch {
-                // Mock se falhar (rota pode não existir ainda no backend)
-                setComandas([
-                    { id: '1', patientId: '1', patientName: 'Alice Silva', totalValue: 450, status: 'aberta', description: 'Pacote Mensal', items: [], createdAt: new Date().toISOString() },
-                    { id: '2', patientId: '2', patientName: 'Enzo Gabriel', totalValue: 150, status: 'paga', description: 'Sessão Avulsa', items: [], createdAt: new Date().toISOString() }
-                ]); 
+              } catch (e) {
+                console.error("Erro ao carregar comandas:", e);
               }
           } catch (e) { 
             console.error(e); 
@@ -98,34 +97,50 @@ export const Comandas: React.FC = () => {
           setEditingComanda({ ...comanda });
       } else {
           setEditingComanda({
-              status: 'aberta',
+              status: 'open',
               items: [],
               totalValue: 0,
               paidValue: 0,
               description: '',
-              patientId: ''
+              patientId: '',
+              professionalId: '',
+              startDate: new Date().toISOString().slice(0, 16),
+              duration_minutes: 60
           });
       }
       setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
       if (!editingComanda?.patientId) return;
       
-      const patient = patients.find(p => String(p.id) === String(editingComanda.patientId));
-      const newComanda = {
-          ...editingComanda,
-          patientName: patient?.full_name || 'Desconhecido',
-          id: editingComanda.id || Math.random().toString(36).substr(2, 9),
-          createdAt: new Date().toISOString()
-      } as Comanda;
+      try {
+        const payload = {
+          patient_id: editingComanda.patientId,
+          professional_id: editingComanda.professionalId,
+          description: editingComanda.description,
+          status: editingComanda.status,
+          items: editingComanda.items,
+          discount: 0,
+          start_date: editingComanda.startDate,
+          duration_minutes: editingComanda.duration_minutes || 60,
+          payment_method: 'pending'
+        };
 
-      if (editingComanda.id) {
-          setComandas(prev => prev.map(c => c.id === newComanda.id ? newComanda : c));
-      } else {
-          setComandas(prev => [newComanda, ...prev]);
+        let saved: Comanda;
+        if (editingComanda.id) {
+            saved = await api.put<Comanda>(`/finance/comandas/${editingComanda.id}`, payload);
+            setComandas(prev => prev.map(c => c.id === saved.id ? saved : c));
+        } else {
+            saved = await api.post<Comanda>('/finance/comandas', payload);
+            setComandas(prev => [saved, ...prev]);
+        }
+        
+        setIsModalOpen(false);
+      } catch (err) {
+        console.error("Erro ao salvar comanda:", err);
+        alert("Erro ao salvar comanda.");
       }
-      setIsModalOpen(false);
   };
 
   const confirmDelete = () => {
@@ -146,9 +161,9 @@ export const Comandas: React.FC = () => {
 
   const StatusBadge = ({ status }: { status: string }) => {
       const styles = {
-          aberta: 'bg-amber-50 text-amber-600 border-amber-100',
-          paga: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-          cancelada: 'bg-slate-50 text-slate-500 border-slate-100'
+          open: 'bg-amber-50 text-amber-600 border-amber-100',
+          closed: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+          cancelled: 'bg-slate-50 text-slate-500 border-slate-100'
       };
       return (
           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${styles[status as keyof typeof styles]}`}>
@@ -226,8 +241,8 @@ export const Comandas: React.FC = () => {
               <div className="flex bg-slate-100 p-1.5 rounded-2xl flex-1 lg:flex-none">
                   {[
                       { id: 'all', label: t('common.all') },
-                      { id: 'aberta', label: t('comandas.status.open') },
-                      { id: 'paga', label: t('comandas.status.paid') }
+                      { id: 'open', label: t('comandas.status.open') },
+                      { id: 'closed', label: t('comandas.status.paid') }
                   ].map(st => (
                       <button 
                           key={st.id}
@@ -251,9 +266,9 @@ export const Comandas: React.FC = () => {
       {viewMode === 'kanban' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[
-                  { id: 'aberta', title: t('comandas.status.open'), color: 'amber', icon: <Clock size={16}/> },
-                  { id: 'paga', title: t('comandas.status.paid'), color: 'emerald', icon: <CheckCircle2 size={16}/> },
-                  { id: 'cancelada', title: t('comandas.status.canceled'), color: 'slate', icon: <AlertCircle size={16}/> }
+                  { id: 'open', title: t('comandas.status.open'), color: 'amber', icon: <Clock size={16}/> },
+                  { id: 'closed', title: t('comandas.status.paid'), color: 'emerald', icon: <CheckCircle2 size={16}/> },
+                  { id: 'cancelled', title: t('comandas.status.canceled'), color: 'slate', icon: <AlertCircle size={16}/> }
               ].map(col => (
                   <div key={col.id} className="flex flex-col gap-5">
                       <div className="flex items-center justify-between px-3">
@@ -293,7 +308,7 @@ export const Comandas: React.FC = () => {
                                       </div>
                                       <div className="mt-3 flex items-center justify-between text-[10px] font-black text-slate-400 px-1">
                                           <span className="flex items-center gap-1.5"><Calendar size={13}/> {new Date(comanda.createdAt || '').toLocaleDateString()}</span>
-                                          {comanda.status === 'aberta' && (
+                                          {comanda.status === 'open' && (
                                               <span className="text-amber-500 flex items-center gap-1.5 animate-pulse"><Clock size={13}/> Pendente</span>
                                           )}
                                       </div>
@@ -379,6 +394,21 @@ export const Comandas: React.FC = () => {
                               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={20} />
                           </div>
                       </div>
+
+                      <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Profissional Responsável</label>
+                          <div className="relative group">
+                              <select 
+                                  className="w-full text-sm font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all appearance-none" 
+                                  value={editingComanda.professionalId} 
+                                  onChange={e => setEditingComanda({...editingComanda, professionalId: e.target.value})}
+                              >
+                                  <option value="">Selecione o Profissional</option>
+                                  {professionals.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                              </select>
+                              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" size={20} />
+                          </div>
+                      </div>
                       
                       <div>
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">{t('comandas.description')}</label>
@@ -402,13 +432,13 @@ export const Comandas: React.FC = () => {
                                   value={editingComanda.status} 
                                   onChange={e => setEditingComanda({...editingComanda, status: e.target.value as any})}
                               >
-                                  <option value="aberta">{t('comandas.status.open')}</option>
-                                  <option value="paga">{t('comandas.status.paid')}</option>
-                                  <option value="cancelada">{t('comandas.status.canceled')}</option>
+                                  <option value="open">{t('comandas.status.open')}</option>
+                                  <option value="closed">{t('comandas.status.paid')}</option>
+                                  <option value="cancelled">{t('comandas.status.canceled')}</option>
                               </select>
                           </div>
                           <div>
-                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">{t('comandas.totalValue')}</label>
+                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Valor Total</label>
                               <div className="relative group">
                                   <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={18} />
                                   <input 
@@ -419,6 +449,33 @@ export const Comandas: React.FC = () => {
                                   />
                               </div>
                           </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-5 pt-2">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Data/Hora da Sessão</label>
+                            <div className="relative group">
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input 
+                                    type="datetime-local" 
+                                    className="w-full text-xs font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all" 
+                                    value={editingComanda.startDate?.slice(0, 16) || ''} 
+                                    onChange={e => setEditingComanda({...editingComanda, startDate: e.target.value})} 
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 px-1">Duração (min)</label>
+                            <div className="relative group">
+                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input 
+                                    type="number" 
+                                    className="w-full text-xs font-black p-4 pl-12 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all" 
+                                    value={editingComanda.duration_minutes || 60} 
+                                    onChange={e => setEditingComanda({...editingComanda, duration_minutes: Number(e.target.value)})} 
+                                />
+                            </div>
+                        </div>
                       </div>
 
                       {/* ITEMS */}
