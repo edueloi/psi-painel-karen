@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import { 
   Search, Plus, User, 
   X, ArrowLeft, Loader2, Tag, Filter, FileText, Paperclip, Trash2,
-  Calendar, ChevronRight, Link, Info, Save
+  Calendar, ChevronRight, Link, Info, Save, Clock, Video, Activity, Package, Briefcase, UserCheck, Repeat, CheckCircle2, Layers
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
@@ -85,6 +85,9 @@ export const Records: React.FC = () => {
   const [attachmentSize, setAttachmentSize] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isPatientStatusOpen, setIsPatientStatusOpen] = useState(false);
+  const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
+  
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const editorActiveRef = useRef<HTMLDivElement | null>(null);
   const selectionRef = useRef<Range | null>(null);
@@ -434,6 +437,40 @@ export const Records: React.FC = () => {
       setCurrentRecord({ ...currentRecord, attachments: next });
   };
 
+  const handlePatientStatusChange = async (newStatus: 'active' | 'inactive') => {
+      if (!selectedPatient) return;
+      try {
+          await api.put(`/patients/${selectedPatient.id}`, {
+              ...selectedPatient,
+              status: newStatus,
+              birth_date: selectedPatient.birth_date || null
+          });
+          await fetchPatients();
+          setIsPatientStatusOpen(false);
+      } catch (e) {
+          console.error(e);
+          alert('Erro ao mudar status do paciente');
+      }
+  };
+
+  const toggleRecordStatus = async (record: ClinicalRecord) => {
+      setIsChangingStatus(record.id);
+      try {
+          const newStatus = record.status === 'Finalizado' ? 'Rascunho' : 'Finalizado';
+          const fullData = await api.get<any>(`/medical-records/${record.id}`);
+          await api.put(`/medical-records/${record.id}`, {
+              ...fullData,
+              status: newStatus
+          });
+          await fetchRecords(selectedPatientId!);
+      } catch (e) {
+          console.error(e);
+          alert('Erro ao mudar status do registro');
+      } finally {
+          setIsChangingStatus(null);
+      }
+  };
+
   const handleSaveRecord = async () => {
       if (!selectedPatient) return;
       try {
@@ -527,11 +564,35 @@ export const Records: React.FC = () => {
                                   </div>
                                   <div>
                                     <h2 className="text-xl font-extrabold text-slate-900 leading-none">{selectedPatient.full_name}</h2>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${selectedPatient.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                    <div className="flex items-center gap-2 mt-2 relative">
+                                        <button 
+                                            onClick={() => setIsPatientStatusOpen(!isPatientStatusOpen)}
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all hover:ring-4 hover:ring-slate-100 ${selectedPatient.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
+                                        >
                                             <span className={`w-1.5 h-1.5 rounded-full ${selectedPatient.status === 'ativo' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                                             {selectedPatient.status}
-                                        </span>
+                                            < ChevronRight size={10} className={`ml-1 transition-transform ${isPatientStatusOpen ? 'rotate-90' : ''}`} />
+                                        </button>
+
+                                        {isPatientStatusOpen && (
+                                            <div className="absolute top-full left-0 mt-2 w-44 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-[60] animate-in fade-in zoom-in duration-200">
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3 py-2">Mudar Status</div>
+                                                <button 
+                                                    onClick={() => handlePatientStatusChange('active')}
+                                                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 transition-all text-left"
+                                                >
+                                                    <span className="text-[11px] font-bold">Ativo</span>
+                                                    {selectedPatient.status === 'ativo' && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                                </button>
+                                                <button 
+                                                    onClick={() => handlePatientStatusChange('inactive')}
+                                                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-600 transition-all text-left"
+                                                >
+                                                    <span className="text-[11px] font-bold">Inativo</span>
+                                                    {selectedPatient.status === 'inativo' && <CheckCircle2 size={14} className="text-slate-400" />}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                   </div>
                               </div>
@@ -577,32 +638,45 @@ export const Records: React.FC = () => {
                           </div>
                       </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
-                      <div className="max-w-4xl mx-auto relative space-y-10 pl-6 md:pl-10 before:absolute before:left-[19px] md:before:left-[35px] before:top-2 before:h-full before:w-0.5 before:bg-slate-200/60 before:rounded-full">
+                  <div className="flex-1 overflow-y-auto p-3 md:p-10 custom-scrollbar">
+                      <div className="max-w-4xl mx-auto relative space-y-6 md:space-y-10 pl-4 md:pl-10 before:absolute before:left-[17px] md:before:left-[35px] before:top-2 before:h-full before:w-0.5 before:bg-slate-200/40 before:rounded-full">
                           {filteredRecords.map((record) => (
                               <div key={record.id} className="relative group animate-[slideUpFade_0.3s_source-out]">
-                                  <div className={`absolute -left-[31px] md:-left-[47px] top-6 w-5 h-5 rounded-full border-[4px] border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${record.status === 'Finalizado' ? 'bg-indigo-600' : 'bg-amber-400'}`}></div>
+                                  <div className={`absolute -left-[23px] md:-left-[47px] top-5 md:top-6 w-4 md:h-5 md:w-5 h-4 rounded-full border-[3px] md:border-[4px] border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${record.status === 'Finalizado' ? 'bg-indigo-600' : 'bg-amber-400'}`}></div>
                                   
                                   <div
-                                    className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all cursor-pointer group/card"
+                                    className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 md:p-6 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all cursor-pointer group/card"
                                     onClick={() => handleOpenRecord(record.id)}
                                   >
-                                      <div className="flex items-start justify-between gap-4 mb-4">
+                                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4">
                                           <div className="min-w-0">
-                                              <h3 className="font-extrabold text-slate-900 text-base group-hover/card:text-indigo-600 transition-colors">{record.title}</h3>
+                                              <h3 className="font-extrabold text-slate-900 text-sm md:text-base group-hover/card:text-indigo-600 transition-colors truncate">{record.title}</h3>
                                               <div className="flex items-center gap-2 mt-1">
                                                 <Calendar size={12} className="text-slate-400" />
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(record.date).toLocaleString()}</span>
+                                                <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(record.date).toLocaleString()}</span>
                                               </div>
                                           </div>
                                           <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                              <span className="px-3 py-1 rounded-full bg-slate-50 border border-slate-100 text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">{recordTypeLabel[record.type] || record.type}</span>
-                                              <StatusBadge status={record.status} />
+                                              <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-slate-50 border border-slate-100 text-slate-500 text-[9px] md:text-[10px] font-extrabold uppercase tracking-widest">{recordTypeLabel[record.type] || record.type}</span>
+                                              
+                                              <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleRecordStatus(record);
+                                                }}
+                                                disabled={isChangingStatus === record.id}
+                                                className="group/status"
+                                              >
+                                                  <StatusBadge status={record.status} />
+                                                  {record.status === 'Rascunho' && (
+                                                      <span className="hidden group-hover/status:flex absolute top-0 right-0 bg-indigo-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-in fade-in duration-200">Finalizar?</span>
+                                                  )}
+                                              </button>
                                           </div>
                                       </div>
                                       
-                                      <div className="prose prose-sm max-w-none text-slate-600 mb-5 line-clamp-3 leading-relaxed font-medium">
-                                        {record.preview || 'Sem conteúdo...'}
+                                      <div className="prose prose-sm max-w-none text-slate-600 mb-4 md:mb-5 line-clamp-2 md:line-clamp-3 leading-relaxed font-medium text-xs md:text-sm">
+                                        {record.preview ? record.preview.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : 'Sem conteúdo...'}
                                       </div>
                                       
                                       <div className="flex items-center justify-between border-t border-slate-50 pt-4">
@@ -653,7 +727,9 @@ export const Records: React.FC = () => {
                       </div>
                       <button onClick={() => setIsEditorOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><X size={18}/></button>
                   </div>
-                  <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50 flex flex-wrap gap-4">
+                  
+                  {/* Row de Inputs */}
+                  <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50 flex flex-wrap gap-4 shrink-0">
                       <div className="flex-1 min-w-[200px]">
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Título do Registro</label>
                           <input
@@ -703,7 +779,11 @@ export const Records: React.FC = () => {
                               />
                           </div>
                       </div>
-                            <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 space-y-8">
+                  </div>
+
+                  {/* Área do Editor com Toolbar */}
+                  <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 space-y-8 custom-scrollbar">
+                      <div className="max-w-4xl mx-auto space-y-8">
                           <div className="flex flex-wrap items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl shadow-sm sticky top-0 z-10">
                               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mr-2">Estilos</div>
                               {[
@@ -812,18 +892,19 @@ export const Records: React.FC = () => {
                             </div>
                           </div>
                       </div>
-                      
-                      <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic flex items-center gap-2">
-                            <Info size={14} className="text-amber-400" />
-                            O registro será salvo com a data atual.
-                          </div>
-                          <div className="flex items-center gap-3">
-                              <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
-                              <button onClick={handleSaveRecord} className="px-8 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
-                                <Save size={16} /> {t('common.save')}
-                              </button>
-                          </div>
+                  </div>
+                  
+                  {/* Rodapé do Editor */}
+                  <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic flex items-center gap-2">
+                        <Info size={14} className="text-amber-400" />
+                        O registro será salvo com a data atual.
+                      </div>
+                      <div className="flex items-center gap-3">
+                          <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
+                          <button onClick={handleSaveRecord} className="px-8 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
+                            <Save size={16} /> {t('common.save')}
+                          </button>
                       </div>
                   </div>
               </div>

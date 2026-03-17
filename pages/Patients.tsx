@@ -4,7 +4,7 @@ import {
   Edit2, Trash2, X, AlertCircle, Eye, ClipboardList,
   FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight,
   FileUp, FileDown, Download, MapPin, Shield, User,
-  Activity, TrendingUp, CheckSquare, Square, History
+  Activity, TrendingUp, CheckSquare, Square, History, CheckCircle2
 } from 'lucide-react';
 import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
@@ -111,7 +111,7 @@ export const Patients: React.FC = () => {
         full_name: p.name || p.full_name || '',
         whatsapp: p.phone || p.whatsapp || '',
         cpf_cnpj: p.cpf || p.cpf_cnpj || '',
-        birth_date: p.birth_date || p.birthDate || '',
+        birth_date: p.birth_date || p.birthDate || null,
         status: p.status === 'active' ? 'ativo' : p.status === 'inactive' ? 'inativo' : p.status,
       })) as Patient[];
       setPatients(mapped);
@@ -232,6 +232,31 @@ export const Patients: React.FC = () => {
       alert('Erro ao excluir paciente.');
     } finally {
       setDeleteId(null);
+    }
+  };
+
+  const handleQuickStatusChange = async (patient: Patient) => {
+    try {
+      const newStatus = patient.status === 'ativo' ? 'inactive' : 'active';
+      const p = patients.find(p => p.id === patient.id);
+      if (!p) return;
+      
+      // Sanitizar dados para evitar erro 500 no MySQL (como birth_date: '')
+      const payload = {
+        ...p,
+        status: newStatus,
+        birth_date: p.birth_date || null,
+        email: p.email || null,
+        phone: p.phone || null,
+        cpf: p.cpf || null,
+        rg: p.rg || null
+      };
+
+      await api.put(`/patients/${patient.id}`, payload);
+      await fetchPatients();
+    } catch (err: any) {
+      console.error(err);
+      alert('Erro ao mudar status: ' + (err.message || 'Erro interno'));
     }
   };
 
@@ -621,34 +646,41 @@ export const Patients: React.FC = () => {
                   </div>
 
                   {/* Card Footer */}
-                  <div className="border-t border-slate-100 px-3 py-2.5 flex items-center gap-1.5 bg-slate-50/70">
+                  <div className="border-t border-slate-100 px-3 py-2.5 flex flex-wrap items-center gap-1.5 bg-slate-50/70">
                     <button
                       onClick={(e: React.MouseEvent) => { e.stopPropagation(); openPatientSummary(patient); }}
-                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all flex-1 justify-center"
+                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all flex-1 justify-center whitespace-nowrap"
                     >
-                      <Eye size={12} /> Ver
+                      <Eye size={12} /> Perfil
                     </button>
                     <button
                       onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }}
-                      title="Histórico"
-                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all flex-1 justify-center"
+                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all flex-1 justify-center whitespace-nowrap"
                     >
                       <History size={12} /> Histórico
                     </button>
                     <button
-                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }}
-                      title="Editar"
-                      className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all"
+                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
+                      className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg border transition-all flex-1 justify-center whitespace-nowrap ${active ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}
+                      title={active ? 'Desativar' : 'Ativar'}
                     >
-                      <Edit2 size={13} />
+                      {active ? <CheckSquare size={12} /> : <Square size={12} />}
+                      {active ? 'Pausar' : 'Ativar'}
                     </button>
-                    <button
-                      onClick={e => { e.stopPropagation(); setDeleteId(patient.id); }}
-                      title="Excluir"
-                      className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                        <button
+                          onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }}
+                          className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); setDeleteId(patient.id); }}
+                          className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -656,8 +688,8 @@ export const Patients: React.FC = () => {
           </div>
         ) : (
           /* === LIST VIEW === */
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <table className="w-full">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto md:overflow-x-visible">
+            <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">
                   <th className="px-4 py-3 w-8">
@@ -675,99 +707,80 @@ export const Patients: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredPatients.map(patient => {
-                  const age = calcAge(patient.birth_date);
-                  const active = isActive(patient);
-                  const avatarGrad = getAvatarColor(patient.full_name || 'A');
-                  const isSelected = selectedIds.has(String(patient.id));
-                  return (
-                    <tr
-                      key={patient.id}
-                      className={`transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/60' : 'hover:bg-slate-50/60'}`}
-                      onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : openPatientSummary(patient)}
-                    >
-                      <td className="px-4 py-3" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                        <button onClick={() => toggleSelect(String(patient.id))} className="text-slate-300 hover:text-indigo-600 transition-colors">
-                          {isSelected ? <CheckSquare size={15} className="text-indigo-600" /> : <Square size={15} />}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm overflow-hidden`}>
-                            {patient.photo_url || patient.photoUrl ? (
-                              <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
-                            ) : (
-                              (patient.full_name || '?').charAt(0).toUpperCase()
-                            )}
+                  {filteredPatients.map(patient => {
+                    const age = calcAge(patient.birth_date);
+                    const active = isActive(patient);
+                    return (
+                      <tr key={patient.id} className="border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer group" onClick={() => openPatientSummary(patient)}>
+                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => toggleSelect(String(patient.id))} className="text-slate-300 hover:text-indigo-600 transition-colors">
+                            {selectedIds.has(String(patient.id)) ? <CheckSquare size={15} className="text-indigo-600" /> : <Square size={15} />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 text-[10px] font-bold shrink-0 shadow-sm transition-transform group-hover:scale-105">
+                              {patient.photo_url || patient.photoUrl ? (
+                                <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover rounded-lg" />
+                              ) : (
+                                (patient.full_name || '?').charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-bold text-slate-800 truncate">{patient.full_name || 'Sem nome'}</div>
+                              {patient.notes && (
+                                <div className="text-[10px] text-slate-400 truncate max-w-[150px] italic">{patient.notes}</div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-sm font-semibold text-slate-800">{patient.full_name || 'Sem nome'}</div>
-                            {patient.notes && (
-                              <div className="text-[11px] text-slate-400 truncate max-w-[180px] italic">{patient.notes}</div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <div className="text-xs text-slate-600">{patient.whatsapp || patient.phone || '—'}</div>
-                        <div className="text-[11px] text-slate-400 truncate max-w-[180px]">{patient.email || ''}</div>
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <div className="text-xs font-semibold text-slate-700">{age ? `${age} anos` : '—'}</div>
-                        <div className="text-[11px] text-slate-400">{formatDate(patient.birth_date)}</div>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${
-                            active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'
-                          }`}>
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <div className="text-xs font-semibold text-slate-600">{patient.whatsapp || patient.phone || '—'}</div>
+                          <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{patient.email || ''}</div>
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
+                          <div className="text-xs font-bold text-slate-700">{age ? `${age} anos` : '—'}</div>
+                          <div className="text-[10px] text-slate-400">{formatDate(patient.birth_date)}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border transition-all hover:ring-4 hover:ring-slate-50 ${
+                              active ? 'bg-emerald-50 text-emerald-700 border-emerald-100 px-2.5' : 'bg-slate-100 text-slate-500 border-slate-200 px-2.5'
+                            }`}
+                          >
                             <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                             {active ? 'Ativo' : 'Inativo'}
-                          </span>
-                        </div>
-                        {patient.health_plan && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600">
-                              <Shield size={9} /> {patient.health_plan}
-                            </span>
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                            <button
+                              onClick={() => openPatientSummary(patient)}
+                              className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all"
+                              title="Perfil"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <button
+                              onClick={() => setHistoryPatient(patient)}
+                              className="p-1.5 text-violet-500 bg-violet-50 border border-violet-100 rounded-lg hover:bg-violet-100 transition-all"
+                              title="Histórico"
+                            >
+                              <History size={13} />
+                            </button>
+                            <button
+                              onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
+                              className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 transition-all"
+                              title="Editar"
+                            >
+                              <Edit2 size={13} />
+                            </button>
                           </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                          <button
-                            onClick={() => openPatientSummary(patient)}
-                            className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all"
-                            title="Ver perfil"
-                          >
-                            <Eye size={13} />
-                          </button>
-                          <button
-                            onClick={() => setHistoryPatient(patient)}
-                            className="p-1.5 text-violet-500 bg-violet-50 border border-violet-100 rounded-lg hover:bg-violet-100 transition-all"
-                            title="Histórico"
-                          >
-                            <History size={13} />
-                          </button>
-                          <button
-                            onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
-                            className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 transition-all"
-                            title="Editar"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                          <button
-                            onClick={() => setDeleteId(patient.id)}
-                            className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-500 transition-all"
-                            title="Excluir"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>

@@ -274,7 +274,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
 
                               {item.preview && (
                                 <div className="text-[13px] text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100/50 leading-relaxed font-medium">
-                                  {item.preview}
+                                  {item.preview.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
                                 </div>
                               )}
 

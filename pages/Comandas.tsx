@@ -175,6 +175,22 @@ export const Comandas: React.FC = () => {
       }
   };
 
+  const handleQuickStatusToggle = async (comanda: Comanda) => {
+    try {
+      const newStatus = comanda.status === 'open' ? 'closed' : 'open';
+      await api.put(`/finance/comandas/${comanda.id}`, {
+        ...comanda,
+        status: newStatus,
+        start_date: comanda.startDate || (comanda as any).start_date || null
+      });
+      fetchData();
+      pushToast('success', `Comanda ${newStatus === 'closed' ? 'paga' : 'reaberta'}!`);
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao mudar status');
+    }
+  };
+
   const confirmDelete = async () => {
     if (deleteConfirmId) {
       try {
@@ -360,11 +376,23 @@ export const Comandas: React.FC = () => {
                                   </div>
 
                                   <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                                      <div className="text-base font-black text-indigo-600">
-                                          {formatCurrency(comanda.totalValue)}
+                                      <div className="flex items-center gap-3">
+                                          <div className="text-base font-black text-indigo-600">
+                                              {formatCurrency(comanda.totalValue)}
+                                          </div>
+                                          <button 
+                                            onClick={(e) => { e.stopPropagation(); handleQuickStatusToggle(comanda); }}
+                                            className={`p-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${comanda.status === 'open' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-100'}`}
+                                            title={comanda.status === 'open' ? 'Marcar como Pago' : 'Reabrir'}
+                                          >
+                                              {comanda.status === 'open' ? 'PAGAR' : 'ABRIR'}
+                                          </button>
                                       </div>
-                                      <button className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all transform hover:rotate-45 shadow-sm">
-                                          <ArrowUpRight size={16} />
+                                      <button 
+                                        onClick={() => handleOpenModal(comanda)}
+                                        className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all transform hover:rotate-12 shadow-sm"
+                                      >
+                                          <Edit3 size={16} />
                                       </button>
                                   </div>
                               </div>
@@ -382,36 +410,38 @@ export const Comandas: React.FC = () => {
                           <th className="px-8 py-5">Paciente</th>
                           <th className="px-8 py-5">Descrição</th>
                           <th className="px-8 py-5">Valor</th>
-                          <th className="px-8 py-5 text-center">Ações</th>
+                          <th className="px-8 py-5 text-right">Ações</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                       {filteredComandas.map(c => (
-                          <tr key={c.id} className="group hover:bg-indigo-50/30 transition-all">
-                               <td className="px-8 py-5"><StatusBadge status={c.status} /></td>
+                          <tr key={c.id} className="group hover:bg-indigo-50/30 transition-all cursor-pointer" onClick={() => handleOpenModal(c)}>
+                               <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
+                                    <button 
+                                        onClick={() => handleQuickStatusToggle(c)} 
+                                        className="transition-transform hover:scale-105 active:scale-95"
+                                    >
+                                        <StatusBadge status={c.status} />
+                                    </button>
+                               </td>
                               <td className="px-8 py-5">
                                   <div className="flex items-center gap-3">
-                                      <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px] font-black border border-indigo-100">
+                                      <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px] font-black border border-indigo-100 shrink-0">
                                           {(c.patientName || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
                                       </div>
                                       <span className="font-black text-slate-700 text-sm whitespace-nowrap">{c.patientName}</span>
                                   </div>
                               </td>
                               <td className="px-8 py-5">
-                                  <div className="flex flex-col">
-                                      <span className="font-bold text-slate-500 text-sm leading-relaxed">{c.description}</span>
-                                      {(c.sessions_total || 0) > 1 && (
-                                          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                                              Sessões: {c.sessions_used || 0}/{c.sessions_total}
-                                          </span>
-                                      )}
-                                  </div>
+                                  <div className="max-w-[200px] truncate text-xs font-bold text-slate-400">{c.description}</div>
                               </td>
-                              <td className="px-8 py-5 font-black text-indigo-600 text-sm">{formatCurrency(c.totalValue)}</td>
                               <td className="px-8 py-5">
-                                  <div className="flex justify-center gap-2">
-                                      <button onClick={() => handleOpenModal(c)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"><Edit3 size={14}/></button>
-                                      <button onClick={() => setDeleteConfirmId(c.id)} className="p-2.5 bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-800 transition-all border border-transparent hover:border-red-100"><Trash2 size={14}/></button>
+                                  <span className="font-black text-slate-800">{formatCurrency(c.totalValue)}</span>
+                              </td>
+                              <td className="px-8 py-5 text-right">
+                                  <div className="flex items-center gap-2 justify-end" onClick={e => e.stopPropagation()}>
+                                      <button onClick={() => handleOpenModal(c)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit3 size={14}/></button>
+                                      <button onClick={() => setDeleteConfirmId(c.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={14}/></button>
                                   </div>
                               </td>
                           </tr>
