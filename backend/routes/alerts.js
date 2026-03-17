@@ -2,9 +2,33 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+async function ensureSchema() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS system_alerts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      message TEXT,
+      type ENUM('info', 'success', 'warning', 'error') DEFAULT 'info',
+      link VARCHAR(500),
+      is_dismissed BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+let schemaReady = false;
+async function withSchema() {
+  if (!schemaReady) {
+    await ensureSchema();
+    schemaReady = true;
+  }
+}
+
 // GET /alerts - Get all active (not dismissed) alerts for the tenant
 router.get('/', async (req, res) => {
   try {
+    await withSchema();
     const [alerts] = await db.query(
       'SELECT * FROM system_alerts WHERE tenant_id = ? AND is_dismissed = false ORDER BY created_at DESC',
       [req.user.tenant_id]

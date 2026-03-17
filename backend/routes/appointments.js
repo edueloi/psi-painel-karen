@@ -13,6 +13,8 @@ async function ensureSchema() {
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN comanda_id INT NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN recurrence_rule VARCHAR(500) NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN duration_minutes INT NULL DEFAULT 60' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN room_id VARCHAR(50) NULL' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN reschedule_reason TEXT NULL' },
     { table: 'services', sql: 'ALTER TABLE services ADD COLUMN category VARCHAR(100) NULL' },
   ];
   for (const item of tableCols) {
@@ -335,7 +337,35 @@ router.post('/', async (req, res) => {
 
     const start = new Date(actualStartTime);
     const duration = parseInt(duration_minutes) || 50;
-    const finalProfessionalId = professional_id || psychologist_id || null;
+    
+    let finalPatientId = patient_id || null;
+    let finalProfId = professional_id || psychologist_id || null;
+
+    // Se o patient_id não for numérico, assume que é um NOME e cria o paciente
+    if (finalPatientId && isNaN(parseInt(finalPatientId))) {
+        const [pRes] = await db.query(
+            'INSERT INTO patients (tenant_id, name) VALUES (?, ?)',
+            [req.user.tenant_id, finalPatientId]
+        );
+        finalPatientId = pRes.insertId;
+    }
+
+    // Se o professional_id não for numérico, assume que é um NOME e cria o profissional (user)
+    if (finalProfId && isNaN(parseInt(finalProfId))) {
+        const [uRes] = await db.query(
+            'INSERT INTO users (tenant_id, name, email, role, password) VALUES (?, ?, ?, ?, ?)',
+            [
+                req.user.tenant_id, 
+                finalProfId, 
+                `guest_${Date.now()}_${Math.floor(Math.random() * 1000)}@psiflux.com.br`, 
+                'professional',
+                'p@ssword123'
+            ]
+        );
+        finalProfId = uRes.insertId;
+    }
+
+    const finalProfessionalId = finalProfId;
     
     // Padrão de repetição
     const freq = recurrence_freq || null;
@@ -372,7 +402,7 @@ router.post('/', async (req, res) => {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.user.tenant_id, 
-            patient_id || null, 
+            finalPatientId, 
             finalProfessionalId, 
             service_id || null,
             package_id || null,
@@ -398,7 +428,7 @@ router.post('/', async (req, res) => {
 
     // 3. Se for consulta com paciente, cria a COMANDA integrada
     let comandaId = null;
-    if (patient_id && (service_id || package_id) && type === 'consulta') {
+    if (finalPatientId && (service_id || package_id) && type === 'consulta') {
         try {
             let totalAmount = 0;
             let items = [];
@@ -443,7 +473,7 @@ router.post('/', async (req, res) => {
                     description, total, sessions_total, sessions_used, items, notes, status
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    req.user.tenant_id, patient_id, 
+                    req.user.tenant_id, finalPatientId, 
                     package_id ? null : service_id,
                     package_id || null,
                     finalProfessionalId,
@@ -477,14 +507,15 @@ router.post('/', async (req, res) => {
     const resultData = { ...created[0], comanda_id: comandaId };
     res.status(201).json(resultData);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao criar agendamento' });
+    console.error('Erro ao criar agendamento:', err);
+    res.status(500).json({ error: 'Erro ao criar agendamento', details: err.message });
   }
 });
 
 // PUT /appointments/:id
 router.put('/:id', async (req, res) => {
   try {
+    await withSchema();
     const { 
       patient_id, professional_id, psychologist_id, service_id, package_id, title, 
       start_time, end_time, status, notes, color,
@@ -560,8 +591,8 @@ router.put('/:id', async (req, res) => {
 
     res.json(updated[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao atualizar agendamento' });
+    console.error('Erro ao atualizar agendamento:', err);
+    res.status(500).json({ error: 'Erro ao atualizar agendamento', details: err.message });
   }
 });
 

@@ -15,7 +15,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
-import { Input, Select, TextArea } from '../components/UI/Input';
+import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
 
 const recurrenceOptions = [
     { label: 'Não Repete', freq: '', interval: 1 },
@@ -805,16 +805,16 @@ export const Agenda: React.FC = () => {
                       {formData.type === 'consulta' ? (
                         <>
                           <div className="space-y-2">
-                              {/* PAZIENTE SELECT WITH CUSTOM STYLING */}
-                              <Select 
+                              {/* PAZIENTE COMBOBOX */}
+                              <Combobox 
                                 label="Paciente" 
-                                icon={<UserIcon size={18} className="text-indigo-400" />}
+                                options={patients.map(p => ({ id: p.id, label: p.full_name }))}
                                 value={formData.patient_id || ''} 
-                                onChange={e => setFormData({...formData, patient_id: e.target.value})}
-                              >
-                                  <option value="">Selecionar paciente...</option>
-                                  {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                              </Select>
+                                icon={<UserIcon size={18} className="text-indigo-400" />}
+                                placeholder="Pesquisar ou adicionar paciente..."
+                                allowCustom={true}
+                                onChange={(val) => setFormData({...formData, patient_id: val})}
+                              />
                           </div>
 
                           <div className="space-y-2">
@@ -908,15 +908,15 @@ export const Agenda: React.FC = () => {
                         />
                       </div>
 
-                      <Select 
+                      <Combobox 
                         label="Profissional Responsável" 
+                        options={professionals.map(p => ({ id: p.id, label: p.name }))}
+                        value={formData.psychologist_id || formData.professional_id || ''} 
                         icon={<UserCheck size={18} className="text-indigo-400" />}
-                        value={formData.psychologist_id || ''} 
-                        onChange={e => setFormData({...formData, psychologist_id: e.target.value})}
-                      >
-                          <option value="">Selecionar profissional...</option>
-                          {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </Select>
+                        placeholder="Pesquisar ou adicionar profissional..."
+                        allowCustom={true}
+                        onChange={(val) => setFormData({...formData, psychologist_id: val, professional_id: val})}
+                      />
 
                       <div className="bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100/50 space-y-4">
                           <div className="flex items-center justify-between">

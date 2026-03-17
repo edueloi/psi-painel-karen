@@ -93,6 +93,7 @@ export const Select: React.FC<SelectProps> = ({
   );
 };
 
+export * from './Combobox';
 export const TextArea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }> = ({ label, className = '', ...props }) => {
   return (
     <div className="flex flex-col gap-2 w-full">
