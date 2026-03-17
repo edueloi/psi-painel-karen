@@ -17,7 +17,7 @@ async function ensureSchema() {
     'ALTER TABLE comandas ADD COLUMN notes TEXT NULL',
   ];
   for (const sql of cols) {
-    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) throw e; }
+    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) console.warn('Schema Warning:', e.message); }
   }
 }
 let schemaReady = false;
@@ -48,8 +48,8 @@ router.get('/', async (req, res) => {
     const [transactions] = await db.query(query, params);
     res.json(transactions);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar transações' });
+    console.error('Erro ao buscar transações:', err);
+    res.status(500).json({ error: 'Erro ao buscar transações', details: err.message });
   }
 });
 

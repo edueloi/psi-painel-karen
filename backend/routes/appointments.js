@@ -472,6 +472,7 @@ router.post('/', async (req, res) => {
             let totalAmount = 0;
             let items = [];
             let description = '';
+            let serviceName = 'Atendimento';
 
             if (package_id) {
                 // Se for pacote, busca dados do pacote
@@ -493,7 +494,7 @@ router.post('/', async (req, res) => {
                 const [services] = await db.query('SELECT name, price FROM services WHERE id = ?', [service_id]);
                 const service = services[0];
                 const price = service ? service.price : 0;
-                const serviceName = service ? service.name : 'Atendimento';
+                serviceName = service ? service.name : 'Atendimento';
 
                 // MULTIPLICA O PREÇO PELA QUANTIDADE DE AGENDAMENTOS CRIADOS (REPETIÇÃO)
                 totalAmount = price * createdIds.length;

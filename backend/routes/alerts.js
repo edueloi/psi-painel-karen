@@ -35,8 +35,8 @@ router.get('/', async (req, res) => {
     );
     res.json(alerts);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar alertas' });
+    console.error('Erro ao buscar alertas:', err);
+    res.status(500).json({ error: 'Erro ao buscar alertas', details: err.message });
   }
 });
 
@@ -54,8 +54,8 @@ router.post('/', async (req, res) => {
     const [newAlert] = await db.query('SELECT * FROM system_alerts WHERE id = ?', [result.insertId]);
     res.status(201).json(newAlert[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao criar alerta' });
+    console.error('Erro ao criar alerta:', err);
+    res.status(500).json({ error: 'Erro ao criar alerta', details: err.message });
   }
 });
 
