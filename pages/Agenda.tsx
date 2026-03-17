@@ -486,7 +486,40 @@ export const Agenda: React.FC = () => {
 
       {/* CALENDAR CONTENT */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden animate-fadeIn relative">
-        {view === 'month' ? (
+        {isLoading ? (
+            <div className="flex flex-col h-full animate-pulse">
+                {/* Header Skeleton */}
+                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/30">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                        <div key={i} className="py-4 flex justify-center">
+                            <div className="h-2 w-12 bg-slate-200 rounded-full"></div>
+                        </div>
+                    ))}
+                </div>
+                {/* Body Skeleton */}
+                <div className="grid grid-cols-7 flex-1 min-h-[600px]">
+                    {Array.from({ length: 35 }).map((_, i) => (
+                        <div key={i} className="p-4 border-b border-r border-slate-50 flex flex-col gap-3">
+                            <div className="h-5 w-5 bg-slate-200 rounded-lg"></div>
+                            <div className="space-y-2">
+                                <div className="h-3 w-full bg-slate-100 rounded-md"></div>
+                                <div className="h-3 w-4/5 bg-slate-100 rounded-md opacity-60"></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                {/* Loading Overlay Spinner (Optional for extra "premium" feel) */}
+                <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] flex items-center justify-center z-50">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="relative">
+                            <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                            <Sparkles className="absolute -top-2 -right-2 text-amber-400 animate-pulse" size={16}/>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Sincronizando Agenda</p>
+                    </div>
+                </div>
+            </div>
+        ) : view === 'month' ? (
             <div className="flex flex-col h-full">
                 <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/30">
                     {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'].map((day, idx) => (
@@ -829,24 +862,39 @@ export const Agenda: React.FC = () => {
         isOpen={isImportModalOpen}
         onClose={() => !isProcessingImport && setIsImportModalOpen(false)}
         title="Importar Agenda"
-        subtitle="Siga o modelo para importar seus agendamentos via CSV"
-        maxWidth="max-w-md"
+        subtitle="Siga o modelo para importar seus agendamentos via excel/csv"
+        maxWidth="max-w-xl"
       >
         <div className="space-y-6">
-          <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100 flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm mb-4 border border-indigo-50">
-              <FileUp size={32} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 flex flex-col items-center text-center group hover:border-indigo-200 transition-all">
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm mb-4 border border-indigo-50 group-hover:scale-110 transition-transform">
+                <FileDown size={28} />
+              </div>
+              <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-2">1. Baixe o Modelo</h4>
+              <p className="text-[10px] font-bold text-slate-400 mb-5 leading-relaxed">
+                Baixe nossa planilha modelo para preencher com seus dados corretamente.
+              </p>
+              <button 
+                onClick={downloadTemplate}
+                className="w-full py-3 bg-white hover:bg-slate-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-indigo-100 transition-all flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Download size={14} /> Download Modelo
+              </button>
             </div>
-            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-2">Modelo de Importação</h4>
-            <p className="text-[10px] font-bold text-slate-500 mb-6 leading-relaxed">
-              Para que a importação funcione, seu arquivo CSV deve conter as colunas exatamente como no nosso modelo.
-            </p>
-            <button 
-              onClick={downloadTemplate}
-              className="px-6 py-3 bg-white hover:bg-slate-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-indigo-100 transition-all flex items-center gap-2 shadow-sm"
-            >
-              <Download size={14} /> Baixar Modelo CSV
-            </button>
+
+            <div className="bg-indigo-600 p-5 rounded-[2rem] border border-indigo-500 flex flex-col items-center text-center shadow-lg shadow-indigo-200">
+              <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-white mb-4 backdrop-blur-md">
+                <Info size={28} />
+              </div>
+              <h4 className="text-xs font-black text-white uppercase tracking-widest mb-2 text-shadow-sm">Dica Importante</h4>
+              <p className="text-[10px] font-bold text-indigo-100 mb-5 leading-relaxed">
+                Preencha os IDs de pacientes e profissionais conforme listados no seu painel.
+              </p>
+              <div className="w-full py-3 bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl border border-white/20 backdrop-blur-md">
+                Formato: .CSV
+              </div>
+            </div>
           </div>
 
           <div className="relative group">
@@ -862,26 +910,31 @@ export const Agenda: React.FC = () => {
               {isProcessingImport ? (
                 <>
                   <Loader2 size={32} className="text-indigo-500 animate-spin mb-4" />
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Processando dados...</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Importando registros...</p>
                 </>
               ) : (
                 <>
-                  <div className="w-12 h-12 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg mb-4 group-hover:scale-110 transition-transform">
-                    <Plus size={24} />
+                  <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-indigo-200 mb-4 group-hover:scale-110 transition-transform">
+                    <FileUp size={32} />
                   </div>
-                  <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Selecionar Arquivo</p>
-                  <p className="text-[9px] font-bold text-slate-400 mt-2">Arraste ou clique para selecionar seu CSV</p>
+                  <p className="text-xs font-black text-slate-700 uppercase tracking-widest">2. Selecione seu Arquivo</p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-2">Clique aqui ou arraste seu arquivo CSV</p>
+                  
+                  <div className="mt-6 flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-slate-100 shadow-sm">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aguardando arquivo</span>
+                  </div>
                 </>
               )}
             </div>
           </div>
           
-          <div className="flex justify-center">
+          <div className="flex justify-center border-t border-slate-50 pt-6">
             <button 
               onClick={() => setIsImportModalOpen(false)}
-              className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-colors"
+              className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-colors flex items-center gap-2"
             >
-              Cancelar e Voltar
+              <X size={14}/> Cancelar e Sair
             </button>
           </div>
         </div>
