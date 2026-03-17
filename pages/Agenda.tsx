@@ -67,17 +67,35 @@ export const Agenda: React.FC = () => {
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
   const typeMeta = {
-      consulta: { label: 'Consulta', chip: 'bg-indigo-50 text-indigo-700 border-indigo-100', solid: 'bg-indigo-600', dot: 'bg-indigo-500', event: 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:border-indigo-400' },
-      pessoal: { label: 'Pessoal', chip: 'bg-amber-50 text-amber-700 border-amber-100', solid: 'bg-amber-500', dot: 'bg-amber-500', event: 'bg-amber-50 text-amber-700 border-amber-200 hover:border-amber-400' },
-      bloqueio: { label: 'Bloqueio', chip: 'bg-slate-100 text-slate-600 border-slate-200', solid: 'bg-slate-500', dot: 'bg-slate-500', event: 'bg-slate-100 text-slate-600 border-slate-200 hover:border-slate-400' },
+      consulta: { 
+          label: 'Consulta', 
+          chip: 'bg-indigo-50/50 text-indigo-700 border-indigo-100/50 backdrop-blur-sm', 
+          solid: 'bg-indigo-600', 
+          dot: 'bg-indigo-500', 
+          event: 'bg-indigo-50/80 text-indigo-700 border-indigo-100 hover:border-indigo-300 hover:bg-white' 
+      },
+      pessoal: { 
+          label: 'Pessoal', 
+          chip: 'bg-amber-50/50 text-amber-700 border-amber-100/50 backdrop-blur-sm', 
+          solid: 'bg-amber-500', 
+          dot: 'bg-amber-500', 
+          event: 'bg-amber-50/80 text-amber-700 border-amber-100 hover:border-amber-300 hover:bg-white' 
+      },
+      bloqueio: { 
+          label: 'Bloqueio', 
+          chip: 'bg-slate-50/50 text-slate-500 border-slate-200/50 backdrop-blur-sm', 
+          solid: 'bg-slate-400', 
+          dot: 'bg-slate-400', 
+          event: 'bg-slate-50/80 text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-white' 
+      },
   } as const;
 
   const statusMeta = {
-      scheduled: { label: 'Agendado', chip: 'bg-slate-100 text-slate-600 border-slate-200' },
-      confirmed: { label: 'Confirmado', chip: 'bg-blue-50 text-blue-700 border-blue-100' },
-      completed: { label: 'Concluído', chip: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-      cancelled: { label: 'Cancelado', chip: 'bg-rose-50 text-rose-700 border-rose-100' },
-      'no-show': { label: 'Faltou', chip: 'bg-amber-50 text-amber-700 border-amber-100' }
+      scheduled: { label: 'Agendado', chip: 'bg-slate-100/50 text-slate-500 border-slate-200/30' },
+      confirmed: { label: 'Confirmado', chip: 'bg-emerald-50/50 text-emerald-700 border-emerald-100/50' },
+      completed: { label: 'Concluído', chip: 'bg-blue-50/50 text-blue-700 border-blue-100/50' },
+      cancelled: { label: 'Cancelado', chip: 'bg-rose-50/50 text-rose-700 border-rose-100/50' },
+      'no-show': { label: 'Faltou', chip: 'bg-orange-50/50 text-orange-700 border-orange-100/50' }
   } as const;
 
   const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -467,88 +485,175 @@ export const Agenda: React.FC = () => {
       </div>
 
       {/* CALENDAR CONTENT */}
-      {view === 'month' ? (
-          <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden animate-fadeIn">
-              <div className="grid grid-cols-7 bg-slate-50/50 border-b border-slate-100">
-                  {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'].map(day => (
-                      <div key={day} className="py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{day}</div>
-                  ))}
-              </div>
-              <div className="grid grid-cols-7">
-                  {monthDays.map(day => {
-                      const dayApts = getAppointmentsForDay(day);
-                      const isToday = isSameDay(day, new Date());
-                      const inMonth = day.getMonth() === currentDate.getMonth();
-                      return (
-                          <div key={day.toISOString()} className={`min-h-[140px] p-4 border-b border-r border-slate-50 relative group transition-colors ${inMonth ? 'bg-white' : 'bg-slate-50/30'}`}>
-                              <div className="flex justify-between mb-3">
-                                  <span className={`text-sm font-black ${isToday ? 'text-indigo-600' : inMonth ? 'text-slate-800' : 'text-slate-300'}`}>{day.getDate()}</span>
-                                  {isToday && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>}
-                              </div>
-                              <div className="space-y-1.5">
-                                  {dayApts.slice(0, 3).map(apt => (
-                                      <button key={apt.id} onClick={() => openEditModal(apt)} className={`w-full text-left p-1.5 rounded-lg border text-[9px] font-bold truncate transition-all hover:scale-[1.02] ${typeMeta[apt.type].chip}`}>
-                                          {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {apt.patient_name || apt.title}
-                                      </button>
-                                  ))}
-                                  {dayApts.length > 3 && <p className="text-[9px] font-black text-slate-300 text-center">+ {dayApts.length - 3} mais</p>}
-                              </div>
-                              <button onClick={() => openNewModal(day)} className="absolute bottom-2 right-2 p-1.5 bg-indigo-50 text-indigo-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Plus size={14}/></button>
-                          </div>
-                      );
-                  })}
-              </div>
-          </div>
-      ) : (
-          <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden flex animate-fadeIn relative custom-scrollbar">
-              <div className="w-20 bg-slate-50/50 border-r border-slate-100 flex-shrink-0">
-                  <div className="h-16 border-b border-slate-100"></div>
-                  {hours.map(h => (
-                      <div key={h} className="h-[70px] flex items-start justify-center pt-2">
-                          <span className="text-[10px] font-black text-slate-300 tabular-nums">{String(h).padStart(2, '0')}:00</span>
-                      </div>
-                  ))}
-              </div>
-              <div className="flex-1 overflow-x-auto no-scrollbar">
-                  <div className="flex min-w-full" style={{ width: view === 'day' ? '100%' : '140%' }}>
-                      {(view === 'day' ? [currentDate] : weekDays).map(day => (
-                          <div key={day.toISOString()} className="flex-1 border-r border-slate-50 relative min-w-[150px]">
-                              <div className={`h-16 border-b border-slate-100 flex flex-col items-center justify-center gap-1 ${isSameDay(day, new Date()) ? 'bg-indigo-50/30' : ''}`}>
-                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{day.toLocaleDateString(locale, { weekday: 'short' })}</span>
-                                  <span className={`text-sm font-black ${isSameDay(day, new Date()) ? 'text-indigo-600' : 'text-slate-800'}`}>{day.getDate()}</span>
-                              </div>
-                              <div className="relative" style={{ height: hours.length * 70 }}>
-                                  {hours.map(h => <div key={h} className="h-[70px] border-b border-slate-50/50"></div>)}
-                                  {getAppointmentsForDay(day).map(apt => {
-                                      const startMin = (apt.start.getHours() * 60 + apt.start.getMinutes()) - (startHour * 60);
-                                      const durMin = (apt.end.getTime() - apt.start.getTime()) / 60000;
-                                      return (
-                                          <button key={apt.id} onClick={() => openEditModal(apt)} className={`absolute left-1 right-2 rounded-2xl p-3 border-l-4 shadow-sm hover:shadow-xl transition-all overflow-hidden text-left group z-10 ${typeMeta[apt.type].event}`} style={{ top: (startMin/60) * 70 + 4, height: (durMin/60) * 70 - 8 }}>
-                                              <div className="flex flex-col h-full">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <span className="text-[9px] font-black opacity-60 uppercase tracking-tighter tabular-nums">{apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                    {apt.modality === 'online' && <Video size={10} className="text-indigo-400"/>}
-                                                </div>
-                                                <h4 className="text-[11px] font-black text-slate-800 leading-tight truncate px-0.5">{apt.patient_name || apt.title}</h4>
-                                                <div className="mt-auto flex items-center justify-between">
-                                                    <div className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter border ${statusMeta[apt.status || 'scheduled'].chip}`}>
-                                                        {statusMeta[apt.status || 'scheduled'].label}
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden animate-fadeIn relative">
+        {view === 'month' ? (
+            <div className="flex flex-col h-full">
+                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/30">
+                    {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'].map((day, idx) => (
+                        <div key={day} className={`py-4 text-center text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase ${idx === 5 || idx === 6 ? 'bg-slate-100/20' : ''}`}>{day}</div>
+                    ))}
+                </div>
+                <div className="grid grid-cols-7 flex-1">
+                    {monthDays.map((day, idx) => {
+                        const dayApts = getAppointmentsForDay(day);
+                        const isToday = isSameDay(day, new Date());
+                        const inMonth = day.getMonth() === currentDate.getMonth();
+                        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                        
+                        return (
+                            <div 
+                                key={day.toISOString()} 
+                                className={`min-h-[120px] p-2 border-b border-r border-slate-50 transition-all group relative
+                                    ${inMonth ? 'bg-white' : 'bg-slate-50/30'} 
+                                    ${isWeekend ? 'bg-slate-200/5' : ''}
+                                    hover:bg-indigo-50/10 cursor-alias
+                                `}
+                                onClick={() => openNewModal(day)}
+                            >
+                                <div className="flex justify-between items-start mb-2 px-1">
+                                    <span className={`text-xs font-black transition-all ${isToday ? 'h-7 w-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center shadow-lg shadow-indigo-200 -mt-1' : inMonth ? 'text-slate-800' : 'text-slate-300'}`}>
+                                        {day.getDate()}
+                                    </span>
+                                    {dayApts.length > 0 && !isToday && <div className="h-1.5 w-1.5 rounded-full bg-indigo-400/50 mt-1"></div>}
+                                </div>
+                                <div className="space-y-1">
+                                    {dayApts.slice(0, 3).map(apt => (
+                                        <button 
+                                            key={apt.id} 
+                                            onClick={(e) => { e.stopPropagation(); openEditModal(apt); }} 
+                                            className={`w-full text-left px-2 py-1 rounded-lg border text-[9px] font-bold truncate transition-all hover:translate-x-1 active:scale-95 shadow-sm overflow-hidden flex items-center gap-1.5 ${typeMeta[apt.type].event}`}
+                                        >
+                                            <div className={`w-1 h-3 rounded-full ${typeMeta[apt.type].solid}`}></div>
+                                            <span className="shrink-0 opacity-50">{apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            <span className="truncate">{apt.patient_name || apt.title}</span>
+                                        </button>
+                                    ))}
+                                    {dayApts.length > 3 && (
+                                        <p className="text-[8px] font-black text-slate-400 bg-slate-100 py-0.5 rounded-lg text-center mx-1">+ {dayApts.length - 3} itens</p>
+                                    )}
+                                </div>
+                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-50 text-indigo-600 p-1 rounded-md">
+                                    <Plus size={10} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        ) : (
+            <div className="flex overflow-hidden custom-scrollbar bg-white">
+                {/* Time labels column */}
+                <div className="w-16 flex-shrink-0 bg-slate-50/50 border-r border-slate-100 select-none">
+                    <div className="h-20 border-b border-slate-100"></div>
+                    {hours.map(h => (
+                        <div key={h} className="h-[80px] flex items-start justify-center pt-2 group relative">
+                            <span className="text-[9px] font-black text-slate-300 tabular-nums group-hover:text-indigo-400 transition-colors">{String(h).padStart(2, '0')}:00</span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Main scrollable area */}
+                <div className="flex-1 overflow-x-auto no-scrollbar">
+                    <div className="flex min-w-full relative" style={{ height: (hours.length * 80) + 80 }}>
+                        {/* THE RED TIME INDICATOR (Now Line) */}
+                        {isSameDay(currentDate, new Date()) && view === 'day' && (
+                            <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center gap-2" 
+                                style={{ top: 80 + (((new Date().getHours() + new Date().getMinutes()/60) - startHour) * 80) }}>
+                                <div className="w-2 h-2 rounded-full bg-rose-500 shadow-lg shadow-rose-200 ml-[-4px]"></div>
+                                <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500 to-transparent"></div>
+                            </div>
+                        )}
+
+                        {(view === 'day' ? [currentDate] : weekDays).map(day => (
+                            <div key={day.toISOString()} className="flex-1 border-r border-slate-50 relative min-w-[180px]">
+                                {/* Header for each day */}
+                                <div className={`h-20 flex flex-col items-center justify-center gap-1.5 sticky top-0 z-30 border-b border-slate-100 transition-all ${isSameDay(day, new Date()) ? 'bg-indigo-50/40 backdrop-blur-md' : 'bg-white/95 backdrop-blur-md'}`}>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{day.toLocaleDateString(locale, { weekday: 'short' })}</span>
+                                    <span className={`text-xl font-black ${isSameDay(day, new Date()) ? 'text-indigo-600' : 'text-slate-800'}`}>{day.getDate()}</span>
+                                    {isSameDay(day, new Date()) && <div className="h-1 w-8 rounded-full bg-indigo-600"></div>}
+                                </div>
+
+                                {/* Hours grid */}
+                                <div className="relative h-full">
+                                    {hours.map(h => (
+                                        <div 
+                                            key={h} 
+                                            className="h-[80px] border-b border-slate-50/50 hover:bg-slate-50/30 transition-colors cursor-crosshair group relative"
+                                            onClick={() => {
+                                                const d = new Date(day);
+                                                d.setHours(h);
+                                                d.setMinutes(0);
+                                                openNewModal(d);
+                                            }}
+                                        >
+                                            <div className="absolute inset-x-0 top-0 h-[1px] bg-slate-100 opacity-0 group-hover:opacity-100"></div>
+                                        </div>
+                                    ))}
+
+                                    {/* APPOINTMENTS CARDS */}
+                                    {getAppointmentsForDay(day).map(apt => {
+                                        const startMin = (apt.start.getHours() * 60 + apt.start.getMinutes()) - (startHour * 60);
+                                        const durMin = (apt.end.getTime() - apt.start.getTime()) / 60000;
+                                        const top = (startMin/60) * 80;
+                                        const height = (durMin/60) * 80;
+                                        
+                                        return (
+                                            <button 
+                                                key={apt.id} 
+                                                onClick={(e) => { e.stopPropagation(); openEditModal(apt); }} 
+                                                className={`absolute left-2 right-2 rounded-[1.25rem] p-4 border shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all overflow-hidden text-left group z-10 flex flex-col gap-2 ${typeMeta[apt.type].event}`} 
+                                                style={{ top: top + 4, height: Math.max(height - 8, 40) }}
+                                            >
+                                                <div className="flex flex-col h-full relative z-10">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-black text-slate-800 leading-none mb-1">{apt.patient_name || apt.title}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[8px] font-black opacity-40 uppercase tracking-widest tabular-nums flex items-center gap-1">
+                                                                    <Clock size={8}/> {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                                {apt.modality === 'online' && (
+                                                                    <div className="flex items-center gap-1 text-indigo-500 font-black text-[7px] uppercase tracking-tighter bg-indigo-100/50 px-1.5 py-0.5 rounded-md border border-indigo-200/50">
+                                                                        <Video size={8}/> Online
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="p-1.5 bg-white/50 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
+                                                            <ArrowUpRight size={12}/>
+                                                        </div>
                                                     </div>
-                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <ArrowUpRight size={12} className="text-indigo-400"/>
-                                                    </div>
+                                                    
+                                                    {height > 60 && (
+                                                        <div className="mt-auto flex items-center justify-between">
+                                                            <div className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest border border-current opacity-60`}>
+                                                                {statusMeta[apt.status || 'scheduled'].label}
+                                                            </div>
+                                                            <div className="h-6 w-6 rounded-full overflow-hidden border-2 border-white shadow-sm ring-1 ring-slate-100">
+                                                                <div className="w-full h-full bg-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                                                                    <UserIcon size={12}/>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                              </div>
-                                          </button>
-                                      );
-                                  })}
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          </div>
-      )}
+                                                
+                                                {/* Left accent line */}
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${typeMeta[apt.type].solid}`}></div>
+                                                
+                                                {/* Soft shadow accent */}
+                                                <div className={`absolute -right-4 -bottom-4 w-20 h-20 opacity-[0.03] rounded-full pointer-events-none group-hover:opacity-10 transition-opacity ${typeMeta[apt.type].solid}`}></div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )}
+      </div>
 
       {/* APPOINTMENT MODAL */}
       <Modal
