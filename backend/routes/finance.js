@@ -306,8 +306,50 @@ router.get('/comandas', async (req, res) => {
     res.json(comandas);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar comandas' });
+    res.status(500).json({ error: 'Erro ao buscar comandas', details: err.message });
   }
+});
+
+// GET /finance/comandas/patient/:patientId - Busca comandas abertas de um paciente específico
+router.get('/comandas/patient/:patientId', async (req, res) => {
+    try {
+        await withSchema();
+        const { patientId } = req.params;
+        const [comandas] = await db.query(
+            `SELECT c.*, p.name as patient_name, u.name as professional_name
+             FROM comandas c 
+             LEFT JOIN patients p ON p.id = c.patient_id
+             LEFT JOIN users u ON u.id = c.professional_id
+             WHERE c.tenant_id = ? AND c.patient_id = ? AND c.status = 'open'
+             ORDER BY c.created_at DESC`,
+            [req.user.tenant_id, patientId]
+        );
+
+        for (const c of comandas) {
+            try {
+                const [aptData] = await db.query(
+                    'SELECT id, start_time, status FROM appointments WHERE comanda_id = ?',
+                    [c.id]
+                );
+                
+                const usedCount = aptData.filter(a => 
+                    ['confirmed', 'completed', 'no-show'].includes(a.status) || 
+                    (new Date(a.start_time) < new Date() && a.status !== 'cancelled')
+                ).length;
+                
+                c.sessions_used = usedCount;
+                if (typeof c.items === 'string') {
+                    try { c.items = JSON.parse(c.items); } catch { c.items = []; }
+                }
+            } catch (err) {
+                c.items = [];
+            }
+        }
+        res.json(comandas);
+    } catch (err) {
+        console.error('Erro ao buscar comandas do paciente:', err);
+        res.status(500).json({ error: 'Erro ao buscar comandas do paciente', details: err.message });
+    }
 });
 
 // POST /finance/comandas

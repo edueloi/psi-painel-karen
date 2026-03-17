@@ -60,6 +60,15 @@ export const Agenda: React.FC = () => {
       endType: 'count' as 'count' | 'until',
       endValue: 1 as number | string
   });
+  const [patientComandas, setPatientComandas] = useState<any[]>([]);
+  const [isNewComandaModalOpen, setIsNewComandaModalOpen] = useState(false);
+  const [newComandaData, setNewComandaData] = useState({
+      type: 'normal' as 'normal' | 'package',
+      description: '',
+      date: new Date().toISOString().slice(0, 10),
+      value: '',
+      sessions: 1
+  });
 
   const [formData, setFormData] = useState<any>({
       type: 'consulta',
@@ -83,7 +92,8 @@ export const Agenda: React.FC = () => {
       recurrence_end_date: '',
       recurrence_count: '',
       is_all_day: false,
-      reschedule_reason: ''
+      reschedule_reason: '',
+      comanda_id: ''
   });
 
   const locale = language === 'pt' ? 'pt-BR' : 'en-US';
@@ -131,6 +141,9 @@ export const Agenda: React.FC = () => {
   const endOfWeek = (date: Date) => addDays(startOfWeek(date), 6);
   const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
   const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const formatCurrency = (val: number | string) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
+  };
 
   const weekStart = startOfWeek(currentDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -174,6 +187,23 @@ export const Agenda: React.FC = () => {
         setPackages(pkgs || []);
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
   };
+
+  useEffect(() => {
+    const fetchComandas = async () => {
+        if (!formData.patient_id || isNaN(parseInt(formData.patient_id))) {
+            setPatientComandas([]);
+            return;
+        }
+        try {
+            const data = await api.get<any[]>(`/finance/comandas/patient/${formData.patient_id}`);
+            setPatientComandas(data || []);
+        } catch (err) {
+            console.error('Erro ao buscar comandas:', err);
+            setPatientComandas([]);
+        }
+    };
+    fetchComandas();
+  }, [formData.patient_id]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -302,7 +332,8 @@ export const Agenda: React.FC = () => {
         status: 'scheduled',
         meeting_url: '',
         recurrence_enabled: false,
-        reschedule_reason: ''
+        reschedule_reason: '',
+        comanda_id: ''
     });
     setIsModalOpen(true);
   };
@@ -312,7 +343,8 @@ export const Agenda: React.FC = () => {
         ...apt,
         appointment_date: toLocalISO(apt.start),
         psychologist_id: apt.professional_id || apt.psychologist_id,
-        reschedule_reason: apt.reschedule_reason || ''
+        reschedule_reason: apt.reschedule_reason || '',
+        comanda_id: apt.comanda_id || ''
     });
     setIsModalOpen(true);
   };
@@ -384,6 +416,39 @@ export const Agenda: React.FC = () => {
     }
   };
 
+  const handleCreateComanda = async () => {
+    if (!formData.patient_id) {
+        pushToast('error', 'Selecione um paciente primeiro.');
+        return;
+    }
+    try {
+        const payload = {
+            patient_id: formData.patient_id,
+            professional_id: formData.psychologist_id || formData.professional_id,
+            description: newComandaData.description || (newComandaData.type === 'package' ? 'Pacote de Sessões' : 'Sessão Avulsa'),
+            status: 'open',
+            items: [{
+                name: newComandaData.description || 'Sessão',
+                price: parseFloat(newComandaData.value) || 0,
+                qty: newComandaData.type === 'package' ? newComandaData.sessions : 1,
+                value: parseFloat(newComandaData.value) || 0
+            }],
+            sessions_total: newComandaData.type === 'package' ? newComandaData.sessions : 1,
+            sessions_used: 0,
+            notes: 'Criado via Agenda'
+        };
+
+        const result = await api.post<any>('/finance/comandas', payload);
+        setPatientComandas(prev => [result, ...prev]);
+        setFormData(prev => ({ ...prev, comanda_id: result.id }));
+        setIsNewComandaModalOpen(false);
+        pushToast('success', 'Comanda criada e vinculada!');
+    } catch (err) {
+        console.error(err);
+        pushToast('error', 'Erro ao criar comanda.');
+    }
+  };
+
   const pushToast = (type: 'success' | 'error', message: string) => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, type, message }]);
@@ -410,24 +475,24 @@ export const Agenda: React.FC = () => {
               </h1>
               <p className="text-slate-400 text-xs mt-1 font-bold">{t('agenda.subtitle')}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
               <button 
                   onClick={() => setIsImportModalOpen(true)}
-                  className="bg-white hover:bg-slate-50 text-slate-600 px-5 py-2.5 rounded-2xl text-[10px] font-black flex items-center gap-2 border border-slate-200 transition-all active:scale-95 uppercase tracking-widest shadow-sm"
+                  className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
               >
-                  <Upload size={16} className="text-indigo-500" /> Importar
+                  <Upload size={14} className="text-indigo-500" /> Importar
               </button>
               <button 
                   onClick={handleExport}
-                  className="bg-white hover:bg-slate-50 text-slate-600 px-5 py-2.5 rounded-2xl text-[10px] font-black flex items-center gap-2 border border-slate-200 transition-all active:scale-95 uppercase tracking-widest shadow-sm"
+                  className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
               >
-                  <Download size={16} className="text-emerald-500" /> Exportar
+                  <Download size={14} className="text-emerald-500" /> Exportar
               </button>
               <button 
                   onClick={() => openNewModal()} 
-                  className="bg-indigo-600 hover:bg-slate-800 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 uppercase tracking-widest"
+                  className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95"
               >
-                  <Plus size={18} /> Novo Agendamento
+                  <Plus size={14} /> Novo Agendamento
               </button>
           </div>
       </div>
@@ -743,24 +808,24 @@ export const Agenda: React.FC = () => {
           subtitle={new Date(formData.appointment_date).toLocaleDateString(locale, { dateStyle: 'full' })}
           maxWidth="max-w-4xl"
           footer={
-            <div className="flex flex-col sm:flex-row w-full justify-between items-center gap-4 py-1">
+            <div className="flex flex-col sm:flex-row w-full justify-between items-center gap-4">
               {formData.id ? (
                 <Button 
                   variant="danger" 
                   onClick={() => setIsDeleteModalOpen(true)}
-                  className="!rounded-2xl h-11 w-full sm:w-11 p-0 shadow-lg shadow-rose-100 flex items-center justify-center gap-2 sm:gap-0"
+                  className="h-10 w-full sm:w-10 p-0 rounded-lg shadow-sm flex items-center justify-center"
                 >
                   <Trash2 size={18}/>
-                  <span className="sm:hidden text-[10px] font-black uppercase">Excluir Registro</span>
+                  <span className="sm:hidden ml-2 text-xs font-semibold">Excluir Agendamento</span>
                 </Button>
               ) : <div className="hidden sm:block" />}
-              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="uppercase tracking-widest text-[10px] font-black w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="text-xs font-semibold h-10 px-6 rounded-lg">
                   Descartar
                 </Button>
                 <Button 
                   onClick={handleSave} 
-                  className="px-8 h-11 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 uppercase tracking-widest text-[10px] font-black transition-all transform active:scale-95 w-full sm:w-auto"
+                  className="px-6 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm text-xs font-semibold transition-all transform active:scale-95 w-full sm:w-auto"
                 >
                   <CheckCircle2 size={16} className="mr-2" />
                   {formData.id ? 'Atualizar' : 'Confirmar'} Agendamento
@@ -771,17 +836,17 @@ export const Agenda: React.FC = () => {
       >
           <div className="space-y-8 py-2">
               {/* TYPE SELECTOR */}
-              <div className="bg-slate-100/50 p-1.5 rounded-2xl flex flex-col sm:flex-row border border-slate-200/50 shadow-inner gap-1">
+              <div className="bg-slate-50 p-1.5 rounded-xl flex flex-col sm:flex-row border border-slate-200/50 shadow-sm gap-1">
                    {[
-                       { id: 'consulta', label: 'Consulta', icon: <Briefcase size={14}/>, color: 'text-indigo-600' },
-                       { id: 'pessoal', label: 'Evento Pessoal', icon: <UserIcon size={14}/>, color: 'text-amber-500' },
-                       { id: 'bloqueio', label: 'Bloqueio Agenda', icon: <Ban size={14}/>, color: 'text-slate-900' }
+                       { id: 'consulta', label: 'Consulta', icon: <Briefcase size={14}/>, color: 'text-indigo-600 bg-white shadow-sm border-indigo-100' },
+                       { id: 'pessoal', label: 'Evento Pessoal', icon: <UserIcon size={14}/>, color: 'text-amber-500 bg-white shadow-sm border-amber-100' },
+                       { id: 'bloqueio', label: 'Bloqueio Agenda', icon: <Ban size={14}/>, color: 'text-slate-900 bg-white shadow-sm border-slate-300' }
                    ].map(t => (
                        <button 
                          key={t.id} 
                          type="button"
                          onClick={() => setFormData({...formData, type: t.id})} 
-                         className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2.5 ${formData.type === t.id ? `bg-white shadow-md ${t.color}` : 'text-slate-400 hover:text-slate-600'}`}
+                         className={`flex-1 py-1.5 px-4 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 border border-transparent ${formData.type === t.id ? t.color : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/30'}`}
                        >
                            {t.icon}
                            {t.label}
@@ -794,7 +859,7 @@ export const Agenda: React.FC = () => {
                   <div className="space-y-6">
                       <div className="flex items-center gap-2 mb-2">
                           <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Identificação</h4>
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Identificação</h4>
                       </div>
 
                       {formData.type === 'consulta' ? (
@@ -812,14 +877,102 @@ export const Agenda: React.FC = () => {
                               />
                           </div>
 
-                          <div className="space-y-2">
+                          {/* COMANDA LINKAGE SECTION */}
+                          {formData.patient_id && !isNaN(parseInt(formData.patient_id)) && (
+                            <div className="animate-fadeIn">
+                                {formData.comanda_id ? (
+                                    <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 flex items-center justify-between group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-white rounded-lg shadow-sm border border-indigo-200 text-indigo-500">
+                                                <DollarSign size={16} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1">Comanda Vinculada</p>
+                                                <p className="text-xs font-bold text-slate-700">
+                                                    {patientComandas.find(c => c.id === formData.comanda_id)?.description || 'Carregando...'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setFormData({...formData, comanda_id: ''})}
+                                            className="text-[10px] font-bold text-indigo-400 hover:text-rose-500 uppercase tracking-widest transition-colors opacity-0 group-hover:opacity-100 mr-2"
+                                        >
+                                            Remover Comanda
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {patientComandas.length > 0 ? (
+                                            <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-200/50">
+                                                <div className="flex items-center gap-2 mb-3 text-orange-600">
+                                                    <Info size={14} />
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider">Comanda aberta disponível. Vincule abaixo:</p>
+                                                </div>
+                                                <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                                                    {patientComandas.map(c => (
+                                                        <button 
+                                                            key={c.id}
+                                                            type="button"
+                                                            onClick={() => setFormData({...formData, comanda_id: c.id})}
+                                                            className="w-full flex items-center justify-between p-2.5 bg-white hover:bg-orange-50 border border-slate-100 hover:border-orange-200 rounded-lg transition-all group shadow-sm"
+                                                        >
+                                                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide group-hover:text-orange-600 transition-colors">{c.description}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-medium text-slate-400">{c.sessions_used}/{c.sessions_total} sessões</span>
+                                                                <ChevronRight size={14} className="text-orange-400 group-hover:translate-x-0.5 transition-transform" />
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setIsNewComandaModalOpen(true)}
+                                                    className="w-full mt-3 py-2 border border-orange-200 rounded-lg text-[10px] font-bold text-orange-600 hover:bg-orange-100/50 transition-all uppercase tracking-widest"
+                                                >
+                                                    CRIAR NOVA COMANDA
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-end">
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setIsNewComandaModalOpen(true)}
+                                                    className="px-3 py-1.5 border border-orange-200 rounded-lg text-[10px] font-bold text-orange-600 hover:bg-orange-50 transition-all uppercase tracking-wider shadow-sm"
+                                                >
+                                                    NOVA COMANDA
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                          )}
+
+                          <div className="space-y-2 pt-2">
                                <Select 
                                  label="Serviço ou Pacote" 
                                  icon={<Package size={18} className="text-emerald-400" />}
                                  value={formData.service_id || ''} 
                                  onChange={e => {
                                    const val = e.target.value;
-                                   setFormData({...formData, service_id: val});
+                                   const isPkg = val.startsWith('pkg_');
+                                   const id = isPkg ? val.replace('pkg_', '') : val;
+                                   
+                                   let duration = formData.duration_minutes;
+                                   if (isPkg) {
+                                       const pkg = packages.find(p => String(p.id) === id);
+                                       const firstItem = pkg?.items?.[0];
+                                       if (firstItem) {
+                                           const srvObj = services.find(s => String(s.id) === String(isPkg ? firstItem.serviceId : id));
+                                           if (srvObj) duration = srvObj.duration;
+                                       }
+                                   } else {
+                                       const srv = services.find(s => String(s.id) === id);
+                                       if (srv) duration = srv.duration;
+                                   }
+
+                                   setFormData({...formData, service_id: val, duration_minutes: duration});
                                  }}
                                >
                                    <option value="">Selecionar...</option>
@@ -845,28 +998,28 @@ export const Agenda: React.FC = () => {
                       )}
 
                       {formData.type === 'consulta' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modalidade</label>
-                               <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/50">
-                                   <button 
-                                     type="button"
-                                     onClick={() => setFormData({...formData, modality: 'presencial'})} 
-                                     className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
-                                   >
-                                     Presencial
-                                   </button>
-                                   <button 
-                                     type="button"
-                                     onClick={() => setFormData({...formData, modality: 'online'})} 
-                                     className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
-                                   >
-                                     Online
-                                   </button>
-                               </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">Modalidade</label>
+                                <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200/60">
+                                    <button 
+                                      type="button"
+                                      onClick={() => setFormData({...formData, modality: 'presencial'})} 
+                                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
+                                    >
+                                      Presencial
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      onClick={() => setFormData({...formData, modality: 'online'})} 
+                                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
+                                    >
+                                      Online
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                                 <Select 
                                   label="Status" 
                                   value={formData.status} 
@@ -883,51 +1036,79 @@ export const Agenda: React.FC = () => {
                   <div className="space-y-6">
                       <div className="flex items-center gap-2 mb-2">
                           <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Horário e Repetição</h4>
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Horário e Repetição</h4>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <Input 
-                          label="Data e Início" 
-                          type="datetime-local" 
-                          icon={<Clock size={18} className="text-slate-400" />}
-                          value={formData.appointment_date} 
-                          onChange={e => setFormData({...formData, appointment_date: e.target.value})}
+                          label="Data" 
+                          type="date" 
+                          icon={<CalendarDays size={16} className="text-slate-400" />}
+                          value={formData.appointment_date.slice(0, 10)} 
+                          onChange={e => setFormData({...formData, appointment_date: `${e.target.value}T${formData.appointment_date.slice(11, 16)}`})}
                         />
                         <Input 
-                          label="Duração (minutos)" 
+                          label="Hora" 
+                          type="time" 
+                          icon={<Clock size={16} className="text-slate-400" />}
+                          value={formData.appointment_date.slice(11, 16)} 
+                          onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
+                        />
+                        <Input 
+                          label="Duração (min)" 
                           type="number" 
-                          icon={<Layers size={18} className="text-slate-400" />}
+                          icon={<Layers size={16} className="text-slate-400" />}
                           value={formData.duration_minutes} 
                           onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
                         />
                       </div>
+                      
+                      {/* END TIME PREVIEW */}
+                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200 shadow-sm">
+                          <div className="p-2 bg-white rounded-lg text-indigo-500 border border-slate-100 shadow-sm">
+                              <Clock size={16}/>
+                          </div>
+                          <div>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1">Término Previsto</p>
+                              <p className="text-sm font-black text-indigo-700 tabular-nums">
+                                  {(() => {
+                                      try {
+                                          const start = new Date(formData.appointment_date);
+                                          const end = new Date(start.getTime() + formData.duration_minutes * 60000);
+                                          return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + 'h';
+                                      } catch { return '--:--'; }
+                                  })()}
+                              </p>
+                          </div>
+                      </div>
 
-                      <Combobox 
-                        label="Profissional Responsável" 
-                        options={professionals.map(p => ({ id: p.id, label: p.name }))}
-                        value={formData.psychologist_id || formData.professional_id || ''} 
-                        icon={<UserCheck size={18} className="text-indigo-400" />}
-                        placeholder="Pesquisar ou adicionar profissional..."
-                        allowCustom={true}
-                        onChange={(val) => setFormData({...formData, psychologist_id: val, professional_id: val})}
-                      />
+                      <div className="grid grid-cols-1 gap-4">
+                          <Combobox 
+                            label="Profissional Responsável" 
+                            options={professionals.map(p => ({ id: p.id, label: p.name }))}
+                            value={formData.psychologist_id || formData.professional_id || ''} 
+                            icon={<UserCheck size={18} className="text-indigo-400" />}
+                            placeholder="Buscar..."
+                            allowCustom={true}
+                            onChange={(val) => setFormData({...formData, psychologist_id: val, professional_id: val})}
+                          />
+                      </div>
 
-                      <div className="bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100/50 space-y-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
                           <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2.5">
-                                  <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-100 text-indigo-500">
-                                      <Repeat size={16} />
+                                  <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-200 text-indigo-500">
+                                      <Repeat size={14} />
                                   </div>
                                   <div>
-                                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-1">Repetição Fixa</p>
-                                      <p className="text-[9px] font-bold text-slate-400">Marque sessões recorrentes</p>
+                                      <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider leading-none mb-1">Repetição Fixa</p>
+                                      <p className="text-[10px] font-medium text-slate-400">Marque sessões recorrentes</p>
                                   </div>
                               </div>
                               <button 
                                 type="button"
                                 onClick={() => setIsRecurrenceModalOpen(true)}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-100 rounded-xl font-black text-indigo-600 uppercase text-[9px] hover:bg-indigo-50 transition-all shadow-sm group/btn"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-indigo-600 uppercase text-[10px] hover:bg-slate-100 transition-all shadow-sm group/btn"
                               >
                                 {formData.recurrence_rule ? (
                                     <>
@@ -936,7 +1117,7 @@ export const Agenda: React.FC = () => {
                                         {formData.recurrence_count ? `${formData.recurrence_count}x` : formData.recurrence_end_date ? 'Até data' : ''}
                                     </>
                                 ) : 'Não Repete'}
-                                <ChevronRight size={12} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                                <ChevronRight size={10} className="group-hover/btn:translate-x-0.5 transition-transform" />
                               </button>
                           </div>
                       </div>
@@ -963,14 +1144,14 @@ export const Agenda: React.FC = () => {
               
               <div className="space-y-3">
                   <div className="flex items-center gap-2 ml-1">
-                      <div className="w-1.5 h-4 bg-slate-300 rounded-full"></div>
-                      <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Observações e Histórico</h4>
+                      <div className="w-1.5 h-4 bg-slate-400 rounded-full"></div>
+                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Observações e Histórico</h4>
                   </div>
                   <TextArea 
                     placeholder="Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes..." 
                     value={formData.notes || ''} 
                     onChange={e => setFormData({...formData, notes: e.target.value})}
-                    className="min-h-[100px] !rounded-3xl border-slate-200"
+                    className="min-h-[100px] !rounded-xl border-slate-200 shadow-sm"
                   />
               </div>
 
@@ -1164,14 +1345,15 @@ export const Agenda: React.FC = () => {
       <Modal
         isOpen={isRecurrenceConfigOpen}
         onClose={() => setIsRecurrenceConfigOpen(false)}
-        title={`Repete ${recurrenceOptions.find(o => o.freq === tempRecurrence.freq && o.interval === tempRecurrence.interval)?.label.toLowerCase() || 'Personalizado'},`}
-        maxWidth="md"
+        title="Configurar Repetição"
+        subtitle="Defina como este agendamento irá se repetir"
+        maxWidth="max-w-md"
         footer={(
-            <div className="flex justify-end gap-2 w-full">
-                <Button variant="ghost" onClick={() => { setIsRecurrenceConfigOpen(false); setIsRecurrenceModalOpen(true); }} className="!text-[10px] !font-black !tracking-widest">VOLTAR</Button>
+            <div className="flex justify-end gap-2 w-full sm:w-auto">
+                <Button variant="ghost" onClick={() => { setIsRecurrenceConfigOpen(false); setIsRecurrenceModalOpen(true); }} className="text-xs font-semibold h-10 px-6">VOLTAR</Button>
                 <Button 
                     variant="primary" 
-                    className="!bg-purple-700 hover:!bg-purple-800 !text-[10px] !font-black !tracking-widest"
+                    className="!bg-indigo-600 hover:!bg-indigo-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
                     onClick={() => {
                         setFormData({
                             ...formData,
@@ -1189,88 +1371,156 @@ export const Agenda: React.FC = () => {
             </div>
         )}
       >
-          <div className="space-y-10 py-4 animate-fadeIn">
-              <div className="flex items-center gap-8">
-                  <div className="w-24 text-right">
-                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Repete</label>
-                  </div>
-                  <div className="flex-1">
-                      <select 
-                        value={tempRecurrence.freq} 
-                        onChange={e => setTempRecurrence({...tempRecurrence, freq: e.target.value})}
-                        className="w-full bg-slate-50 border-none border-b-2 border-slate-200 focus:border-purple-600 transition-all font-black text-slate-700 text-sm outline-none px-0 py-2"
+          <div className="space-y-6 py-2">
+              <Select 
+                label="Repetir frequência" 
+                value={tempRecurrence.freq} 
+                onChange={e => setTempRecurrence({...tempRecurrence, freq: e.target.value})}
+              >
+                  <option value="DAILY">Diariamente</option>
+                  <option value="WEEKLY">Semanalmente</option>
+                  <option value="MONTHLY">Mensalmente</option>
+                  <option value="YEARLY">Anualmente</option>
+              </Select>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Input 
+                  label="A cada"
+                  type="number"
+                  value={tempRecurrence.interval}
+                  onChange={e => setTempRecurrence({...tempRecurrence, interval: parseInt(e.target.value) || 1})}
+                />
+                <div className="flex flex-col gap-1.5 w-full">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Unidade</label>
+                    <div className="flex items-center h-10 px-4 bg-slate-50 border border-slate-200/60 rounded-lg text-sm font-semibold text-slate-500">
+                        {tempRecurrence.freq === 'DAILY' ? 'Dia(s)' : tempRecurrence.freq === 'WEEKLY' ? 'Semana(s)' : tempRecurrence.freq === 'MONTHLY' ? 'Mês(es)' : 'Ano(s)'}
+                    </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Terminar em</label>
+                  <div className="flex gap-3">
+                      <button 
+                          type="button"
+                          onClick={() => setTempRecurrence({...tempRecurrence, endType: 'count'})}
+                          className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${tempRecurrence.endType === 'count' ? 'border-indigo-600 bg-indigo-50/30 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
                       >
-                          <option value="DAILY">Diariamente</option>
-                          <option value="WEEKLY">Semanalmente</option>
-                          <option value="MONTHLY">Mensalmente</option>
-                          <option value="YEARLY">Anualmente</option>
-                      </select>
-                  </div>
-              </div>
-
-              <div className="flex items-center gap-8">
-                   <div className="w-24 text-right">
-                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest">A cada</label>
-                  </div>
-                  <div className="flex-1 flex items-end gap-3 pb-2 border-b-2 border-slate-200">
-                    <input 
-                      type="number"
-                      className="w-full bg-transparent font-black text-slate-700 text-sm outline-none"
-                      value={tempRecurrence.interval}
-                      onChange={e => setTempRecurrence({...tempRecurrence, interval: parseInt(e.target.value) || 1})}
-                    />
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                        {tempRecurrence.freq === 'DAILY' ? 'dia(s)' : tempRecurrence.freq === 'WEEKLY' ? 'semana(s)' : tempRecurrence.freq === 'MONTHLY' ? 'mês(es)' : 'ano(s)'}
-                    </span>
-                  </div>
-              </div>
-
-              <div className="space-y-8">
-                  <div className="flex items-center gap-6 pl-32">
-                      <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setTempRecurrence({...tempRecurrence, endType: 'count'})}>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${tempRecurrence.endType === 'count' ? 'border-purple-600 bg-purple-600 shadow-lg shadow-purple-100' : 'border-slate-200 group-hover:border-purple-300'}`}>
-                              {tempRecurrence.endType === 'count' && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
-                          </div>
-                          <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${tempRecurrence.endType === 'count' ? 'text-purple-700' : 'text-slate-400'}`}>Por vezes</span>
-                      </div>
-
-                      <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setTempRecurrence({...tempRecurrence, endType: 'until'})}>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${tempRecurrence.endType === 'until' ? 'border-purple-600 bg-purple-600 shadow-lg shadow-purple-100' : 'border-slate-200 group-hover:border-purple-300'}`}>
-                              {tempRecurrence.endType === 'until' && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
-                          </div>
-                          <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${tempRecurrence.endType === 'until' ? 'text-purple-700' : 'text-slate-400'}`}>Por Data</span>
-                      </div>
-                  </div>
-
-                  <div className="flex items-center gap-8">
-                      <div className="w-24 text-right">
-                        <label className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] leading-tight">
-                            {tempRecurrence.endType === 'count' ? 'número de repetições' : 'escolha a data final'}
-                        </label>
-                      </div>
-                      <div className="flex-1 flex items-end gap-3 border-b-2 border-slate-200 pb-2">
-                        {tempRecurrence.endType === 'count' ? (
+                          <span className="text-[10px] font-bold uppercase">Por vezes</span>
+                          <div className="flex items-center gap-2">
                             <input 
-                                type="number"
-                                className="w-full bg-transparent font-black text-slate-700 text-sm outline-none"
-                                value={tempRecurrence.endValue}
-                                onChange={e => setTempRecurrence({...tempRecurrence, endValue: parseInt(e.target.value) || 1})}
+                                className="w-10 bg-white border border-slate-200 rounded px-1 text-center font-bold text-slate-700 outline-none"
+                                value={tempRecurrence.endType === 'count' ? tempRecurrence.endValue : ''}
+                                onChange={e => setTempRecurrence({...tempRecurrence, endValue: parseInt(e.target.value) || 1, endType: 'count'})}
+                                disabled={tempRecurrence.endType !== 'count'}
                             />
-                        ) : (
-                            <input 
-                                type="date"
-                                className="w-full bg-transparent font-black text-slate-700 text-sm outline-none"
-                                value={typeof tempRecurrence.endValue === 'string' ? tempRecurrence.endValue : ''}
-                                onChange={e => setTempRecurrence({...tempRecurrence, endValue: e.target.value})}
-                            />
-                        )}
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                            {tempRecurrence.endType === 'count' ? 'vezes' : ''}
-                        </span>
-                      </div>
+                            <span className="text-[10px] font-medium opacity-60">vezes</span>
+                          </div>
+                      </button>
+
+                      <button 
+                          type="button"
+                          onClick={() => setTempRecurrence({...tempRecurrence, endType: 'until'})}
+                          className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${tempRecurrence.endType === 'until' ? 'border-indigo-600 bg-indigo-50/30 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
+                      >
+                          <span className="text-[10px] font-bold uppercase">Por Data</span>
+                          <input 
+                            type="date"
+                            className="bg-transparent text-[10px] font-bold outline-none uppercase"
+                            value={tempRecurrence.endType === 'until' ? String(tempRecurrence.endValue) : ''}
+                            onChange={e => setTempRecurrence({...tempRecurrence, endValue: e.target.value, endType: 'until'})}
+                            disabled={tempRecurrence.endType !== 'until'}
+                          />
+                      </button>
                   </div>
               </div>
           </div>
+      </Modal>
+
+
+      {/* CREATE COMANDA MODAL */}
+      <Modal
+        isOpen={isNewComandaModalOpen}
+        onClose={() => setIsNewComandaModalOpen(false)}
+        title="Nova Comanda"
+        subtitle="Crie uma nova comanda financeira para o paciente"
+        maxWidth="max-w-md"
+        footer={(
+            <div className="flex gap-2 w-full">
+                <Button variant="ghost" onClick={() => setIsNewComandaModalOpen(false)} className="flex-1 h-10 text-xs font-semibold">Fechar</Button>
+                <Button 
+                    onClick={handleCreateComanda}
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-10 text-xs font-semibold shadow-sm"
+                >
+                    Criar Comanda
+                </Button>
+            </div>
+        )}
+      >
+        <div className="space-y-4 py-1">
+            <div className="bg-slate-50 p-1 rounded-xl flex border border-slate-200/60 shadow-sm gap-1">
+                <button 
+                    onClick={() => setNewComandaData({...newComandaData, type: 'normal'})}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-2 ${newComandaData.type === 'normal' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                    <div className={`w-2.5 h-2.5 rounded-full border-2 ${newComandaData.type === 'normal' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'}`} />
+                    COMANDA NORMAL
+                </button>
+                <button 
+                    onClick={() => setNewComandaData({...newComandaData, type: 'package'})}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-2 ${newComandaData.type === 'package' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                    <div className={`w-2.5 h-2.5 rounded-full border-2 ${newComandaData.type === 'package' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'}`} />
+                    COMANDA PACOTE
+                </button>
+            </div>
+
+            <div className="space-y-3 pt-2">
+                <Input 
+                    label="Descrição" 
+                    placeholder="Ex: Psicoterapia Individual ou Pacote 4 sessões" 
+                    value={newComandaData.description}
+                    onChange={e => setNewComandaData({...newComandaData, description: e.target.value})}
+                />
+
+                <Input 
+                    label="Data" 
+                    type="date"
+                    value={newComandaData.date}
+                    onChange={e => setNewComandaData({...newComandaData, date: e.target.value})}
+                />
+
+                <Input 
+                    label="Valor Total" 
+                    type="number"
+                    placeholder="R$ 0,00"
+                    icon={<DollarSign size={16} className="text-emerald-500" />}
+                    value={newComandaData.value}
+                    onChange={e => setNewComandaData({...newComandaData, value: e.target.value})}
+                />
+
+                {newComandaData.type === 'package' && (
+                    <Input 
+                        label="Sessões Permitidas" 
+                        type="number"
+                        placeholder="Ex: 4"
+                        value={newComandaData.sessions}
+                        onChange={e => setNewComandaData({...newComandaData, sessions: parseInt(e.target.value) || 1})}
+                    />
+                )}
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 flex flex-col gap-2">
+                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span>Valor Total:</span>
+                    <span className="text-slate-700">{formatCurrency(Number(newComandaData.value) || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-200/60 pt-2">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Total Líquido:</span>
+                    <span className="text-indigo-600 text-lg font-bold">{formatCurrency(Number(newComandaData.value) || 0)}</span>
+                </div>
+            </div>
+        </div>
       </Modal>
 
     </div>

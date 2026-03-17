@@ -168,6 +168,8 @@ export interface Appointment {
   parent_appointment_id?: number | null;
   recurrence_index?: number | null;
   reschedule_reason?: string;
+  room_id?: string;
+  comanda_id?: string | number;
 }
 
 // --- VIRTUAL ROOM API TYPES ---

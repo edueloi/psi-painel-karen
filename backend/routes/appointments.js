@@ -364,7 +364,8 @@ router.post('/', async (req, res) => {
       patient_id, professional_id, psychologist_id, service_id, package_id, title,
       start_time, appointment_date, duration_minutes, notes, color,
       status, modality, type, meeting_url, 
-      recurrence_freq, recurrence_interval, recurrence_count, recurrence_end_date 
+      recurrence_freq, recurrence_interval, recurrence_count, recurrence_end_date,
+      comanda_id
     } = req.body;
 
     const createdIds = [];
@@ -437,8 +438,8 @@ router.post('/', async (req, res) => {
           `INSERT INTO appointments (
             tenant_id, patient_id, professional_id, service_id, package_id, title, 
             start_time, end_time, status, notes, color,
-            modality, type, duration_minutes, meeting_url, recurrence_rule
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            modality, type, duration_minutes, meeting_url, recurrence_rule, comanda_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.user.tenant_id, 
             finalPatientId, 
@@ -455,7 +456,8 @@ router.post('/', async (req, res) => {
             type || 'consulta',
             duration,
             meeting_url || null,
-            freq ? JSON.stringify({ freq, interval, count, until }) : null
+            freq ? JSON.stringify({ freq, interval, count, until }) : null,
+            comanda_id || null
           ]
         );
         createdIds.push(result.insertId);
@@ -465,76 +467,8 @@ router.post('/', async (req, res) => {
         return res.status(500).json({ error: 'Nenhum agendamento foi gerado. Verifique os parâmetros de repetição.' });
     }
 
-    // 3. Se tiver PACIENTE e (SERVIÇO ou PACOTE), cria a COMANDA integrada
-    let comandaId = null;
-    if (finalPatientId && (service_id || package_id)) {
-        try {
-            let totalAmount = 0;
-            let items = [];
-            let description = '';
-            let serviceName = 'Atendimento';
-
-            if (package_id) {
-                // Se for pacote, busca dados do pacote
-                const [pkgs] = await db.query('SELECT name, totalPrice FROM packages WHERE id = ?', [package_id]);
-                const pkg = pkgs[0];
-                if (pkg) {
-                  totalAmount = pkg.totalPrice;
-                  description = pkg.name;
-                  items = [{
-                    id: `pkg_${package_id}`,
-                    name: pkg.name,
-                    price: pkg.totalPrice,
-                    qty: 1,
-                    value: pkg.totalPrice
-                  }];
-                }
-            } else if (service_id) {
-                // Busca o preço do serviço
-                const [services] = await db.query('SELECT name, price FROM services WHERE id = ?', [service_id]);
-                const service = services[0];
-                const price = service ? service.price : 0;
-                serviceName = service ? service.name : 'Atendimento';
-
-                // MULTIPLICA O PREÇO PELA QUANTIDADE DE AGENDAMENTOS CRIADOS (REPETIÇÃO)
-                totalAmount = price * createdIds.length;
-                
-                items = [{
-                    id: service_id,
-                    name: serviceName,
-                    price: price,
-                    qty: createdIds.length,
-                    value: price
-                }];
-            }
-            description = createdIds.length > 1 ? `${description || serviceName} (${createdIds.length} sessões)` : (description || serviceName);
-
-            const [comandaResult] = await db.query(
-                `INSERT INTO comandas (
-                    tenant_id, patient_id, service_id, package_id, professional_id, 
-                    description, total, sessions_total, sessions_used, items, notes, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    req.user.tenant_id, finalPatientId, 
-                    package_id ? null : service_id,
-                    package_id || null,
-                    finalProfessionalId,
-                    description, totalAmount, createdIds.length, 0, JSON.stringify(items),
-                    `Gerado via Agenda (${createdIds.length} sessões)`,
-                    'open'
-                ]
-            );
-            comandaId = comandaResult.insertId;
-
-            // Vincula todos os agendamentos criados à comanda
-            await db.query(
-                'UPDATE appointments SET comanda_id = ? WHERE id IN (?)',
-                [comandaId, createdIds]
-            );
-        } catch (comandaErr) {
-            console.error('Erro ao gerar comanda automática no agendamento:', comandaErr);
-        }
-    }
+    // 3. Comanda agora é vinculada manualmente pelo frontend
+    const comandaId = comanda_id || null;
 
     const [created] = await db.query(
       `SELECT a.*, p.name as patient_name, u.name as professional_name
@@ -562,7 +496,7 @@ router.put('/:id', async (req, res) => {
       patient_id, professional_id, psychologist_id, service_id, package_id, title, 
       start_time, end_time, status, notes, color,
       modality, type, duration_minutes, meeting_url,
-      reschedule_reason
+      reschedule_reason, comanda_id
     } = req.body;
 
     const [existing] = await db.query(
@@ -599,7 +533,8 @@ router.put('/:id', async (req, res) => {
         type = ?,
         duration_minutes = ?,
         meeting_url = ?,
-        reschedule_reason = ?
+        reschedule_reason = ?,
+        comanda_id = ?
        WHERE id = ? AND tenant_id = ?`,
       [
         patient_id || null, 
@@ -617,6 +552,7 @@ router.put('/:id', async (req, res) => {
         parseInt(duration_minutes) || 50,
         meeting_url || null,
         reschedule_reason || null,
+        comanda_id || null,
         req.params.id, 
         req.user.tenant_id
       ]
