@@ -20,11 +20,18 @@ export const AuroraAssistant: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const getGreeting = () => {
+    const hours = new Date().getHours();
+    if (hours < 12) return 'Bom dia';
+    if (hours < 18) return 'Boa tarde';
+    return 'Boa noite';
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'model',
-      text: 'Olá! Sou a Aurora, sua assistente inteligente do PsiFlux. 🧠✨\n\nSou uma parceira para te ajudar na gestão da clínica e também com dúvidas sobre psicologia. Posso consultar seus pacientes, agenda e até realizar marcações para você. Como posso ser útil hoje?',
+      text: `${getGreeting()}! Sou a Aurora, sua assistente inteligente do PsiFlux. 🧠✨\n\nSou uma parceira para te ajudar na gestão da clínica e também com dúvidas sobre psicologia. Posso consultar seus pacientes, agenda e até realizar marcações para você. Como posso ser útil hoje?`,
       timestamp: new Date()
     }
   ]);
@@ -149,7 +156,7 @@ export const AuroraAssistant: React.FC = () => {
         
         {/* Tooltip / Welcome Bubble */}
         <div className={`bg-white px-4 py-2 rounded-xl shadow-lg border border-indigo-100 mb-2 transition-all duration-500 origin-bottom-right ${isHovered ? 'scale-100 opacity-100' : 'scale-90 opacity-0 translate-y-4'}`}>
-            <p className="text-sm font-medium text-slate-700">Olá! Posso ajudar? 👋</p>
+            <p className="text-sm font-medium text-slate-700">{getGreeting()}! Posso ajudar? 👋</p>
         </div>
 
         <button

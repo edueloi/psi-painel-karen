@@ -7,13 +7,31 @@ import {
     DollarSign, Package, Layers, Loader2, Briefcase, FileText, UserCheck, Ban, Link2, Search,
     Filter, LayoutGrid, List as ListIcon, ExternalLink, Sparkles, CheckCircle2, AlertCircle,
     ArrowUpRight, Info,
-    Edit3, Download, Upload, FileDown, FileUp
+    Edit3, Download, Upload, FileDown, FileUp,
+    Activity,
+    AlignLeft,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea } from '../components/UI/Input';
+
+const recurrenceOptions = [
+    { label: 'Não Repete', freq: '', interval: 1 },
+    { label: 'Repete a cada 1 semana', freq: 'WEEKLY', interval: 1 },
+    { label: 'Repete a cada 2 semanas', freq: 'WEEKLY', interval: 2 },
+    { label: 'Repete a cada 3 semanas', freq: 'WEEKLY', interval: 3 },
+    { label: 'Repete a cada 4 semanas', freq: 'WEEKLY', interval: 4 },
+    { label: 'A cada 15 dias', freq: 'DAILY', interval: 15 },
+    { label: 'A cada 20 dias', freq: 'DAILY', interval: 20 },
+    { label: 'A cada 25 dias', freq: 'DAILY', interval: 25 },
+    { label: '1 vez por mês', freq: 'MONTHLY', interval: 1 },
+    { label: 'Repete a cada 2 meses', freq: 'MONTHLY', interval: 2 },
+    { label: 'Repete a cada 3 meses', freq: 'MONTHLY', interval: 3 },
+    { label: 'Repete a cada 6 meses', freq: 'MONTHLY', interval: 6 },
+    { label: 'Repete a cada 1 ano', freq: 'YEARLY', interval: 1 },
+];
 
 export const Agenda: React.FC = () => {
   const { t, language } = useLanguage();
@@ -37,6 +55,14 @@ export const Agenda: React.FC = () => {
   const [deleteSeries, setDeleteSeries] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
+  const [isRecurrenceConfigOpen, setIsRecurrenceConfigOpen] = useState(false);
+  const [tempRecurrence, setTempRecurrence] = useState({
+      freq: '',
+      interval: 1,
+      endType: 'count' as 'count' | 'until',
+      endValue: 1 as number | string
+  });
 
   const [formData, setFormData] = useState<any>({
       type: 'consulta',
@@ -94,11 +120,11 @@ export const Agenda: React.FC = () => {
   } as const;
 
   const statusMeta = {
-      scheduled: { label: 'Agendado', chip: 'bg-slate-100/50 text-slate-500 border-slate-200/30' },
-      confirmed: { label: 'Confirmado', chip: 'bg-emerald-50/50 text-emerald-700 border-emerald-100/50' },
-      completed: { label: 'Concluído', chip: 'bg-blue-50/50 text-blue-700 border-blue-100/50' },
-      cancelled: { label: 'Cancelado', chip: 'bg-rose-50/50 text-rose-700 border-rose-100/50' },
-      'no-show': { label: 'Faltou', chip: 'bg-orange-50/50 text-orange-700 border-orange-100/50' }
+      scheduled: { label: 'Agendado', chip: 'bg-slate-100/50 text-slate-500 border-slate-200/30', dot: 'bg-slate-400' },
+      confirmed: { label: 'Confirmado', chip: 'bg-emerald-50/50 text-emerald-700 border-emerald-100/50', dot: 'bg-emerald-500' },
+      completed: { label: 'Realizado', chip: 'bg-indigo-50/50 text-indigo-700 border-indigo-100/50', dot: 'bg-indigo-500' },
+      cancelled: { label: 'Cancelado', chip: 'bg-rose-50/50 text-rose-700 border-rose-100/50', dot: 'bg-rose-500' },
+      'no-show': { label: 'Faltou', chip: 'bg-amber-50/50 text-amber-700 border-amber-100/50', dot: 'bg-amber-500' },
   } as const;
 
   const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -628,27 +654,33 @@ export const Agenda: React.FC = () => {
                                         const durMin = (apt.end.getTime() - apt.start.getTime()) / 60000;
                                         const top = (startMin/60) * 80;
                                         const height = (durMin/60) * 80;
-                                        
+                                        const st = statusMeta[apt.status as keyof typeof statusMeta || 'scheduled'];
+
                                         return (
                                             <button 
                                                 key={apt.id} 
                                                 onClick={(e) => { e.stopPropagation(); openEditModal(apt); }} 
-                                                className={`absolute left-2 right-2 rounded-[1.25rem] p-4 border shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all overflow-hidden text-left group z-10 flex flex-col gap-2 ${typeMeta[apt.type].event}`} 
+                                                className={`absolute left-2 right-2 rounded-[1.25rem] p-4 border shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all overflow-hidden text-left group z-10 flex flex-col gap-2 ${typeMeta[apt.type].event} glass-effect`} 
                                                 style={{ top: top + 4, height: Math.max(height - 8, 40) }}
                                             >
                                                 <div className="flex flex-col h-full relative z-10">
                                                     <div className="flex justify-between items-start mb-1">
                                                         <div className="flex flex-col flex-1 min-w-0">
-                                                            <span className="text-[10px] font-black text-slate-800 leading-none mb-0.5 truncate">
-                                                                {apt.patient_name || apt.title || (apt.type === 'bloqueio' ? 'Bloqueio' : 'Evento')}
-                                                            </span>
+                                                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                                                <span className="text-[10px] font-black text-slate-800 leading-none truncate">
+                                                                    {apt.patient_name || apt.title || (apt.type === 'bloqueio' ? 'Bloqueio' : 'Evento')}
+                                                                </span>
+                                                                {st && (
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${st.dot} animate-pulse`}></div>
+                                                                )}
+                                                            </div>
                                                             {apt.professional_name && (
-                                                                <span className="text-[8px] font-bold text-slate-400 truncate mb-1">
-                                                                    {apt.professional_name}
+                                                                <span className="text-[8px] font-bold text-slate-400 truncate mb-1.5 opacity-80 uppercase tracking-widest flex items-center gap-1">
+                                                                    <UserIcon size={8} className="text-indigo-400"/> {apt.professional_name}
                                                                 </span>
                                                             )}
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[8px] font-black opacity-40 uppercase tracking-widest tabular-nums flex items-center gap-1">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="text-[8px] font-black opacity-50 uppercase tracking-widest tabular-nums flex items-center gap-1 bg-white/50 px-1.5 py-0.5 rounded-md">
                                                                     <Clock size={8}/> {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
                                                                 {apt.modality === 'online' && (
@@ -658,7 +690,7 @@ export const Agenda: React.FC = () => {
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        <div className="p-1.5 bg-white/50 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
+                                                        <div className="p-1.5 bg-white/50 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm border border-white/50">
                                                             <ArrowUpRight size={12}/>
                                                         </div>
                                                     </div>
@@ -668,7 +700,7 @@ export const Agenda: React.FC = () => {
                                                             <div className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest border border-current opacity-60`}>
                                                                 {statusMeta[apt.status || 'scheduled'].label}
                                                             </div>
-                                                            <div className="h-6 w-6 rounded-full overflow-hidden border-2 border-white shadow-sm ring-1 ring-slate-100">
+                                                            <div className="h-6 w-6 rounded-lg overflow-hidden border-2 border-white shadow-md ring-1 ring-slate-100 group-hover:rotate-12 transition-transform">
                                                                 <div className="w-full h-full bg-slate-200 flex items-center justify-center text-[10px] text-slate-400">
                                                                     <UserIcon size={12}/>
                                                                 </div>
@@ -681,7 +713,7 @@ export const Agenda: React.FC = () => {
                                                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${typeMeta[apt.type].solid}`}></div>
                                                 
                                                 {/* Soft shadow accent */}
-                                                <div className={`absolute -right-4 -bottom-4 w-20 h-20 opacity-[0.03] rounded-full pointer-events-none group-hover:opacity-10 transition-opacity ${typeMeta[apt.type].solid}`}></div>
+                                                <div className={`absolute -right-4 -bottom-4 w-20 h-20 opacity-[0.03] rounded-full pointer-events-none group-hover:opacity-10 transition-opacity ${typeMeta[apt.type].solid} blur-xl`}></div>
                                             </button>
                                         );
                                     })}
@@ -700,148 +732,159 @@ export const Agenda: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           title={formData.id ? 'Editar Sessão' : 'Novo Agendamento'}
           subtitle={new Date(formData.appointment_date).toLocaleDateString(locale, { dateStyle: 'full' })}
-          maxWidth="max-w-3xl"
+          maxWidth="max-w-4xl"
           footer={
             <div className="flex w-full justify-between items-center">
               {formData.id ? (
                 <Button 
                   variant="danger" 
                   onClick={() => setIsDeleteModalOpen(true)}
-                  className="!rounded-2xl h-12 w-12 p-0"
+                  className="!rounded-2xl h-11 w-11 p-0 shadow-lg shadow-rose-100"
                 >
-                  <Trash2 size={20}/>
+                  <Trash2 size={18}/>
                 </Button>
               ) : <div />}
               <div className="flex gap-3">
-                <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="uppercase tracking-widest text-[11px]">
+                <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="uppercase tracking-widest text-[10px] font-black">
                   Descartar
                 </Button>
                 <Button 
                   onClick={handleSave} 
-                  className="px-8 h-12 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 uppercase tracking-widest text-[11px]"
+                  className="px-8 h-11 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 uppercase tracking-widest text-[10px] font-black transition-all transform active:scale-95"
                 >
-                  <CheckCircle2 size={18} className="mr-2" />
+                  <CheckCircle2 size={16} className="mr-2" />
                   {formData.id ? 'Atualizar' : 'Confirmar'} Agendamento
                 </Button>
               </div>
             </div>
           }
       >
-          <div className="space-y-6">
-              {/* TYPE SELECTOR - Compact */}
-              <div className="bg-slate-50 p-1 rounded-2xl flex border border-slate-100/50 shadow-inner">
-                  {['consulta', 'pessoal', 'bloqueio'].map(t => (
+          <div className="space-y-8 py-2">
+              {/* TYPE SELECTOR */}
+              <div className="bg-slate-100/50 p-1.5 rounded-2xl flex border border-slate-200/50 shadow-inner">
+                  {[
+                      { id: 'consulta', label: 'Consulta', icon: <Briefcase size={14}/> },
+                      { id: 'pessoal', label: 'Evento Pessoal', icon: <UserIcon size={14}/> },
+                      { id: 'bloqueio', label: 'Bloqueio de Agenda', icon: <Ban size={14}/> }
+                  ].map(t => (
                       <button 
-                        key={t} 
-                        onClick={() => setFormData({...formData, type: t})} 
-                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${formData.type === t ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        key={t.id} 
+                        onClick={() => setFormData({...formData, type: t.id})} 
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2.5 ${formData.type === t.id ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                       >
-                          {t === 'consulta' ? <Briefcase size={14}/> : t === 'pessoal' ? <UserIcon size={14}/> : <Ban size={14}/>}
-                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                          {t.icon}
+                          {t.label}
                       </button>
                   ))}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* LEFT COLUMN */}
-                  <div className="space-y-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* LEFT COLUMN: IDENTIFICATION */}
+                  <div className="space-y-6">
+                      <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Identificação</h4>
+                      </div>
+
                       {formData.type === 'consulta' ? (
                         <>
-                          <Select 
-                            label="Paciente" 
-                            icon={<UserIcon size={18} />}
-                            value={formData.patient_id || ''} 
-                            onChange={e => setFormData({...formData, patient_id: e.target.value})}
-                          >
-                              <option value="">Selecionar paciente...</option>
-                              {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                          </Select>
+                          <div className="space-y-2">
+                              {/* PAZIENTE SELECT WITH CUSTOM STYLING */}
+                              <Select 
+                                label="Paciente" 
+                                icon={<UserIcon size={18} className="text-indigo-400" />}
+                                value={formData.patient_id || ''} 
+                                onChange={e => setFormData({...formData, patient_id: e.target.value})}
+                              >
+                                  <option value="">Selecionar paciente...</option>
+                                  {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                              </Select>
+                          </div>
 
-                          <Select 
-                            label="Serviço / Atendimento" 
-                            icon={<Package size={18} />}
-                            value={formData.service_id || ''} 
-                            onChange={e => setFormData({...formData, service_id: e.target.value})}
-                          >
-                              <option value="">Tipo de atendimento...</option>
-                              {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
-                          </Select>
+                          <div className="space-y-2">
+                              <Select 
+                                label="Serviço / Atendimento" 
+                                icon={<Package size={18} className="text-emerald-400" />}
+                                value={formData.service_id || ''} 
+                                onChange={e => setFormData({...formData, service_id: e.target.value})}
+                              >
+                                  <option value="">Tipo de atendimento...</option>
+                                  {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
+                              </Select>
+                          </div>
                         </>
                       ) : (
-                        <Input 
-                          label="Título do Evento" 
-                          placeholder="Ex: Supervisão Clínica" 
-                          value={formData.title || ''} 
-                          onChange={e => setFormData({...formData, title: e.target.value})}
-                        />
+                        <div className="space-y-2">
+                            <Input 
+                              label="Título do Evento / Motivo do Bloqueio" 
+                              placeholder="Ex: Supervisão Clínica ou Almoço" 
+                              icon={<Activity size={18} className="text-amber-400" />}
+                              value={formData.title || ''} 
+                              onChange={e => setFormData({...formData, title: e.target.value})}
+                            />
+                        </div>
                       )}
 
                       <div className="grid grid-cols-2 gap-4">
-                          <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Modalidade</label>
-                            <div className="flex bg-slate-100 p-1 rounded-xl">
-                                <button 
-                                  onClick={() => setFormData({...formData, modality: 'presencial'})} 
-                                  className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
-                                >
-                                  Presencial
-                                </button>
-                                <button 
-                                  onClick={() => setFormData({...formData, modality: 'online'})} 
-                                  className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
-                                >
-                                  Online
-                                </button>
-                            </div>
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modalidade</label>
+                             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/50">
+                                 <button 
+                                   type="button"
+                                   onClick={() => setFormData({...formData, modality: 'presencial'})} 
+                                   className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                                 >
+                                   Presencial
+                                 </button>
+                                 <button 
+                                   type="button"
+                                   onClick={() => setFormData({...formData, modality: 'online'})} 
+                                   className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                                 >
+                                   Online
+                                 </button>
+                             </div>
                           </div>
 
-                          <Select 
-                            label="Status" 
-                            value={formData.status} 
-                            onChange={e => setFormData({...formData, status: e.target.value})}
-                          >
-                              {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                          </Select>
+                          <div className="space-y-2">
+                              <Select 
+                                label="Status" 
+                                value={formData.status} 
+                                onChange={e => setFormData({...formData, status: e.target.value})}
+                              >
+                                  {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                              </Select>
+                          </div>
                       </div>
                   </div>
 
-                  {/* RIGHT COLUMN */}
-                  <div className="space-y-5">
+                  {/* RIGHT COLUMN: TIME & RECURRENCE */}
+                  <div className="space-y-6">
+                      <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
+                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Horário e Repetição</h4>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <Input 
-                          label="Início da Sessão" 
+                          label="Data e Início" 
                           type="datetime-local" 
-                          icon={<Clock size={18} />}
+                          icon={<Clock size={18} className="text-slate-400" />}
                           value={formData.appointment_date} 
                           onChange={e => setFormData({...formData, appointment_date: e.target.value})}
                         />
                         <Input 
-                          label="Duração (min)" 
+                          label="Duração (minutos)" 
                           type="number" 
-                          icon={<Clock size={18} />}
+                          icon={<Layers size={18} className="text-slate-400" />}
                           value={formData.duration_minutes} 
                           onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
                         />
                       </div>
 
-                      {(formData.type === 'bloqueio' || formData.type === 'pessoal') && !formData.is_all_day && (
-                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hora de Término</span>
-                              <span className="text-sm font-black text-slate-700">
-                                  {(() => {
-                                      try {
-                                        const start = new Date(formData.appointment_date);
-                                        const end = new Date(start.getTime() + (formData.duration_minutes || 50) * 60000);
-                                        return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                      } catch(e) { return '--:--'; }
-                                  })()}
-                              </span>
-                          </div>
-                      )}
-
                       <Select 
                         label="Profissional Responsável" 
-                        icon={<UserCheck size={18} />}
+                        icon={<UserCheck size={18} className="text-indigo-400" />}
                         value={formData.psychologist_id || ''} 
                         onChange={e => setFormData({...formData, psychologist_id: e.target.value})}
                       >
@@ -849,71 +892,76 @@ export const Agenda: React.FC = () => {
                           {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </Select>
 
-                      <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                              {formData.type === 'consulta' ? 'Repetir Agendamento' : 'Repetir Bloqueio'}
-                          </label>
-                          <Select 
-                            variant="ghost"
-                            className="!w-auto !border-none !bg-transparent !p-0 !h-auto font-black text-indigo-600 uppercase text-[10px]"
-                            value={formData.recurrence_rule || ''} 
-                            onChange={e => setFormData({...formData, recurrence_rule: e.target.value})}
-                          >
-                              <option value="">Não Repete</option>
-                              <option value="weekly">Semanal</option>
-                              <option value="biweekly">Quinzenal</option>
-                              <option value="monthly">Mensal</option>
-                          </Select>
-                      </div>
-
-                      {(formData.type === 'bloqueio' || formData.type === 'pessoal') && (
-                          <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Dia Inteiro</label>
+                      <div className="bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100/50 space-y-4">
+                          <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2.5">
+                                  <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-100 text-indigo-500">
+                                      <Repeat size={16} />
+                                  </div>
+                                  <div>
+                                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none mb-1">Repetição Fixa</p>
+                                      <p className="text-[9px] font-bold text-slate-400">Marque sessões recorrentes</p>
+                                  </div>
+                              </div>
                               <button 
-                                onClick={() => setFormData({...formData, is_all_day: !formData.is_all_day, duration_minutes: !formData.is_all_day ? 1440 : 50})}
-                                className={`w-10 h-5 rounded-full transition-all relative ${formData.is_all_day ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                type="button"
+                                onClick={() => setIsRecurrenceModalOpen(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-100 rounded-xl font-black text-indigo-600 uppercase text-[9px] hover:bg-indigo-50 transition-all shadow-sm group/btn"
                               >
-                                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.is_all_day ? 'left-6' : 'left-1'}`}></div>
+                                {formData.recurrence_rule ? (
+                                    <>
+                                        {recurrenceOptions.find(o => o.freq === formData.recurrence_freq && o.interval === formData.recurrence_interval)?.label || 'Personalizado'}
+                                        <div className="w-1 h-3 bg-indigo-200 rounded-full mx-1"></div>
+                                        {formData.recurrence_count ? `${formData.recurrence_count}x` : formData.recurrence_end_date ? 'Até data' : ''}
+                                    </>
+                                ) : 'Não Repete'}
+                                <ChevronRight size={12} className="group-hover/btn:translate-x-0.5 transition-transform" />
                               </button>
                           </div>
-                      )}
+                      </div>
                   </div>
               </div>
 
               {formData.modality === 'online' && (
-                  <div className="bg-indigo-600 p-4 rounded-2xl text-white animate-slideIn flex items-center gap-4">
-                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                          <Video size={20}/>
+                  <div className="bg-slate-900 p-5 rounded-3xl text-white animate-slideIn flex items-center gap-5 shadow-2xl relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
+                      <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-indigo-400 border border-white/10 shadow-inner">
+                          <Video size={24}/>
                       </div>
                       <div className="flex-1">
-                          <Input 
-                            label="" 
-                            placeholder="Link da vídeo chamada (Google Meet, Zoom...)" 
+                          <label className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1.5 block">Link da Sala Virtual</label>
+                          <input 
+                            placeholder="Link do Google Meet, Zoom ou Internal Room..." 
                             value={formData.meeting_url || ''} 
                             onChange={e => setFormData({...formData, meeting_url: e.target.value})}
-                            className="!bg-white/10 !border-white/20 !text-white !placeholder:text-indigo-200"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white placeholder:text-slate-500 outline-none focus:bg-white/10 focus:border-indigo-500 transition-all"
                           />
                       </div>
                   </div>
               )}
               
-              <TextArea 
-                label="Observações do Atendimento" 
-                placeholder="Ex: Paciente relatou ansiedade leve sobre o novo emprego..." 
-                value={formData.notes || ''} 
-                onChange={e => setFormData({...formData, notes: e.target.value})}
-                className="min-h-[80px]"
-              />
+              <div className="space-y-3">
+                  <div className="flex items-center gap-2 ml-1">
+                      <div className="w-1.5 h-4 bg-slate-300 rounded-full"></div>
+                      <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Observações e Histórico</h4>
+                  </div>
+                  <TextArea 
+                    placeholder="Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes..." 
+                    value={formData.notes || ''} 
+                    onChange={e => setFormData({...formData, notes: e.target.value})}
+                    className="min-h-[100px] !rounded-3xl border-slate-200"
+                  />
+              </div>
 
               {formData.id && (
-                <div className="bg-amber-50/50 p-4 rounded-2xl border border-dashed border-amber-200">
-                  <TextArea 
-                    label="Motivo do Reagendamento / Alteração" 
-                    placeholder="Opcional: Por que o horário ou status foi alterado?" 
-                    value={formData.reschedule_reason || ''} 
-                    onChange={e => setFormData({...formData, reschedule_reason: e.target.value})}
-                    className="!bg-transparent !border-none !p-0 min-h-[60px]"
-                  />
+                <div className="bg-amber-50/30 p-5 rounded-3xl border border-dashed border-amber-200/50 flex flex-col gap-3">
+                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest ml-1">Motivo da Alteração / Reagendamento</p>
+                    <TextArea 
+                        placeholder="Por que este atendimento foi alterado? (Opcional)" 
+                        value={formData.reschedule_reason || ''} 
+                        onChange={e => setFormData({...formData, reschedule_reason: e.target.value})}
+                        className="!bg-transparent !border-none !p-0 min-h-[60px] text-amber-700 placeholder:text-amber-300"
+                    />
                 </div>
               )}
           </div>
@@ -1005,19 +1053,194 @@ export const Agenda: React.FC = () => {
       {/* DELETE CONFIRM */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-           <div className="bg-white rounded-[3rem] p-12 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
-              <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-rose-100 shadow-lg">
-                <AlertCircle size={48} />
+           <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-lg shadow-rose-500/10">
+                <AlertCircle size={32} />
               </div>
-              <h3 className="text-2xl font-black text-slate-800 mb-4 tracking-tight">Remover Atendimento?</h3>
-              <p className="text-sm font-bold text-slate-400 mb-10 leading-relaxed">Deseja remover este compromisso permanentemente? Esta ação não pode ser desfeita.</p>
-              <div className="flex flex-col gap-4">
-                 <button onClick={async () => { await api.delete(`/appointments/${formData.id}`); fetchData(); setIsModalOpen(false); setIsDeleteModalOpen(false); pushToast('success', 'Agendamento removido.'); }} className="w-full py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest shadow-xl transition-all">REMOVER SESSÃO</button>
-                 <button onClick={() => setIsDeleteModalOpen(false)} className="w-full py-4 text-slate-400 hover:text-slate-600 text-[11px] font-black uppercase tracking-widest transition-all">MANTER NA AGENDA</button>
+              <h3 className="text-xl font-black text-slate-800 mb-2 tracking-tight">Remover Atendimento?</h3>
+              <p className="text-[12px] font-bold text-slate-400 mb-8 leading-relaxed">Deseja remover este compromisso permanentemente? Esta ação não pode ser desfeita.</p>
+              <div className="flex flex-col gap-3">
+                 <button onClick={async () => { await api.delete(`/appointments/${formData.id}`); fetchData(); setIsModalOpen(false); setIsDeleteModalOpen(false); pushToast('success', 'Agendamento removido.'); }} className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95">REMOVER SESSÃO</button>
+                 <button onClick={() => setIsDeleteModalOpen(false)} className="w-full py-3 text-slate-400 hover:text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all">MANTER NA AGENDA</button>
               </div>
            </div>
         </div>
       )}
+      {/* RECURRENCE SELECTION MODAL */}
+      <Modal 
+        isOpen={isRecurrenceModalOpen} 
+        onClose={() => setIsRecurrenceModalOpen(false)}
+        title="Seleção Atual"
+        subtitle="Escolha uma opção abaixo para mudar a seleção"
+        maxWidth="md"
+      >
+        <div className="space-y-1">
+            <div className="flex items-center gap-3 p-4 mb-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                <div className="p-2 bg-white rounded-lg text-indigo-500 shadow-sm border border-indigo-200">
+                    <Repeat size={18} />
+                </div>
+                <div className="flex-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Opção Atual</p>
+                    <p className="font-bold text-indigo-900">
+                        {formData.recurrence_rule ? (
+                            recurrenceOptions.find(o => o.freq === formData.recurrence_freq && o.interval === formData.recurrence_interval)?.label || 'Personalizado'
+                        ) : 'Não Repete'}
+                    </p>
+                </div>
+            </div>
+
+            <p className="text-[10px] font-bold text-indigo-500 mb-4 px-2 italic leading-relaxed">
+               Dica: Escolha repetição semanal caso queira que sempre caia no mesmo dia da semana
+            </p>
+
+            <div className="max-h-[350px] overflow-y-auto pr-2 space-y-1 custom-scrollbar">
+                {recurrenceOptions.map((opt, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                          setTempRecurrence({
+                              freq: opt.freq,
+                              interval: opt.interval,
+                              endType: formData.recurrence_count ? 'count' : 'until',
+                              endValue: formData.recurrence_count || formData.recurrence_end_date || 1
+                          });
+                          setIsRecurrenceModalOpen(false);
+                          if (opt.freq) {
+                              setIsRecurrenceConfigOpen(true);
+                          } else {
+                              setFormData({
+                                  ...formData,
+                                  recurrence_rule: null,
+                                  recurrence_freq: '',
+                                  recurrence_interval: 1,
+                                  recurrence_count: '',
+                                  recurrence_end_date: ''
+                              });
+                          }
+                      }}
+                      className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
+                    >
+                        <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{opt.label}</span>
+                        <ChevronRight size={16} className="text-slate-300 group-hover:translate-x-1 transition-all" />
+                    </button>
+                ))}
+            </div>
+        </div>
+      </Modal>
+
+      {/* RECURRENCE CONFIG MODAL */}
+      <Modal
+        isOpen={isRecurrenceConfigOpen}
+        onClose={() => setIsRecurrenceConfigOpen(false)}
+        title={`Repete ${recurrenceOptions.find(o => o.freq === tempRecurrence.freq && o.interval === tempRecurrence.interval)?.label.toLowerCase() || 'Personalizado'},`}
+        maxWidth="md"
+        footer={(
+            <div className="flex justify-end gap-2 w-full">
+                <Button variant="ghost" onClick={() => { setIsRecurrenceConfigOpen(false); setIsRecurrenceModalOpen(true); }} className="!text-[10px] !font-black !tracking-widest">VOLTAR</Button>
+                <Button 
+                    variant="primary" 
+                    className="!bg-purple-700 hover:!bg-purple-800 !text-[10px] !font-black !tracking-widest"
+                    onClick={() => {
+                        setFormData({
+                            ...formData,
+                            recurrence_rule: 'custom',
+                            recurrence_freq: tempRecurrence.freq,
+                            recurrence_interval: tempRecurrence.interval,
+                            recurrence_count: tempRecurrence.endType === 'count' ? tempRecurrence.endValue : '',
+                            recurrence_end_date: tempRecurrence.endType === 'until' ? tempRecurrence.endValue : ''
+                        });
+                        setIsRecurrenceConfigOpen(false);
+                    }}
+                >
+                    SALVAR
+                </Button>
+            </div>
+        )}
+      >
+          <div className="space-y-10 py-4 animate-fadeIn">
+              <div className="flex items-center gap-8">
+                  <div className="w-24 text-right">
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Repete</label>
+                  </div>
+                  <div className="flex-1">
+                      <select 
+                        value={tempRecurrence.freq} 
+                        onChange={e => setTempRecurrence({...tempRecurrence, freq: e.target.value})}
+                        className="w-full bg-slate-50 border-none border-b-2 border-slate-200 focus:border-purple-600 transition-all font-black text-slate-700 text-sm outline-none px-0 py-2"
+                      >
+                          <option value="DAILY">Diariamente</option>
+                          <option value="WEEKLY">Semanalmente</option>
+                          <option value="MONTHLY">Mensalmente</option>
+                          <option value="YEARLY">Anualmente</option>
+                      </select>
+                  </div>
+              </div>
+
+              <div className="flex items-center gap-8">
+                   <div className="w-24 text-right">
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest">A cada</label>
+                  </div>
+                  <div className="flex-1 flex items-end gap-3 pb-2 border-b-2 border-slate-200">
+                    <input 
+                      type="number"
+                      className="w-full bg-transparent font-black text-slate-700 text-sm outline-none"
+                      value={tempRecurrence.interval}
+                      onChange={e => setTempRecurrence({...tempRecurrence, interval: parseInt(e.target.value) || 1})}
+                    />
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                        {tempRecurrence.freq === 'DAILY' ? 'dia(s)' : tempRecurrence.freq === 'WEEKLY' ? 'semana(s)' : tempRecurrence.freq === 'MONTHLY' ? 'mês(es)' : 'ano(s)'}
+                    </span>
+                  </div>
+              </div>
+
+              <div className="space-y-8">
+                  <div className="flex items-center gap-6 pl-32">
+                      <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setTempRecurrence({...tempRecurrence, endType: 'count'})}>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${tempRecurrence.endType === 'count' ? 'border-purple-600 bg-purple-600 shadow-lg shadow-purple-100' : 'border-slate-200 group-hover:border-purple-300'}`}>
+                              {tempRecurrence.endType === 'count' && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
+                          </div>
+                          <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${tempRecurrence.endType === 'count' ? 'text-purple-700' : 'text-slate-400'}`}>Por vezes</span>
+                      </div>
+
+                      <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setTempRecurrence({...tempRecurrence, endType: 'until'})}>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${tempRecurrence.endType === 'until' ? 'border-purple-600 bg-purple-600 shadow-lg shadow-purple-100' : 'border-slate-200 group-hover:border-purple-300'}`}>
+                              {tempRecurrence.endType === 'until' && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
+                          </div>
+                          <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${tempRecurrence.endType === 'until' ? 'text-purple-700' : 'text-slate-400'}`}>Por Data</span>
+                      </div>
+                  </div>
+
+                  <div className="flex items-center gap-8">
+                      <div className="w-24 text-right">
+                        <label className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] leading-tight">
+                            {tempRecurrence.endType === 'count' ? 'número de repetições' : 'escolha a data final'}
+                        </label>
+                      </div>
+                      <div className="flex-1 flex items-end gap-3 border-b-2 border-slate-200 pb-2">
+                        {tempRecurrence.endType === 'count' ? (
+                            <input 
+                                type="number"
+                                className="w-full bg-transparent font-black text-slate-700 text-sm outline-none"
+                                value={tempRecurrence.endValue}
+                                onChange={e => setTempRecurrence({...tempRecurrence, endValue: parseInt(e.target.value) || 1})}
+                            />
+                        ) : (
+                            <input 
+                                type="date"
+                                className="w-full bg-transparent font-black text-slate-700 text-sm outline-none"
+                                value={typeof tempRecurrence.endValue === 'string' ? tempRecurrence.endValue : ''}
+                                onChange={e => setTempRecurrence({...tempRecurrence, endValue: e.target.value})}
+                            />
+                        )}
+                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                            {tempRecurrence.endType === 'count' ? 'vezes' : ''}
+                        </span>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </Modal>
+
     </div>
   );
 };

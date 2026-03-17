@@ -184,15 +184,15 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
         )}
 
         {/* Filtros (Scroll Horizontal) */}
-        <div className="px-4 sm:px-6 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto custom-scrollbar shrink-0 bg-white shadow-sm z-10">
+        <div className="px-4 sm:px-6 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto custom-scrollbar shrink-0 bg-white z-10">
           {FILTER_OPTIONS(t).map(f => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+              className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
                 filter === f.id 
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 ring-2 ring-indigo-50' 
+                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-white hover:text-slate-600 hover:border-slate-300'
               }`}
             >
               {f.label}
@@ -239,63 +239,68 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                       return (
                         <div key={item.id} className="relative pl-10 sm:pl-12 group">
                           {/* Ícone Redondo */}
-                          <div className={`absolute left-0 top-3 w-8 h-8 rounded-full ${cfg.bg} ${cfg.text} flex items-center justify-center border-4 border-white shadow-sm z-10 transition-transform group-hover:scale-110`}>
+                          <div className={`absolute left-0 top-3 w-8 h-8 rounded-xl ${cfg.bg} ${cfg.text} flex items-center justify-center border-2 border-white shadow-sm z-10 transition-transform group-hover:scale-110`}>
                             {cfg.icon}
                           </div>
                           
                           {/* Cartão de Conteúdo */}
-                          <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all group/card">
+                            <div className="flex flex-col gap-4">
                               
-                              {/* Lado Esquerdo (Info) */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                  <h5 className="text-sm font-semibold text-slate-800">{item.title}</h5>
-                                  {st && (
-                                    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${st.color}`}>
-                                      {st.icon} {st.label}
-                                    </span>
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <h5 className="text-sm font-extrabold text-slate-900 group-hover/card:text-indigo-600 transition-colors">{item.title}</h5>
+                                    <div className="flex items-center gap-1.5">
+                                      {st && (
+                                        <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${st.color}`}>
+                                          {st.icon} {st.label}
+                                        </span>
+                                      )}
+                                      <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">#{cfg.label}</span>
+                                    </div>
+                                  </div>
+                                  
+                                  {item.subtitle && (
+                                    <p className="text-[10px] font-extrabold text-indigo-500 uppercase tracking-widest">{item.subtitle}</p>
                                   )}
                                 </div>
-                                
-                                {item.subtitle && (
-                                  <p className="text-xs font-medium text-indigo-600 mb-2">{item.subtitle}</p>
-                                )}
-                                
-                                {item.preview && (
-                                  <div className="text-sm text-slate-600 bg-slate-50/80 p-3 rounded-lg border border-slate-100 mt-2 mb-2 line-clamp-3">
-                                    {item.preview}
-                                  </div>
-                                )}
-                                
-                                {item.notes && (
-                                  <p className="text-[10px] font-bold text-slate-400 italic flex items-start gap-1.5 mt-2">
-                                      <Info size={12} className="shrink-0 mt-0.5"/> 
-                                      <span>{item.notes}</span>
-                                  </p>
-                                )}
 
-                                {item.reschedule_reason && (
-                                  <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-100 border-dashed">
-                                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Motivo do Reagendamento</p>
-                                    <p className="text-xs font-bold text-amber-700 leading-relaxed italic">{item.reschedule_reason}</p>
-                                  </div>
-                                )}
+                                <div className="shrink-0 text-right">
+                                    <div className="text-xs font-black text-slate-800 uppercase tracking-tighter">{formatTime(item.date)}</div>
+                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{formatDate(item.date)}</div>
+                                </div>
                               </div>
 
-                              {/* Lado Direito (Valores e Datas) */}
-                              <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start shrink-0 border-t sm:border-t-0 border-slate-100 pt-3 sm:pt-0 mt-2 sm:mt-0">
-                                {item.amount != null && (
-                                  <div className={`text-sm font-semibold mb-0 sm:mb-1 ${item.financeType === 'income' ? 'text-emerald-600' : 'text-rose-600'} flex items-center gap-1`}>
+                              {item.preview && (
+                                <div className="text-[13px] text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100/50 leading-relaxed font-medium">
+                                  {item.preview}
+                                </div>
+                              )}
+
+                              {item.amount != null && (
+                                <div className="flex items-center justify-between bg-white border border-slate-100 p-3 rounded-xl shadow-sm">
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor da Operação</span>
+                                  <div className={`text-sm font-black ${item.financeType === 'income' ? 'text-emerald-600' : 'text-rose-600'} flex items-center gap-1.5`}>
                                     {item.financeType === 'income' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                                     {formatMoney(item.amount)}
                                   </div>
-                                )}
-                                <div className="text-right">
-                                    <div className="text-sm font-medium text-slate-700">{formatTime(item.date)}</div>
-                                    <div className="text-xs text-slate-500">{formatDate(item.date)}</div>
                                 </div>
-                              </div>
+                              )}
+                              
+                              {item.notes && (
+                                <p className="text-[10px] font-bold text-slate-400 italic flex items-start gap-2 bg-slate-50/30 p-2 rounded-lg">
+                                    <Info size={12} className="shrink-0 mt-0.5 text-indigo-400"/> 
+                                    <span>{item.notes}</span>
+                                </p>
+                              )}
+
+                              {item.reschedule_reason && (
+                                <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-100 border-dashed">
+                                  <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Motivo do Reagendamento</p>
+                                  <p className="text-xs font-bold text-amber-700 leading-relaxed italic opacity-80">{item.reschedule_reason}</p>
+                                </div>
+                              )}
 
                             </div>
                           </div>

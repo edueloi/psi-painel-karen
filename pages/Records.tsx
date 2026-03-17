@@ -3,7 +3,8 @@ import { ClinicalRecord, Patient } from '../types';
 import { api } from '../services/api';
 import { 
   Search, Plus, User, 
-  X, ArrowLeft, Loader2, Tag, Filter, FileText, Paperclip, Trash2
+  X, ArrowLeft, Loader2, Tag, Filter, FileText, Paperclip, Trash2,
+  Calendar, ChevronRight, Link, Info, Save
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
@@ -15,6 +16,45 @@ type RecordAttachment = {
   file_type?: string;
   file_size?: number | null;
 };
+
+const SectionCard: React.FC<{
+    title: string;
+    subtitle?: string;
+    icon?: React.ReactNode;
+    right?: React.ReactNode;
+    children: React.ReactNode;
+    className?: string;
+  }> = ({ title, subtitle, icon, right, children, className }) => (
+    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden ${className}`}>
+      <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {icon}
+            <h3 className="font-extrabold text-slate-900">{title}</h3>
+          </div>
+          {subtitle && <p className="text-xs font-bold text-slate-400 mt-0.5">{subtitle}</p>}
+        </div>
+        {right}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+
+  const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
+    const v = (status || '').toLowerCase();
+    const isFinal = v === 'finalizado' || v === 'final';
+    return (
+      <span
+        className={[
+          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide border',
+          isFinal ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100',
+        ].join(' ')}
+      >
+        <span className={['h-1.5 w-1.5 rounded-full', isFinal ? 'bg-indigo-600' : 'bg-amber-500'].join(' ')} />
+        {status}
+      </span>
+    );
+  };
 
 export const Records: React.FC = () => {
   const { t } = useLanguage();
@@ -427,24 +467,48 @@ export const Records: React.FC = () => {
     <div className="h-[calc(100vh-6rem)] flex flex-col md:flex-row bg-white rounded-[24px] border border-slate-200 shadow-xl overflow-hidden animate-fadeIn">
       
       <div className={`w-full md:w-80 lg:w-96 bg-slate-50 border-r border-slate-200 flex flex-col transition-all ${isMobileListVisible ? 'flex' : 'hidden md:flex'}`}>
-          <div className="p-4 border-b border-slate-200 bg-white sticky top-0 z-10">
-              <h2 className="text-lg font-display font-bold text-slate-800 mb-3 flex items-center gap-2"><User size={20} className="text-indigo-600" /> {t('records.title')}</h2>
+          <div className="p-5 border-b border-slate-200 bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100">
+                    <User size={16} className="text-white" /> 
+                </div>
+                <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest">{t('records.title')}</h2>
+              </div>
               <div className="relative group">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-indigo-500 transition-colors" />
-                  <input type="text" placeholder={t('records.search')} className="w-full pl-9 pr-4 py-2.5 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                  <input 
+                    type="text" 
+                    placeholder={t('records.search')} 
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-100 outline-none transition-all" 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                  />
               </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
               {isLoading ? (
                   <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-indigo-400" /></div>
               ) : filteredPatients.map(patient => {
                   const pid = String(patient.id);
                   const isSelected = selectedPatientId === pid;
                   return (
-                  <button key={pid} onClick={() => handlePatientSelect(pid)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 ${isSelected ? 'bg-white/20 border-white/20' : 'bg-slate-200 border-white text-slate-500'}`}>{(patient.full_name || '?').charAt(0)}</div>
-                      <div className="flex-1 min-w-0"><p className="font-bold text-sm truncate">{patient.full_name}</p><p className={`text-[10px] uppercase font-bold ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>{patient.status}</p></div>
+                  <button 
+                    key={pid} 
+                    onClick={() => handlePatientSelect(pid)} 
+                    className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group ${isSelected ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 ring-2 ring-indigo-50' : 'hover:bg-white hover:shadow-sm text-slate-600 hover:border-slate-300 border border-transparent'}`}
+                  >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 shadow-sm transition-transform group-hover:scale-105 ${isSelected ? 'bg-white/20 text-white' : 'bg-white text-slate-500 border border-slate-100'}`}>
+                        {(patient.full_name || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-extrabold text-sm truncate ${isSelected ? 'text-white' : 'text-slate-800'}`}>
+                            {patient.full_name}
+                        </p>
+                        <p className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>
+                            {patient.status}
+                        </p>
+                      </div>
                   </button>
               )})}
           </div>
@@ -453,22 +517,38 @@ export const Records: React.FC = () => {
       <div className={`flex-1 flex flex-col bg-slate-50/30 relative ${!isMobileListVisible ? 'flex' : 'hidden md:flex'}`}>
           {selectedPatient ? (
               <>
-                  <div className="bg-white border-b border-slate-200 p-4 shadow-sm z-10 flex flex-col gap-4">
+                  <div className="bg-white border-b border-slate-200 p-6 z-10 flex flex-col gap-6">
                       <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                              <button onClick={() => setIsMobileListVisible(true)} className="md:hidden p-2 -ml-2 text-slate-500"><ArrowLeft size={20} /></button>
-                              <div className="flex items-center gap-3">
-                                  <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-lg font-bold text-slate-600 border-2 border-white shadow-sm">{(selectedPatient.full_name || '?').charAt(0)}</div>
-                                  <div><h2 className="text-xl font-display font-bold text-slate-800 leading-none">{selectedPatient.full_name}</h2><p className="text-xs text-slate-400 mt-1">{(selectedPatient.status || '').toUpperCase()}</p></div>
+                          <div className="flex items-center gap-5">
+                              <button onClick={() => setIsMobileListVisible(true)} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"><ArrowLeft size={20} /></button>
+                              <div className="flex items-center gap-4">
+                                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-xl font-black text-indigo-600 border border-indigo-100 shadow-sm transition-transform hover:scale-105">
+                                    {(selectedPatient.full_name || '?').charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <h2 className="text-xl font-extrabold text-slate-900 leading-none">{selectedPatient.full_name}</h2>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${selectedPatient.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${selectedPatient.status === 'ativo' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                            {selectedPatient.status}
+                                        </span>
+                                    </div>
+                                  </div>
                               </div>
                           </div>
-                          <button onClick={handleNewRecord} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg"><Plus size={18} /> {t('records.new')}</button>
+                          <button onClick={handleNewRecord} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-extrabold text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95"><Plus size={16} /> {t('records.new')}</button>
                       </div>
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                          <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
-                              <span className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full"><FileText size={14} /> {recordStats.total} registros</span>
+                      
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                          <div className="flex flex-wrap items-center gap-4">
+                              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-4 py-2 rounded-xl">
+                                <FileText size={14} className="text-indigo-500" /> 
+                                <span className="text-xs font-extrabold text-slate-700 uppercase tracking-widest">{recordStats.total} {t('nav.records')}</span>
+                              </div>
                               {recordStats.lastDate && (
-                                  <span className="bg-slate-100 px-3 py-1.5 rounded-full">Última atualização: {new Date(recordStats.lastDate).toLocaleDateString()}</span>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    Atualizado em {new Date(recordStats.lastDate).toLocaleDateString()}
+                                  </div>
                               )}
                           </div>
                           <div className="flex flex-col sm:flex-row gap-3">
@@ -476,8 +556,8 @@ export const Records: React.FC = () => {
                                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
                                   <input
                                     type="text"
-                                    placeholder="Buscar registro..."
-                                    className="w-full sm:w-56 pl-9 pr-3 py-2 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                    placeholder="Buscar no histórico..."
+                                    className="w-full sm:w-64 pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all outline-none"
                                     value={recordSearch}
                                     onChange={e => setRecordSearch(e.target.value)}
                                   />
@@ -485,45 +565,60 @@ export const Records: React.FC = () => {
                               <div className="relative">
                                   <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
                                   <select
-                                    className="w-full sm:w-44 pl-9 pr-3 py-2 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                    className="w-full sm:w-48 pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all outline-none appearance-none cursor-pointer"
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value as 'all' | 'draft' | 'final')}
                                   >
-                                      <option value="all">Todos</option>
-                                      <option value="draft">Rascunho</option>
-                                      <option value="final">Finalizado</option>
+                                      <option value="all">TODOS OS STATUS</option>
+                                      <option value="draft">RASCUNHOS</option>
+                                      <option value="final">FINALIZADOS</option>
                                   </select>
                               </div>
                           </div>
                       </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-                      <div className="relative space-y-8 pl-4 md:pl-8 before:absolute before:left-[19px] md:before:left-[35px] before:top-0 before:h-full before:w-0.5 before:bg-slate-200/80">
+                  <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
+                      <div className="max-w-4xl mx-auto relative space-y-10 pl-6 md:pl-10 before:absolute before:left-[19px] md:before:left-[35px] before:top-2 before:h-full before:w-0.5 before:bg-slate-200/60 before:rounded-full">
                           {filteredRecords.map((record) => (
-                              <div key={record.id} className="relative group animate-[slideUpFade_0.3s_ease-out]">
-                                  <div className={`absolute -left-[27px] md:-left-[43px] top-6 w-4 h-4 rounded-full border-4 border-white shadow-sm z-10 ${record.status === 'Finalizado' ? 'bg-indigo-600' : 'bg-amber-400'}`}></div>
+                              <div key={record.id} className="relative group animate-[slideUpFade_0.3s_source-out]">
+                                  <div className={`absolute -left-[31px] md:-left-[47px] top-6 w-5 h-5 rounded-full border-[4px] border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${record.status === 'Finalizado' ? 'bg-indigo-600' : 'bg-amber-400'}`}></div>
+                                  
                                   <div
-                                    className="bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                                    className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all cursor-pointer group/card"
                                     onClick={() => handleOpenRecord(record.id)}
                                   >
-                                      <div className="flex items-start justify-between gap-3">
-                                          <div>
-                                              <h3 className="font-bold text-slate-800 text-base">{record.title}</h3>
-                                              <p className="text-xs text-slate-500">{new Date(record.date).toLocaleString()}</p>
+                                      <div className="flex items-start justify-between gap-4 mb-4">
+                                          <div className="min-w-0">
+                                              <h3 className="font-extrabold text-slate-900 text-base group-hover/card:text-indigo-600 transition-colors">{record.title}</h3>
+                                              <div className="flex items-center gap-2 mt-1">
+                                                <Calendar size={12} className="text-slate-400" />
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(record.date).toLocaleString()}</span>
+                                              </div>
                                           </div>
-                                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase">
-                                              <span className="px-2 py-1 rounded-full border border-slate-200 text-slate-500">{recordTypeLabel[record.type] || record.type}</span>
-                                              <span className={`px-2 py-1 rounded-full border ${record.status === 'Finalizado' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{record.status}</span>
+                                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                              <span className="px-3 py-1 rounded-full bg-slate-50 border border-slate-100 text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">{recordTypeLabel[record.type] || record.type}</span>
+                                              <StatusBadge status={record.status} />
                                           </div>
                                       </div>
-                                      <div className="prose prose-sm max-w-none text-slate-600 mb-4 mt-3 line-clamp-3">{record.preview}</div>
-                                      {record.tags && record.tags.length > 0 && (
+                                      
+                                      <div className="prose prose-sm max-w-none text-slate-600 mb-5 line-clamp-3 leading-relaxed font-medium">
+                                        {record.preview || 'Sem conteúdo...'}
+                                      </div>
+                                      
+                                      <div className="flex items-center justify-between border-t border-slate-50 pt-4">
                                           <div className="flex flex-wrap gap-2">
-                                              {record.tags.map(tag => (
-                                                  <span key={tag} className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{tag}</span>
-                                              ))}
+                                              {record.tags && record.tags.length > 0 ? (
+                                                record.tags.map(tag => (
+                                                    <span key={tag} className="text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-500 px-2.5 py-1 rounded-lg border border-indigo-100/50">#{tag}</span>
+                                                ))
+                                              ) : (
+                                                <span className="text-[10px] font-bold text-slate-300 italic uppercase tracking-widest">Sem tags</span>
+                                              )}
                                           </div>
-                                      )}
+                                          <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0">
+                                            Acessar Detalhes <ChevronRight size={14} />
+                                          </div>
+                                      </div>
                                   </div>
                               </div>
                           ))}
@@ -536,15 +631,15 @@ export const Records: React.FC = () => {
                   </div>
               </>
           ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center p-8">
-                  <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4 border border-indigo-100">
-                      <FileText size={28} className="text-indigo-300" />
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center p-8 bg-slate-50/50">
+                      <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-6 border border-slate-100 shadow-sm transition-transform hover:scale-105 active:scale-95">
+                          <FileText size={32} className="text-indigo-400" />
+                      </div>
+                      <h2 className="text-base font-extrabold text-slate-800 uppercase tracking-widest">{t('records.select')}</h2>
+                      <p className="text-[12px] font-bold max-w-xs text-slate-400 mt-2 uppercase tracking-wide">{t('records.selectDesc')}</p>
                   </div>
-                  <h2 className="text-lg font-bold text-slate-600 mb-1">{t('records.select')}</h2>
-                  <p className="text-sm max-w-xs text-slate-400">{t('records.selectDesc')}</p>
-              </div>
-          )}
-      </div>
+              )}
+          </div>
 
       {isEditorOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
@@ -558,21 +653,21 @@ export const Records: React.FC = () => {
                       </div>
                       <button onClick={() => setIsEditorOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><X size={18}/></button>
                   </div>
-                  <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/50 grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Título</label>
+                  <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50 flex flex-wrap gap-4">
+                      <div className="flex-1 min-w-[200px]">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Título do Registro</label>
                           <input
                             type="text"
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
+                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-slate-700 transition-all"
                             value={currentRecord.title || ''}
                             onChange={e => setCurrentRecord({ ...currentRecord, title: e.target.value })}
                             placeholder="Ex: Sessão de acompanhamento"
                           />
                       </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo</label>
+                      <div className="w-full md:w-48">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Documento</label>
                           <select
-                            className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
+                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-slate-700 transition-all appearance-none cursor-pointer"
                             value={currentRecord.type || 'Evolucao'}
                             onChange={e => setCurrentRecord({ ...currentRecord, type: e.target.value })}
                           >
@@ -584,10 +679,10 @@ export const Records: React.FC = () => {
                               <option value="Relatorio">Relatório</option>
                           </select>
                       </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+                      <div className="w-full md:w-36">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status</label>
                           <select
-                            className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
+                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-slate-700 transition-all appearance-none cursor-pointer"
                             value={currentRecord.status || 'Rascunho'}
                             onChange={e => setCurrentRecord({ ...currentRecord, status: e.target.value })}
                           >
@@ -595,230 +690,141 @@ export const Records: React.FC = () => {
                               <option value="Finalizado">Finalizado</option>
                           </select>
                       </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tags</label>
+                      <div className="flex-1 min-w-[200px]">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Tags (separadas por vírgula)</label>
                           <div className="relative">
-                              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+                              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
                               <input
                                 type="text"
-                                className="w-full pl-9 pr-3 py-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
+                                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-slate-700 transition-all"
                                 value={tagInput}
                                 onChange={e => setTagInput(e.target.value)}
                                 placeholder="Ansiedade, TCC, Emocional"
                               />
                           </div>
                       </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto">
-                      <div className="px-5 md:px-6 pt-5 space-y-5">
-                          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500 uppercase">
-                              <span>Editor</span>
-                              <div className="flex flex-wrap gap-2">
-                                  <button
+                            <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 space-y-8">
+                          <div className="flex flex-wrap items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl shadow-sm sticky top-0 z-10">
+                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mr-2">Estilos</div>
+                              {[
+                                { cmd: 'bold', label: 'B', cls: 'font-black' },
+                                { cmd: 'italic', label: 'I', cls: 'italic' },
+                                { cmd: 'underline', label: 'U', cls: 'underline' },
+                                { cmd: 'formatBlock', val: 'H2', label: 'H2', cls: 'font-black' },
+                                { cmd: 'insertUnorderedList', label: '• List', cls: '' },
+                                { cmd: 'insertOrderedList', label: '1. List', cls: '' },
+                              ].map(btn => (
+                                <button
+                                    key={btn.cmd + (btn.val || '')}
                                     onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => execCommand('bold')}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
-                                  >
-                                    Negrito
-                                  </button>
-                                  <button
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => execCommand('italic')}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
-                                  >
-                                    Itálico
-                                  </button>
-                                  <button
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => execCommand('underline')}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
-                                  >
-                                    Sublinhado
-                                  </button>
-                                  <button
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => execCommand('formatBlock', 'H2')}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
-                                  >
-                                    Título
-                                  </button>
-                                  <button
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => execCommand('insertUnorderedList')}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
-                                  >
-                                    Topicos
-                                  </button>
-                                  <button
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => execCommand('insertOrderedList')}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
-                                  >
-                                    Numerado
-                                  </button>
-                                  <button
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={handleInsertLink}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600"
-                                  >
-                                    Link
-                                  </button>
-                              </div>
-                          </div>
-
-                          {getVisibleSections(currentRecord.type).includes('demand') ? (
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Descrição da demanda</label>
-                                <div
-                                className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
-                                contentEditable
-                                suppressContentEditableWarning
-                                onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
-                                onMouseUp={storeSelection}
-                                onKeyUp={storeSelection}
-                                onInput={(e) => updateSection('demand', (e.currentTarget as HTMLDivElement).innerHTML)}
-                                dangerouslySetInnerHTML={{ __html: editorSections.demand }}
-                              />
-                            </div>
-                          ) : null}
-
-                          {getVisibleSections(currentRecord.type).includes('procedures') ? (
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Procedimentos</label>
-                                <div
-                                className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
-                                contentEditable
-                                suppressContentEditableWarning
-                                onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
-                                onMouseUp={storeSelection}
-                                onKeyUp={storeSelection}
-                                onInput={(e) => updateSection('procedures', (e.currentTarget as HTMLDivElement).innerHTML)}
-                                dangerouslySetInnerHTML={{ __html: editorSections.procedures }}
-                              />
-                            </div>
-                          ) : null}
-
-                          {getVisibleSections(currentRecord.type).includes('analysis') ? (
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Análise e conclusão</label>
-                                <div
-                                className="min-h-[160px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
-                                contentEditable
-                                suppressContentEditableWarning
-                                onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
-                                onMouseUp={storeSelection}
-                                onKeyUp={storeSelection}
-                                onInput={(e) => updateSection('analysis', (e.currentTarget as HTMLDivElement).innerHTML)}
-                                dangerouslySetInnerHTML={{ __html: editorSections.analysis }}
-                              />
-                            </div>
-                          ) : null}
-
-                          {getVisibleSections(currentRecord.type).includes('free') ? (
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Texto livre</label>
-                                <div
-                                className="min-h-[120px] p-4 rounded-2xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-4 focus:ring-indigo-100"
-                                contentEditable
-                                suppressContentEditableWarning
-                                onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
-                                onMouseUp={storeSelection}
-                                onKeyUp={storeSelection}
-                                onInput={(e) => updateSection('free', (e.currentTarget as HTMLDivElement).innerHTML)}
-                                dangerouslySetInnerHTML={{ __html: editorSections.free }}
-                              />
-                            </div>
-                          ) : null}
-                      </div>
-                      <div className="px-5 md:px-6 pb-6">
-                          <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">
-                                  <Paperclip size={14} /> Anexos
-                              </div>
-                              <div className="flex items-center gap-2">
-                                  <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    className="hidden"
-                                    multiple
-                                    onChange={handleFileSelect}
-                                  />
-                                  <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="px-3 py-1.5 text-[11px] font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60"
-                                    disabled={isUploading}
-                                  >
-                                      {isUploading ? 'Enviando...' : 'Selecionar arquivo'}
-                                  </button>
-                              </div>
-                          </div>
-                          {uploadError && <div className="text-xs text-red-600 mb-2">{uploadError}</div>}
-                          <div className="space-y-3">
-                              {(currentRecord.attachments || []).map((att, idx) => (
-                                  <div key={`${att.file_url}-${idx}`} className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm">
-                                      <div className="min-w-0">
-                                          <div className="font-bold text-slate-700 truncate">{att.file_name}</div>
-                                          <div className="text-xs text-slate-500 truncate">{att.file_url}</div>
-                                          {(att.file_type || att.file_size) && (
-                                              <div className="text-[11px] text-slate-400">
-                                                  {att.file_type || 'arquivo'}{att.file_size ? ` · ${att.file_size} bytes` : ''}
-                                              </div>
-                                          )}
-                                      </div>
-                                      <button
-                                        onClick={() => handleRemoveAttachment(idx)}
-                                        className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
-                                      >
-                                          <Trash2 size={14} />
-                                      </button>
-                                  </div>
+                                    onClick={() => execCommand(btn.cmd, btn.val)}
+                                    className={`px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all border border-slate-100 ${btn.cls}`}
+                                >
+                                    {btn.label}
+                                </button>
                               ))}
-                              {(currentRecord.attachments || []).length === 0 && (
-                                  <div className="text-xs text-slate-400">Nenhum anexo adicionado.</div>
-                              )}
+                              <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+                              <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={handleInsertLink}
+                                className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold transition-all border border-indigo-100/50 flex items-center gap-1.5"
+                              >
+                                <Link size={13} /> Link
+                              </button>
                           </div>
 
-                          <div className="mt-4 grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-3">
-                              <input
-                                type="text"
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                placeholder="Nome do arquivo"
-                                value={attachmentName}
-                                onChange={e => setAttachmentName(e.target.value)}
-                              />
-                              <input
-                                type="text"
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                placeholder="Tipo (pdf, jpg...)"
-                                value={attachmentType}
-                                onChange={e => setAttachmentType(e.target.value)}
-                              />
-                              <input
-                                type="text"
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 md:col-span-2"
-                                placeholder="URL do arquivo"
-                                value={attachmentUrl}
-                                onChange={e => setAttachmentUrl(e.target.value)}
-                              />
-                              <input
-                                type="number"
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                placeholder="Tamanho (bytes)"
-                                value={attachmentSize}
-                                onChange={e => setAttachmentSize(e.target.value)}
-                              />
-                              <button
-                                onClick={handleAddAttachment}
-                                className="w-full px-4 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800"
-                              >
-                                  Adicionar anexo
+                          <div className="grid grid-cols-1 gap-8">
+                            {getVisibleSections(currentRecord.type).map(key => {
+                                const labels: Record<string, string> = {
+                                    demand: 'Descrição da Demanda',
+                                    procedures: 'Procedimentos e Intervenções',
+                                    analysis: 'Análise e Conclusão',
+                                    free: 'Texto Complementar'
+                                };
+                                return (
+                                    <div key={key}>
+                                        <div className="flex items-center gap-2 mb-2 ml-1">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest">{labels[key]}</label>
+                                        </div>
+                                        <div
+                                            className="min-h-[220px] p-6 rounded-3xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-8 focus:ring-indigo-100 transition-all shadow-sm focus:border-indigo-300 custom-record-editor"
+                                            contentEditable
+                                            suppressContentEditableWarning
+                                            onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                            onMouseUp={storeSelection}
+                                            onKeyUp={storeSelection}
+                                            onInput={(e) => updateSection(key as any, (e.currentTarget as HTMLDivElement).innerHTML)}
+                                            dangerouslySetInnerHTML={{ __html: editorSections[key as keyof typeof editorSections] }}
+                                        />
+                                    </div>
+                                );
+                            })}
+                          </div>
+
+                          {/* Seção de Anexos */}
+                          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-2 text-[11px] font-black text-slate-800 uppercase tracking-widest">
+                                    <Paperclip size={16} className="text-indigo-600" /> 
+                                    Arquivos Anexos
+                                </div>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60 transition-all active:scale-95 shadow-lg shadow-slate-200"
+                                    disabled={isUploading}
+                                >
+                                    {isUploading ? 'Enviando...' : 'Adicionar Arquivo'}
+                                </button>
+                                <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFileSelect} />
+                            </div>
+
+                            {uploadError && <div className="text-xs font-bold text-red-600 mb-4 bg-red-50 p-3 rounded-xl border border-red-100">{uploadError}</div>}
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {(currentRecord.attachments || []).map((att, idx) => (
+                                    <div key={`${att.file_url}-${idx}`} className="flex items-center justify-between gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-4 group/att">
+                                        <div className="min-w-0 flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                                                <FileText size={18} className="text-slate-400" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="font-extrabold text-slate-800 text-xs truncate">{att.file_name}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{att.file_type || 'ARQUIVO'} {att.file_size ? `· ${Math.round(att.file_size/1024)} KB` : ''}</div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleRemoveAttachment(idx)}
+                                            className="p-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {(currentRecord.attachments || []).length === 0 && (
+                                    <div className="sm:col-span-2 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl">
+                                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center mb-2">
+                                            <Paperclip size={18} className="text-slate-300" />
+                                        </div>
+                                        <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Nenhum anexo encontrado</div>
+                                    </div>
+                                )}
+                            </div>
+                          </div>
+                      </div>
+                      
+                      <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic flex items-center gap-2">
+                            <Info size={14} className="text-amber-400" />
+                            O registro será salvo com a data atual.
+                          </div>
+                          <div className="flex items-center gap-3">
+                              <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
+                              <button onClick={handleSaveRecord} className="px-8 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
+                                <Save size={16} /> {t('common.save')}
                               </button>
                           </div>
                       </div>
-                  </div>
-                  <div className="px-5 py-4 bg-white border-t border-slate-200 flex justify-end gap-3 shrink-0">
-                      <button onClick={() => setIsEditorOpen(false)} className="px-5 py-2 font-bold text-slate-500 hover:bg-slate-100 rounded-xl text-sm">{t('records.editor.cancel')}</button>
-                      <button onClick={handleSaveRecord} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl shadow-lg text-sm hover:bg-indigo-700">{t('records.editor.save')}</button>
                   </div>
               </div>
           </div>

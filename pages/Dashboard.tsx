@@ -152,7 +152,7 @@ export const Dashboard: React.FC = () => {
   }, [patients, now, startOfDay]);
 
   const formattedDate = now.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' });
-  const greetingName = user?.name ? user.name.split(' ')[0] : 'Bem-vindo(a)';
+  const greetingName = user?.name ? user.name.split(' ')[0] : 'Doutor(a)';
 
   const renderIcon = (iconName: string, size = 20) => {
     if (iconName === 'globe') return <Globe size={size} />;
@@ -205,7 +205,9 @@ export const Dashboard: React.FC = () => {
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-indigo-600 text-[10px] font-black uppercase tracking-widest mb-4">
                 👋 {formattedDate}
             </div>
-            <h1 className="font-black text-3xl md:text-4xl text-slate-900 tracking-tight">Bom dia, <span className="text-indigo-600">{greetingName}</span></h1>
+            <h1 className="font-black text-3xl md:text-4xl text-slate-900 tracking-tight">
+              {now.getHours() < 12 ? 'Bom dia' : now.getHours() < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="text-indigo-600">{greetingName}</span>
+            </h1>
             <p className="text-slate-400 text-sm font-bold mt-2 max-w-md leading-relaxed">Sua clínica está pronta. Você tem {todaysAppointments.length} atendimentos programados para hoje.</p>
           </div>
           <div className="flex flex-wrap gap-3">
