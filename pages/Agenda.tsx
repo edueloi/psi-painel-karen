@@ -58,7 +58,8 @@ export const Agenda: React.FC = () => {
       recurrence_weekdays: [],
       recurrence_rule: null,
       recurrence_end_date: '',
-      recurrence_count: ''
+      recurrence_count: '',
+      is_all_day: false
   });
 
   const locale = language === 'pt' ? 'pt-BR' : 'en-US';
@@ -842,6 +843,21 @@ export const Agenda: React.FC = () => {
                         />
                       </div>
 
+                      {(formData.type === 'bloqueio' || formData.type === 'pessoal') && !formData.is_all_day && (
+                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hora de Término</span>
+                              <span className="text-sm font-black text-slate-700">
+                                  {(() => {
+                                      try {
+                                        const start = new Date(formData.appointment_date);
+                                        const end = new Date(start.getTime() + (formData.duration_minutes || 50) * 60000);
+                                        return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                      } catch(e) { return '--:--'; }
+                                  })()}
+                              </span>
+                          </div>
+                      )}
+
                       <Select 
                         label="Profissional Responsável" 
                         icon={<UserCheck size={18} />}
@@ -851,6 +867,35 @@ export const Agenda: React.FC = () => {
                           <option value="">Selecionar profissional...</option>
                           {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </Select>
+
+                      <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                              {formData.type === 'consulta' ? 'Repetir Agendamento' : 'Repetir Bloqueio'}
+                          </label>
+                          <Select 
+                            variant="ghost"
+                            className="!w-auto !border-none !bg-transparent !p-0 !h-auto font-black text-indigo-600 uppercase text-[10px]"
+                            value={formData.recurrence_rule || ''} 
+                            onChange={e => setFormData({...formData, recurrence_rule: e.target.value})}
+                          >
+                              <option value="">Não Repete</option>
+                              <option value="weekly">Semanal</option>
+                              <option value="biweekly">Quinzenal</option>
+                              <option value="monthly">Mensal</option>
+                          </Select>
+                      </div>
+
+                      {(formData.type === 'bloqueio' || formData.type === 'pessoal') && (
+                          <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Dia Inteiro</label>
+                              <button 
+                                onClick={() => setFormData({...formData, is_all_day: !formData.is_all_day, duration_minutes: !formData.is_all_day ? 1440 : 50})}
+                                className={`w-10 h-5 rounded-full transition-all relative ${formData.is_all_day ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                              >
+                                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.is_all_day ? 'left-6' : 'left-1'}`}></div>
+                              </button>
+                          </div>
+                      )}
                   </div>
               </div>
 

@@ -40,7 +40,9 @@ async function patch() {
         { name: 'modality', type: "VARCHAR(50) DEFAULT 'presencial'", after: 'status' },
         { name: 'type', type: "VARCHAR(50) DEFAULT 'consulta'", after: 'modality' },
         { name: 'duration_minutes', type: 'INT DEFAULT 50', after: 'type' },
-        { name: 'meeting_url', type: 'VARCHAR(500)', after: 'duration_minutes' }
+        { name: 'meeting_url', type: 'VARCHAR(500)', after: 'duration_minutes' },
+        { name: 'recurrence_rule', type: 'VARCHAR(255)', after: 'meeting_url' },
+        { name: 'recurrence_id', type: 'INT', after: 'recurrence_rule' }
       ]
     }
   ];

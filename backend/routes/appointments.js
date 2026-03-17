@@ -298,7 +298,7 @@ router.post('/', async (req, res) => {
     const { 
       patient_id, professional_id, service_id, title, 
       start_time, end_time, notes, color, duration_minutes,
-      status, modality, type, meeting_url 
+      status, modality, type, meeting_url, recurrence_rule 
     } = req.body;
 
     if (!start_time) {
@@ -306,41 +306,51 @@ router.post('/', async (req, res) => {
     }
 
     const start = new Date(start_time);
-    let finalEndTime = end_time;
     const duration = parseInt(duration_minutes) || 50;
+    
+    // Lista para guardar os IDs criados (para retorno ou log)
+    const createdIds = [];
+    const recurrenceCount = recurrence_rule ? 12 : 1; // Padrão de 12 repetições se tiver regra
 
-    if (!finalEndTime) {
-      finalEndTime = new Date(start.getTime() + duration * 60000);
-    } else {
-      finalEndTime = new Date(finalEndTime);
+    for (let i = 0; i < recurrenceCount; i++) {
+        const currentStart = new Date(start);
+        
+        if (recurrence_rule === 'weekly') currentStart.setDate(start.getDate() + (i * 7));
+        else if (recurrence_rule === 'biweekly') currentStart.setDate(start.getDate() + (i * 14));
+        else if (recurrence_rule === 'monthly') currentStart.setMonth(start.getMonth() + i);
+        else if (i > 0) break; // Só repete se houver regra válida
+
+        const currentEnd = new Date(currentStart.getTime() + duration * 60000);
+        
+        const formattedStart = currentStart.toISOString().slice(0, 19).replace('T', ' ');
+        const formattedEnd = currentEnd.toISOString().slice(0, 19).replace('T', ' ');
+
+        const [result] = await db.query(
+          `INSERT INTO appointments (
+            tenant_id, patient_id, professional_id, service_id, title, 
+            start_time, end_time, status, notes, color,
+            modality, type, duration_minutes, meeting_url, recurrence_rule
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            req.user.tenant_id, 
+            patient_id || null, 
+            professional_id || null, 
+            service_id || null,
+            title || null, 
+            formattedStart, 
+            formattedEnd, 
+            status || 'scheduled',
+            notes || null, 
+            color || null,
+            modality || 'presencial',
+            type || 'consulta',
+            duration,
+            meeting_url || null,
+            recurrence_rule || null
+          ]
+        );
+        createdIds.push(result.insertId);
     }
-
-    const formattedStart = start.toISOString().slice(0, 19).replace('T', ' ');
-    const formattedEnd = finalEndTime.toISOString().slice(0, 19).replace('T', ' ');
-
-    const [result] = await db.query(
-      `INSERT INTO appointments (
-        tenant_id, patient_id, professional_id, service_id, title, 
-        start_time, end_time, status, notes, color,
-        modality, type, duration_minutes, meeting_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.user.tenant_id, 
-        patient_id || null, 
-        professional_id || null, 
-        service_id || null,
-        title || null, 
-        formattedStart, 
-        formattedEnd, 
-        status || 'scheduled',
-        notes || null, 
-        color || null,
-        modality || 'presencial',
-        type || 'consulta',
-        duration,
-        meeting_url || null
-      ]
-    );
 
     const [created] = await db.query(
       `SELECT a.*, p.name as patient_name, u.name as professional_name
@@ -348,7 +358,7 @@ router.post('/', async (req, res) => {
        LEFT JOIN patients p ON p.id = a.patient_id
        LEFT JOIN users u ON u.id = a.professional_id
        WHERE a.id = ?`,
-      [result.insertId]
+      [createdIds[0]]
     );
 
     res.status(201).json(created[0]);
