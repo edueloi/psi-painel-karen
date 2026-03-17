@@ -16,9 +16,48 @@ async function ensureSchema() {
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN room_id VARCHAR(50) NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN reschedule_reason TEXT NULL' },
     { table: 'services', sql: 'ALTER TABLE services ADD COLUMN category VARCHAR(100) NULL' },
+    // Comandas table schema
+    { table: 'comandas', sql: `
+      CREATE TABLE IF NOT EXISTS comandas (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id VARCHAR(100) NOT NULL,
+        patient_id INT NULL,
+        professional_id INT NULL,
+        service_id INT NULL,
+        package_id INT NULL,
+        appointment_id INT NULL,
+        description TEXT NULL,
+        total DECIMAL(10,2) DEFAULT 0,
+        sessions_total INT DEFAULT 1,
+        sessions_used INT DEFAULT 0,
+        items LONGTEXT NULL,
+        notes TEXT NULL,
+        status ENUM('open', 'closed', 'cancelled') DEFAULT 'open',
+        start_date DATETIME NULL,
+        duration_minutes INT DEFAULT 60,
+        financial_transaction_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_tenant (tenant_id),
+        INDEX idx_patient (patient_id)
+      )
+    `},
+    { table: 'comandas', sql: 'ALTER TABLE comandas ADD COLUMN sessions_total INT NULL DEFAULT 1' },
+    { table: 'comandas', sql: 'ALTER TABLE comandas ADD COLUMN sessions_used INT NULL DEFAULT 0' },
+    { table: 'comandas', sql: 'ALTER TABLE comandas ADD COLUMN total DECIMAL(10,2) NULL' },
+    { table: 'comandas', sql: 'ALTER TABLE comandas ADD COLUMN items LONGTEXT NULL' },
+    { table: 'comandas', sql: 'ALTER TABLE comandas ADD COLUMN notes TEXT NULL' },
+    { table: 'comandas', sql: 'ALTER TABLE comandas ADD COLUMN start_date DATETIME NULL' },
+    { table: 'comandas', sql: 'ALTER TABLE comandas ADD COLUMN duration_minutes INT NULL DEFAULT 60' },
   ];
   for (const item of tableCols) {
-    try { await db.query(item.sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) throw e; }
+    try { 
+      await db.query(item.sql); 
+    } catch (e) { 
+      if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column') && !e.message.includes('already exists')) {
+        console.warn('Migration warning:', e.message);
+      }
+    }
   }
 }
 
@@ -426,9 +465,9 @@ router.post('/', async (req, res) => {
         return res.status(500).json({ error: 'Nenhum agendamento foi gerado. Verifique os parâmetros de repetição.' });
     }
 
-    // 3. Se for consulta com paciente, cria a COMANDA integrada
+    // 3. Se tiver PACIENTE e (SERVIÇO ou PACOTE), cria a COMANDA integrada
     let comandaId = null;
-    if (finalPatientId && (service_id || package_id) && type === 'consulta') {
+    if (finalPatientId && (service_id || package_id)) {
         try {
             let totalAmount = 0;
             let items = [];

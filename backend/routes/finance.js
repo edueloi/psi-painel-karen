@@ -10,6 +10,11 @@ async function ensureSchema() {
     'ALTER TABLE comandas ADD COLUMN duration_minutes INT NULL DEFAULT 60',
     'ALTER TABLE comandas ADD COLUMN appointment_id INT NULL',
     'ALTER TABLE comandas ADD COLUMN financial_transaction_id INT NULL',
+    'ALTER TABLE comandas ADD COLUMN sessions_total INT NULL DEFAULT 1',
+    'ALTER TABLE comandas ADD COLUMN sessions_used INT NULL DEFAULT 0',
+    'ALTER TABLE comandas ADD COLUMN total DECIMAL(10,2) NULL',
+    'ALTER TABLE comandas ADD COLUMN items LONGTEXT NULL',
+    'ALTER TABLE comandas ADD COLUMN notes TEXT NULL',
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) throw e; }
