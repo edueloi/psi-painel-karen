@@ -21,11 +21,119 @@ async function ensureSchema() {
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) console.warn('Schema Warning:', e.message); }
   }
+
+  // Criar tabela de histórico de pagamentos por comanda
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS comanda_payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        comanda_id INT NOT NULL,
+        amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+        payment_date DATE NOT NULL,
+        payment_method VARCHAR(50) DEFAULT 'Pix',
+        receipt_code VARCHAR(100) NULL,
+        notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    if (!e.message.includes('already exists')) console.warn('comanda_payments table warning:', e.message);
+  }
 }
 let schemaReady = false;
 async function withSchema() {
   if (!schemaReady) { await ensureSchema(); schemaReady = true; }
 }
+
+// GET /finance/comandas/:id/payments - Histórico de pagamentos de uma comanda
+router.get('/comandas/:id/payments', async (req, res) => {
+  try {
+    await withSchema();
+    const [rows] = await db.query(
+      `SELECT * FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ? ORDER BY payment_date DESC, created_at DESC`,
+      [req.params.id, req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Erro ao buscar pagamentos:', err);
+    res.status(500).json({ error: 'Erro ao buscar pagamentos', details: err.message });
+  }
+});
+
+// POST /finance/comandas/:id/payments - Registrar novo pagamento
+router.post('/comandas/:id/payments', async (req, res) => {
+  try {
+    await withSchema();
+    const { amount, payment_date, payment_method, receipt_code, notes } = req.body;
+
+    if (!amount || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Valor inválido' });
+    }
+
+    // Inserir pagamento individual
+    const [result] = await db.query(
+      `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method, receipt_code, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.tenant_id, req.params.id, parseFloat(amount),
+       payment_date || new Date().toISOString().slice(0,10),
+       payment_method || 'Pix', receipt_code || null, notes || null]
+    );
+
+    // Atualizar paid_value acumulado na comanda
+    const [payments] = await db.query(
+      'SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    const totalPaid = parseFloat(payments[0].total);
+
+    const [comanda] = await db.query('SELECT total FROM comandas WHERE id = ?', [req.params.id]);
+    const comandaTotal = parseFloat(comanda[0]?.total || 0);
+    const newStatus = totalPaid >= comandaTotal ? 'closed' : 'open';
+
+    await db.query(
+      'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
+      [totalPaid, newStatus, req.params.id, req.user.tenant_id]
+    );
+
+    res.status(201).json({ id: result.insertId, amount: parseFloat(amount), payment_date, payment_method, totalPaid, status: newStatus });
+  } catch (err) {
+    console.error('Erro ao registrar pagamento:', err);
+    res.status(500).json({ error: 'Erro ao registrar pagamento', details: err.message });
+  }
+});
+
+// DELETE /finance/comandas/:id/payments/:paymentId - Remover pagamento
+router.delete('/comandas/:id/payments/:paymentId', async (req, res) => {
+  try {
+    await withSchema();
+    await db.query(
+      'DELETE FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?',
+      [req.params.paymentId, req.params.id, req.user.tenant_id]
+    );
+
+    // Recalcular paid_value
+    const [payments] = await db.query(
+      'SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    const totalPaid = parseFloat(payments[0].total);
+
+    const [comanda] = await db.query('SELECT total FROM comandas WHERE id = ?', [req.params.id]);
+    const comandaTotal = parseFloat(comanda[0]?.total || 0);
+    const newStatus = totalPaid >= comandaTotal && totalPaid > 0 ? 'closed' : 'open';
+
+    await db.query(
+      'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
+      [totalPaid, newStatus, req.params.id, req.user.tenant_id]
+    );
+
+    res.json({ success: true, totalPaid });
+  } catch (err) {
+    console.error('Erro ao remover pagamento:', err);
+    res.status(500).json({ error: 'Erro ao remover pagamento' });
+  }
+});
 
 // GET /finance - Transações com filtros
 router.get('/', async (req, res) => {

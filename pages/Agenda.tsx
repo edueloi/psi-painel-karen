@@ -71,6 +71,8 @@ export const Agenda: React.FC = () => {
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [managerTab, setManagerTab] = useState<'atendimentos' | 'pagamentos' | 'pacote'>('atendimentos');
   const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
+  const [comandaPayments, setComandaPayments] = useState<any[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [isNewComandaModalOpen, setIsNewComandaModalOpen] = useState(false);
   const [newComandaData, setNewComandaData] = useState({
       type: 'normal' as 'normal' | 'package',
@@ -151,7 +153,7 @@ export const Agenda: React.FC = () => {
   const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const isSameDay = (a: Date, b: Date) => startOfDay(a).getTime() === startOfDay(b).getTime();
   const addDays = (date: Date, days: number) => { const d = new Date(date); d.setDate(d.getDate() + days); return d; };
-  const startOfWeek = (date: Date) => { const d = startOfDay(date); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d; };
+  const startOfWeek = (date: Date) => { const d = startOfDay(date); const day = d.getDay(); d.setDate(d.getDate() - day); return d; };
   const endOfWeek = (date: Date) => addDays(startOfWeek(date), 6);
   const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
   const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
@@ -295,6 +297,20 @@ export const Agenda: React.FC = () => {
     }
   };
 
+  const fetchComandaPayments = async (comandaId: string | number) => {
+    if (!comandaId) return;
+    setIsLoadingPayments(true);
+    try {
+      const payments = await api.get<any[]>(`/finance/comandas/${comandaId}/payments`);
+      setComandaPayments(payments || []);
+    } catch (err) {
+      console.error('Erro ao buscar histórico de pagamentos:', err);
+      setComandaPayments([]);
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  };
+
   const handleSavePayment = async () => {
     const comandaId = selectedApt?.comanda_id;
     if (!comandaId) {
@@ -309,34 +325,49 @@ export const Agenda: React.FC = () => {
     }
 
     try {
-        const cmnd = patientComandas.find(c => String(c.id) === String(comandaId));
-        if (!cmnd) throw new Error('Comanda não encontrada');
-
-        const currentPaid = parseFloat(String(cmnd.paid_value || cmnd.paidValue || 0));
-        const newPaidValue = currentPaid + valueToAdd;
-
-        await api.put(`/finance/comandas/${comandaId}`, {
-            ...cmnd,
-            paid_value: newPaidValue,
-            receipt_code: newPayment.receiptCode || cmnd.receipt_code,
-            status: newPaidValue >= parseFloat(String(cmnd.totalValue || cmnd.total)) ? 'closed' : 'open'
+        // Registra pagamento individual na nova tabela
+        await api.post(`/finance/comandas/${comandaId}/payments`, {
+            amount: valueToAdd,
+            payment_date: newPayment.date,
+            payment_method: newPayment.method,
+            receipt_code: newPayment.receiptCode || null,
         });
 
         pushToast('success', 'Pagamento registrado com sucesso!');
         setIsAddPaymentModalOpen(false);
         setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
         
-        // Recarregar dados para refletir saldo
+        // Recarregar pagamentos e dados gerais
+        await fetchComandaPayments(comandaId);
         fetchData();
         
-        // Recarregar comandas do paciente selecionado
+        // Recarregar comandas do paciente
         if (selectedApt?.patient_id) {
-            const res = await api.get(`/finance/comandas?patient_id=${selectedApt.patient_id}`);
+            const res = await api.get(`/finance/comandas/patient/${selectedApt.patient_id}`);
             setPatientComandas(res as any[]);
         }
     } catch (err) {
         console.error(err);
         pushToast('error', 'Erro ao salvar pagamento');
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: number) => {
+    const comandaId = selectedApt?.comanda_id;
+    if (!comandaId) return;
+    if (!window.confirm('Remover este pagamento?')) return;
+    try {
+      await api.delete(`/finance/comandas/${comandaId}/payments/${paymentId}`);
+      pushToast('success', 'Pagamento removido.');
+      await fetchComandaPayments(comandaId);
+      fetchData();
+      if (selectedApt?.patient_id) {
+        const res = await api.get(`/finance/comandas/patient/${selectedApt.patient_id}`);
+        setPatientComandas(res as any[]);
+      }
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao remover pagamento.');
     }
   };
 
@@ -868,7 +899,7 @@ export const Agenda: React.FC = () => {
         ) : view === 'month' ? (
             <div className="flex flex-col h-full bg-slate-50/50 rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-2xl shadow-indigo-100/20">
                 <div className="grid grid-cols-7 border-b border-slate-100 bg-indigo-50/30 backdrop-blur-md sticky top-0 z-20">
-                    {['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'].map((day, idx) => (
+                    {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map((day, idx) => (
                         <div key={day} className={`py-4 text-center text-[9px] font-black tracking-[0.2em] text-indigo-400 uppercase`}>{day}</div>
                     ))}
                 </div>
@@ -955,7 +986,7 @@ export const Agenda: React.FC = () => {
                         {/* DAY HEADERS (Sticky Top) */}
                         <div className="flex sticky top-0 z-30 bg-white border-b border-slate-200">
                             {(view === 'day' ? [currentDate] : weekDays).map(day => (
-                                <div key={day.toISOString()} className={`flex-1 min-w-[200px] h-[50px] flex items-center justify-center border-r border-slate-100 transition-all bg-white`}>
+                                <div key={day.toISOString()} className={`flex-1 min-w-[120px] lg:min-w-0 h-[50px] flex items-center justify-center border-r border-slate-100 transition-all bg-white`}>
                                     <span className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 ${isSameDay(day, new Date()) ? 'text-rose-500' : 'text-slate-500'}`}>
                                         {day.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')} 
                                         <span className="text-sm font-black tabular-nums">{day.getDate()}/{String(day.getMonth() + 1).padStart(2, '0')}</span>
@@ -985,7 +1016,7 @@ export const Agenda: React.FC = () => {
                             {(view === 'day' ? [currentDate] : weekDays).map(day => (
                                 <div 
                                     key={day.toISOString()} 
-                                    className={`flex-1 border-r border-slate-100 relative min-w-[200px] ${isSameDay(day, new Date()) ? 'bg-slate-50/20' : ''}`}
+                                    className={`flex-1 border-r border-slate-100 relative min-w-[120px] lg:min-w-0 ${isSameDay(day, new Date()) ? 'bg-slate-50/20' : ''}`}
                                     onClick={() => openNewModal(day)}
                                 >
                                     {/* APPOINTMENTS CARDS (Precise Reference Match) */}

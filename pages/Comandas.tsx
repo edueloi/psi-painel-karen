@@ -7,7 +7,7 @@ import {
   DollarSign, CheckCircle, X, LayoutGrid, List as ListIcon, 
   CreditCard, Calendar, User, MoreHorizontal, 
   ArrowUpRight, Clock, CheckCircle2, AlertCircle, FileText,
-  AlertTriangle
+  AlertTriangle, User as UserIcon, CalendarDays, Info, MessageSquare, Send, Repeat
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
@@ -52,6 +52,68 @@ export const Comandas: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingComanda, setEditingComanda] = useState<Partial<Comanda> | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // States for Comanda Manager Modal
+  const [managerTab, setManagerTab] = useState<'atendimentos' | 'pagamentos' | 'pacote'>('atendimentos');
+  const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
+  const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
+
+  const handleSavePayment = async () => {
+    if (!historyComanda) return;
+    try {
+        const payload = {
+            amount: parseFloat(newPayment.value.replace(/,/g, '.')),
+            payment_date: newPayment.date,
+            payment_method: newPayment.method,
+            receipt_code: newPayment.receiptCode
+        };
+        await api.post(`/finance/comandas/${historyComanda.id}/payments`, payload);
+        
+        pushToast('success', 'Pagamento registrado com sucesso!');
+        setIsAddPaymentModalOpen(false);
+        fetchData();
+        
+        // update local historyComanda so the modal reflects the new payment immediately
+        api.get<Comanda[]>('/finance/comandas').then(res => {
+           const updated = res.find(c => c.id === historyComanda.id);
+           if (updated) setHistoryComanda(updated);
+        });
+    } catch (e) {
+        pushToast('error', 'Erro ao registrar pagamento.');
+    }
+  };
+
+  const handleGenerateReceipt = async () => {
+    if (!historyComanda) return;
+    try {
+        const { default: jsPDF } = await import('jspdf');
+        const doc = new jsPDF();
+        
+        doc.setFillColor(79, 70, 229); // indigo-600
+        doc.rect(0, 0, 210, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("RECIBO DE PAGAMENTO", 105, 25, { align: "center" });
+
+        doc.setTextColor(60, 60, 60);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        
+        doc.text(`Paciente: ${historyComanda.patientName || historyComanda.patient_name || 'Não informado'}`, 20, 60);
+        doc.text(`Comanda: #${historyComanda.id}`, 20, 70);
+        doc.text(`Referência: ${historyComanda.description || 'Consulta'}`, 20, 80);
+        
+        doc.setFont("helvetica", "bold");
+        doc.text(`VALOR TOTAL: ${formatCurrency(historyComanda.totalValue || historyComanda.total || 0)}`, 20, 100);
+        doc.text(`VALOR PAGO: ${formatCurrency(historyComanda.paidValue || 0)}`, 20, 110);
+        
+        doc.save(`Recibo_Comanda_${historyComanda.id}.pdf`);
+        pushToast('success', 'Recibo baixado com sucesso!');
+    } catch (e) {
+        pushToast('error', 'Erro ao gerar o PDF do recibo.');
+    }
+  };
 
   // Carregar Dados
   const fetchData = async () => {
@@ -752,131 +814,366 @@ export const Comandas: React.FC = () => {
           </div>
       </Modal>
 
-      {/* SIDEBAR DE HISTÓRICO / DETALHES */}
-      {isHistoryOpen && historyComanda && (
-          <div className="fixed inset-0 z-[70] overflow-hidden flex justify-end">
-              <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => setIsHistoryOpen(false)}></div>
-              <div className="relative w-full max-w-lg bg-white shadow-2xl animate-slideLeft transform flex flex-col h-full border-l border-white/20">
-                  <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                      <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
-                              <Clock size={24}/>
-                          </div>
-                          <div>
-                              <h3 className="text-xl font-black text-slate-800">Histórico da Comanda</h3>
-                              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{historyComanda.patientName} • #{historyComanda.id}</p>
-                          </div>
-                      </div>
-                      <button onClick={() => setIsHistoryOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl text-slate-400 ring-1 ring-slate-200 transition-all"><X size={18}/></button>
-                  </div>
+      {/* COMANDA MANAGER MODAL */}
+      <Modal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        title={`Comanda - ${historyComanda?.description || 'Detalhes'}`}
+        maxWidth="max-w-6xl"
+      >
+        <div className="flex flex-col lg:flex-row gap-8 py-2 min-h-[500px]">
+            {/* LEFT SIDEBAR - PATIENT & SUMMARY */}
+            <div className="w-full lg:w-1/3 flex flex-col gap-6 border-r border-slate-100 pr-0 lg:pr-8">
+                {/* Patient Basic Info */}
+                <div className="space-y-6">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                            <UserIcon size={24} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <h4 className="text-sm font-black text-slate-800 truncate uppercase tracking-tight">
+                                    {historyComanda?.patientName || historyComanda?.patient_name || 'Paciente'}
+                                </h4>
+                                <div className="flex gap-1">
+                                    <button className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><MessageSquare size={16}/></button>
+                                    <button className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"><Send size={16}/></button>
+                                </div>
+                            </div>
+                            <p className="text-[11px] font-bold text-slate-400 truncate lowercase">{patients.find(p => String(p.id) === String(historyComanda?.patientId))?.email || 'sem email cadastrado'}</p>
+                        </div>
+                    </div>
 
-                  <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                      {/* Resumo Rápido */}
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                             <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Total da Comanda</p>
-                             <p className="text-lg font-black text-indigo-600">{formatCurrency(historyComanda.totalValue)}</p>
-                          </div>
-                          <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                             <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Status Atual</p>
-                             <StatusBadge status={historyComanda.status} />
-                          </div>
-                      </div>
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                            <CalendarDays size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Data de Criação</p>
+                            <p className="text-xs font-black text-slate-700">{historyComanda?.createdAt ? new Date(historyComanda.createdAt).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { dateStyle: 'medium'}) : 'N/A'}</p>
+                        </div>
+                    </div>
 
-                      {/* Timeline de Atendimentos */}
-                      <div>
-                          <div className="flex items-center justify-between mb-5">
-                             <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                                <Calendar size={16} className="text-indigo-500"/>
-                                Cronograma de Sessões
-                             </h4>
-                             <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">{historyComanda.sessions_used}/{historyComanda.sessions_total}</span>
-                          </div>
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                            <Info size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Detalhes</p>
+                            <p className="text-xs font-black text-slate-700">
+                                {historyComanda?.description || 'Comanda'}
+                                {historyComanda?.sessions_total ? ` (${historyComanda.sessions_total})` : ''}
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
-                          <div className="space-y-4 relative before:absolute before:left-[19px] before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-100">
-                              {(historyComanda.appointments || []).map((apt: any, i: number) => (
-                                  <div key={i} className="relative pl-12">
-                                      <div className={`absolute left-0 top-1.5 w-10 h-10 rounded-xl border-4 border-white flex items-center justify-center z-10 shadow-sm ${
-                                          apt.status === 'completed' ? 'bg-emerald-500 text-white' : 
-                                          apt.status === 'cancelled' ? 'bg-red-500 text-white' : 
-                                          new Date(apt.start_time) < new Date() ? 'bg-amber-500 text-white' : 'bg-indigo-100 text-indigo-600'
-                                      }`}>
-                                          {apt.status === 'completed' ? <CheckCircle2 size={14}/> : <Clock size={14}/>}
-                                      </div>
-                                      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-100 transition-all">
-                                          <div className="flex justify-between items-start mb-1">
-                                              <p className="text-xs font-black text-slate-700">{new Date(apt.start_time).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })} • {new Date(apt.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                                              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                                  apt.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 
-                                                  apt.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
-                                              }`}>
-                                                  {apt.status}
-                                              </span>
-                                          </div>
-                                          <p className="text-[10px] text-slate-400 font-bold leading-relaxed">{apt.notes || 'Sem observações registradas.'}</p>
-                                          
-                                          {/* Ações Rápidas de Agendamento */}
-                                          <div className="mt-3 pt-3 border-t border-slate-50 flex gap-2">
-                                              {apt.status === 'completed' || apt.status === 'no-show' ? (
-                                                  <button 
-                                                    onClick={() => handleUpdateAppointmentStatus(apt.id, 'scheduled')}
-                                                    className="text-[9px] font-black text-indigo-500 hover:underline"
-                                                  >
-                                                      REABRIR SESSÃO
-                                                  </button>
-                                              ) : (
-                                                  <>
-                                                      <button 
-                                                        onClick={() => handleUpdateAppointmentStatus(apt.id, 'completed')}
-                                                        className="text-[9px] font-black text-emerald-600 hover:underline"
-                                                      >
-                                                          CONCLUIR
-                                                      </button>
-                                                      <button 
-                                                        onClick={() => handleUpdateAppointmentStatus(apt.id, 'no-show')}
-                                                        className="text-[9px] font-black text-amber-600 hover:underline"
-                                                      >
-                                                          FALTA
-                                                      </button>
-                                                  </>
-                                              )}
-                                              <button onClick={() => navigate('/agenda')} className="text-[9px] font-black text-slate-400 hover:text-indigo-500 ml-auto">VER NA AGENDA</button>
-                                          </div>
-                                      </div>
-                                  </div>
-                              ))}
-                              {(historyComanda.appointments || []).length === 0 && (
-                                  <div className="text-center py-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
-                                      <Calendar size={32} className="mx-auto text-slate-200 mb-3"/>
-                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nenhum agendamento vinculado</p>
-                                  </div>
-                              )}
-                          </div>
-                      </div>
+                {/* YELLOW SUMMARY CARD */}
+                <div className="mt-4 bg-orange-400 rounded-3xl p-6 text-white shadow-xl shadow-orange-100 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
+                        <DollarSign size={80} strokeWidth={3} />
+                    </div>
+                    <div className="relative z-10">
+                        <h4 className="text-xs font-black uppercase tracking-widest mb-6 opacity-90">Resumo:</h4>
+                        
+                        <div className="space-y-4">
+                            {(() => {
+                                const total = historyComanda?.totalValue || historyComanda?.total || 0;
+                                const paid = historyComanda?.paidValue || 0;
+                                const pending = total - paid;
 
-                      {/* Notas da Comanda */}
-                      <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100/50">
-                          <h4 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest mb-3 flex items-center gap-2">
-                              <FileText size={16}/>
-                              Observações da Comanda
-                          </h4>
-                          <p className="text-xs font-bold text-indigo-900/70 leading-relaxed whitespace-pre-wrap">
-                              {historyComanda.notes || 'Nenhuma observação interna registrada para esta comanda.'}
-                          </p>
-                      </div>
-                  </div>
+                                return (
+                                    <>
+                                        <div className="flex justify-between items-center border-b border-white/20 pb-3">
+                                            <span className="text-[11px] font-bold opacity-80 uppercase">Total da comanda:</span>
+                                            <span className="text-sm font-black tracking-tight">{formatCurrency(total)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/20 pb-3">
+                                            <span className="text-[11px] font-bold opacity-80 uppercase">Valor pago:</span>
+                                            <span className="text-sm font-black tracking-tight">{formatCurrency(paid)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pt-2">
+                                            <span className="text-[11px] font-bold opacity-90 uppercase">Valor pendente:</span>
+                                            <span className="text-lg font-black tracking-tighter">{formatCurrency(pending)}</span>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                </div>
 
-                  <div className="p-8 border-t border-slate-50 bg-slate-50/30">
-                      <button 
-                        onClick={() => handleOpenModal(historyComanda)}
-                        className="w-full py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
-                      >
-                         <Edit3 size={16}/> Editar Comanda Completa
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
+                {/* BOTTOM ACTIONS */}
+                <div className="mt-auto space-y-3 pt-6 border-t border-slate-50">
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => {
+                                setNewPayment({ 
+                                    value: '', 
+                                    date: new Date().toISOString().slice(0, 10), 
+                                    method: 'Pix',
+                                    receiptCode: historyComanda?.receipt_code || ''
+                                });
+                                setIsAddPaymentModalOpen(true);
+                            }}
+                            className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 transition-all active:scale-95"
+                        >
+                            ADICIONAR PAGAMENTO
+                        </button>
+                        <button 
+                            onClick={handleGenerateReceipt}
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <FileText size={14}/> GERAR RECIBO
+                        </button>
+                    </div>
+                    <button 
+                        onClick={() => setIsHistoryOpen(false)}
+                        className="w-full py-3 text-rose-500 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest transition-all text-center border border-rose-100 rounded-xl hover:bg-rose-50/30"
+                    >
+                        FECHAR COMANDA
+                    </button>
+                </div>
+            </div>
+
+            {/* RIGHT MAIN CONTENT - TABS & LISTS */}
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* Tabs */}
+                <div className="flex border-b border-slate-100 bg-white sticky top-0 z-20 mb-6">
+                    {[
+                        { id: 'atendimentos', label: 'ATENDIMENTOS' },
+                        { id: 'pagamentos', label: 'HISTÓRICO DE PAGAMENTOS' },
+                        { id: 'pacote', label: 'USO DO PACOTE' },
+                    ].map(tab => (
+                        <button 
+                            key={tab.id}
+                            onClick={() => setManagerTab(tab.id as any)}
+                            className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${managerTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/10' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[500px]">
+                    {managerTab === 'atendimentos' && (
+                        <div className="animate-fadeIn">
+                            <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Atendimentos</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="border-b border-slate-100">
+                                        <tr>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Horario</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(() => {
+                                            const cmndApts = (historyComanda?.appointments || []).sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+                                            
+                                            if (cmndApts.length === 0) return (
+                                                <tr><td colSpan={3} className="py-12 text-center text-slate-400 text-xs italic">Nenhum atendimento vinculado.</td></tr>
+                                            );
+
+                                            return cmndApts.map((apt: any, idx: number) => {
+                                                const dDate = new Date(apt.start_time);
+                                                const dEnd = new Date(dDate.getTime() + (apt.duration_minutes || 50) * 60000);
+                                                return (
+                                                    <tr key={apt.id || idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
+                                                        <td className="py-5 px-4 flex flex-col">
+                                                            <span className="text-[9px] font-black text-indigo-400 uppercase mb-1">{apt.recurrence_index || idx + 1} de {apt.recurrence_count || cmndApts.length}</span>
+                                                            <span className="text-xs font-bold text-slate-700 uppercase">{dDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                                                        </td>
+                                                        <td className="py-5 px-4">
+                                                            <span className="text-xs font-black text-slate-400 tabular-nums">{dDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </td>
+                                                        <td className="py-5 px-4">
+                                                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                                                                apt.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 
+                                                                apt.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
+                                                            }`}>{apt.status}</span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {managerTab === 'pagamentos' && (
+                        <div className="animate-fadeIn">
+                             <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Histórico de Transações</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-100">
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Valor</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Forma de pgto.</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Recibo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(() => {
+                                            if (!historyComanda?.paidValue || historyComanda.paidValue === 0) return (
+                                                <tr><td colSpan={4} className="py-12 text-center text-slate-400 text-xs italic">Nenhum pagamento registrado.</td></tr>
+                                            );
+                                            
+                                            // Mock default view, since the DB model implementation for individual comanda_payments is tied in Agenda.tsx mostly via fetch
+                                            return (
+                                                <tr className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
+                                                    <td className="py-5 px-4">
+                                                        <span className="text-sm font-black text-emerald-600">{formatCurrency(historyComanda.paidValue)}</span>
+                                                    </td>
+                                                    <td className="py-5 px-4 italic text-xs text-slate-500 font-bold uppercase">Pagamento Registrado</td>
+                                                    <td className="py-5 px-4 text-xs font-black text-slate-400">{new Date(historyComanda.updated_at || historyComanda.createdAt).toLocaleDateString()}</td>
+                                                    <td className="py-5 px-4">
+                                                        <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 tracking-tighter shadow-sm">#{historyComanda.receipt_code || 'N/A'}</span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {managerTab === 'pacote' && (
+                        <div className="animate-fadeIn">
+                            <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Uso do Pacote</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-100">
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Serviço</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Quantidade</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Utilizados</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Restante</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(() => {
+                                            const used = historyComanda?.sessions_used || 0;
+                                            const total = historyComanda?.sessions_total || 0;
+                                            const remaining = total - used;
+                                            
+                                            if (!historyComanda) return null;
+
+                                            return (
+                                                <tr className="border-b border-slate-50">
+                                                    <td className="py-6 px-4">
+                                                        <p className="text-xs font-bold text-slate-700 uppercase tracking-tight">{historyComanda?.description || 'Serviço do Pacote'}</p>
+                                                    </td>
+                                                    <td className="py-6 px-4 text-center text-xs font-black text-slate-400 tabular-nums">{total}</td>
+                                                    <td className="py-6 px-4 text-center text-xs font-black text-indigo-600 tabular-nums">{used}</td>
+                                                    <td className="py-6 px-4 text-center">
+                                                        {total > 0 && remaining === 0 ? (
+                                                            <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-rose-100">Esgotado</span>
+                                                        ) : total > 0 ? (
+                                                            <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">{remaining} Restantes</span>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold text-slate-400 italic">Avulso</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+      </Modal>
+
+      {/* ADD PAYMENT MODAL */}
+      <Modal
+        isOpen={isAddPaymentModalOpen}
+        onClose={() => setIsAddPaymentModalOpen(false)}
+        title="Novo Pagamento"
+        maxWidth="max-w-xl"
+      >
+        <div className="space-y-8 py-4">
+            <div className="space-y-6">
+                <Input 
+                    label="Data do Pagamento" 
+                    type="date"
+                    value={newPayment.date}
+                    onChange={e => setNewPayment({...newPayment, date: e.target.value})}
+                />
+                
+                <Select 
+                    label="Forma de pagamento" 
+                    value={newPayment.method}
+                    onChange={e => setNewPayment({...newPayment, method: e.target.value})}
+                >
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Pix">Pix</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Cartão de Débito">Cartão de Débito</option>
+                    <option value="Transferência">Transferência</option>
+                </Select>
+
+                <Input 
+                    label="Valor" 
+                    placeholder="R$ 0,00"
+                    type="number"
+                    value={newPayment.value}
+                    onChange={e => setNewPayment({...newPayment, value: e.target.value})}
+                />
+
+                <Input 
+                    label="Código do Recibo (Opcional)" 
+                    placeholder="Ex: REC-123"
+                    value={newPayment.receiptCode}
+                    onChange={e => setNewPayment({...newPayment, receiptCode: e.target.value})}
+                />
+            </div>
+
+            <div className="flex justify-end pr-2">
+                {(() => {
+                    const total = parseFloat(String(historyComanda?.totalValue || historyComanda?.total || 0));
+                    const paid = parseFloat(String(historyComanda?.paid_value || historyComanda?.paidValue || 0));
+                    const remaining = total - paid;
+                    return (
+                        <span className={`text-[11px] font-black uppercase tracking-widest ${remaining > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                            Valor restante: {formatCurrency(remaining)}
+                        </span>
+                    );
+                })()}
+            </div>
+
+            <div className="flex gap-4 pt-4 border-t border-slate-50">
+                <Button 
+                    variant="ghost" 
+                    onClick={() => setIsAddPaymentModalOpen(false)} 
+                    className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-none hover:bg-slate-50"
+                >
+                    FECHAR
+                </Button>
+                <Button 
+                    variant="primary" 
+                    onClick={handleSavePayment}
+                    className="flex-1 bg-indigo-600 text-white hover:bg-slate-900 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                >
+                    SALVAR PAGAMENTO
+                </Button>
+            </div>
+        </div>
+      </Modal>
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
            <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
