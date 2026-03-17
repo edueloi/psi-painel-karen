@@ -463,6 +463,8 @@ export const translations = {
     'wizard.finish': 'Finalizar Cadastro',
 
     // Agenda
+    'agenda.title': 'Agenda Clínica',
+    'agenda.subtitle': 'Organize sua rotina clínica e compromissos',
     'agenda.new': 'Novo Atendimento',
     'agenda.today': 'Hoje',
     'agenda.start': 'Início',
@@ -1117,6 +1119,8 @@ export const translations = {
     'wizard.finish': 'Finish Registration',
 
     // Agenda
+    'agenda.title': 'Clinical Schedule',
+    'agenda.subtitle': 'Organize your clinical routine and appointments',
     'agenda.new': 'New Appointment',
     'agenda.today': 'Today',
     'agenda.start': 'Start',
@@ -1951,6 +1955,8 @@ export const translations = {
     'wizard.finish': 'Finalizar Registro',
 
     // Agenda
+    'agenda.title': 'Agenda Clínica',
+    'agenda.subtitle': 'Organice su rutina clínica y citas',
     'agenda.new': 'Nueva Cita',
     'agenda.today': 'Hoy',
     'agenda.start': 'Inicio',

@@ -386,7 +386,7 @@ export const Agenda: React.FC = () => {
                   <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100 shadow-sm"><CalendarIcon size={20}/></div>
                   {t('agenda.title')}
               </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">{t('agenda.subtitle') || 'Organize sua rotina clínica e compromissos'}</p>
+              <p className="text-slate-400 text-xs mt-1 font-bold">{t('agenda.subtitle')}</p>
           </div>
           <div className="flex gap-2">
               <button 
