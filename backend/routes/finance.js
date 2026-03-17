@@ -258,26 +258,41 @@ router.get('/comandas', async (req, res) => {
 
     const [comandas] = await db.query(query, params);
     
-    // Atualiza o contador de sessões usadas baseado na agenda
+    // Processamento rico
     for (const c of comandas) {
       try {
-        const [usedCount] = await db.query(
-          `SELECT COUNT(*) as used FROM appointments 
-           WHERE comanda_id = ? AND (status IN ('confirmed', 'completed') OR (start_time < NOW() AND status != 'cancelled'))`,
+        // IDs inconsistentes no frontend vs backend (totalValue vs total)
+        c.totalValue = c.total;
+        
+        // Atendimentos vinculados
+        const [aptData] = await db.query(
+          `SELECT start_time, status, notes FROM appointments 
+           WHERE comanda_id = ? ORDER BY start_time ASC`,
           [c.id]
         );
-        c.sessions_used = usedCount[0].used;
+        c.appointments = aptData;
+
+        // Histórico de sessões (contagem)
+        const usedCount = aptData.filter(a => 
+            ['confirmed', 'completed', 'no-show'].includes(a.status) || 
+            (new Date(a.start_time) < new Date() && a.status !== 'cancelled')
+        ).length;
         
-        // Sincroniza no banco se houver discrepância
+        c.sessions_used = usedCount;
+        
+        // Próxima sessão
+        const nextApt = aptData.find(a => new Date(a.start_time) > new Date() && a.status === 'scheduled');
+        c.next_appointment = nextApt ? nextApt.start_time : null;
+
+        // Sincroniza sessions_used no banco
         await db.query('UPDATE comandas SET sessions_used = ? WHERE id = ?', [c.sessions_used, c.id]);
         
-        try { 
-          c.itemsArray = JSON.parse(c.items || '[]'); 
-        } catch { 
-          c.itemsArray = []; 
+        // Parse Items
+        if (typeof c.items === 'string') {
+          try { c.items = JSON.parse(c.items); } catch { c.items = []; }
         }
       } catch (err) {
-        c.itemsArray = [];
+        c.items = [];
         console.error('Erro ao processar comanda:', err.message);
       }
     }
@@ -414,6 +429,24 @@ router.put('/comandas/:id', async (req, res) => {
         console.error(err);
         res.status(500).json({ error: 'Erro ao atualizar comanda' });
     }
+});
+
+// DELETE /finance/comandas/:id
+router.delete('/comandas/:id', async (req, res) => {
+  try {
+    // Remove links na agenda antes de deletar a comanda
+    await db.query('UPDATE appointments SET comanda_id = NULL WHERE comanda_id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    
+    const [result] = await db.query(
+      'DELETE FROM comandas WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Comanda não encontrada' });
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao deletar comanda' });
+  }
 });
 
 module.exports = router;

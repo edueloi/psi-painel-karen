@@ -39,7 +39,10 @@ export const Comandas: React.FC = () => {
   const [packages, setPackages] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'open' | 'closed'>('open');
+  const [dateRangeFilter, setDateRangeFilter] = useState<'today' | 'month' | 'year' | 'all'>('month');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyComanda, setHistoryComanda] = useState<Comanda | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   // Modals
@@ -109,14 +112,28 @@ export const Comandas: React.FC = () => {
   // Lógica de Filtragem
   const filteredComandas = useMemo(() => {
       return comandas.filter(c => {
-          const patientName = c.patientName || '';
+          const patientName = c.patientName || c.patient_name || '';
           const description = c.description || '';
           const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                 description.toLowerCase().includes(searchTerm.toLowerCase());
-          const matchesStatus = statusFilter === 'all' ? true : c.status === statusFilter;
-          return matchesSearch && matchesStatus;
+          
+          if (statusFilter !== c.status) return false;
+
+          if (statusFilter === 'closed') {
+              const date = new Date(c.updated_at || c.createdAt);
+              const now = new Date();
+              if (dateRangeFilter === 'today') {
+                  if (date.toDateString() !== now.toDateString()) return false;
+              } else if (dateRangeFilter === 'month') {
+                  if (date.getMonth() !== now.getMonth() || date.getFullYear() !== now.getFullYear()) return false;
+              } else if (dateRangeFilter === 'year') {
+                  if (date.getFullYear() !== now.getFullYear()) return false;
+              }
+          }
+
+          return matchesSearch;
       });
-  }, [comandas, searchTerm, statusFilter]);
+  }, [comandas, searchTerm, statusFilter, dateRangeFilter]);
 
   // Estatísticas
   const stats = useMemo(() => {
@@ -204,6 +221,23 @@ export const Comandas: React.FC = () => {
         pushToast('error', 'Erro ao remover comanda.');
       }
       setDeleteConfirmId(null);
+    }
+  };
+  
+  const handleUpdateAppointmentStatus = async (appointmentId: string, newStatus: string) => {
+    try {
+      await api.put(`/appointments/${appointmentId}`, { status: newStatus });
+      fetchData(); // Recarrega tudo para atualizar progresso
+      if (historyComanda) {
+        // Atualiza a comanda no histórico localmente se necessário, ou apenas fecha e abre
+        const refreshed = await api.get<Comanda[]>('/finance/comandas');
+        const updated = refreshed.find(c => c.id === historyComanda.id);
+        if (updated) setHistoryComanda(updated);
+      }
+      pushToast('success', `Status atualizado para ${newStatus}`);
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao atualizar agendamento');
     }
   };
 
@@ -294,22 +328,41 @@ export const Comandas: React.FC = () => {
           </div>
 
           <div className="flex gap-3 w-full lg:w-auto">
-              {/* Status Filter */}
+              {/* Status Tabs */}
               <div className="flex bg-slate-100 p-1.5 rounded-2xl flex-1 lg:flex-none">
                   {[
-                      { id: 'all', label: 'Todos' },
-                      { id: 'open', label: 'Abertos' },
-                      { id: 'closed', label: 'Pagos' }
+                      { id: 'open', label: 'Em Aberto' },
+                      { id: 'closed', label: 'Finalizadas' }
                   ].map(st => (
                       <button 
                           key={st.id}
                           onClick={() => setStatusFilter(st.id as any)}
-                          className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === st.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                          className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === st.id ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-indigo-400'}`}
                       >
                           {st.label}
                       </button>
                   ))}
               </div>
+
+              {/* Date Filters for Closed */}
+              {statusFilter === 'closed' && (
+                  <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl">
+                      {[
+                          { id: 'today', label: 'Hoje' },
+                          { id: 'month', label: 'Mês' },
+                          { id: 'year', label: 'Ano' },
+                          { id: 'all', label: 'Tudo' }
+                      ].map(d => (
+                          <button 
+                              key={d.id}
+                              onClick={() => setDateRangeFilter(d.id as any)}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${dateRangeFilter === d.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                          >
+                              {d.label}
+                          </button>
+                      ))}
+                  </div>
+              )}
 
               {/* View Toggle */}
               <div className="flex gap-1.5 border border-slate-200 bg-white p-1.5 rounded-2xl shadow-sm">
@@ -320,91 +373,84 @@ export const Comandas: React.FC = () => {
       </div>
 
       {/* CONTENT AREA */}
-      {viewMode === 'kanban' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[
-                  { id: 'open', title: 'Abertos', color: 'amber', icon: <Clock size={16}/> },
-                  { id: 'closed', title: 'Pagos', color: 'emerald', icon: <CheckCircle2 size={16}/> },
-                  { id: 'cancelled', title: 'Cancelados', color: 'slate', icon: <AlertCircle size={16}/> }
-              ].map(col => (
-                  <div key={col.id} className="flex flex-col gap-5">
-                      <div className="flex items-center justify-between px-3">
-                          <div className={`flex items-center gap-2 text-${col.color}-600 font-black text-[10px] uppercase tracking-[0.1em]`}>
-                              {col.icon}
-                              {col.title}
-                          </div>
-                          <span className="text-[10px] font-black text-slate-300 bg-slate-50 px-2 py-1 rounded-lg">
-                              {filteredComandas.filter(c => c.status === col.id).length}
-                          </span>
-                      </div>
-                      <div className="space-y-5">
-                          {filteredComandas.filter(c => c.status === col.id).map(comanda => (
-                              <div key={comanda.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative">
-                                  <div className="flex justify-between items-start mb-5">
-                                      <div className="flex items-center gap-4">
-                                          <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[12px] font-black shadow-lg shadow-indigo-100`}>
-                                              {(comanda.patientName || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
-                                          </div>
-                                          <div>
-                                              <h4 className="font-black text-slate-800 text-[13px]">{comanda.patientName}</h4>
-                                              <div className="flex items-center gap-2">
-                                                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">#{comanda.id}</p>
-                                                  {(comanda.sessions_total || 0) > 1 && (
-                                                      <span className="text-[9px] font-black px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100">
-                                                          {comanda.sessions_used || 0}/{comanda.sessions_total} SESSÕES
-                                                      </span>
-                                                  )}
-                                              </div>
-                                          </div>
-                                      </div>
-                                      <div className="flex gap-1.5">
-                                          <button onClick={() => handleOpenModal(comanda)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"><Edit3 size={14}/></button>
-                                          <button onClick={() => setDeleteConfirmId(comanda.id)} className="p-2.5 bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all border border-transparent hover:border-red-100"><Trash2 size={14}/></button>
-                                      </div>
+      <div className="flex flex-col gap-8">
+          <div className="flex items-center justify-between px-3">
+              <div className={`flex items-center gap-3 text-indigo-600 font-black text-[11px] uppercase tracking-[0.2em]`}>
+                  {statusFilter === 'open' ? <Clock size={16}/> : <CheckCircle2 size={16}/>}
+                  {statusFilter === 'open' ? 'Comandas em Aberto' : 'Comandas Finalizadas'}
+                  <span className="px-2 py-0.5 bg-indigo-50 rounded-lg border border-indigo-100 text-[10px]">
+                    {filteredComandas.length}
+                  </span>
+              </div>
+          </div>
+
+          {viewMode === 'kanban' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {filteredComandas.map(comanda => (
+                      <div 
+                        key={comanda.id} 
+                        onClick={() => { setHistoryComanda(comanda); setIsHistoryOpen(true); }}
+                        className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative cursor-pointer"
+                      >
+                          <div className="flex justify-between items-start mb-5">
+                              <div className="flex items-center gap-4">
+                                  <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[12px] font-black shadow-lg shadow-indigo-100`}>
+                                      {(comanda.patientName || comanda.patient_name || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
                                   </div>
-                                  
-                                  <div className="mb-5">
-                                      <div className="bg-slate-50/50 border border-slate-100/50 p-3.5 rounded-3xl">
-                                          <p className="text-xs font-bold text-slate-600 flex items-center gap-2.5 leading-relaxed">
-                                              <div className="h-6 w-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500"><FileText size={12}/></div>
-                                              {comanda.description || 'Sem descrição'}
-                                          </p>
-                                      </div>
-                                      <div className="mt-3 flex items-center justify-between text-[10px] font-black text-slate-400 px-1">
-                                          <span className="flex items-center gap-1.5"><Calendar size={13}/> {new Date(comanda.createdAt || new Date()).toLocaleDateString()}</span>
-                                          {comanda.status === 'open' && (
-                                              <span className="text-amber-500 flex items-center gap-1.5 animate-pulse"><Clock size={13}/> Pendente</span>
+                                  <div>
+                                      <h4 className="font-black text-slate-800 text-[13px]">{comanda.patientName || comanda.patient_name}</h4>
+                                      <div className="flex items-center gap-2">
+                                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">#{comanda.id}</p>
+                                          {(comanda.sessions_total || 0) > 0 && (
+                                              <span className="text-[9px] font-black px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100">
+                                                  {comanda.sessions_used || 0}/{comanda.sessions_total} SESSÕES
+                                              </span>
                                           )}
                                       </div>
                                   </div>
-
-                                  <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                                      <div className="flex items-center gap-3">
-                                          <div className="text-base font-black text-indigo-600">
-                                              {formatCurrency(comanda.totalValue)}
-                                          </div>
-                                          <button 
-                                            onClick={(e) => { e.stopPropagation(); handleQuickStatusToggle(comanda); }}
-                                            className={`p-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${comanda.status === 'open' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-100'}`}
-                                            title={comanda.status === 'open' ? 'Marcar como Pago' : 'Reabrir'}
-                                          >
-                                              {comanda.status === 'open' ? 'PAGAR' : 'ABRIR'}
-                                          </button>
-                                      </div>
-                                      <button 
-                                        onClick={() => handleOpenModal(comanda)}
-                                        className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all transform hover:rotate-12 shadow-sm"
-                                      >
-                                          <Edit3 size={16} />
-                                      </button>
+                              </div>
+                              <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                                  <button onClick={() => handleOpenModal(comanda)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"><Edit3 size={14}/></button>
+                                  <button onClick={() => setDeleteConfirmId(comanda.id)} className="p-2.5 bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all border border-transparent hover:border-red-100"><Trash2 size={14}/></button>
+                              </div>
+                          </div>
+                          
+                          <div className="mb-5">
+                              <div className="bg-slate-50/50 border border-slate-100/50 p-3.5 rounded-3xl">
+                                  <div className="text-xs font-bold text-slate-600 flex items-center gap-2.5 leading-relaxed">
+                                      <div className="h-6 w-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0"><FileText size={12}/></div>
+                                      <span className="truncate">{comanda.description || 'Sem descrição'}</span>
                                   </div>
                               </div>
-                          ))}
+                              <div className="mt-3 flex items-center justify-between text-[10px] font-black text-slate-400 px-1">
+                                  <span className="flex items-center gap-1.5"><Calendar size={13}/> {new Date(comanda.createdAt || new Date()).toLocaleDateString()}</span>
+                                  {comanda.next_appointment && (
+                                      <span className="text-indigo-400 flex items-center gap-1.5"><ArrowUpRight size={13}/> Prox: {new Date(comanda.next_appointment).toLocaleDateString()}</span>
+                                  )}
+                              </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                              <div className="flex items-center gap-3">
+                                  <div className="text-base font-black text-indigo-600">
+                                      {formatCurrency(comanda.totalValue || comanda.total)}
+                                  </div>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); handleQuickStatusToggle(comanda); }}
+                                    className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${comanda.status === 'open' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-100'}`}
+                                    title={comanda.status === 'open' ? 'Marcar como Pago' : 'Reabrir'}
+                                  >
+                                      {comanda.status === 'open' ? 'PAGAR' : 'ABRIR'}
+                                  </button>
+                              </div>
+                              <div className="flex items-center gap-1 text-[10px] font-black text-slate-300">
+                                  <Clock size={12}/> Ver Detalhes
+                              </div>
+                          </div>
                       </div>
-                  </div>
-              ))}
-          </div>
-      ) : (
+                  ))}
+              </div>
+          ) : (
           <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden overflow-x-auto">
               <table className="w-full text-left min-w-[600px]">
                   <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] border-b border-slate-100">
@@ -418,7 +464,7 @@ export const Comandas: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                       {filteredComandas.map(c => (
-                          <tr key={c.id} className="group hover:bg-indigo-50/30 transition-all cursor-pointer" onClick={() => handleOpenModal(c)}>
+                          <tr key={c.id} className="group hover:bg-indigo-50/30 transition-all cursor-pointer" onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }}>
                                <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
                                     <button 
                                         onClick={() => handleQuickStatusToggle(c)} 
@@ -430,9 +476,16 @@ export const Comandas: React.FC = () => {
                               <td className="px-8 py-5">
                                   <div className="flex items-center gap-3">
                                       <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px] font-black border border-indigo-100 shrink-0">
-                                          {(c.patientName || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
+                                          {(c.patientName || c.patient_name || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
                                       </div>
-                                      <span className="font-black text-slate-700 text-sm whitespace-nowrap">{c.patientName}</span>
+                                      <div className="flex flex-col">
+                                          <span className="font-black text-slate-700 text-sm whitespace-nowrap">{c.patientName || c.patient_name}</span>
+                                          {(c.sessions_total || 0) > 0 && (
+                                              <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-0.5">
+                                                  {c.sessions_used || 0}/{c.sessions_total} Sessões
+                                              </span>
+                                          )}
+                                      </div>
                                   </div>
                               </td>
                               <td className="px-8 py-5">
@@ -453,6 +506,7 @@ export const Comandas: React.FC = () => {
               </table>
           </div>
       )}
+      </div>
 
       {/* MODAL LANÇAMENTO */}
       {isModalOpen && editingComanda && (
@@ -650,7 +704,131 @@ export const Comandas: React.FC = () => {
           </div>
       )}
 
-      {/* MODAL CONFIRMAÇÃO DELEÇÃO */}
+      {/* SIDEBAR DE HISTÓRICO / DETALHES */}
+      {isHistoryOpen && historyComanda && (
+          <div className="fixed inset-0 z-[70] overflow-hidden flex justify-end">
+              <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => setIsHistoryOpen(false)}></div>
+              <div className="relative w-full max-w-lg bg-white shadow-2xl animate-slideLeft transform flex flex-col h-full border-l border-white/20">
+                  <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                      <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+                              <Clock size={24}/>
+                          </div>
+                          <div>
+                              <h3 className="text-xl font-black text-slate-800">Histórico da Comanda</h3>
+                              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{historyComanda.patientName} • #{historyComanda.id}</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setIsHistoryOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl text-slate-400 ring-1 ring-slate-200 transition-all"><X size={18}/></button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                      {/* Resumo Rápido */}
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                             <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Total da Comanda</p>
+                             <p className="text-lg font-black text-indigo-600">{formatCurrency(historyComanda.totalValue)}</p>
+                          </div>
+                          <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                             <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Status Atual</p>
+                             <StatusBadge status={historyComanda.status} />
+                          </div>
+                      </div>
+
+                      {/* Timeline de Atendimentos */}
+                      <div>
+                          <div className="flex items-center justify-between mb-5">
+                             <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                                <Calendar size={16} className="text-indigo-500"/>
+                                Cronograma de Sessões
+                             </h4>
+                             <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">{historyComanda.sessions_used}/{historyComanda.sessions_total}</span>
+                          </div>
+
+                          <div className="space-y-4 relative before:absolute before:left-[19px] before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-100">
+                              {(historyComanda.appointments || []).map((apt: any, i: number) => (
+                                  <div key={i} className="relative pl-12">
+                                      <div className={`absolute left-0 top-1.5 w-10 h-10 rounded-xl border-4 border-white flex items-center justify-center z-10 shadow-sm ${
+                                          apt.status === 'completed' ? 'bg-emerald-500 text-white' : 
+                                          apt.status === 'cancelled' ? 'bg-red-500 text-white' : 
+                                          new Date(apt.start_time) < new Date() ? 'bg-amber-500 text-white' : 'bg-indigo-100 text-indigo-600'
+                                      }`}>
+                                          {apt.status === 'completed' ? <CheckCircle2 size={14}/> : <Clock size={14}/>}
+                                      </div>
+                                      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-100 transition-all">
+                                          <div className="flex justify-between items-start mb-1">
+                                              <p className="text-xs font-black text-slate-700">{new Date(apt.start_time).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })} • {new Date(apt.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                                              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                  apt.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 
+                                                  apt.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
+                                              }`}>
+                                                  {apt.status}
+                                              </span>
+                                          </div>
+                                          <p className="text-[10px] text-slate-400 font-bold leading-relaxed">{apt.notes || 'Sem observações registradas.'}</p>
+                                          
+                                          {/* Ações Rápidas de Agendamento */}
+                                          <div className="mt-3 pt-3 border-t border-slate-50 flex gap-2">
+                                              {apt.status === 'completed' || apt.status === 'no-show' ? (
+                                                  <button 
+                                                    onClick={() => handleUpdateAppointmentStatus(apt.id, 'scheduled')}
+                                                    className="text-[9px] font-black text-indigo-500 hover:underline"
+                                                  >
+                                                      REABRIR SESSÃO
+                                                  </button>
+                                              ) : (
+                                                  <>
+                                                      <button 
+                                                        onClick={() => handleUpdateAppointmentStatus(apt.id, 'completed')}
+                                                        className="text-[9px] font-black text-emerald-600 hover:underline"
+                                                      >
+                                                          CONCLUIR
+                                                      </button>
+                                                      <button 
+                                                        onClick={() => handleUpdateAppointmentStatus(apt.id, 'no-show')}
+                                                        className="text-[9px] font-black text-amber-600 hover:underline"
+                                                      >
+                                                          FALTA
+                                                      </button>
+                                                  </>
+                                              )}
+                                              <button onClick={() => navigate('/agenda')} className="text-[9px] font-black text-slate-400 hover:text-indigo-500 ml-auto">VER NA AGENDA</button>
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                              {(historyComanda.appointments || []).length === 0 && (
+                                  <div className="text-center py-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
+                                      <Calendar size={32} className="mx-auto text-slate-200 mb-3"/>
+                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nenhum agendamento vinculado</p>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Notas da Comanda */}
+                      <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100/50">
+                          <h4 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              <FileText size={16}/>
+                              Observações da Comanda
+                          </h4>
+                          <p className="text-xs font-bold text-indigo-900/70 leading-relaxed whitespace-pre-wrap">
+                              {historyComanda.notes || 'Nenhuma observação interna registrada para esta comanda.'}
+                          </p>
+                      </div>
+                  </div>
+
+                  <div className="p-8 border-t border-slate-50 bg-slate-50/30">
+                      <button 
+                        onClick={() => handleOpenModal(historyComanda)}
+                        className="w-full py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                      >
+                         <Edit3 size={16}/> Editar Comanda Completa
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
            <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
