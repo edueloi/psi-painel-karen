@@ -8,6 +8,8 @@ import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
 import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle } from '../components/UI/FilterLine';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
+import { GridTable } from '../components/UI/GridTable';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useToast } from '../contexts/ToastContext';
@@ -148,6 +150,49 @@ export const Comandas: React.FC = () => {
   >('atendimentos');
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Selection + pagination
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const allVisibleSelected = currentComandas.every(c => selectedIds.has(String(c.id)));
+    if (allVisibleSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        currentComandas.forEach(c => next.delete(String(c.id)));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        currentComandas.forEach(c => next.add(String(c.id)));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all([...selectedIds].map(id => api.delete(`/finance/comandas/${id}`)));
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      await fetchData();
+      pushToast('success', 'Comandas excluídas.');
+    } catch {
+      pushToast('error', 'Erro ao excluir comandas.');
+    }
+  };
 
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
   const [newPayment, setNewPayment] = useState({
@@ -320,6 +365,17 @@ export const Comandas: React.FC = () => {
       return true;
     });
   }, [comandas, searchTerm, statusFilter, dateRangeFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, [searchTerm, statusFilter, dateRangeFilter, itemsPerPage]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredComandas.length / itemsPerPage));
+  const currentComandas = useMemo(() => {
+    return filteredComandas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredComandas, currentPage, itemsPerPage]);
 
   const stats = useMemo(() => {
     const total = comandas.reduce((acc, c: any) => acc + getComandaTotal(c), 0);
@@ -1033,128 +1089,142 @@ export const Comandas: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-[1100px] w-full">
-                <thead className="border-b border-slate-200 bg-slate-50">
-                  <tr className="text-left text-xs uppercase tracking-wider text-slate-500">
-                    <th className="px-5 py-4">ID</th>
-                    <th className="px-5 py-4">Paciente</th>
-                    <th className="px-5 py-4">Serviço / Pacote</th>
-                    <th className="px-5 py-4">Sessões</th>
-                    <th className="px-5 py-4">Total</th>
-                    <th className="px-5 py-4">Recebido</th>
-                    <th className="px-5 py-4">Pendente</th>
-                    <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredComandas.map((comanda: any) => (
-                    <tr
-                      key={comanda.id}
-                      onClick={() => {
-                        setHistoryComanda(comanda);
-                        setIsHistoryOpen(true);
-                      }}
-                      className="cursor-pointer border-b border-slate-100 text-sm transition hover:bg-slate-50"
+          <>
+            {/* Bulk action bar */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 mb-4 gap-4">
+                <span className="text-sm font-semibold text-amber-800">{selectedIds.size} comanda{selectedIds.size > 1 ? 's' : ''} selecionada{selectedIds.size > 1 ? 's' : ''}</span>
+                <div className="flex gap-2">
+                  <Button variant="softDanger" size="sm" leftIcon={<Trash2 size={14} />} onClick={() => setConfirmBulkDelete(true)}>
+                    Excluir selecionadas
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Cancelar</Button>
+                </div>
+              </div>
+            )}
+
+            <GridTable<any>
+              data={currentComandas}
+              keyExtractor={(c) => c.id}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              onToggleSelectAll={toggleSelectAll}
+              onRowClick={(c) => { setHistoryComanda(c); setIsHistoryOpen(true); }}
+              emptyMessage="Nenhuma comanda encontrada."
+              columns={[
+                {
+                  header: 'ID',
+                  render: (c: any) => <span className="text-slate-400 font-mono text-xs">#{c.id}</span>
+                },
+                {
+                  header: 'Paciente',
+                  render: (c: any) => (
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs shrink-0">
+                        {String(c.patientName || c.patient_name || 'P').charAt(0)}
+                      </div>
+                      <span className="font-semibold text-slate-800">{c.patientName || c.patient_name}</span>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Serviço / Pacote',
+                  render: (c: any) => <span className="text-slate-600 text-sm">{c.items?.[0]?.name || c.description || '—'}</span>
+                },
+                {
+                  header: 'Sessões',
+                  render: (c: any) => (
+                    <div className="flex flex-col">
+                      <span className={cx(
+                        "font-medium text-sm",
+                        (c.appointments?.length || 0) > (c.sessions_total || 0) ? 'text-red-600' :
+                        (c.appointments?.length || 0) === (c.sessions_total || 0) ? 'text-emerald-600' : 'text-slate-700'
+                      )}>
+                        {c.sessions_used || 0} / {c.sessions_total || 1}
+                      </span>
+                      {(c.appointments?.length || 0) > (c.sessions_total || 0) && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">Excedido</span>
+                      )}
+                    </div>
+                  )
+                },
+                {
+                  header: 'Total',
+                  render: (c: any) => <span className="font-semibold text-slate-800">{formatCurrency(getComandaTotal(c))}</span>
+                },
+                {
+                  header: 'Recebido',
+                  render: (c: any) => <span className="font-semibold text-emerald-600">{formatCurrency(getComandaPaid(c))}</span>
+                },
+                {
+                  header: 'Pendente',
+                  render: (c: any) => <span className="font-semibold text-amber-600">{formatCurrency(getComandaPending(c))}</span>
+                },
+                {
+                  header: 'Status',
+                  render: (c: any) => <StatusBadge status={c.status} />
+                },
+                {
+                  header: 'Ações',
+                  className: 'text-right',
+                  headerClassName: 'text-right',
+                  render: (c: any) => (
+                    <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenModal(c)} title="Editar">
+                        <Edit3 size={14} />
+                      </Button>
+                      <Button variant="soft" size="xs" iconOnly onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }} title="Histórico">
+                        <CheckCircle2 size={14} />
+                      </Button>
+                      <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteConfirmId(String(c.id))} title="Excluir">
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  )
+                }
+              ]}
+            />
+
+            {/* Pagination */}
+            {filteredComandas.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 p-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <span>Itens por página:</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100"
+                  >
+                    {[5, 15, 30, 50].map(limit => (
+                      <option key={limit} value={limit}>{limit}</option>
+                    ))}
+                  </select>
+                  <span className="text-slate-400">{filteredComandas.length} total</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-slate-500">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all"
                     >
-                      <td className="px-5 py-4 text-slate-400">#{comanda.id}</td>
-                      <td className="px-5 py-4 font-medium text-slate-800">
-                        {comanda.patientName || comanda.patient_name}
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">
-                        {comanda.items?.[0]?.name || comanda.description || '—'}
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">
-                        <div className="flex flex-col">
-                          <span className={cx(
-                            "font-medium",
-                            (comanda.appointments?.length || 0) > (comanda.sessions_total || 0) 
-                              ? "text-red-600" 
-                              : (comanda.appointments?.length || 0) === (comanda.sessions_total || 0)
-                                ? "text-emerald-600"
-                                : "text-slate-700"
-                          )}>
-                            {comanda.sessions_used || 0} / {comanda.sessions_total || 1}
-                          </span>
-                          {(comanda.appointments?.length || 0) > (comanda.sessions_total || 0) && (
-                            <span className="text-[10px] text-red-500 font-bold uppercase">Excedido</span>
-                          )}
-                          {(comanda.appointments?.length || 0) < (comanda.sessions_total || 1) && (comanda.appointments?.length || 0) > (comanda.sessions_used || 0) && (
-                            <span className="text-[10px] text-amber-500 font-medium whitespace-nowrap">
-                              {comanda.appointments.length} agendados
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 font-semibold text-slate-800">
-                        {formatCurrency(getComandaTotal(comanda))}
-                      </td>
-                      <td className="px-5 py-4 font-semibold text-emerald-600">
-                        {formatCurrency(getComandaPaid(comanda))}
-                      </td>
-                      <td className="px-5 py-4 font-semibold text-amber-600">
-                        {formatCurrency(getComandaPending(comanda))}
-                      </td>
-                      <td className="px-5 py-4">
-                        <StatusBadge status={comanda.status} />
-                      </td>
-                      <td
-                        className="px-5 py-4"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                      >
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="xs"
-                            iconOnly
-                            onClick={() => handleOpenModal(comanda)}
-                            title="Editar"
-                          >
-                            <Edit3 size={14} />
-                          </Button>
-
-                          <Button
-                            variant="soft"
-                            size="xs"
-                            iconOnly
-                            onClick={() => {
-                              setHistoryComanda(comanda);
-                              setIsHistoryOpen(true);
-                            }}
-                            title="Histórico de pagamentos"
-                          >
-                            <CheckCircle2 size={14} />
-                          </Button>
-
-                          <Button
-                            variant="softDanger"
-                            size="xs"
-                            iconOnly
-                            onClick={() => setDeleteConfirmId(String(comanda.id))}
-                            title="Excluir"
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {!isLoading && filteredComandas.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="px-5 py-12 text-center text-sm text-slate-400">
-                        Nenhuma comanda encontrada.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -1974,6 +2044,41 @@ export const Comandas: React.FC = () => {
           <p className="text-base font-semibold text-slate-800">Atenção</p>
           <p className="mt-2 text-sm text-slate-500">
             Esta comanda e seus vínculos financeiros serão removidos permanentemente.
+          </p>
+        </div>
+      </Modal>
+
+      {/* BULK DELETE CONFIRM */}
+      <Modal
+        isOpen={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        title="Excluir Selecionadas"
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <button
+              onClick={() => setConfirmBulkDelete(false)}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+            >
+              Excluir {selectedIds.size} comanda{selectedIds.size > 1 ? 's' : ''}
+            </button>
+          </div>
+        }
+      >
+        <div className="py-6 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+            <AlertTriangle size={30} />
+          </div>
+          <p className="text-base font-semibold text-slate-800">Atenção</p>
+          <p className="mt-2 text-sm text-slate-500">
+            Você irá excluir permanentemente <strong>{selectedIds.size}</strong> comanda{selectedIds.size > 1 ? 's' : ''}.<br />
+            Esta ação não pode ser desfeita.
           </p>
         </div>
       </Modal>

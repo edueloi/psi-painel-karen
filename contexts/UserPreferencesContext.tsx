@@ -10,6 +10,10 @@ export interface UserPreferences {
     viewMode: 'cards' | 'list';
     statusFilter: 'all' | 'ativo' | 'inativo';
   };
+  services: {
+    viewMode: 'cards' | 'list';
+    activeTab: 'services' | 'packages';
+  };
   agenda: {
     viewMode: 'day' | 'week' | 'month';
   };
@@ -28,6 +32,10 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   patients: {
     viewMode: 'cards',
     statusFilter: 'all',
+  },
+  services: {
+    viewMode: 'cards',
+    activeTab: 'services',
   },
   agenda: {
     viewMode: 'week',
@@ -61,6 +69,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
           ...parsed,
           comandas: { ...DEFAULT_PREFERENCES.comandas, ...parsed.comandas },
           patients: { ...DEFAULT_PREFERENCES.patients, ...parsed.patients },
+          services: { ...DEFAULT_PREFERENCES.services, ...parsed.services },
           agenda: { ...DEFAULT_PREFERENCES.agenda, ...parsed.agenda },
           appearance: { ...DEFAULT_PREFERENCES.appearance, ...parsed.appearance },
         };

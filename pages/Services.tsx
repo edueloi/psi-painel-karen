@@ -18,6 +18,10 @@ import {
   FileDown,
   Palette,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  List as ListIcon,
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -33,6 +37,8 @@ import {
 import { Button } from '../components/UI/Button';
 import { StatusAlert } from '../components/UI/StatusAlert';
 import { useToast } from '../contexts/ToastContext';
+import { GridTable } from '../components/UI/GridTable';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(' ');
@@ -81,8 +87,9 @@ const CurrencyInput: React.FC<{
 export const Services: React.FC = () => {
   const { t, language } = useLanguage();
   const { pushToast } = useToast();
+  const { preferences, updatePreference } = useUserPreferences();
 
-  const [activeTab, setActiveTab] = useState<'services' | 'packages'>('services');
+  const [activeTab, setActiveTab] = useState<'services' | 'packages'>(preferences.services.activeTab);
   const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
   const [packages, setPackages] = useState<ServicePackage[]>(MOCK_PACKAGES);
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,7 +101,29 @@ export const Services: React.FC = () => {
   const [editingPackage, setEditingPackage] = useState<Partial<ServicePackage> | null>(null);
   const [deleteId, setDeleteId] = useState<{ id: string; type: 'service' | 'package' } | null>(null);
 
+  // view / selection / pagination
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(preferences.services.viewMode);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const colorPickerRef = React.useRef<HTMLDivElement>(null);
+
+  // Close color picker on outside click
+  useEffect(() => {
+    if (!colorPickerOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setColorPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [colorPickerOpen]);
+
   const [packageServiceToAdd, setPackageServiceToAdd] = useState<string>('');
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -141,6 +170,61 @@ export const Services: React.FC = () => {
       ),
     [packages, searchTerm]
   );
+
+  // reset when tab/search/page-size changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, [activeTab, searchTerm, itemsPerPage]);
+
+  const activeList = activeTab === 'services' ? filteredServices : filteredPackages;
+  const totalPages = Math.max(1, Math.ceil(activeList.length / itemsPerPage));
+  const currentItems = useMemo(
+    () => activeList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [activeList, currentPage, itemsPerPage]
+  );
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const allVisible = currentItems.every((item: any) => selectedIds.has(String(item.id)));
+    if (allVisible) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        currentItems.forEach((item: any) => next.delete(String(item.id)));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        currentItems.forEach((item: any) => next.add(String(item.id)));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      const endpoint = activeTab === 'services' ? '/services' : '/packages';
+      await Promise.all([...selectedIds].map((id) => api.delete(`${endpoint}/${id}`)));
+      if (activeTab === 'services') {
+        setServices((prev) => prev.filter((s) => !selectedIds.has(String(s.id))));
+      } else {
+        setPackages((prev) => prev.filter((p) => !selectedIds.has(String(p.id))));
+      }
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      pushToast('success', 'Excluídos com sucesso!');
+    } catch {
+      pushToast('error', 'Erro ao excluir itens.');
+    }
+  };
 
   const stats = useMemo(
     () => ({
@@ -787,38 +871,237 @@ export const Services: React.FC = () => {
           </FilterLineSection>
 
           <FilterLineSection align="right">
+            {/* Tab toggle */}
             <FilterLineSegmented
               value={activeTab}
-              onChange={(val) => setActiveTab(val as 'services' | 'packages')}
+              onChange={(val) => {
+                const tab = val as 'services' | 'packages';
+                setActiveTab(tab);
+                updatePreference('services', { activeTab: tab });
+              }}
               options={[
                 { value: 'services', label: t('services.services') },
                 { value: 'packages', label: t('services.packages') },
               ]}
             />
+            {/* View toggle */}
+            <div className="flex items-center gap-1 ml-2">
+              <button
+                onClick={() => { setViewMode('cards'); updatePreference('services', { viewMode: 'cards' }); }}
+                className={`p-2 rounded-xl border transition-all ${
+                  viewMode === 'cards'
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                    : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <LayoutGrid size={15} />
+              </button>
+              <button
+                onClick={() => { setViewMode('list'); updatePreference('services', { viewMode: 'list' }); }}
+                className={`p-2 rounded-xl border transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                    : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <ListIcon size={15} />
+              </button>
+            </div>
           </FilterLineSection>
         </FilterLine>
 
         {/* Content */}
-        {activeTab === 'services' ? (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredServices.map(renderServiceCard)}
-
-            {!isLoading && filteredServices.length === 0 && (
-              <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">
-                Nenhum serviço encontrado.
+        {viewMode === 'cards' ? (
+          <>
+            {activeTab === 'services' ? (
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {currentItems.map((s) => renderServiceCard(s as Service))}
+                {!isLoading && filteredServices.length === 0 && (
+                  <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">Nenhum serviço encontrado.</div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2">
+                {currentItems.map((p) => renderPackageCard(p as ServicePackage))}
+                {!isLoading && filteredPackages.length === 0 && (
+                  <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">Nenhum pacote encontrado.</div>
+                )}
               </div>
             )}
-          </div>
+          </>
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2">
-            {filteredPackages.map(renderPackageCard)}
-
-            {!isLoading && filteredPackages.length === 0 && (
-              <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">
-                Nenhum pacote encontrado.
+          <>
+            {/* Bulk action bar */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 mb-4 gap-4">
+                <span className="text-sm font-semibold text-amber-800">{selectedIds.size} item(ns) selecionado(s)</span>
+                <div className="flex gap-2">
+                  <Button variant="softDanger" size="sm" leftIcon={<Trash2 size={14} />} onClick={() => setConfirmBulkDelete(true)}>Excluir selecionados</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Cancelar</Button>
+                </div>
               </div>
             )}
-          </div>
+
+            {activeTab === 'services' ? (
+              <GridTable<Service>
+                data={currentItems as Service[]}
+                keyExtractor={(s) => s.id}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+                onToggleSelectAll={toggleSelectAll}
+                onRowClick={(s) => handleOpenServiceModal(s)}
+                emptyMessage="Nenhum serviço encontrado."
+                columns={[
+                  {
+                    header: 'Serviço',
+                    render: (s: Service) => (
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-8 rounded-full shrink-0" style={{ backgroundColor: s.color || '#6366f1' }} />
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-800 truncate">{s.name}</div>
+                          <div className="text-[10px] text-slate-400 uppercase tracking-wide">{s.category}</div>
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Duração',
+                    render: (s: Service) => <span className="text-slate-600">{s.duration} min</span>
+                  },
+                  {
+                    header: 'Modalidade',
+                    render: (s: Service) => (
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                        s.modality === 'online' ? 'bg-emerald-50 text-emerald-700' :
+                        s.modality === 'geral'  ? 'bg-violet-50 text-violet-700' :
+                        'bg-blue-50 text-blue-700'
+                      }`}>
+                        {s.modality === 'online' ? 'Online' : s.modality === 'geral' ? 'Geral' : 'Presencial'}
+                      </span>
+                    )
+                  },
+                  {
+                    header: 'Preço',
+                    render: (s: Service) => <span className="font-semibold text-primary-600">{formatCurrency(s.price)}</span>
+                  },
+                  {
+                    header: 'Custo',
+                    render: (s: Service) => <span className="text-slate-500">{formatCurrency(s.cost || 0)}</span>
+                  },
+                  {
+                    header: 'Ações',
+                    className: 'text-right',
+                    headerClassName: 'text-right',
+                    render: (s: Service) => (
+                      <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenServiceModal(s)} title="Editar">
+                          <Edit3 size={14} />
+                        </Button>
+                        <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteId({ id: String(s.id), type: 'service' })} title="Excluir">
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    )
+                  }
+                ]}
+              />
+            ) : (
+              <GridTable<ServicePackage>
+                data={currentItems as ServicePackage[]}
+                keyExtractor={(p) => p.id}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+                onToggleSelectAll={toggleSelectAll}
+                onRowClick={(p) => handleOpenPackageModal(p)}
+                emptyMessage="Nenhum pacote encontrado."
+                columns={[
+                  {
+                    header: 'Pacote',
+                    render: (p: ServicePackage) => (
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                          <Package size={15} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-800 truncate">{p.name}</div>
+                          <div className="text-[10px] text-slate-400">{p.items?.length || 0} itens</div>
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Serviços',
+                    render: (p: ServicePackage) => (
+                      <div className="text-slate-600 text-xs">
+                        {(p.items || []).slice(0, 2).map((item, i) => {
+                          const srv = services.find((s) => String(s.id) === String(item.serviceId));
+                          return <div key={i}>{item.quantity}x {srv?.name || 'Serviço'}</div>;
+                        })}
+                        {(p.items || []).length > 2 && <div className="text-slate-400">+{(p.items || []).length - 2} mais</div>}
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Desconto',
+                    render: (p: ServicePackage) => (
+                      <span className="text-emerald-600 font-semibold text-xs">
+                        {p.discountType === 'percentage' ? `${p.discountValue || 0}% OFF` : `-${formatCurrency(p.discountValue || 0)}`}
+                      </span>
+                    )
+                  },
+                  {
+                    header: 'Preço Final',
+                    render: (p: ServicePackage) => <span className="font-semibold text-emerald-600">{formatCurrency(p.totalPrice || 0)}</span>
+                  },
+                  {
+                    header: 'Ações',
+                    className: 'text-right',
+                    headerClassName: 'text-right',
+                    render: (p: ServicePackage) => (
+                      <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenPackageModal(p)} title="Editar">
+                          <Edit3 size={14} />
+                        </Button>
+                        <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteId({ id: String(p.id), type: 'package' })} title="Excluir">
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    )
+                  }
+                ]}
+              />
+            )}
+
+            {/* Pagination */}
+            {activeList.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 p-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <span>Itens por página:</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100"
+                  >
+                    {[5, 15, 30, 50].map((limit) => (
+                      <option key={limit} value={limit}>{limit}</option>
+                    ))}
+                  </select>
+                  <span className="text-slate-400">{activeList.length} total</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-slate-500">Página {currentPage} de {totalPages}</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all">
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all">
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -914,18 +1197,48 @@ export const Services: React.FC = () => {
                 <option value="geral">Geral (ambos)</option>
               </Select>
 
-              <Input
-                label="Cor"
-                value={editingService.color || '#6366f1'}
-                onChange={(e) =>
-                  setEditingService({
-                    ...editingService,
-                    color: e.target.value,
-                  })
-                }
-                leftIcon={<Palette size={16} />}
-                placeholder="#6366f1"
-              />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Cor de identificação</label>
+                <div className="relative" ref={colorPickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setColorPickerOpen((o) => !o)}
+                    className="flex items-center gap-3 w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-white hover:border-indigo-300 transition-colors text-sm text-slate-700"
+                  >
+                    <span
+                      className="w-6 h-6 rounded-lg border border-slate-200 shrink-0 shadow-sm"
+                      style={{ backgroundColor: editingService.color || '#6366f1' }}
+                    />
+                    <span className="font-mono text-slate-500">{editingService.color || '#6366f1'}</span>
+                  </button>
+                  {colorPickerOpen && (
+                    <div className="absolute z-50 mt-1 left-0 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 w-[240px]">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Escolha uma cor</p>
+                      <div className="grid grid-cols-6 gap-2">
+                        {[
+                          '#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316','#eab308',
+                          '#22c55e','#10b981','#14b8a6','#06b6d4','#3b82f6','#0ea5e9',
+                          '#64748b','#94a3b8','#475569','#1e293b','#f8fafc','#e2e8f0',
+                        ].map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => {
+                              setEditingService({ ...editingService, color });
+                              setColorPickerOpen(false);
+                            }}
+                            className={`w-8 h-8 rounded-lg border-2 transition-transform hover:scale-110 ${
+                              editingService.color === color ? 'border-slate-700 scale-110' : 'border-transparent'
+                            }`}
+                            style={{ backgroundColor: color }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <TextArea
@@ -1214,6 +1527,30 @@ export const Services: React.FC = () => {
             message={`Você está prestes a excluir este ${
               deleteId?.type === 'service' ? 'serviço' : 'pacote'
             }. Agendamentos passados não serão alterados.`}
+          />
+        </div>
+      </Modal>
+
+      {/* Modal Exclusão em Massa */}
+      <Modal
+        isOpen={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        title="Excluir Selecionados"
+        maxWidth="md"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => setConfirmBulkDelete(false)}>Cancelar</Button>
+            <Button variant="danger" onClick={handleBulkDelete}>
+              Confirmar exclusão de {selectedIds.size} item(ns)
+            </Button>
+          </div>
+        }
+      >
+        <div className="py-2">
+          <StatusAlert
+            variant="warning"
+            title="Atenção"
+            message={`Você está prestes a excluir ${selectedIds.size} ${activeTab === 'services' ? 'serviço(s)' : 'pacote(s)'}. Esta ação não pode ser desfeita.`}
           />
         </div>
       </Modal>
