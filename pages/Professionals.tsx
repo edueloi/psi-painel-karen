@@ -53,6 +53,7 @@ export const Professionals: React.FC = () => {
       icon: <Layout size={16} />,
       permissions: [
         { key: 'view_dashboard', label: 'Ver Dashboard', description: 'Acessar métricas e resumo na tela inicial' },
+        { key: 'view_performance_reports', label: 'Desempenho e Clientes', description: 'Acessar módulo de performance e melhores clientes' },
         { key: 'view_boarding_notices', label: 'Ver Murais e Avisos', description: 'Ler painel de informativos da clínica' },
         { key: 'manage_boarding_notices', label: 'Gerenciar Informes', description: 'Publicar e remover textos de avisos' },
       ]
@@ -95,26 +96,37 @@ export const Professionals: React.FC = () => {
         { key: 'manage_payments', label: 'Módulo de Recebimentos', description: 'Visualizar botão de baixa e parcelas em aberto' },
         { key: 'process_payments', label: 'Dar Baixa e Estornar', description: 'Informar ao sistema que um pagamento caiu' },
         { key: 'view_financial_reports', label: 'Relatórios de Fechamento', description: 'Ver gráficos de caixa, saldo e fechamento' },
+        { key: 'manage_invoice_issuer', label: 'Emissor Financeiro', description: 'Gerar Recibos, Notas Fiscais e Documentos Financeiros' },
       ]
     },
     {
-      category: 'Produtos e Estoque',
+      category: 'Produtos, Serviços e Pacotes',
       icon: <Briefcase size={16} />,
       permissions: [
-        { key: 'view_products', label: 'Ver Produtos/Guias', description: 'Ver lista de itens cadatrados e tabelas' },
-        { key: 'manage_products', label: 'Gerenciar Catálogo', description: 'Adicionar e alterar produtos e taxas de sessão' },
+        { key: 'view_products', label: 'Ver Catálogo', description: 'Ver lista de itens e tabelas' },
+        { key: 'manage_products', label: 'Gerenciar Produtos', description: 'Adicionar e alterar produtos e catálogo' },
+        { key: 'manage_services', label: 'Configurar Serviços e Valores', description: 'Formatador de tipos de sessões na agenda' },
+        { key: 'manage_packages', label: 'Gestão de Pacotes', description: 'Criar e editar pacotes de cobrança de sessões vinculadas' },
       ]
     },
     {
-      category: 'Configurações do Sistema',
+      category: 'Comunicação e Disparos',
+      icon: <Phone size={16} />,
+      permissions: [
+        { key: 'manage_bot_integration', label: 'Vincular Bot / WhatsApp', description: 'Autorizar pareamentos de bots e regras de automação' },
+        { key: 'access_messages', label: 'Módulo de Mensagens', description: 'Abrir chat, conversar com pacientes e automações' },
+      ]
+    },
+    {
+      category: 'Configurações e Formulários',
       icon: <Settings size={16} />,
       permissions: [
-        { key: 'manage_services', label: 'Serviços do App', description: 'Formatar nomes e regras de serviços na agenda' },
-        { key: 'manage_professionals', label: 'Gestão de RH (Equipe)', description: 'Pode convidar tela de equipe, criar cargos e permissões' },
-        { key: 'manage_commissions', label: 'Acesso às Comissões', description: 'Configurar e ver repasses de cada profissional' },
-        { key: 'manage_clinic_settings', label: 'Ajustes da Instituição', description: 'Trocar logo, regras gerenciais e dados do CNPJ' },
         { key: 'manage_documents', label: 'Modelos de Documentos', description: 'Programar atestados e recibos automáticos' },
-        { key: 'access_audit_logs', label: 'Ver Log e Auditoria', description: 'Acesso ao registro do que os demais fazem' },
+        { key: 'manage_forms', label: 'Gestor de Formulários', description: 'Criar questionários, triagens e anamneses de formulários' },
+        { key: 'manage_professionals', label: 'Gestão de RH (Equipe)', description: 'Pode ver tela de equipe, criar cargos e permissões' },
+        { key: 'manage_commissions', label: 'Acesso às Comissões', description: 'Configurar e ver regras de comissionamento' },
+        { key: 'manage_clinic_settings', label: 'Ajustes da Instituição', description: 'Trocar logo, regras gerenciais e CNPJ' },
+        { key: 'access_audit_logs', label: 'Ver Log e Auditoria', description: 'Acesso ao registro do que os demais usuários fazem' },
       ]
     }
   ];
@@ -599,7 +611,7 @@ export const Professionals: React.FC = () => {
                   </div>
                 )}
                 <div className="max-h-[500px] overflow-y-auto no-scrollbar py-2">
-                  {profiles.map(pro => (
+                  {profiles.filter(p => p.slug !== 'admin').map(pro => (
                     <div
                       key={pro.id}
                       onClick={() => setSelectedProfileId(pro.id)}
