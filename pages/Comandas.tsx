@@ -175,11 +175,23 @@ export const Comandas: React.FC = () => {
 
   const parseMonetaryValue = (val: string) => {
     if (!val) return 0;
-    // Captura apenas dígitos
     const digits = val.replace(/\D/g, '');
     if (!digits) return 0;
-    // Divide por 100 para transformar centavos em decimal real para o estado
     return parseFloat(digits) / 100;
+  };
+
+  const handleMonetaryChange = (val: string, setter: (v: string) => void) => {
+    const digits = val.replace(/\D/g, '');
+    if (!digits) {
+      setter('');
+      return;
+    }
+    const amount = parseFloat(digits) / 100;
+    const formatted = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+    setter(formatted);
   };
 
   const normalizePatientName = (patient: any) =>
@@ -188,7 +200,8 @@ export const Comandas: React.FC = () => {
   const getComandaTotal = (c: any) =>
     Number(c?.totalValue || c?.total || 0) || 0;
 
-  const getComandaPaid = (c: any) => Number(c?.paidValue || 0) || 0;
+  const getComandaPaid = (c: any) => 
+    Number(c?.paidValue || c?.paid_value || 0) || 0;
 
   const getComandaPending = (c: any) =>
     Math.max(0, getComandaTotal(c) - getComandaPaid(c));
@@ -810,7 +823,7 @@ export const Comandas: React.FC = () => {
     <div className="min-h-screen bg-slate-50">
 
 
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm">
         <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg shadow-primary-200">
@@ -1253,17 +1266,18 @@ export const Comandas: React.FC = () => {
                   />
                 </div>
 
-                <Input
-                  label="Valor Total"
+                <input
                   type="text"
                   value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
                   onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      totalValue: parseMonetaryValue(e.target.value),
-                    })
+                    handleMonetaryChange(e.target.value, (v) => 
+                      setEditingComanda({
+                        ...editingComanda,
+                        totalValue: parseMonetaryValue(v),
+                      })
+                    )
                   }
-                  prefix="R$"
+                  className={compactInputClass}
                 />
 
                 <Input
@@ -1398,9 +1412,11 @@ export const Comandas: React.FC = () => {
                             type="text"
                             value={formatCurrencyInput(Number(item.price || 0))}
                             onChange={(e) =>
-                              updatePackageItem(index, {
-                                price: parseMonetaryValue(e.target.value),
-                              })
+                              handleMonetaryChange(e.target.value, (v) => 
+                                updatePackageItem(index, {
+                                  price: parseMonetaryValue(v),
+                                })
+                              )
                             }
                             className={lineInputClass}
                           />
@@ -1482,10 +1498,12 @@ export const Comandas: React.FC = () => {
                   <input
                     value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
                     onChange={(e) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        discount_value: parseMonetaryValue(e.target.value),
-                      })
+                      handleMonetaryChange(e.target.value, (v) => 
+                        setEditingComanda({
+                          ...editingComanda,
+                          discount_value: parseMonetaryValue(v),
+                        })
+                      )
                     }
                     className="h-9 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-primary-500"
                   />
@@ -1878,7 +1896,9 @@ export const Comandas: React.FC = () => {
             <input
               value={newPayment.value}
               onChange={(e) =>
-                setNewPayment((prev) => ({ ...prev, value: e.target.value }))
+                handleMonetaryChange(e.target.value, (v) => 
+                  setNewPayment(prev => ({ ...prev, value: v }))
+                )
               }
               placeholder="0,00"
               className={compactInputClass}

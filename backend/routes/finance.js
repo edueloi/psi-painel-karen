@@ -396,9 +396,15 @@ router.get('/comandas', async (req, res) => {
         
         c.sessions_used = usedCount;
         
-        // Próxima sessão
-        const nextApt = aptData.find(a => new Date(a.start_time) > new Date() && a.status === 'scheduled');
-        c.next_appointment = nextApt ? nextApt.start_time : null;
+        // Pagamentos vinculados
+        const [pymtData] = await db.query(
+          `SELECT * FROM comanda_payments 
+           WHERE comanda_id = ? AND tenant_id = ? 
+           ORDER BY payment_date DESC, created_at DESC`,
+          [c.id, req.user.tenant_id]
+        );
+        c.payments = pymtData;
+        c.paidValue = parseFloat(c.paid_value || 0);
 
         // Sincroniza sessions_used no banco
         await db.query('UPDATE comandas SET sessions_used = ? WHERE id = ?', [c.sessions_used, c.id]);
@@ -446,6 +452,15 @@ router.get('/comandas/patient/:patientId', async (req, res) => {
                 ).length;
                 
                 c.sessions_used = usedCount;
+                const [pymtData] = await db.query(
+                    `SELECT * FROM comanda_payments 
+                     WHERE comanda_id = ? AND tenant_id = ? 
+                     ORDER BY payment_date DESC, created_at DESC`,
+                    [c.id, req.user.tenant_id]
+                );
+                c.payments = pymtData;
+                c.paidValue = parseFloat(c.paid_value || 0);
+
                 if (typeof c.items === 'string') {
                     try { c.items = JSON.parse(c.items); } catch { c.items = []; }
                 }
