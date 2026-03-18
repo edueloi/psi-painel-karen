@@ -578,6 +578,7 @@ export const Comandas: React.FC = () => {
         start_date: editingComanda.startDate,
         package_id: isPackage && editingComanda.packageId ? String(editingComanda.packageId) : null,
         items: itemsPayload,
+        skip_appointment: isPackage,
       };
 
       if (editingComanda.id) {

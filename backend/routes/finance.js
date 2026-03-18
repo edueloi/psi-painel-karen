@@ -391,8 +391,7 @@ router.get('/comandas', async (req, res) => {
 
         // Histórico de sessões (contagem)
         const usedCount = aptData.filter(a => 
-            ['confirmed', 'completed', 'no-show'].includes(a.status) || 
-            (new Date(a.start_time) < new Date() && a.status !== 'cancelled')
+            ['confirmed', 'completed', 'no-show'].includes(a.status)
         ).length;
         
         c.sessions_used = usedCount;
@@ -443,8 +442,7 @@ router.get('/comandas/patient/:patientId', async (req, res) => {
                 );
                 
                 const usedCount = aptData.filter(a => 
-                    ['confirmed', 'completed', 'no-show'].includes(a.status) || 
-                    (new Date(a.start_time) < new Date() && a.status !== 'cancelled')
+                    ['confirmed', 'completed', 'no-show'].includes(a.status)
                 ).length;
                 
                 c.sessions_used = usedCount;
