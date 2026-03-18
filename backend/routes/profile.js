@@ -17,12 +17,13 @@ const ensureColumns = async () => {
     "ALTER TABLE users ADD COLUMN crp VARCHAR(50) NULL",
     "ALTER TABLE users ADD COLUMN phone VARCHAR(255) NULL",
     "ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500) NULL",
+    "ALTER TABLE users ADD COLUMN ui_preferences JSON NULL",
+    "ALTER TABLE users ADD COLUMN forms_archived JSON NULL",
   ];
   for (const sql of extras) {
     try { 
       await db.query(sql); 
     } catch (err) { 
-      // Ignora erro 1060 (coluna já existe)
       if (err.errno !== 1060 && err.code !== 'ER_DUP_FIELDNAME') {
         console.error(`Erro ao adicionar coluna: ${sql}`, err.message);
       }
@@ -38,6 +39,7 @@ router.get('/me', async (req, res) => {
       `SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.specialty, u.crp, u.phone, 
               u.avatar_url, u.bio, u.company_name, u.address, u.clinic_logo_url, u.cover_url, 
               u.schedule, u.active, u.permissions as user_permissions,
+              u.ui_preferences, u.forms_archived,
               p.permissions as profile_permissions, p.slug as profile_slug
        FROM users u 
        LEFT JOIN tenant_permission_profiles p ON u.tenant_profile_id = p.id
@@ -48,6 +50,12 @@ router.get('/me', async (req, res) => {
     const u = rows[0];
     if (u.schedule && typeof u.schedule === 'string') {
       try { u.schedule = JSON.parse(u.schedule); } catch { u.schedule = null; }
+    }
+    if (u.ui_preferences && typeof u.ui_preferences === 'string') {
+      try { u.ui_preferences = JSON.parse(u.ui_preferences); } catch { u.ui_preferences = null; }
+    }
+    if (u.forms_archived && typeof u.forms_archived === 'string') {
+      try { u.forms_archived = JSON.parse(u.forms_archived); } catch { u.forms_archived = []; }
     }
 
     let userPerms = typeof u.user_permissions === 'string' ? JSON.parse(u.user_permissions) : u.user_permissions || {};
@@ -106,6 +114,33 @@ router.put('/me', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao salvar perfil' });
+  }
+});
+
+// PATCH /profile/preferences — salva ui_preferences e/ou forms_archived sem tocar no perfil
+router.patch('/preferences', async (req, res) => {
+  try {
+    const { ui_preferences, forms_archived } = req.body;
+    const updates = [];
+    const values = [];
+
+    if (ui_preferences !== undefined) {
+      updates.push('ui_preferences = ?');
+      values.push(JSON.stringify(ui_preferences));
+    }
+    if (forms_archived !== undefined) {
+      updates.push('forms_archived = ?');
+      values.push(JSON.stringify(forms_archived));
+    }
+
+    if (updates.length === 0) return res.json({ ok: true });
+
+    values.push(req.user.id);
+    await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar preferências' });
   }
 });
 

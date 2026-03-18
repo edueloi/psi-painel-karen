@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { api } from '../services/api';
 
 export interface UserPreferences {
   comandas: {
@@ -46,58 +47,92 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   },
 };
 
+function mergeWithDefaults(stored: any): UserPreferences {
+  return {
+    ...DEFAULT_PREFERENCES,
+    ...stored,
+    comandas:  { ...DEFAULT_PREFERENCES.comandas,  ...stored?.comandas },
+    patients:  { ...DEFAULT_PREFERENCES.patients,  ...stored?.patients },
+    services:  { ...DEFAULT_PREFERENCES.services,  ...stored?.services },
+    agenda:    { ...DEFAULT_PREFERENCES.agenda,    ...stored?.agenda },
+    appearance:{ ...DEFAULT_PREFERENCES.appearance,...stored?.appearance },
+  };
+}
+
 interface UserPreferencesContextType {
   preferences: UserPreferences;
   updatePreference: <T extends keyof UserPreferences>(
     screen: T,
     updates: Partial<UserPreferences[T]>
   ) => void;
+  formsArchived: string[];
+  setFormsArchived: (ids: string[]) => void;
 }
 
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
 
 export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [preferences, setPreferences] = useState<UserPreferences>(() => {
-    if (typeof window === 'undefined') return DEFAULT_PREFERENCES;
-    const stored = window.localStorage.getItem('psi_user_preferences');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Merge with defaults to handle new preference fields
-        return {
-          ...DEFAULT_PREFERENCES,
-          ...parsed,
-          comandas: { ...DEFAULT_PREFERENCES.comandas, ...parsed.comandas },
-          patients: { ...DEFAULT_PREFERENCES.patients, ...parsed.patients },
-          services: { ...DEFAULT_PREFERENCES.services, ...parsed.services },
-          agenda: { ...DEFAULT_PREFERENCES.agenda, ...parsed.agenda },
-          appearance: { ...DEFAULT_PREFERENCES.appearance, ...parsed.appearance },
-        };
-      } catch (e) {
-        console.error('Error parsing user preferences:', e);
-      }
-    }
-    return DEFAULT_PREFERENCES;
-  });
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [formsArchived, setFormsArchivedState] = useState<string[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
+  // debounce timer ref so we don't spam the API on every keystroke
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ─── Load from backend on mount ───────────────────────────────────────────
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('psi_user_preferences', JSON.stringify(preferences));
-    }
-  }, [preferences]);
+    const load = async () => {
+      try {
+        const profile = await api.get<any>('/profile/me');
+        if (profile?.ui_preferences) {
+          setPreferences(mergeWithDefaults(profile.ui_preferences));
+        }
+        if (Array.isArray(profile?.forms_archived)) {
+          setFormsArchivedState(profile.forms_archived.map(String));
+        }
+      } catch {
+        // silently fall back to defaults — user may not be logged in yet
+      } finally {
+        setLoaded(true);
+      }
+    };
+    load();
+  }, []);
 
+  // ─── Persist to backend (debounced 800ms) ─────────────────────────────────
+  const persistToBackend = (prefs: UserPreferences, archived: string[]) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      api.patch('/profile/preferences', {
+        ui_preferences: prefs,
+        forms_archived: archived,
+      }).catch(() => {/* ignore network errors silently */});
+    }, 800);
+  };
+
+  // ─── updatePreference ──────────────────────────────────────────────────────
   const updatePreference = <T extends keyof UserPreferences>(
     screen: T,
     updates: Partial<UserPreferences[T]>
   ) => {
-    setPreferences((prev) => ({
-      ...prev,
-      [screen]: { ...prev[screen], ...updates },
-    }));
+    setPreferences((prev) => {
+      const next: UserPreferences = {
+        ...prev,
+        [screen]: { ...prev[screen], ...updates },
+      };
+      if (loaded) persistToBackend(next, formsArchived);
+      return next;
+    });
+  };
+
+  // ─── setFormsArchived ──────────────────────────────────────────────────────
+  const setFormsArchived = (ids: string[]) => {
+    setFormsArchivedState(ids);
+    if (loaded) persistToBackend(preferences, ids);
   };
 
   return (
-    <UserPreferencesContext.Provider value={{ preferences, updatePreference }}>
+    <UserPreferencesContext.Provider value={{ preferences, updatePreference, formsArchived, setFormsArchived }}>
       {children}
     </UserPreferencesContext.Provider>
   );

@@ -6,15 +6,16 @@ import {
   Search, Plus, ClipboardList, BarChart3, Pen, Trash2, CheckCircle, Share2,
   Copy, Send, Lock, ArrowLeft, Eye, Archive, RotateCcw, FilePlus2, Globe, X
 } from 'lucide-react';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 export const FormsList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { formsArchived: archivedIds, setFormsArchived } = useUserPreferences();
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'Todos' | 'Ativos' | 'Arquivados'>('Todos');
-  const [archivedIds, setArchivedIds] = useState<string[]>([]);
   const [defaultPatientId, setDefaultPatientId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
@@ -65,22 +66,6 @@ export const FormsList: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('psi_forms_archived');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) setArchivedIds(parsed.map(String));
-      }
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('psi_forms_archived', JSON.stringify(archivedIds));
-    } catch { /* ignore */ }
-  }, [archivedIds]);
-
-  useEffect(() => {
     const patientId = searchParams.get('patient_id');
     if (patientId) setDefaultPatientId(patientId);
   }, [searchParams]);
@@ -129,7 +114,10 @@ export const FormsList: React.FC = () => {
   };
 
   const toggleArchive = (id: string) => {
-    setArchivedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+    const next = archivedIds.includes(id)
+      ? archivedIds.filter(item => item !== id)
+      : [...archivedIds, id];
+    setFormsArchived(next);
   };
 
   const handleDelete = (id: string) => {
