@@ -18,10 +18,69 @@ import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
 import { DatePicker } from '../components/UI/DatePicker';
 
+type ComandaTab = 'avulsa' | 'pacote';
+type ViewMode = 'kanban' | 'list';
 
-function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-}
+type EditableItem = {
+  id?: string;
+  serviceId?: string;
+  name: string;
+  qty: number;
+  price: number;
+};
+
+type EditableComanda = Partial<Appointment> & {
+  id?: string;
+  patientId?: string;
+  patientSearch?: string;
+  professionalId?: string;
+  startDate?: string;
+  totalValue?: number;
+  paidValue?: number;
+  description?: string;
+  status?: string;
+  sessions_total?: number;
+  sessions_used?: number;
+  discount_type?: 'percentage' | 'fixed';
+  discount_value?: number;
+  packageId?: string;
+  items?: EditableItem[];
+};
+
+const lineInputClass =
+  'w-full h-10 bg-transparent border-0 border-b border-slate-300 px-0 text-sm text-slate-700 placeholder:text-slate-400 focus:border-violet-600 focus:outline-none';
+
+const cx = (...classes: Array<string | false | null | undefined>) =>
+  classes.filter(Boolean).join(' ');
+
+const compactInputClass =
+  'w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none';
+
+const iconButtonClass =
+  'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-violet-600';
+
+const TypeButton: React.FC<{
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}> = ({ active, label, onClick }) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 text-sm text-slate-700"
+    >
+      <span
+        className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${
+          active ? 'border-violet-600' : 'border-slate-300'
+        }`}
+      >
+        {active && <span className="h-2.5 w-2.5 rounded-full bg-violet-600" />}
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+};
 
 const recurrenceOptions = [
     { label: 'Não Repete', freq: '', interval: 1, count: 1 },
@@ -76,13 +135,10 @@ export const Agenda: React.FC = () => {
   const [comandaPayments, setComandaPayments] = useState<any[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [isNewComandaModalOpen, setIsNewComandaModalOpen] = useState(false);
-  const [newComandaData, setNewComandaData] = useState({
-      type: 'normal' as 'normal' | 'package',
-      description: '',
-      date: new Date().toISOString().slice(0, 10),
-      value: '',
-      sessions: 1
-  });
+  const [modalTab, setModalTab] = useState<ComandaTab>('avulsa');
+  const [editingComanda, setEditingComanda] = useState<EditableComanda | null>(null);
+  const [relatedApts, setRelatedApts] = useState<Appointment[]>([]);
+  const [selectedDeleteIds, setSelectedDeleteIds] = useState<(string | number)[]>([]);
 
   const [formData, setFormData] = useState<any>({
       type: 'consulta',
@@ -163,6 +219,31 @@ export const Agenda: React.FC = () => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
   };
 
+  const formatCurrencyInput = (value?: number) => {
+    if (value === undefined || value === null) return '';
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
+  };
+
+  const parseMonetaryValue = (val: string) => {
+    if (!val) return 0;
+    const digits = val.replace(/\D/g, '');
+    if (!digits) return 0;
+    return parseFloat(digits) / 100;
+  };
+
+  const normalizePatientName = (p: any) => {
+    if (!p) return 'Paciente';
+    return p.full_name || p.name || 'Paciente';
+  };
+
+  const getComandaTotal = (c: any) =>
+    Number(c?.total_value || c?.totalValue || c?.total || 0) || 0;
+
+  const getComandaPaid = (c: any) => Number(c?.paid_value || c?.paidValue || 0) || 0;
+
   const weekStart = startOfWeek(currentDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const monthStart = startOfMonth(currentDate);
@@ -239,6 +320,147 @@ export const Agenda: React.FC = () => {
 
   const getAppointmentsForDay = (date: Date) => filteredAppointments.filter(a => isSameDay(a.start, date));
 
+  const calculateItemsTotal = (items?: EditableItem[]) =>
+    (items || []).reduce(
+      (acc, item) => acc + (Number(item.price || 0) * Number(item.qty || 0)),
+      0
+    );
+
+  const modalGrossTotal = useMemo(() => {
+    if (!editingComanda) return 0;
+
+    if (modalTab === 'pacote') {
+      const itemsTotal = calculateItemsTotal(editingComanda.items);
+      return itemsTotal > 0 ? itemsTotal : Number(editingComanda.totalValue || 0);
+    }
+
+    return Number(editingComanda.totalValue || 0);
+  }, [editingComanda, modalTab]);
+
+  const modalDiscountAmount = useMemo(() => {
+    if (!editingComanda) return 0;
+    const discountValue = Number(editingComanda.discount_value || 0);
+
+    if (editingComanda.discount_type === 'percentage') {
+      return (modalGrossTotal * discountValue) / 100;
+    }
+
+    return discountValue;
+  }, [editingComanda, modalGrossTotal]);
+
+  const modalNetTotal = useMemo(() => {
+    return Math.max(0, modalGrossTotal - modalDiscountAmount);
+  }, [modalGrossTotal, modalDiscountAmount]);
+
+  const resolvePackageItems = (pkg: any): EditableItem[] => {
+    if (Array.isArray(pkg?.items) && pkg.items.length > 0) {
+      return pkg.items.map((item: any) => {
+        const linkedService = services.find(
+          (service) =>
+            String(service.id) === String(item.service_id || item.serviceId)
+        );
+
+        return {
+          serviceId: String(item.service_id || item.serviceId || linkedService?.id || ''),
+          name:
+            item.service_name ||
+            item.serviceName ||
+            item.name ||
+            linkedService?.name ||
+            '',
+          qty: Number(item.qty || item.quantity || 1),
+          price: Number(item.price || item.unit_price || item.value || linkedService?.price || 0),
+        };
+      });
+    }
+
+    return [
+      {
+        serviceId: '',
+        name: pkg?.name || 'Pacote',
+        qty: 1,
+        price: Number(pkg?.price || pkg?.totalPrice || pkg?.total_value || 0),
+      },
+    ];
+  };
+
+  const handleSelectPackage = (packageId: string) => {
+    const foundPackage = packages.find((pkg) => String(pkg.id) === String(packageId));
+    if (!foundPackage || !editingComanda) return;
+
+    const items = resolvePackageItems(foundPackage);
+    const sessionsTotal =
+      Number(
+        foundPackage.sessions_total ||
+          foundPackage.sessions_count ||
+          foundPackage.items?.length ||
+          items.reduce((acc: number, item: EditableItem) => acc + Number(item.qty || 0), 0) ||
+          1
+      ) || 1;
+
+    setEditingComanda({
+      ...editingComanda,
+      packageId: String(foundPackage.id),
+      description: foundPackage.name || editingComanda.description || '',
+      items,
+      totalValue: calculateItemsTotal(items),
+      sessions_total: sessionsTotal,
+    });
+  };
+
+  const addPackageItem = () => {
+    if (!editingComanda) return;
+    setEditingComanda({
+      ...editingComanda,
+      items: [...(editingComanda.items || []), { name: '', serviceId: '', qty: 1, price: 0 }],
+    });
+  };
+
+  const updatePackageItem = (
+    index: number,
+    patch: Partial<EditableItem>,
+    useServiceAutoFill = false
+  ) => {
+    if (!editingComanda) return;
+
+    const nextItems = [...(editingComanda.items || [])];
+    const currentItem = nextItems[index] || { name: '', qty: 1, price: 0 };
+
+    let updatedItem = { ...currentItem, ...patch };
+
+    if (useServiceAutoFill && patch.serviceId) {
+      const linkedService = services.find(
+        (service) => String(service.id) === String(patch.serviceId)
+      );
+
+      updatedItem = {
+        ...updatedItem,
+        serviceId: String(linkedService?.id || ''),
+        name: linkedService?.name || updatedItem.name || '',
+        price: Number(linkedService?.price || 0),
+      };
+    }
+
+    nextItems[index] = updatedItem;
+
+    setEditingComanda({
+      ...editingComanda,
+      items: nextItems,
+      totalValue: calculateItemsTotal(nextItems),
+    });
+  };
+
+  const removePackageItem = (index: number) => {
+    if (!editingComanda) return;
+    const nextItems = [...(editingComanda.items || [])].filter((_, i) => i !== index);
+
+    setEditingComanda({
+      ...editingComanda,
+      items: nextItems,
+      totalValue: calculateItemsTotal(nextItems),
+    });
+  };
+
   const stats = useMemo(() => {
     const today = getAppointmentsForDay(new Date());
     return {
@@ -314,21 +536,21 @@ export const Agenda: React.FC = () => {
   };
 
   const handleSavePayment = async () => {
-    const comandaId = selectedApt?.comanda_id;
+    const comandaId = selectedApt?.comanda_id || editingComanda?.id;
     if (!comandaId) {
-        pushToast('error', 'Nenhuma comanda vinculada a este agendamento');
+        pushToast('error', 'Nenhuma comanda vinculada.');
         return;
     }
 
-    const valueToAdd = parseFloat(newPayment.value) || 0;
+    const valueToAdd = parseMonetaryValue(newPayment.value);
     if (valueToAdd <= 0) {
         pushToast('error', 'Por favor, insira um valor válido para o pagamento');
         return;
     }
 
     try {
-        // Registra pagamento individual na nova tabela
-        await api.post(`/finance/comandas/${comandaId}/payments`, {
+        await api.post(`/finance/payments`, {
+            comanda_id: comandaId,
             amount: valueToAdd,
             payment_date: newPayment.date,
             payment_method: newPayment.method,
@@ -339,18 +561,44 @@ export const Agenda: React.FC = () => {
         setIsAddPaymentModalOpen(false);
         setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
 
-        // Recarregar pagamentos e dados gerais
-        await fetchComandaPayments(comandaId);
+        // Recarregar dados
         fetchData();
-
-        // Recarregar comandas do paciente
-        if (selectedApt?.patient_id) {
-            const res = await api.get(`/finance/comandas/patient/${selectedApt.patient_id}`);
+        if (selectedApt?.patient_id || editingComanda?.patientId) {
+            const pid = selectedApt?.patient_id || editingComanda?.patientId;
+            const res = await api.get(`/finance/comandas?patient_id=${pid}`);
             setPatientComandas(res as any[]);
         }
     } catch (err) {
         console.error(err);
         pushToast('error', 'Erro ao salvar pagamento');
+    }
+  };
+
+  const handleUpdateAppointmentStatus = async (appointmentId: number | string, newStatus: string) => {
+    try {
+      await api.put(`/appointments/${appointmentId}/status`, { status: newStatus });
+      pushToast('success', 'Status atualizado!');
+      fetchData();
+      if (selectedApt?.patient_id) {
+          const res = await api.get(`/finance/comandas?patient_id=${selectedApt.patient_id}`);
+          setPatientComandas(res as any[]);
+      }
+    } catch (error) {
+      pushToast('error', 'Erro ao atualizar status.');
+    }
+  };
+
+  const handleUpdateAppointmentDate = async (appointmentId: number | string, newDate: string) => {
+    try {
+      await api.put(`/appointments/${appointmentId}/date`, { start_time: newDate });
+      pushToast('success', 'Data atualizada!');
+      fetchData();
+      if (selectedApt?.patient_id) {
+          const res = await api.get(`/finance/comandas?patient_id=${selectedApt.patient_id}`);
+          setPatientComandas(res as any[]);
+      }
+    } catch (error) {
+      pushToast('error', 'Erro ao atualizar data.');
     }
   };
 
@@ -561,6 +809,7 @@ export const Agenda: React.FC = () => {
   };
 
   const openEditModal = (apt: Appointment) => {
+    setSelectedApt(apt);
     setFormData({
         ...apt,
         appointment_date: toLocalISO(apt.start),
@@ -677,73 +926,105 @@ export const Agenda: React.FC = () => {
   };
 
   const openNewComandaModal = () => {
-    let type = 'normal' as 'normal' | 'package';
-    let description = '';
-    let value = '';
-    let sessions = 1;
+    if (!selectedApt && !formData.patient_id) return;
+
+    const patientId = selectedApt?.patient_id || formData.patient_id;
+    const patientName = selectedApt?.patient_name || formData.patient_name_text || '';
+    const professionalId = selectedApt?.psychologist_id || formData.psychologist_id || profileData?.id || '';
+
+    const comandaDate = selectedApt?.start
+      ? new Date(selectedApt.start).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
 
     const val = formData.service_id;
-    if (val) {
-        const isPkg = val.startsWith('pkg_');
-        const id = isPkg ? val.replace('pkg_', '') : val;
+    let description = '';
+    let totalValue = 0;
+    let sessionsTotal = 1;
+    let packageId = '';
+    let items: EditableItem[] = [];
 
-        if (isPkg) {
-            type = 'package';
-            const pkg = packages.find(p => String(p.id) === id);
-            if (pkg) {
-                description = pkg.name;
-                value = String(pkg.totalPrice);
-                sessions = pkg.items?.length || 1;
-            }
-        } else {
-            const srv = services.find(s => String(s.id) === id);
-            if (srv) {
-                description = srv.name;
-                value = String(srv.price);
-            }
+    if (val) {
+      const isPkg = val.startsWith('pkg_');
+      const id = isPkg ? val.replace('pkg_', '') : val;
+
+      if (isPkg) {
+        const pkg = packages.find((p) => String(p.id) === id);
+        if (pkg) {
+          description = pkg.name;
+          packageId = String(pkg.id);
+          items = resolvePackageItems(pkg);
+          totalValue = calculateItemsTotal(items);
+          sessionsTotal = pkg.items?.length || 1;
         }
+      } else {
+        const srv = services.find((s) => String(s.id) === id);
+        if (srv) {
+          description = srv.name;
+          totalValue = Number(srv.price || 0);
+        }
+      }
     }
 
-    setNewComandaData({
-        type,
-        description,
-        value,
-        sessions,
-        date: new Date().toISOString().slice(0, 10)
-    });
     setIsNewComandaModalOpen(true);
+    setModalTab(packageId ? 'pacote' : 'avulsa');
+    setEditingComanda({
+      status: 'open',
+      items,
+      totalValue,
+      paidValue: 0,
+      description,
+      patientId: String(patientId || ''),
+      patientSearch: patientName,
+      professionalId: String(professionalId),
+      startDate: comandaDate,
+      sessions_total: sessionsTotal,
+      discount_type: 'fixed',
+      discount_value: 0,
+      packageId,
+    });
   };
 
   const handleCreateComanda = async () => {
-    if (!formData.patient_id) {
-        pushToast('error', 'Selecione um paciente primeiro.');
-        return;
+    if (!editingComanda || !editingComanda.patientId) {
+      pushToast('error', 'Selecione um paciente primeiro.');
+      return;
     }
-    try {
-        const payload = {
-            patient_id: formData.patient_id,
-            professional_id: formData.psychologist_id || formData.professional_id,
-            description: newComandaData.description || (newComandaData.type === 'package' ? 'Pacote de Sessões' : 'Sessão Avulsa'),
-            status: 'open',
-            items: [{
-                name: newComandaData.description || 'Sessão',
-                price: parseFloat(newComandaData.value) || 0,
-                qty: newComandaData.type === 'package' ? newComandaData.sessions : 1,
-                value: parseFloat(newComandaData.value) || 0
-            }],
-            sessions_total: newComandaData.type === 'package' ? newComandaData.sessions : 1,
-            sessions_used: 0,
-            notes: 'Criado via Agenda'
-        };
 
-        const result = await api.post<any>('/finance/comandas', payload);
-        setPatientComandas(prev => [result, ...prev]);
-        setFormData(prev => ({ ...prev, comanda_id: result.id }));
-        setIsNewComandaModalOpen(false);
-        pushToast('success', 'Comanda criada e vinculada!');
+    try {
+      const payload = {
+        patient_id: editingComanda.patientId,
+        professional_id: editingComanda.professionalId,
+        description: editingComanda.description || (modalTab === 'pacote' ? 'Pacote' : 'Sessão'),
+        status: 'open',
+        total_value: modalNetTotal,
+        start_date: editingComanda.startDate,
+        sessions_total: Number(editingComanda.sessions_total || 1),
+        discount_type: editingComanda.discount_type,
+        discount_value: editingComanda.discount_value,
+        package_id: editingComanda.packageId || null,
+        items: modalTab === 'pacote' && editingComanda.items?.length 
+          ? editingComanda.items.map(item => ({
+              name: item.name,
+              service_id: item.serviceId,
+              qty: item.qty,
+              price: item.price
+            }))
+          : [{
+              name: editingComanda.description || 'Sessão',
+              price: editingComanda.totalValue || 0,
+              qty: 1
+            }],
+        notes: 'Criado via Agenda'
+      };
+
+      const result = await api.post<any>('/finance/comandas', payload);
+      setPatientComandas((prev) => [result, ...prev]);
+      setFormData((prev) => ({ ...prev, comanda_id: result.id }));
+      setIsNewComandaModalOpen(false);
+      pushToast('success', 'Comanda criada e vinculada!');
     } catch (err) {
-        console.error(err);
-        pushToast('error', 'Erro ao criar comanda.');
+      console.error(err);
+      pushToast('error', 'Erro ao criar comanda.');
     }
   };
 
@@ -1111,7 +1392,12 @@ export const Agenda: React.FC = () => {
               {formData.id ? (
                 <Button
                   variant="danger"
-                  onClick={() => setIsDeleteModalOpen(true)}
+                  onClick={() => {
+                    if (formData.id || selectedApt?.id) {
+                      setSelectedDeleteIds([formData.id || (selectedApt?.id as any)]);
+                    }
+                    setIsDeleteModalOpen(true);
+                  }}
                   className="h-10 w-full sm:w-10 p-0 rounded-lg shadow-sm flex items-center justify-center"
                 >
                   <Trash2 size={18}/>
@@ -1539,7 +1825,6 @@ export const Agenda: React.FC = () => {
               )}
             </div>
           </div>
-
           <div className="flex justify-center border-t border-slate-50 pt-6">
             <button
               onClick={() => setIsImportModalOpen(false)}
@@ -1554,28 +1839,86 @@ export const Agenda: React.FC = () => {
       {/* DELETE CONFIRM */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-           <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
-              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-lg shadow-rose-500/10">
-                <AlertCircle size={32} />
+           <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-lg shadow-rose-500/10 shrink-0">
+                <Trash2 size={32} />
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-2 tracking-tight">Remover Atendimento?</h3>
-              <p className="text-[12px] font-bold text-slate-400 mb-8 leading-relaxed">Deseja remover este compromisso permanentemente? Esta ação não pode ser desfeita.</p>
-              <div className="flex flex-col gap-3">
-                 <button onClick={async () => {
-                    const idToDelete = formData.id || selectedApt?.id;
-                    if (!idToDelete) { pushToast('error', 'ID do agendamento não encontrado.'); return; }
+              <h3 className="text-xl font-black text-slate-800 mb-2 tracking-tight shrink-0">Remover Atendimento?</h3>
+              
+              {selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 ? (
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  <p className="text-[12px] font-bold text-slate-400 mb-4 leading-relaxed shrink-0">
+                    Este agendamento está vinculado a uma comanda com outros atendimentos.
+                    Selecione quais deseja remover:
+                  </p>
+                  
+                  <div className="flex-1 overflow-y-auto px-1 py-1 space-y-2 mb-6 custom-scrollbar">
+                    {appointments
+                      .filter(a => a.comanda_id === selectedApt.comanda_id)
+                      .sort((a,b) => a.start.getTime() - b.start.getTime())
+                      .map(apt => (
+                      <label key={apt.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-all">
+                        <input
+                          type="checkbox"
+                          checked={selectedDeleteIds.includes(apt.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedDeleteIds([...selectedDeleteIds, apt.id]);
+                            else setSelectedDeleteIds(selectedDeleteIds.filter(id => id !== apt.id));
+                          }}
+                          className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+                        />
+                        <div className="flex-1 text-left">
+                          <p className="text-[11px] font-black text-slate-700 uppercase">{apt.patient_name || apt.title}</p>
+                          <p className="text-[9px] font-bold text-slate-400">
+                             {apt.start.toLocaleDateString()} às {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        {apt.id === selectedApt.id && (
+                          <span className="text-[8px] font-black bg-slate-100 px-1.5 py-0.5 rounded text-slate-400 uppercase">Atual</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[12px] font-bold text-slate-400 mb-8 leading-relaxed">
+                  Deseja remover este compromisso permanentemente? Esta ação não pode ser desfeita.
+                </p>
+              )}
+
+              <div className="flex flex-col gap-3 shrink-0">
+                 <button 
+                   disabled={selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 && selectedDeleteIds.length === 0}
+                   className="w-full py-4 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-rose-200 transition-all flex items-center justify-center gap-2"
+                   onClick={async () => {
+                    const idsToDel = (selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1) 
+                      ? selectedDeleteIds 
+                      : [formData.id || selectedApt?.id];
+                    
+                    if (idsToDel.length === 0) {
+                        const singleId = formData.id || selectedApt?.id;
+                        if (!singleId) return;
+                        idsToDel.push(singleId);
+                    }
+
                     try {
-                        await api.delete(`/appointments/${idToDelete}`);
+                        await Promise.all(idsToDel.map(id => api.delete(`/appointments/${id}`)));
+                        pushToast('success', idsToDel.length > 1 ? `${idsToDel.length} agendamentos removidos.` : 'Agendamento removido.');
                         fetchData();
                         setIsModalOpen(false);
                         setIsDeleteModalOpen(false);
                         setIsDetailModalOpen(false);
-                        pushToast('success', 'Agendamento removido.');
+                        setSelectedDeleteIds([]);
                     } catch (err) {
-                        pushToast('error', 'Erro ao remover agendamento.');
+                        console.error(err);
+                        pushToast('error', 'Erro ao remover agendamento(s).');
                     }
-                 }} className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95">REMOVER SESSÃO</button>
-                 <button onClick={() => setIsDeleteModalOpen(false)} className="w-full py-3 text-slate-400 hover:text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all">MANTER NA AGENDA</button>
+                 }}>
+                    {selectedDeleteIds.length > 1 ? `Excluir ${selectedDeleteIds.length} Atendimentos` : 'Confirmar Exclusão'}
+                 </button>
+                 <button onClick={() => { setIsDeleteModalOpen(false); setSelectedDeleteIds([]); }} className="w-full py-4 text-slate-400 hover:text-slate-600 text-[10px] font-black uppercase tracking-[0.2em] transition-colors">
+                    Cancelar
+                 </button>
               </div>
            </div>
         </div>
@@ -1749,110 +2092,363 @@ export const Agenda: React.FC = () => {
       </Modal>
 
 
-      {/* CREATE COMANDA MODAL */}
       <Modal
         isOpen={isNewComandaModalOpen}
         onClose={() => setIsNewComandaModalOpen(false)}
-        title="Criando Comanda"
-        subtitle={formData.patient_name_text ? `Novo Registro • ${formData.patient_name_text}` : 'Novo Registro'}
-        maxWidth="max-w-lg"
-        footer={(
-            <div className="flex justify-between items-center w-full gap-3">
-                <button
-                  onClick={() => setIsNewComandaModalOpen(false)}
-                  className="px-6 py-2.5 text-slate-400 hover:text-slate-600 font-black text-[10px] uppercase tracking-widest transition-all"
-                >
-                  FECHAR
-                </button>
-                <button
-                    onClick={handleCreateComanda}
-                    className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-100 font-black text-[10px] uppercase tracking-widest transition-all transform active:scale-95 whitespace-nowrap"
-                >
-                    CRIAR COMANDA
-                </button>
-            </div>
-        )}
+        title={editingComanda?.id ? 'Editando Comanda' : 'Criando Comanda'}
+        maxWidth="max-w-3xl"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <Button
+              onClick={() => setIsNewComandaModalOpen(false)}
+              variant="outline"
+              size="sm"
+            >
+              FECHAR
+            </Button>
+
+            <Button
+              onClick={handleCreateComanda}
+              variant="primary"
+              isLoading={isLoading}
+              loadingText={editingComanda?.id ? 'SALVANDO...' : 'CRIANDO...'}
+            >
+              CRIAR COMANDA
+            </Button>
+          </div>
+        }
       >
-        <div className="space-y-5 py-1">
-            <div className="bg-slate-100/50 p-1.5 rounded-xl flex border border-slate-200 shadow-sm gap-1.5">
-                <button
-                    onClick={() => setNewComandaData({...newComandaData, type: 'normal'})}
-                    className={`flex-1 py-2 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${newComandaData.type === 'normal' ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-slate-100' : 'text-slate-400 hover:text-indigo-400'}`}
-                >
-                    <div className={`w-2.5 h-2.5 rounded-full border-2 transition-all ${newComandaData.type === 'normal' ? 'border-indigo-600 bg-indigo-600 ring-2 ring-indigo-50' : 'border-slate-300'}`} />
-                    Comanda Normal
-                </button>
-                <button
-                    onClick={() => setNewComandaData({...newComandaData, type: 'package'})}
-                    className={`flex-1 py-2 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${newComandaData.type === 'package' ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-slate-100' : 'text-slate-400 hover:text-indigo-400'}`}
-                >
-                    <div className={`w-2.5 h-2.5 rounded-full border-2 transition-all ${newComandaData.type === 'package' ? 'border-indigo-600 bg-indigo-600 ring-2 ring-indigo-50' : 'border-slate-300'}`} />
-                    Comanda Pacote
-                </button>
+        {editingComanda && (
+          <div className="space-y-5 py-1">
+            <div className="flex flex-wrap items-center gap-6">
+              <div className="text-sm text-slate-600">Tipo:</div>
+
+              <TypeButton
+                active={modalTab === 'avulsa'}
+                label="Comanda Normal"
+                onClick={() => {
+                  setModalTab('avulsa');
+                  setEditingComanda({
+                    ...editingComanda,
+                    packageId: '',
+                    items: editingComanda.items || [],
+                    sessions_total: Number(editingComanda.sessions_total || 1),
+                  });
+                }}
+              />
+
+              <TypeButton
+                active={modalTab === 'pacote'}
+                label="Comanda Pacote"
+                onClick={() => {
+                  setModalTab('pacote');
+                  setEditingComanda({
+                    ...editingComanda,
+                    sessions_total:
+                      Number(editingComanda.sessions_total || 0) > 1
+                        ? Number(editingComanda.sessions_total || 0)
+                        : 4,
+                    items:
+                      editingComanda.items && editingComanda.items.length > 0
+                        ? editingComanda.items
+                        : [{ name: '', serviceId: '', qty: 1, price: 0 }],
+                  });
+                }}
+              />
             </div>
 
-            <div className="space-y-4 pt-1">
-                <div className="flex items-center gap-2 px-1 mb-2">
-                    <div className="w-1 h-3.5 bg-indigo-500 rounded-full"></div>
-                    <h4 className="text-[9px] font-black text-slate-800 uppercase tracking-widest">Informações Gerais</h4>
+            {modalTab === 'avulsa' ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Descrição"
+                  value={editingComanda.description || ''}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Ex: Sessão de Psicologia, Avaliação, etc"
+                  containerClassName="md:col-span-2"
+                />
+
+                <Combobox
+                  label="Cliente"
+                  options={patients.map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
+                  value={editingComanda.patientId || ''}
+                  onChange={(id, label) => {
+                    setEditingComanda({
+                      ...editingComanda,
+                      patientId: String(id),
+                      patientSearch: label || '',
+                    });
+                  }}
+                  placeholder="Selecione um cliente..."
+                />
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+                  <DatePicker
+                    value={editingComanda.startDate || ''}
+                    onChange={(val) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        startDate: val,
+                      })
+                    }
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
-                    <Input
-                        label="DESCRIÇÃO"
-                        placeholder="Ex: Psicoterapia Individual ou Pacote 4 sessões"
-                        icon={<FileText size={16} className="text-slate-400" />}
-                        value={newComandaData.description}
-                        onChange={e => setNewComandaData({...newComandaData, description: e.target.value})}
-                        className="!rounded-xl !bg-slate-50/50 !border-slate-100 !h-9 !text-xs"
-                    />
+                <Input
+                  label="Valor Total"
+                  type="text"
+                  value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      totalValue: parseMonetaryValue(e.target.value),
+                    })
+                  }
+                  prefix="R$"
+                />
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">DATA</label>
-                            <DatePicker 
-                                value={newComandaData.date} 
-                                onChange={val => val && setNewComandaData({...newComandaData, date: val})}
-                                className="!rounded-xl !bg-slate-50/50 !border-slate-100 !h-9 !text-xs"
-                            />
-                        </div>
+                <Input
+                  label="Número de Atendimentos"
+                  type="number"
+                  min={1}
+                  value={editingComanda.sessions_total || 1}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      sessions_total: Math.max(1, Number(e.target.value || 1)),
+                    })
+                  }
+                />
 
-                        <Input
-                            label="VALOR TOTAL"
-                            type="number"
-                            placeholder="R$ 0,00"
-                            icon={<DollarSign size={16} className="text-emerald-500" />}
-                            value={newComandaData.value}
-                            onChange={e => setNewComandaData({...newComandaData, value: e.target.value})}
-                            className="!rounded-xl !bg-slate-50/50 !border-slate-100 !h-9 !text-xs font-black text-emerald-600"
-                        />
+                <Select
+                  label="Profissional"
+                  value={editingComanda.professionalId || ''}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      professionalId: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Selecione um profissional</option>
+                  {professionals.map((p: any) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.full_name || p.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Select
+                  label="Pacote"
+                  value={editingComanda.packageId || ''}
+                  onChange={(e) => handleSelectPackage(e.target.value)}
+                >
+                  <option value="">Selecione uma definição de pacote</option>
+                  {packages.map((pkg) => (
+                    <option key={pkg.id} value={String(pkg.id)}>
+                      {pkg.name}
+                    </option>
+                  ))}
+                </Select>
+
+                <Combobox
+                  label="Cliente"
+                  options={patients.map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
+                  value={editingComanda.patientId || ''}
+                  onChange={(id, label) => {
+                    setEditingComanda({
+                      ...editingComanda,
+                      patientId: String(id),
+                      patientSearch: label || '',
+                    });
+                  }}
+                  placeholder="Selecione um cliente..."
+                />
+
+                <Select
+                  label="Profissional"
+                  value={editingComanda.professionalId || ''}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      professionalId: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Selecione um profissional</option>
+                  {professionals.map((p: any) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.full_name || p.name}
+                    </option>
+                  ))}
+                </Select>
+
+                <div className="pt-1">
+                  <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-slate-600">
+                    Itens:
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-12 gap-3 text-[12px] text-slate-500">
+                      <div className="col-span-6">Serviço</div>
+                      <div className="col-span-2">Qtd</div>
+                      <div className="col-span-3">Preço</div>
+                      <div className="col-span-1" />
                     </div>
 
-                    {newComandaData.type === 'package' && (
-                        <Input
-                            label="NÚMERO DE ATENDIMENTOS PERMITIDOS"
-                            type="number"
-                            placeholder="Ex: 4"
-                            icon={<Layers size={16} className="text-indigo-400" />}
-                            value={newComandaData.sessions}
-                            onChange={e => setNewComandaData({...newComandaData, sessions: parseInt(e.target.value) || 1})}
-                            className="!rounded-xl !bg-slate-50/50 !border-slate-100 !h-9 !text-xs"
-                        />
-                    )}
-                </div>
-            </div>
+                    {(editingComanda.items || []).map((item, index) => (
+                      <div key={index} className="grid grid-cols-12 items-end gap-3">
+                        <div className="col-span-6">
+                          <Select
+                            label=""
+                            value={item.serviceId || ''}
+                            onChange={(e) =>
+                              updatePackageItem(
+                                index,
+                                { serviceId: e.target.value },
+                                true
+                              )
+                            }
+                            size="sm"
+                          >
+                            <option value="">Selecione</option>
+                            {services.map((service) => (
+                              <option key={service.id} value={String(service.id)}>
+                                {service.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
 
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2">
-                <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
-                    <span>Valor Total:</span>
-                    <span className="text-slate-600">{formatCurrency(Number(newComandaData.value) || 0)}</span>
+                        <div className="col-span-2">
+                          <input
+                            type="number"
+                            min={1}
+                            value={item.qty || 1}
+                            onChange={(e) =>
+                              updatePackageItem(index, {
+                                qty: Math.max(1, Number(e.target.value || 1)),
+                              })
+                            }
+                            className={lineInputClass}
+                          />
+                        </div>
+
+                        <div className="col-span-3">
+                          <input
+                            type="text"
+                            value={formatCurrencyInput(Number(item.price || 0))}
+                            onChange={(e) =>
+                              updatePackageItem(index, {
+                                price: parseMonetaryValue(e.target.value),
+                              })
+                            }
+                            className={lineInputClass}
+                          />
+                        </div>
+
+                        <div className="col-span-1 flex justify-end">
+                          <Button
+                            variant="softDanger"
+                            size="sm"
+                            iconOnly
+                            onClick={() => removePackageItem(index)}
+                            title="Remover item"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addPackageItem}
+                    className="mt-3 w-full rounded-md border border-indigo-400 py-2.5 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50"
+                  >
+                    ADICIONAR ITEM
+                  </button>
                 </div>
-                <div className="flex justify-between items-center border-t border-slate-200 pt-2 px-1 mt-1">
-                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Total Líquido:</span>
-                    <span className="text-xl font-black text-indigo-700 tracking-tighter">{formatCurrency(Number(newComandaData.value) || 0)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <div className="w-full max-w-[290px] space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-600">
+                  <span>Valor Total:</span>
+                  <strong className="font-semibold text-slate-800">
+                    {formatCurrency(modalGrossTotal)}
+                  </strong>
                 </div>
+
+                <div className="grid grid-cols-[1fr_auto_82px] items-center gap-2">
+                  <span className="text-sm text-slate-600">Desconto:</span>
+
+                  <div className="inline-flex overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingComanda({
+                          ...editingComanda,
+                          discount_type: 'percentage',
+                        })
+                      }
+                      className={`px-3 py-2 text-xs font-semibold ${
+                        editingComanda.discount_type === 'percentage'
+                          ? 'bg-slate-200 text-slate-800'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingComanda({
+                          ...editingComanda,
+                          discount_type: 'fixed',
+                        })
+                      }
+                      className={`px-3 py-2 text-xs font-semibold ${
+                        editingComanda.discount_type === 'fixed'
+                          ? 'bg-slate-200 text-slate-800'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      R$
+                    </button>
+                  </div>
+
+                  <input
+                    value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
+                    onChange={(e) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        discount_value: parseMonetaryValue(e.target.value),
+                      })
+                    }
+                    className="h-9 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600">
+                  <span>Total Líquido:</span>
+                  <strong className="text-lg font-bold text-slate-800">
+                    {formatCurrency(modalNetTotal)}
+                  </strong>
+                </div>
+              </div>
             </div>
-        </div>
+          </div>
+        )}
       </Modal>
 
       {/* APPOINTMENT DETAIL MODAL */}
@@ -1873,7 +2469,7 @@ export const Agenda: React.FC = () => {
                     }},
                     { label: 'LEMBRETE', icon: <Send size={18} />, active: 'text-emerald-500', onClick: () => pushToast('success', 'Lembrete enviado!') },
                     { label: 'EDITAR', icon: <Edit3 size={18} />, active: 'text-indigo-600', onClick: () => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); } },
-                    { label: 'DELETAR', icon: <Trash2 size={18} />, active: 'text-rose-500', onClick: () => setIsDeleteModalOpen(true) },
+                    { label: 'DELETAR', icon: <Trash2 size={18} />, active: 'text-rose-500', onClick: () => { if (selectedApt) setSelectedDeleteIds([selectedApt.id]); setIsDeleteModalOpen(true); } },
                 ].map((act, i) => (
                     <button key={i} onClick={act.onClick} className="flex flex-col items-center gap-1 group">
                         <div className={`p-2 rounded-full bg-slate-50 border border-slate-100 group-hover:bg-white group-hover:shadow-sm transition-all ${act.active}`}>
@@ -2016,406 +2612,339 @@ export const Agenda: React.FC = () => {
       </Modal>
 
       {/* COMANDA MANAGER MODAL */}
+      {/* COMANDA MANAGER MODAL */}
       <Modal
         isOpen={isComandaManagerOpen}
         onClose={() => setIsComandaManagerOpen(false)}
-        title={(() => {
-            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-            return cmnd?.description || 'Detalhes da Comanda';
-        })()}
-        subtitle={selectedApt?.patient_name ? `Visualizando Registro • ${selectedApt.patient_name}` : 'Visualizando Registro'}
-        maxWidth="max-w-6xl"
+        title="Gestão de Histórico e Pagamentos"
+        maxWidth="max-w-5xl"
       >
-        <div className="flex flex-col lg:flex-row gap-8 py-2 min-h-[500px]">
-            {/* LEFT SIDEBAR - PATIENT & SUMMARY */}
-            <div className="w-full lg:w-1/3 flex flex-col gap-6 border-r border-slate-100 pr-0 lg:pr-8">
-                {/* Patient Basic Info */}
-                <div className="space-y-6">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0 shadow-sm border border-indigo-100">
-                            <UserIcon size={24} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <h4 className="text-sm font-black text-slate-800 truncate uppercase tracking-tight">
-                                    {selectedApt?.patient_name || 'Paciente'}
-                                </h4>
-                                <div className="flex gap-1">
-                                    <button className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><MessageSquare size={16}/></button>
-                                    <button className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"><Send size={16}/></button>
-                                </div>
-                            </div>
-                            <p className="text-[11px] font-bold text-slate-400 truncate lowercase">{patients.find(p => String(p.id) === String(selectedApt?.patient_id))?.email || 'sem email cadastrado'}</p>
-                        </div>
-                    </div>
+        {(() => {
+          const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+          if (!cmnd) return null;
 
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0 shadow-sm border border-indigo-100">
-                            <CalendarDays size={24} />
-                        </div>
-                        <div className="flex-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Criação</p>
-                            <p className="text-xs font-black text-slate-700">{selectedApt?.start.toLocaleDateString(locale, { dateStyle: 'medium' })}</p>
-                        </div>
+          return (
+            <div className="grid grid-cols-1 gap-6 py-2 lg:grid-cols-[1.6fr_0.9fr]">
+              <div className="space-y-5">
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 font-bold text-violet-700">
+                      {String(selectedApt?.patient_name || 'P').charAt(0)}
                     </div>
-
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0 shadow-sm border border-indigo-100">
-                            <Info size={24} />
-                        </div>
-                        <div className="flex-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status Base</p>
-                            <p className="text-xs font-black text-slate-700 uppercase">
-                                {services.find(s => String(s.id) === String(selectedApt?.service_id))?.name || 'Consulta'}
-                                {(() => {
-                                    const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                    return cmnd?.sessions_total ? ` (${cmnd.sessions_total})` : '';
-                                })()}
-                            </p>
-                        </div>
+                    <div>
+                      <p className="font-semibold text-slate-800">
+                        {selectedApt?.patient_name}
+                      </p>
+                      <p className="text-xs text-slate-400">#{cmnd.id}</p>
                     </div>
-                </div>
+                  </div>
 
-                {/* YELLOW SUMMARY CARD */}
-                <div className="mt-4 bg-orange-400 rounded-[2rem] p-8 text-white shadow-xl shadow-orange-100 relative overflow-hidden group border border-orange-300">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
-                        <DollarSign size={80} strokeWidth={3} />
-                    </div>
-                    <div className="relative z-10">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-8 opacity-90 border-b border-white/20 pb-2">Resumo Financeiro</h4>
-
-                        <div className="space-y-6">
-                            {(() => {
-                                const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                const total = cmnd?.totalValue || cmnd?.total || 0;
-                                const paid = cmnd?.paidValue || 0;
-                                const pending = total - paid;
-
-                                return (
-                                    <>
-                                        <div className="flex justify-between items-center opacity-80">
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Valor Total:</span>
-                                            <span className="text-sm font-black tracking-tight">{formatCurrency(total)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center opacity-80">
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Total Pago:</span>
-                                            <span className="text-sm font-black tracking-tight">{formatCurrency(paid)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center pt-4 border-t border-white/20">
-                                            <span className="text-[11px] font-black uppercase tracking-widest opacity-100">Pendente:</span>
-                                            <span className="text-2xl font-black tracking-tighter">{formatCurrency(pending)}</span>
-                                        </div>
-                                    </>
-                                );
-                            })()}
-                        </div>
-                    </div>
-                </div>
-
-                {/* BOTTOM ACTIONS */}
-                <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => {
-                                const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                setNewPayment({
-                                    value: '',
-                                    date: new Date().toISOString().slice(0, 10),
-                                    method: 'Pix',
-                                    receiptCode: cmnd?.receipt_code || ''
-                                });
-                                setIsAddPaymentModalOpen(true);
-                            }}
-                            className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-100 transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            <DollarSign size={14}/> PAGAMENTO
-                        </button>
-                        <button
-                            onClick={handleGenerateReceipt}
-                            className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            <FileText size={14}/> RECIBO
-                        </button>
-                    </div>
+                  <div className="flex gap-2">
                     <button
-                        onClick={() => setIsComandaManagerOpen(false)}
-                        className="w-full py-3 text-slate-400 hover:text-slate-600 hover:bg-slate-50 text-[10px] font-black uppercase tracking-widest transition-all text-center rounded-2xl border border-transparent hover:border-slate-100"
+                      onClick={handleGenerateReceipt}
+                      className={iconButtonClass}
+                      title="Recibo"
                     >
-                        FECHAR VISUALIZAÇÃO
+                      <FileText size={16} />
                     </button>
-                </div>
-            </div>
 
-            {/* RIGHT MAIN CONTENT - TABS & LISTS */}
-            <div className="flex-1 flex flex-col min-w-0">
-                {/* Tabs */}
-                <div className="flex border-b border-slate-100 bg-white sticky top-0 z-20 mb-8 px-2">
-                    {[
-                        { id: 'atendimentos', label: 'HISTÓRICO DE ATENDIMENTOS' },
-                        { id: 'pagamentos', label: 'TRANSAÇÕES' },
-                        { id: 'pacote', label: 'STATUS DO PACOTE' },
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setManagerTab(tab.id as any)}
-                            className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-b-4 transition-all ${managerTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    <button
+                      onClick={() => {
+                        setIsComandaManagerOpen(false);
+                        setEditingComanda({
+                           ...cmnd,
+                           patientId: String(cmnd.patient_id),
+                           professionalId: String(cmnd.professional_id),
+                           items: cmnd.items?.map((it: any) => ({ ...it, serviceId: it.service_id }))
+                        });
+                        setModalTab(cmnd.package_id ? 'pacote' : 'avulsa');
+                        setIsNewComandaModalOpen(true);
+                      }}
+                      className={iconButtonClass}
+                      title="Editar"
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="inline-flex rounded-xl bg-slate-100 p-1">
+                  {(['atendimentos', 'pagamentos', 'pacote'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setManagerTab(tab)}
+                      className={`rounded-lg px-4 py-2 text-sm font-medium capitalize ${
+                        managerTab === tab
+                          ? 'bg-white text-violet-600 shadow-sm'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  {managerTab === 'atendimentos' && (
+                    <div className="space-y-3">
+                      {(cmnd.appointments || []).map((appointment: any) => (
+                        <div
+                          key={appointment.id}
+                          className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
                         >
-                            {tab.label}
-                        </button>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                              <CalendarDays size={18} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                               <p className="text-sm font-medium text-slate-800">
+                                 {new Date(appointment.start_time || appointment.start_date || appointment.startDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                               </p>
+                              <p className="text-[10px] font-medium text-slate-400 uppercase">
+                                Data e Horário
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <select
+                              value={appointment.status}
+                              onChange={(e) =>
+                                handleUpdateAppointmentStatus(appointment.id, e.target.value)
+                              }
+                              className={compactInputClass}
+                              style={{ height: '32px', fontSize: '11px' }}
+                            >
+                              <option value="scheduled">Agendado</option>
+                              <option value="completed">Concluido</option>
+                              <option value="cancelled">Cancelado</option>
+                              <option value="no_show">Faltou</option>
+                            </select>
+
+                            <input
+                              type="datetime-local"
+                              value={new Date(
+                                new Date(appointment.start_time || appointment.start_date || appointment.startDate).getTime() - 
+                                (new Date().getTimezoneOffset() * 60000)
+                              ).toISOString().slice(0, 16)}
+                              onChange={(e) => handleUpdateAppointmentDate(appointment.id, e.target.value)}
+                              className="text-[10px] font-bold border border-slate-200 rounded px-2 py-1 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      {(!cmnd.appointments || cmnd.appointments.length === 0) && (
+                        <div className="py-10 text-center text-sm text-slate-400">
+                          Nenhum atendimento vinculado.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {managerTab === 'pagamentos' && (
+                    <div className="space-y-3">
+                      {cmnd.payments?.map((payment: any) => (
+                        <div
+                          key={payment.id}
+                          className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-emerald-600">
+                              <Check size={18} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800">
+                                {formatCurrency(Number(payment.amount || 0))}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                {new Date(payment.payment_date).toLocaleDateString()} •{' '}
+                                {payment.payment_method}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs text-slate-400">
+                            #{payment.receipt_code || '---'}
+                          </span>
+                        </div>
+                      ))}
+
+                      {(!cmnd.payments || cmnd.payments.length === 0) && (
+                        <div className="py-10 text-center text-sm text-slate-400">
+                          Nenhum pagamento registrado.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {managerTab === 'pacote' && (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className={cx(
+                        "mb-2 text-4xl font-bold",
+                        (cmnd.appointments?.length || 0) > (cmnd.sessions_total || 0)
+                          ? "text-red-600"
+                          : "text-violet-600"
+                      )}>
+                        {cmnd.sessions_used || 0} /{' '}
+                        {cmnd.sessions_total || 1}
+                      </div>
+                      <div className="mb-4 text-sm text-slate-500">
+                        Atendimentos consumidos
+                      </div>
+                      <div className="h-3 w-full max-w-md overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-violet-600"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              ((cmnd.sessions_used || 0) / (cmnd.sessions_total || 1)) * 100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div className="rounded-2xl bg-violet-600 p-5 text-white shadow-lg shadow-violet-200">
+                  <p className="mb-1 text-xs uppercase tracking-wider text-violet-100">
+                    Valor total
+                  </p>
+                  <p className="mb-4 text-3xl font-bold">
+                    {formatCurrency(getComandaTotal(cmnd))}
+                  </p>
+
+                  <div className="space-y-2 border-t border-violet-400 pt-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Recebido</span>
+                      <strong>{formatCurrency(getComandaPaid(cmnd))}</strong>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2 text-sm">
+                      <span>Pendente</span>
+                      <strong>{formatCurrency(getComandaTotal(cmnd) - getComandaPaid(cmnd))}</strong>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => {
+                       setNewPayment({
+                          value: String(getComandaTotal(cmnd) - getComandaPaid(cmnd)),
+                          date: new Date().toISOString().slice(0, 10),
+                          method: 'Pix',
+                          receiptCode: cmnd.receipt_code || ''
+                       });
+                       setIsAddPaymentModalOpen(true);
+                    }}
+                    variant="primary"
+                    fullWidth
+                    className="mt-4 bg-white !text-violet-600 hover:bg-violet-50"
+                    size="lg"
+                  >
+                    Novo pagamento
+                  </Button>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <h4 className="mb-4 text-sm font-semibold text-slate-700">Itens cobrados</h4>
+                  <div className="space-y-3">
+                    {cmnd.items?.map((item: any, index: number) => (
+                      <div key={item.id || index} className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-slate-800">{item.name}</p>
+                          <p className="text-xs text-slate-400">
+                            {item.qty} × {formatCurrency(item.price)}
+                          </p>
+                        </div>
+                        <strong className="text-sm text-slate-700">
+                          {formatCurrency(Number(item.qty || 0) * Number(item.price || 0))}
+                        </strong>
+                      </div>
                     ))}
+
+                    {(!cmnd.items || cmnd.items.length === 0) && (
+                      <p className="text-sm text-slate-400">Nenhum item registrado.</p>
+                    )}
+                  </div>
                 </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[500px]">
-                    {managerTab === 'atendimentos' && (
-                        <div className="animate-fadeIn space-y-4">
-                            <div className="bg-slate-50/50 py-3 px-6 text-center rounded-2xl border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sessões Vinculadas</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="border-b border-slate-100">
-                                        <tr>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Sequência</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data do Atendimento</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {(() => {
-                                            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                            const cmndApts = (cmnd?.appointments || []).sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-
-                                            if (cmndApts.length === 0) return (
-                                                <tr><td colSpan={3} className="py-12 text-center text-slate-400 text-xs italic bg-white rounded-3xl">Nenhum atendimento vinculado.</td></tr>
-                                            );
-
-                                            return cmndApts.map((apt: any, idx: number) => {
-                                                const dDate = new Date(apt.start_time);
-                                                const dEnd = new Date(dDate.getTime() + (apt.duration_minutes || 50) * 60000);
-                                                return (
-                                                    <tr key={apt.id || idx} className="hover:bg-slate-50/50 transition-all group">
-                                                        <td className="py-5 px-4">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">{apt.recurrence_index || idx + 1} de {apt.recurrence_count || cmndApts.length}</span>
-                                                                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest underline decoration-indigo-100">id #{apt.id?.slice(-4)}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-5 px-4">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-xs font-black text-slate-700 uppercase">{dDate.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                                                                <span className="text-[10px] font-black text-slate-400 tabular-nums">{dDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-5 px-4">
-                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm ${
-                                                                apt.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                                apt.status === 'cancelled' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                                                'bg-indigo-50 text-indigo-600 border-indigo-100'
-                                                            }`}>
-                                                                <div className={`w-1.5 h-1.5 rounded-full ${apt.status === 'completed' ? 'bg-emerald-500' : apt.status === 'cancelled' ? 'bg-rose-500' : 'bg-indigo-500'}`} />
-                                                                {apt.status === 'completed' ? 'Realizado' : apt.status === 'cancelled' ? 'Cancelado' : 'Agendado'}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            });
-                                        })()}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-                    {managerTab === 'pagamentos' && (
-                        <div className="animate-fadeIn space-y-4">
-                             <div className="bg-slate-50/50 py-3 px-6 text-center rounded-2xl border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Histórico Financeiro</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-slate-100">
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Valor Líquido</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Método</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Recibo</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {(() => {
-                                            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                            if (!cmnd?.paidValue || cmnd.paidValue === 0) return (
-                                                <tr><td colSpan={4} className="py-12 text-center text-slate-400 text-xs italic bg-white rounded-3xl">Nenhum pagamento registrado.</td></tr>
-                                            );
-
-                                            // Individual payments would be mapped here if the model supported them,
-                                            // for now we show a summary row as in the previous implementation
-                                            return (
-                                                <tr className="hover:bg-slate-50/50 transition-all group">
-                                                    <td className="py-6 px-4">
-                                                        <span className="text-base font-black text-emerald-600 tracking-tighter">{formatCurrency(cmnd.paidValue)}</span>
-                                                    </td>
-                                                    <td className="py-6 px-4">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-xs font-black text-slate-600 uppercase">Transferência</span>
-                                                            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Confirmação via Painel</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-6 px-4">
-                                                        <span className="text-xs font-black text-slate-400 tabular-nums">{new Date(cmnd.updated_at || cmnd.createdAt).toLocaleDateString()}</span>
-                                                    </td>
-                                                    <td className="py-6 px-4">
-                                                        <span className="text-[10px] font-black text-indigo-500 bg-white px-3 py-1.5 rounded-xl border border-indigo-100 tracking-tighter shadow-sm flex items-center justify-center gap-2">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                                            #{cmnd.receipt_code || 'N/A'}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })()}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-                    {managerTab === 'pacote' && (
-                        <div className="animate-fadeIn space-y-6">
-                            <div className="bg-slate-50/50 py-3 px-6 text-center rounded-2xl border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Resumo de Utilização</span>
-                            </div>
-
-                            {(() => {
-                                const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                const used = cmnd?.sessions_used || 0;
-                                const total = cmnd?.sessions_total || 0;
-                                const remaining = total - used;
-                                const percentage = total > 0 ? (used / total) * 100 : 0;
-
-                                if (!cmnd) return null;
-
-                                return (
-                                    <div className="space-y-8 px-2">
-                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-100/50">
-                                            <div className="flex justify-between items-end mb-4">
-                                                <div>
-                                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Status Geral</h4>
-                                                    <p className="text-xl font-black text-slate-800">{cmnd?.description || 'Pacote de Sessões'}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span className="text-4xl font-black text-indigo-600 tracking-tighter">{used}</span>
-                                                    <span className="text-xl font-black text-slate-300 mx-2">/</span>
-                                                    <span className="text-2xl font-black text-slate-400">{total}</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100/50 p-1">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600 rounded-full transition-all duration-1000 ease-out shadow-lg shadow-indigo-200"
-                                                    style={{ width: `${percentage}%` }}
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-3 gap-4 mt-8">
-                                                <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 text-center">
-                                                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Contratado</span>
-                                                    <span className="text-lg font-black text-indigo-600">{total}</span>
-                                                </div>
-                                                <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 text-center">
-                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest block mb-1">Utilizado</span>
-                                                    <span className="text-lg font-black text-emerald-600">{used}</span>
-                                                </div>
-                                                <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100 text-center">
-                                                    <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest block mb-1">Restante</span>
-                                                    <span className="text-lg font-black text-orange-600">{remaining}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    )}
-                </div>
+              </div>
             </div>
-        </div>
+          );
+        })()}
       </Modal>
 
       {/* ADD PAYMENT MODAL */}
       <Modal
         isOpen={isAddPaymentModalOpen}
         onClose={() => setIsAddPaymentModalOpen(false)}
-        title="Novo Pagamento"
-        maxWidth="max-w-xl"
+        title="Lançar Novo Pagamento"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button
+              onClick={() => setIsAddPaymentModalOpen(false)}
+              variant="ghost"
+              size="sm"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSavePayment}
+              variant="primary"
+              className="px-6"
+            >
+              Efetivar pagamento
+            </Button>
+          </div>
+        }
       >
-        <div className="space-y-8 py-4">
-            <div className="space-y-6">
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data do Pagamento</label>
-                    <DatePicker 
-                        value={newPayment.date} 
-                        onChange={val => val && setNewPayment({...newPayment, date: val})}
-                    />
-                </div>
+        <div className="space-y-4 py-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Valor do pagamento</label>
+            <input
+              value={newPayment.value}
+              onChange={(e) =>
+                setNewPayment((prev) => ({ ...prev, value: formatCurrencyInput(parseMonetaryValue(e.target.value)) }))
+              }
+              placeholder="0,00"
+              className={compactInputClass}
+            />
+          </div>
 
-                <Select
-                    label="Forma de pagamento"
-                    value={newPayment.method}
-                    onChange={e => setNewPayment({...newPayment, method: e.target.value})}
-                >
-                    <option value="Dinheiro">Dinheiro</option>
-                    <option value="Pix">Pix</option>
-                    <option value="Cartão de Crédito">Cartão de Crédito</option>
-                    <option value="Cartão de Débito">Cartão de Débito</option>
-                    <option value="Transferência">Transferência</option>
-                </Select>
-
-                <Input
-                    label="Valor"
-                    placeholder="R$ 0,00"
-                    type="number"
-                    value={newPayment.value}
-                    onChange={e => setNewPayment({...newPayment, value: e.target.value})}
-                />
-
-                <Input
-                    label="Código do Recibo (Opcional)"
-                    placeholder="Ex: REC-123"
-                    value={newPayment.receiptCode}
-                    onChange={e => setNewPayment({...newPayment, receiptCode: e.target.value})}
-                />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data do Pagamento</label>
+              <DatePicker
+                value={newPayment.date}
+                onChange={(val) =>
+                  val && setNewPayment((prev) => ({ ...prev, date: val }))
+                }
+              />
             </div>
 
-            <div className="flex justify-end pr-2">
-                {(() => {
-                    const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                    const total = parseFloat(String(cmnd?.totalValue || cmnd?.total || 0));
-                    const paid = parseFloat(String(cmnd?.paid_value || cmnd?.paidValue || 0));
-                    const remaining = total - paid;
-                    return (
-                        <span className={`text-[11px] font-black uppercase tracking-widest ${remaining > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                            Valor restante: {formatCurrency(remaining)}
-                        </span>
-                    );
-                })()}
-            </div>
+            <Select
+              label="Forma de pagamento"
+              value={newPayment.method}
+              onChange={(e) =>
+                setNewPayment((prev) => ({ ...prev, method: e.target.value }))
+              }
+            >
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="Pix">Pix</option>
+              <option value="Cartão de Crédito">Cartão de Crédito</option>
+              <option value="Cartão de Débito">Cartão de Débito</option>
+              <option value="Transferência">Transferência</option>
+            </Select>
+          </div>
 
-            <div className="flex gap-4 pt-4 border-t border-slate-50">
-                <Button
-                    variant="ghost"
-                    onClick={() => setIsAddPaymentModalOpen(false)}
-                    className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-none hover:bg-slate-50"
-                >
-                    FECHAR
-                </Button>
-                <Button
-                    variant="primary"
-                    onClick={handleSavePayment}
-                    className="flex-1 bg-indigo-600 text-white hover:bg-slate-900 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
-                >
-                    SALVAR PAGAMENTO
-                </Button>
-            </div>
+          <Input
+            label="Código do Recibo (Opcional)"
+            placeholder="Ex: REC-123"
+            value={newPayment.receiptCode}
+            onChange={(e) =>
+              setNewPayment((prev) => ({ ...prev, receiptCode: e.target.value }))
+            }
+          />
         </div>
       </Modal>
     </div>

@@ -260,10 +260,9 @@ export const Comandas: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
+  useEffect(() => {
     fetchData();
-  }, []);
+  }, []);;
 
   useEffect(() => {
     const state = location.state as { openComandaId?: string };
@@ -615,25 +614,49 @@ export const Comandas: React.FC = () => {
       setDeleteConfirmId(null);
     }
   };
-
   const handleUpdateAppointmentStatus = async (
-    appointmentId: string,
+    appointmentId: string | number,
     newStatus: string
   ) => {
     try {
       await api.put(`/appointments/${appointmentId}`, { status: newStatus });
-      await fetchData();
-
+      
+      const res = await api.get<Comanda[]>('/finance/comandas');
+      const latestComandas = res || [];
+      setComandas(latestComandas);
+ 
       if (historyComanda) {
-        const refreshed = await api.get<Comanda[]>('/finance/comandas');
-        const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));
+        const updated = latestComandas.find((c: any) => String(c.id) === String(historyComanda.id));
         if (updated) setHistoryComanda(updated);
       }
-
+ 
       pushToast('success', 'Status atualizado.');
     } catch (error) {
       console.error(error);
       pushToast('error', 'Erro ao atualizar status.');
+    }
+  };
+ 
+  const handleUpdateAppointmentDate = async (
+    appointmentId: string | number,
+    newDate: string
+  ) => {
+    try {
+      await api.put(`/appointments/${appointmentId}`, { start_time: newDate });
+      
+      const res = await api.get<Comanda[]>('/finance/comandas');
+      const latestComandas = res || [];
+      setComandas(latestComandas);
+ 
+      if (historyComanda) {
+        const updated = latestComandas.find((c: any) => String(c.id) === String(historyComanda.id));
+        if (updated) setHistoryComanda(updated);
+      }
+ 
+      pushToast('success', 'Data vinculada atualizada.');
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Erro ao atualizar data do atendimento.');
     }
   };
 
@@ -1566,23 +1589,18 @@ export const Comandas: React.FC = () => {
                           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
                             <CalendarDays size={18} />
                           </div>
-                          <div>
-                            <p className="font-medium text-slate-800">
-                              {new Date(
-                                appointment.start_time || appointment.start_date || appointment.startDate
-                              ).toLocaleDateString('pt-BR', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                              })}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                              {new Date(
-                                appointment.start_time || appointment.start_date || appointment.startDate
-                              ).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
+                          <div className="flex flex-col gap-1">
+                            <input
+                              type="datetime-local"
+                              value={new Date(
+                                new Date(appointment.start_time || appointment.start_date || appointment.startDate).getTime() - 
+                                (new Date().getTimezoneOffset() * 60000)
+                              ).toISOString().slice(0, 16)}
+                              onChange={(e) => handleUpdateAppointmentDate(appointment.id, e.target.value)}
+                              className="w-full text-sm font-medium border-0 border-b border-transparent bg-transparent p-0 text-slate-800 transition focus:border-violet-500 focus:outline-none focus:ring-0"
+                            />
+                            <p className="text-[10px] font-medium text-slate-400 uppercase">
+                              Data e Horário
                             </p>
                           </div>
                         </div>
