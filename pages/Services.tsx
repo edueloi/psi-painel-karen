@@ -1,39 +1,69 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { MOCK_SERVICES, MOCK_PACKAGES } from '../constants';
 import { Service, ServicePackage, ServicePackageItem } from '../types';
-import { 
-  Briefcase, Search, Plus, Edit3, Trash2, Clock, DollarSign, Tag, 
-  Package, X, Percent, CreditCard, ChevronRight, Layers,
-  LayoutGrid, Sparkles, Building2, ExternalLink, AlertCircle,
-  CheckCircle2, ShoppingBag, List as ListIcon, Calendar, ArrowUpRight,
-  Download, FileUp, FileDown
+import {
+  Briefcase,
+  Search,
+  Plus,
+  Edit3,
+  Trash2,
+  Clock,
+  DollarSign,
+  Tag,
+  Package,
+  Layers,
+  AlertCircle,
+  Download,
+  FileUp,
+  FileDown,
+  Palette,
+  CheckCircle2,
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
-import { Input, Select, TextArea } from '../components/UI/Input';
+import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
+import {
+  FilterLine,
+  FilterLineSection,
+  FilterLineItem,
+  FilterLineSearch,
+  FilterLineSegmented,
+} from '../components/UI/FilterLine';
+import { Button } from '../components/UI/Button';
+import { StatusAlert } from '../components/UI/StatusAlert';
 import { useToast } from '../contexts/ToastContext';
+
+const cx = (...classes: Array<string | false | null | undefined>) =>
+  classes.filter(Boolean).join(' ');
 
 const CurrencyInput: React.FC<{
   label: string;
   value: number;
   onChange: (val: number) => void;
-  icon?: React.ReactNode;
-}> = ({ label, value, onChange, icon }) => {
+  hint?: string;
+}> = ({ label, value, onChange, hint }) => {
   const [displayValue, setDisplayValue] = useState('');
 
   useEffect(() => {
-    if (value === 0 && !displayValue) return;
     const formatted = new Intl.NumberFormat('pt-BR', {
       minimumFractionDigits: 2,
-    }).format(value);
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
     setDisplayValue(formatted);
   }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, '');
-    const num = parseInt(val || '0') / 100;
-    setDisplayValue(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(num));
+    const digits = e.target.value.replace(/\D/g, '');
+    const num = parseInt(digits || '0', 10) / 100;
+
+    setDisplayValue(
+      new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(num)
+    );
+
     onChange(num);
   };
 
@@ -42,36 +72,37 @@ const CurrencyInput: React.FC<{
       label={label}
       value={displayValue}
       onChange={handleChange}
-      icon={icon}
-      placeholder="0,00"
+      prefix="R$"
+      hint={hint}
     />
   );
 };
 
 export const Services: React.FC = () => {
   const { t, language } = useLanguage();
+  const { pushToast } = useToast();
+
   const [activeTab, setActiveTab] = useState<'services' | 'packages'>('services');
   const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
   const [packages, setPackages] = useState<ServicePackage[]>(MOCK_PACKAGES);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [editingPackage, setEditingPackage] = useState<Partial<ServicePackage> | null>(null);
-  const [deleteId, setDeleteId] = useState<{id: string, type: 'service' | 'package'} | null>(null);
-  const { pushToast } = useToast();
+  const [deleteId, setDeleteId] = useState<{ id: string; type: 'service' | 'package' } | null>(null);
 
+  const [packageServiceToAdd, setPackageServiceToAdd] = useState<string>('');
 
-  // Carregar Dados
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
         const [srvs, pkgs] = await Promise.allSettled([
           api.get<Service[]>('/services'),
-          api.get<ServicePackage[]>('/packages')
+          api.get<ServicePackage[]>('/packages'),
         ]);
 
         if (srvs.status === 'fulfilled') setServices(srvs.value || MOCK_SERVICES);
@@ -82,79 +113,112 @@ export const Services: React.FC = () => {
         setIsLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }).format(value);
+    return new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(Number(value || 0));
   };
 
-  const filteredServices = useMemo(() => services.filter(s => 
-    (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (s.category || '').toLowerCase().includes(searchTerm.toLowerCase())
-  ), [services, searchTerm]);
+  const filteredServices = useMemo(
+    () =>
+      services.filter(
+        (service) =>
+          (service.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (service.category || '').toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [services, searchTerm]
+  );
 
-  const filteredPackages = useMemo(() => packages.filter(p => 
-    (p.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  ), [packages, searchTerm]);
+  const filteredPackages = useMemo(
+    () =>
+      packages.filter((pkg) =>
+        (pkg.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [packages, searchTerm]
+  );
 
-  const stats = useMemo(() => ({
-    totalServices: services.length,
-    totalPackages: packages.length,
-    avgPrice: services.length ? services.reduce((acc, s) => acc + (Number(s.price) || 0), 0) / services.length : 0
-  }), [services, packages]);
+  const stats = useMemo(
+    () => ({
+      totalServices: services.length,
+      totalPackages: packages.length,
+      avgPrice: services.length
+        ? services.reduce((acc, service) => acc + (Number(service.price) || 0), 0) / services.length
+        : 0,
+    }),
+    [services, packages]
+  );
+
+  const serviceOptions = useMemo(
+    () =>
+      services.map((service) => ({
+        id: String(service.id),
+        label: service.name,
+      })),
+    [services]
+  );
 
   const handleOpenServiceModal = (service?: Service) => {
-    setEditingService(service || { 
-      duration: 50, 
-      color: '#6366f1', 
-      modality: 'presencial',
-      category: t('services.category.general'),
-      price: 0,
-      cost: 0
-    });
+    setEditingService(
+      service || {
+        duration: 50,
+        color: '#6366f1',
+        modality: 'presencial',
+        category: t('services.category.general'),
+        price: 0,
+        cost: 0,
+        description: '',
+      }
+    );
     setIsServiceModalOpen(true);
   };
 
   const handleSaveService = async () => {
-    if (!editingService?.name) return;
-    
+    if (!editingService?.name) {
+      pushToast('warning', 'Nome obrigatório', 'Informe o nome do serviço.');
+      return;
+    }
+
     try {
       const payload = {
         ...editingService,
         price: Number(editingService.price) || 0,
         cost: Number(editingService.cost) || 0,
-        duration: Number(editingService.duration) || 50
+        duration: Number(editingService.duration) || 50,
       };
 
       if (editingService.id) {
         const updated = await api.put<Service>(`/services/${editingService.id}`, payload);
-        setServices(prev => prev.map(s => s.id === updated.id ? updated : s));
+        setServices((prev) => prev.map((service) => (service.id === updated.id ? updated : service)));
       } else {
         const saved = await api.post<Service>('/services', payload);
-        setServices(prev => [saved, ...prev]);
+        setServices((prev) => [saved, ...prev]);
       }
+
       setIsServiceModalOpen(false);
       pushToast('success', 'Serviço salvo com sucesso!');
     } catch (err) {
       console.error('Erro ao salvar serviço:', err);
-      pushToast('error', 'Erro ao salvar serviço. Verifique os dados e tente novamente.');
+      pushToast('error', 'Erro ao salvar serviço.', 'Verifique os dados e tente novamente.');
     }
   };
 
   const confirmDelete = async () => {
     if (!deleteId) return;
+
     try {
       if (deleteId.type === 'service') {
         await api.delete(`/services/${deleteId.id}`);
-        setServices(prev => prev.filter(s => s.id !== deleteId.id));
+        setServices((prev) => prev.filter((service) => service.id !== deleteId.id));
       } else {
         await api.delete(`/packages/${deleteId.id}`);
-        setPackages(prev => prev.filter(p => p.id !== deleteId.id));
+        setPackages((prev) => prev.filter((pkg) => pkg.id !== deleteId.id));
       }
+
       setDeleteId(null);
       pushToast('success', 'Excluído com sucesso!');
     } catch (err) {
@@ -164,81 +228,159 @@ export const Services: React.FC = () => {
   };
 
   const handleOpenPackageModal = (pkg?: ServicePackage) => {
-    setEditingPackage(pkg || { 
-      items: [], 
-      discountType: 'percentage', 
-      discountValue: 0,
-      totalPrice: 0
-    });
+    setEditingPackage(
+      pkg || {
+        items: [],
+        discountType: 'percentage',
+        discountValue: 0,
+        totalPrice: 0,
+        description: '',
+      }
+    );
+    setPackageServiceToAdd('');
     setIsPackageModalOpen(true);
   };
 
-  const calculatePackageTotal = (items: ServicePackageItem[], discountType: 'percentage'|'fixed', discountValue: number) => {
+  const calculatePackageTotal = (
+    items: ServicePackageItem[],
+    discountType: 'percentage' | 'fixed',
+    discountValue: number
+  ) => {
     const subtotal = items.reduce((acc, item) => {
-      const service = services.find(s => s.id === item.serviceId);
-      return acc + (service ? service.price * item.quantity : 0);
+      const service = services.find((srv) => String(srv.id) === String(item.serviceId));
+      return acc + (service ? Number(service.price || 0) * Number(item.quantity || 0) : 0);
     }, 0);
 
     let final = subtotal;
+
     if (discountType === 'percentage') {
-      final = subtotal - (subtotal * (discountValue / 100));
+      final = subtotal - subtotal * (discountValue / 100);
     } else {
       final = subtotal - discountValue;
     }
+
     return Math.max(0, final);
   };
 
   const handlePackageItemChange = (items: ServicePackageItem[]) => {
     if (!editingPackage) return;
-    const total = calculatePackageTotal(items, editingPackage.discountType || 'percentage', editingPackage.discountValue || 0);
-    setEditingPackage({ ...editingPackage, items, totalPrice: total });
+
+    const total = calculatePackageTotal(
+      items,
+      editingPackage.discountType || 'percentage',
+      Number(editingPackage.discountValue || 0)
+    );
+
+    setEditingPackage({
+      ...editingPackage,
+      items,
+      totalPrice: total,
+    });
   };
 
-  const handlePackageDiscountChange = (type: 'percentage'|'fixed', value: number) => {
+  const handlePackageDiscountChange = (
+    type: 'percentage' | 'fixed',
+    value: number
+  ) => {
     if (!editingPackage) return;
-    const total = calculatePackageTotal(editingPackage.items || [], type, value);
-    setEditingPackage({ ...editingPackage, discountType: type, discountValue: value, totalPrice: total });
+
+    const total = calculatePackageTotal(
+      editingPackage.items || [],
+      type,
+      value
+    );
+
+    setEditingPackage({
+      ...editingPackage,
+      discountType: type,
+      discountValue: value,
+      totalPrice: total,
+    });
+  };
+
+  const handleAddServiceToPackage = () => {
+    if (!editingPackage || !packageServiceToAdd) return;
+
+    const nextItems = [...(editingPackage.items || [])];
+    const existing = nextItems.find(
+      (item) => String(item.serviceId) === String(packageServiceToAdd)
+    );
+
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      nextItems.push({
+        serviceId: packageServiceToAdd,
+        quantity: 1,
+      });
+    }
+
+    handlePackageItemChange(nextItems);
+    setPackageServiceToAdd('');
   };
 
   const handleSavePackage = async () => {
-    if (!editingPackage?.name || !editingPackage.items?.length) return;
+    if (!editingPackage?.name) {
+      pushToast('warning', 'Nome obrigatório', 'Informe o nome do pacote.');
+      return;
+    }
+
+    if (!editingPackage.items?.length) {
+      pushToast('warning', 'Pacote vazio', 'Adicione ao menos um serviço ao pacote.');
+      return;
+    }
+
     try {
       const payload = {
         ...editingPackage,
         totalPrice: Number(editingPackage.totalPrice) || 0,
-        discountValue: Number(editingPackage.discountValue) || 0
+        discountValue: Number(editingPackage.discountValue) || 0,
       };
 
       if (editingPackage.id) {
         const updated = await api.put<ServicePackage>(`/packages/${editingPackage.id}`, payload);
-        setPackages(prev => prev.map(p => p.id === updated.id ? updated : p));
+        setPackages((prev) => prev.map((pkg) => (pkg.id === updated.id ? updated : pkg)));
       } else {
         const saved = await api.post<ServicePackage>('/packages', payload);
-        setPackages(prev => [saved, ...prev]);
+        setPackages((prev) => [saved, ...prev]);
       }
+
       setIsPackageModalOpen(false);
       pushToast('success', 'Pacote salvo com sucesso!');
     } catch (err) {
       console.error('Erro ao salvar pacote:', err);
-      pushToast('error', 'Erro ao salvar pacote. Verifique os dados e tente novamente.');
+      pushToast('error', 'Erro ao salvar pacote.', 'Verifique os dados e tente novamente.');
     }
   };
 
   const handleExportTemplate = async () => {
     try {
-      const endpoint = activeTab === 'services' ? '/services/export-template' : '/packages/export-template';
-      const filename = activeTab === 'services' ? 'modelo_importacao_servicos.xlsx' : 'modelo_importacao_pacotes.xlsx';
-      
+      const endpoint =
+        activeTab === 'services'
+          ? '/services/export-template'
+          : '/packages/export-template';
+
+      const filename =
+        activeTab === 'services'
+          ? 'modelo_importacao_servicos.xlsx'
+          : 'modelo_importacao_pacotes.xlsx';
+
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('psi_token')}`,
+        },
       });
+
       if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       a.click();
+
+      pushToast('success', 'Modelo baixado com sucesso!');
     } catch (err) {
       console.error('Erro ao baixar modelo:', err);
       pushToast('error', 'Erro ao baixar modelo.');
@@ -248,18 +390,27 @@ export const Services: React.FC = () => {
   const handleExportData = async () => {
     try {
       const endpoint = activeTab === 'services' ? '/services/export' : '/packages/export';
-      const filename = activeTab === 'services' ? 'servicos_exportados.xlsx' : 'pacotes_exportados.xlsx';
+      const filename =
+        activeTab === 'services'
+          ? 'servicos_exportados.xlsx'
+          : 'pacotes_exportados.xlsx';
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('psi_token')}`,
+        },
       });
+
       if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       a.click();
+
+      pushToast('success', 'Exportação concluída!');
     } catch (err) {
       console.error('Erro ao exportar:', err);
       pushToast('error', 'Erro ao exportar dados.');
@@ -269,17 +420,24 @@ export const Services: React.FC = () => {
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const formData = new FormData();
     formData.append('file', file);
+
     try {
       const endpoint = activeTab === 'services' ? '/services/import' : '/packages/import';
-      const result = await api.request<any>(endpoint, { method: 'POST', body: formData });
-      pushToast('success', result.message);
+      const result = await api.request<any>(endpoint, {
+        method: 'POST',
+        body: formData,
+      });
+
+      pushToast('success', result.message || 'Importação concluída.');
+
       if (result.errors && result.errors.length > 0) {
         console.warn('Erros na importação:', result.errors);
-        pushToast('error', 'Algumas linhas tiveram erros. Verifique o console.');
+        pushToast('warning', 'Importação parcial', 'Algumas linhas tiveram erro. Verifique o console.');
       }
-      // Re-fetch data
+
       if (activeTab === 'services') {
         const srvs = await api.get<Service[]>('/services');
         setServices(srvs || []);
@@ -289,447 +447,776 @@ export const Services: React.FC = () => {
       }
     } catch (err) {
       console.error('Erro ao importar:', err);
-      pushToast('error', `Erro ao importar ${activeTab === 'services' ? 'serviços' : 'pacotes'}.`);
+      pushToast(
+        'error',
+        `Erro ao importar ${activeTab === 'services' ? 'serviços' : 'pacotes'}.`
+      );
     } finally {
       e.target.value = '';
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50">
-
-
-      {/* Page Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-5">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm">
-                <Briefcase size={20} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">{t('services.title')}</h1>
-                <p className="text-xs text-slate-500 mt-0.5">{t('services.management')}</p>
-              </div>
+  const renderServiceCard = (service: Service) => {
+    return (
+      <div
+        key={service.id}
+        className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              className="h-11 w-1.5 rounded-full"
+              style={{ backgroundColor: service.color || '#6366f1' }}
+            />
+            <div className="min-w-0">
+              <h4 className="truncate text-[15px] font-semibold text-slate-800">
+                {service.name}
+              </h4>
+              <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                {service.category}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleExportTemplate}
-                title="Baixar Modelo de Importação"
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                <Download size={14} /> <span className="hidden sm:inline">Modelo</span>
-              </button>
-              <button
-                onClick={handleExportData}
-                title={activeTab === 'services' ? "Exportar Serviços" : "Exportar Pacotes"}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                <FileDown size={14} /> <span className="hidden sm:inline">Exportar</span>
-              </button>
-              <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
-                <FileUp size={14} /> <span className="hidden sm:inline">Importar</span>
-                <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} />
-              </label>
-              <button
-                onClick={() => activeTab === 'services' ? handleOpenServiceModal() : handleOpenPackageModal()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-violet-700 transition-all shadow-sm"
-              >
-                <Plus size={14} /> {activeTab === 'services' ? t('services.newService') : t('services.newPackage')}
-              </button>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="xs"
+              iconOnly
+              onClick={() => handleOpenServiceModal(service)}
+              title="Editar serviço"
+            >
+              <Edit3 size={14} />
+            </Button>
+
+            <Button
+              variant="softDanger"
+              size="xs"
+              iconOnly
+              onClick={() => setDeleteId({ id: String(service.id), type: 'service' })}
+              title="Excluir serviço"
+            >
+              <Trash2 size={14} />
+            </Button>
+          </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+            <div className="mb-1 flex items-center gap-2">
+              <Clock size={13} className="text-primary-500" />
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Duração
+              </span>
             </div>
+            <p className="text-sm font-semibold text-slate-700">
+              {service.duration} min
+            </p>
+          </div>
+
+          <div
+            className={cx(
+              'rounded-2xl border p-3',
+              service.modality === 'online'
+                ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                : service.modality === 'geral'
+                ? 'border-violet-100 bg-violet-50 text-violet-700'
+                : 'border-blue-100 bg-blue-50 text-blue-700'
+            )}
+          >
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-70">
+              Modalidade
+            </div>
+            <p className="text-sm font-semibold">
+              {service.modality === 'online'
+                ? t('agenda.online')
+                : service.modality === 'geral'
+                ? 'Geral'
+                : t('agenda.presential')}
+            </p>
+          </div>
+        </div>
+
+        {service.description ? (
+          <p className="mb-4 line-clamp-2 text-sm text-slate-500">
+            {service.description}
+          </p>
+        ) : (
+          <div className="mb-4 h-[42px]" />
+        )}
+
+        <div className="flex items-end justify-between border-t border-slate-100 pt-4">
+          <div>
+            <p className="text-[11px] text-slate-400">Preço</p>
+            <p className="text-lg font-bold text-primary-600">
+              {formatCurrency(service.price)}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="text-[11px] text-slate-400">Custo</p>
+            <p className="text-sm font-semibold text-slate-700">
+              {formatCurrency(service.cost || 0)}
+            </p>
           </div>
         </div>
       </div>
+    );
+  };
 
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+  const renderPackageCard = (pkg: ServicePackage) => {
+    return (
+      <div
+        key={pkg.id}
+        className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+              <Package size={20} />
+            </div>
 
+            <div className="min-w-0">
+              <h4 className="truncate text-[15px] font-semibold text-slate-800">
+                {pkg.name}
+              </h4>
+              <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                {pkg.items?.length || 0} itens
+              </p>
+            </div>
+          </div>
 
-      {/* STATS BAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <Briefcase size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Serviços</p>
-                  <p className="text-xl font-black text-slate-800">{stats.totalServices}</p>
-              </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="xs"
+              iconOnly
+              onClick={() => handleOpenPackageModal(pkg)}
+              title="Editar pacote"
+            >
+              <Edit3 size={14} />
+            </Button>
+
+            <Button
+              variant="softDanger"
+              size="xs"
+              iconOnly
+              onClick={() => setDeleteId({ id: String(pkg.id), type: 'package' })}
+              title="Excluir pacote"
+            >
+              <Trash2 size={14} />
+            </Button>
           </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                  <Package size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">Pacotes</p>
-                  <p className="text-xl font-black text-slate-800">{stats.totalPackages}</p>
-              </div>
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <div className="space-y-2">
+            {(pkg.items || []).slice(0, 3).map((item, index) => {
+              const service = services.find((srv) => String(srv.id) === String(item.serviceId));
+
+              return (
+                <div key={index} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate text-slate-600">
+                    {item.quantity}x {service?.name || 'Serviço'}
+                  </span>
+                  <span className="shrink-0 font-medium text-slate-400">
+                    {service ? formatCurrency(service.price * item.quantity) : '-'}
+                  </span>
+                </div>
+              );
+            })}
+
+            {(pkg.items || []).length > 3 && (
+              <p className="pt-1 text-center text-[11px] font-medium text-slate-400">
+                + {(pkg.items || []).length - 3} outro(s) item(ns)
+              </p>
+            )}
           </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-all">
-                  <DollarSign size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">Valor Médio</p>
-                  <p className="text-xl font-black text-slate-800">{formatCurrency(stats.avgPrice)}</p>
-              </div>
+        </div>
+
+        {pkg.description ? (
+          <p className="mb-4 line-clamp-2 text-sm text-slate-500">
+            {pkg.description}
+          </p>
+        ) : (
+          <div className="mb-4 h-[42px]" />
+        )}
+
+        <div className="flex items-end justify-between border-t border-slate-100 pt-4">
+          <div>
+            <p className="text-[11px] text-slate-400">Preço final</p>
+            <p className="text-lg font-bold text-emerald-600">
+              {formatCurrency(pkg.totalPrice || 0)}
+            </p>
           </div>
+
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
+            {pkg.discountType === 'percentage'
+              ? `${pkg.discountValue || 0}% OFF`
+              : `-${formatCurrency(pkg.discountValue || 0)}`}
+          </div>
+        </div>
       </div>
+    );
+  };
 
-      {/* FILTERS & TABS BAR */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center z-40">
-          <div className="relative w-full lg:w-96 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
-              <input 
-                  type="text" 
-                  placeholder={t('services.search')} 
-                  value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)} 
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-violet-600 text-white shadow-lg shadow-primary-200">
+              <Briefcase size={20} />
+            </div>
+
+            <div>
+              <h1 className="text-lg font-semibold text-slate-900">
+                {t('services.title')}
+              </h1>
+              <p className="text-sm text-slate-500">{t('services.management')}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Download size={14} />}
+              onClick={handleExportTemplate}
+              title="Baixar modelo"
+            >
+              Modelo
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<FileDown size={14} />}
+              onClick={handleExportData}
+              title={activeTab === 'services' ? 'Exportar serviços' : 'Exportar pacotes'}
+            >
+              Exportar
+            </Button>
+
+            <label>
+              <input
+                type="file"
+                className="hidden"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleImportFile}
               />
-          </div>
+              <span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<FileUp size={14} />}
+                  as={undefined as any}
+                >
+                  Importar
+                </Button>
+              </span>
+            </label>
 
-          <div className="flex gap-3 w-full lg:w-auto">
-              <div className="flex bg-slate-100 p-1.5 rounded-2xl flex-1 lg:flex-none">
-                  <button 
-                      onClick={() => setActiveTab('services')}
-                      className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'services' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
-                  >
-                      {t('services.services')}
-                  </button>
-                  <button 
-                      onClick={() => setActiveTab('packages')}
-                      className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'packages' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
-                  >
-                      {t('services.packages')}
-                  </button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus size={14} />}
+              onClick={() =>
+                activeTab === 'services'
+                  ? handleOpenServiceModal()
+                  : handleOpenPackageModal()
+              }
+            >
+              {activeTab === 'services' ? t('services.newService') : t('services.newPackage')}
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
+        {/* Stats */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+                <Briefcase size={20} />
               </div>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Serviços
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800">{stats.totalServices}</p>
           </div>
-      </div>
 
-      {/* CONTENT AREA */}
-      {activeTab === 'services' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredServices.map(service => (
-                  <div key={service.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden flex flex-col">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/20 rounded-bl-[3rem] -mr-8 -mt-8 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      
-                      <div className="flex justify-between items-start mb-5 relative z-10">
-                          <div className="flex items-center gap-4">
-                              <div className="h-10 w-1 bg-indigo-500 rounded-full" style={{ backgroundColor: service.color }}></div>
-                              <div>
-                                  <h4 className="font-black text-slate-800 text-[13px]">{service.name}</h4>
-                                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{service.category}</p>
-                              </div>
-                          </div>
-                          <div className="flex gap-1.5">
-                              <button onClick={() => handleOpenServiceModal(service)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"><Edit3 size={14}/></button>
-                              <button onClick={() => setDeleteId({id: service.id, type: 'service'})} className="p-2.5 bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all border border-transparent hover:border-red-100"><Trash2 size={14}/></button>
-                          </div>
-                      </div>
-                      
-                      <div className="mb-5 flex-1 relative z-10">
-                          <div className="grid grid-cols-2 gap-3 mb-4">
-                              <div className="bg-slate-50 border border-slate-100/50 p-3 rounded-2xl">
-                                  <div className="flex items-center gap-2 mb-1">
-                                      <Clock size={12} className="text-indigo-400"/>
-                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Duração</span>
-                                  </div>
-                                  <p className="text-sm font-black text-slate-700">{service.duration} <span className="text-[10px] text-slate-400 uppercase">min</span></p>
-                              </div>
-                              <div className={`p-3 rounded-2xl border ${service.modality === 'online' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
-                                  <div className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Meio</div>
-                                  <p className="text-xs font-black uppercase tracking-tighter">{service.modality === 'online' ? t('agenda.online') : t('agenda.presential')}</p>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-50 relative z-10">
-                          <div className="text-lg font-black text-indigo-600">
-                              {formatCurrency(service.price)}
-                          </div>
-                          {service.cost > 0 && (
-                            <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
-                                Custo: <span className="text-slate-500 font-black">{formatCurrency(service.cost)}</span>
-                            </div>
-                          )}
-                      </div>
-                  </div>
-              ))}
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <Package size={20} />
+              </div>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Pacotes
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800">{stats.totalPackages}</p>
           </div>
-      ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {filteredPackages.map(pkg => (
-                  <div key={pkg.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative">
-                      <div className="flex justify-between items-start mb-5">
-                          <div className="flex items-center gap-4">
-                              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-lg shadow-emerald-100">
-                                  <Package size={22}/>
-                              </div>
-                              <div>
-                                  <h4 className="font-black text-slate-800 text-[13px]">{pkg.name}</h4>
-                                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{pkg.items?.length || 0} SERVIÇOS INCLUÍDOS</p>
-                              </div>
-                          </div>
-                          <div className="flex gap-1.5">
-                              <button onClick={() => handleOpenPackageModal(pkg)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"><Edit3 size={14}/></button>
-                              <button onClick={() => setDeleteId({id: pkg.id, type: 'package'})} className="p-2.5 bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all border border-transparent hover:border-red-100"><Trash2 size={14}/></button>
-                          </div>
-                      </div>
-                      
-                      <div className="mb-6">
-                          <div className="bg-slate-50/50 border border-slate-100/50 p-4 rounded-[2rem] space-y-2">
-                              {pkg.items.slice(0, 3).map((item, idx) => {
-                                  const s = services.find(srv => srv.id === item.serviceId);
-                                  return (
-                                      <div key={idx} className="flex justify-between text-xs font-bold text-slate-600">
-                                          <span>{item.quantity}x {s?.name}</span>
-                                          <span className="text-slate-300">{s ? formatCurrency(s.price * item.quantity) : '-'}</span>
-                                      </div>
-                                  );
-                              })}
-                              {pkg.items.length > 3 && (
-                                <p className="text-[10px] text-slate-400 text-center font-black pt-1">+ {pkg.items.length - 3} OUTROS ITENS</p>
-                              )}
-                          </div>
-                      </div>
 
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                          <div>
-                            <div className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1">
-                                <Tag size={10}/> Desconto Realizado
-                            </div>
-                            <div className="text-xl font-black text-slate-800">
-                                {formatCurrency(pkg.totalPrice)}
-                            </div>
-                          </div>
-                          <div className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase tracking-tighter">
-                            {pkg.discountType === 'percentage' ? `${pkg.discountValue}% OFF` : `-${formatCurrency(pkg.discountValue)}`}
-                          </div>
-                      </div>
-                  </div>
-              ))}
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                <DollarSign size={20} />
+              </div>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Valor médio
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.avgPrice)}</p>
           </div>
-      )}
+        </div>
 
-      {/* MODAL SERVIÇO */}
+        {/* Filters */}
+        <FilterLine>
+          <FilterLineSection grow>
+            <FilterLineItem grow minWidth={280}>
+              <FilterLineSearch
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder={t('services.search')}
+              />
+            </FilterLineItem>
+          </FilterLineSection>
+
+          <FilterLineSection align="right">
+            <FilterLineSegmented
+              value={activeTab}
+              onChange={(val) => setActiveTab(val as 'services' | 'packages')}
+              options={[
+                { value: 'services', label: t('services.services') },
+                { value: 'packages', label: t('services.packages') },
+              ]}
+            />
+          </FilterLineSection>
+        </FilterLine>
+
+        {/* Content */}
+        {activeTab === 'services' ? (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {filteredServices.map(renderServiceCard)}
+
+            {!isLoading && filteredServices.length === 0 && (
+              <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">
+                Nenhum serviço encontrado.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2">
+            {filteredPackages.map(renderPackageCard)}
+
+            {!isLoading && filteredPackages.length === 0 && (
+              <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">
+                Nenhum pacote encontrado.
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Modal Serviço */}
       <Modal
         isOpen={isServiceModalOpen}
         onClose={() => setIsServiceModalOpen(false)}
         title={editingService?.id ? 'Editar Serviço' : 'Novo Serviço'}
-        maxWidth="max-w-lg"
+        maxWidth="lg"
         footer={
-          <div className="flex gap-4 w-full justify-between items-center">
-            <button onClick={() => setIsServiceModalOpen(false)} className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">FECHAR</button>
-            <button onClick={handleSaveService} className="px-8 py-3 bg-indigo-600 hover:bg-slate-800 text-white rounded-xl shadow-lg shadow-indigo-600/10 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                SALVAR SERVIÇO
-            </button>
+          <div className="flex w-full items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => setIsServiceModalOpen(false)}
+            >
+              Fechar
+            </Button>
+
+            <Button
+              variant="primary"
+              onClick={handleSaveService}
+            >
+              Salvar serviço
+            </Button>
           </div>
         }
       >
         {editingService && (
-          <div className="space-y-6 py-1">
-            <Input 
-              label="NOME DO ATENDIMENTO"
+          <div className="space-y-5">
+            <Input
+              label="Nome do atendimento"
               value={editingService.name || ''}
-              onChange={e => setEditingService({...editingService, name: e.target.value})}
+              onChange={(e) =>
+                setEditingService({ ...editingService, name: e.target.value })
+              }
               placeholder="Ex: Psicoterapia Individual"
-              className="!h-9 !text-xs !rounded-xl"
             />
-            
-            <div className="grid grid-cols-2 gap-6">
-              <Input 
-                label="CATEGORIA"
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Input
+                label="Categoria"
                 value={editingService.category || ''}
-                onChange={e => setEditingService({...editingService, category: e.target.value})}
-                className="!h-9 !text-xs !rounded-xl"
+                onChange={(e) =>
+                  setEditingService({ ...editingService, category: e.target.value })
+                }
+                placeholder="Ex: Psicologia Clínica"
               />
-              <Input 
-                label="DURAÇÃO (MIN)"
+
+              <Input
+                label="Duração (min)"
                 type="number"
                 value={editingService.duration || 0}
-                onChange={e => setEditingService({...editingService, duration: parseInt(e.target.value)})}
-                className="!h-9 !text-xs !rounded-xl"
+                onChange={(e) =>
+                  setEditingService({
+                    ...editingService,
+                    duration: parseInt(e.target.value || '0', 10),
+                  })
+                }
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <CurrencyInput 
-                label="VALOR VENDA"
-                icon={<DollarSign size={16}/>}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <CurrencyInput
+                label="Valor de venda"
                 value={editingService.price || 0}
-                onChange={val => setEditingService({...editingService, price: val})}
+                onChange={(val) =>
+                  setEditingService({ ...editingService, price: val })
+                }
               />
-              <CurrencyInput 
-                label="CUSTO PROF."
-                icon={<DollarSign size={16}/>}
+
+              <CurrencyInput
+                label="Custo profissional"
                 value={editingService.cost || 0}
-                onChange={val => setEditingService({...editingService, cost: val})}
+                onChange={(val) =>
+                  setEditingService({ ...editingService, cost: val })
+                }
               />
             </div>
 
-            <Select 
-              label="MODALIDADE"
-              value={editingService.modality || 'presencial'}
-              onChange={e => setEditingService({...editingService, modality: e.target.value as any})}
-              className="!h-9 !text-xs !rounded-xl"
-            >
-              <option value="presencial">Presencial</option>
-              <option value="online">Online</option>
-              <option value="geral">Geral (Ambos)</option>
-            </Select>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Select
+                label="Modalidade"
+                value={editingService.modality || 'presencial'}
+                onChange={(e) =>
+                  setEditingService({
+                    ...editingService,
+                    modality: e.target.value as any,
+                  })
+                }
+              >
+                <option value="presencial">Presencial</option>
+                <option value="online">Online</option>
+                <option value="geral">Geral (ambos)</option>
+              </Select>
 
-            <TextArea 
-              label="OBSERVAÇÕES / DESCRIÇÃO"
+              <Input
+                label="Cor"
+                value={editingService.color || '#6366f1'}
+                onChange={(e) =>
+                  setEditingService({
+                    ...editingService,
+                    color: e.target.value,
+                  })
+                }
+                leftIcon={<Palette size={16} />}
+                placeholder="#6366f1"
+              />
+            </div>
+
+            <TextArea
+              label="Descrição / observações"
               value={editingService.description || ''}
-              onChange={e => setEditingService({...editingService, description: e.target.value})}
+              onChange={(e) =>
+                setEditingService({
+                  ...editingService,
+                  description: e.target.value,
+                })
+              }
               placeholder="Detalhes adicionais sobre o serviço..."
-              className="!text-xs !rounded-xl"
+              rows={5}
             />
           </div>
         )}
       </Modal>
 
-      {/* MODAL PACOTE */}
+      {/* Modal Pacote */}
       <Modal
         isOpen={isPackageModalOpen}
         onClose={() => setIsPackageModalOpen(false)}
-        title="Estruturar Pacote"
-        maxWidth="max-w-xl"
+        title={editingPackage?.id ? 'Editar Pacote' : 'Novo Pacote'}
+        maxWidth="xl"
         footer={
-          <div className="flex gap-4 w-full justify-between items-center">
-            <button onClick={() => setIsPackageModalOpen(false)} className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">FECHAR</button>
-            <button onClick={handleSavePackage} className="px-8 py-3 bg-indigo-600 hover:bg-slate-800 text-white rounded-xl shadow-lg shadow-indigo-600/10 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                FINALIZAR E SALVAR
-            </button>
+          <div className="flex w-full items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => setIsPackageModalOpen(false)}
+            >
+              Fechar
+            </Button>
+
+            <Button
+              variant="primary"
+              onClick={handleSavePackage}
+            >
+              Salvar pacote
+            </Button>
           </div>
         }
       >
         {editingPackage && (
-          <div className="space-y-6 py-1">
-            <Input 
-              label="TÍTULO DO PACOTE"
+          <div className="space-y-5">
+            <Input
+              label="Título do pacote"
               value={editingPackage.name || ''}
-              onChange={e => setEditingPackage({...editingPackage, name: e.target.value})}
+              onChange={(e) =>
+                setEditingPackage({ ...editingPackage, name: e.target.value })
+              }
               placeholder="Ex: Terapia Mensal Intensiva"
-              className="!h-9 !text-xs !rounded-xl"
             />
 
-            <div className="bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100">
-                <div className="flex justify-between items-center mb-3 px-1">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <Layers size={14}/> Serviços Incluídos
-                    </h4>
-                    <div className="relative group">
-                      <button className="h-7 px-3 bg-white border border-slate-200 rounded-lg flex items-center gap-1.5 text-[8px] font-black text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all uppercase tracking-widest">
-                          <Plus size={12}/> ADICIONAR
-                      </button>
-                      <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 hidden group-focus-within:block z-50 p-2 animate-fadeIn max-h-48 overflow-y-auto">
-                          {services.map(s => (
-                              <button key={s.id} className="w-full text-left p-3 hover:bg-slate-50 text-[11px] font-bold text-slate-600 rounded-xl mb-1 flex items-center gap-2" onClick={() => {const newItems = [...(editingPackage.items || [])]; const existing = newItems.find(i => i.serviceId === s.id); if(existing) existing.quantity += 1; else newItems.push({ serviceId: s.id, quantity: 1 }); handlePackageItemChange(newItems);}}>
-                                  <div className="w-2 h-2 rounded-full" style={{backgroundColor: s.color}}></div>
-                                  {s.name}
-                              </button>
-                          ))}
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Layers size={16} className="text-primary-600" />
+                  <h4 className="text-sm font-semibold text-slate-700">
+                    Serviços incluídos
+                  </h4>
+                </div>
+              </div>
+
+              <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                <Combobox
+                  label="Adicionar serviço"
+                  options={serviceOptions}
+                  value={packageServiceToAdd}
+                  onChange={(value) => setPackageServiceToAdd(String(value))}
+                  placeholder="Selecione um serviço..."
+                  size="sm"
+                  showSelectedBadge={false}
+                />
+
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    leftIcon={<Plus size={14} />}
+                    onClick={handleAddServiceToPackage}
+                    disabled={!packageServiceToAdd}
+                    fullWidth
+                  >
+                    Adicionar
+                  </Button>
+                </div>
+              </div>
+
+              {(!editingPackage.items || editingPackage.items.length === 0) ? (
+                <StatusAlert
+                  variant="info"
+                  title="Nenhum serviço adicionado"
+                  message="Selecione um serviço acima para começar a montar o pacote."
+                  compact
+                />
+              ) : (
+                <div className="space-y-3">
+                  {(editingPackage.items || []).map((item, index) => {
+                    const service = services.find(
+                      (srv) => String(srv.id) === String(item.serviceId)
+                    );
+
+                    return (
+                      <div
+                        key={`${item.serviceId}-${index}`}
+                        className="rounded-2xl border border-slate-200 bg-white p-4"
+                      >
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_110px_150px_auto] md:items-end">
+                          <Select
+                            label="Serviço"
+                            value={String(item.serviceId)}
+                            onChange={(e) => {
+                              const nextItems = [...(editingPackage.items || [])];
+                              nextItems[index].serviceId = e.target.value;
+                              handlePackageItemChange(nextItems);
+                            }}
+                            size="sm"
+                          >
+                            {services.map((serviceOption) => (
+                              <option key={serviceOption.id} value={String(serviceOption.id)}>
+                                {serviceOption.name}
+                              </option>
+                            ))}
+                          </Select>
+
+                          <Input
+                            label="Quantidade"
+                            type="number"
+                            value={item.quantity}
+                            min={1}
+                            size="sm"
+                            onChange={(e) => {
+                              const nextItems = [...(editingPackage.items || [])];
+                              nextItems[index].quantity = parseInt(e.target.value || '1', 10) || 1;
+                              handlePackageItemChange(nextItems);
+                            }}
+                          />
+
+                          <Input
+                            label="Subtotal"
+                            value={
+                              service
+                                ? formatCurrency(service.price * item.quantity)
+                                : formatCurrency(0)
+                            }
+                            readOnly
+                            size="sm"
+                          />
+
+                          <div className="flex items-end justify-end">
+                            <Button
+                              variant="softDanger"
+                              size="sm"
+                              iconOnly
+                              onClick={() => {
+                                const nextItems = (editingPackage.items || []).filter(
+                                  (_, i) => i !== index
+                                );
+                                handlePackageItemChange(nextItems);
+                              }}
+                              title="Remover item"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    );
+                  })}
                 </div>
-                
-                <div className="space-y-2">
-                    {(!editingPackage.items || editingPackage.items.length === 0) ? (
-                        <div className="text-center py-4 text-[9px] font-black text-slate-300 uppercase tracking-widest">Nenhum serviço selecionado</div>
-                    ) : (
-                        editingPackage.items.map((item, idx) => {
-                            const s = services.find(srv => srv.id === item.serviceId);
-                            return (
-                                <div key={idx} className="flex gap-3 items-center bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
-                                    <div className="flex-1 text-[10px] font-black text-slate-700 truncate">{s?.name}</div>
-                                    <div className="flex items-center gap-3">
-                                        <input type="number" min="1" className="w-8 bg-slate-50 rounded-lg py-1 font-black text-slate-700 text-[10px] text-center outline-none" value={item.quantity} onChange={(e) => {const newItems = [...(editingPackage.items || [])]; newItems[idx].quantity = parseInt(e.target.value) || 1; handlePackageItemChange(newItems);}} />
-                                        <span className="text-[10px] font-black text-indigo-600 w-16 text-right">{s ? formatCurrency(s.price * item.quantity) : '-'}</span>
-                                        <button onClick={() => {const newItems = editingPackage.items!.filter((_, i) => i !== idx); handlePackageItemChange(newItems);}} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><X size={14}/></button>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
-              <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Configurar Desconto</label>
-                  <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-                      <button onClick={() => handlePackageDiscountChange('percentage', editingPackage.discountValue || 0)} className={`flex-1 py-2 rounded-xl text-[9px] font-black transition-all ${editingPackage.discountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>%</button>
-                      <button onClick={() => handlePackageDiscountChange('fixed', editingPackage.discountValue || 0)} className={`flex-1 py-2 rounded-xl text-[9px] font-black transition-all ${editingPackage.discountType === 'fixed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>$</button>
-                      
-                      {editingPackage.discountType === 'percentage' ? (
-                        <div className="flex items-center px-2">
-                           <input 
-                            type="number" 
-                            className="w-10 bg-transparent border-0 font-black text-indigo-700 text-center text-xs outline-none" 
-                            value={editingPackage.discountValue || 0} 
-                            onChange={(e) => handlePackageDiscountChange('percentage', parseFloat(e.target.value) || 0)} 
-                          />
-                          <span className="text-indigo-600 font-bold text-[10px]">%</span>
-                        </div>
-                      ) : (
-                        <div className="flex-1">
-                          <CurrencyInput
-                            label=""
-                            value={editingPackage.discountValue || 0}
-                            onChange={val => handlePackageDiscountChange('fixed', val)}
-                          />
-                        </div>
-                      )}
-                  </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+              <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+                <h4 className="mb-3 text-sm font-semibold text-slate-700">
+                  Configurar desconto
+                </h4>
+
+                <div className="space-y-4">
+                  <FilterLineSegmented
+                    value={editingPackage.discountType || 'percentage'}
+                    onChange={(type) =>
+                      handlePackageDiscountChange(
+                        type as 'percentage' | 'fixed',
+                        Number(editingPackage.discountValue || 0)
+                      )
+                    }
+                    options={[
+                      { value: 'percentage', label: '%' },
+                      { value: 'fixed', label: 'R$' },
+                    ]}
+                    size="sm"
+                  />
+
+                  {editingPackage.discountType === 'percentage' ? (
+                    <Input
+                      label="Desconto percentual"
+                      type="number"
+                      suffix="%"
+                      value={editingPackage.discountValue || 0}
+                      onChange={(e) =>
+                        handlePackageDiscountChange(
+                          'percentage',
+                          parseFloat(e.target.value || '0') || 0
+                        )
+                      }
+                    />
+                  ) : (
+                    <CurrencyInput
+                      label="Desconto fixo"
+                      value={Number(editingPackage.discountValue || 0)}
+                      onChange={(val) => handlePackageDiscountChange('fixed', val)}
+                    />
+                  )}
+                </div>
               </div>
-              <div className="bg-slate-900 rounded-[1.5rem] p-4 text-white text-right">
-                  <p className="text-[8px] font-black text-indigo-300 uppercase tracking-widest mb-0.5">Preço Final</p>
-                  <p className="text-lg font-black">{formatCurrency(editingPackage.totalPrice || 0)}</p>
+
+              <div className="rounded-[24px] bg-slate-900 p-5 text-white">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-200">
+                  Preço final
+                </p>
+                <p className="mt-2 text-2xl font-bold">
+                  {formatCurrency(editingPackage.totalPrice || 0)}
+                </p>
+
+                <div className="mt-4 border-t border-white/10 pt-4 text-sm text-slate-300">
+                  <p>
+                    Itens: <strong className="text-white">{editingPackage.items?.length || 0}</strong>
+                  </p>
+                  <p className="mt-1">
+                    Desconto:{' '}
+                    <strong className="text-white">
+                      {editingPackage.discountType === 'percentage'
+                        ? `${editingPackage.discountValue || 0}%`
+                        : formatCurrency(editingPackage.discountValue || 0)}
+                    </strong>
+                  </p>
+                </div>
               </div>
             </div>
 
-            <TextArea 
-              label="OBSERVAÇÕES DO PACOTE"
+            <TextArea
+              label="Observações do pacote"
               value={editingPackage.description || ''}
-              onChange={e => setEditingPackage({...editingPackage, description: e.target.value})}
+              onChange={(e) =>
+                setEditingPackage({
+                  ...editingPackage,
+                  description: e.target.value,
+                })
+              }
               placeholder="Detalhes sobre o pacote promocional..."
-              className="!text-xs !rounded-xl"
+              rows={5}
             />
           </div>
         )}
       </Modal>
 
-      {/* CONFIRMA DELEÇÃO */}
-      {deleteId && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
-              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-red-100">
-                <AlertCircle size={40} />
-              </div>
-              <h3 className="text-xl font-black text-slate-800 mb-3">Remover item?</h3>
-              <p className="text-sm font-bold text-slate-400 mb-8 leading-relaxed">
-                Você está prestes a excluir este {deleteId.type === 'service' ? 'serviço' : 'pacote'}. Agendamentos passados não serão alterados.
-              </p>
-              <div className="flex flex-col gap-3">
-                 <button 
-                  onClick={confirmDelete}
-                  className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-100 transition-all"
-                 >
-                   CONFIRMAR EXCLUSÃO
-                 </button>
-                 <button 
-                  onClick={() => setDeleteId(null)}
-                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-                 >
-                   CANCELAR
-                 </button>
-              </div>
-           </div>
+      {/* Modal Exclusão */}
+      <Modal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        title="Excluir item"
+        maxWidth="md"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteId(null)}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              variant="danger"
+              onClick={confirmDelete}
+            >
+              Confirmar exclusão
+            </Button>
+          </div>
+        }
+      >
+        <div className="py-2">
+          <StatusAlert
+            variant="warning"
+            title="Confirmação necessária"
+            message={`Você está prestes a excluir este ${
+              deleteId?.type === 'service' ? 'serviço' : 'pacote'
+            }. Agendamentos passados não serão alterados.`}
+          />
         </div>
-      )}
-      </div>
+      </Modal>
     </div>
   );
 };

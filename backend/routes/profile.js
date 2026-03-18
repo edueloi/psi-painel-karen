@@ -35,7 +35,13 @@ ensureColumns();
 router.get('/me', async (req, res) => {
   try {
     const [rows] = await db.query(
-      'SELECT id, tenant_id, name, email, role, specialty, crp, phone, avatar_url, bio, company_name, address, clinic_logo_url, cover_url, schedule, active FROM users WHERE id = ?',
+      `SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.specialty, u.crp, u.phone, 
+              u.avatar_url, u.bio, u.company_name, u.address, u.clinic_logo_url, u.cover_url, 
+              u.schedule, u.active, u.permissions as user_permissions,
+              p.permissions as profile_permissions, p.slug as profile_slug
+       FROM users u 
+       LEFT JOIN tenant_permission_profiles p ON u.tenant_profile_id = p.id
+       WHERE u.id = ?`,
       [req.user.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -43,6 +49,20 @@ router.get('/me', async (req, res) => {
     if (u.schedule && typeof u.schedule === 'string') {
       try { u.schedule = JSON.parse(u.schedule); } catch { u.schedule = null; }
     }
+
+    let userPerms = typeof u.user_permissions === 'string' ? JSON.parse(u.user_permissions) : u.user_permissions || {};
+    let profPerms = typeof u.profile_permissions === 'string' ? JSON.parse(u.profile_permissions) : u.profile_permissions || {};
+    
+    if (u.profile_slug === 'admin' || u.role === 'admin' || u.role === 'super_admin') {
+        u.permissions = { _full_access: true }; 
+    } else {
+        u.permissions = { ...profPerms, ...userPerms };
+    }
+
+    delete u.user_permissions;
+    delete u.profile_permissions;
+    delete u.profile_slug;
+
     res.json(u);
   } catch (err) {
     console.error(err);

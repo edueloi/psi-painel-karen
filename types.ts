@@ -131,7 +131,7 @@ export interface Patient {
 }
 
 export type AppointmentType = 'consulta' | 'bloqueio' | 'pessoal';
-export type AppointmentModality = 'online' | 'presencial';
+export type AppointmentModality = 'online' | 'presencial' | 'geral';
 export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'confirmed';
 
 export interface Appointment {
@@ -308,7 +308,7 @@ export interface Service {
   price: number;
   cost: number;
   color: string;
-  modality: 'online' | 'presencial';
+  modality: 'online' | 'presencial' | 'geral';
   description?: string;
 }
 

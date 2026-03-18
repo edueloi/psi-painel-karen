@@ -8,7 +8,7 @@ const { authorize } = require('../middleware/auth');
 router.get('/me', async (req, res) => {
   try {
     const [users] = await db.query(
-      'SELECT id, tenant_id, name, email, role, specialty, crp, phone, avatar_url, active, created_at FROM users WHERE id = ?',
+      'SELECT id, tenant_id, name, email, role, specialty, crp, phone, avatar_url, active, permissions, tenant_profile_id, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
     if (users.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -23,7 +23,7 @@ router.get('/me', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const [users] = await db.query(
-      "SELECT id, name, email, role, specialty, crp, phone, avatar_url, active, created_at FROM users WHERE tenant_id = ? AND role != 'super_admin' ORDER BY name",
+      "SELECT id, name, email, role, specialty, crp, phone, avatar_url, active, permissions, tenant_profile_id, created_at FROM users WHERE tenant_id = ? AND role != 'super_admin' ORDER BY name",
       [req.user.tenant_id]
     );
     res.json(users);
@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [users] = await db.query(
-      'SELECT id, name, email, role, specialty, crp, phone, avatar_url, active, created_at FROM users WHERE id = ? AND tenant_id = ?',
+      'SELECT id, name, email, role, specialty, crp, phone, avatar_url, active, permissions, tenant_profile_id, created_at FROM users WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
     );
     if (users.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -51,17 +51,18 @@ router.get('/:id', async (req, res) => {
 // POST /users - Criar usuário (admin+)
 router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
   try {
-    const { name, email, password, role, specialty, crp, phone } = req.body;
+    const { name, email, password, role, specialty, crp, phone, is_active, active } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const finalActive = (is_active !== undefined ? is_active : (active !== undefined ? active : true)) ? 1 : 0;
 
     const [result] = await db.query(
-      'INSERT INTO users (tenant_id, name, email, password, role, specialty, crp, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.tenant_id, name, email, hashedPassword, role || 'professional', specialty || null, crp || null, phone || null]
+      'INSERT INTO users (tenant_id, name, email, password, role, specialty, crp, phone, permissions, tenant_profile_id, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.tenant_id, name, email, hashedPassword, role || 'professional', specialty || null, crp || null, phone || null, JSON.stringify({}), req.body.tenant_profile_id || null, finalActive]
     );
 
     const [newUser] = await db.query(
@@ -82,7 +83,7 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
 // PUT /users/:id - Atualizar usuário
 router.put('/:id', async (req, res) => {
   try {
-    const { name, email, role, specialty, crp, phone, avatar_url, active } = req.body;
+    const { name, email, role, specialty, crp, phone, avatar_url, active, is_active, permissions, tenant_profile_id } = req.body;
 
     // Só admin pode mudar role ou desativar outros
     const isSelf = req.user.id == req.params.id;
@@ -98,6 +99,12 @@ router.put('/:id', async (req, res) => {
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
 
+    let finalActive = null;
+    if (isAdmin) {
+       if (is_active !== undefined) finalActive = is_active ? 1 : 0;
+       else if (active !== undefined) finalActive = active ? 1 : 0;
+    }
+
     await db.query(
       `UPDATE users SET
         name = COALESCE(?, name),
@@ -107,9 +114,11 @@ router.put('/:id', async (req, res) => {
         crp = COALESCE(?, crp),
         phone = COALESCE(?, phone),
         avatar_url = COALESCE(?, avatar_url),
-        active = COALESCE(?, active)
+        active = COALESCE(?, active),
+        permissions = COALESCE(?, permissions),
+        tenant_profile_id = COALESCE(?, tenant_profile_id)
        WHERE id = ? AND tenant_id = ?`,
-      [name, email, isAdmin ? role : undefined, specialty, crp, phone, avatar_url, isAdmin ? active : undefined,
+      [name || null, email || null, isAdmin ? (role || null) : null, specialty || null, crp || null, phone || null, avatar_url || null, finalActive, permissions ? JSON.stringify(permissions) : null, tenant_profile_id || null,
        req.params.id, req.user.tenant_id]
     );
 

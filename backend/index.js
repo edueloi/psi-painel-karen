@@ -32,6 +32,8 @@ const aiRoutes = require('./routes/ai');
 const profileRoutes = require('./routes/profile');
 const productsRoutes = require('./routes/products');
 const packagesRoutes = require('./routes/packages');
+const permissionProfilesRoutes = require('./routes/permission-profiles');
+const commissionsRoutes = require('./routes/commissions');
 
 const path = require('path');
 const app = express();
@@ -78,6 +80,8 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/profile`, profileRoutes);
   app.use(`${prefix}/products`, productsRoutes);
   app.use(`${prefix}/packages`, packagesRoutes);
+  app.use(`${prefix}/permission-profiles`, permissionProfilesRoutes);
+  app.use(`${prefix}/commissions`, commissionsRoutes);
 }
 
 // ---- Middlewares globais ----

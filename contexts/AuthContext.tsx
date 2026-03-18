@@ -10,6 +10,7 @@ interface AuthUser {
   email?: string;
   avatarUrl?: string;
   clinicLogoUrl?: string;
+  permissions?: Record<string, boolean>;
 }
 
 interface AuthContextType {
@@ -21,6 +22,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   isAdmin: boolean;
   isProfissional: boolean;
+  hasPermission: (key: string) => boolean;
   updateUser: (data: Partial<AuthUser>) => void;
 }
 
@@ -55,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatar_url?: string;
         clinic_logo_url?: string;
         avatarUrl?: string;
+        permissions?: Record<string, boolean>;
       }
       const data = await api.get<FetchProfileResponse>('/profile/me');
       setUser({ 
@@ -62,11 +65,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: data.name, 
         email: data.email,
         avatarUrl: data.avatar_url || data.avatarUrl || decoded.avatarUrl,
-        clinicLogoUrl: data.clinic_logo_url || (decoded as any).clinic_logo_url
+        clinicLogoUrl: data.clinic_logo_url || (decoded as any).clinic_logo_url,
+        permissions: data.permissions || {}
       });
     } catch (e) {
       setUser(decoded); // fallback só com id/role
     }
+  };
+
+  const hasPermission = (key: string): boolean => {
+    if (user?.role === 'super_admin' || user?.role === 'admin') return true;
+    if (user?.permissions?.['_full_access']) return true;
+    return !!user?.permissions?.[key];
   };
 
   const updateUser = (data: Partial<AuthUser>) => {
@@ -110,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isSuperAdmin: user?.role === 'super_admin',
       isAdmin: user?.role === 'admin',
       isProfissional: user?.role === 'profissional',
+      hasPermission,
       updateUser
     }}>
       {children}
