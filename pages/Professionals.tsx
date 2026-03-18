@@ -2,12 +2,21 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { 
-  UserCheck, Search, Plus, Filter, Edit3, Trash2, Shield, Calendar, 
-  Briefcase, Percent, CheckCircle, Check, X, DollarSign, Users, Lock, Key, 
+  UserCheck, Plus, Edit3, Trash2, Shield, 
+  Briefcase, CheckCircle, X, DollarSign, Users, Lock, Key, 
   Loader2, Phone, Mail, ShieldAlert, UserPlus, Power, Eye, EyeOff, ChevronRight, AlertCircle
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
+import { Modal } from '../components/UI/Modal';
+import { Button } from '../components/UI/Button';
+import { Input, Select } from '../components/UI/Input';
+import { 
+  FilterLine, FilterLineSection, FilterLineSearch, FilterLineSegmented 
+} from '../components/UI/FilterLine';
+
+const cx = (...classes: Array<string | false | null | undefined>) =>
+  classes.filter(Boolean).join(' ');
 
 export const Professionals: React.FC = () => {
   const { t } = useLanguage();
@@ -24,7 +33,6 @@ export const Professionals: React.FC = () => {
   const [deleteConfirmPro, setDeleteConfirmPro] = useState<any>(null);
   const { pushToast } = useToast();
 
-
   const fetchPros = async () => {
     setIsLoading(true);
     try {
@@ -32,6 +40,7 @@ export const Professionals: React.FC = () => {
         setProfessionals(data);
     } catch (e: any) {
         console.error("Erro ao carregar profissionais:", e.message);
+        pushToast('error', "Erro ao carregar profissionais");
     } finally {
         setIsLoading(false);
     }
@@ -72,7 +81,6 @@ export const Professionals: React.FC = () => {
     setIsSaving(true);
     try {
         const payload = { ...editingPro };
-        // Se for edição e a senha estiver vazia, removemos do payload para não sobrescrever com vazio
         if (editingPro.id && !editingPro.password) {
             delete payload.password;
         }
@@ -124,393 +132,386 @@ export const Professionals: React.FC = () => {
   }, [professionals]);
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24">
-      
-      {/* HEADER & TOP CONTROLS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><Users size={20}/></div>
-                  {t('professionals.title')}
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">{t('professionals.subtitle')}</p>
+    <div className="min-h-screen bg-slate-50 pb-24">
+      {/* STICKY HEADER */}
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-100">
+              <Users size={20} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">{t('professionals.title')}</h1>
+              <p className="text-xs text-slate-400 font-medium">{t('professionals.subtitle')}</p>
+            </div>
           </div>
-          <button 
-              onClick={() => handleOpenModal()} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+
+          <Button
+            onClick={() => handleOpenModal()}
+            leftIcon={<UserPlus size={18} />}
+            variant="primary"
+            radius="xl"
+            className="shadow-lg shadow-indigo-200"
           >
-              <UserPlus size={18} /> {t('professionals.new')}
-          </button>
-      </div>
+            {t('professionals.new')}
+          </Button>
+        </div>
+      </header>
 
-      {/* STATS BAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <Users size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('professionals.team')}</p>
-                  <p className="text-xl font-black text-slate-800">{stats.total}</p>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-all">
-                  <Shield size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">Admins</p>
-                  <p className="text-xl font-black text-slate-800">{stats.admins}</p>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                  <UserCheck size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">Ativos</p>
-                  <p className="text-xl font-black text-slate-800">{stats.active}</p>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-violet-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center border border-violet-100 group-hover:bg-violet-600 group-hover:text-white transition-all">
-                  <Briefcase size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-violet-500">Staff</p>
-                  <p className="text-xl font-black text-slate-800">{stats.pros}</p>
-              </div>
-          </div>
-      </div>
-
-      {/* FILTERS & SEARCH */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full lg:w-96 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
-              <input 
-                  type="text" 
-                  placeholder="Pesquisar por nome ou e-mail..." 
-                  value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)} 
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
-              />
-          </div>
-
-          <div className="flex gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar">
-              {/* View Toggle */}
-              <div className="flex bg-slate-100 p-1.5 rounded-2xl flex-1 lg:flex-none">
-                  {[
-                      { id: 'team', label: t('professionals.team'), icon: <Users size={14}/> },
-                      { id: 'permissions', label: t('professionals.permissions'), icon: <Key size={14}/> },
-                      { id: 'commissions', label: 'Comissões', icon: <DollarSign size={14}/> }
-                  ].map(tab => (
-                      <button 
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id as any)}
-                          className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
-                      >
-                          {tab.icon}
-                          {tab.label}
-                      </button>
-                  ))}
-              </div>
-          </div>
-      </div>
-
-      {/* --- CONTENT --- */}
-      {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-              <Loader2 className="animate-spin text-indigo-600 mb-6" size={48} />
-              <p className="text-sm font-black uppercase tracking-widest">Sincronizando com a clínica...</p>
-          </div>
-      ) : activeTab === 'team' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredPros.map(pro => (
-                  <div key={pro.id} className={`bg-white p-6 rounded-[2.5rem] border transition-all group relative overflow-hidden flex flex-col ${!pro.is_active ? 'opacity-75 border-slate-100' : 'border-slate-100 hover:border-indigo-200 hover:shadow-xl hover:-translate-y-1'}`}>
-                      
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/20 rounded-bl-[3rem] -mr-8 -mt-8 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      
-                      <div className="flex justify-between items-start mb-6 relative z-10">
-                          <div className="flex items-center gap-4">
-                              <div className={`h-14 w-14 rounded-2xl flex items-center justify-center font-black text-xl border-2 transition-all ${
-                                !pro.is_active ? 'bg-slate-50 text-slate-300 border-slate-200' : 'bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-400 group-hover:shadow-lg group-hover:shadow-indigo-200'
-                              }`}>
-                                  {(pro.name || '?').charAt(0).toUpperCase()}
-                              </div>
-                              <div className="min-w-0">
-                                  <h3 className="font-black text-slate-800 text-[15px] truncate max-w-[150px]">{pro.name}</h3>
-                                  <div className="flex flex-col">
-                                    <span className={`inline-flex w-fit px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border mt-1 ${
-                                        pro.role === 'admin' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                        pro.role === 'profissional' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                        'bg-slate-50 text-slate-500 border-slate-100'
-                                    }`}>
-                                        {pro.role}
-                                    </span>
-                                    {pro.specialty && (
-                                      <span className="text-[10px] font-bold text-indigo-400 mt-1 truncate max-w-[150px] italic">
-                                        {pro.specialty}
-                                      </span>
-                                    )}
-                                  </div>
-                              </div>
-                          </div>
-                          <div className="flex gap-1.5 shadow-sm bg-white/50 backdrop-blur-sm p-1 rounded-xl ring-1 ring-slate-100">
-                              <button onClick={() => handleOpenModal(pro)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"><Edit3 size={14}/></button>
-                              <button onClick={() => handleDelete(pro.id, pro.name)} className="p-2.5 bg-slate-50 hover:bg-red-50 rounded-xl text-slate-300 hover:text-red-500 transition-all border border-transparent hover:border-red-100"><Trash2 size={14}/></button>
-                          </div>
-                      </div>
-
-                      <div className="space-y-3 mb-6 flex-1 relative z-10">
-                          <div className="bg-slate-50/50 border border-slate-100/50 p-3.5 rounded-2xl flex flex-col gap-2">
-                              <div className="flex items-center gap-3 text-xs text-slate-600">
-                                  <Mail size={14} className="text-indigo-400 shrink-0" />
-                                  <span className="font-bold truncate" title={pro.email}>{pro.email}</span>
-                              </div>
-                              <div className="flex items-center gap-3 text-xs text-slate-600">
-                                  <Phone size={14} className="text-indigo-400 shrink-0" />
-                                  <span className="font-bold">{pro.phone || 'Sem telefone'}</span>
-                              </div>
-                              {pro.crp && (
-                                <div className="flex items-center gap-3 text-xs text-slate-600">
-                                    <CheckCircle size={14} className="text-emerald-400 shrink-0" />
-                                    <span className="font-black text-[10px] uppercase tracking-widest">Reg: {pro.crp}</span>
-                                </div>
-                              )}
-                          </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-slate-50 flex items-center justify-between relative z-10">
-                          <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${pro.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-rose-400 shadow-sm'}`}></div>
-                              <span className={`font-black text-[10px] uppercase tracking-[0.1em] ${pro.is_active ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                  {pro.is_active ? 'Acesso Ativo' : 'Suspenso'}
-                              </span>
-                          </div>
-                          {pro.role === 'admin' && <Shield size={14} className="text-amber-400" />}
-                      </div>
-                  </div>
-              ))}
-              
-              {filteredPros.length === 0 && (
-                  <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-slate-100 shadow-sm flex flex-col items-center">
-                      <div className="w-24 h-24 rounded-full bg-slate-50 flex items-center justify-center mb-6 border border-slate-100">
-                        <Users size={40} className="text-slate-200" />
-                      </div>
-                      <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Nenhum profissional encontrado</p>
-                  </div>
-              )}
-          </div>
-      ) : (
-          <div className="bg-white rounded-[3rem] p-24 text-center border border-slate-100 shadow-sm flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-slate-50 flex items-center justify-center mb-6 border border-slate-100">
-                <ShieldAlert size={40} className="text-slate-200" />
-              </div>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">O módulo de {activeTab === 'permissions' ? 'Permissões' : 'Comissões'} está sendo preparado...</p>
-          </div>
-      )}
-
-      {/* --- MODAL DE USUÁRIO --- */}
-      {isModalOpen && editingPro && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-              <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-bounceIn overflow-hidden flex flex-col max-h-[92vh] border border-white/20">
-                  
-                  <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                      <div className="flex items-center gap-5">
-                          <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100">
-                              {editingPro.id ? <Edit3 size={20} /> : <UserPlus size={22} />}
-                          </div>
-                          <div>
-                              <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight leading-none mb-1">
-                                {editingPro.id ? 'Editar Cadastro' : 'Novo Integrante'}
-                              </h3>
-                              <p className="text-[9px] sm:text-[10px] text-indigo-400 font-black uppercase tracking-[0.2em]">Controle de Staff & Acesso</p>
-                          </div>
-                      </div>
-                      <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white hover:bg-slate-50 rounded-2xl text-slate-400 shadow-sm ring-1 ring-slate-200 transition-all active:scale-95">
-                          <X size={20}/>
-                      </button>
-                  </div>
-
-                  <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1 space-y-10">
-                      
-                      <div className="space-y-8">
-                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Dados de Identificação</label>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                              <div className="space-y-3">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Nome Completo *</label>
-                                  <input 
-                                    type="text" 
-                                    className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
-                                    value={editingPro.name} 
-                                    onChange={e => setEditingPro({...editingPro, name: e.target.value})} 
-                                    placeholder="Ex: Dr. Ricardo Silva"
-                                  />
-                              </div>
-                              <div className="space-y-3">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Telefone / WhatsApp</label>
-                                  <input 
-                                    type="tel" 
-                                    className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
-                                    value={editingPro.phone || ''} 
-                                    onChange={e => setEditingPro({...editingPro, phone: e.target.value})} 
-                                    placeholder="(00) 00000-0000"
-                                  />
-                              </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                              <div className="space-y-3">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Especialidade / Título</label>
-                                  <input 
-                                    type="text" 
-                                    className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
-                                    value={editingPro.specialty || ''} 
-                                    onChange={e => setEditingPro({...editingPro, specialty: e.target.value})} 
-                                    placeholder="Ex: TCC, Neuropsi..."
-                                  />
-                              </div>
-                              <div className="space-y-3">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Registro Profissional (CRP/CRM)</label>
-                                  <input 
-                                    type="text" 
-                                    className="w-full p-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-sm"
-                                    value={editingPro.crp || ''} 
-                                    onChange={e => setEditingPro({...editingPro, crp: e.target.value})} 
-                                    placeholder="Ex: CRP 12/3456"
-                                  />
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="space-y-4">
-                          <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Credenciais de Acesso</label>
-                          <div className="bg-slate-50/50 p-6 md:p-8 rounded-3xl border border-slate-100 space-y-8">
-                              <div className="space-y-3">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">E-mail Corporativo *</label>
-                                  <div className="relative group">
-                                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                                      <input 
-                                        type="email" 
-                                        disabled={!!editingPro.id}
-                                        className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-white outline-none font-black text-slate-700 focus:border-indigo-400 transition-all disabled:bg-slate-100 disabled:text-slate-400 text-sm"
-                                        value={editingPro.email} 
-                                        onChange={e => setEditingPro({...editingPro, email: e.target.value})} 
-                                        placeholder="usuario@clinica.com"
-                                      />
-                                  </div>
-                                  {editingPro.id && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest px-1">O e-mail é a identidade única do acesso e não pode ser alterado.</p>}
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                  <div className="space-y-3">
-                                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">
-                                          {editingPro.id ? 'Redefinir Senha' : 'Senha Inicial *'}
-                                      </label>
-                                      <div className="relative group">
-                                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                                           <input 
-                                             type={showPassword ? "text" : "password"} 
-                                             className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-white outline-none font-black text-slate-700 focus:border-indigo-400 transition-all text-sm"
-                                             value={editingPro.password || ''} 
-                                             onChange={e => setEditingPro({...editingPro, password: e.target.value})} 
-                                             placeholder={editingPro.id ? "Manter atual" : "••••••••"}
-                                           />
-                                           <button 
-                                             onClick={() => setShowPassword(!showPassword)}
-                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
-                                           >
-                                               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                           </button>
-                                       </div>
-                                  </div>
-                                  <div className="space-y-3">
-                                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">Cargo e Permissão</label>
-                                      <div className="relative group">
-                                           <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-amber-500 transition-colors" size={18} />
-                                           <select 
-                                             className="w-full p-4 pl-12 rounded-xl border-2 border-slate-100 bg-white outline-none focus:border-indigo-400 transition-all font-black text-slate-700 text-sm appearance-none cursor-pointer"
-                                             value={editingPro.role}
-                                             onChange={e => setEditingPro({...editingPro, role: e.target.value})}
-                                           >
-                                               <option value="profissional">Psicólogo(a)</option>
-                                               <option value="admin">Administrador(a)</option>
-                                               <option value="secretario">Secretário(a)</option>
-                                           </select>
-                                           <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={18} />
-                                       </div>
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="pt-6">
-                          <div 
-                            onClick={() => setEditingPro({...editingPro, is_active: !editingPro.is_active})}
-                            className={`flex items-center justify-between p-6 rounded-[2rem] border-2 cursor-pointer transition-all duration-300 ${
-                              editingPro.is_active ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'
-                            } group`}
-                          >
-                              <div className="flex items-center gap-5">
-                                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                                      editingPro.is_active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-rose-500 text-white shadow-lg shadow-rose-100'
-                                  }`}>
-                                      <Power size={24} />
-                                  </div>
-                                  <div>
-                                      <span className="block font-black text-slate-800 text-base">Status da Conta</span>
-                                      <span className={`text-[10px] font-black uppercase tracking-widest ${editingPro.is_active ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                          {editingPro.is_active ? 'Ativo - Login Habilitado' : 'Suspenso - Login Bloqueado'}
-                                      </span>
-                                  </div>
-                              </div>
-                              <div className={`w-14 h-8 rounded-full relative transition-all duration-300 p-1 ${editingPro.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                                  <div className={`w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 transform ${editingPro.is_active ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                              </div>
-                          </div>
-                      </div>
-
-                  </div>
-
-                  <div className="p-6 md:p-8 border-t border-slate-50 bg-slate-50/30 flex justify-end items-center gap-4 px-8 md:px-12 pb-8 md:pb-12">
-                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">DESCARTAR</button>
-                    <button onClick={handleSave} className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                        <CheckCircle size={20} /> SALVAR ALTERAÇÕES
-                    </button>
+      <main className="mx-auto max-w-[1500px] px-6 py-8 space-y-8">
+        {/* STATS BAR */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: t('professionals.team'), value: stats.total, icon: <Users size={22} />, color: 'primary' },
+            { label: 'Admins', value: stats.admins, icon: <Shield size={22} />, color: 'amber' },
+            { label: 'Ativos', value: stats.active, icon: <UserCheck size={22} />, color: 'emerald' },
+            { label: 'Staff', value: stats.pros, icon: <Briefcase size={22} />, color: 'violet' }
+          ].map((stat, i) => (
+            <div key={i} className="bg-white p-5 rounded-[24px] border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-indigo-300 transition-all">
+                <div className={cx(
+                  "h-12 w-12 rounded-2xl flex items-center justify-center border transition-all",
+                  stat.color === 'primary' ? "bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white" :
+                  stat.color === 'amber'   ? "bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-500 group-hover:text-white" :
+                  stat.color === 'emerald' ? "bg-emerald-50 text-emerald-600 border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white" :
+                  "bg-violet-50 text-violet-600 border-violet-100 group-hover:bg-violet-600 group-hover:text-white"
+                )}>
+                    {stat.icon}
+                </div>
+                <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                    <p className="text-xl font-black text-slate-800">{stat.value}</p>
                 </div>
             </div>
+          ))}
         </div>
-      )}
+
+        {/* FILTERS */}
+        <FilterLine>
+          <FilterLineSection grow>
+            <FilterLineSearch
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Pesquisar por nome ou e-mail..."
+              className="max-w-[420px]"
+            />
+          </FilterLineSection>
+
+          <FilterLineSection align="right">
+            <FilterLineSegmented
+              value={activeTab}
+              onChange={(val) => setActiveTab(val as any)}
+              options={[
+                { value: 'team', label: t('professionals.team'), icon: <Users size={14}/> },
+                { value: 'permissions', label: t('professionals.permissions'), icon: <Key size={14}/> },
+                { value: 'commissions', label: 'Comissões', icon: <DollarSign size={14}/> }
+              ]}
+            />
+          </FilterLineSection>
+        </FilterLine>
+
+        {/* --- CONTENT --- */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+            <Loader2 className="animate-spin text-indigo-600 mb-6" size={48} />
+            <p className="text-sm font-bold uppercase tracking-widest">Sincronizando com a clínica...</p>
+          </div>
+        ) : activeTab === 'team' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPros.map(pro => (
+              <div 
+                key={pro.id} 
+                className={cx(
+                  "bg-white p-6 rounded-[32px] border transition-all group relative overflow-hidden flex flex-col",
+                  !pro.is_active ? "opacity-75 border-slate-200" : "border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1"
+                )}
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/20 rounded-bl-[4rem] -mr-8 -mt-8 opacity-0 group-hover:opacity-100 transition-opacity" />
+                
+                <div className="flex justify-between items-start mb-6 relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className={cx(
+                      "h-14 w-14 rounded-2xl flex items-center justify-center font-bold text-xl border transition-all",
+                      !pro.is_active 
+                        ? "bg-slate-50 text-slate-300 border-slate-200" 
+                        : "bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-400 group-hover:shadow-lg group-hover:shadow-indigo-100"
+                    )}>
+                      {(pro.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-slate-800 text-[16px] truncate max-w-[150px]">{pro.name}</h3>
+                      <div className="flex flex-col gap-1 mt-1">
+                        <span className={cx(
+                          "inline-flex w-fit px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest border",
+                          pro.role === 'admin' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                          pro.role === 'profissional' ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                          "bg-slate-50 text-slate-500 border-slate-100"
+                        )}>
+                          {pro.role}
+                        </span>
+                        {pro.specialty && (
+                          <span className="text-[10px] font-medium text-indigo-400 italic truncate max-w-[180px]">
+                            {pro.specialty}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1.5 p-1 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-100 shadow-sm">
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      iconOnly
+                      onClick={() => handleOpenModal(pro)}
+                      title="Editar"
+                    >
+                      <Edit3 size={15} />
+                    </Button>
+                    <Button
+                      variant="softDanger"
+                      size="xs"
+                      iconOnly
+                      onClick={() => handleDelete(pro.id, pro.name)}
+                      title="Remover"
+                    >
+                      <Trash2 size={15} />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3 mb-6 flex-1 relative z-10">
+                  <div className="bg-slate-50/50 border border-slate-100/50 p-4 rounded-2xl space-y-2.5">
+                    <div className="flex items-center gap-3 text-[13px] text-slate-600">
+                      <Mail size={15} className="text-indigo-400 shrink-0" />
+                      <span className="font-medium truncate" title={pro.email}>{pro.email}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[13px] text-slate-600">
+                      <Phone size={15} className="text-indigo-400 shrink-0" />
+                      <span className="font-medium">{pro.phone || 'Sem telefone'}</span>
+                    </div>
+                    {pro.crp && (
+                      <div className="flex items-center gap-3 text-[13px] text-slate-600">
+                        <CheckCircle size={15} className="text-emerald-400 shrink-0" />
+                        <span className="font-bold text-[10px] uppercase tracking-widest text-slate-500">Reg: {pro.crp}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-2">
+                    <div className={cx(
+                      "w-2 h-2 rounded-full",
+                      pro.is_active ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" : "bg-rose-400 shadow-sm"
+                    )} />
+                    <span className={cx(
+                      "font-bold text-[10px] uppercase tracking-wider",
+                      pro.is_active ? "text-emerald-600" : "text-rose-500"
+                    )}>
+                      {pro.is_active ? 'Acesso Ativo' : 'Suspenso'}
+                    </span>
+                  </div>
+                  {pro.role === 'admin' && <Shield size={14} className="text-amber-400" />}
+                </div>
+              </div>
+            ))}
+            
+            {filteredPros.length === 0 && (
+              <div className="col-span-full py-32 text-center bg-white rounded-[32px] border border-slate-200 shadow-sm flex flex-col items-center">
+                <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mb-6 border border-slate-100">
+                  <Users size={36} className="text-slate-200" />
+                </div>
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">Nenhum profissional encontrado</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-[32px] p-24 text-center border border-slate-200 shadow-sm flex flex-col items-center">
+            <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mb-6 border border-slate-100">
+              <ShieldAlert size={36} className="text-slate-200" />
+            </div>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">O módulo de {activeTab === 'permissions' ? 'Permissões' : 'Comissões'} está sendo preparado...</p>
+          </div>
+        )}
+      </main>
+
+      {/* --- MODAL DE USUÁRIO --- */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingPro?.id ? 'Editar Cadastro' : 'Novo Integrante'}
+        subtitle="Controle de Staff & Acesso do sistema"
+        maxWidth="2xl"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
+              DESCARTAR
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              isLoading={isSaving}
+              leftIcon={<CheckCircle size={18} />}
+            >
+              SALVAR ALTERAÇÕES
+            </Button>
+          </>
+        }
+      >
+        {editingPro && (
+          <div className="space-y-6 sm:p-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <Input
+                label="Nome Completo *"
+                value={editingPro.name}
+                onChange={e => setEditingPro({...editingPro, name: e.target.value})}
+                placeholder="Ex: Dr. Ricardo Silva"
+              />
+              <Input
+                label="Telefone / WhatsApp"
+                value={editingPro.phone || ''}
+                onChange={e => setEditingPro({...editingPro, phone: e.target.value})}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <Input
+                label="Especialidade / Título"
+                value={editingPro.specialty || ''}
+                onChange={e => setEditingPro({...editingPro, specialty: e.target.value})}
+                placeholder="Ex: TCC, Neuropsi..."
+              />
+              <Input
+                label="Registro Profissional (CRP/CRM)"
+                value={editingPro.crp || ''}
+                onChange={e => setEditingPro({...editingPro, crp: e.target.value})}
+                placeholder="Ex: CRP 12/3456"
+              />
+            </div>
+
+            <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 space-y-6">
+              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                Credenciais de Acesso
+              </h4>
+
+              <Input
+                label="E-mail Corporativo *"
+                disabled={!!editingPro.id}
+                value={editingPro.email}
+                onChange={e => setEditingPro({...editingPro, email: e.target.value})}
+                placeholder="usuario@clinica.com"
+                leftIcon={<Mail size={16} />}
+                hint={editingPro.id ? "O e-mail não pode ser alterado após criado." : undefined}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="relative">
+                  <Input
+                    label={editingPro.id ? 'Redefinir Senha' : 'Senha Inicial *'}
+                    type={showPassword ? "text" : "password"}
+                    value={editingPro.password || ''}
+                    onChange={e => setEditingPro({...editingPro, password: e.target.value})}
+                    placeholder={editingPro.id ? "Manter atual" : "••••••••"}
+                    leftIcon={<Lock size={16} />}
+                    rightIcon={
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    }
+                  />
+                </div>
+
+                <Select
+                  label="Cargo e Permissão"
+                  value={editingPro.role}
+                  onChange={e => setEditingPro({...editingPro, role: e.target.value})}
+                  leftIcon={<Shield size={16} />}
+                >
+                  <option value="profissional">Psicólogo(a)</option>
+                  <option value="admin">Administrador(a)</option>
+                  <option value="secretario">Secretário(a)</option>
+                </Select>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setEditingPro({...editingPro, is_active: !editingPro.is_active})}
+              className={cx(
+                "flex items-center justify-between p-5 rounded-2xl border-2 cursor-pointer transition-all",
+                editingPro.is_active ? "bg-emerald-50/50 border-emerald-100" : "bg-rose-50/50 border-rose-100"
+              )}
+            >
+              <div className="flex items-center gap-4">
+                <div className={cx(
+                  "w-12 h-12 rounded-xl flex items-center justify-center text-white",
+                  editingPro.is_active ? "bg-emerald-500 shadow-md shadow-emerald-100" : "bg-rose-500 shadow-md shadow-rose-100"
+                )}>
+                  <Power size={20} />
+                </div>
+                <div>
+                  <span className="block font-bold text-slate-800 text-sm">Status da Conta</span>
+                  <span className={cx(
+                    "text-[10px] font-bold uppercase tracking-widest",
+                    editingPro.is_active ? "text-emerald-600" : "text-rose-600"
+                  )}>
+                    {editingPro.is_active ? 'Ativo - Login Habilitado' : 'Suspenso - Login Bloqueado'}
+                  </span>
+                </div>
+              </div>
+              <div className={cx(
+                "w-12 h-7 rounded-full relative transition-all p-1",
+                editingPro.is_active ? "bg-emerald-500" : "bg-slate-300"
+              )}>
+                <div className={cx(
+                  "w-5 h-5 bg-white rounded-full shadow-sm transition-all transform",
+                  editingPro.is_active ? "translate-x-5" : "translate-x-0"
+                )} />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* CONFIRM DELETE MODAL */}
-      {deleteConfirmPro && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xl animate-fadeIn">
-           <div className="bg-white rounded-[3.5rem] p-12 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
-              <div className="w-24 h-24 bg-red-50 text-red-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-red-100 shadow-lg shadow-red-50">
-                <AlertCircle size={48} />
-              </div>
-              <h3 className="text-2xl font-black text-slate-800 mb-4 tracking-tight leading-none">Remover Acesso?</h3>
-              <p className="text-sm font-bold text-slate-400 mb-10 leading-relaxed">
-                Esta ação irá remover permanentemente o acesso de <span className="text-slate-900 font-black">{deleteConfirmPro.name}</span> ao sistema.
-              </p>
-              <div className="flex flex-col gap-4">
-                 <button 
-                  onClick={confirmDelete}
-                  className="w-full py-5 bg-red-500 hover:bg-red-600 text-white rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.1em] shadow-xl shadow-red-100 transition-all transform active:scale-95"
-                 >
-                   CONFIRMAR EXCLUSÃO
-                 </button>
-                 <button 
-                  onClick={() => setDeleteConfirmPro(null)}
-                  className="w-full py-4 text-slate-400 hover:text-slate-600 text-[11px] font-black uppercase tracking-[0.1em] transition-all font-black"
-                 >
-                   MANTER ACESSO
-                 </button>
-              </div>
-           </div>
+      <Modal
+        isOpen={!!deleteConfirmPro}
+        onClose={() => setDeleteConfirmPro(null)}
+        title="Remover Acesso?"
+        maxWidth="sm"
+        headerClassName="text-center"
+      >
+        <div className="text-center py-2">
+          <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[24px] flex items-center justify-center mx-auto mb-6 border border-red-100 shadow-md">
+            <AlertCircle size={40} />
+          </div>
+          <p className="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
+            Esta ação irá remover permanentemente o acesso de <br />
+            <span className="text-slate-900 font-bold">{deleteConfirmPro?.name}</span> ao sistema.
+          </p>
+          <div className="flex flex-col gap-3">
+             <Button 
+              variant="danger"
+              fullWidth
+              onClick={confirmDelete}
+              className="py-4"
+             >
+               CONFIRMAR EXCLUSÃO
+             </Button>
+             <Button 
+              variant="ghost"
+              fullWidth
+              onClick={() => setDeleteConfirmPro(null)}
+             >
+               CANCELAR
+             </Button>
+          </div>
         </div>
-      )}
-
-
+      </Modal>
     </div>
   );
 };
