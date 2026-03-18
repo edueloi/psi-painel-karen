@@ -392,16 +392,24 @@ async function migrate() {
       professional_id INT,
       service_id INT,
       package_id INT,
-      description VARCHAR(255),
+      description VARCHAR(512),
       total DECIMAL(10,2) DEFAULT 0,
+      total_net DECIMAL(10,2) DEFAULT 0,
       discount DECIMAL(10,2) DEFAULT 0,
+      discount_type ENUM('percentage','fixed') DEFAULT 'fixed',
+      discount_value DECIMAL(10,2) DEFAULT 0,
+      paid_value DECIMAL(10,2) DEFAULT 0,
       sessions_total INT DEFAULT 1,
       sessions_used INT DEFAULT 0,
       status ENUM('open','closed','cancelled') DEFAULT 'open',
       payment_method VARCHAR(100),
       items LONGTEXT,
       notes TEXT,
+      start_date DATETIME,
+      duration_minutes INT DEFAULT 60,
+      financial_transaction_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
@@ -423,6 +431,38 @@ async function migrate() {
       status ENUM('pending','paid','cancelled') DEFAULT 'paid',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- SISTEMA DE ALERTAS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS system_alerts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      message TEXT,
+      type ENUM('info', 'success', 'warning', 'error') DEFAULT 'info',
+      link VARCHAR(500),
+      is_dismissed BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- PAGAMENTOS DE COMANDAS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS comanda_payments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      comanda_id INT NOT NULL,
+      amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+      payment_date DATE NOT NULL,
+      payment_method VARCHAR(50) DEFAULT 'Pix',
+      receipt_code VARCHAR(100) NULL,
+      notes TEXT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      FOREIGN KEY (comanda_id) REFERENCES comandas(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -501,14 +541,19 @@ async function migrate() {
     "ALTER TABLE patients ADD COLUMN IF NOT EXISTS diagnosis TEXT",
     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS package_id INT",
     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS comanda_id INT",
-    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS recurrence_rule VARCHAR(50)",
+    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS recurrence_rule VARCHAR(500)",
+    "ALTER TABLE appointments MODIFY COLUMN recurrence_rule VARCHAR(500)",
     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS recurrence_id INT",
     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reschedule_reason TEXT",
     "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS service_id INT",
     "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS package_id INT",
-    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS description VARCHAR(255)",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS description VARCHAR(512)",
     "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS sessions_total INT DEFAULT 1",
     "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS sessions_used INT DEFAULT 0",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS total_net DECIMAL(10,2) DEFAULT 0",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS paid_value DECIMAL(10,2) DEFAULT 0",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS discount_type ENUM('percentage','fixed') DEFAULT 'fixed'",
+    "ALTER TABLE comandas ADD COLUMN IF NOT EXISTS discount_value DECIMAL(10,2) DEFAULT 0",
     "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS category VARCHAR(100)",
     "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS title VARCHAR(255)",
     "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS professional_id INT",

@@ -12,6 +12,7 @@ async function ensureSchema() {
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN package_id INT NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN comanda_id INT NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN recurrence_rule VARCHAR(500) NULL' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments MODIFY COLUMN recurrence_rule VARCHAR(500) NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN duration_minutes INT NULL DEFAULT 60' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN room_id VARCHAR(50) NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN reschedule_reason TEXT NULL' },
@@ -20,7 +21,7 @@ async function ensureSchema() {
     { table: 'comandas', sql: `
       CREATE TABLE IF NOT EXISTS comandas (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        tenant_id VARCHAR(100) NOT NULL,
+        tenant_id INT NOT NULL,
         patient_id INT NULL,
         professional_id INT NULL,
         service_id INT NULL,
