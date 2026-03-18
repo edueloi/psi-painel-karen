@@ -11,8 +11,7 @@ import { Language } from '../translations';
 export const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState('aparencia');
-  const [selectedColor, setSelectedColor] = useState('Indigo');
-  const { mode: selectedMode, setMode } = useTheme();
+  const { mode: selectedMode, setMode, primaryColor: selectedColor, setPrimaryColor: setSelectedColor } = useTheme();
   
   // Mock States for Toggles
   const [notifications, setNotifications] = useState({ email: true, sms: false, push: true, marketing: false });
@@ -58,12 +57,8 @@ export const Settings: React.FC = () => {
     }
   ];
 
-  const changeThemeColor = (colorName: string, vars: Record<string, string>) => {
+  const changeThemeColor = (colorName: string) => {
     setSelectedColor(colorName);
-    const root = document.documentElement;
-    Object.entries(vars).forEach(([key, value]) => {
-      root.style.setProperty(`--c-${key}`, value);
-    });
   };
 
   const MENU_ITEMS = [
@@ -155,7 +150,7 @@ export const Settings: React.FC = () => {
                         {THEME_COLORS.map(color => (
                             <button
                                 key={color.name}
-                                onClick={() => changeThemeColor(color.name, color.vars)}
+                                onClick={() => changeThemeColor(color.name)}
                                 className={`
                                     relative p-1 rounded-2xl transition-all duration-300 group
                                     ${selectedColor === color.name ? 'ring-4 ring-indigo-100 scale-[1.02]' : 'hover:scale-[1.02]'}
@@ -214,8 +209,8 @@ export const Settings: React.FC = () => {
                                     </span>
                                 </div>
                                 {selectedMode === mode.id && (
-                                    <div className="absolute top-3 right-3 text-indigo-600 bg-indigo-50 rounded-full p-1">
-                                        <Check size={14} strokeWidth={3} />
+                                    <div className="absolute top-2 right-2 p-1 bg-indigo-600 rounded-full text-white">
+                                        <Check size={12} strokeWidth={4} />
                                     </div>
                                 )}
                             </button>
@@ -319,7 +314,6 @@ export const Settings: React.FC = () => {
                   </div>
 
                   <div className="space-y-4">
-                      {/* Email */}
                       <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all group">
                           <div className="flex items-center gap-5">
                               <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-100 transition-colors">
@@ -333,7 +327,6 @@ export const Settings: React.FC = () => {
                           <ToggleSwitch checked={notifications.email} onChange={() => setNotifications({...notifications, email: !notifications.email})} />
                       </div>
 
-                      {/* SMS */}
                       <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all group">
                           <div className="flex items-center gap-5">
                               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:bg-emerald-100 transition-colors">
@@ -347,7 +340,6 @@ export const Settings: React.FC = () => {
                           <ToggleSwitch checked={notifications.sms} onChange={() => setNotifications({...notifications, sms: !notifications.sms})} />
                       </div>
 
-                      {/* Push */}
                       <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all group">
                           <div className="flex items-center gap-5">
                               <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl group-hover:bg-purple-100 transition-colors">
@@ -375,7 +367,6 @@ export const Settings: React.FC = () => {
                     <p className="text-slate-500 text-sm md:text-base">{t('settings.menu.subscription.desc')}</p>
                   </div>
 
-                  {/* Plan Card */}
                   <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-900 to-indigo-950 p-8 text-white shadow-2xl">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none"></div>
                       
@@ -476,7 +467,7 @@ export const Settings: React.FC = () => {
               </div>
           )}
 
-          {/* INTEGRAÇÕES (Placeholder Funcional) */}
+          {/* INTEGRAÇÕES */}
           {activeTab === 'integracoes' && (
               <div className="space-y-8 animate-fadeIn max-w-3xl">
                   <div>

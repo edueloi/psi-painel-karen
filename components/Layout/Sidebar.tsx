@@ -24,19 +24,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
   const headerBorder = isDark ? 'border-slate-800/60' : 'border-slate-100';
   const headerBg = isDark
     ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
-    : 'bg-gradient-to-br from-indigo-50/60 via-white to-violet-50/40';
+    : 'bg-gradient-to-br from-indigo-50/60 via-white to-primary-50/40';
   const titleText = isDark ? 'text-slate-100' : 'text-slate-800';
   const subtitleText = isDark ? 'text-indigo-300' : 'text-indigo-500';
   const sectionTitle = isDark ? 'text-slate-500' : 'text-slate-400';
   const activeItem = isDark
-    ? 'bg-gradient-to-r from-indigo-500/25 to-violet-500/15 text-indigo-100 shadow-sm border border-indigo-400/20'
-    : 'bg-gradient-to-r from-indigo-50 to-violet-50/60 text-indigo-700 shadow-sm border border-indigo-100/60';
+    ? 'bg-gradient-to-r from-indigo-500/25 to-primary-500/15 text-indigo-100 shadow-sm border border-indigo-400/20'
+    : 'bg-gradient-to-r from-indigo-50 to-primary-50/60 text-indigo-700 shadow-sm border border-indigo-100/60';
   const inactiveItem = isDark
     ? 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
     : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-800';
   const activeIcon = isDark ? 'text-indigo-300' : 'text-indigo-600';
   const inactiveIcon = isDark ? 'text-slate-500' : 'text-slate-400';
-  const activeBar = isDark ? 'bg-gradient-to-b from-indigo-400 to-violet-400' : 'bg-gradient-to-b from-indigo-600 to-violet-600';
+  const activeBar = isDark ? 'bg-gradient-to-b from-indigo-400 to-primary-400' : 'bg-gradient-to-b from-indigo-600 to-primary-600';
   const logoRing = isDark ? 'ring-2 ring-indigo-500/20 bg-slate-800/50' : 'ring-2 ring-indigo-100 bg-indigo-50/50';
   const logoutStyle = isDark
     ? 'border border-red-500/20 text-red-300 bg-red-500/10 hover:bg-red-500/20'

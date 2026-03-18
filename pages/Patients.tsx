@@ -26,7 +26,7 @@ interface PatientSummary {
 }
 
 const AVATAR_COLORS = [
-  'from-violet-500 to-purple-600',
+  'from-primary-500 to-purple-600',
   'from-blue-500 to-indigo-600',
   'from-emerald-500 to-teal-600',
   'from-rose-500 to-pink-600',
@@ -415,7 +415,7 @@ export const Patients: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-primary-600 rounded-xl flex items-center justify-center shadow-sm">
                 <Users size={20} className="text-white" />
               </div>
               <div>
@@ -444,7 +444,7 @@ export const Patients: React.FC = () => {
               </label>
               <button
                 onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-violet-700 transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-primary-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-primary-700 transition-all shadow-sm"
               >
                 <Plus size={14} /> {t('patients.new')}
               </button>
@@ -460,7 +460,7 @@ export const Patients: React.FC = () => {
             { label: 'Total de Pacientes', value: summaryStats.total, icon: <Users size={18} />, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
             { label: 'Pacientes Ativos', value: summaryStats.active, icon: <Activity size={18} />, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
             { label: 'Inativos / Arquivados', value: summaryStats.inactive, icon: <User size={18} />, color: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-200' },
-            { label: 'Com Convênio', value: summaryStats.withPlan, icon: <Shield size={18} />, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
+            { label: 'Com Convênio', value: summaryStats.withPlan, icon: <Shield size={18} />, color: 'text-primary-600', bg: 'bg-primary-50', border: 'border-primary-100' },
           ].map(s => (
             <div key={s.label} className={`bg-white border ${s.border} rounded-2xl p-4 flex items-center gap-3 shadow-sm`}>
               <div className={`w-10 h-10 ${s.bg} ${s.color} rounded-xl flex items-center justify-center shrink-0`}>
@@ -616,7 +616,7 @@ export const Patients: React.FC = () => {
                             {active ? 'Ativo' : 'Inativo'}
                           </span>
                           {patient.health_plan && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-200">
                               <Shield size={9} /> Convênio
                             </span>
                           )}
@@ -665,7 +665,7 @@ export const Patients: React.FC = () => {
                     </button>
                     <button
                       onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }}
-                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all flex-1 justify-center whitespace-nowrap"
+                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 transition-all flex-1 justify-center whitespace-nowrap"
                     >
                       <History size={12} /> Histórico
                     </button>
@@ -774,7 +774,7 @@ export const Patients: React.FC = () => {
                             </button>
                             <button
                               onClick={() => setHistoryPatient(patient)}
-                              className="p-1.5 text-violet-500 bg-violet-50 border border-violet-100 rounded-lg hover:bg-violet-100 transition-all"
+                              className="p-1.5 text-primary-500 bg-primary-50 border border-primary-100 rounded-lg hover:bg-primary-100 transition-all"
                               title="Histórico"
                             >
                               <History size={13} />
@@ -897,7 +897,7 @@ export const Patients: React.FC = () => {
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-5">
+            <div className="bg-gradient-to-r from-indigo-600 to-primary-600 p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-xl font-bold shrink-0 border-2 border-white/30 overflow-hidden`}>
@@ -997,7 +997,7 @@ export const Patients: React.FC = () => {
                     {[
                       { label: 'Agenda', value: summary?.appointmentsCount, icon: <Calendar size={14} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
                       { label: 'Prontuários', value: summary?.recordsCount, icon: <FileText size={14} />, color: 'text-blue-500', bg: 'bg-blue-50' },
-                      { label: 'Neuro', value: summary?.neuroCount, icon: <BrainCircuit size={14} />, color: 'text-violet-500', bg: 'bg-violet-50' },
+                      { label: 'Neuro', value: summary?.neuroCount, icon: <BrainCircuit size={14} />, color: 'text-primary-500', bg: 'bg-primary-50' },
                       { label: 'Formulários', value: summary?.formsCount, icon: <ClipboardList size={14} />, color: 'text-emerald-500', bg: 'bg-emerald-50' },
                       { label: 'Documentos', value: summary?.documentsCount, icon: <FolderOpen size={14} />, color: 'text-amber-500', bg: 'bg-amber-50' },
                       { label: 'Ferramentas', value: summary?.toolsCount, icon: <Boxes size={14} />, color: 'text-rose-500', bg: 'bg-rose-50' },

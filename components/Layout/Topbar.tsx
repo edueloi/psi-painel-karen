@@ -77,7 +77,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-slate-50 border border-transparent hover:border-slate-200/60 transition-all duration-200 cursor-pointer group"
            >
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-0.5 shadow-md shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-primary-600 p-0.5 shadow-md shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
                   <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
                        {user?.avatarUrl ? (
                           <img src={getStaticUrl(user.avatarUrl)} alt={user.name} className="h-full w-full object-cover" />

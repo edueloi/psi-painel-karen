@@ -13,6 +13,10 @@ export interface UserPreferences {
   agenda: {
     viewMode: 'day' | 'week' | 'month';
   };
+  appearance: {
+    theme: 'light' | 'dark' | 'auto';
+    primaryColor: string;
+  };
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -27,6 +31,10 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   },
   agenda: {
     viewMode: 'week',
+  },
+  appearance: {
+    theme: 'auto',
+    primaryColor: 'Indigo',
   },
 };
 
@@ -54,6 +62,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
           comandas: { ...DEFAULT_PREFERENCES.comandas, ...parsed.comandas },
           patients: { ...DEFAULT_PREFERENCES.patients, ...parsed.patients },
           agenda: { ...DEFAULT_PREFERENCES.agenda, ...parsed.agenda },
+          appearance: { ...DEFAULT_PREFERENCES.appearance, ...parsed.appearance },
         };
       } catch (e) {
         console.error('Error parsing user preferences:', e);

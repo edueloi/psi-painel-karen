@@ -48,16 +48,16 @@ type EditableComanda = Partial<Appointment> & {
 };
 
 const lineInputClass =
-  'w-full h-10 bg-transparent border-0 border-b border-slate-300 px-0 text-sm text-slate-700 placeholder:text-slate-400 focus:border-violet-600 focus:outline-none';
+  'w-full h-10 bg-transparent border-0 border-b border-slate-300 px-0 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-600 focus:outline-none';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(' ');
 
 const compactInputClass =
-  'w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none';
+  'w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none';
 
 const iconButtonClass =
-  'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-violet-600';
+  'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-primary-600';
 
 const TypeButton: React.FC<{
   active: boolean;
@@ -72,10 +72,10 @@ const TypeButton: React.FC<{
     >
       <span
         className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${
-          active ? 'border-violet-600' : 'border-slate-300'
+          active ? 'border-primary-600' : 'border-slate-300'
         }`}
       >
-        {active && <span className="h-2.5 w-2.5 rounded-full bg-violet-600" />}
+        {active && <span className="h-2.5 w-2.5 rounded-full bg-primary-600" />}
       </span>
       <span>{label}</span>
     </button>
@@ -1069,7 +1069,7 @@ export const Agenda: React.FC = () => {
               </button>
               <button
                   onClick={() => openNewModal()}
-                  className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95"
+                  className="bg-gradient-to-r from-indigo-600 to-primary-600 hover:from-indigo-700 hover:to-primary-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95"
               >
                   <Plus size={14} /> Novo Agendamento
               </button>
@@ -1811,7 +1811,7 @@ export const Agenda: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-indigo-200 mb-4 group-hover:scale-110 transition-transform">
+                  <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-primary-600 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-indigo-200 mb-4 group-hover:scale-110 transition-transform">
                     <FileUp size={32} />
                   </div>
                   <p className="text-xs font-black text-slate-700 uppercase tracking-widest">2. Selecione seu Arquivo</p>
@@ -2628,7 +2628,7 @@ export const Agenda: React.FC = () => {
               <div className="space-y-5">
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 font-bold text-violet-700">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100 font-bold text-primary-700">
                       {String(selectedApt?.patient_name || 'P').charAt(0)}
                     </div>
                     <div>
@@ -2675,7 +2675,7 @@ export const Agenda: React.FC = () => {
                       onClick={() => setManagerTab(tab)}
                       className={`rounded-lg px-4 py-2 text-sm font-medium capitalize ${
                         managerTab === tab
-                          ? 'bg-white text-violet-600 shadow-sm'
+                          ? 'bg-white text-primary-600 shadow-sm'
                           : 'text-slate-500'
                       }`}
                     >
@@ -2693,7 +2693,7 @@ export const Agenda: React.FC = () => {
                           className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
                               <CalendarDays size={18} />
                             </div>
                             <div className="flex flex-col gap-1">
@@ -2783,7 +2783,7 @@ export const Agenda: React.FC = () => {
                         "mb-2 text-4xl font-bold",
                         (cmnd.appointments?.length || 0) > (cmnd.sessions_total || 0)
                           ? "text-red-600"
-                          : "text-violet-600"
+                          : "text-primary-600"
                       )}>
                         {cmnd.sessions_used || 0} /{' '}
                         {cmnd.sessions_total || 1}
@@ -2793,7 +2793,7 @@ export const Agenda: React.FC = () => {
                       </div>
                       <div className="h-3 w-full max-w-md overflow-hidden rounded-full bg-slate-200">
                         <div
-                          className="h-full rounded-full bg-violet-600"
+                          className="h-full rounded-full bg-primary-600"
                           style={{
                             width: `${Math.min(
                               100,
@@ -2808,15 +2808,15 @@ export const Agenda: React.FC = () => {
               </div>
 
               <div className="space-y-5">
-                <div className="rounded-2xl bg-violet-600 p-5 text-white shadow-lg shadow-violet-200">
-                  <p className="mb-1 text-xs uppercase tracking-wider text-violet-100">
+                <div className="rounded-2xl bg-primary-600 p-5 text-white shadow-lg shadow-primary-200">
+                  <p className="mb-1 text-xs uppercase tracking-wider text-primary-100">
                     Valor total
                   </p>
                   <p className="mb-4 text-3xl font-bold">
                     {formatCurrency(getComandaTotal(cmnd))}
                   </p>
 
-                  <div className="space-y-2 border-t border-violet-400 pt-4">
+                  <div className="space-y-2 border-t border-primary-400 pt-4">
                     <div className="flex items-center justify-between text-sm">
                       <span>Recebido</span>
                       <strong>{formatCurrency(getComandaPaid(cmnd))}</strong>
@@ -2839,7 +2839,7 @@ export const Agenda: React.FC = () => {
                     }}
                     variant="primary"
                     fullWidth
-                    className="mt-4 bg-white !text-violet-600 hover:bg-violet-50"
+                    className="mt-4 bg-white !text-primary-600 hover:bg-primary-50"
                     size="lg"
                   >
                     Novo pagamento

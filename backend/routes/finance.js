@@ -625,18 +625,50 @@ router.put('/comandas/:id', async (req, res) => {
 // DELETE /finance/comandas/:id
 router.delete('/comandas/:id', async (req, res) => {
   try {
-    // Remove links na agenda antes de deletar a comanda
-    await db.query('UPDATE appointments SET comanda_id = NULL WHERE comanda_id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
-    
+    await withSchema();
+    const comandaId = req.params.id;
+    const tenantId = req.user.tenant_id;
+
+    // 1. Remover vínculos na agenda
+    await db.query(
+      'UPDATE appointments SET comanda_id = NULL WHERE comanda_id = ? AND tenant_id = ?',
+      [comandaId, tenantId]
+    );
+
+    // 2. Buscar transação financeira vinculada antes de deletar a comanda
+    const [comandas] = await db.query(
+      'SELECT financial_transaction_id FROM comandas WHERE id = ? AND tenant_id = ?',
+      [comandaId, tenantId]
+    );
+
+    if (comandas.length > 0 && comandas[0].financial_transaction_id) {
+       // Deletar a transação financeira principal vinculada (gerada quando fechada)
+       await db.query(
+         'DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+         [comandas[0].financial_transaction_id, tenantId]
+       );
+    }
+
+    // 3. Deletar todos os pagamentos parciais vinculados a esta comanda
+    await db.query(
+      'DELETE FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?',
+      [comandaId, tenantId]
+    );
+
+    // 4. Deletar a comanda propriamente dita
     const [result] = await db.query(
       'DELETE FROM comandas WHERE id = ? AND tenant_id = ?',
-      [req.params.id, req.user.tenant_id]
+      [comandaId, tenantId]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Comanda não encontrada' });
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Comanda não encontrada' });
+    }
+
     res.status(204).send();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao deletar comanda' });
+    console.error('Erro ao deletar comanda:', err);
+    res.status(500).json({ error: 'Erro ao deletar comanda', details: err.message });
   }
 });
 

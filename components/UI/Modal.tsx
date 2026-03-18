@@ -73,7 +73,7 @@ export const Modal: React.FC<ModalProps> = ({
   const maxWidthClass = maxWidthClasses[maxWidth] || maxWidth;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-slate-900/45 animate-[fadeIn_.18s_ease-out]"
