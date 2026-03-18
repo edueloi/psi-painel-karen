@@ -63,6 +63,9 @@ type EditableComanda = Partial<Comanda> & {
 const lineInputClass =
   'w-full h-10 bg-transparent border-0 border-b border-slate-300 px-0 text-sm text-slate-700 placeholder:text-slate-400 focus:border-violet-600 focus:outline-none';
 
+const cx = (...classes: Array<string | false | null | undefined>) =>
+  classes.filter(Boolean).join(' ');
+
 const compactInputClass =
   'w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none';
 
@@ -1037,7 +1040,26 @@ export const Comandas: React.FC = () => {
                         {comanda.items?.[0]?.name || comanda.description || '—'}
                       </td>
                       <td className="px-5 py-4 text-slate-600">
-                        {comanda.sessions_used || 0} / {comanda.sessions_total || 1}
+                        <div className="flex flex-col">
+                          <span className={cx(
+                            "font-medium",
+                            (comanda.appointments?.length || 0) > (comanda.sessions_total || 0) 
+                              ? "text-red-600" 
+                              : (comanda.appointments?.length || 0) === (comanda.sessions_total || 0)
+                                ? "text-emerald-600"
+                                : "text-slate-700"
+                          )}>
+                            {comanda.sessions_used || 0} / {comanda.sessions_total || 1}
+                          </span>
+                          {(comanda.appointments?.length || 0) > (comanda.sessions_total || 0) && (
+                            <span className="text-[10px] text-red-500 font-bold uppercase">Excedido</span>
+                          )}
+                          {(comanda.appointments?.length || 0) < (comanda.sessions_total || 1) && (comanda.appointments?.length || 0) > (comanda.sessions_used || 0) && (
+                            <span className="text-[10px] text-amber-500 font-medium whitespace-nowrap">
+                              {comanda.appointments.length} agendados
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4 font-semibold text-slate-800">
                         {formatCurrency(getComandaTotal(comanda))}
@@ -1547,16 +1569,16 @@ export const Comandas: React.FC = () => {
                           <div>
                             <p className="font-medium text-slate-800">
                               {new Date(
-                                appointment.start_date || appointment.startDate
+                                appointment.start_time || appointment.start_date || appointment.startDate
                               ).toLocaleDateString('pt-BR', {
                                 day: '2-digit',
-                                month: 'long',
+                                month: 'short',
                                 year: 'numeric',
                               })}
                             </p>
                             <p className="text-xs text-slate-400">
                               {new Date(
-                                appointment.start_date || appointment.startDate
+                                appointment.start_time || appointment.start_date || appointment.startDate
                               ).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit',
@@ -1627,10 +1649,20 @@ export const Comandas: React.FC = () => {
 
                 {managerTab === 'pacote' && (
                   <div className="flex flex-col items-center justify-center py-8">
-                    <div className="mb-4 text-4xl font-bold text-violet-600">
+                    <div className={cx(
+                      "mb-2 text-4xl font-bold",
+                      ((historyComanda as any).appointments?.length || 0) > ((historyComanda as any).sessions_total || 0)
+                        ? "text-red-600"
+                        : "text-violet-600"
+                    )}>
                       {(historyComanda as any).sessions_used || 0} /{' '}
                       {(historyComanda as any).sessions_total || 1}
                     </div>
+                    {((historyComanda as any).appointments?.length || 0) > ((historyComanda as any).sessions_total || 0) && (
+                      <div className="mb-2 text-xs font-bold text-red-500 uppercase">
+                        {(historyComanda as any).appointments.length} agendamentos no total (excede o pacote)
+                      </div>
+                    )}
                     <div className="mb-4 text-sm text-slate-500">
                       Atendimentos consumidos
                     </div>
