@@ -14,6 +14,7 @@ import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer
 import { useNavigate } from 'react-router-dom';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useToast } from '../contexts/ToastContext';
+import { GridTable, Column } from '../components/UI/GridTable';
 
 interface PatientSummary {
   appointmentsCount: number | null;
@@ -720,103 +721,111 @@ export const Patients: React.FC = () => {
             })}
           </div>
         ) : (
-          /* === LIST VIEW === */
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto md:overflow-x-visible">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-100/80">
-                <tr className="border-b border-slate-200 divide-x divide-slate-200/50">
-                  <th className="px-4 py-3 w-8 text-center">
-                    <button onClick={toggleSelectAll} className="text-slate-400 hover:text-indigo-600 transition-colors">
-                      {currentPatients.length > 0 && currentPatients.every(p => selectedIds.has(String(p.id)))
-                        ? <CheckSquare size={15} className="text-indigo-600" />
-                        : <Square size={15} />}
+          <GridTable<Patient> 
+            data={currentPatients}
+            keyExtractor={(p) => p.id}
+            selectedIds={selectedIds}
+            onToggleSelect={(id) => toggleSelect(id)}
+            onToggleSelectAll={toggleSelectAll}
+            onRowClick={(p) => openPatientSummary(p)}
+            emptyMessage={t('patients.empty')}
+            columns={[
+              {
+                header: 'Paciente',
+                render: (patient: Patient) => (
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 text-[10px] font-bold shrink-0 shadow-sm transition-transform group-hover:scale-105">
+                      {patient.photo_url || patient.photoUrl ? (
+                        <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover rounded-lg" />
+                      ) : (
+                        (patient.full_name || '?').charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-slate-800 truncate">{patient.full_name || 'Sem nome'}</div>
+                      {patient.notes && (
+                        <div className="text-[10px] text-slate-400 truncate max-w-[150px] italic">{patient.notes}</div>
+                      )}
+                    </div>
+                  </div>
+                )
+              },
+              {
+                header: 'Contato',
+                className: 'hidden md:table-cell',
+                headerClassName: 'hidden md:table-cell',
+                render: (patient: Patient) => (
+                  <>
+                    <div className="text-xs font-semibold text-slate-600">{patient.whatsapp || patient.phone || '—'}</div>
+                    <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{patient.email || ''}</div>
+                  </>
+                )
+              },
+              {
+                header: 'Idade',
+                className: 'hidden lg:table-cell',
+                headerClassName: 'hidden lg:table-cell',
+                render: (patient: Patient) => {
+                  const age = calcAge(patient.birth_date);
+                  return (
+                    <>
+                      <div className="text-xs font-bold text-slate-700">{age ? `${age} anos` : '—'}</div>
+                      <div className="text-[10px] text-slate-400">{formatDate(patient.birth_date)}</div>
+                    </>
+                  )
+                }
+              },
+              {
+                header: 'Status',
+                className: 'hidden sm:table-cell',
+                headerClassName: 'hidden sm:table-cell',
+                render: (patient: Patient) => {
+                  const active = isActive(patient);
+                  return (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border transition-all hover:ring-4 hover:ring-slate-50 ${
+                        active ? 'bg-emerald-50 text-emerald-700 border-emerald-100 px-2.5' : 'bg-slate-100 text-slate-500 border-slate-200 px-2.5'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                      {active ? 'Ativo' : 'Inativo'}
                     </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wide">Paciente</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wide hidden md:table-cell">Contato</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wide hidden lg:table-cell">Idade</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wide hidden sm:table-cell">Status</th>
-                  <th className="text-right px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wide">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                  {currentPatients.map(patient => {
-                    const age = calcAge(patient.birth_date);
-                    const active = isActive(patient);
-                    return (
-                      <tr key={patient.id} className="border-b border-slate-100/50 hover:bg-slate-100/50 even:bg-slate-50 cursor-pointer group divide-x divide-slate-100" onClick={() => openPatientSummary(patient)}>
-                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={() => toggleSelect(String(patient.id))} className="text-slate-300 hover:text-indigo-600 transition-colors">
-                            {selectedIds.has(String(patient.id)) ? <CheckSquare size={15} className="text-indigo-600" /> : <Square size={15} />}
-                          </button>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 text-[10px] font-bold shrink-0 shadow-sm transition-transform group-hover:scale-105">
-                              {patient.photo_url || patient.photoUrl ? (
-                                <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover rounded-lg" />
-                              ) : (
-                                (patient.full_name || '?').charAt(0).toUpperCase()
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-bold text-slate-800 truncate">{patient.full_name || 'Sem nome'}</div>
-                              {patient.notes && (
-                                <div className="text-[10px] text-slate-400 truncate max-w-[150px] italic">{patient.notes}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <div className="text-xs font-semibold text-slate-600">{patient.whatsapp || patient.phone || '—'}</div>
-                          <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{patient.email || ''}</div>
-                        </td>
-                        <td className="px-4 py-3 hidden lg:table-cell">
-                          <div className="text-xs font-bold text-slate-700">{age ? `${age} anos` : '—'}</div>
-                          <div className="text-[10px] text-slate-400">{formatDate(patient.birth_date)}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
-                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border transition-all hover:ring-4 hover:ring-slate-50 ${
-                              active ? 'bg-emerald-50 text-emerald-700 border-emerald-100 px-2.5' : 'bg-slate-100 text-slate-500 border-slate-200 px-2.5'
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                            {active ? 'Ativo' : 'Inativo'}
-                          </button>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                            <button
-                              onClick={() => openPatientSummary(patient)}
-                              className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all"
-                              title="Perfil"
-                            >
-                              <Eye size={13} />
-                            </button>
-                            <button
-                              onClick={() => setHistoryPatient(patient)}
-                              className="p-1.5 text-primary-500 bg-primary-50 border border-primary-100 rounded-lg hover:bg-primary-100 transition-all"
-                              title="Histórico"
-                            >
-                              <History size={13} />
-                            </button>
-                            <button
-                              onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
-                              className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 transition-all"
-                              title="Editar"
-                            >
-                              <Edit2 size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
+                  )
+                }
+              },
+              {
+                header: 'Ações',
+                className: 'text-right',
+                headerClassName: 'text-right',
+                render: (patient: Patient) => (
+                  <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <button
+                      onClick={() => openPatientSummary(patient)}
+                      className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all"
+                      title="Perfil"
+                    >
+                      <Eye size={13} />
+                    </button>
+                    <button
+                      onClick={() => setHistoryPatient(patient)}
+                      className="p-1.5 text-primary-500 bg-primary-50 border border-primary-100 rounded-lg hover:bg-primary-100 transition-all"
+                      title="Histórico"
+                    >
+                      <History size={13} />
+                    </button>
+                    <button
+                      onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
+                      className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 transition-all"
+                      title="Editar"
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                  </div>
+                )
+              }
+            ]}
+          />
         )}
 
         {/* Empty state */}
