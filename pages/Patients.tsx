@@ -723,11 +723,11 @@ export const Patients: React.FC = () => {
           /* === LIST VIEW === */
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto md:overflow-x-visible">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-4 py-3 w-8">
+              <thead className="bg-slate-100/80">
+                <tr className="border-b border-slate-200 divide-x divide-slate-200/50">
+                  <th className="px-4 py-3 w-8 text-center">
                     <button onClick={toggleSelectAll} className="text-slate-400 hover:text-indigo-600 transition-colors">
-                      {selectedIds.size === filteredPatients.length && filteredPatients.length > 0
+                      {currentPatients.length > 0 && currentPatients.every(p => selectedIds.has(String(p.id)))
                         ? <CheckSquare size={15} className="text-indigo-600" />
                         : <Square size={15} />}
                     </button>
@@ -744,7 +744,7 @@ export const Patients: React.FC = () => {
                     const age = calcAge(patient.birth_date);
                     const active = isActive(patient);
                     return (
-                      <tr key={patient.id} className="border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer group" onClick={() => openPatientSummary(patient)}>
+                      <tr key={patient.id} className="border-b border-slate-100/50 hover:bg-slate-100/50 even:bg-slate-50 cursor-pointer group divide-x divide-slate-100" onClick={() => openPatientSummary(patient)}>
                         <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => toggleSelect(String(patient.id))} className="text-slate-300 hover:text-indigo-600 transition-colors">
                             {selectedIds.has(String(patient.id)) ? <CheckSquare size={15} className="text-indigo-600" /> : <Square size={15} />}
