@@ -172,13 +172,19 @@ export const Comandas: React.FC = () => {
 
   const formatCurrencyInput = (value?: number) => {
     if (value === undefined || value === null) return '';
-    return String(Number(value || 0).toFixed(2)).replace('.', ',');
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
   };
 
   const parseMonetaryValue = (val: string) => {
     if (!val) return 0;
-    const cleaned = val.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '');
-    return parseFloat(cleaned) || 0;
+    // Captura apenas dígitos
+    const digits = val.replace(/\D/g, '');
+    if (!digits) return 0;
+    // Divide por 100 para transformar centavos em decimal real para o estado
+    return parseFloat(digits) / 100;
   };
 
   const normalizePatientName = (patient: any) =>
