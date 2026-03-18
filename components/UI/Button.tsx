@@ -127,7 +127,9 @@ export const Button: React.FC<ButtonProps> = ({
         <span className="inline-flex shrink-0 items-center">{leftIcon}</span>
       ) : null}
 
-      {!iconOnly && (
+      {iconOnly ? (
+        !isLoading && children
+      ) : (
         <span className="inline-flex items-center">
           {isLoading && loadingText ? loadingText : children}
         </span>
