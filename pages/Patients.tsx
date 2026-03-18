@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users, Search, Plus, Phone, Mail, Calendar, FileText,
   Edit2, Trash2, X, AlertCircle, Eye, ClipboardList,
-  FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight,
+  FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight, ChevronLeft,
   FileUp, FileDown, Download, MapPin, Shield, User,
   Activity, TrendingUp, CheckSquare, Square, History, CheckCircle2
 } from 'lucide-react';
@@ -58,6 +58,11 @@ export const Patients: React.FC = () => {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(preferences.patients.viewMode);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -71,14 +76,6 @@ export const Patients: React.FC = () => {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredPatients.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredPatients.map(p => String(p.id))));
-    }
   };
 
   const handleBulkDelete = async () => {
@@ -138,6 +135,36 @@ export const Patients: React.FC = () => {
       return matchesSearch && matchesStatus;
     });
   }, [patients, searchTerm, statusFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, itemsPerPage]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / itemsPerPage));
+  const currentPatients = useMemo(() => {
+    return filteredPatients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredPatients, currentPage, itemsPerPage]);
+
+  const toggleSelectAll = () => {
+    // Determine if all visible patients on the current page are selected
+    const allVisibleSelected = currentPatients.every(p => selectedIds.has(String(p.id)));
+    if (allVisibleSelected) {
+      // Unselect only the ones on the current page
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        currentPatients.forEach(p => next.delete(String(p.id)));
+        return next;
+      });
+    } else {
+      // Select all on the current page
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        currentPatients.forEach(p => next.add(String(p.id)));
+        return next;
+      });
+    }
+  };
 
   const summaryStats = useMemo(() => ({
     total: patients.length,
@@ -571,7 +598,7 @@ export const Patients: React.FC = () => {
         ) : viewMode === 'cards' ? (
           /* === CARD VIEW === */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredPatients.map(patient => {
+            {currentPatients.map(patient => {
               const age = calcAge(patient.birth_date);
               const active = isActive(patient);
               const avatarGrad = getAvatarColor(patient.full_name || 'A');
@@ -713,7 +740,7 @@ export const Patients: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                  {filteredPatients.map(patient => {
+                  {currentPatients.map(patient => {
                     const age = calcAge(patient.birth_date);
                     const active = isActive(patient);
                     return (
@@ -808,6 +835,47 @@ export const Patients: React.FC = () => {
             </button>
           </div>
         )}
+
+        {/* Pagination */}
+        {!isLoading && filteredPatients.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span>Itens por página:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100"
+              >
+                {[5, 15, 30, 50, 100].map(limit => (
+                  <option key={limit} value={limit}>{limit}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-500">
+                Página {currentPage} de {totalPages}
+              </span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all font-bold"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all font-bold"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* Form Wizard Modal */}

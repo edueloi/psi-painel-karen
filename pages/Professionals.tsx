@@ -47,6 +47,9 @@ export const Professionals: React.FC = () => {
   const [services, setServices] = useState<any[]>([]);
   const [isSavingCommissions, setIsSavingCommissions] = useState(false);
   
+  // Deletion Modals
+  const [deleteConfirmProfile, setDeleteConfirmProfile] = useState<{id: number, name: string} | null>(null);
+  
   const PERMISSION_SCHEMA = [
     {
       category: 'Recursos Iniciais',
@@ -353,7 +356,7 @@ export const Professionals: React.FC = () => {
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) return;
     try {
-        const { data } = await api.post<any>('/permission-profiles', { name: newProfileName, permissions: {} });
+        const data = await api.post<any>('/permission-profiles', { name: newProfileName, permissions: {} });
         setProfiles([...profiles, data]);
         setNewProfileName('');
         setIsCreatingProfile(false);
@@ -364,16 +367,18 @@ export const Professionals: React.FC = () => {
     }
   };
 
-  const handleDeleteProfile = async (id: number) => {
-    if (!window.confirm("Certeza que deseja excluir este perfil? Profissionais vinculados perderão os acessos.")) return;
+  const confirmDeleteProfile = async () => {
+    if (!deleteConfirmProfile) return;
     try {
-      await api.delete(`/permission-profiles/${id}`);
-      const newProfiles = profiles.filter(p => p.id !== id);
+      await api.delete(`/permission-profiles/${deleteConfirmProfile.id}`);
+      const newProfiles = profiles.filter(p => p.id !== deleteConfirmProfile.id);
       setProfiles(newProfiles);
-      if (selectedProfileId === id) setSelectedProfileId(newProfiles[0]?.id || null);
+      if (selectedProfileId === deleteConfirmProfile.id) setSelectedProfileId(newProfiles[0]?.id || null);
       pushToast('success', 'Perfil removido.');
     } catch (e: any) {
       pushToast('error', 'Erro ao remover: ' + e.message);
+    } finally {
+      setDeleteConfirmProfile(null);
     }
   };
 
@@ -641,7 +646,7 @@ export const Professionals: React.FC = () => {
                       {!pro.is_default && (
                         <div 
                            className="relative z-10 p-1.5 rounded-lg hover:bg-rose-50 text-rose-400 transition-colors" 
-                           onClick={(e) => { e.stopPropagation(); handleDeleteProfile(pro.id); }}
+                           onClick={(e) => { e.stopPropagation(); setDeleteConfirmProfile({id: pro.id, name: pro.name}); }}
                            title="Excluir Perfil"
                         >
                           <Trash2 size={16} />
@@ -1056,7 +1061,7 @@ export const Professionals: React.FC = () => {
         )}
       </Modal>
 
-      {/* CONFIRM DELETE MODAL */}
+      {/* CONFIRM DELETE MODAL (PRO) */}
       <Modal
         isOpen={!!deleteConfirmPro}
         onClose={() => setDeleteConfirmPro(null)}
@@ -1085,6 +1090,43 @@ export const Professionals: React.FC = () => {
               variant="ghost"
               fullWidth
               onClick={() => setDeleteConfirmPro(null)}
+             >
+               CANCELAR
+             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* CONFIRM DELETE MODAL (PROFILE) */}
+      <Modal
+        isOpen={!!deleteConfirmProfile}
+        onClose={() => setDeleteConfirmProfile(null)}
+        title="Remover Perfil?"
+        maxWidth="sm"
+        headerClassName="text-center"
+      >
+        <div className="text-center py-2">
+          <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-[24px] flex items-center justify-center mx-auto mb-6 border border-amber-100 shadow-md">
+            <ShieldAlert size={40} />
+          </div>
+          <p className="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
+            Tem certeza que deseja apagar o perfil <br />
+            <span className="text-slate-900 font-bold">"{deleteConfirmProfile?.name}"</span>?<br/>
+            Eles perderão acesso até que você reatribua um novo.
+          </p>
+          <div className="flex flex-col gap-3">
+             <Button 
+              variant="danger"
+              fullWidth
+              onClick={confirmDeleteProfile}
+              className="py-4"
+             >
+               APAGAR PERFIL
+             </Button>
+             <Button 
+              variant="ghost"
+              fullWidth
+              onClick={() => setDeleteConfirmProfile(null)}
              >
                CANCELAR
              </Button>

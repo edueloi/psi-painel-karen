@@ -13,7 +13,7 @@ router.get('/users/:userId', authorize('admin', 'super_admin'), async (req, res)
            c.id, c.user_id, c.service_id, c.type, c.value, 
            s.name AS service_name, s.price AS service_price
         FROM professional_commissions c
-        LEFT JOIN tenant_services s ON c.service_id = s.id
+        LEFT JOIN services s ON c.service_id = s.id
         WHERE c.tenant_id = ? AND c.user_id = ?
         ORDER BY c.service_id IS NOT NULL, s.name ASC
       `,
@@ -67,7 +67,7 @@ router.put('/users/:userId', authorize('admin', 'super_admin'), async (req, res)
            c.id, c.user_id, c.service_id, c.type, c.value, 
            s.name AS service_name, s.price AS service_price
         FROM professional_commissions c
-        LEFT JOIN tenant_services s ON c.service_id = s.id
+        LEFT JOIN services s ON c.service_id = s.id
         WHERE c.tenant_id = ? AND c.user_id = ?
         ORDER BY c.service_id IS NOT NULL, s.name ASC`,
         [req.user.tenant_id, userId]
