@@ -10,6 +10,7 @@ import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, Fil
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { useToast } from '../contexts/ToastContext';
 import {
   ShoppingBag,
   Search,
@@ -112,10 +113,7 @@ const Field: React.FC<{
 export const Comandas: React.FC = () => {
   const location = useLocation();
   const { preferences, updatePreference } = useUserPreferences();
-
-  const [toasts, setToasts] = useState<
-    { id: number; type: 'success' | 'error'; message: string }[]
-  >([]);
+  const { pushToast } = useToast();
 
   const [activePatients, setActivePatients] = useState<Patient[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -159,14 +157,7 @@ export const Comandas: React.FC = () => {
     receiptCode: '',
   });
 
-  const pushToast = (type: 'success' | 'error', message: string) => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(
-      () => setToasts((prev) => prev.filter((toast) => toast.id !== id)),
-      3000
-    );
-  };
+
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', {
@@ -817,22 +808,7 @@ export const Comandas: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {toasts.length > 0 && (
-        <div className="fixed right-5 top-5 z-[80] space-y-2">
-          {toasts.map((toast) => (
-            <div
-              key={toast.id}
-              className={`rounded-xl border px-4 py-3 text-sm shadow-xl ${
-                toast.type === 'success'
-                  ? 'border-emerald-100 bg-white text-emerald-700'
-                  : 'border-red-100 bg-white text-red-700'
-              }`}
-            >
-              {toast.message}
-            </div>
-          ))}
-        </div>
-      )}
+
 
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">

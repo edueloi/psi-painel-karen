@@ -13,6 +13,7 @@ import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
 import { useNavigate } from 'react-router-dom';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface PatientSummary {
   appointmentsCount: number | null;
@@ -61,13 +62,8 @@ export const Patients: React.FC = () => {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [historyPatient, setHistoryPatient] = useState<Patient | null>(null);
-  const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
+  const { pushToast } = useToast();
 
-  const pushToast = (type: 'success' | 'error', message: string) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, type, message }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
-  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -1106,15 +1102,7 @@ export const Patients: React.FC = () => {
         patient={historyPatient}
         onClose={() => setHistoryPatient(null)}
       />
-      {/* TOASTS */}
-      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
-        {toasts.map(t => (
-          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-            {t.type === 'success' ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}
-            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
-          </div>
-        ))}
-      </div>
+
     </div>
   );
 };

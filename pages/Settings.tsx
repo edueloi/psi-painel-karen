@@ -7,11 +7,14 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Language } from '../translations';
+import { useToast } from '../contexts/ToastContext';
 
 export const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState('aparencia');
   const { mode: selectedMode, setMode, primaryColor: selectedColor, setPrimaryColor: setSelectedColor } = useTheme();
+  const { pushToast } = useToast();
+
   
   // Mock States for Toggles
   const [notifications, setNotifications] = useState({ email: true, sms: false, push: true, marketing: false });
@@ -279,7 +282,10 @@ export const Settings: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end pt-4">
-                    <button className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 active:scale-95">
+                    <button 
+                      onClick={() => pushToast('success', 'Configurações salvas com sucesso!')}
+                      className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 active:scale-95"
+                    >
                         <Save size={18} /> {t('common.save')}
                     </button>
                 </div>

@@ -12,6 +12,7 @@ import { api, API_BASE_URL } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
+import { useToast } from '../contexts/ToastContext';
 
 const CurrencyInput: React.FC<{
   label: string;
@@ -60,13 +61,8 @@ export const Services: React.FC = () => {
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [editingPackage, setEditingPackage] = useState<Partial<ServicePackage> | null>(null);
   const [deleteId, setDeleteId] = useState<{id: string, type: 'service' | 'package'} | null>(null);
-  const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
+  const { pushToast } = useToast();
 
-  const pushToast = (type: 'success' | 'error', message: string) => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, type, message }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
-  };
 
   // Carregar Dados
   useEffect(() => {
@@ -301,18 +297,7 @@ export const Services: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {toasts.length > 0 && (
-        <div className="fixed right-6 top-6 z-[60] space-y-2">
-          {toasts.map(t => (
-            <div
-              key={t.id}
-              className={`rounded-xl px-4 py-3 text-sm font-semibold shadow-lg border ${t.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}
-            >
-              {t.message}
-            </div>
-          ))}
-        </div>
-      )}
+
 
       {/* Page Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-5">

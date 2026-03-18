@@ -9,6 +9,7 @@ import { api } from '../services/api';
 import { VirtualRoom, Patient, User } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 export const VirtualRooms: React.FC = () => {
   const { t } = useLanguage();
@@ -26,7 +27,7 @@ export const VirtualRooms: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [createdRoom, setCreatedRoom] = useState<VirtualRoom | null>(null);
-  const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
+
   const [createForm, setCreateForm] = useState({
       title: '',
       description: '',
@@ -91,13 +92,8 @@ export const VirtualRooms: React.FC = () => {
       persistent: persistentRooms.length
   }), [rooms, upcomingRooms, persistentRooms]);
 
-  const pushToast = (type: 'success' | 'error', message: string) => {
-      const id = Date.now() + Math.floor(Math.random() * 1000);
-      setToasts(prev => [...prev, { id, type, message }]);
-      window.setTimeout(() => {
-          setToasts(prev => prev.filter(t => t.id !== id));
-      }, 3200);
-  };
+  const { pushToast } = useToast();
+
 
   const generateCode = () => Math.random().toString(36).substr(2, 9);
 
@@ -214,18 +210,7 @@ export const VirtualRooms: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20 px-4 sm:px-6 lg:px-0">
-      {toasts.length > 0 && (
-        <div className="fixed top-6 right-6 z-[200] space-y-3">
-          {toasts.map(t => (
-            <div
-              key={t.id}
-              className={`px-4 py-3 rounded-2xl shadow-xl border text-sm font-bold ${t.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}
-            >
-              {t.message}
-            </div>
-          ))}
-        </div>
-      )}
+
       
       {/* --- HERO SECTION --- */}
       <div className="relative overflow-hidden rounded-[28px] p-8 bg-slate-950 shadow-2xl shadow-indigo-900/30 border border-slate-800 text-white">

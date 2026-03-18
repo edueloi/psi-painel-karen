@@ -12,6 +12,7 @@ import {
     AlignLeft, MessageSquare, Send, Stethoscope, Tag,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '../contexts/ToastContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
@@ -115,7 +116,8 @@ export const Agenda: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [applyToSeries, setApplyToSeries] = useState(false);
   const [deleteSeries, setDeleteSeries] = useState(false);
-  const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
+  const { pushToast } = useToast();
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
   const [isRecurrenceConfigOpen, setIsRecurrenceConfigOpen] = useState(false);
@@ -1028,22 +1030,11 @@ export const Agenda: React.FC = () => {
     }
   };
 
-  const pushToast = (type: 'success' | 'error', message: string) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, type, message }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
-  };
+
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans pb-24">
-      {/* TOASTS */}
-      <div className="fixed top-6 right-6 z-[200] space-y-3">
-          {toasts.map(t => (
-              <div key={t.id} className={`px-6 py-4 rounded-[1.5rem] shadow-2xl border font-black text-xs uppercase tracking-widest animate-slideIn ${t.type === 'success' ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-rose-600 text-white border-rose-500'}`}>
-                  {t.message}
-              </div>
-          ))}
-      </div>
+
 
       {/* HEADER HERO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

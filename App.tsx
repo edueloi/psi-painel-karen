@@ -191,15 +191,19 @@ const AppRoutes: React.FC = () => {
   );
 };
 
+import { ToastProvider } from './contexts/ToastContext';
+
 const App: React.FC = () => {
   return (
     <LanguageProvider>
       <UserPreferencesProvider>
         <ThemeProvider>
           <AuthProvider>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
+            <ToastProvider>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </UserPreferencesProvider>
