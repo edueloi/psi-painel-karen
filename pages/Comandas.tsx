@@ -805,7 +805,7 @@ export const Comandas: React.FC = () => {
         </div>
       )}
 
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200">
@@ -1218,6 +1218,7 @@ export const Comandas: React.FC = () => {
 
                 <Input
                   label="Valor Total"
+                  type="text"
                   value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
                   onChange={(e) =>
                     setEditingComanda({
@@ -1357,6 +1358,7 @@ export const Comandas: React.FC = () => {
 
                         <div className="col-span-3">
                           <input
+                            type="text"
                             value={formatCurrencyInput(Number(item.price || 0))}
                             onChange={(e) =>
                               updatePackageItem(index, {
@@ -1501,7 +1503,10 @@ export const Comandas: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => handleOpenModal(historyComanda)}
+                    onClick={() => {
+                      setIsHistoryOpen(false);
+                      handleOpenModal(historyComanda);
+                    }}
                     className={iconButtonClass}
                     title="Editar"
                   >
