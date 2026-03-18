@@ -1,1283 +1,1811 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api, getStaticUrl } from '../services/api';
 import { Comanda, Patient, Service } from '../types';
-import { 
-  ShoppingBag, Search, Plus, Edit3, Trash2, 
-  DollarSign, CheckCircle, X, LayoutGrid, List as ListIcon, 
-  CreditCard, Calendar, User, MoreHorizontal, 
-  ArrowUpRight, Clock, CheckCircle2, AlertCircle, FileText,
-  AlertTriangle, User as UserIcon, CalendarDays, Info, MessageSquare, Send, Repeat
-} from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
+import { DatePicker } from '../components/UI/DatePicker';
 import { Button } from '../components/UI/Button';
-import { Input, Select, TextArea } from '../components/UI/Input';
+import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
+import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle } from '../components/UI/FilterLine';
+
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import {
+  ShoppingBag,
+  Search,
+  Plus,
+  Edit3,
+  Trash2,
+  DollarSign,
+  CheckCircle2,
+  Clock,
+  FileText,
+  AlertTriangle,
+  User as UserIcon,
+  Calendar as CalendarIcon,
+  CalendarDays,
+  LayoutGrid,
+  List as ListIcon,
+  CreditCard,
+  Check,
+  Package,
+} from 'lucide-react';
+
+type ComandaTab = 'avulsa' | 'pacote';
+type ViewMode = 'kanban' | 'list';
+type StatusFilter = 'open' | 'closed';
+type DateRangeFilter = 'today' | 'month' | 'year' | 'all';
+
+type EditableItem = {
+  id?: string;
+  serviceId?: string;
+  name: string;
+  qty: number;
+  price: number;
+};
+
+type EditableComanda = Partial<Comanda> & {
+  patientId?: string;
+  patientSearch?: string;
+  professionalId?: string;
+  startDate?: string;
+  totalValue?: number;
+  paidValue?: number;
+  description?: string;
+  status?: string;
+  sessions_total?: number;
+  sessions_used?: number;
+  discount_type?: 'percentage' | 'fixed';
+  discount_value?: number;
+  packageId?: string;
+  items?: EditableItem[];
+};
+
+const lineInputClass =
+  'w-full h-10 bg-transparent border-0 border-b border-slate-300 px-0 text-sm text-slate-700 placeholder:text-slate-400 focus:border-violet-600 focus:outline-none';
+
+const compactInputClass =
+  'w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none';
+
+const iconButtonClass =
+  'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-violet-600';
+
+const TypeButton: React.FC<{
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}> = ({ active, label, onClick }) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 text-sm text-slate-700"
+    >
+      <span
+        className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${
+          active ? 'border-violet-600' : 'border-slate-500'
+        }`}
+      >
+        {active && <span className="h-2.5 w-2.5 rounded-full bg-violet-600" />}
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+};
+
+const Field: React.FC<{
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}> = ({ label, children, className = '' }) => (
+  <div className={className}>
+    <label className="mb-1 block text-[12px] font-medium text-slate-600">
+      {label}
+    </label>
+    {children}
+  </div>
+);
 
 export const Comandas: React.FC = () => {
-  const { t, language } = useLanguage();
   const location = useLocation();
-  const navigate = useNavigate();
-  
-  const [toasts, setToasts] = useState<{id: number, type: 'success' | 'error', message: string}[]>([]);
-  
-  const pushToast = (type: 'success' | 'error', message: string) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, type, message }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
-  };
+  const { preferences, updatePreference } = useUserPreferences();
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', { 
-        style: 'currency', 
-        currency: 'BRL' 
-    }).format(value || 0);
-  };
+  const [toasts, setToasts] = useState<
+    { id: number; type: 'success' | 'error'; message: string }[]
+  >([]);
 
-  // Estados
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
-  const [comandas, setComandas] = useState<Comanda[]>([]);
+  const [activePatients, setActivePatients] = useState<Patient[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
+  const [profileData, setProfileData] = useState<any>({});
+  const [comandas, setComandas] = useState<Comanda[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    preferences?.comandas?.viewMode || 'list'
+  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    preferences?.comandas?.statusFilter || 'open'
+  );
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>(
+    preferences?.comandas?.dateRangeFilter || 'month'
+  );
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'open' | 'closed'>('open');
-  const [dateRangeFilter, setDateRangeFilter] = useState<'today' | 'month' | 'year' | 'all'>('month');
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<ComandaTab>('avulsa');
+  const [editingComanda, setEditingComanda] = useState<EditableComanda | null>(
+    null
+  );
+
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyComanda, setHistoryComanda] = useState<Comanda | null>(null);
-  const [profileData, setProfileData] = useState<any>({});
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Modals
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingComanda, setEditingComanda] = useState<Partial<Comanda> | null>(null);
+  const [managerTab, setManagerTab] = useState<
+    'atendimentos' | 'pagamentos' | 'pacote'
+  >('atendimentos');
+
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // States for Comanda Manager Modal
-  const [managerTab, setManagerTab] = useState<'atendimentos' | 'pagamentos' | 'pacote'>('atendimentos');
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
-  const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
+  const [newPayment, setNewPayment] = useState({
+    value: '',
+    date: new Date().toISOString().slice(0, 10),
+    method: 'Pix',
+    receiptCode: '',
+  });
 
-  const handleSavePayment = async () => {
-    if (!historyComanda) return;
-    try {
-        const payload = {
-            amount: parseFloat(newPayment.value.replace(/,/g, '.')),
-            payment_date: newPayment.date,
-            payment_method: newPayment.method,
-            receipt_code: newPayment.receiptCode
-        };
-        await api.post(`/finance/comandas/${historyComanda.id}/payments`, payload);
-        
-        pushToast('success', 'Pagamento registrado com sucesso!');
-        setIsAddPaymentModalOpen(false);
-        fetchData();
-        
-        // update local historyComanda so the modal reflects the new payment immediately
-        api.get<Comanda[]>('/finance/comandas').then(res => {
-           const updated = res.find(c => c.id === historyComanda.id);
-           if (updated) setHistoryComanda(updated);
-        });
-    } catch (e) {
-        pushToast('error', 'Erro ao registrar pagamento.');
-    }
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, type, message }]);
+    setTimeout(
+      () => setToasts((prev) => prev.filter((toast) => toast.id !== id)),
+      3000
+    );
   };
 
-  const handleGenerateReceipt = async () => {
-    if (!historyComanda) return;
-    
-    pushToast('success', 'Gerando recibo para download...');
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(Number(value || 0));
 
-    try {
-        const { default: jsPDF } = await import('jspdf');
-        const { default: html2canvas } = await import('html2canvas');
-
-        const patientName = historyComanda.patientName || historyComanda.patient_name || 'Paciente';
-        const amount = formatCurrency(historyComanda.totalValue || historyComanda.total || 0);
-        const dateStr = historyComanda.createdAt ? new Date(historyComanda.createdAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
-        const fullDateStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-        const location = (profileData?.address || '').split(',').pop()?.trim() || 'São Paulo';
-        const logoUrl = profileData?.clinic_logo_url ? getStaticUrl(profileData.clinic_logo_url) : '';
-
-        // Cria um div invisível no DOM para renderizar o recibo
-        const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;font-family:Arial,sans-serif;color:#00214d;';
-        container.innerHTML = `
-          <div style="display:flex;min-height:1123px;">
-            <div style="width:40px;background:#00214d;min-height:1123px;flex-shrink:0;"></div>
-            <div style="padding:60px 80px;flex:1;position:relative;">
-              <div style="position:absolute;top:60px;right:80px;text-align:right;font-size:11px;color:#00214d;line-height:1.6;">
-                <b>${profileData?.name || ''}</b><br/>
-                Psicóloga<br/>
-                ${profileData?.crp ? `CRP: ${profileData.crp}<br/>` : ''}
-                ${profileData?.cpf ? `CPF: ${profileData.cpf}` : ''}
-              </div>
-
-              <div style="width:120px;height:120px;background:white;border:1px solid #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:40px;overflow:hidden;">
-                ${logoUrl 
-                  ? `<img src="${logoUrl}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous" />`
-                  : `<span style="font-size:10px;font-weight:900;text-align:center;padding:10px;">SEU LOGO AQUI</span>`
-                }
-              </div>
-
-              <div style="text-align:right;margin:40px 0 60px 0;font-size:13px;">
-                ${location}, ${fullDateStr}
-              </div>
-
-              <div style="text-align:center;font-size:18px;font-weight:900;letter-spacing:2px;margin-bottom:50px;color:#00214d;">
-                RECIBO
-              </div>
-
-              <div style="font-size:14px;line-height:1.8;text-align:justify;margin-bottom:30px;color:#334155;">
-                Serviço de atendimento psicológico prestados ao(à) <b style="color:#00214d;">${patientName}</b>. 
-                Referente à comanda criada no dia <b style="color:#00214d;">${dateStr}</b>.
-                <br/><br/>
-                Valor total dos atendimentos prestados na data citada acima: <b style="color:#00214d;">${amount}</b>.
-                <br/><br/>
-                Psicóloga responsável pelos atendimentos prestados: <b style="color:#00214d;">${profileData?.name || ''}</b>${profileData?.crp ? `, CRP: <b style="color:#00214d;">${profileData.crp}</b>` : ''}.
-              </div>
-
-              <div style="margin-top:100px;text-align:center;">
-                <div style="border-top:1.5px solid #00214d;width:350px;margin:0 auto;padding-top:10px;">
-                  <b style="text-transform:uppercase;font-size:13px;">${profileData?.name || ''}</b><br/>
-                  <span style="font-size:11px;">Psicóloga</span>
-                </div>
-              </div>
-
-              <div style="position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">
-                ${profileData?.address || ''} | ${profileData?.phone || ''}
-              </div>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(container);
-
-        const canvas = await html2canvas(container, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          width: 794,
-          height: 1123,
-        });
-
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-
-        const fileName = `Recibo_${patientName.replace(/\s+/g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
-        pdf.save(fileName);
-        document.body.removeChild(container);
-        
-        pushToast('success', 'Recibo baixado com sucesso!');
-    } catch (e) {
-        console.error('Erro ao gerar PDF:', e);
-        pushToast('error', 'Erro ao gerar o PDF do recibo.');
-    }
+  const formatCurrencyInput = (value?: number) => {
+    if (value === undefined || value === null) return '';
+    return String(Number(value || 0).toFixed(2)).replace('.', ',');
   };
 
-  // Carregar Dados
+  const parseMonetaryValue = (val: string) => {
+    if (!val) return 0;
+    const cleaned = val.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '');
+    return parseFloat(cleaned) || 0;
+  };
+
+  const normalizePatientName = (patient: any) =>
+    patient?.full_name || patient?.name || 'Sem nome';
+
+  const getComandaTotal = (c: any) =>
+    Number(c?.totalValue || c?.total || 0) || 0;
+
+  const getComandaPaid = (c: any) => Number(c?.paidValue || 0) || 0;
+
+  const getComandaPending = (c: any) =>
+    Math.max(0, getComandaTotal(c) - getComandaPaid(c));
+
+  const calculateItemsTotal = (items?: EditableItem[]) =>
+    (items || []).reduce(
+      (acc, item) => acc + (Number(item.price || 0) * Number(item.qty || 0)),
+      0
+    );
+
+  const createBaseComanda = (): EditableComanda => ({
+    status: 'open',
+    items: [],
+    totalValue: 0,
+    paidValue: 0,
+    description: '',
+    patientId: '',
+    patientSearch: '',
+    professionalId: String(profileData?.id || professionals?.[0]?.id || ''),
+    startDate: new Date().toISOString().slice(0, 10),
+    duration_minutes: 60,
+    sessions_total: 1,
+    discount_type: 'fixed',
+    discount_value: 0,
+    packageId: '',
+  });
+
   const fetchData = async () => {
-      setIsLoading(true);
-      try {
-          const [ptsData, srvsData, usrsData, pkgsData, profileRes] = await Promise.all([
-              api.get<any[]>('/patients'),
-              api.get<Service[]>('/services'),
-              api.get<any[]>('/users'),
-              api.get<any[]>('/packages'),
-              api.get<any>('/profile/me')
-          ]);
-          
-          setProfileData(profileRes || {});
-          
-          const mappedPatients = (ptsData || []).map(p => ({
-            ...p,
-            full_name: p.full_name || p.name || 'Sem nome'
-          })) as Patient[];
+    setIsLoading(true);
+    try {
+      const [ptsData, srvsData, usrsData, pkgsData, profileRes, fetchedComandas] =
+        await Promise.all([
+          api.get<any[]>('/patients'),
+          api.get<Service[]>('/services'),
+          api.get<any[]>('/users'),
+          api.get<any[]>('/packages'),
+          api.get<any>('/profile/me'),
+          api.get<Comanda[]>('/finance/comandas'),
+        ]);
 
-          setPatients(mappedPatients);
-          setServices(srvsData);
-          setProfessionals(usrsData || []);
-          setPackages(pkgsData || []);
-          
-          // Carregar comandas reais da API
-          try {
-            const fetchedComandas = await api.get<Comanda[]>('/finance/comandas');
-            setComandas(fetchedComandas || []);
-          } catch (e) {
-            console.error("Erro ao carregar comandas:", e);
-          }
-      } catch (e) { 
-        console.error(e); 
-      } finally { 
-        setIsLoading(false); 
-      }
+      const mappedPatients = (ptsData || []).map((p) => ({
+        ...p,
+        full_name: normalizePatientName(p),
+      })) as Patient[];
+
+      setPatients(mappedPatients);
+      setActivePatients(
+        mappedPatients.filter(
+          (p: any) => p.status !== 'inactive' && p.status !== 'inativo'
+        )
+      );
+      setServices(srvsData || []);
+      setProfessionals(usrsData || []);
+      setPackages(pkgsData || []);
+      setProfileData(profileRes || {});
+      setComandas(fetchedComandas || []);
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Erro ao carregar comandas.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-      fetchData();
+    fetchData();
   }, []);
-  
-  // Abrir comanda automaticamente se vier redirecionado da agenda
+
   useEffect(() => {
     const state = location.state as { openComandaId?: string };
     if (state?.openComandaId && comandas.length > 0) {
-      const comanda = comandas.find(c => String(c.id) === String(state.openComandaId));
-      if (comanda) {
-        setEditingComanda({ 
-          ...comanda,
-          patientId: comanda.patient_id || comanda.patientId,
-          professionalId: comanda.professional_id || comanda.professionalId,
-          startDate: comanda.start_date || comanda.startDate,
-          totalValue: comanda.total || comanda.totalValue
-        });
-        setIsModalOpen(true);
-        // Limpa o state para não reabrir em refresh
+      const found = comandas.find(
+        (c: any) => String(c.id) === String(state.openComandaId)
+      );
+      if (found) {
+        handleOpenModal(found);
         window.history.replaceState({}, document.title);
       }
     }
   }, [location.state, comandas]);
 
-  // Lógica de Filtragem
   const filteredComandas = useMemo(() => {
-      return comandas.filter(c => {
-          const patientName = c.patientName || c.patient_name || '';
-          const description = c.description || '';
-          const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                description.toLowerCase().includes(searchTerm.toLowerCase());
-          
-          if (statusFilter !== c.status) return false;
+    return comandas.filter((c: any) => {
+      const patientName = String(c.patientName || c.patient_name || '').toLowerCase();
+      const description = String(c.description || '').toLowerCase();
+      const firstItem = String(c.items?.[0]?.name || '').toLowerCase();
 
-          if (statusFilter === 'closed') {
-              const date = new Date(c.updated_at || c.createdAt);
-              const now = new Date();
-              if (dateRangeFilter === 'today') {
-                  if (date.toDateString() !== now.toDateString()) return false;
-              } else if (dateRangeFilter === 'month') {
-                  if (date.getMonth() !== now.getMonth() || date.getFullYear() !== now.getFullYear()) return false;
-              } else if (dateRangeFilter === 'year') {
-                  if (date.getFullYear() !== now.getFullYear()) return false;
-              }
-          }
+      const matchesSearch =
+        patientName.includes(searchTerm.toLowerCase()) ||
+        description.includes(searchTerm.toLowerCase()) ||
+        firstItem.includes(searchTerm.toLowerCase());
 
-          return matchesSearch;
-      });
+      if (!matchesSearch) return false;
+      if (statusFilter !== c.status) return false;
+
+      if (statusFilter === 'closed') {
+        const refDate = new Date(c.updated_at || c.createdAt || c.created_at || new Date());
+        const now = new Date();
+
+        if (dateRangeFilter === 'today') {
+          return refDate.toDateString() === now.toDateString();
+        }
+
+        if (dateRangeFilter === 'month') {
+          return (
+            refDate.getMonth() === now.getMonth() &&
+            refDate.getFullYear() === now.getFullYear()
+          );
+        }
+
+        if (dateRangeFilter === 'year') {
+          return refDate.getFullYear() === now.getFullYear();
+        }
+      }
+
+      return true;
+    });
   }, [comandas, searchTerm, statusFilter, dateRangeFilter]);
 
-  // Estatísticas
   const stats = useMemo(() => {
-      const total = comandas.reduce((acc, c) => acc + (c.totalValue || 0), 0);
-      const open = comandas.filter(c => c.status === 'open').reduce((acc, c) => acc + (c.totalValue || 0), 0);
-      const paid = comandas.filter(c => c.status === 'closed').reduce((acc, c) => acc + (c.totalValue || 0), 0);
-      return { total, open, paid };
+    const total = comandas.reduce((acc, c: any) => acc + getComandaTotal(c), 0);
+    const open = comandas
+      .filter((c: any) => c.status === 'open')
+      .reduce((acc, c: any) => acc + getComandaPending(c), 0);
+    const received = comandas.reduce((acc, c: any) => acc + getComandaPaid(c), 0);
+
+    return { total, open, received };
   }, [comandas]);
 
-  // Ações
+  const modalGrossTotal = useMemo(() => {
+    if (!editingComanda) return 0;
+
+    if (modalTab === 'pacote') {
+      const itemsTotal = calculateItemsTotal(editingComanda.items);
+      return itemsTotal > 0 ? itemsTotal : Number(editingComanda.totalValue || 0);
+    }
+
+    return Number(editingComanda.totalValue || 0);
+  }, [editingComanda, modalTab]);
+
+  const modalDiscountAmount = useMemo(() => {
+    if (!editingComanda) return 0;
+    const discountValue = Number(editingComanda.discount_value || 0);
+
+    if (editingComanda.discount_type === 'percentage') {
+      return (modalGrossTotal * discountValue) / 100;
+    }
+
+    return discountValue;
+  }, [editingComanda, modalGrossTotal]);
+
+  const modalNetTotal = useMemo(() => {
+    return Math.max(0, modalGrossTotal - modalDiscountAmount);
+  }, [modalGrossTotal, modalDiscountAmount]);
+
+  const saveDisabled =
+    !editingComanda?.patientId ||
+    modalNetTotal <= 0 ||
+    (modalTab === 'pacote' &&
+      !(editingComanda?.items || []).some((item) => item.name && item.qty > 0));
+
+  const resolvePackageItems = (pkg: any): EditableItem[] => {
+    if (Array.isArray(pkg?.items) && pkg.items.length > 0) {
+      return pkg.items.map((item: any) => {
+        const linkedService = services.find(
+          (service) =>
+            String(service.id) === String(item.service_id || item.serviceId)
+        );
+
+        return {
+          serviceId: String(item.service_id || item.serviceId || linkedService?.id || ''),
+          name:
+            item.service_name ||
+            item.serviceName ||
+            item.name ||
+            linkedService?.name ||
+            '',
+          qty: Number(item.qty || item.quantity || 1),
+          price: Number(item.price || item.unit_price || item.value || linkedService?.price || 0),
+        };
+      });
+    }
+
+    return [
+      {
+        serviceId: '',
+        name: pkg?.name || 'Pacote',
+        qty: 1,
+        price: Number(pkg?.price || pkg?.totalPrice || pkg?.total_value || 0),
+      },
+    ];
+  };
+
+  const handleSelectPackage = (packageId: string) => {
+    const foundPackage = packages.find((pkg) => String(pkg.id) === String(packageId));
+    if (!foundPackage || !editingComanda) return;
+
+    const items = resolvePackageItems(foundPackage);
+    const sessionsTotal =
+      Number(
+        foundPackage.sessions_total ||
+          foundPackage.sessions_count ||
+          foundPackage.items?.length ||
+          items.reduce((acc: number, item: EditableItem) => acc + Number(item.qty || 0), 0) ||
+          1
+      ) || 1;
+
+    setEditingComanda({
+      ...editingComanda,
+      packageId: String(foundPackage.id),
+      description: foundPackage.name || editingComanda.description || '',
+      items,
+      totalValue: calculateItemsTotal(items),
+      sessions_total: sessionsTotal,
+    });
+  };
+
+  const addPackageItem = () => {
+    if (!editingComanda) return;
+    setEditingComanda({
+      ...editingComanda,
+      items: [...(editingComanda.items || []), { name: '', serviceId: '', qty: 1, price: 0 }],
+    });
+  };
+
+  const updatePackageItem = (
+    index: number,
+    patch: Partial<EditableItem>,
+    useServiceAutoFill = false
+  ) => {
+    if (!editingComanda) return;
+
+    const nextItems = [...(editingComanda.items || [])];
+    const currentItem = nextItems[index] || { name: '', qty: 1, price: 0 };
+
+    let updatedItem = { ...currentItem, ...patch };
+
+    if (useServiceAutoFill && patch.serviceId) {
+      const linkedService = services.find(
+        (service) => String(service.id) === String(patch.serviceId)
+      );
+
+      updatedItem = {
+        ...updatedItem,
+        serviceId: String(linkedService?.id || ''),
+        name: linkedService?.name || updatedItem.name || '',
+        price: Number(linkedService?.price || 0),
+      };
+    }
+
+    nextItems[index] = updatedItem;
+
+    setEditingComanda({
+      ...editingComanda,
+      items: nextItems,
+      totalValue: calculateItemsTotal(nextItems),
+    });
+  };
+
+  const removePackageItem = (index: number) => {
+    if (!editingComanda) return;
+    const nextItems = [...(editingComanda.items || [])].filter((_, i) => i !== index);
+
+    setEditingComanda({
+      ...editingComanda,
+      items: nextItems,
+      totalValue: calculateItemsTotal(nextItems),
+    });
+  };
+
+  const handlePatientSearchChange = (value: string) => {
+    if (!editingComanda) return;
+
+    const foundPatient = activePatients.find(
+      (patient: any) => normalizePatientName(patient).toLowerCase() === value.toLowerCase()
+    );
+
+    setEditingComanda({
+      ...editingComanda,
+      patientSearch: value,
+      patientId: foundPatient ? String(foundPatient.id) : editingComanda.patientId || '',
+    });
+  };
+
   const handleOpenModal = (comanda?: Comanda) => {
-      if (comanda) {
-          setEditingComanda({ ...comanda });
-      } else {
-          setEditingComanda({
-              status: 'open',
-              items: [],
-              totalValue: 0,
-              paidValue: 0,
-              description: '',
-              patientId: '',
-              professionalId: '',
-              startDate: new Date().toISOString().slice(0, 16),
-              duration_minutes: 60
-          });
-      }
-      setIsModalOpen(true);
+    if (comanda) {
+      const patientId = String((comanda as any).patient_id || (comanda as any).patientId || '');
+      const patientName =
+        (comanda as any).patientName ||
+        (comanda as any).patient_name ||
+        activePatients.find((p: any) => String(p.id) === patientId)?.full_name ||
+        '';
+
+      const items =
+        Array.isArray((comanda as any).items) && (comanda as any).items.length > 0
+          ? (comanda as any).items.map((item: any) => ({
+              id: item.id,
+              serviceId: String(item.service_id || item.serviceId || ''),
+              name: item.name || '',
+              qty: Number(item.qty || 1),
+              price: Number(item.price || 0),
+            }))
+          : [];
+
+      const isPackage =
+        Boolean((comanda as any).package_id || (comanda as any).packageId) ||
+        Number((comanda as any).sessions_total || 1) > 1 ||
+        items.length > 1;
+
+      setEditingComanda({
+        ...(comanda as any),
+        patientId,
+        patientSearch: patientName,
+        professionalId: String((comanda as any).professional_id || (comanda as any).professionalId || profileData?.id || ''),
+        startDate: String(
+          (comanda as any).start_date ||
+            (comanda as any).startDate ||
+            (comanda as any).createdAt ||
+            new Date().toISOString()
+        ).slice(0, 10),
+        totalValue: Number((comanda as any).totalValue || (comanda as any).total || 0),
+        paidValue: Number((comanda as any).paidValue || 0),
+        discount_type: (comanda as any).discount_type || 'fixed',
+        discount_value: Number((comanda as any).discount_value || 0),
+        packageId: String((comanda as any).package_id || (comanda as any).packageId || ''),
+        items,
+        sessions_total: Number((comanda as any).sessions_total || 1),
+      });
+
+      setModalTab(isPackage ? 'pacote' : 'avulsa');
+    } else {
+      setEditingComanda(createBaseComanda());
+      setModalTab('avulsa');
+    }
+
+    setIsModalOpen(true);
   };
 
   const handleSave = async () => {
-      if (!editingComanda?.patientId) return;
-      
-      try {
-        const payload = {
-          patient_id: editingComanda.patientId || (editingComanda as any).patient_id,
-          professional_id: editingComanda.professionalId || (editingComanda as any).professional_id,
-          description: editingComanda.description,
-          status: editingComanda.status,
-          items: editingComanda.items,
-          discount: 0,
-          start_date: editingComanda.startDate || (editingComanda as any).start_date,
-          duration_minutes: editingComanda.duration_minutes || 60,
-          payment_method: editingComanda.payment_method || 'pending',
-          sessions_total: editingComanda.sessions_total || 0,
-          sessions_used: editingComanda.sessions_used || 0
-        };
+    if (!editingComanda?.patientId) {
+      pushToast('error', 'Selecione um cliente.');
+      return;
+    }
 
-        if (editingComanda.id) {
-            await api.put(`/finance/comandas/${editingComanda.id}`, payload);
-            pushToast('success', 'Comanda atualizada!');
-        } else {
-            await api.post('/finance/comandas', payload);
-            pushToast('success', 'Comanda criada!');
-        }
-        
-        fetchData();
-        setIsModalOpen(false);
-      } catch (err) {
-        console.error("Erro ao salvar comanda:", err);
-        pushToast('error', "Erro ao salvar comanda.");
-      }
-  };
-
-  const handleQuickStatusToggle = async (comanda: Comanda) => {
     try {
-      const newStatus = comanda.status === 'open' ? 'closed' : 'open';
-      await api.put(`/finance/comandas/${comanda.id}`, {
-        ...comanda,
-        status: newStatus,
-        start_date: comanda.startDate || (comanda as any).start_date || null
-      });
-      fetchData();
-      pushToast('success', `Comanda ${newStatus === 'closed' ? 'paga' : 'reaberta'}!`);
-    } catch (err) {
-      console.error(err);
-      pushToast('error', 'Erro ao mudar status');
+      const isPackage = modalTab === 'pacote';
+
+      const itemsPayload = isPackage
+        ? (editingComanda.items || [])
+            .filter((item) => item.name && Number(item.qty || 0) > 0)
+            .map((item) => ({
+              ...(item.id ? { id: item.id } : {}),
+              service_id: item.serviceId || undefined,
+              name: item.name,
+              price: Number(item.price || 0),
+              qty: Number(item.qty || 1),
+            }))
+        : [
+            {
+              name: editingComanda.description?.trim() || 'Comanda avulsa',
+              price: modalNetTotal,
+              qty: 1,
+            },
+          ];
+
+      const payload: any = {
+        patient_id: String(editingComanda.patientId),
+        professional_id: String(
+          editingComanda.professionalId || profileData?.id || professionals?.[0]?.id || ''
+        ),
+        description:
+          editingComanda.description ||
+          (isPackage
+            ? packages.find((pkg) => String(pkg.id) === String(editingComanda.packageId))?.name || ''
+            : 'Comanda avulsa'),
+        total_value: Number(modalNetTotal),
+        gross_total_value: Number(modalGrossTotal),
+        discount_type: editingComanda.discount_type || 'fixed',
+        discount_value: Number(editingComanda.discount_value || 0),
+        sessions_total: Number(editingComanda.sessions_total || 1),
+        status: editingComanda.status || 'open',
+        start_date: editingComanda.startDate,
+        package_id: isPackage && editingComanda.packageId ? String(editingComanda.packageId) : null,
+        items: itemsPayload,
+      };
+
+      if (editingComanda.id) {
+        await api.put(`/finance/comandas/${editingComanda.id}`, payload);
+      } else {
+        await api.post('/finance/comandas', payload);
+      }
+
+      pushToast('success', 'Comanda salva com sucesso!');
+      setIsModalOpen(false);
+      await fetchData();
+    } catch (error: any) {
+      console.error('ERRO AO SALVAR COMANDA:', error);
+      // Inspecionar o corpo do erro se disponível
+      const serverMsg = error.response?.data?.error || error.response?.data?.message || error.message;
+      pushToast('error', `Erro ao salvar: ${serverMsg}`);
     }
   };
 
-  const confirmDelete = async () => {
-    if (deleteConfirmId) {
-      try {
-        await api.delete(`/finance/comandas/${deleteConfirmId}`);
-        setComandas(prev => prev.filter(c => c.id !== deleteConfirmId));
-        pushToast('success', 'Comanda removida!');
-      } catch {
-        pushToast('error', 'Erro ao remover comanda.');
-      }
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmId) return;
+
+    try {
+      await api.delete(`/finance/comandas/${deleteConfirmId}`);
+      setComandas((prev) => prev.filter((c) => String(c.id) !== String(deleteConfirmId)));
+      pushToast('success', 'Comanda removida com sucesso!');
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Erro ao remover comanda.');
+    } finally {
       setDeleteConfirmId(null);
     }
   };
-  
-  const handleUpdateAppointmentStatus = async (appointmentId: string, newStatus: string) => {
+
+  const handleUpdateAppointmentStatus = async (
+    appointmentId: string,
+    newStatus: string
+  ) => {
     try {
       await api.put(`/appointments/${appointmentId}`, { status: newStatus });
-      fetchData(); // Recarrega tudo para atualizar progresso
+      await fetchData();
+
       if (historyComanda) {
-        // Atualiza a comanda no histórico localmente se necessário, ou apenas fecha e abre
         const refreshed = await api.get<Comanda[]>('/finance/comandas');
-        const updated = refreshed.find(c => c.id === historyComanda.id);
+        const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));
         if (updated) setHistoryComanda(updated);
       }
-      pushToast('success', `Status atualizado para ${newStatus}`);
-    } catch (err) {
-      console.error(err);
-      pushToast('error', 'Erro ao atualizar agendamento');
+
+      pushToast('success', 'Status atualizado.');
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Erro ao atualizar status.');
     }
   };
 
-  const handleAddItem = () => {
-      if (!editingComanda) return;
-    const newItem: any = { id: Math.random().toString(), name: '', value: 0, qty: 1 };
-      setEditingComanda({
-          ...editingComanda,
-          items: [...(editingComanda.items || []), newItem]
+  const handleSavePayment = async () => {
+    if (!historyComanda) return;
+
+    try {
+      const payload = {
+        amount: parseMonetaryValue(newPayment.value),
+        payment_date: newPayment.date,
+        payment_method: newPayment.method,
+        receipt_code: newPayment.receiptCode,
+      };
+
+      await api.post(`/finance/comandas/${historyComanda.id}/payments`, payload);
+
+      pushToast('success', 'Pagamento registrado!');
+      setIsAddPaymentModalOpen(false);
+      setNewPayment({
+        value: '',
+        date: new Date().toISOString().slice(0, 10),
+        method: 'Pix',
+        receiptCode: '',
       });
+
+      await fetchData();
+
+      const refreshed = await api.get<Comanda[]>('/finance/comandas');
+      const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));
+      if (updated) setHistoryComanda(updated);
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Erro ao registrar pagamento.');
+    }
   };
 
-  const StatusBadge = ({ status }: { status: string }) => {
-      const styles = {
-          open: 'bg-amber-50 text-amber-600 border-amber-100',
-          closed: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-          cancelled: 'bg-slate-50 text-slate-500 border-slate-100'
-      };
-      return (
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${styles[status as keyof typeof styles]}`}>
-              {status === 'closed' ? 'Pago' : status === 'open' ? 'Aberto' : 'Cancelado'}
-          </span>
+  const handleGenerateReceipt = async () => {
+    if (!historyComanda) return;
+
+    pushToast('success', 'Gerando recibo...');
+
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      const professional = professionals.find(
+        (p) =>
+          String(p.id) ===
+          String((historyComanda as any).professional_id || (historyComanda as any).professionalId)
       );
+
+      const professionalName = professional?.name || profileData?.name || '';
+      const professionalCrp = professional?.crp || profileData?.crp || '';
+      const professionalCpf = professional?.cpf || profileData?.cpf || '';
+
+      const patientName =
+        (historyComanda as any).patientName ||
+        (historyComanda as any).patient_name ||
+        'Paciente';
+
+      const amount = formatCurrency(getComandaTotal(historyComanda));
+      const dateStr = new Date(
+        (historyComanda as any).createdAt ||
+          (historyComanda as any).created_at ||
+          new Date()
+      ).toLocaleDateString('pt-BR');
+
+      const fullDate = new Date().toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+
+      const locationText =
+        String(profileData?.address || '').split(',').pop()?.trim() || 'São Paulo';
+
+      const logoUrl = profileData?.clinic_logo_url
+        ? getStaticUrl(profileData.clinic_logo_url)
+        : '';
+
+      const container = document.createElement('div');
+      container.style.cssText =
+        'position:fixed;left:-9999px;top:0;width:794px;background:#ffffff;font-family:Arial,sans-serif;color:#00214d;';
+
+      container.innerHTML = `
+        <div style="display:flex;min-height:1123px;">
+          <div style="width:40px;background:#00214d;min-height:1123px;flex-shrink:0;"></div>
+          <div style="padding:60px 80px;flex:1;position:relative;">
+            <div style="position:absolute;top:60px;right:80px;text-align:right;font-size:11px;color:#00214d;">
+              <b>${professionalName}</b><br/>
+              Psicóloga(o)<br/>
+              ${professionalCrp ? `CRP: ${professionalCrp}<br/>` : ''}
+              ${professionalCpf ? `CPF: ${professionalCpf}` : ''}
+            </div>
+            <div style="width:120px;height:120px;background:white;border:1px solid #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:40px;overflow:hidden;">
+              ${
+                logoUrl
+                  ? `<img src="${logoUrl}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous" />`
+                  : `<span style="font-size:10px;">SEU LOGO</span>`
+              }
+            </div>
+            <div style="text-align:right;margin:40px 0;font-size:13px;">${locationText}, ${fullDate}</div>
+            <div style="text-align:center;font-size:18px;font-weight:900;margin-bottom:50px;">RECIBO</div>
+            <div style="font-size:14px;line-height:1.8;text-align:justify;margin-bottom:30px;">
+              Serviço prestado ao(à) <b>${patientName}</b>. Referente à comanda de <b>${dateStr}</b>.<br/><br/>
+              Valor total: <b>${amount}</b>.<br/><br/>
+              <b>${professionalName}</b>${professionalCrp ? `, CRP: ${professionalCrp}` : ''}.
+            </div>
+            <div style="margin-top:100px;text-align:center;">
+              <div style="border-top:1.5px solid #00214d;width:300px;margin:0 auto;padding-top:10px;">
+                <b>${professionalName}</b><br/>
+                Psicóloga(o)${professionalCrp ? ` - ${professionalCrp}` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(container);
+
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
+      pdf.save(`Recibo_${patientName.replace(/\s+/g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`);
+
+      document.body.removeChild(container);
+      pushToast('success', 'Recibo gerado!');
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Erro ao gerar recibo.');
+    }
   };
+
+  const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+        status === 'closed'
+          ? 'bg-emerald-50 text-emerald-700'
+          : 'bg-amber-50 text-amber-700'
+      }`}
+    >
+      {status === 'closed' ? 'Pago' : 'Aberto'}
+    </span>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
       {toasts.length > 0 && (
-        <div className="fixed right-6 top-6 z-[60] space-y-2">
-          {toasts.map(t => (
+        <div className="fixed right-5 top-5 z-[80] space-y-2">
+          {toasts.map((toast) => (
             <div
-              key={t.id}
-              className={`rounded-xl px-4 py-3 text-sm font-semibold shadow-lg border ${t.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}
+              key={toast.id}
+              className={`rounded-xl border px-4 py-3 text-sm shadow-xl ${
+                toast.type === 'success'
+                  ? 'border-emerald-100 bg-white text-emerald-700'
+                  : 'border-red-100 bg-white text-red-700'
+              }`}
             >
-              {t.message}
+              {toast.message}
             </div>
           ))}
         </div>
       )}
 
-      {/* Page Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-5">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-sm">
-                <ShoppingBag size={20} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">Gestão de Comandas</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Controle seus atendimentos e pacotes de sessões</p>
-              </div>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200">
+              <ShoppingBag size={20} />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleOpenModal()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-sm"
-              >
-                <Plus size={14} /> NOVA COMANDA
-              </button>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">Gestão de Comandas</h1>
+              <p className="text-xs text-slate-400">Controle financeiro, pacotes e sessões</p>
             </div>
+          </div>
+
+          <Button
+            onClick={() => handleOpenModal()}
+            leftIcon={<Plus size={16} />}
+            variant="primary"
+            radius="xl"
+            className="shadow-lg shadow-violet-200"
+          >
+            Nova comanda
+          </Button>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[1500px] px-6 py-6">
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                <FileText size={18} />
+              </div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Faturamento Total
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.total)}</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <Clock size={18} />
+              </div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Saldo em Aberto
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-amber-600">{formatCurrency(stats.open)}</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <CheckCircle2 size={18} />
+              </div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Total Recebido
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-600">{formatCurrency(stats.received)}</p>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        <FilterLine className="mb-6">
+          <FilterLineSection align="left" grow>
+            <FilterLineSearch
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Buscar paciente, descrição ou item..."
+              className="xl:max-w-[420px]"
+            />
+          </FilterLineSection>
 
-      {/* STATS BAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <FileText size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Geral</p>
-                  <p className="text-xl font-black text-slate-800">{formatCurrency(stats.total)}</p>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-all">
-                  <Clock size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black tracking-widest text-amber-500 uppercase">Em Aberto</p>
-                  <p className="text-xl font-black text-slate-800">{formatCurrency(stats.open)}</p>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                  <CheckCircle2 size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black tracking-widest text-emerald-500 uppercase">Total Recebido</p>
-                  <p className="text-xl font-black text-slate-800">{formatCurrency(stats.paid)}</p>
-              </div>
-          </div>
-      </div>
+          <FilterLineSection align="right">
+            <FilterLineSegmented
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val as any);
+                updatePreference('comandas', { statusFilter: val });
+              }}
+              options={[
+                { value: 'open', label: 'Em aberto' },
+                { value: 'closed', label: 'Finalizadas' },
+              ]}
+              size="sm"
+            />
 
-      {/* FILTERS & SEARCH */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full lg:w-96 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
-              <input 
-                  type="text" 
-                  placeholder="Pesquisar por paciente ou descrição..." 
-                  value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)} 
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
+            {statusFilter === 'closed' && (
+              <FilterLineSegmented
+                value={dateRangeFilter}
+                onChange={(range) => {
+                  setDateRangeFilter(range as DateRangeFilter);
+                  updatePreference('comandas', { dateRangeFilter: range });
+                }}
+                options={[
+                  { value: 'month', label: 'Mês' },
+                  { value: 'year', label: 'Ano' },
+                  { value: 'all', label: 'Tudo' },
+                ]}
+                size="sm"
               />
-          </div>
+            )}
 
-          <div className="flex gap-3 w-full lg:w-auto">
-              {/* Status Tabs */}
-              <div className="flex bg-slate-100 p-1.5 rounded-2xl flex-1 lg:flex-none">
-                  {[
-                      { id: 'open', label: 'Em Aberto' },
-                      { id: 'closed', label: 'Finalizadas' }
-                  ].map(st => (
-                      <button 
-                          key={st.id}
-                          onClick={() => setStatusFilter(st.id as any)}
-                          className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === st.id ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-indigo-400'}`}
-                      >
-                          {st.label}
-                      </button>
-                  ))}
+            <FilterLineViewToggle
+              value={viewMode}
+              onChange={(mode) => {
+                setViewMode(mode as any);
+                updatePreference('comandas', { viewMode: mode });
+              }}
+              gridValue="kanban"
+              listValue="list"
+            />
+          </FilterLineSection>
+        </FilterLine>
+
+        {viewMode === 'kanban' ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filteredComandas.map((comanda: any) => (
+              <div
+                key={comanda.id}
+                onClick={() => {
+                  setHistoryComanda(comanda);
+                  setIsHistoryOpen(true);
+                }}
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 font-bold text-violet-700">
+                      {String(comanda.patientName || comanda.patient_name || 'P').charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-800">
+                        {comanda.patientName || comanda.patient_name}
+                      </p>
+                      <p className="text-xs text-slate-400">#{comanda.id}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenModal(comanda);
+                    }}
+                    className={iconButtonClass}
+                    title="Editar"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                </div>
+
+                <div className="mb-4 rounded-xl bg-slate-50 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <Package size={15} className="text-violet-500" />
+                    <span>{comanda.items?.[0]?.name || comanda.description || 'Sem item'}</span>
+                  </div>
+
+                  <div className="mb-2 flex justify-between text-xs text-slate-500">
+                    <span>Sessões</span>
+                    <span>
+                      {comanda.sessions_used || 0} / {comanda.sessions_total || 1}
+                    </span>
+                  </div>
+
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full bg-violet-600"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          ((Number(comanda.sessions_used || 0) /
+                            Number(comanda.sessions_total || 1)) *
+                            100) || 0
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-slate-400">Total</p>
+                    <p className="text-lg font-bold text-slate-800">
+                      {formatCurrency(getComandaTotal(comanda))}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400">Pendente</p>
+                    <p className="text-sm font-semibold text-amber-600">
+                      {formatCurrency(getComandaPending(comanda))}
+                    </p>
+                  </div>
+                </div>
               </div>
-
-              {/* Date Filters for Closed */}
-              {statusFilter === 'closed' && (
-                  <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl">
-                      {[
-                          { id: 'today', label: 'Hoje' },
-                          { id: 'month', label: 'Mês' },
-                          { id: 'year', label: 'Ano' },
-                          { id: 'all', label: 'Tudo' }
-                      ].map(d => (
-                          <button 
-                              key={d.id}
-                              onClick={() => setDateRangeFilter(d.id as any)}
-                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${dateRangeFilter === d.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-[1100px] w-full">
+                <thead className="border-b border-slate-200 bg-slate-50">
+                  <tr className="text-left text-xs uppercase tracking-wider text-slate-500">
+                    <th className="px-5 py-4">ID</th>
+                    <th className="px-5 py-4">Paciente</th>
+                    <th className="px-5 py-4">Serviço / Pacote</th>
+                    <th className="px-5 py-4">Sessões</th>
+                    <th className="px-5 py-4">Total</th>
+                    <th className="px-5 py-4">Recebido</th>
+                    <th className="px-5 py-4">Pendente</th>
+                    <th className="px-5 py-4">Status</th>
+                    <th className="px-5 py-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredComandas.map((comanda: any) => (
+                    <tr
+                      key={comanda.id}
+                      onClick={() => {
+                        setHistoryComanda(comanda);
+                        setIsHistoryOpen(true);
+                      }}
+                      className="cursor-pointer border-b border-slate-100 text-sm transition hover:bg-slate-50"
+                    >
+                      <td className="px-5 py-4 text-slate-400">#{comanda.id}</td>
+                      <td className="px-5 py-4 font-medium text-slate-800">
+                        {comanda.patientName || comanda.patient_name}
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">
+                        {comanda.items?.[0]?.name || comanda.description || '—'}
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">
+                        {comanda.sessions_used || 0} / {comanda.sessions_total || 1}
+                      </td>
+                      <td className="px-5 py-4 font-semibold text-slate-800">
+                        {formatCurrency(getComandaTotal(comanda))}
+                      </td>
+                      <td className="px-5 py-4 font-semibold text-emerald-600">
+                        {formatCurrency(getComandaPaid(comanda))}
+                      </td>
+                      <td className="px-5 py-4 font-semibold text-amber-600">
+                        {formatCurrency(getComandaPending(comanda))}
+                      </td>
+                      <td className="px-5 py-4">
+                        <StatusBadge status={comanda.status} />
+                      </td>
+                      <td
+                        className="px-5 py-4"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                      >
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            iconOnly
+                            onClick={() => handleOpenModal(comanda)}
+                            title="Editar"
                           >
-                              {d.label}
-                          </button>
-                      ))}
-                  </div>
-              )}
+                            <Edit3 size={14} />
+                          </Button>
 
-              {/* View Toggle */}
-              <div className="flex gap-1.5 border border-slate-200 bg-white p-1.5 rounded-2xl shadow-sm">
-                  <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-xl transition-all ${viewMode === 'kanban' ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-300'}`}><LayoutGrid size={18}/></button>
-                  <button onClick={() => setViewMode('list')} className={`p-2 rounded-xl transition-all ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-300'}`}><ListIcon size={18}/></button>
-              </div>
-          </div>
-      </div>
+                          <Button
+                            variant="soft"
+                            size="xs"
+                            iconOnly
+                            onClick={() => {
+                              setHistoryComanda(comanda);
+                              setIsHistoryOpen(true);
+                            }}
+                            title="Histórico de pagamentos"
+                          >
+                            <CheckCircle2 size={14} />
+                          </Button>
 
-      {/* CONTENT AREA */}
-      <div className="flex flex-col gap-8">
-          <div className="flex items-center justify-between px-3">
-              <div className={`flex items-center gap-3 text-indigo-600 font-black text-[11px] uppercase tracking-[0.2em]`}>
-                  {statusFilter === 'open' ? <Clock size={16}/> : <CheckCircle2 size={16}/>}
-                  {statusFilter === 'open' ? 'Comandas em Aberto' : 'Comandas Finalizadas'}
-                  <span className="px-2 py-0.5 bg-indigo-50 rounded-lg border border-indigo-100 text-[10px]">
-                    {filteredComandas.length}
-                  </span>
-              </div>
-          </div>
-
-          {viewMode === 'kanban' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {filteredComandas.map(comanda => (
-                      <div 
-                        key={comanda.id} 
-                        onClick={() => { setHistoryComanda(comanda); setIsHistoryOpen(true); }}
-                        className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative cursor-pointer"
-                      >
-                          <div className="flex justify-between items-start mb-5">
-                              <div className="flex items-center gap-4">
-                                  <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[12px] font-black shadow-lg shadow-indigo-100`}>
-                                      {(comanda.patientName || comanda.patient_name || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
-                                  </div>
-                                  <div>
-                                      <h4 className="font-black text-slate-800 text-[13px]">{comanda.patientName || comanda.patient_name}</h4>
-                                      <div className="flex items-center gap-2">
-                                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">#{comanda.id}</p>
-                                          {(comanda.sessions_total || 0) > 0 && (
-                                              <span className="text-[9px] font-black px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100">
-                                                  {comanda.sessions_used || 0}/{comanda.sessions_total} SESSÕES
-                                              </span>
-                                          )}
-                                      </div>
-                                  </div>
-                              </div>
-                              <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                                  <button onClick={() => handleOpenModal(comanda)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"><Edit3 size={14}/></button>
-                                  <button onClick={() => setDeleteConfirmId(comanda.id)} className="p-2.5 bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all border border-transparent hover:border-red-100"><Trash2 size={14}/></button>
-                              </div>
-                          </div>
-                          
-                          <div className="mb-5">
-                              <div className="bg-slate-50/50 border border-slate-100/50 p-3.5 rounded-3xl">
-                                  <div className="text-xs font-bold text-slate-600 flex items-center gap-2.5 leading-relaxed">
-                                      <div className="h-6 w-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0"><FileText size={12}/></div>
-                                      <span className="truncate">{comanda.description || 'Sem descrição'}</span>
-                                  </div>
-                              </div>
-                              <div className="mt-3 flex items-center justify-between text-[10px] font-black text-slate-400 px-1">
-                                  <span className="flex items-center gap-1.5"><Calendar size={13}/> {new Date(comanda.createdAt || new Date()).toLocaleDateString()}</span>
-                                  {comanda.next_appointment && (
-                                      <span className="text-indigo-400 flex items-center gap-1.5"><ArrowUpRight size={13}/> Prox: {new Date(comanda.next_appointment).toLocaleDateString()}</span>
-                                  )}
-                              </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                              <div className="flex items-center gap-3">
-                                  <div className="text-base font-black text-indigo-600">
-                                      {formatCurrency(comanda.totalValue || comanda.total)}
-                                  </div>
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); handleQuickStatusToggle(comanda); }}
-                                    className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${comanda.status === 'open' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-100'}`}
-                                    title={comanda.status === 'open' ? 'Marcar como Pago' : 'Reabrir'}
-                                  >
-                                      {comanda.status === 'open' ? 'PAGAR' : 'ABRIR'}
-                                  </button>
-                              </div>
-                              <div className="flex items-center gap-1 text-[10px] font-black text-slate-300">
-                                  <Clock size={12}/> Ver Detalhes
-                              </div>
-                          </div>
-                      </div>
+                          <Button
+                            variant="softDanger"
+                            size="xs"
+                            iconOnly
+                            onClick={() => setDeleteConfirmId(String(comanda.id))}
+                            title="Excluir"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-              </div>
-          ) : (
-          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden overflow-x-auto">
-              <table className="w-full text-left min-w-[600px]">
-                  <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] border-b border-slate-100">
-                      <tr>
-                          <th className="px-8 py-5">Status</th>
-                          <th className="px-8 py-5">Paciente</th>
-                          <th className="px-8 py-5">Descrição</th>
-                          <th className="px-8 py-5">Valor</th>
-                          <th className="px-8 py-5 text-right">Ações</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                      {filteredComandas.map(c => (
-                          <tr key={c.id} className="group hover:bg-indigo-50/30 transition-all cursor-pointer" onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }}>
-                               <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
-                                    <button 
-                                        onClick={() => handleQuickStatusToggle(c)} 
-                                        className="transition-transform hover:scale-105 active:scale-95"
-                                    >
-                                        <StatusBadge status={c.status} />
-                                    </button>
-                               </td>
-                              <td className="px-8 py-5">
-                                  <div className="flex items-center gap-3">
-                                      <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px] font-black border border-indigo-100 shrink-0">
-                                          {(c.patientName || c.patient_name || 'P').split(' ').map(n => n[0]).join('').toUpperCase()}
-                                      </div>
-                                      <div className="flex flex-col">
-                                          <span className="font-black text-slate-700 text-sm whitespace-nowrap">{c.patientName || c.patient_name}</span>
-                                          {(c.sessions_total || 0) > 0 && (
-                                              <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-0.5">
-                                                  {c.sessions_used || 0}/{c.sessions_total} Sessões
-                                              </span>
-                                          )}
-                                      </div>
-                                  </div>
-                              </td>
-                              <td className="px-8 py-5">
-                                  <div className="max-w-[200px] truncate text-xs font-bold text-slate-400">{c.description}</div>
-                              </td>
-                              <td className="px-8 py-5">
-                                  <span className="font-black text-slate-800">{formatCurrency(c.totalValue)}</span>
-                              </td>
-                              <td className="px-8 py-5 text-right">
-                                  <div className="flex items-center gap-2 justify-end" onClick={e => e.stopPropagation()}>
-                                      <button onClick={() => handleOpenModal(c)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit3 size={14}/></button>
-                                      <button onClick={() => setDeleteConfirmId(c.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={14}/></button>
-                                  </div>
-                              </td>
-                          </tr>
-                      ))}
-                  </tbody>
-              </table>
-          </div>
-      )}
-      </div>
 
-      {/* MODAL LANÇAMENTO */}
-      <Modal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          title="Detalhes da Comanda"
-          subtitle={editingComanda?.id ? `#${editingComanda.id} • ${editingComanda.patientName || 'Novo Registro'}` : 'Novo Lançamento'}
-          maxWidth="max-w-2xl"
-          footer={
-            <div className="flex justify-between items-center w-full gap-4">
-               <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="uppercase tracking-widest text-[10px] font-black">
-                  Cancelar
-               </Button>
-               <Button 
-                onClick={handleSave} 
-                className="px-10 h-11 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 uppercase tracking-widest text-[10px] font-black transition-all transform active:scale-95"
-               >
-                  <CheckCircle size={18} className="mr-2"/> SALVAR ALTERAÇÕES
-               </Button>
-            </div>
-          }
-      >
-          <div className="space-y-8 py-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* IDENTIFICAÇÃO */}
-                  <div className="space-y-6">
-                      <div className="flex items-center gap-2 mb-2">
-                          <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Identificação</h4>
-                      </div>
-
-                      <Select 
-                        label="Paciente" 
-                        icon={<User size={18} className="text-indigo-400" />}
-                        value={editingComanda?.patientId || ''} 
-                        onChange={e => setEditingComanda({...editingComanda!, patientId: e.target.value})}
-                      >
-                          <option value="">Selecionar paciente...</option>
-                          {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                      </Select>
-
-                      <Select 
-                        label="Status" 
-                        value={editingComanda?.status || 'open'} 
-                        onChange={e => setEditingComanda({...editingComanda!, status: e.target.value as any})}
-                      >
-                          <option value="open">Em Aberto</option>
-                          <option value="closed">Pago</option>
-                          <option value="cancelled">Cancelado</option>
-                      </Select>
-
-                      <Input 
-                        label="Descrição" 
-                        icon={<FileText size={18} className="text-slate-400" />}
-                        placeholder="Ex: Consulta Avulsa"
-                        value={editingComanda?.description || ''} 
-                        onChange={e => setEditingComanda({...editingComanda!, description: e.target.value})}
-                      />
-                  </div>
-
-                  {/* VALORES E SESSÕES */}
-                  <div className="space-y-6">
-                      <div className="flex items-center gap-2 mb-2">
-                          <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Financeiro</h4>
-                      </div>
-
-                      <Input 
-                        label="Valor Total" 
-                        type="number"
-                        icon={<DollarSign size={18} className="text-emerald-500" />}
-                        value={editingComanda?.totalValue || editingComanda?.total || 0} 
-                        onChange={e => setEditingComanda({...editingComanda!, totalValue: parseFloat(e.target.value)})}
-                      />
-
-                      <Select 
-                        label="Profissional Responsável" 
-                        icon={<User size={18} className="text-indigo-400" />}
-                        value={editingComanda?.professionalId || ''} 
-                        onChange={e => setEditingComanda({...editingComanda!, professionalId: e.target.value})}
-                      >
-                          <option value="">Selecionar profissional...</option>
-                          {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </Select>
-
-                      <Input 
-                        label="Data Prevista" 
-                        type="datetime-local"
-                        icon={<Calendar size={18} className="text-slate-400" />}
-                        value={editingComanda?.startDate ? editingComanda.startDate.slice(0, 16) : ''} 
-                        onChange={e => setEditingComanda({...editingComanda!, startDate: e.target.value})}
-                      />
-                  </div>
-              </div>
-
-              {/* SERVIÇOS E ITENS */}
-              <div className="space-y-4">
-                  <div className="flex justify-between items-center px-1">
-                      <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-4 bg-amber-500 rounded-full"></div>
-                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Serviços / Itens</h4>
-                      </div>
-                      <button 
-                          type="button"
-                          onClick={() => {
-                              const newItem = { id: Date.now().toString(), name: 'Novo Serviço', price: 0, qty: 1, type: 'service' };
-                              setEditingComanda({...editingComanda!, items: [...(editingComanda?.items || []), newItem]});
-                          }}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-100 rounded-xl font-black text-indigo-600 uppercase text-[9px] hover:bg-indigo-50 transition-all shadow-sm"
-                      >
-                          <Plus size={12}/> ADICIONAR ITEM
-                      </button>
-                  </div>
-                  
-                  <div className="space-y-3">
-                      {(editingComanda?.items || []).map((item: any, idx: number) => (
-                          <div key={item.id || idx} className="bg-slate-50/50 p-5 rounded-3xl border border-slate-200/50 flex flex-col gap-4 group">
-                              <div className="flex gap-4 items-start">
-                                  <div className="flex-1">
-                                    <Select 
-                                      value={item.service_id || item.package_id || ''}
-                                      onChange={(e) => {
-                                          const val = e.target.value;
-                                          const isPkg = val.startsWith('pkg_');
-                                          const id = isPkg ? val.replace('pkg_', '') : val;
-                                          const source = isPkg ? packages : services;
-                                          const found = source.find(s => String(s.id) === String(id));
-                                          
-                                          const newItems = [...(editingComanda?.items || [])];
-                                          newItems[idx] = {
-                                              ...newItems[idx],
-                                              name: found?.name || 'Item',
-                                              price: found?.price || found?.totalPrice || 0,
-                                              [isPkg ? 'package_id' : 'service_id']: id,
-                                              type: isPkg ? 'package' : 'service'
-                                          };
-                                          if (isPkg) delete newItems[idx].service_id;
-                                          else delete newItems[idx].package_id;
-
-                                          const newTotal = newItems.reduce((acc, curr) => acc + (curr.price * (curr.qty || 1)), 0);
-                                          setEditingComanda({...editingComanda!, items: newItems, totalValue: newTotal});
-                                      }}
-                                    >
-                                        <option value="">Selecionar...</option>
-                                        <optgroup label="Serviços Individuais">
-                                            {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
-                                        </optgroup>
-                                        <optgroup label="Pacotes">
-                                            {packages.map(p => <option key={p.id} value={`pkg_${p.id}`}>{p.name} - {formatCurrency(p.totalPrice)}</option>)}
-                                        </optgroup>
-                                    </Select>
-                                  </div>
-                                  <button 
-                                    type="button"
-                                    onClick={() => {
-                                        const newItems = editingComanda!.items.filter((_: any, i: number) => i !== idx);
-                                        const newTotal = newItems.reduce((acc: number, curr: any) => acc + (curr.price * (curr.qty || 1)), 0);
-                                        setEditingComanda({...editingComanda!, items: newItems, totalValue: newTotal});
-                                    }}
-                                    className="p-3 text-rose-500 hover:bg-rose-50 rounded-2xl transition-all border border-transparent hover:border-rose-100"
-                                  >
-                                      <Trash2 size={18}/>
-                                  </button>
-                              </div>
-                              <div className="flex items-center justify-between gap-4 px-1">
-                                  <div className="flex items-center gap-3">
-                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qtd</span>
-                                      <input 
-                                        type="number" 
-                                        className="w-20 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-black text-slate-700 outline-none focus:border-indigo-400"
-                                        value={item.qty || 1}
-                                        onChange={(e) => {
-                                            const newItems = [...(editingComanda?.items || [])];
-                                            newItems[idx].qty = parseInt(e.target.value) || 1;
-                                            const newTotal = newItems.reduce((acc, curr) => acc + (curr.price * (curr.qty || 1)), 0);
-                                            setEditingComanda({...editingComanda!, items: newItems, totalValue: newTotal});
-                                        }}
-                                      />
-                                  </div>
-                                  <div className="text-sm font-black text-indigo-600 bg-indigo-50/50 px-4 py-1.5 rounded-xl border border-indigo-100/50">
-                                      {formatCurrency(item.price * (item.qty || 1))}
-                                  </div>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-
-              {/* PROGRESSO E NOTAS */}
-              <div className="space-y-6">
-                  {(editingComanda?.sessions_total || 0) > 1 && (
-                      <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100/50">
-                          <div className="flex justify-between items-center mb-3">
-                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Progresso do Pacote</span>
-                              <span className="text-xs font-black text-indigo-600 bg-white px-3 py-1 rounded-full border border-indigo-100">
-                                {editingComanda?.sessions_used}/{editingComanda?.sessions_total} Sessões
-                              </span>
-                          </div>
-                          <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden shadow-inner">
-                              <div 
-                                  className="bg-indigo-500 h-full transition-all duration-1000 ease-out shadow-lg shadow-indigo-200" 
-                                  style={{ width: `${Math.min(((editingComanda?.sessions_used || 0) / (editingComanda?.sessions_total || 1)) * 100, 100)}%` }}
-                              ></div>
-                          </div>
-                      </div>
+                  {!isLoading && filteredComandas.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="px-5 py-12 text-center text-sm text-slate-400">
+                        Nenhuma comanda encontrada.
+                      </td>
+                    </tr>
                   )}
-
-                  <TextArea 
-                    label="Observações Privadas" 
-                    placeholder="Adicione detalhes internos sobre este faturamento..."
-                    value={editingComanda?.notes || ''} 
-                    onChange={e => setEditingComanda({...editingComanda!, notes: e.target.value})}
-                    className="min-h-[120px] !rounded-[2rem]"
-                  />
-              </div>
+                </tbody>
+              </table>
+            </div>
           </div>
+        )}
+      </main>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingComanda?.id ? 'Editando Comanda' : 'Criando Comanda'}
+        maxWidth="max-w-3xl"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <Button
+              onClick={() => setIsModalOpen(false)}
+              variant="outline"
+              size="sm"
+            >
+              FECHAR
+            </Button>
+
+            <Button
+              onClick={handleSave}
+              disabled={saveDisabled}
+              variant="primary"
+              isLoading={isLoading}
+              loadingText={editingComanda?.id ? 'SALVANDO...' : 'CRIANDO...'}
+            >
+              {editingComanda?.id ? 'SALVAR' : 'CRIAR'}
+            </Button>
+          </div>
+        }
+      >
+        {editingComanda && (
+          <div className="space-y-5 py-1">
+            <div className="flex flex-wrap items-center gap-6">
+              <div className="text-sm text-slate-600">Tipo:</div>
+
+              <TypeButton
+                active={modalTab === 'avulsa'}
+                label="Comanda Normal"
+                onClick={() => {
+                  setModalTab('avulsa');
+                  setEditingComanda({
+                    ...editingComanda,
+                    packageId: '',
+                    items: editingComanda.items || [],
+                    sessions_total: Number(editingComanda.sessions_total || 1),
+                  });
+                }}
+              />
+
+              <TypeButton
+                active={modalTab === 'pacote'}
+                label="Comanda Pacote"
+                onClick={() => {
+                  setModalTab('pacote');
+                  setEditingComanda({
+                    ...editingComanda,
+                    sessions_total:
+                      Number(editingComanda.sessions_total || 0) > 1
+                        ? Number(editingComanda.sessions_total || 0)
+                        : 4,
+                    items:
+                      editingComanda.items && editingComanda.items.length > 0
+                        ? editingComanda.items
+                        : [{ name: '', serviceId: '', qty: 1, price: 0 }],
+                  });
+                }}
+              />
+            </div>
+
+            {modalTab === 'avulsa' ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Descrição"
+                  value={editingComanda.description || ''}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Ex: Sessão de Psicologia, Avaliação, etc"
+                  containerClassName="md:col-span-2"
+                />
+
+                <Combobox
+                  label="Cliente"
+                  options={activePatients.map((p: any) => ({ id: p.id, label: normalizePatientName(p) }))}
+                  value={editingComanda.patientId || ''}
+                  onChange={(id, label) => {
+                    setEditingComanda({
+                      ...editingComanda,
+                      patientId: String(id),
+                      patientSearch: label || '',
+                    });
+                  }}
+                  placeholder="Selecione um cliente..."
+                />
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+                  <DatePicker
+                    value={editingComanda.startDate || ''}
+                    onChange={(val) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        startDate: val,
+                      })
+                    }
+                  />
+                </div>
+
+                <Input
+                  label="Valor Total"
+                  value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      totalValue: parseMonetaryValue(e.target.value),
+                    })
+                  }
+                  prefix="R$"
+                />
+
+                <Input
+                  label="Número de Atendimentos"
+                  type="number"
+                  min={1}
+                  value={editingComanda.sessions_total || 1}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      sessions_total: Math.max(1, Number(e.target.value || 1)),
+                    })
+                  }
+                />
+
+                <Select
+                  label="Profissional"
+                  value={editingComanda.professionalId || ''}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      professionalId: e.target.value,
+                    })
+                  }
+                >
+                  {professionals.map((p: any) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.full_name || p.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Select
+                  label="Pacote"
+                  value={editingComanda.packageId || ''}
+                  onChange={(e) => handleSelectPackage(e.target.value)}
+                >
+                  <option value="">Selecione uma definição de pacote</option>
+                  {packages.map((pkg) => (
+                    <option key={pkg.id} value={String(pkg.id)}>
+                      {pkg.name}
+                    </option>
+                  ))}
+                </Select>
+
+                <Combobox
+                  label="Cliente"
+                  options={activePatients.map((p: any) => ({ id: p.id, label: normalizePatientName(p) }))}
+                  value={editingComanda.patientId || ''}
+                  onChange={(id, label) => {
+                    setEditingComanda({
+                      ...editingComanda,
+                      patientId: String(id),
+                      patientSearch: label || '',
+                    });
+                  }}
+                  placeholder="Selecione um cliente..."
+                />
+
+                <Select
+                  label="Profissional"
+                  value={editingComanda.professionalId || ''}
+                  onChange={(e) =>
+                    setEditingComanda({
+                      ...editingComanda,
+                      professionalId: e.target.value,
+                    })
+                  }
+                >
+                  {professionals.map((p: any) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.full_name || p.name}
+                    </option>
+                  ))}
+                </Select>
+
+                <div className="pt-1">
+                  <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-slate-600">
+                    Itens:
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-12 gap-3 text-[12px] text-slate-500">
+                      <div className="col-span-6">Serviço</div>
+                      <div className="col-span-2">Qtd</div>
+                      <div className="col-span-3">Preço</div>
+                      <div className="col-span-1" />
+                    </div>
+
+                    {(editingComanda.items || []).map((item, index) => (
+                      <div key={index} className="grid grid-cols-12 items-end gap-3">
+                        <div className="col-span-6">
+                          <Select
+                            label=""
+                            value={item.serviceId || ''}
+                            onChange={(e) =>
+                              updatePackageItem(
+                                index,
+                                { serviceId: e.target.value },
+                                true
+                              )
+                            }
+                            size="sm"
+                          >
+                            <option value="">Selecione</option>
+                            {services.map((service) => (
+                              <option key={service.id} value={String(service.id)}>
+                                {service.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+
+                        <div className="col-span-2">
+                          <input
+                            type="number"
+                            min={1}
+                            value={item.qty || 1}
+                            onChange={(e) =>
+                              updatePackageItem(index, {
+                                qty: Math.max(1, Number(e.target.value || 1)),
+                              })
+                            }
+                            className={lineInputClass}
+                          />
+                        </div>
+
+                        <div className="col-span-3">
+                          <input
+                            value={formatCurrencyInput(Number(item.price || 0))}
+                            onChange={(e) =>
+                              updatePackageItem(index, {
+                                price: parseMonetaryValue(e.target.value),
+                              })
+                            }
+                            className={lineInputClass}
+                          />
+                        </div>
+
+                        <div className="col-span-1 flex justify-end">
+                          <Button
+                            variant="softDanger"
+                            size="sm"
+                            iconOnly
+                            onClick={() => removePackageItem(index)}
+                            title="Remover item"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addPackageItem}
+                    className="mt-3 w-full rounded-md border border-violet-400 py-2.5 text-sm font-semibold text-violet-600 transition hover:bg-violet-50"
+                  >
+                    ADICIONAR ITEM
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <div className="w-full max-w-[290px] space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-600">
+                  <span>Valor Total:</span>
+                  <strong className="font-semibold text-slate-800">
+                    {formatCurrency(modalGrossTotal)}
+                  </strong>
+                </div>
+
+                <div className="grid grid-cols-[1fr_auto_82px] items-center gap-2">
+                  <span className="text-sm text-slate-600">Desconto:</span>
+
+                  <div className="inline-flex overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingComanda({
+                          ...editingComanda,
+                          discount_type: 'percentage',
+                        })
+                      }
+                      className={`px-3 py-2 text-xs font-semibold ${
+                        editingComanda.discount_type === 'percentage'
+                          ? 'bg-slate-200 text-slate-800'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingComanda({
+                          ...editingComanda,
+                          discount_type: 'fixed',
+                        })
+                      }
+                      className={`px-3 py-2 text-xs font-semibold ${
+                        editingComanda.discount_type === 'fixed'
+                          ? 'bg-slate-200 text-slate-800'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      R$
+                    </button>
+                  </div>
+
+                  <input
+                    value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
+                    onChange={(e) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        discount_value: parseMonetaryValue(e.target.value),
+                      })
+                    }
+                    className="h-9 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-violet-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600">
+                  <span>Total Líquido:</span>
+                  <strong className="text-lg font-bold text-slate-800">
+                    {formatCurrency(modalNetTotal)}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
-      {/* COMANDA MANAGER MODAL */}
       <Modal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        title={`Comanda - ${historyComanda?.description || 'Detalhes'}`}
-        maxWidth="max-w-6xl"
+        title="Gestão de Histórico e Pagamentos"
+        maxWidth="max-w-5xl"
       >
-        <div className="flex flex-col lg:flex-row gap-8 py-2 min-h-[500px]">
-            {/* LEFT SIDEBAR - PATIENT & SUMMARY */}
-            <div className="w-full lg:w-1/3 flex flex-col gap-6 border-r border-slate-100 pr-0 lg:pr-8">
-                {/* Patient Basic Info */}
-                <div className="space-y-6">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
-                            <UserIcon size={24} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <h4 className="text-sm font-black text-slate-800 truncate uppercase tracking-tight">
-                                    {historyComanda?.patientName || historyComanda?.patient_name || 'Paciente'}
-                                </h4>
-                                <div className="flex gap-1">
-                                    <button className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><MessageSquare size={16}/></button>
-                                    <button className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"><Send size={16}/></button>
-                                </div>
-                            </div>
-                            <p className="text-[11px] font-bold text-slate-400 truncate lowercase">{patients.find(p => String(p.id) === String(historyComanda?.patientId))?.email || 'sem email cadastrado'}</p>
-                        </div>
-                    </div>
+        {historyComanda && (
+          <div className="grid grid-cols-1 gap-6 py-2 lg:grid-cols-[1.6fr_0.9fr]">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 font-bold text-violet-700">
+                    {String(
+                      (historyComanda as any).patientName ||
+                        (historyComanda as any).patient_name ||
+                        'P'
+                    ).charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-800">
+                      {(historyComanda as any).patientName ||
+                        (historyComanda as any).patient_name}
+                    </p>
+                    <p className="text-xs text-slate-400">#{historyComanda.id}</p>
+                  </div>
+                </div>
 
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
-                            <CalendarDays size={24} />
-                        </div>
-                        <div className="flex-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Data de Criação</p>
-                            <p className="text-xs font-black text-slate-700">{historyComanda?.createdAt ? new Date(historyComanda.createdAt).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { dateStyle: 'medium'}) : 'N/A'}</p>
-                        </div>
-                    </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleGenerateReceipt}
+                    className={iconButtonClass}
+                    title="Recibo"
+                  >
+                    <FileText size={16} />
+                  </button>
 
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
-                            <Info size={24} />
-                        </div>
-                        <div className="flex-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Detalhes</p>
-                            <p className="text-xs font-black text-slate-700">
-                                {historyComanda?.description || 'Comanda'}
-                                {historyComanda?.sessions_total ? ` (${historyComanda.sessions_total})` : ''}
+                  <button
+                    onClick={() => handleOpenModal(historyComanda)}
+                    className={iconButtonClass}
+                    title="Editar"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="inline-flex rounded-xl bg-slate-100 p-1">
+                {(['atendimentos', 'pagamentos', 'pacote'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setManagerTab(tab)}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium capitalize ${
+                      managerTab === tab
+                        ? 'bg-white text-violet-600 shadow-sm'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                {managerTab === 'atendimentos' && (
+                  <div className="space-y-3">
+                    {(historyComanda as any).appointments?.map((appointment: any) => (
+                      <div
+                        key={appointment.id}
+                        className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                            <CalendarDays size={18} />
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-800">
+                              {new Date(
+                                appointment.start_date || appointment.startDate
+                              ).toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: 'long',
+                                year: 'numeric',
+                              })}
                             </p>
+                            <p className="text-xs text-slate-400">
+                              {new Date(
+                                appointment.start_date || appointment.startDate
+                              ).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* YELLOW SUMMARY CARD */}
-                <div className="mt-4 bg-orange-400 rounded-3xl p-6 text-white shadow-xl shadow-orange-100 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
-                        <DollarSign size={80} strokeWidth={3} />
-                    </div>
-                    <div className="relative z-10">
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-6 opacity-90">Resumo:</h4>
-                        
-                        <div className="space-y-4">
-                            {(() => {
-                                const total = historyComanda?.totalValue || historyComanda?.total || 0;
-                                const paid = historyComanda?.paidValue || 0;
-                                const pending = total - paid;
-
-                                return (
-                                    <>
-                                        <div className="flex justify-between items-center border-b border-white/20 pb-3">
-                                            <span className="text-[11px] font-bold opacity-80 uppercase">Total da comanda:</span>
-                                            <span className="text-sm font-black tracking-tight">{formatCurrency(total)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center border-b border-white/20 pb-3">
-                                            <span className="text-[11px] font-bold opacity-80 uppercase">Valor pago:</span>
-                                            <span className="text-sm font-black tracking-tight">{formatCurrency(paid)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center pt-2">
-                                            <span className="text-[11px] font-bold opacity-90 uppercase">Valor pendente:</span>
-                                            <span className="text-lg font-black tracking-tighter">{formatCurrency(pending)}</span>
-                                        </div>
-                                    </>
-                                );
-                            })()}
-                        </div>
-                    </div>
-                </div>
-
-                {/* BOTTOM ACTIONS */}
-                <div className="mt-auto space-y-3 pt-6 border-t border-slate-50">
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => {
-                                setNewPayment({ 
-                                    value: '', 
-                                    date: new Date().toISOString().slice(0, 10), 
-                                    method: 'Pix',
-                                    receiptCode: historyComanda?.receipt_code || ''
-                                });
-                                setIsAddPaymentModalOpen(true);
-                            }}
-                            className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 transition-all active:scale-95"
+                        <select
+                          value={appointment.status}
+                          onChange={(e) =>
+                            handleUpdateAppointmentStatus(appointment.id, e.target.value)
+                          }
+                          className={compactInputClass}
                         >
-                            ADICIONAR PAGAMENTO
-                        </button>
-                        <button 
-                            onClick={handleGenerateReceipt}
-                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            <FileText size={14}/> GERAR RECIBO
-                        </button>
-                    </div>
-                    <button 
-                        onClick={() => setIsHistoryOpen(false)}
-                        className="w-full py-3 text-rose-500 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest transition-all text-center border border-rose-100 rounded-xl hover:bg-rose-50/30"
-                    >
-                        FECHAR COMANDA
-                    </button>
-                </div>
-            </div>
-
-            {/* RIGHT MAIN CONTENT - TABS & LISTS */}
-            <div className="flex-1 flex flex-col min-w-0">
-                {/* Tabs */}
-                <div className="flex border-b border-slate-100 bg-white sticky top-0 z-20 mb-6">
-                    {[
-                        { id: 'atendimentos', label: 'ATENDIMENTOS' },
-                        { id: 'pagamentos', label: 'HISTÓRICO DE PAGAMENTOS' },
-                        { id: 'pacote', label: 'USO DO PACOTE' },
-                    ].map(tab => (
-                        <button 
-                            key={tab.id}
-                            onClick={() => setManagerTab(tab.id as any)}
-                            className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${managerTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/10' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                        >
-                            {tab.label}
-                        </button>
+                          <option value="scheduled">Agendado</option>
+                          <option value="completed">Concluído</option>
+                          <option value="cancelled">Cancelado</option>
+                          <option value="no_show">Faltou</option>
+                        </select>
+                      </div>
                     ))}
-                </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[500px]">
-                    {managerTab === 'atendimentos' && (
-                        <div className="animate-fadeIn">
-                            <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Atendimentos</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="border-b border-slate-100">
-                                        <tr>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Horario</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {(() => {
-                                            const cmndApts = (historyComanda?.appointments || []).sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-                                            
-                                            if (cmndApts.length === 0) return (
-                                                <tr><td colSpan={3} className="py-12 text-center text-slate-400 text-xs italic">Nenhum atendimento vinculado.</td></tr>
-                                            );
-
-                                            return cmndApts.map((apt: any, idx: number) => {
-                                                const dDate = new Date(apt.start_time);
-                                                const dEnd = new Date(dDate.getTime() + (apt.duration_minutes || 50) * 60000);
-                                                return (
-                                                    <tr key={apt.id || idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
-                                                        <td className="py-5 px-4 flex flex-col">
-                                                            <span className="text-[9px] font-black text-indigo-400 uppercase mb-1">{apt.recurrence_index || idx + 1} de {apt.recurrence_count || cmndApts.length}</span>
-                                                            <span className="text-xs font-bold text-slate-700 uppercase">{dDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                                                        </td>
-                                                        <td className="py-5 px-4">
-                                                            <span className="text-xs font-black text-slate-400 tabular-nums">{dDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                        </td>
-                                                        <td className="py-5 px-4">
-                                                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
-                                                                apt.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 
-                                                                apt.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
-                                                            }`}>{apt.status}</span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            });
-                                        })()}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    {(!(historyComanda as any).appointments ||
+                      (historyComanda as any).appointments.length === 0) && (
+                      <div className="py-10 text-center text-sm text-slate-400">
+                        Nenhum atendimento vinculado.
+                      </div>
                     )}
+                  </div>
+                )}
 
-                    {managerTab === 'pagamentos' && (
-                        <div className="animate-fadeIn">
-                             <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Histórico de Transações</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-slate-100">
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Valor</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Forma de pgto.</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Recibo</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {(() => {
-                                            if (!historyComanda?.paidValue || historyComanda.paidValue === 0) return (
-                                                <tr><td colSpan={4} className="py-12 text-center text-slate-400 text-xs italic">Nenhum pagamento registrado.</td></tr>
-                                            );
-                                            
-                                            // Mock default view, since the DB model implementation for individual comanda_payments is tied in Agenda.tsx mostly via fetch
-                                            return (
-                                                <tr className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
-                                                    <td className="py-5 px-4">
-                                                        <span className="text-sm font-black text-emerald-600">{formatCurrency(historyComanda.paidValue)}</span>
-                                                    </td>
-                                                    <td className="py-5 px-4 italic text-xs text-slate-500 font-bold uppercase">Pagamento Registrado</td>
-                                                    <td className="py-5 px-4 text-xs font-black text-slate-400">{new Date(historyComanda.updated_at || historyComanda.createdAt).toLocaleDateString()}</td>
-                                                    <td className="py-5 px-4">
-                                                        <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 tracking-tighter shadow-sm">#{historyComanda.receipt_code || 'N/A'}</span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })()}
-                                    </tbody>
-                                </table>
-                            </div>
+                {managerTab === 'pagamentos' && (
+                  <div className="space-y-3">
+                    {(historyComanda as any).payments?.map((payment: any) => (
+                      <div
+                        key={payment.id}
+                        className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-emerald-600">
+                            <Check size={18} />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800">
+                              {formatCurrency(Number(payment.amount || 0))}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {new Date(payment.payment_date).toLocaleDateString('pt-BR')} •{' '}
+                              {payment.payment_method}
+                            </p>
+                          </div>
                         </div>
-                    )}
+                        <span className="text-xs text-slate-400">
+                          #{payment.receipt_code || '---'}
+                        </span>
+                      </div>
+                    ))}
 
-                    {managerTab === 'pacote' && (
-                        <div className="animate-fadeIn">
-                            <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Uso do Pacote</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-slate-100">
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Serviço</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Quantidade</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Utilizados</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Restante</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {(() => {
-                                            const used = historyComanda?.sessions_used || 0;
-                                            const total = historyComanda?.sessions_total || 0;
-                                            const remaining = total - used;
-                                            
-                                            if (!historyComanda) return null;
-
-                                            return (
-                                                <tr className="border-b border-slate-50">
-                                                    <td className="py-6 px-4">
-                                                        <p className="text-xs font-bold text-slate-700 uppercase tracking-tight">{historyComanda?.description || 'Serviço do Pacote'}</p>
-                                                    </td>
-                                                    <td className="py-6 px-4 text-center text-xs font-black text-slate-400 tabular-nums">{total}</td>
-                                                    <td className="py-6 px-4 text-center text-xs font-black text-indigo-600 tabular-nums">{used}</td>
-                                                    <td className="py-6 px-4 text-center">
-                                                        {total > 0 && remaining === 0 ? (
-                                                            <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-rose-100">Esgotado</span>
-                                                        ) : total > 0 ? (
-                                                            <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">{remaining} Restantes</span>
-                                                        ) : (
-                                                            <span className="text-[9px] font-bold text-slate-400 italic">Avulso</span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })()}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    {(!(historyComanda as any).payments ||
+                      (historyComanda as any).payments.length === 0) && (
+                      <div className="py-10 text-center text-sm text-slate-400">
+                        Nenhum pagamento registrado.
+                      </div>
                     )}
-                </div>
+                  </div>
+                )}
+
+                {managerTab === 'pacote' && (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="mb-4 text-4xl font-bold text-violet-600">
+                      {(historyComanda as any).sessions_used || 0} /{' '}
+                      {(historyComanda as any).sessions_total || 1}
+                    </div>
+                    <div className="mb-4 text-sm text-slate-500">
+                      Atendimentos consumidos
+                    </div>
+                    <div className="h-3 w-full max-w-md overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="h-full rounded-full bg-violet-600"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (((historyComanda as any).sessions_used || 0) /
+                              ((historyComanda as any).sessions_total || 1)) *
+                              100
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-        </div>
+
+            <div className="space-y-5">
+              <div className="rounded-2xl bg-violet-600 p-5 text-white shadow-lg shadow-violet-200">
+                <p className="mb-1 text-xs uppercase tracking-wider text-violet-100">
+                  Valor total
+                </p>
+                <p className="mb-4 text-3xl font-bold">
+                  {formatCurrency(getComandaTotal(historyComanda))}
+                </p>
+
+                <div className="space-y-2 border-t border-violet-400 pt-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Recebido</span>
+                    <strong>{formatCurrency(getComandaPaid(historyComanda))}</strong>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2 text-sm">
+                    <span>Pendente</span>
+                    <strong>{formatCurrency(getComandaPending(historyComanda))}</strong>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => setIsAddPaymentModalOpen(true)}
+                  variant="primary"
+                  fullWidth
+                  className="mt-4 bg-white !text-violet-600 hover:bg-violet-50"
+                  size="lg"
+                >
+                  Novo pagamento
+                </Button>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <h4 className="mb-4 text-sm font-semibold text-slate-700">Itens cobrados</h4>
+                <div className="space-y-3">
+                  {(historyComanda as any).items?.map((item: any, index: number) => (
+                    <div key={item.id || index} className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-slate-800">{item.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {item.qty} × {formatCurrency(item.price)}
+                        </p>
+                      </div>
+                      <strong className="text-sm text-slate-700">
+                        {formatCurrency(Number(item.qty || 0) * Number(item.price || 0))}
+                      </strong>
+                    </div>
+                  ))}
+
+                  {(!(historyComanda as any).items ||
+                    (historyComanda as any).items.length === 0) && (
+                    <p className="text-sm text-slate-400">Nenhum item registrado.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
-      {/* ADD PAYMENT MODAL */}
       <Modal
         isOpen={isAddPaymentModalOpen}
         onClose={() => setIsAddPaymentModalOpen(false)}
-        title="Novo Pagamento"
-        maxWidth="max-w-xl"
+        title="Lançar Novo Pagamento"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button
+              onClick={() => setIsAddPaymentModalOpen(false)}
+              variant="ghost"
+              size="sm"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSavePayment}
+              variant="success"
+              className="px-6"
+            >
+              Efetivar pagamento
+            </Button>
+          </div>
+        }
       >
-        <div className="space-y-8 py-4">
-            <div className="space-y-6">
-                <Input 
-                    label="Data do Pagamento" 
-                    type="date"
-                    value={newPayment.date}
-                    onChange={e => setNewPayment({...newPayment, date: e.target.value})}
-                />
-                
-                <Select 
-                    label="Forma de pagamento" 
-                    value={newPayment.method}
-                    onChange={e => setNewPayment({...newPayment, method: e.target.value})}
-                >
-                    <option value="Dinheiro">Dinheiro</option>
-                    <option value="Pix">Pix</option>
-                    <option value="Cartão de Crédito">Cartão de Crédito</option>
-                    <option value="Cartão de Débito">Cartão de Débito</option>
-                    <option value="Transferência">Transferência</option>
-                </Select>
+        <div className="space-y-4 py-2">
+          <Field label="Valor do pagamento">
+            <input
+              value={newPayment.value}
+              onChange={(e) =>
+                setNewPayment((prev) => ({ ...prev, value: e.target.value }))
+              }
+              placeholder="0,00"
+              className={compactInputClass}
+            />
+          </Field>
 
-                <Input 
-                    label="Valor" 
-                    placeholder="R$ 0,00"
-                    type="number"
-                    value={newPayment.value}
-                    onChange={e => setNewPayment({...newPayment, value: e.target.value})}
-                />
-
-                <Input 
-                    label="Código do Recibo (Opcional)" 
-                    placeholder="Ex: REC-123"
-                    value={newPayment.receiptCode}
-                    onChange={e => setNewPayment({...newPayment, receiptCode: e.target.value})}
-                />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+              <DatePicker
+                value={newPayment.date}
+                onChange={(val) =>
+                  setNewPayment((prev) => ({ ...prev, date: val || '' }))
+                }
+              />
             </div>
 
-            <div className="flex justify-end pr-2">
-                {(() => {
-                    const total = parseFloat(String(historyComanda?.totalValue || historyComanda?.total || 0));
-                    const paid = parseFloat(String(historyComanda?.paid_value || historyComanda?.paidValue || 0));
-                    const remaining = total - paid;
-                    return (
-                        <span className={`text-[11px] font-black uppercase tracking-widest ${remaining > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                            Valor restante: {formatCurrency(remaining)}
-                        </span>
-                    );
-                })()}
-            </div>
+            <Field label="Método">
+              <select
+                value={newPayment.method}
+                onChange={(e) =>
+                  setNewPayment((prev) => ({ ...prev, method: e.target.value }))
+                }
+                className={compactInputClass}
+              >
+                <option value="Pix">Pix</option>
+                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                <option value="Débito">Débito</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Boleto">Boleto</option>
+              </select>
+            </Field>
+          </div>
 
-            <div className="flex gap-4 pt-4 border-t border-slate-50">
-                <Button 
-                    variant="ghost" 
-                    onClick={() => setIsAddPaymentModalOpen(false)} 
-                    className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-none hover:bg-slate-50"
-                >
-                    FECHAR
-                </Button>
-                <Button 
-                    variant="primary" 
-                    onClick={handleSavePayment}
-                    className="flex-1 bg-indigo-600 text-white hover:bg-slate-900 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
-                >
-                    SALVAR PAGAMENTO
-                </Button>
-            </div>
+          <Field label="Código de transação / comprovante">
+            <input
+              value={newPayment.receiptCode}
+              onChange={(e) =>
+                setNewPayment((prev) => ({ ...prev, receiptCode: e.target.value }))
+              }
+              placeholder="Ex: 123ABC..."
+              className={compactInputClass}
+            />
+          </Field>
         </div>
       </Modal>
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
-              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-red-100">
-                <AlertTriangle size={40} />
-              </div>
-              <h3 className="text-xl font-black text-slate-800 mb-3">Excluir Comanda?</h3>
-              <p className="text-sm font-bold text-slate-400 mb-8 leading-relaxed">
-                Esta ação é irreversível. Todas as informações ligadas a este lançamento serão perdidas.
-              </p>
-              <div className="flex flex-col gap-3">
-                 <button 
-                  onClick={confirmDelete}
-                  className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-100 transition-all"
-                 >
-                   CONFIRMAR EXCLUSÃO
-                 </button>
-                 <button 
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-                 >
-                   DESISTIR
-                 </button>
-              </div>
-           </div>
-        </div>
-      )}
 
-      {/* TOASTS */}
-      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
-        {toasts.map(t => (
-          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-            {t.type === 'success' ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}
-            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+      <Modal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Exclusão de Registro"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <button
+              onClick={() => setDeleteConfirmId(null)}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+            >
+              Manter registro
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+            >
+              Excluir registro
+            </button>
           </div>
-        ))}
-      </div>
-      </div>
+        }
+      >
+        <div className="py-6 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+            <AlertTriangle size={30} />
+          </div>
+          <p className="text-base font-semibold text-slate-800">Atenção</p>
+          <p className="mt-2 text-sm text-slate-500">
+            Esta comanda e seus vínculos financeiros serão removidos permanentemente.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };

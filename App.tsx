@@ -39,6 +39,7 @@ import { Messages } from './pages/Messages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { LandingPage } from './pages/LandingPage';
 import { AuroraAssistant } from './components/AI/AuroraAssistant';
 
@@ -193,13 +194,15 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <LanguageProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </AuthProvider>
-      </ThemeProvider>
+      <UserPreferencesProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </AuthProvider>
+        </ThemeProvider>
+      </UserPreferencesProvider>
     </LanguageProvider>
   );
 };

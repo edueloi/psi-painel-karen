@@ -468,24 +468,40 @@ router.post('/comandas', async (req, res) => {
     await withSchema();
     const { 
       patient_id, professional_id, items, notes, 
-      payment_method, discount, start_date, duration_minutes, receipt_code
+      payment_method, discount, start_date, duration_minutes, receipt_code,
+      discount_type, discount_value, sessions_total, package_id
     } = req.body;
 
     const itemsArr = items || [];
-    const total = itemsArr.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+    const subtotal = itemsArr.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+    const dType = discount_type || 'fixed';
+    const dValue = parseFloat(discount_value || 0);
 
-    // 1. Criar a Comanda
+    let total = subtotal;
+    if (dType === 'percentage') {
+       total = subtotal - (subtotal * (dValue / 100));
+    } else {
+       total = subtotal - dValue;
+    }
+    total = Math.max(0, total);
+
+    // Sessions count calculation from items if sessions_total not explicitly provided
+    const sessions_from_items = itemsArr.reduce((sum, item) => sum + (parseInt(item.qty) || 0), 0);
+
     const [result] = await db.query(
       `INSERT INTO comandas (
         tenant_id, patient_id, professional_id, description, total, discount, 
-        items, notes, payment_method, start_date, duration_minutes, status, receipt_code
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        items, notes, payment_method, start_date, duration_minutes, status, 
+        receipt_code, discount_type, discount_value, total_net, sessions_total, package_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, patient_id || null, professional_id || null, 
         req.body.description || 'Consulta/Serviço',
-        total, discount || 0, JSON.stringify(itemsArr), notes || null, 
+        total, dValue, JSON.stringify(itemsArr), notes || null, 
         payment_method || null, start_date || null, duration_minutes || 60,
-        req.body.status || 'open', receipt_code || null
+        req.body.status || 'open', receipt_code || null, 
+        dType, dValue, total, (sessions_total || sessions_from_items || 1),
+        package_id || null
       ]
     );
 
@@ -537,18 +553,30 @@ router.put('/comandas/:id', async (req, res) => {
         const { 
             patient_id, professional_id, description, status, items, 
             notes, payment_method, start_date, duration_minutes,
-            sessions_total, sessions_used, paid_value, receipt_code
+            sessions_total, sessions_used, paid_value, receipt_code,
+            discount_type, discount_value, package_id
         } = req.body;
 
         const itemsArr = items || [];
-        const total = itemsArr.reduce((sum, item) => sum + (parseFloat(item.price || item.value || 0) * (item.qty || item.quantity || 1)), 0);
+        const subtotal = itemsArr.reduce((sum, item) => sum + (parseFloat(item.price || item.value || 0) * (item.qty || item.quantity || 1)), 0);
+        const dType = discount_type || 'fixed';
+        const dValue = parseFloat(discount_value || 0);
+
+        let total = subtotal;
+        if (dType === 'percentage') {
+           total = subtotal - (subtotal * (dValue / 100));
+        } else {
+           total = subtotal - dValue;
+        }
+        total = Math.max(0, total);
 
         await db.query(
             `UPDATE comandas SET 
                 patient_id = ?, professional_id = ?, description = ?, status = ?, 
                 total = ?, items = ?, notes = ?, payment_method = ?, 
                 start_date = ?, duration_minutes = ? ,
-                sessions_total = ?, sessions_used = ?, paid_value = ?, receipt_code = ?
+                sessions_total = ?, sessions_used = ?, paid_value = ?, receipt_code = ?,
+                discount_type = ?, discount_value = ?, total_net = ?, package_id = ?
             WHERE id = ? AND tenant_id = ?`,
             [
                 patient_id || null, professional_id || null, description || '', status || 'open',
@@ -556,6 +584,7 @@ router.put('/comandas/:id', async (req, res) => {
                 start_date || null, duration_minutes || 60,
                 sessions_total || 0, sessions_used || 0,
                 paid_value || 0, receipt_code || null,
+                dType, dValue, total, package_id || null,
                 req.params.id, req.user.tenant_id
             ]
         );

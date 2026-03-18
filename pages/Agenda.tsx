@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Appointment, Service, Patient, User, AppointmentType } from '../types';
-import { 
-    ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin, 
-    Calendar as CalendarIcon, CalendarDays, CalendarRange, X, Check, Repeat, Trash2, User as UserIcon, 
+import {
+    ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin,
+    Calendar as CalendarIcon, CalendarDays, CalendarRange, X, Check, Repeat, Trash2, User as UserIcon,
     DollarSign, Package, Layers, Loader2, Briefcase, FileText, UserCheck, Ban, Link2, Search,
     Filter, LayoutGrid, List as ListIcon, ExternalLink, Sparkles, CheckCircle2, AlertCircle,
     ArrowUpRight, Info,
@@ -16,6 +16,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
+import { DatePicker } from '../components/UI/DatePicker';
+
 
 function formatCurrency(value: number) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -119,26 +121,26 @@ export const Agenda: React.FC = () => {
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
   const typeMeta = {
-      consulta: { 
-          label: 'Consulta', 
-          chip: 'bg-indigo-50/50 text-indigo-700 border-indigo-100/50 backdrop-blur-sm', 
-          solid: 'bg-indigo-600', 
-          dot: 'bg-indigo-500', 
-          event: 'bg-white text-slate-700 border-slate-100 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-100/50' 
+      consulta: {
+          label: 'Consulta',
+          chip: 'bg-indigo-50/50 text-indigo-700 border-indigo-100/50 backdrop-blur-sm',
+          solid: 'bg-indigo-600',
+          dot: 'bg-indigo-500',
+          event: 'bg-white text-slate-700 border-slate-100 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-100/50'
       },
-      pessoal: { 
-          label: 'Pessoal', 
-          chip: 'bg-amber-50/50 text-amber-700 border-amber-100/50 backdrop-blur-sm', 
-          solid: 'bg-amber-500', 
-          dot: 'bg-amber-500', 
-          event: 'bg-amber-50/40 text-amber-900 border-amber-100 hover:border-amber-300 hover:shadow-xl hover:shadow-amber-100/50' 
+      pessoal: {
+          label: 'Pessoal',
+          chip: 'bg-amber-50/50 text-amber-700 border-amber-100/50 backdrop-blur-sm',
+          solid: 'bg-amber-500',
+          dot: 'bg-amber-500',
+          event: 'bg-amber-50/40 text-amber-900 border-amber-100 hover:border-amber-300 hover:shadow-xl hover:shadow-amber-100/50'
       },
-      bloqueio: { 
-          label: 'Feriado/Bloqueio', 
-          chip: 'bg-slate-900 text-white border-slate-800 shadow-xl', 
-          solid: 'bg-slate-900', 
-          dot: 'bg-slate-900', 
-          event: 'bg-slate-900 text-white border-none shadow-xl backdrop-blur-sm ring-1 ring-white/10' 
+      bloqueio: {
+          label: 'Feriado/Bloqueio',
+          chip: 'bg-slate-900 text-white border-slate-800 shadow-xl',
+          solid: 'bg-slate-900',
+          dot: 'bg-slate-900',
+          event: 'bg-slate-900 text-white border-none shadow-xl backdrop-blur-sm ring-1 ring-white/10'
       },
   } as const;
 
@@ -181,9 +183,9 @@ export const Agenda: React.FC = () => {
             api.get<any[]>('/users'),
             api.get<any>('/profile/me')
         ]);
-        
+
         setProfileData(profile || {});
-        
+
         setAppointments(apts.map(a => {
             const start = new Date(a.start_time || a.appointment_date);
             const end = a.end_time ? new Date(a.end_time) : new Date(start.getTime() + (a.duration_minutes || 50) * 60000);
@@ -336,11 +338,11 @@ export const Agenda: React.FC = () => {
         pushToast('success', 'Pagamento registrado com sucesso!');
         setIsAddPaymentModalOpen(false);
         setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
-        
+
         // Recarregar pagamentos e dados gerais
         await fetchComandaPayments(comandaId);
         fetchData();
-        
+
         // Recarregar comandas do paciente
         if (selectedApt?.patient_id) {
             const res = await api.get(`/finance/comandas/patient/${selectedApt.patient_id}`);
@@ -374,7 +376,7 @@ export const Agenda: React.FC = () => {
   const handleRemoveCharge = async () => {
     if (!selectedApt) return;
     if (!window.confirm('Deseja realmente remover o vínculo financeiro deste agendamento?')) return;
-    
+
     try {
         await api.put(`/appointments/${selectedApt.id}`, {
             ...selectedApt,
@@ -391,13 +393,19 @@ export const Agenda: React.FC = () => {
 
   const handleGenerateReceipt = async () => {
     if (!selectedApt) return;
-    
+
     pushToast('success', 'Gerando recibo para download...');
 
     const { default: jsPDF } = await import('jspdf');
     const { default: html2canvas } = await import('html2canvas');
 
     const srv = services.find(s => String(s.id) === String(selectedApt.service_id));
+    const prof = professionals.find(p => String(p.id) === String(selectedApt.professional_id || selectedApt.psychologist_id));
+
+    const profName = prof?.name || profileData?.name || '';
+    const profCrp = prof?.crp || profileData?.crp || '';
+    const profCpf = prof?.cpf || profileData?.cpf || '';
+
     const patientName = selectedApt.patient_name || selectedApt.title || 'Paciente';
     const amount = srv ? formatCurrency(srv.price) : 'R$ 0,00';
     const dateStr = selectedApt.start.toLocaleDateString('pt-BR');
@@ -413,14 +421,14 @@ export const Agenda: React.FC = () => {
         <div style="width:40px;background:#00214d;min-height:1123px;flex-shrink:0;"></div>
         <div style="padding:60px 80px;flex:1;position:relative;">
           <div style="position:absolute;top:60px;right:80px;text-align:right;font-size:11px;color:#00214d;line-height:1.6;">
-            <b>${profileData.name || ''}</b><br/>
-            Psicóloga<br/>
-            ${profileData.crp ? `CRP: ${profileData.crp}<br/>` : ''}
-            ${profileData.cpf ? `CPF: ${profileData.cpf}` : ''}
+            <b>${profName}</b><br/>
+            Psicóloga(o)<br/>
+            ${profCrp ? `CRP: ${profCrp}<br/>` : ''}
+            ${profCpf ? `CPF: ${profCpf}` : ''}
           </div>
 
           <div style="width:120px;height:120px;background:white;border:1px solid #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:40px;overflow:hidden;">
-            ${logoUrl 
+            ${logoUrl
               ? `<img src="${logoUrl}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous" />`
               : `<span style="font-size:10px;font-weight:900;text-align:center;padding:10px;">SEU LOGO AQUI</span>`
             }
@@ -435,18 +443,18 @@ export const Agenda: React.FC = () => {
           </div>
 
           <div style="font-size:14px;line-height:1.8;text-align:justify;margin-bottom:30px;color:#334155;">
-            Serviço de atendimento psicológico prestados ao(à) <b style="color:#00214d;">${patientName}</b>. 
+            Serviço de atendimento psicológico prestados ao(à) <b style="color:#00214d;">${patientName}</b>.
             As sessões foram realizadas no dia <b style="color:#00214d;">${dateStr}</b>.
             <br/><br/>
             Valor total dos atendimentos prestados na data citada acima: <b style="color:#00214d;">${amount}</b>.
             <br/><br/>
-            Psicóloga responsável pelos atendimentos prestados: <b style="color:#00214d;">${profileData.name}</b>${profileData.crp ? `, CRP: <b style="color:#00214d;">${profileData.crp}</b>` : ''}.
+            Psicóloga(o) responsável pelos atendimentos prestados: <b style="color:#00214d;">${profName}</b>${profCrp ? `, CRP: <b style="color:#00214d;">${profCrp}</b>` : ''}.
           </div>
 
           <div style="margin-top:100px;text-align:center;">
             <div style="border-top:1.5px solid #00214d;width:350px;margin:0 auto;padding-top:10px;">
-              <b style="text-transform:uppercase;font-size:13px;">${profileData.name}</b><br/>
-              <span style="font-size:11px;">Psicóloga</span>
+              <b style="text-transform:uppercase;font-size:13px;">${profName}</b><br/>
+              <span style="font-size:11px;">Psicóloga(o)${profCrp ? ` - ${profCrp}` : ''}</span>
             </div>
           </div>
 
@@ -484,7 +492,7 @@ export const Agenda: React.FC = () => {
     }
 
   };
-    
+
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -592,7 +600,7 @@ export const Agenda: React.FC = () => {
                 const roomCode = Math.random().toString(36).substr(2, 9);
                 const patient = patients.find(p => String(p.id) === String(formData.patient_id));
                 const titleText = `Sessão: ${patient?.full_name || 'Paciente'} - ${new Date(formData.appointment_date).toLocaleDateString()}`;
-                
+
                 const roomData = {
                     title: titleText,
                     code: roomCode,
@@ -602,10 +610,10 @@ export const Agenda: React.FC = () => {
                     scheduled_start: formData.appointment_date,
                     provider: 'interno'
                 };
-                
+
                 const room = await api.post<any>('/virtual-rooms', roomData);
                 const meetingUrl = `${window.location.origin}/sala/${room.code || roomCode}`;
-                
+
                 await api.put(`/appointments/${savedAppointment.id}`, {
                     ...payload,
                     meeting_url: meetingUrl
@@ -634,20 +642,20 @@ export const Agenda: React.FC = () => {
   const handleSelectComanda = (c: any) => {
     let targetServiceId = formData.service_id;
     let targetDuration = formData.duration_minutes;
-    
+
     // Tenta encontrar serviço pelo nome ou ID
-    const srv = services.find(s => 
-        (c.service_id && String(s.id) === String(c.service_id)) || 
+    const srv = services.find(s =>
+        (c.service_id && String(s.id) === String(c.service_id)) ||
         (c.description?.toLowerCase().includes(s.name?.toLowerCase()))
     );
-    
+
     if (srv) {
         targetServiceId = String(srv.id);
         targetDuration = srv.duration;
     } else {
         // Tenta encontrar pacote
-        const pkg = packages.find(p => 
-            (c.package_id && String(p.id) === String(c.package_id)) || 
+        const pkg = packages.find(p =>
+            (c.package_id && String(p.id) === String(c.package_id)) ||
             (c.description?.toLowerCase().includes(p.name?.toLowerCase()))
         );
         if (pkg) {
@@ -659,9 +667,9 @@ export const Agenda: React.FC = () => {
             }
         }
     }
-    
+
     setFormData((prev: any) => ({
-        ...prev, 
+        ...prev,
         comanda_id: c.id,
         service_id: targetServiceId,
         duration_minutes: targetDuration
@@ -678,7 +686,7 @@ export const Agenda: React.FC = () => {
     if (val) {
         const isPkg = val.startsWith('pkg_');
         const id = isPkg ? val.replace('pkg_', '') : val;
-        
+
         if (isPkg) {
             type = 'package';
             const pkg = packages.find(p => String(p.id) === id);
@@ -766,20 +774,20 @@ export const Agenda: React.FC = () => {
               <p className="text-slate-400 text-xs mt-1 font-bold">{t('agenda.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
-              <button 
+              <button
                   onClick={() => setIsImportModalOpen(true)}
                   className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
               >
                   <Upload size={14} className="text-indigo-500" /> Importar
               </button>
-              <button 
+              <button
                   onClick={handleExport}
                   className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
               >
                   <Download size={14} className="text-emerald-500" /> Exportar
               </button>
-              <button 
-                  onClick={() => openNewModal()} 
+              <button
+                  onClick={() => openNewModal()}
                   className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95"
               >
                   <Plus size={14} /> Novo Agendamento
@@ -829,14 +837,10 @@ export const Agenda: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-black text-slate-800 truncate px-2">{getRangeLabel()}</h2>
                 <div className="relative group">
-                  <input 
-                    type="date" 
-                    onChange={(e) => handleDateChange(e.target.value)}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-8"
+                  <DatePicker 
+                    value={currentDate.toISOString().slice(0, 10)} 
+                    onChange={(val) => val && handleDateChange(val)}
                   />
-                  <div className="p-2 bg-slate-50 rounded-lg text-slate-400 group-hover:text-indigo-600 transition-all cursor-pointer">
-                    <CalendarDays size={18} />
-                  </div>
                 </div>
               </div>
           </div>
@@ -847,7 +851,7 @@ export const Agenda: React.FC = () => {
                   <button onClick={() => setView('week')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Semana</button>
                   <button onClick={() => setView('month')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Mês</button>
               </div>
-              
+
               <div className="flex gap-2">
                 <select className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-[10px] font-black text-slate-600 uppercase tracking-wider outline-none focus:border-indigo-400 max-w-[150px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
                     <option value="">Status</option>
@@ -909,12 +913,12 @@ export const Agenda: React.FC = () => {
                         const isToday = isSameDay(day, new Date());
                         const inMonth = day.getMonth() === currentDate.getMonth();
                         const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-                        
+
                         return (
-                            <div 
-                                key={day.toISOString()} 
+                            <div
+                                key={day.toISOString()}
                                 className={`min-h-[140px] p-2 border-b border-r border-slate-100/60 transition-all group relative
-                                    ${inMonth ? 'bg-white' : 'bg-slate-50/40 opacity-40'} 
+                                    ${inMonth ? 'bg-white' : 'bg-slate-50/40 opacity-40'}
                                     ${isWeekend && inMonth ? 'bg-slate-50/30' : ''}
                                     hover:bg-indigo-50/20 cursor-alias
                                 `}
@@ -934,21 +938,27 @@ export const Agenda: React.FC = () => {
                                 </div>
                                 <div className="space-y-1.5 relative">
                                     {dayApts.slice(0, 4).map(apt => (
-                                        <button 
-                                            key={apt.id} 
-                                            onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }} 
-                                            className={`w-full text-left px-2.5 py-1.5 rounded-xl border text-[9px] font-bold truncate transition-all hover:scale-[1.02] active:scale-95 shadow-sm overflow-hidden flex items-center gap-2 group/item ${typeMeta[apt.type].event}`}
+                                        <button
+                                            key={apt.id}
+                                            onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }}
+                                            className={`w-full text-left px-2 py-1 rounded-xl border text-[8px] font-bold truncate transition-all hover:scale-[1.02] active:scale-95 shadow-sm overflow-hidden flex items-center gap-1.5 group/item ${typeMeta[apt.type].event}`}
                                         >
-                                            <div className={`w-1 h-4 rounded-full ${typeMeta[apt.type].solid}`}></div>
+                                            <div className={`w-0.5 h-3 rounded-full ${typeMeta[apt.type].solid}`}></div>
                                             <span className="truncate flex-1">{apt.patient_name || apt.title}</span>
-                                            {apt.recurrence_index && apt.recurrence_count && (
-                                                <span className="text-[7px] font-black opacity-40 tabular-nums shrink-0">{apt.recurrence_index}/{apt.recurrence_count}</span>
+
+                                            {/* Package / Recurrence Indicator */}
+                                            {apt.comanda_id && (
+                                                <div className="flex items-center gap-0.5 bg-indigo-50/50 px-1 rounded text-[7px] text-indigo-500 font-black shrink-0 border border-indigo-100/50">
+                                                    <Package size={8} />
+                                                    {apt.recurrence_index ? `${apt.recurrence_index}/${apt.recurrence_count}` : 'PK'}
+                                                </div>
                                             )}
-                                            {apt.modality === 'online' && <Video size={10} className="text-indigo-400 shrink-0"/>}
+
+                                            {apt.modality === 'online' && <Video size={9} className="text-indigo-400 shrink-0"/>}
                                         </button>
                                     ))}
                                     {dayApts.length > 4 && (
-                                        <button 
+                                        <button
                                             onClick={(e) => { e.stopPropagation(); setCurrentDate(day); setView('day'); }}
                                             className="w-full py-1 text-[8px] font-black text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/50 rounded-lg transition-colors border border-indigo-100/50 uppercase tracking-widest text-center"
                                         >
@@ -968,7 +978,7 @@ export const Agenda: React.FC = () => {
             <div className="flex-1 overflow-auto custom-scrollbar bg-white relative">
                 {/* MASTER FLEX CONTAINER */}
                 <div className="flex min-w-max relative" style={{ height: (hours.length * 80) + 50 }}>
-                    
+
                     {/* 1. TIME LABELS COLUMN (Sticky Left) */}
                     <div className="w-14 sticky left-0 z-40 bg-white border-r border-indigo-100/50 flex-shrink-0 select-none">
                         {/* Intersection (Sticky Top Left) */}
@@ -982,13 +992,13 @@ export const Agenda: React.FC = () => {
 
                     {/* 2. THE MAIN GRID AREA */}
                     <div className="flex-1 flex flex-col">
-                        
+
                         {/* DAY HEADERS (Sticky Top) */}
                         <div className="flex sticky top-0 z-30 bg-white border-b border-slate-200">
                             {(view === 'day' ? [currentDate] : weekDays).map(day => (
                                 <div key={day.toISOString()} className={`flex-1 min-w-[120px] lg:min-w-0 h-[50px] flex items-center justify-center border-r border-slate-100 transition-all bg-white`}>
                                     <span className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 ${isSameDay(day, new Date()) ? 'text-rose-500' : 'text-slate-500'}`}>
-                                        {day.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')} 
+                                        {day.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')}
                                         <span className="text-sm font-black tabular-nums">{day.getDate()}/{String(day.getMonth() + 1).padStart(2, '0')}</span>
                                     </span>
                                 </div>
@@ -1006,7 +1016,7 @@ export const Agenda: React.FC = () => {
 
                             {/* THE RED TIME INDICATOR (Now Line) */}
                             {isSameDay(currentDate, new Date()) && view === 'day' && (
-                                <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center gap-2" 
+                                <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center gap-2"
                                     style={{ top: (((new Date().getHours() + new Date().getMinutes()/60) - startHour) * 80) }}>
                                     <div className="w-2 h-2 rounded-full bg-rose-500 shadow-lg shadow-rose-200 ml-[-4px]"></div>
                                     <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500 to-transparent"></div>
@@ -1014,8 +1024,8 @@ export const Agenda: React.FC = () => {
                             )}
 
                             {(view === 'day' ? [currentDate] : weekDays).map(day => (
-                                <div 
-                                    key={day.toISOString()} 
+                                <div
+                                    key={day.toISOString()}
                                     className={`flex-1 border-r border-slate-100 relative min-w-[120px] lg:min-w-0 ${isSameDay(day, new Date()) ? 'bg-slate-50/20' : ''}`}
                                     onClick={() => openNewModal(day)}
                                 >
@@ -1036,46 +1046,50 @@ export const Agenda: React.FC = () => {
                                             const textColor = apt.type === 'bloqueio' ? '#64748b' : '#ffffff';
 
                                             return (
-                                                <button 
-                                                    key={apt.id} 
-                                                    onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }} 
-                                                    className={`absolute left-0 right-0 border-r border-b border-black/5 hover:brightness-110 transition-all text-left group z-10 flex flex-col p-2 select-none`} 
-                                                    style={{ 
-                                                        top: top, 
-                                                        height: Math.max(height, 40), 
+                                                <button
+                                                    key={apt.id}
+                                                    onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }}
+                                                    className={`absolute left-0 right-0 border-r border-b border-black/10 hover:brightness-110 transition-all text-left group z-10 flex flex-col p-1.5 select-none rounded shadow-sm overflow-hidden`}
+                                                    style={{
+                                                        top: top,
+                                                        height: Math.max(height, 35),
                                                         backgroundColor: cardBg,
-                                                        color: textColor
+                                                        color: textColor,
+                                                        borderLeft: `3px solid ${typeMeta[apt.type].solid}`
                                                     }}
                                                 >
                                                     <div className="flex flex-col h-full relative">
-                                                        {/* Time Range & Repeat Icon */}
-                                                        <div className="flex items-center justify-between mb-0.5">
-                                                            <span className="text-[10px] font-black tabular-nums opacity-90">
-                                                                {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {apt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        {/* Time & Badge */}
+                                                        <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                            <span className="text-[8px] font-black tabular-nums opacity-80 uppercase tracking-tighter">
+                                                                {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                             </span>
-                                                            {(apt.recurrence_rule || apt.parent_appointment_id) && <Repeat size={10} className="opacity-80"/>}
+                                                            {apt.comanda_id && (
+                                                                <div className="bg-white/20 px-1 rounded flex items-center gap-0.5 text-[7px] font-black tracking-widest uppercase">
+                                                                    <Package size={7} />
+                                                                    <span>PK</span>
+                                                                </div>
+                                                            )}
                                                         </div>
 
-                                                        {/* Patient Name */}
-                                                        <h4 className="text-[11px] font-black leading-tight mb-0.5 truncate uppercase">
-                                                            {apt.patient_name || apt.title || (apt.type === 'pessoal' ? 'Evento Pessoal' : 'Consulta')}
+                                                        {/* Patient Name - Compact */}
+                                                        <h4 className="text-[10px] font-black leading-none mb-0.5 truncate uppercase tracking-tight">
+                                                            {apt.patient_name || apt.title}
                                                         </h4>
 
-                                                        {/* Service/Description */}
-                                                        <p className="text-[9px] font-bold opacity-70 truncate line-clamp-1">
-                                                            {apt.notes || 'Consulta Psicológica'}
-                                                        </p>
-
-                                                        {/* Session Counter (Bottom Right) */}
-                                                        {apt.recurrence_index && (
-                                                            <div className="absolute bottom-0 right-0 bg-black/20 px-1 py-0.5 rounded text-[8px] font-black tabular-nums text-white/90">
-                                                                {apt.recurrence_index}/{apt.recurrence_count}
+                                                        {/* Status Indicator / Online */}
+                                                        <div className="mt-auto flex items-center justify-between opacity-60">
+                                                            <div className="flex gap-0.5">
+                                                                {apt.modality === 'online' && <Video size={8} />}
+                                                                {(apt.recurrence_rule || apt.parent_appointment_id) && <Repeat size={8}/>}
                                                             </div>
-                                                        )}
+                                                            {apt.recurrence_index && (
+                                                                <span className="text-[7px] font-black">{apt.recurrence_index}/{apt.recurrence_count}</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </button>
-                                            );
-                                        })}
+                                            );                                        })}
                                 </div>
                             ))}
                         </div>
@@ -1095,8 +1109,8 @@ export const Agenda: React.FC = () => {
           footer={
             <div className="flex flex-col sm:flex-row w-full justify-between items-center gap-4">
               {formData.id ? (
-                <Button 
-                  variant="danger" 
+                <Button
+                  variant="danger"
                   onClick={() => setIsDeleteModalOpen(true)}
                   className="h-10 w-full sm:w-10 p-0 rounded-lg shadow-sm flex items-center justify-center"
                 >
@@ -1108,8 +1122,8 @@ export const Agenda: React.FC = () => {
                 <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="text-xs font-semibold h-10 px-6 rounded-lg">
                   Descartar
                 </Button>
-                <Button 
-                  onClick={handleSave} 
+                <Button
+                  onClick={handleSave}
                   className="px-6 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm text-xs font-semibold transition-all transform active:scale-95 w-full sm:w-auto"
                 >
                   <CheckCircle2 size={16} className="mr-2" />
@@ -1127,10 +1141,10 @@ export const Agenda: React.FC = () => {
                        { id: 'pessoal', label: 'Evento Pessoal', icon: <UserIcon size={14}/>, color: 'text-amber-500 bg-white shadow-sm border-amber-100' },
                        { id: 'bloqueio', label: 'Bloqueio Agenda', icon: <Ban size={14}/>, color: 'text-slate-900 bg-white shadow-sm border-slate-300' }
                    ].map(t => (
-                       <button 
-                         key={t.id} 
+                       <button
+                         key={t.id}
                          type="button"
-                         onClick={() => setFormData({...formData, type: t.id})} 
+                         onClick={() => setFormData({...formData, type: t.id})}
                          className={`flex-1 py-1.5 px-4 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 border border-transparent ${formData.type === t.id ? t.color : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/30'}`}
                        >
                            {t.icon}
@@ -1151,10 +1165,10 @@ export const Agenda: React.FC = () => {
                         <>
                           <div className="space-y-2">
                               {/* PAZIENTE COMBOBOX */}
-                              <Combobox 
-                                label="Paciente" 
+                              <Combobox
+                                label="Paciente"
                                 options={patients.map(p => ({ id: p.id, label: p.full_name }))}
-                                value={formData.patient_id || ''} 
+                                value={formData.patient_id || ''}
                                 icon={<UserIcon size={18} className="text-indigo-400" />}
                                 placeholder="Pesquisar ou adicionar paciente..."
                                 allowCustom={true}
@@ -1178,7 +1192,7 @@ export const Agenda: React.FC = () => {
                                                 </p>
                                             </div>
                                         </div>
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={() => setFormData({...formData, comanda_id: ''})}
                                             className="text-[10px] font-bold text-indigo-400 hover:text-rose-500 uppercase tracking-widest transition-colors opacity-0 group-hover:opacity-100 mr-2"
@@ -1196,7 +1210,7 @@ export const Agenda: React.FC = () => {
                                                 </div>
                                                 <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
                                                     {patientComandas.map(c => (
-                                                        <button 
+                                                        <button
                                                             key={c.id}
                                                             type="button"
                                                             onClick={() => handleSelectComanda(c)}
@@ -1210,7 +1224,7 @@ export const Agenda: React.FC = () => {
                                                         </button>
                                                     ))}
                                                 </div>
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => setIsNewComandaModalOpen(true)}
                                                     className="w-full mt-3 py-2 border border-orange-200 rounded-lg text-[10px] font-bold text-orange-600 hover:bg-orange-100/50 transition-all uppercase tracking-widest"
@@ -1220,7 +1234,7 @@ export const Agenda: React.FC = () => {
                                             </div>
                                         ) : (
                                             <div className="flex justify-end">
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={openNewComandaModal}
                                                     className="px-3 py-1.5 border border-orange-200 rounded-lg text-[10px] font-bold text-orange-600 hover:bg-orange-50 transition-all uppercase tracking-wider shadow-sm"
@@ -1235,15 +1249,15 @@ export const Agenda: React.FC = () => {
                           )}
 
                           <div className="space-y-2 pt-2">
-                               <Select 
-                                 label="Serviço ou Pacote" 
+                               <Select
+                                 label="Serviço ou Pacote"
                                  icon={<Package size={18} className="text-emerald-400" />}
-                                 value={formData.service_id || ''} 
+                                 value={formData.service_id || ''}
                                  onChange={e => {
                                    const val = e.target.value;
                                    const isPkg = val.startsWith('pkg_');
                                    const id = isPkg ? val.replace('pkg_', '') : val;
-                                   
+
                                    let duration = formData.duration_minutes;
                                    if (isPkg) {
                                        const pkg = packages.find(p => String(p.id) === id);
@@ -1272,11 +1286,11 @@ export const Agenda: React.FC = () => {
                         </>
                       ) : (
                         <div className="space-y-2">
-                            <Input 
-                              label="Título do Evento / Motivo do Bloqueio" 
-                              placeholder="Ex: Supervisão Clínica ou Almoço" 
+                            <Input
+                              label="Título do Evento / Motivo do Bloqueio"
+                              placeholder="Ex: Supervisão Clínica ou Almoço"
                               icon={<Activity size={18} className="text-amber-400" />}
-                              value={formData.title || ''} 
+                              value={formData.title || ''}
                               onChange={e => setFormData({...formData, title: e.target.value})}
                             />
                         </div>
@@ -1287,16 +1301,16 @@ export const Agenda: React.FC = () => {
                             <div className="space-y-1.5">
                                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">Modalidade</label>
                                 <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200/60">
-                                    <button 
+                                    <button
                                       type="button"
-                                      onClick={() => setFormData({...formData, modality: 'presencial'})} 
+                                      onClick={() => setFormData({...formData, modality: 'presencial'})}
                                       className={`flex-1 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
                                     >
                                       Presencial
                                     </button>
-                                    <button 
+                                    <button
                                       type="button"
-                                      onClick={() => setFormData({...formData, modality: 'online'})} 
+                                      onClick={() => setFormData({...formData, modality: 'online'})}
                                       className={`flex-1 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
                                     >
                                       Online
@@ -1305,9 +1319,9 @@ export const Agenda: React.FC = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Select 
-                                  label="Status" 
-                                  value={formData.status} 
+                                <Select
+                                  label="Status"
+                                  value={formData.status}
                                   onChange={e => setFormData({...formData, status: e.target.value})}
                                 >
                                     {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -1325,29 +1339,29 @@ export const Agenda: React.FC = () => {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <Input 
-                          label="Data" 
-                          type="date" 
-                          icon={<CalendarDays size={16} className="text-slate-400" />}
-                          value={formData.appointment_date.slice(0, 10)} 
-                          onChange={e => setFormData({...formData, appointment_date: `${e.target.value}T${formData.appointment_date.slice(11, 16)}`})}
-                        />
-                        <Input 
-                          label="Hora" 
-                          type="time" 
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+                          <DatePicker 
+                            value={formData.appointment_date.slice(0, 10)} 
+                            onChange={val => val && setFormData({...formData, appointment_date: `${val}T${formData.appointment_date.slice(11, 16)}`})}
+                          />
+                        </div>
+                        <Input
+                          label="Hora"
+                          type="time"
                           icon={<Clock size={16} className="text-slate-400" />}
-                          value={formData.appointment_date.slice(11, 16)} 
+                          value={formData.appointment_date.slice(11, 16)}
                           onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
                         />
-                        <Input 
-                          label="Duração (min)" 
-                          type="number" 
+                        <Input
+                          label="Duração (min)"
+                          type="number"
                           icon={<Layers size={16} className="text-slate-400" />}
-                          value={formData.duration_minutes} 
+                          value={formData.duration_minutes}
                           onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
                         />
                       </div>
-                      
+
                       {/* END TIME PREVIEW */}
                       <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200 shadow-sm">
                           <div className="p-2 bg-white rounded-lg text-indigo-500 border border-slate-100 shadow-sm">
@@ -1368,10 +1382,10 @@ export const Agenda: React.FC = () => {
                       </div>
 
                       <div className="grid grid-cols-1 gap-4">
-                          <Combobox 
-                            label="Profissional Responsável" 
+                          <Combobox
+                            label="Profissional Responsável"
                             options={professionals.map(p => ({ id: p.id, label: p.name }))}
-                            value={formData.psychologist_id || formData.professional_id || ''} 
+                            value={formData.psychologist_id || formData.professional_id || ''}
                             icon={<UserCheck size={18} className="text-indigo-400" />}
                             placeholder="Buscar..."
                             allowCustom={true}
@@ -1390,7 +1404,7 @@ export const Agenda: React.FC = () => {
                                       <p className="text-[10px] font-medium text-slate-400">Marque sessões recorrentes</p>
                                   </div>
                               </div>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setIsRecurrenceModalOpen(true)}
                                 className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-indigo-600 uppercase text-[10px] hover:bg-slate-100 transition-all shadow-sm group/btn"
@@ -1417,24 +1431,24 @@ export const Agenda: React.FC = () => {
                       </div>
                       <div className="flex-1">
                           <label className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1.5 block">Link da Sala Virtual</label>
-                          <input 
-                            placeholder="Link do Google Meet, Zoom ou Internal Room..." 
-                            value={formData.meeting_url || ''} 
+                          <input
+                            placeholder="Link do Google Meet, Zoom ou Internal Room..."
+                            value={formData.meeting_url || ''}
                             onChange={e => setFormData({...formData, meeting_url: e.target.value})}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white placeholder:text-slate-500 outline-none focus:bg-white/10 focus:border-indigo-500 transition-all"
                           />
                       </div>
                   </div>
               )}
-              
+
               <div className="space-y-3">
                   <div className="flex items-center gap-2 ml-1">
                       <div className="w-1.5 h-4 bg-slate-400 rounded-full"></div>
                       <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Observações e Histórico</h4>
                   </div>
-                  <TextArea 
-                    placeholder="Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes..." 
-                    value={formData.notes || ''} 
+                  <TextArea
+                    placeholder="Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes..."
+                    value={formData.notes || ''}
                     onChange={e => setFormData({...formData, notes: e.target.value})}
                     className="min-h-[100px] !rounded-xl border-slate-200 shadow-sm"
                   />
@@ -1443,9 +1457,9 @@ export const Agenda: React.FC = () => {
               {formData.id && (
                 <div className="bg-amber-50/30 p-5 rounded-3xl border border-dashed border-amber-200/50 flex flex-col gap-3">
                     <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest ml-1">Motivo da Alteração / Reagendamento</p>
-                    <TextArea 
-                        placeholder="Por que este atendimento foi alterado? (Opcional)" 
-                        value={formData.reschedule_reason || ''} 
+                    <TextArea
+                        placeholder="Por que este atendimento foi alterado? (Opcional)"
+                        value={formData.reschedule_reason || ''}
                         onChange={e => setFormData({...formData, reschedule_reason: e.target.value})}
                         className="!bg-transparent !border-none !p-0 min-h-[60px] text-amber-700 placeholder:text-amber-300"
                     />
@@ -1472,7 +1486,7 @@ export const Agenda: React.FC = () => {
               <p className="text-[10px] font-bold text-slate-400 mb-5 leading-relaxed">
                 Baixe nossa planilha modelo para preencher com seus dados corretamente.
               </p>
-              <button 
+              <button
                 onClick={downloadTemplate}
                 className="w-full py-3 bg-white hover:bg-slate-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-indigo-100 transition-all flex items-center justify-center gap-2 shadow-sm"
               >
@@ -1495,9 +1509,9 @@ export const Agenda: React.FC = () => {
           </div>
 
           <div className="relative group">
-            <input 
-              type="file" 
-              accept=".xlsx, .xls, .csv" 
+            <input
+              type="file"
+              accept=".xlsx, .xls, .csv"
               onChange={handleImport}
               disabled={isProcessingImport}
               className="absolute inset-0 opacity-0 cursor-pointer z-10"
@@ -1516,7 +1530,7 @@ export const Agenda: React.FC = () => {
                   </div>
                   <p className="text-xs font-black text-slate-700 uppercase tracking-widest">2. Selecione seu Arquivo</p>
                   <p className="text-[10px] font-bold text-slate-400 mt-2">Clique aqui ou arraste seu arquivo CSV</p>
-                  
+
                   <div className="mt-6 flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-slate-100 shadow-sm">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aguardando arquivo</span>
@@ -1525,9 +1539,9 @@ export const Agenda: React.FC = () => {
               )}
             </div>
           </div>
-          
+
           <div className="flex justify-center border-t border-slate-50 pt-6">
-            <button 
+            <button
               onClick={() => setIsImportModalOpen(false)}
               className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-colors flex items-center gap-2"
             >
@@ -1547,16 +1561,16 @@ export const Agenda: React.FC = () => {
               <h3 className="text-xl font-black text-slate-800 mb-2 tracking-tight">Remover Atendimento?</h3>
               <p className="text-[12px] font-bold text-slate-400 mb-8 leading-relaxed">Deseja remover este compromisso permanentemente? Esta ação não pode ser desfeita.</p>
               <div className="flex flex-col gap-3">
-                 <button onClick={async () => { 
+                 <button onClick={async () => {
                     const idToDelete = formData.id || selectedApt?.id;
                     if (!idToDelete) { pushToast('error', 'ID do agendamento não encontrado.'); return; }
                     try {
-                        await api.delete(`/appointments/${idToDelete}`); 
-                        fetchData(); 
-                        setIsModalOpen(false); 
-                        setIsDeleteModalOpen(false); 
+                        await api.delete(`/appointments/${idToDelete}`);
+                        fetchData();
+                        setIsModalOpen(false);
+                        setIsDeleteModalOpen(false);
                         setIsDetailModalOpen(false);
-                        pushToast('success', 'Agendamento removido.'); 
+                        pushToast('success', 'Agendamento removido.');
                     } catch (err) {
                         pushToast('error', 'Erro ao remover agendamento.');
                     }
@@ -1567,8 +1581,8 @@ export const Agenda: React.FC = () => {
         </div>
       )}
       {/* RECURRENCE SELECTION MODAL */}
-      <Modal 
-        isOpen={isRecurrenceModalOpen} 
+      <Modal
+        isOpen={isRecurrenceModalOpen}
         onClose={() => setIsRecurrenceModalOpen(false)}
         title="Seleção Atual"
         subtitle="Escolha uma opção abaixo para mudar a seleção"
@@ -1649,8 +1663,8 @@ export const Agenda: React.FC = () => {
         footer={(
             <div className="flex justify-end gap-2 w-full sm:w-auto">
                 <Button variant="ghost" onClick={() => { setIsRecurrenceConfigOpen(false); setIsRecurrenceModalOpen(true); }} className="text-xs font-semibold h-10 px-6">VOLTAR</Button>
-                <Button 
-                    variant="primary" 
+                <Button
+                    variant="primary"
                     className="!bg-indigo-600 hover:!bg-indigo-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
                     onClick={() => {
                         setFormData({
@@ -1670,9 +1684,9 @@ export const Agenda: React.FC = () => {
         )}
       >
           <div className="space-y-6 py-2">
-              <Select 
-                label="Repetir frequência" 
-                value={tempRecurrence.freq} 
+              <Select
+                label="Repetir frequência"
+                value={tempRecurrence.freq}
                 onChange={e => setTempRecurrence({...tempRecurrence, freq: e.target.value})}
               >
                   <option value="DAILY">Diariamente</option>
@@ -1682,7 +1696,7 @@ export const Agenda: React.FC = () => {
               </Select>
 
               <div className="grid grid-cols-2 gap-4">
-                <Input 
+                <Input
                   label="A cada"
                   type="number"
                   value={tempRecurrence.interval}
@@ -1699,14 +1713,14 @@ export const Agenda: React.FC = () => {
               <div className="space-y-3 pt-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Terminar em</label>
                   <div className="flex gap-3">
-                      <button 
+                      <button
                           type="button"
                           onClick={() => setTempRecurrence({...tempRecurrence, endType: 'count'})}
                           className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${tempRecurrence.endType === 'count' ? 'border-indigo-600 bg-indigo-50/30 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
                       >
                           <span className="text-[10px] font-bold uppercase">Por vezes</span>
                           <div className="flex items-center gap-2">
-                            <input 
+                            <input
                                 className="w-10 bg-white border border-slate-200 rounded px-1 text-center font-bold text-slate-700 outline-none"
                                 value={tempRecurrence.endType === 'count' ? tempRecurrence.endValue : ''}
                                 onChange={e => setTempRecurrence({...tempRecurrence, endValue: parseInt(e.target.value) || 1, endType: 'count'})}
@@ -1716,18 +1730,17 @@ export const Agenda: React.FC = () => {
                           </div>
                       </button>
 
-                      <button 
+                      <button
                           type="button"
                           onClick={() => setTempRecurrence({...tempRecurrence, endType: 'until'})}
                           className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${tempRecurrence.endType === 'until' ? 'border-indigo-600 bg-indigo-50/30 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
                       >
                           <span className="text-[10px] font-bold uppercase">Por Data</span>
-                          <input 
-                            type="date"
-                            className="bg-transparent text-[10px] font-bold outline-none uppercase"
+                          <DatePicker 
                             value={tempRecurrence.endType === 'until' ? String(tempRecurrence.endValue) : ''}
-                            onChange={e => setTempRecurrence({...tempRecurrence, endValue: e.target.value, endType: 'until'})}
+                            onChange={(val) => val && setTempRecurrence({...tempRecurrence, endValue: val, endType: 'until'})}
                             disabled={tempRecurrence.endType !== 'until'}
+                            className="bg-transparent text-[10px] font-bold outline-none uppercase"
                           />
                       </button>
                   </div>
@@ -1740,82 +1753,103 @@ export const Agenda: React.FC = () => {
       <Modal
         isOpen={isNewComandaModalOpen}
         onClose={() => setIsNewComandaModalOpen(false)}
-        title="Nova Comanda"
-        subtitle="Crie uma nova comanda financeira para o paciente"
-        maxWidth="max-w-md"
+        title="Criando Comanda"
+        subtitle={formData.patient_name_text ? `Novo Registro • ${formData.patient_name_text}` : 'Novo Registro'}
+        maxWidth="max-w-lg"
         footer={(
-            <div className="flex gap-2 w-full">
-                <Button variant="ghost" onClick={() => setIsNewComandaModalOpen(false)} className="flex-1 h-10 text-xs font-semibold">Fechar</Button>
-                <Button 
-                    onClick={handleCreateComanda}
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-10 text-xs font-semibold shadow-sm"
+            <div className="flex justify-between items-center w-full gap-3">
+                <button
+                  onClick={() => setIsNewComandaModalOpen(false)}
+                  className="px-6 py-2.5 text-slate-400 hover:text-slate-600 font-black text-[10px] uppercase tracking-widest transition-all"
                 >
-                    Criar Comanda
-                </Button>
+                  FECHAR
+                </button>
+                <button
+                    onClick={handleCreateComanda}
+                    className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-100 font-black text-[10px] uppercase tracking-widest transition-all transform active:scale-95 whitespace-nowrap"
+                >
+                    CRIAR COMANDA
+                </button>
             </div>
         )}
       >
-        <div className="space-y-4 py-1">
-            <div className="bg-slate-50 p-1 rounded-xl flex border border-slate-200/60 shadow-sm gap-1">
-                <button 
+        <div className="space-y-5 py-1">
+            <div className="bg-slate-100/50 p-1.5 rounded-xl flex border border-slate-200 shadow-sm gap-1.5">
+                <button
                     onClick={() => setNewComandaData({...newComandaData, type: 'normal'})}
-                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-2 ${newComandaData.type === 'normal' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 py-2 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${newComandaData.type === 'normal' ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-slate-100' : 'text-slate-400 hover:text-indigo-400'}`}
                 >
-                    <div className={`w-2.5 h-2.5 rounded-full border-2 ${newComandaData.type === 'normal' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'}`} />
-                    COMANDA NORMAL
+                    <div className={`w-2.5 h-2.5 rounded-full border-2 transition-all ${newComandaData.type === 'normal' ? 'border-indigo-600 bg-indigo-600 ring-2 ring-indigo-50' : 'border-slate-300'}`} />
+                    Comanda Normal
                 </button>
-                <button 
+                <button
                     onClick={() => setNewComandaData({...newComandaData, type: 'package'})}
-                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-2 ${newComandaData.type === 'package' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 py-2 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${newComandaData.type === 'package' ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-slate-100' : 'text-slate-400 hover:text-indigo-400'}`}
                 >
-                    <div className={`w-2.5 h-2.5 rounded-full border-2 ${newComandaData.type === 'package' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'}`} />
-                    COMANDA PACOTE
+                    <div className={`w-2.5 h-2.5 rounded-full border-2 transition-all ${newComandaData.type === 'package' ? 'border-indigo-600 bg-indigo-600 ring-2 ring-indigo-50' : 'border-slate-300'}`} />
+                    Comanda Pacote
                 </button>
             </div>
 
-            <div className="space-y-3 pt-2">
-                <Input 
-                    label="Descrição" 
-                    placeholder="Ex: Psicoterapia Individual ou Pacote 4 sessões" 
-                    value={newComandaData.description}
-                    onChange={e => setNewComandaData({...newComandaData, description: e.target.value})}
-                />
+            <div className="space-y-4 pt-1">
+                <div className="flex items-center gap-2 px-1 mb-2">
+                    <div className="w-1 h-3.5 bg-indigo-500 rounded-full"></div>
+                    <h4 className="text-[9px] font-black text-slate-800 uppercase tracking-widest">Informações Gerais</h4>
+                </div>
 
-                <Input 
-                    label="Data" 
-                    type="date"
-                    value={newComandaData.date}
-                    onChange={e => setNewComandaData({...newComandaData, date: e.target.value})}
-                />
-
-                <Input 
-                    label="Valor Total" 
-                    type="number"
-                    placeholder="R$ 0,00"
-                    icon={<DollarSign size={16} className="text-emerald-500" />}
-                    value={newComandaData.value}
-                    onChange={e => setNewComandaData({...newComandaData, value: e.target.value})}
-                />
-
-                {newComandaData.type === 'package' && (
-                    <Input 
-                        label="Sessões Permitidas" 
-                        type="number"
-                        placeholder="Ex: 4"
-                        value={newComandaData.sessions}
-                        onChange={e => setNewComandaData({...newComandaData, sessions: parseInt(e.target.value) || 1})}
+                <div className="grid grid-cols-1 gap-6">
+                    <Input
+                        label="DESCRIÇÃO"
+                        placeholder="Ex: Psicoterapia Individual ou Pacote 4 sessões"
+                        icon={<FileText size={16} className="text-slate-400" />}
+                        value={newComandaData.description}
+                        onChange={e => setNewComandaData({...newComandaData, description: e.target.value})}
+                        className="!rounded-xl !bg-slate-50/50 !border-slate-100 !h-9 !text-xs"
                     />
-                )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">DATA</label>
+                            <DatePicker 
+                                value={newComandaData.date} 
+                                onChange={val => val && setNewComandaData({...newComandaData, date: val})}
+                                className="!rounded-xl !bg-slate-50/50 !border-slate-100 !h-9 !text-xs"
+                            />
+                        </div>
+
+                        <Input
+                            label="VALOR TOTAL"
+                            type="number"
+                            placeholder="R$ 0,00"
+                            icon={<DollarSign size={16} className="text-emerald-500" />}
+                            value={newComandaData.value}
+                            onChange={e => setNewComandaData({...newComandaData, value: e.target.value})}
+                            className="!rounded-xl !bg-slate-50/50 !border-slate-100 !h-9 !text-xs font-black text-emerald-600"
+                        />
+                    </div>
+
+                    {newComandaData.type === 'package' && (
+                        <Input
+                            label="NÚMERO DE ATENDIMENTOS PERMITIDOS"
+                            type="number"
+                            placeholder="Ex: 4"
+                            icon={<Layers size={16} className="text-indigo-400" />}
+                            value={newComandaData.sessions}
+                            onChange={e => setNewComandaData({...newComandaData, sessions: parseInt(e.target.value) || 1})}
+                            className="!rounded-xl !bg-slate-50/50 !border-slate-100 !h-9 !text-xs"
+                        />
+                    )}
+                </div>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 flex flex-col gap-2">
-                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2">
+                <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
                     <span>Valor Total:</span>
-                    <span className="text-slate-700">{formatCurrency(Number(newComandaData.value) || 0)}</span>
+                    <span className="text-slate-600">{formatCurrency(Number(newComandaData.value) || 0)}</span>
                 </div>
-                <div className="flex justify-between items-center border-t border-slate-200/60 pt-2">
-                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Total Líquido:</span>
-                    <span className="text-indigo-600 text-lg font-bold">{formatCurrency(Number(newComandaData.value) || 0)}</span>
+                <div className="flex justify-between items-center border-t border-slate-200 pt-2 px-1 mt-1">
+                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Total Líquido:</span>
+                    <span className="text-xl font-black text-indigo-700 tracking-tighter">{formatCurrency(Number(newComandaData.value) || 0)}</span>
                 </div>
             </div>
         </div>
@@ -1955,13 +1989,13 @@ export const Agenda: React.FC = () => {
 
             <div className="pt-4 flex flex-col items-center gap-4">
                 <div className="flex gap-10">
-                    <button 
+                    <button
                         onClick={handleRemoveCharge}
                         className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
                     >
                         REMOVER COBRANÇA
                     </button>
-                    <button 
+                    <button
                         onClick={handleGenerateReceipt}
                         className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-slate-900 transition-colors flex items-center gap-1.5"
                     >
@@ -1969,8 +2003,8 @@ export const Agenda: React.FC = () => {
                     </button>
                 </div>
                 <div className="w-full flex">
-                    <Button 
-                        variant="ghost" 
+                    <Button
+                        variant="ghost"
                         onClick={() => setIsDetailModalOpen(false)}
                         className="w-full text-[11px] font-black uppercase tracking-widest py-3 hover:bg-slate-50 border-none"
                     >
@@ -1982,14 +2016,14 @@ export const Agenda: React.FC = () => {
       </Modal>
 
       {/* COMANDA MANAGER MODAL */}
-      {/* COMANDA MANAGER MODAL */}
       <Modal
         isOpen={isComandaManagerOpen}
         onClose={() => setIsComandaManagerOpen(false)}
         title={(() => {
             const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-            return `Comanda - ${cmnd?.description || 'Detalhes'}`;
+            return cmnd?.description || 'Detalhes da Comanda';
         })()}
+        subtitle={selectedApt?.patient_name ? `Visualizando Registro • ${selectedApt.patient_name}` : 'Visualizando Registro'}
         maxWidth="max-w-6xl"
       >
         <div className="flex flex-col lg:flex-row gap-8 py-2 min-h-[500px]">
@@ -1998,7 +2032,7 @@ export const Agenda: React.FC = () => {
                 {/* Patient Basic Info */}
                 <div className="space-y-6">
                     <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0 shadow-sm border border-indigo-100">
                             <UserIcon size={24} />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -2016,22 +2050,22 @@ export const Agenda: React.FC = () => {
                     </div>
 
                     <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0 shadow-sm border border-indigo-100">
                             <CalendarDays size={24} />
                         </div>
                         <div className="flex-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Data</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Criação</p>
                             <p className="text-xs font-black text-slate-700">{selectedApt?.start.toLocaleDateString(locale, { dateStyle: 'medium' })}</p>
                         </div>
                     </div>
 
                     <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0 shadow-sm border border-indigo-100">
                             <Info size={24} />
                         </div>
                         <div className="flex-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Detalhes</p>
-                            <p className="text-xs font-black text-slate-700">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status Base</p>
+                            <p className="text-xs font-black text-slate-700 uppercase">
                                 {services.find(s => String(s.id) === String(selectedApt?.service_id))?.name || 'Consulta'}
                                 {(() => {
                                     const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
@@ -2043,14 +2077,14 @@ export const Agenda: React.FC = () => {
                 </div>
 
                 {/* YELLOW SUMMARY CARD */}
-                <div className="mt-4 bg-orange-400 rounded-3xl p-6 text-white shadow-xl shadow-orange-100 relative overflow-hidden group">
+                <div className="mt-4 bg-orange-400 rounded-[2rem] p-8 text-white shadow-xl shadow-orange-100 relative overflow-hidden group border border-orange-300">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
                         <DollarSign size={80} strokeWidth={3} />
                     </div>
                     <div className="relative z-10">
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-6 opacity-90">Resumo:</h4>
-                        
-                        <div className="space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-8 opacity-90 border-b border-white/20 pb-2">Resumo Financeiro</h4>
+
+                        <div className="space-y-6">
                             {(() => {
                                 const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
                                 const total = cmnd?.totalValue || cmnd?.total || 0;
@@ -2059,17 +2093,17 @@ export const Agenda: React.FC = () => {
 
                                 return (
                                     <>
-                                        <div className="flex justify-between items-center border-b border-white/20 pb-3">
-                                            <span className="text-[11px] font-bold opacity-80 uppercase">Total da comanda:</span>
+                                        <div className="flex justify-between items-center opacity-80">
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Valor Total:</span>
                                             <span className="text-sm font-black tracking-tight">{formatCurrency(total)}</span>
                                         </div>
-                                        <div className="flex justify-between items-center border-b border-white/20 pb-3">
-                                            <span className="text-[11px] font-bold opacity-80 uppercase">Valor pago:</span>
+                                        <div className="flex justify-between items-center opacity-80">
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Total Pago:</span>
                                             <span className="text-sm font-black tracking-tight">{formatCurrency(paid)}</span>
                                         </div>
-                                        <div className="flex justify-between items-center pt-2">
-                                            <span className="text-[11px] font-bold opacity-90 uppercase">Valor pendente:</span>
-                                            <span className="text-lg font-black tracking-tighter">{formatCurrency(pending)}</span>
+                                        <div className="flex justify-between items-center pt-4 border-t border-white/20">
+                                            <span className="text-[11px] font-black uppercase tracking-widest opacity-100">Pendente:</span>
+                                            <span className="text-2xl font-black tracking-tighter">{formatCurrency(pending)}</span>
                                         </div>
                                     </>
                                 );
@@ -2079,35 +2113,35 @@ export const Agenda: React.FC = () => {
                 </div>
 
                 {/* BOTTOM ACTIONS */}
-                <div className="mt-auto space-y-3 pt-6 border-t border-slate-50">
-                    <div className="flex gap-2">
-                        <button 
+                <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
+                    <div className="flex gap-3">
+                        <button
                             onClick={() => {
                                 const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                setNewPayment({ 
-                                    value: '', 
-                                    date: new Date().toISOString().slice(0, 10), 
+                                setNewPayment({
+                                    value: '',
+                                    date: new Date().toISOString().slice(0, 10),
                                     method: 'Pix',
                                     receiptCode: cmnd?.receipt_code || ''
                                 });
                                 setIsAddPaymentModalOpen(true);
                             }}
-                            className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 transition-all active:scale-95"
+                            className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
-                            ADICIONAR PAGAMENTO
+                            <DollarSign size={14}/> PAGAMENTO
                         </button>
-                        <button 
+                        <button
                             onClick={handleGenerateReceipt}
-                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
-                            <FileText size={14}/> GERAR RECIBO
+                            <FileText size={14}/> RECIBO
                         </button>
                     </div>
-                    <button 
+                    <button
                         onClick={() => setIsComandaManagerOpen(false)}
-                        className="w-full py-3 text-rose-500 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest transition-all text-center border border-rose-100 rounded-xl hover:bg-rose-50/30"
+                        className="w-full py-3 text-slate-400 hover:text-slate-600 hover:bg-slate-50 text-[10px] font-black uppercase tracking-widest transition-all text-center rounded-2xl border border-transparent hover:border-slate-100"
                     >
-                        FECHAR COMANDA
+                        FECHAR VISUALIZAÇÃO
                     </button>
                 </div>
             </div>
@@ -2115,65 +2149,76 @@ export const Agenda: React.FC = () => {
             {/* RIGHT MAIN CONTENT - TABS & LISTS */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Tabs */}
-                <div className="flex border-b border-slate-100 bg-white sticky top-0 z-20 mb-6">
+                <div className="flex border-b border-slate-100 bg-white sticky top-0 z-20 mb-8 px-2">
                     {[
-                        { id: 'atendimentos', label: 'ATENDIMENTOS' },
-                        { id: 'pagamentos', label: 'HISTÓRICO DE PAGAMENTOS' },
-                        { id: 'pacote', label: 'USO DO PACOTE' },
+                        { id: 'atendimentos', label: 'HISTÓRICO DE ATENDIMENTOS' },
+                        { id: 'pagamentos', label: 'TRANSAÇÕES' },
+                        { id: 'pacote', label: 'STATUS DO PACOTE' },
                     ].map(tab => (
-                        <button 
+                        <button
                             key={tab.id}
                             onClick={() => setManagerTab(tab.id as any)}
-                            className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${managerTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/10' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                            className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-b-4 transition-all ${managerTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                         >
                             {tab.label}
                         </button>
                     ))}
                 </div>
 
-                <div className="flex-1">
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[500px]">
                     {managerTab === 'atendimentos' && (
-                        <div className="animate-fadeIn">
-                            <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Atendimentos</span>
+                        <div className="animate-fadeIn space-y-4">
+                            <div className="bg-slate-50/50 py-3 px-6 text-center rounded-2xl border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sessões Vinculadas</span>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead className="border-b border-slate-100">
                                         <tr>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Horario</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Serviço</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Profissional</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Sequência</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data do Atendimento</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-slate-50">
                                         {(() => {
-                                            const cmndId = selectedApt?.comanda_id;
-                                            const cmndApts = appointments.filter(a => String(a.comanda_id) === String(cmndId))
-                                                .sort((a,b) => a.start.getTime() - b.start.getTime());
-                                            
+                                            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                                            const cmndApts = (cmnd?.appointments || []).sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
                                             if (cmndApts.length === 0) return (
-                                                <tr><td colSpan={4} className="py-12 text-center text-slate-400 text-xs italic">Nenhum atendimento vinculado.</td></tr>
+                                                <tr><td colSpan={3} className="py-12 text-center text-slate-400 text-xs italic bg-white rounded-3xl">Nenhum atendimento vinculado.</td></tr>
                                             );
 
-                                            return cmndApts.map((apt, idx) => (
-                                                <tr key={apt.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
-                                                    <td className="py-5 px-4 flex flex-col">
-                                                        <span className="text-[9px] font-black text-indigo-400 uppercase mb-1">{apt.recurrence_index || idx + 1} de {apt.recurrence_count || cmndApts.length}</span>
-                                                        <span className="text-xs font-bold text-slate-700 uppercase">{apt.start.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                                                    </td>
-                                                    <td className="py-5 px-4">
-                                                        <span className="text-xs font-black text-slate-400 tabular-nums">{apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {apt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                    </td>
-                                                    <td className="py-5 px-4">
-                                                        <span className="text-xs font-bold text-indigo-600 uppercase">{services.find(s => String(s.id) === String(apt.service_id))?.name || 'Psicoterapia Individual'}</span>
-                                                    </td>
-                                                    <td className="py-5 px-4">
-                                                        <span className="text-xs font-bold text-slate-500 uppercase">{professionals.find(p => String(p.id) === String(apt.professional_id))?.name || 'Karen Lais Gomes'}</span>
-                                                    </td>
-                                                </tr>
-                                            ));
+                                            return cmndApts.map((apt: any, idx: number) => {
+                                                const dDate = new Date(apt.start_time);
+                                                const dEnd = new Date(dDate.getTime() + (apt.duration_minutes || 50) * 60000);
+                                                return (
+                                                    <tr key={apt.id || idx} className="hover:bg-slate-50/50 transition-all group">
+                                                        <td className="py-5 px-4">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">{apt.recurrence_index || idx + 1} de {apt.recurrence_count || cmndApts.length}</span>
+                                                                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest underline decoration-indigo-100">id #{apt.id?.slice(-4)}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-5 px-4">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-black text-slate-700 uppercase">{dDate.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                                                                <span className="text-[10px] font-black text-slate-400 tabular-nums">{dDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-5 px-4">
+                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm ${
+                                                                apt.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                                apt.status === 'cancelled' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                                                'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                                            }`}>
+                                                                <div className={`w-1.5 h-1.5 rounded-full ${apt.status === 'completed' ? 'bg-emerald-500' : apt.status === 'cancelled' ? 'bg-rose-500' : 'bg-indigo-500'}`} />
+                                                                {apt.status === 'completed' ? 'Realizado' : apt.status === 'cancelled' ? 'Cancelado' : 'Agendado'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            });
                                         })()}
                                     </tbody>
                                 </table>
@@ -2182,36 +2227,48 @@ export const Agenda: React.FC = () => {
                     )}
 
                     {managerTab === 'pagamentos' && (
-                        <div className="animate-fadeIn">
-                             <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Histórico de Transações</span>
+                        <div className="animate-fadeIn space-y-4">
+                             <div className="bg-slate-50/50 py-3 px-6 text-center rounded-2xl border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Histórico Financeiro</span>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b border-slate-100">
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Valor</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Forma de pgto.</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Valor Líquido</th>
+                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Método</th>
                                             <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Data</th>
                                             <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Recibo</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-slate-50">
                                         {(() => {
                                             const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
                                             if (!cmnd?.paidValue || cmnd.paidValue === 0) return (
-                                                <tr><td colSpan={4} className="py-12 text-center text-slate-400 text-xs italic">Nenhum pagamento registrado.</td></tr>
+                                                <tr><td colSpan={4} className="py-12 text-center text-slate-400 text-xs italic bg-white rounded-3xl">Nenhum pagamento registrado.</td></tr>
                                             );
-                                            
+
+                                            // Individual payments would be mapped here if the model supported them,
+                                            // for now we show a summary row as in the previous implementation
                                             return (
-                                                <tr className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
-                                                    <td className="py-5 px-4">
-                                                        <span className="text-sm font-black text-emerald-600">{formatCurrency(cmnd.paidValue)}</span>
+                                                <tr className="hover:bg-slate-50/50 transition-all group">
+                                                    <td className="py-6 px-4">
+                                                        <span className="text-base font-black text-emerald-600 tracking-tighter">{formatCurrency(cmnd.paidValue)}</span>
                                                     </td>
-                                                    <td className="py-5 px-4 italic text-xs text-slate-500 font-bold uppercase">Pagamento Registrado</td>
-                                                    <td className="py-5 px-4 text-xs font-black text-slate-400">{new Date(cmnd.updated_at || cmnd.createdAt).toLocaleDateString()}</td>
-                                                    <td className="py-5 px-4">
-                                                        <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 tracking-tighter shadow-sm">#{cmnd.receipt_code || 'N/A'}</span>
+                                                    <td className="py-6 px-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-black text-slate-600 uppercase">Transferência</span>
+                                                            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Confirmação via Painel</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-6 px-4">
+                                                        <span className="text-xs font-black text-slate-400 tabular-nums">{new Date(cmnd.updated_at || cmnd.createdAt).toLocaleDateString()}</span>
+                                                    </td>
+                                                    <td className="py-6 px-4">
+                                                        <span className="text-[10px] font-black text-indigo-500 bg-white px-3 py-1.5 rounded-xl border border-indigo-100 tracking-tighter shadow-sm flex items-center justify-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                                            #{cmnd.receipt_code || 'N/A'}
+                                                        </span>
                                                     </td>
                                                 </tr>
                                             );
@@ -2223,51 +2280,60 @@ export const Agenda: React.FC = () => {
                     )}
 
                     {managerTab === 'pacote' && (
-                        <div className="animate-fadeIn">
-                            <div className="bg-slate-50 py-3 px-6 text-center rounded-xl mb-4 border border-slate-100">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Uso do Pacote</span>
+                        <div className="animate-fadeIn space-y-6">
+                            <div className="bg-slate-50/50 py-3 px-6 text-center rounded-2xl border border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Resumo de Utilização</span>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-slate-100">
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Serviço</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Quantidade</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Utilizados</th>
-                                            <th className="py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Restante</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {(() => {
-                                            const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-                                            const used = cmnd?.sessions_used || 0;
-                                            const total = cmnd?.sessions_total || 0;
-                                            const remaining = total - used;
-                                            
-                                            if (!cmnd) return null;
 
-                                            return (
-                                                <tr className="border-b border-slate-50">
-                                                    <td className="py-6 px-4">
-                                                        <p className="text-xs font-bold text-slate-700 uppercase tracking-tight">{cmnd?.description || 'Serviço do Pacote'}</p>
-                                                    </td>
-                                                    <td className="py-6 px-4 text-center text-xs font-black text-slate-400 tabular-nums">{total}</td>
-                                                    <td className="py-6 px-4 text-center text-xs font-black text-indigo-600 tabular-nums">{used}</td>
-                                                    <td className="py-6 px-4 text-center">
-                                                        {total > 0 && remaining === 0 ? (
-                                                            <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-rose-100">Esgotado</span>
-                                                        ) : total > 0 ? (
-                                                            <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">{remaining} Restantes</span>
-                                                        ) : (
-                                                            <span className="text-[9px] font-bold text-slate-400 italic">Avulso</span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })()}
-                                    </tbody>
-                                </table>
-                            </div>
+                            {(() => {
+                                const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+                                const used = cmnd?.sessions_used || 0;
+                                const total = cmnd?.sessions_total || 0;
+                                const remaining = total - used;
+                                const percentage = total > 0 ? (used / total) * 100 : 0;
+
+                                if (!cmnd) return null;
+
+                                return (
+                                    <div className="space-y-8 px-2">
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-100/50">
+                                            <div className="flex justify-between items-end mb-4">
+                                                <div>
+                                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Status Geral</h4>
+                                                    <p className="text-xl font-black text-slate-800">{cmnd?.description || 'Pacote de Sessões'}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-4xl font-black text-indigo-600 tracking-tighter">{used}</span>
+                                                    <span className="text-xl font-black text-slate-300 mx-2">/</span>
+                                                    <span className="text-2xl font-black text-slate-400">{total}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100/50 p-1">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600 rounded-full transition-all duration-1000 ease-out shadow-lg shadow-indigo-200"
+                                                    style={{ width: `${percentage}%` }}
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-4 mt-8">
+                                                <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 text-center">
+                                                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Contratado</span>
+                                                    <span className="text-lg font-black text-indigo-600">{total}</span>
+                                                </div>
+                                                <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 text-center">
+                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest block mb-1">Utilizado</span>
+                                                    <span className="text-lg font-black text-emerald-600">{used}</span>
+                                                </div>
+                                                <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100 text-center">
+                                                    <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest block mb-1">Restante</span>
+                                                    <span className="text-lg font-black text-orange-600">{remaining}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
@@ -2284,15 +2350,16 @@ export const Agenda: React.FC = () => {
       >
         <div className="space-y-8 py-4">
             <div className="space-y-6">
-                <Input 
-                    label="Data do Pagamento" 
-                    type="date"
-                    value={newPayment.date}
-                    onChange={e => setNewPayment({...newPayment, date: e.target.value})}
-                />
-                
-                <Select 
-                    label="Forma de pagamento" 
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data do Pagamento</label>
+                    <DatePicker 
+                        value={newPayment.date} 
+                        onChange={val => val && setNewPayment({...newPayment, date: val})}
+                    />
+                </div>
+
+                <Select
+                    label="Forma de pagamento"
                     value={newPayment.method}
                     onChange={e => setNewPayment({...newPayment, method: e.target.value})}
                 >
@@ -2303,16 +2370,16 @@ export const Agenda: React.FC = () => {
                     <option value="Transferência">Transferência</option>
                 </Select>
 
-                <Input 
-                    label="Valor" 
+                <Input
+                    label="Valor"
                     placeholder="R$ 0,00"
                     type="number"
                     value={newPayment.value}
                     onChange={e => setNewPayment({...newPayment, value: e.target.value})}
                 />
 
-                <Input 
-                    label="Código do Recibo (Opcional)" 
+                <Input
+                    label="Código do Recibo (Opcional)"
                     placeholder="Ex: REC-123"
                     value={newPayment.receiptCode}
                     onChange={e => setNewPayment({...newPayment, receiptCode: e.target.value})}
@@ -2334,15 +2401,15 @@ export const Agenda: React.FC = () => {
             </div>
 
             <div className="flex gap-4 pt-4 border-t border-slate-50">
-                <Button 
-                    variant="ghost" 
-                    onClick={() => setIsAddPaymentModalOpen(false)} 
+                <Button
+                    variant="ghost"
+                    onClick={() => setIsAddPaymentModalOpen(false)}
                     className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest border-none hover:bg-slate-50"
                 >
                     FECHAR
                 </Button>
-                <Button 
-                    variant="primary" 
+                <Button
+                    variant="primary"
                     onClick={handleSavePayment}
                     className="flex-1 bg-indigo-600 text-white hover:bg-slate-900 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
                 >

@@ -12,6 +12,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
 import { useNavigate } from 'react-router-dom';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 interface PatientSummary {
   appointmentsCount: number | null;
@@ -40,12 +41,13 @@ const getAvatarColor = (name: string) => {
 
 export const Patients: React.FC = () => {
   const { t } = useLanguage();
+  const { preferences, updatePreference } = useUserPreferences();
   const navigate = useNavigate();
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'ativo' | 'inativo'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ativo' | 'inativo'>(preferences.patients.statusFilter);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Partial<Patient> | undefined>(undefined);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export const Patients: React.FC = () => {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(preferences.patients.viewMode);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -493,7 +495,7 @@ export const Patients: React.FC = () => {
               ].map(f => (
                 <button
                   key={f.id}
-                  onClick={() => setStatusFilter(f.id as any)}
+                  onClick={() => { setStatusFilter(f.id as any); updatePreference('patients', { statusFilter: f.id as any }); }}
                   className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     statusFilter === f.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                   }`}
@@ -504,14 +506,14 @@ export const Patients: React.FC = () => {
             </div>
             <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
               <button
-                onClick={() => setViewMode('cards')}
+                onClick={() => { setViewMode('cards'); updatePreference('patients', { viewMode: 'cards' }); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'cards' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
                 title="Visualização em cards"
               >
                 ⊞
               </button>
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => { setViewMode('list'); updatePreference('patients', { viewMode: 'list' }); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
                 title="Visualização em lista"
               >

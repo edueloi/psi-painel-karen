@@ -532,47 +532,51 @@ export const Services: React.FC = () => {
         isOpen={isServiceModalOpen}
         onClose={() => setIsServiceModalOpen(false)}
         title={editingService?.id ? 'Editar Serviço' : 'Novo Serviço'}
+        maxWidth="max-w-lg"
         footer={
-          <div className="flex gap-4 w-full justify-end">
-            <button onClick={() => setIsServiceModalOpen(false)} className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">DESCARTAR</button>
-            <button onClick={handleSaveService} className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                <CheckCircle2 size={18}/> SALVAR SERVIÇO
+          <div className="flex gap-4 w-full justify-between items-center">
+            <button onClick={() => setIsServiceModalOpen(false)} className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">FECHAR</button>
+            <button onClick={handleSaveService} className="px-8 py-3 bg-indigo-600 hover:bg-slate-800 text-white rounded-xl shadow-lg shadow-indigo-600/10 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
+                SALVAR SERVIÇO
             </button>
           </div>
         }
       >
         {editingService && (
-          <div className="space-y-5">
+          <div className="space-y-6 py-1">
             <Input 
-              label="Nome do Atendimento"
+              label="NOME DO ATENDIMENTO"
               value={editingService.name || ''}
               onChange={e => setEditingService({...editingService, name: e.target.value})}
               placeholder="Ex: Psicoterapia Individual"
+              className="!h-9 !text-xs !rounded-xl"
             />
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               <Input 
-                label="Categoria"
+                label="CATEGORIA"
                 value={editingService.category || ''}
                 onChange={e => setEditingService({...editingService, category: e.target.value})}
+                className="!h-9 !text-xs !rounded-xl"
               />
               <Input 
-                label="Duração (min)"
+                label="DURAÇÃO (MIN)"
                 type="number"
                 value={editingService.duration || 0}
                 onChange={e => setEditingService({...editingService, duration: parseInt(e.target.value)})}
+                className="!h-9 !text-xs !rounded-xl"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               <CurrencyInput 
-                label="Valor Venda"
+                label="VALOR VENDA"
                 icon={<DollarSign size={16}/>}
                 value={editingService.price || 0}
                 onChange={val => setEditingService({...editingService, price: val})}
               />
               <CurrencyInput 
-                label="Custo Prof."
+                label="CUSTO PROF."
                 icon={<DollarSign size={16}/>}
                 value={editingService.cost || 0}
                 onChange={val => setEditingService({...editingService, cost: val})}
@@ -580,9 +584,10 @@ export const Services: React.FC = () => {
             </div>
 
             <Select 
-              label="Modalidade"
+              label="MODALIDADE"
               value={editingService.modality || 'presencial'}
               onChange={e => setEditingService({...editingService, modality: e.target.value as any})}
+              className="!h-9 !text-xs !rounded-xl"
             >
               <option value="presencial">Presencial</option>
               <option value="online">Online</option>
@@ -590,10 +595,11 @@ export const Services: React.FC = () => {
             </Select>
 
             <TextArea 
-              label="Observações / Descrição"
+              label="OBSERVAÇÕES / DESCRIÇÃO"
               value={editingService.description || ''}
               onChange={e => setEditingService({...editingService, description: e.target.value})}
               placeholder="Detalhes adicionais sobre o serviço..."
+              className="!text-xs !rounded-xl"
             />
           </div>
         )}
@@ -604,35 +610,36 @@ export const Services: React.FC = () => {
         isOpen={isPackageModalOpen}
         onClose={() => setIsPackageModalOpen(false)}
         title="Estruturar Pacote"
-        maxWidth="max-w-3xl"
+        maxWidth="max-w-xl"
         footer={
-          <div className="flex gap-4 w-full justify-end">
-            <button onClick={() => setIsPackageModalOpen(false)} className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">DESCARTAR</button>
-            <button onClick={handleSavePackage} className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                <CheckCircle2 size={18}/> FINALIZAR E SALVAR
+          <div className="flex gap-4 w-full justify-between items-center">
+            <button onClick={() => setIsPackageModalOpen(false)} className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">FECHAR</button>
+            <button onClick={handleSavePackage} className="px-8 py-3 bg-indigo-600 hover:bg-slate-800 text-white rounded-xl shadow-lg shadow-indigo-600/10 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
+                FINALIZAR E SALVAR
             </button>
           </div>
         }
       >
         {editingPackage && (
-          <div className="space-y-6">
+          <div className="space-y-6 py-1">
             <Input 
-              label="Título do Pacote"
+              label="TÍTULO DO PACOTE"
               value={editingPackage.name || ''}
               onChange={e => setEditingPackage({...editingPackage, name: e.target.value})}
               placeholder="Ex: Terapia Mensal Intensiva"
+              className="!h-9 !text-xs !rounded-xl"
             />
 
-            <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                <div className="flex justify-between items-center mb-4 px-2">
-                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <div className="bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100">
+                <div className="flex justify-between items-center mb-3 px-1">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <Layers size={14}/> Serviços Incluídos
                     </h4>
                     <div className="relative group">
-                      <button className="h-8 px-3 bg-white border border-slate-200 rounded-xl flex items-center gap-1.5 text-[9px] font-black text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all uppercase tracking-widest">
-                          <Plus size={14}/> ADICIONAR
+                      <button className="h-7 px-3 bg-white border border-slate-200 rounded-lg flex items-center gap-1.5 text-[8px] font-black text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all uppercase tracking-widest">
+                          <Plus size={12}/> ADICIONAR
                       </button>
-                      <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-3xl shadow-2xl border border-slate-100 hidden group-focus-within:block z-50 p-2 animate-fadeIn max-h-48 overflow-y-auto">
+                      <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 hidden group-focus-within:block z-50 p-2 animate-fadeIn max-h-48 overflow-y-auto">
                           {services.map(s => (
                               <button key={s.id} className="w-full text-left p-3 hover:bg-slate-50 text-[11px] font-bold text-slate-600 rounded-xl mb-1 flex items-center gap-2" onClick={() => {const newItems = [...(editingPackage.items || [])]; const existing = newItems.find(i => i.serviceId === s.id); if(existing) existing.quantity += 1; else newItems.push({ serviceId: s.id, quantity: 1 }); handlePackageItemChange(newItems);}}>
                                   <div className="w-2 h-2 rounded-full" style={{backgroundColor: s.color}}></div>
@@ -645,13 +652,13 @@ export const Services: React.FC = () => {
                 
                 <div className="space-y-2">
                     {(!editingPackage.items || editingPackage.items.length === 0) ? (
-                        <div className="text-center py-6 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Nenhum serviço selecionado</div>
+                        <div className="text-center py-4 text-[9px] font-black text-slate-300 uppercase tracking-widest">Nenhum serviço selecionado</div>
                     ) : (
                         editingPackage.items.map((item, idx) => {
                             const s = services.find(srv => srv.id === item.serviceId);
                             return (
-                                <div key={idx} className="flex gap-3 items-center bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm">
-                                    <div className="flex-1 text-[11px] font-black text-slate-700 truncate">{s?.name}</div>
+                                <div key={idx} className="flex gap-3 items-center bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                                    <div className="flex-1 text-[10px] font-black text-slate-700 truncate">{s?.name}</div>
                                     <div className="flex items-center gap-3">
                                         <input type="number" min="1" className="w-8 bg-slate-50 rounded-lg py-1 font-black text-slate-700 text-[10px] text-center outline-none" value={item.quantity} onChange={(e) => {const newItems = [...(editingPackage.items || [])]; newItems[idx].quantity = parseInt(e.target.value) || 1; handlePackageItemChange(newItems);}} />
                                         <span className="text-[10px] font-black text-indigo-600 w-16 text-right">{s ? formatCurrency(s.price * item.quantity) : '-'}</span>
@@ -665,21 +672,21 @@ export const Services: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
-              <div className="space-y-4">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Configurar Desconto</label>
+              <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Configurar Desconto</label>
                   <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-                      <button onClick={() => handlePackageDiscountChange('percentage', editingPackage.discountValue || 0)} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${editingPackage.discountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>%</button>
-                      <button onClick={() => handlePackageDiscountChange('fixed', editingPackage.discountValue || 0)} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${editingPackage.discountType === 'fixed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>$</button>
+                      <button onClick={() => handlePackageDiscountChange('percentage', editingPackage.discountValue || 0)} className={`flex-1 py-2 rounded-xl text-[9px] font-black transition-all ${editingPackage.discountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>%</button>
+                      <button onClick={() => handlePackageDiscountChange('fixed', editingPackage.discountValue || 0)} className={`flex-1 py-2 rounded-xl text-[9px] font-black transition-all ${editingPackage.discountType === 'fixed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>$</button>
                       
                       {editingPackage.discountType === 'percentage' ? (
                         <div className="flex items-center px-2">
                            <input 
                             type="number" 
-                            className="w-12 bg-transparent border-0 font-black text-indigo-700 text-center text-sm outline-none" 
+                            className="w-10 bg-transparent border-0 font-black text-indigo-700 text-center text-xs outline-none" 
                             value={editingPackage.discountValue || 0} 
                             onChange={(e) => handlePackageDiscountChange('percentage', parseFloat(e.target.value) || 0)} 
                           />
-                          <span className="text-indigo-600 font-bold text-xs">%</span>
+                          <span className="text-indigo-600 font-bold text-[10px]">%</span>
                         </div>
                       ) : (
                         <div className="flex-1">
@@ -693,16 +700,17 @@ export const Services: React.FC = () => {
                   </div>
               </div>
               <div className="bg-slate-900 rounded-[1.5rem] p-4 text-white text-right">
-                  <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1">Preço Final</p>
-                  <p className="text-xl font-black">{formatCurrency(editingPackage.totalPrice || 0)}</p>
+                  <p className="text-[8px] font-black text-indigo-300 uppercase tracking-widest mb-0.5">Preço Final</p>
+                  <p className="text-lg font-black">{formatCurrency(editingPackage.totalPrice || 0)}</p>
               </div>
             </div>
 
             <TextArea 
-              label="Observações do Pacote"
+              label="OBSERVAÇÕES DO PACOTE"
               value={editingPackage.description || ''}
               onChange={e => setEditingPackage({...editingPackage, description: e.target.value})}
               placeholder="Detalhes sobre o pacote promocional..."
+              className="!text-xs !rounded-xl"
             />
           </div>
         )}

@@ -231,9 +231,19 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
 
     if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
 
+    // Calcular sessões totais
+    const sessions_count = items && items.length > 0 
+      ? items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0)
+      : 0;
+
+    // Calcular preço original (base) se não vier
+    // Neste contexto, o totalPrice que vem do frontend já é o final.
+    // O price original seria o somatório dos serviços.
+    const originalPrice = totalPrice || 0; 
+
     const [result] = await connection.query(
-      'INSERT INTO packages (tenant_id, name, description, discountType, discountValue, totalPrice) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.user.tenant_id, name, description || null, discountType || 'percentage', discountValue || 0, totalPrice || 0]
+      'INSERT INTO packages (tenant_id, name, description, discountType, discountValue, totalPrice, price, sessions_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.tenant_id, name, description || null, discountType || 'percentage', discountValue || 0, totalPrice || 0, originalPrice, sessions_count]
     );
 
     const packageId = result.insertId;
@@ -268,6 +278,11 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
 
     const { name, description, discountType, discountValue, totalPrice, items, active } = req.body;
 
+    // Calcular sessões totais se houver items no corpo
+    const sessions_count = items && items.length > 0 
+      ? items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0)
+      : undefined;
+
     await connection.query(
       `UPDATE packages SET
         name = COALESCE(?, name),
@@ -275,9 +290,11 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
         discountType = COALESCE(?, discountType),
         discountValue = COALESCE(?, discountValue),
         totalPrice = COALESCE(?, totalPrice),
+        price = COALESCE(?, price),
+        sessions_count = COALESCE(?, sessions_count),
         active = COALESCE(?, active)
        WHERE id = ? AND tenant_id = ?`,
-      [name, description, discountType, discountValue, totalPrice, active !== undefined ? active : undefined, req.params.id, req.user.tenant_id]
+      [name, description, discountType, discountValue, totalPrice, totalPrice, sessions_count, active !== undefined ? active : undefined, req.params.id, req.user.tenant_id]
     );
 
     if (items) {

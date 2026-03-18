@@ -331,11 +331,19 @@ export type ComandaStatus = 'open' | 'closed' | 'cancelled';
 
 export interface ComandaItem {
   id: string;
-  serviceId: string;
-  serviceName: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
+  serviceId?: string;
+  serviceName?: string;
+  service_id?: string | number;
+  package_id?: string | number;
+  name?: string;
+  quantity?: number;
+  qty?: number;
+  unitPrice?: number;
+  price?: number;
+  total?: number;
+  value?: number;
+  type?: 'service' | 'package' | 'custom';
+  locked?: boolean;
   description?: string;
 }
 
@@ -350,7 +358,10 @@ export interface Comanda {
   id: string;
   patientId: string;
   patientName: string;
+  patient_id?: string | number;
+  patient_name?: string;
   professionalId?: string;
+  professional_id?: string | number;
   status: ComandaStatus;
   description: string;
   items: ComandaItem[];
@@ -359,14 +370,26 @@ export interface Comanda {
   discountType: 'percentage' | 'fixed';
   discountValue: number;
   totalValue: number;
+  total?: number;
+  total_liquid?: number;
+  discount?: number;
+  discount_type?: 'percentage' | 'fixed';
+  discount_value?: number;
   paidValue: number;
   startDate?: string;
+  start_date?: string;
   duration_minutes?: number;
   appointment_id?: number;
+  package_id?: string | number;
+  comanda_type?: 'normal' | 'package';
   frequency?: 'unica' | 'semanal' | 'quinzenal' | 'mensal';
   sessions_total?: number;
   sessions_used?: number;
   createdAt: string;
+  updated_at?: string;
+  notes?: string;
+  payment_method?: string;
+  receipt_code?: string;
 }
 
 export type ProductType = 'physical' | 'digital';

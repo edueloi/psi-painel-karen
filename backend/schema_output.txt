@@ -1,0 +1,14 @@
+CREATE TABLE `packages` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tenant_id` int NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `price` decimal(10,2) NOT NULL,
+  `sessions_count` int NOT NULL,
+  `discountType` enum('percentage','fixed') COLLATE utf8mb4_unicode_ci DEFAULT 'percentage',
+  `discountValue` decimal(10,2) DEFAULT '0.00',
+  `totalPrice` decimal(10,2) DEFAULT '0.00',
+  PRIMARY KEY (`id`),
+  KEY `tenant_id` (`tenant_id`),
+  CONSTRAINT `packages_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

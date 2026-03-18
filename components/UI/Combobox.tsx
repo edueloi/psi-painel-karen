@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Search, Plus, Check, UserPlus } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, Check, UserPlus, ChevronDown, X } from 'lucide-react';
 
 interface Option {
   id: string | number;
@@ -15,169 +15,401 @@ interface ComboboxProps {
   placeholder?: string;
   allowCustom?: boolean;
   onCustomAdd?: (name: string) => void;
+  disabled?: boolean;
+  className?: string;
+  noResultsText?: string;
+  size?: 'sm' | 'md';
+  showSelectedBadge?: boolean;
+  showResultCount?: boolean;
 }
 
-export const Combobox: React.FC<ComboboxProps> = ({ 
-  label, 
-  options, 
-  value, 
-  onChange, 
-  icon, 
+const cx = (...classes: Array<string | false | null | undefined>) =>
+  classes.filter(Boolean).join(' ');
+
+export const Combobox: React.FC<ComboboxProps> = ({
+  label,
+  options,
+  value,
+  onChange,
+  icon,
   placeholder = 'Pesquisar...',
   allowCustom = false,
-  onCustomAdd
+  onCustomAdd,
+  disabled = false,
+  className = '',
+  noResultsText = 'Nenhum resultado encontrado',
+  size = 'sm',
+  showSelectedBadge = true,
+  showResultCount = true,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const selectedOption = options.find(o => String(o.id) === String(value));
-  
-  useEffect(() => {
-    if (selectedOption) {
-      setSearchTerm(selectedOption.label);
-    } else if (value && allowCustom) {
-      // If value is set but not in options, it might be a custom name
-      const valStr = String(value);
-      if (!valStr.match(/^\d+$/)) { // Assuming IDs are numeric
-          setSearchTerm(valStr);
-      }
-    } else if (!value) {
-        setSearchTerm('');
-    }
-  }, [value, selectedOption, allowCustom]);
-
-  const filteredOptions = options.filter(o => 
-    o.label.toLowerCase().includes(searchTerm.toLowerCase())
+  const selectedOption = useMemo(
+    () => options.find((option) => String(option.id) === String(value)),
+    [options, value]
   );
 
-  const handleClickOutside = (e: MouseEvent) => {
-    if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-      setIsOpen(false);
-      // Reset search if no valid option selected and not allowCustom
-      if (!selectedOption && !allowCustom) {
-          setSearchTerm('');
-          onChange('');
-      } else if (selectedOption) {
-          setSearchTerm(selectedOption.label);
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+
+  const ui = {
+    inputHeight: size === 'sm' ? 'min-h-[40px]' : 'min-h-[44px]',
+    inputText: size === 'sm' ? 'text-sm' : 'text-sm',
+    inputPadding: size === 'sm' ? 'pl-9 pr-16' : 'pl-10 pr-20',
+    dropdownRounded: size === 'sm' ? 'rounded-xl' : 'rounded-2xl',
+    dropdownTop: size === 'sm' ? 'top-[calc(100%+6px)]' : 'top-[calc(100%+8px)]',
+    headerPadding: size === 'sm' ? 'px-3 py-2' : 'px-4 py-3',
+    listPadding: size === 'sm' ? 'p-1.5' : 'p-2',
+    listMaxHeight: size === 'sm' ? 'max-h-[220px]' : 'max-h-[260px]',
+    itemPadding: size === 'sm' ? 'px-3 py-2' : 'px-3 py-3',
+    itemTitle: size === 'sm' ? 'text-[14px]' : 'text-sm',
+    itemMeta: size === 'sm' ? 'text-[9px]' : 'text-[10px]',
+    checkSize: size === 'sm' ? 'h-7 w-7' : 'h-8 w-8',
+    clearSize: size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
+    chevronSize: size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
+  };
+
+  useEffect(() => {
+    if (selectedOption) {
+      setQuery(selectedOption.label);
+      return;
+    }
+
+    if (value && allowCustom) {
+      setQuery(String(value));
+      return;
+    }
+
+    if (!value) {
+      setQuery('');
+    }
+  }, [selectedOption, value, allowCustom]);
+
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return options;
+
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(normalizedQuery)
+    );
+  }, [options, query]);
+
+  useEffect(() => {
+    setHighlightedIndex(filteredOptions.length > 0 ? 0 : -1);
+  }, [query, filteredOptions.length, isOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+
+        if (selectedOption) {
+          setQuery(selectedOption.label);
+        } else if (!allowCustom) {
+          setQuery('');
+          onChange('', '');
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [selectedOption, allowCustom, onChange]);
+
+  useEffect(() => {
+    if (!isOpen || highlightedIndex < 0 || !listRef.current) return;
+
+    const activeItem = listRef.current.querySelector(
+      `[data-index="${highlightedIndex}"]`
+    ) as HTMLElement | null;
+
+    activeItem?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIndex, isOpen]);
+
+  const openDropdown = () => {
+    if (!disabled) setIsOpen(true);
+  };
+
+  const closeDropdown = () => {
+    setIsOpen(false);
+  };
+
+  const handleSelect = (option: Option) => {
+    onChange(option.id, option.label);
+    setQuery(option.label);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleClear = () => {
+    setQuery('');
+    onChange('', '');
+    setIsOpen(false);
+    inputRef.current?.focus();
+  };
+
+  const handleInputChange = (nextValue: string) => {
+    setQuery(nextValue);
+    setIsOpen(true);
+
+    const exactMatch = options.find(
+      (option) => option.label.toLowerCase() === nextValue.trim().toLowerCase()
+    );
+
+    if (exactMatch) {
+      onChange(exactMatch.id, exactMatch.label);
+    } else if (allowCustom) {
+      onChange(nextValue, nextValue);
+    } else if (!nextValue) {
+      onChange('', '');
+    }
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
+    if (!isOpen && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
+      setIsOpen(true);
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlightedIndex((prev) =>
+        filteredOptions.length === 0
+          ? -1
+          : prev < filteredOptions.length - 1
+          ? prev + 1
+          : 0
+      );
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlightedIndex((prev) =>
+        filteredOptions.length === 0
+          ? -1
+          : prev > 0
+          ? prev - 1
+          : filteredOptions.length - 1
+      );
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+
+      if (isOpen && highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+        handleSelect(filteredOptions[highlightedIndex]);
+        return;
+      }
+
+      if (allowCustom && query.trim() && onCustomAdd) {
+        onCustomAdd(query.trim());
+        setIsOpen(false);
+      }
+
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeDropdown();
+
+      if (selectedOption) {
+        setQuery(selectedOption.label);
+      } else if (!allowCustom) {
+        setQuery('');
       }
     }
   };
 
-  useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectedOption, allowCustom, searchTerm]);
+  const showAddCustom =
+    allowCustom &&
+    query.trim() &&
+    filteredOptions.length === 0 &&
+    typeof onCustomAdd === 'function';
 
   return (
-    <div className="flex flex-col gap-2 w-full relative" ref={containerRef}>
-      <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+    <div ref={containerRef} className={cx('w-full', className)}>
+      <label className="mb-1 block text-[12px] font-medium text-slate-600">
         {label}
       </label>
-      <div className="relative group">
-        <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors z-10 ${isOpen ? 'text-indigo-500' : 'text-slate-300'}`}>
-          {icon || <Search size={18}/>}
-        </div>
-        <input
-          className={`
-            w-full transition-all duration-300 outline-none
-            ${icon ? 'pl-11' : 'pl-5'} pr-12 py-3
-            bg-slate-50 border border-slate-100/80
-            text-slate-700 text-sm font-black
-            rounded-2xl focus:bg-white focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-400
-            placeholder:text-slate-300 placeholder:font-bold
-          `}
-          placeholder={placeholder}
-          value={searchTerm}
-          onChange={(e) => {
-            const val = e.target.value;
-            setSearchTerm(val);
-            setIsOpen(true);
-            
-            // If it matches exactly one option, select it
-            const match = options.find(o => o.label.toLowerCase() === val.toLowerCase());
-            if (match) {
-                onChange(match.id, match.label);
-            } else if (allowCustom) {
-                // If allowed custom, we can treat the ID as the name string
-                onChange(val, val);
-            }
-          }}
-          onFocus={() => setIsOpen(true)}
-        />
-        
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
-            {isOpen ? (
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
-            ) : (
-                <div className="text-slate-300">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
+
+      <div className="relative">
+        <div
+          className={cx(
+            'relative flex items-center rounded-xl border bg-white transition-all',
+            ui.inputHeight,
+            disabled
+              ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-70'
+              : isOpen
+              ? 'border-violet-500 ring-4 ring-violet-500/10'
+              : 'border-slate-300 hover:border-slate-400'
+          )}
+        >
+          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            {icon || <Search size={15} />}
+          </div>
+
+          <input
+            ref={inputRef}
+            type="text"
+            disabled={disabled}
+            value={query}
+            placeholder={placeholder}
+            onFocus={openDropdown}
+            onClick={openDropdown}
+            onKeyDown={handleKeyDown}
+            onChange={(e) => handleInputChange(e.target.value)}
+            className={cx(
+              'w-full bg-transparent outline-none placeholder:text-slate-400 text-slate-700',
+              ui.inputText,
+              ui.inputPadding,
+              size === 'sm' ? 'h-9' : 'h-10'
             )}
+          />
+
+          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+            {!!query && !disabled && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className={cx(
+                  'flex items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600',
+                  ui.clearSize
+                )}
+                aria-label="Limpar"
+              >
+                <X size={13} />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => (isOpen ? closeDropdown() : openDropdown())}
+              disabled={disabled}
+              className={cx(
+                'flex items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed',
+                ui.chevronSize
+              )}
+              aria-label="Abrir opções"
+            >
+              <ChevronDown
+                size={14}
+                className={cx('transition-transform', isOpen && 'rotate-180')}
+              />
+            </button>
+          </div>
         </div>
 
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-slate-100 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] z-[100] max-h-[300px] overflow-y-auto custom-scrollbar overflow-x-hidden animate-slideUp">
-            <div className="p-2 space-y-1">
-                {filteredOptions.length > 0 ? (
-                filteredOptions.map((opt) => (
+          <div
+            className={cx(
+              'absolute left-0 right-0 z-[120] overflow-hidden border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]',
+              ui.dropdownRounded,
+              ui.dropdownTop
+            )}
+          >
+            {showResultCount && (
+              <div className={cx('border-b border-slate-100', ui.headerPadding)}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  {filteredOptions.length > 0
+                    ? `${filteredOptions.length} resultado(s)`
+                    : 'Busca'}
+                </p>
+              </div>
+            )}
+
+            <div
+              ref={listRef}
+              className={cx(ui.listMaxHeight, 'overflow-y-auto custom-scrollbar', ui.listPadding)}
+            >
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option, index) => {
+                  const isSelected = String(option.id) === String(value);
+                  const isHighlighted = index === highlightedIndex;
+
+                  return (
                     <button
-                        key={opt.id}
-                        type="button"
-                        className={`
-                            w-full text-left px-5 py-3.5 rounded-2xl transition-all 
-                            flex items-center justify-between group
-                            ${String(opt.id) === String(value) ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-slate-50 text-slate-700'}
-                        `}
-                        onClick={() => {
-                            onChange(opt.id, opt.label);
-                            setSearchTerm(opt.label);
-                            setIsOpen(false);
-                        }}
+                      key={option.id}
+                      type="button"
+                      data-index={index}
+                      onClick={() => handleSelect(option)}
+                      className={cx(
+                        'flex w-full items-center justify-between text-left transition',
+                        ui.itemPadding,
+                        size === 'sm' ? 'rounded-lg' : 'rounded-xl',
+                        isSelected
+                          ? 'bg-violet-50 text-violet-700'
+                          : isHighlighted
+                          ? 'bg-slate-50 text-slate-800'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      )}
                     >
-                    <div className="flex flex-col">
-                        <span className="text-sm font-black tracking-tight">{opt.label}</span>
-                        {String(opt.id) === String(value) && <span className="text-[9px] font-black uppercase tracking-[0.1em] opacity-60">Selecionado</span>}
-                    </div>
-                    {String(opt.id) === String(value) ? (
-                        <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
-                            <Check size={14} strokeWidth={3}/>
-                        </div>
-                    ) : (
-                        <div className="w-8 h-8 rounded-full bg-white border border-slate-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Check size={14} className="text-indigo-400"/>
-                        </div>
-                    )}
+                      <div className="min-w-0 pr-2">
+                        <p className={cx('truncate font-medium', ui.itemTitle)}>
+                          {option.label}
+                        </p>
+
+                        {isSelected && showSelectedBadge && (
+                          <p className={cx('mt-0.5 font-semibold uppercase tracking-wide text-violet-500', ui.itemMeta)}>
+                            Selecionado
+                          </p>
+                        )}
+                      </div>
+
+                      <div
+                        className={cx(
+                          'ml-2 flex shrink-0 items-center justify-center rounded-full border transition',
+                          ui.checkSize,
+                          isSelected
+                            ? 'border-violet-600 bg-violet-600 text-white'
+                            : 'border-slate-200 bg-white text-slate-300'
+                        )}
+                      >
+                        <Check size={12} />
+                      </div>
                     </button>
-                ))
-                ) : searchTerm && allowCustom ? (
-                    <button
-                        type="button"
-                        className="w-full text-left px-6 py-5 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-[1.5rem] transition-all flex items-center gap-4 group"
-                        onClick={() => {
-                            if (onCustomAdd) onCustomAdd(searchTerm);
-                            setIsOpen(false);
-                        }}
-                    >
-                        <div className="w-12 h-12 bg-indigo-50 group-hover:bg-white/20 rounded-2xl flex items-center justify-center transition-colors">
-                            <UserPlus size={20} className="group-hover:text-white"/>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100">Não encontrado</span>
-                            <span className="text-sm font-black">ADICIONAR "{searchTerm.toUpperCase()}"</span>
-                        </div>
-                    </button>
-                ) : (
-                    <div className="flex flex-col items-center py-10 px-6 text-center">
-                        <div className="w-16 h-16 bg-slate-50 rounded-[2rem] flex items-center justify-center text-slate-200 mb-4 border border-slate-100">
-                            <Search size={24}/>
-                        </div>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Nenhum resultado</p>
-                        <p className="text-[10px] font-bold text-slate-300 mt-1">Tente pesquisar por outro termo</p>
-                    </div>
-                )}
+                  );
+                })
+              ) : showAddCustom ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCustomAdd?.(query.trim());
+                    setIsOpen(false);
+                  }}
+                  className={cx(
+                    'flex w-full items-center gap-3 text-left text-violet-700 transition hover:bg-violet-50',
+                    size === 'sm' ? 'rounded-lg px-3 py-3' : 'rounded-xl px-4 py-4'
+                  )}
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+                    <UserPlus size={15} />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Não encontrado
+                    </p>
+                    <p className="text-sm font-medium">Adicionar "{query.trim()}"</p>
+                  </div>
+                </button>
+              ) : (
+                <div className="flex flex-col items-center px-4 py-8 text-center">
+                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                    <Search size={16} />
+                  </div>
+                  <p className="text-sm font-medium text-slate-500">{noResultsText}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Tente pesquisar com outro termo
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
