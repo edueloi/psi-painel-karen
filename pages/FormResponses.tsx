@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Patient, InterpretationRule } from '../types';
@@ -31,6 +31,7 @@ type FormResponse = {
 export const FormResponses: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const [formTitle, setFormTitle] = useState('Formulário');
   const [interpretations, setInterpretations] = useState<InterpretationRule[]>([]);
   const [responses, setResponses] = useState<FormResponse[]>([]);
@@ -45,6 +46,14 @@ export const FormResponses: React.FC = () => {
   const [aiAnalysisMap, setAiAnalysisMap] = useState<Record<string, string>>({});
 
   const { user } = useAuth();
+
+  // Pré-filtro do paciente vindo da URL (ex: clique no prontuário)
+  useEffect(() => {
+    const pid = searchParams.get('patientId');
+    if (pid) {
+      setFilterPatientId(pid);
+    }
+  }, [searchParams]);
   
   const patientOptions = React.useMemo(() => [
     { id: 'all', label: 'Todos os Pacientes' },
@@ -100,25 +109,45 @@ export const FormResponses: React.FC = () => {
     const input = document.getElementById(`pdf-report-content-${responseId}`);
     if (!input) return;
 
-    // Temporarily show the hidden template for capture
+    // Abrimos temporariamente o template escondido
     input.style.display = 'block';
     
-    html2canvas(input, { 
-      scale: 2, 
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    }).then((canvas) => {
+    try {
+      const canvas = await html2canvas(input, { 
+        scale: 2, 
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 794 // Largura de uma folha A4 em px (aprox)
+      });
+      
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const imgWidth = 210; // largura A4
+      const pageHeight = 297; // altura A4
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Adiciona primeira página
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Adiciona páginas extras se necessário (paginação)
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
       pdf.save(`Relatorio_Aurora_${respondentName.replace(/\s+/g, '_')}.pdf`);
-      
+    } catch (err) {
+      console.error("Erro ao gerar PDF:", err);
+    } finally {
       input.style.display = 'none';
-    });
+    }
   };
 
   const load = async () => {
@@ -311,6 +340,8 @@ export const FormResponses: React.FC = () => {
           />
         </FilterLineSection>
         
+        <div className="h-10 w-px bg-slate-100 hidden xl:block mx-2" />
+
         <FilterLineSection className="min-w-[280px]">
            <Combobox 
               label="Paciente"
@@ -322,6 +353,8 @@ export const FormResponses: React.FC = () => {
               className="border-none"
            />
         </FilterLineSection>
+
+        <div className="h-10 w-px bg-slate-100 hidden xl:block mx-2" />
 
         <FilterLineSection className="min-w-[200px]">
            <div className="w-full">
@@ -449,41 +482,58 @@ export const FormResponses: React.FC = () => {
                                 <CheckCircle2 size={12} /> Paciente Ativo
                               </span>
                             ) : (
-                              <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-3 py-1.5 rounded-xl border border-slate-200">Acesso Público</span>
+                              <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest bg-slate-50 text-slate-500 px-3 py-1.5 rounded-xl border border-slate-100">
+                                <Info size={12} /> Respondente Externo
+                              </span>
                             )}
                           </div>
-                          
-                          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-bold text-slate-400 text-left">
-                            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl text-[10px] text-slate-500 uppercase tracking-widest text-left">
-                              <Clock size={14} className="text-indigo-500" /> {formatDate(res.created_at)}
+                          <div className="flex items-center gap-6 flex-wrap text-left mt-3">
+                            <div className="flex items-center gap-2 text-slate-400 font-bold text-xs">
+                               <Clock size={14} className="text-indigo-400" />
+                               {formatDate(res.created_at)}
                             </div>
-                            {(res.respondent_phone || res.respondent_email) && (
-                              <div className="flex items-center gap-5 text-[11px] font-medium text-slate-400 text-left">
-                                {res.respondent_phone && <span className="flex items-center gap-1.5"><Phone size={14} className="text-slate-300" /> {res.respondent_phone}</span>}
-                                {res.respondent_email && <span className="flex items-center gap-1.5"><Mail size={14} className="text-slate-300" /> {res.respondent_email}</span>}
-                              </div>
+                            {res.respondent_phone && (
+                               <div className="flex items-center gap-2 text-slate-400 font-bold text-xs text-left">
+                                  <Phone size={14} className="text-indigo-400" />
+                                  {res.respondent_phone}
+                               </div>
+                            )}
+                            {res.respondent_email && (
+                               <div className="flex items-center gap-2 text-slate-400 font-bold text-xs text-left">
+                                  <Mail size={14} className="text-indigo-400" />
+                                  {res.respondent_email}
+                               </div>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Score Indicator */}
-                      <div className="w-full md:w-auto text-left">
+                      <div className="flex items-center gap-10">
+                        {/* Score Indicator */}
                         {res.score !== null && (
-                          <div className={`p-6 rounded-[2rem] border-2 flex items-center gap-8 shadow-xl transition-all ${
+                          <div className={`p-4 rounded-2xl border-2 flex items-center gap-6 shadow-sm transition-all ${
                             inter?.color?.includes('bg-') ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-900 text-white border-slate-800'
                           } text-left`}>
-                            <div className="text-center pr-8 border-r border-white/20 shrink-0 text-left">
-                              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 text-left">SCORE</p>
-                              <p className="text-4xl font-black text-left">{res.score}</p>
+                            <div className="text-center pr-4 border-r border-white/20 shrink-0 text-left">
+                              <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-80 mb-0.5 text-left">SCORE</p>
+                              <p className="text-2xl font-black text-left">{res.score}</p>
                             </div>
-                            <div className="min-w-[140px] text-left">
-                              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 leading-none text-left">RESULTADO</p>
-                              <p className="text-lg font-black leading-tight tracking-tight uppercase text-left">{inter?.resultTitle || 'Avaliado'}</p>
+                            <div className="min-w-[100px] text-left">
+                              <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-80 mb-0.5 leading-none text-left">RESULTADO</p>
+                              <p className="text-[13px] font-black leading-tight tracking-tight uppercase text-left">{inter?.resultTitle || 'Avaliado'}</p>
                             </div>
-                            <Sparkles size={24} className="text-white opacity-40 shrink-0" />
                           </div>
                         )}
+
+                        <div className="flex items-center gap-4">
+                          <div className="text-right hidden sm:block">
+                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Status</p>
+                             <p className="text-xs font-bold text-emerald-600">Completo</p>
+                          </div>
+                          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-all duration-500 group-hover:rotate-90">
+                             <ChevronRight size={24} />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
