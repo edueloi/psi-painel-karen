@@ -1262,13 +1262,33 @@ export const Agenda: React.FC = () => {
                 onCurrentDateChange={setCurrentDate}
                 events={filteredAppointments.map(a => {
                     // Tenta encontrar serviço ou pacote
-                    const isPkg = String(a.service_id).startsWith('pkg_');
-                    const id = isPkg ? String(a.service_id).replace('pkg_', '') : String(a.service_id);
                     let serviceName = '';
-                    if (isPkg) {
-                        serviceName = packages.find(p => String(p.id) === id)?.name || 'Pacote';
-                    } else {
-                        serviceName = services.find(s => String(s.id) === id)?.name || '';
+                    if (a.package_id) {
+                        serviceName = packages.find(p => String(p.id) === String(a.package_id))?.name || 'Pacote';
+                    } else if (a.service_id) {
+                        serviceName = services.find(s => String(s.id) === String(a.service_id))?.name || '';
+                    }
+
+                    const now = new Date();
+                    const startTime = new Date(a.start);
+                    let status = (a.status as any) || 'scheduled';
+                    
+                    // Auto-confirmação visual se passou do horário
+                    if (status === 'scheduled' && startTime < now) {
+                        status = 'confirmed';
+                    }
+
+                    // Contador dinâmico baseado na comanda se não tiver recorrência fixa
+                    let finalRecurrenceIndex = a.recurrence_index;
+                    let finalRecurrenceCount = a.recurrence_count;
+                    if (!finalRecurrenceIndex && a.comanda_id) {
+                        const comandaApts = appointments.filter(x => String(x.comanda_id || '') === String(a.comanda_id))
+                            .sort((x, y) => new Date(x.start).getTime() - new Date(y.start).getTime());
+                        const idx = comandaApts.findIndex(x => String(x.id) === String(a.id));
+                        if (idx !== -1) {
+                            finalRecurrenceIndex = idx + 1;
+                            finalRecurrenceCount = comandaApts.length;
+                        }
                     }
 
                     return {
@@ -1279,10 +1299,10 @@ export const Agenda: React.FC = () => {
                         start: a.start,
                         end: a.end,
                         type: (a.type as any) || 'consulta',
-                        status: (a.status as any) || 'scheduled',
+                        status: status,
                         modality: a.modality as 'presencial' | 'online',
-                        recurrenceIndex: a.recurrence_index,
-                        recurrenceCount: a.recurrence_count,
+                        recurrenceIndex: finalRecurrenceIndex,
+                        recurrenceCount: finalRecurrenceCount,
                         serviceName,
                         comandaId: a.comanda_id,
                         color: a.type === 'bloqueio' ? '#64748b' : undefined,
@@ -1296,6 +1316,7 @@ export const Agenda: React.FC = () => {
                 showTasksPanel={false}
                 hideHeader
                 hideStats
+                hourHeight={125}
             />
         )}
       </div>
@@ -2550,6 +2571,20 @@ export const Agenda: React.FC = () => {
 
           return (
             <div className="grid grid-cols-1 gap-6 py-2 lg:grid-cols-[1.6fr_0.9fr]">
+              {(() => {
+                const now = new Date();
+                const usedSessionsArr = (cmnd.appointments || []).filter((a: any) => {
+                  const startTime = new Date(a.start_time || a.start_date || a.start || a.startDate);
+                  const isPast = startTime < now;
+                  const isMissed = a.status === 'cancelled' || a.status === 'no_show' || a.status === 'no-show' || a.status === 'no_realizado';
+                  return a.status === 'completed' || a.status === 'confirmed' || (isPast && !isMissed);
+                });
+                const calculatedUsed = usedSessionsArr.length;
+                const totalSessions = cmnd.sessions_total || 1;
+                const progress = Math.min(100, (calculatedUsed / totalSessions) * 100);
+
+                return (
+                  <>
               <div className="space-y-5">
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-center gap-3">
@@ -2713,12 +2748,11 @@ export const Agenda: React.FC = () => {
                     <div className="flex flex-col items-center justify-center py-8">
                       <div className={cx(
                         "mb-2 text-4xl font-bold",
-                        (cmnd.appointments?.length || 0) > (cmnd.sessions_total || 0)
+                        calculatedUsed > totalSessions
                           ? "text-red-600"
                           : "text-primary-600"
                       )}>
-                        {cmnd.sessions_used || 0} /{' '}
-                        {cmnd.sessions_total || 1}
+                        {calculatedUsed} / {totalSessions}
                       </div>
                       <div className="mb-4 text-sm text-slate-500">
                         Atendimentos consumidos
@@ -2727,10 +2761,7 @@ export const Agenda: React.FC = () => {
                         <div
                           className="h-full rounded-full bg-primary-600"
                           style={{
-                            width: `${Math.min(
-                              100,
-                              ((cmnd.sessions_used || 0) / (cmnd.sessions_total || 1)) * 100
-                            )}%`,
+                            width: `${progress}%`,
                           }}
                         />
                       </div>
@@ -2801,6 +2832,9 @@ export const Agenda: React.FC = () => {
                   </div>
                 </div>
               </div>
+              </>
+                );
+              })()}
             </div>
           );
         })()}

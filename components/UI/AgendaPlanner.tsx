@@ -730,69 +730,59 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                 style={{ backgroundColor: accent }}
                               />
 
-                              <div className="flex h-full flex-col p-2.5 pl-3.5">
-                                <div className="mb-1 flex items-center justify-between gap-2">
-                                  <div className="flex min-w-0 items-center gap-1.5">
-                                    <span
-                                      className="h-2 w-2 rounded-full"
-                                      style={{ backgroundColor: accent }}
-                                    />
-                                    <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              <div className="flex h-full flex-col p-2 pl-3">
+                                {/* Header: Time, Sequence, Status */}
+                                <div className="mb-0.5 flex items-center justify-between gap-1 leading-none">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="truncate text-[10px] font-black uppercase tracking-wider text-slate-500/80">
                                       {event.startDate.toLocaleTimeString([], {
                                         hour: '2-digit',
                                         minute: '2-digit',
                                       })}
                                     </span>
+                                    {event.recurrenceIndex && event.recurrenceCount && (
+                                      <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black text-indigo-600 border border-indigo-100/50">
+                                        {event.recurrenceIndex}/{event.recurrenceCount}
+                                      </span>
+                                    )}
                                   </div>
 
                                   <div className="flex shrink-0 items-center gap-1.5">
                                     {event.modality === 'online' && (
-                                      <Video size={11} className="text-slate-500" />
+                                      <Video size={10} className="text-slate-400" />
                                     )}
-                                    <span className={cx('h-2 w-2 rounded-full', status.dot)} />
+                                    <span className={cx('h-1.5 w-1.5 rounded-full', status.dot)} />
                                   </div>
                                 </div>
 
-                                <p className="truncate text-[12px] font-bold leading-tight text-slate-800">
+                                {/* Title: Patient Name */}
+                                <p className="truncate text-[11px] font-black leading-none text-slate-900 uppercase tracking-tight py-0.5">
                                   {event.title}
                                 </p>
 
-                                {event.serviceName && (
-                                  <p className="mt-0.5 truncate text-[10px] font-bold text-indigo-600">
-                                    {event.serviceName}
-                                  </p>
-                                )}
-
-                                {event.height > 52 && (
-                                  <div className="mt-0.5 flex items-center gap-1.5 truncate text-[10px] font-medium text-slate-500">
+                                {/* Service/Package & Comanda */}
+                                {(event.serviceName || event.comandaId) && (
+                                  <div className="flex items-center gap-1 truncate text-[9px] font-bold text-slate-500 leading-none">
                                     {event.comandaId && (
-                                      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm">
-                                        <DollarSign size={10} strokeWidth={3} />
-                                      </div>
+                                      <DollarSign size={9} className="text-emerald-500 shrink-0" strokeWidth={3} />
                                     )}
-                                    <span className="truncate opacity-80">
-                                      {event.subtitle || `${durationMinutes} min`}
+                                    <span className="truncate opacity-70">
+                                      {event.serviceName || event.subtitle || 'Consulta'}
                                     </span>
                                   </div>
                                 )}
 
-                                {event.height > 82 && event.description && (
-                                  <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
+                                {event.height > 60 && event.description && (
+                                  <p className="mt-1 line-clamp-1 text-[9px] leading-relaxed text-slate-400 font-medium">
                                     {event.description}
                                   </p>
                                 )}
 
-                                <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                                <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400/70 uppercase tracking-widest">
                                     {meta.icon}
-                                    {meta.label}
+                                    {event.height > 80 ? meta.label : ''}
                                   </span>
-
-                                  {event.recurrenceIndex && event.recurrenceCount && (
-                                    <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-600 shadow-sm">
-                                      {event.recurrenceIndex}/{event.recurrenceCount}
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                             </button>
