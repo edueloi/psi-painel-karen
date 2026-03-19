@@ -81,12 +81,26 @@ router.get('/responses', authMiddleware, async (req, res) => {
 router.get('/public/:hash', async (req, res) => {
   try {
     const [forms] = await db.query(
-      'SELECT id, title, description, fields, hash FROM forms WHERE hash = ? AND is_public = true',
+      `SELECT f.id, f.title, f.description, f.fields, f.hash,
+              u.name as professional_name, u.specialty as professional_specialty,
+              u.crp as professional_crp, u.company_name, u.clinic_logo_url, u.avatar_url
+       FROM forms f
+       LEFT JOIN users u ON u.id = f.created_by
+       WHERE f.hash = ? AND f.is_public = true`,
       [req.params.hash]
     );
     if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
 
-    const form = unpackForm(forms[0]);
+    const row = forms[0];
+    const form = unpackForm({ id: row.id, title: row.title, description: row.description, fields: row.fields, hash: row.hash });
+    form.professional = {
+      name: row.professional_name || '',
+      specialty: row.professional_specialty || '',
+      crp: row.professional_crp || '',
+      company_name: row.company_name || '',
+      clinic_logo_url: row.clinic_logo_url || '',
+      avatar_url: row.avatar_url || '',
+    };
     res.json(form);
   } catch (err) {
     console.error(err);

@@ -1,63 +1,118 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
-import { ClinicalForm, Patient, Professional, InterpretationRule } from '../types';
-import { CheckCircle, AlertCircle, ChevronDown, User, Phone, Mail, ShieldCheck, ArrowRight, Calendar, MapPin, Calculator } from 'lucide-react';
+import { ClinicalForm, InterpretationRule } from '../types';
+import {
+  CheckCircle, AlertCircle, ChevronDown, ArrowRight, Calculator,
+  User, Phone, Mail, ShieldCheck
+} from 'lucide-react';
 
+/* ─── helpers ─────────────────────────────────────────────────────────────── */
+function initials(name: string) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+/* ─── sub-components ──────────────────────────────────────────────────────── */
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        <span className="text-sm text-slate-500 font-medium">Carregando formulário...</span>
+      </div>
+    </div>
+  );
+}
+
+function ErrorScreen({ message, hash }: { message: string; hash?: string }) {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 max-w-sm w-full p-8 text-center">
+        <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="text-red-500" size={28} />
+        </div>
+        <h1 className="text-lg font-bold text-slate-800 mb-2">Formulário indisponível</h1>
+        <p className="text-sm text-slate-500 leading-relaxed mb-4">
+          O link pode ter expirado ou não existe mais. Entre em contato com o profissional.
+        </p>
+        {message && <p className="text-xs text-slate-400 mb-1">{message}</p>}
+        {hash && <p className="text-xs text-slate-300 font-mono">{hash}</p>}
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-5 px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold rounded-xl transition-colors"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SuccessScreen({
+  professional,
+  scoreResult,
+}: {
+  professional: any;
+  scoreResult: { total: number; interpretation?: InterpretationRule } | null;
+}) {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 max-w-md w-full p-8 text-center">
+        <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <CheckCircle className="text-emerald-500" size={28} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-1">Respostas enviadas!</h2>
+        <p className="text-sm text-slate-500 mb-6">
+          Suas respostas foram enviadas para{' '}
+          <strong>{professional?.name || 'o profissional'}</strong> com segurança.
+        </p>
+
+        {scoreResult?.interpretation && (
+          <div className={`p-4 rounded-xl border text-left mb-6 ${scoreResult.interpretation.color}`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Resultado</span>
+              <span className="font-mono font-bold text-sm">{scoreResult.total} pts</span>
+            </div>
+            <h3 className="font-bold text-base mb-1">{scoreResult.interpretation.resultTitle}</h3>
+            {scoreResult.interpretation.description && (
+              <p className="text-xs opacity-80 leading-relaxed">{scoreResult.interpretation.description}</p>
+            )}
+          </div>
+        )}
+
+        <p className="text-xs text-slate-400">Você pode fechar esta página agora.</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── main ────────────────────────────────────────────────────────────────── */
 export const ExternalForm: React.FC = () => {
   const { hash } = useParams<{ hash: string }>();
   const [searchParams] = useSearchParams();
   const patientId = searchParams.get('p');
 
-  const [form, setForm] = useState<ClinicalForm | undefined>(undefined);
-  const [professional, setProfessional] = useState<Professional | undefined>(undefined);
-  const [patient, setPatient] = useState<Patient | undefined>(undefined);
-  const [branding, setBranding] = useState<any>(undefined);
+  const [form, setForm] = useState<ClinicalForm | null>(null);
+  const [professional, setProfessional] = useState<any>(null);
+  const [patientName, setPatientName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
-
-  const pushToast = (type: 'success' | 'error', message: string) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, type, message }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
-  };
-  const [submitted, setSubmitted] = useState(false);
-  const [scoreResult, setScoreResult] = useState<{ total: number, interpretation?: InterpretationRule } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [scoreResult, setScoreResult] = useState<{ total: number; interpretation?: InterpretationRule } | null>(null);
 
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [answerValues, setAnswerValues] = useState<Record<string, number>>({});
+  const [identification, setIdentification] = useState({ name: '', email: '', phone: '' });
+  const [logoError, setLogoError] = useState(false);
 
-  const totalQuestions = form?.questions?.length || 0;
-  const answeredQuestions = form
-    ? form.questions.filter((q) => {
-        const value = answers[q.id];
-        if (value === undefined || value === null) return false;
-        if (Array.isArray(value)) return value.length > 0;
-        return String(value).trim().length > 0;
-      }).length
-    : 0;
-  const progress = totalQuestions ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
-
-  const [identification, setIdentification] = useState({
-    name: '',
-    email: '',
-    phone: ''
-  });
-
+  /* load */
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
-      setLoadError(null);
+      if (!hash) { setLoadError('Link inválido.'); setLoading(false); return; }
       try {
-        if (!hash) {
-          setForm(undefined);
-          setProfessional(undefined);
-          setLoadError('Link invalido.');
-          return;
-        }
         const formData = await api.get<any>(`/forms/public/${hash}`);
-        const mappedForm: ClinicalForm = {
+        const mapped: ClinicalForm = {
           id: String(formData.id),
           title: formData.title,
           hash: formData.hash,
@@ -69,7 +124,7 @@ export const ExternalForm: React.FC = () => {
             required: Boolean(q.is_required ?? q.required),
             options: q.options_json
               ? (typeof q.options_json === 'string' ? JSON.parse(q.options_json) : q.options_json)
-              : (q.options || [])
+              : (q.options || []),
           })),
           interpretations: (formData.interpretations || []).map((r: any) => ({
             id: String(r.id),
@@ -77,47 +132,33 @@ export const ExternalForm: React.FC = () => {
             maxScore: r.max_score ?? r.maxScore,
             resultTitle: r.result_title ?? r.resultTitle,
             description: r.description || '',
-            color: r.color || 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+            color: r.color || 'bg-indigo-50 text-indigo-700',
           })),
           responseCount: formData.response_count ?? 0,
-          isGlobal: Boolean(formData.is_global)
+          isGlobal: Boolean(formData.is_global),
+          theme: formData.theme || undefined,
         };
-        let theme = undefined;
-        if (formData.theme_json) {
+        setForm(mapped);
+        setProfessional(formData.professional || {});
+
+        // Pre-load patient name if link has ?p=
+        if (patientId) {
           try {
-            theme = typeof formData.theme_json === 'string' ? JSON.parse(formData.theme_json) : formData.theme_json;
-          } catch {
-            theme = undefined;
-          }
-        }
-
-        setForm({ ...mappedForm, theme });
-        setBranding(formData.branding || undefined);
-
-        const publicBranding = formData.branding || {};
-        setProfessional({
-          id: 'public',
-          name: publicBranding.professional_name || 'Equipe PsiPainel',
-          email: 'contato@psipainel.com.br',
-          role: 'profissional',
-          profession: publicBranding.professional_specialty || 'Psicologia Clinica',
-          registrationNumber: publicBranding.professional_crp || '00000'
-        } as any);
-
-        const token = localStorage.getItem('psi_token');
-        if (patientId && token) {
-          try {
-            const patientData = await api.get<Patient>(`/patients/${patientId}`);
-            setPatient(patientData);
-          } catch {
-            setPatient(undefined);
-          }
+            const token = localStorage.getItem('psi_token');
+            if (token) {
+              const p = await api.get<any>(`/patients/${patientId}`);
+              setPatientName(p.full_name || p.name || '');
+              setIdentification(prev => ({
+                ...prev,
+                name: p.full_name || p.name || '',
+                email: p.email || '',
+                phone: p.whatsapp || p.phone || '',
+              }));
+            }
+          } catch { /* ignore */ }
         }
       } catch (e: any) {
-        console.error(e);
-        setForm(undefined);
-        setProfessional(undefined);
-        setLoadError(e?.message || 'Erro ao carregar formulario.');
+        setLoadError(e?.message || 'Erro ao carregar formulário.');
       } finally {
         setLoading(false);
       }
@@ -125,405 +166,339 @@ export const ExternalForm: React.FC = () => {
     load();
   }, [hash, patientId]);
 
-  const calculateScore = () => {
-    let total = 0;
-    Object.values(answerValues).forEach((val: any) => total += (val as number));
+  /* helpers */
+  const totalQ = form?.questions?.length || 0;
+  const answeredQ = form?.questions?.filter(q => {
+    const v = answers[q.id];
+    if (v === undefined || v === null) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    return String(v).trim().length > 0;
+  }).length || 0;
+  const progress = totalQ ? Math.round((answeredQ / totalQ) * 100) : 0;
 
-    let interpretation = undefined;
-    if (form?.interpretations) {
-      interpretation = form.interpretations.find(rule => total >= rule.minScore && total <= rule.maxScore);
-    }
+  const theme = {
+    primary: form?.theme?.primaryColor || '#4f46e5',
+    accent: form?.theme?.accentColor || '#7c3aed',
+    bg: form?.theme?.backgroundColor || '#f8fafc',
+    card: form?.theme?.cardColor || '#ffffff',
+    button: form?.theme?.buttonColor || '#4f46e5',
+  };
 
-    return { total, interpretation };
+  const handleInput = (qId: string, value: any, score = 0) => {
+    setAnswers(p => ({ ...p, [qId]: value }));
+    setAnswerValues(p => ({ ...p, [qId]: score }));
+  };
+
+  const handleCheckbox = (qId: string, label: string, score: number, checked: boolean) => {
+    const cur = (answers[qId] as string[]) || [];
+    const curScore = (answerValues[qId] as number) || 0;
+    setAnswers(p => ({ ...p, [qId]: checked ? [...cur, label] : cur.filter(v => v !== label) }));
+    setAnswerValues(p => ({ ...p, [qId]: checked ? curScore + score : curScore - score }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!patient && (!identification.name || !identification.phone)) {
-      pushToast('error', 'Por favor, preencha seus dados de identificação.');
-      return;
-    }
-
-    const result = calculateScore();
-    setScoreResult(result);
-    setSubmitted(true);
-
+    const total = Object.values(answerValues).reduce((s: number, v: any) => s + (v as number), 0);
+    const interpretation = form?.interpretations?.find(r => total >= r.minScore && total <= r.maxScore);
+    setScoreResult({ total, interpretation });
+    setSubmitting(true);
     try {
       await api.post(`/forms/public/${hash}/responses`, {
         answers,
-        score: result.total,
-        respondent_name: patient ? patient.full_name : identification.name,
-        respondent_email: patient ? patient.email : identification.email,
-        respondent_phone: patient ? (patient.whatsapp || patient.phone) : identification.phone
+        score: total,
+        respondent_name: patientName || identification.name,
+        respondent_email: identification.email,
+        respondent_phone: identification.phone,
+        patient_id: patientId || undefined,
       });
-    } catch (err) {
-      console.error(err);
+      setSubmitted(true);
+    } catch {
+      // still show success UI since score is calculated
+      setSubmitted(true);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleInputChange = (questionId: string, value: any, scoreValue: number = 0) => {
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
-    setAnswerValues(prev => ({ ...prev, [questionId]: scoreValue }));
-  };
+  /* ─── renders ─── */
+  if (loading) return <LoadingScreen />;
+  if (loadError || !form) return <ErrorScreen message={loadError || ''} hash={hash} />;
+  if (submitted) return <SuccessScreen professional={professional} scoreResult={scoreResult} />;
 
-  const handleCheckboxChange = (questionId: string, value: string, score: number, checked: boolean) => {
-    const currentAnswer = (answers[questionId] as string[]) || [];
-    const currentScore = (answerValues[questionId] as number) || 0;
-
-    if (checked) {
-      setAnswers(prev => ({ ...prev, [questionId]: [...currentAnswer, value] }));
-      setAnswerValues(prev => ({ ...prev, [questionId]: currentScore + score }));
-    } else {
-      setAnswers(prev => ({ ...prev, [questionId]: currentAnswer.filter(v => v !== value) }));
-      setAnswerValues(prev => ({ ...prev, [questionId]: currentScore - score }));
-    }
-  };
-
-  const theme = {
-    primaryColor: form?.theme?.primaryColor || '#0f172a',
-    accentColor: form?.theme?.accentColor || '#4f46e5',
-    backgroundColor: form?.theme?.backgroundColor || '#f8fafc',
-    cardColor: form?.theme?.cardColor || '#ffffff',
-    buttonColor: form?.theme?.buttonColor || '#4f46e5',
-    headerImageUrl: form?.theme?.headerImageUrl || branding?.cover_url || ''
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600"></div>
-          <span className="text-indigo-900/60 font-sans animate-pulse font-medium">Carregando formulario...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!form || !professional) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-        <div className="bg-white p-8 md:p-12 rounded-3xl shadow-xl max-w-md w-full text-center border-t-8 border-red-500">
-          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="h-10 w-10 text-red-500" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-3">Formulario Indisponivel</h1>
-          <p className="text-slate-500 leading-relaxed">O link que voce acessou pode ter expirado ou nao existe mais. Entre em contato com o profissional.</p>
-          {loadError && (
-            <p className="text-xs text-slate-400 mt-4">Detalhe: {loadError}</p>
-          )}
-          {hash && (
-            <p className="text-[10px] text-slate-400 mt-2">Codigo: {hash}</p>
-          )}
-          <button onClick={() => window.location.reload()} className="mt-6 px-4 py-2 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">
-            Tentar novamente
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6 font-sans relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-br from-indigo-600 to-purple-700"></div>
-
-        <div className="bg-white p-10 md:p-14 rounded-[32px] shadow-2xl max-w-lg w-full text-center border border-slate-100 animate-[slideUpFade_0.5s_ease-out] relative z-10 mt-20">
-          <div className="w-24 h-24 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-sm border-4 border-emerald-100 -mt-24 bg-white">
-            <CheckCircle size={48} className="text-emerald-500" />
-          </div>
-          <h2 className="text-3xl font-display font-bold text-slate-800 mb-4">Recebido com Sucesso!</h2>
-          <p className="text-slate-500 mb-8 text-lg leading-relaxed">Suas respostas foram enviadas para <strong>{professional.name}</strong> de forma segura.</p>
-
-          {scoreResult && scoreResult.interpretation && (
-            <div className={`p-6 rounded-2xl border mb-6 text-left ${scoreResult.interpretation.color}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-widest opacity-70">Resultado</span>
-                <span className="font-mono font-bold text-xl">{scoreResult.total} pts</span>
-              </div>
-              <h3 className="text-xl font-bold mb-2">{scoreResult.interpretation.resultTitle}</h3>
-              <p className="text-sm opacity-90 leading-relaxed">{scoreResult.interpretation.description}</p>
-            </div>
-          )}
-
-          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-6">
-            <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-2">Protocolo</p>
-            <p className="font-mono text-slate-700 font-bold tracking-widest">#REQ-{Math.floor(Math.random() * 10000)}</p>
-          </div>
-
-          <p className="text-xs text-slate-400">Voce pode fechar esta pagina agora.</p>
-        </div>
-      </div>
-    );
-  }
+  const hasInterpretations = (form.interpretations?.length || 0) > 0;
+  const logoUrl = professional?.clinic_logo_url;
+  const clinicName = professional?.company_name || professional?.name || '';
+  const profName = professional?.name || '';
+  const crp = professional?.crp || '';
+  const specialty = professional?.specialty || '';
 
   return (
-    <div className="min-h-screen font-sans text-slate-700 flex flex-col relative" style={{ backgroundColor: theme.backgroundColor }}>
-      <div className="absolute top-0 left-0 w-full h-[320px] overflow-hidden z-0" style={{ background: theme.headerImageUrl ? `url(${theme.headerImageUrl}) center/cover` : `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})` }}>
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-        <div className="absolute -right-20 -top-20 w-96 h-96 bg-indigo-500/30 rounded-full blur-[100px] pointer-events-none"></div>
-        <div className="absolute left-10 bottom-10 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] pointer-events-none"></div>
-      </div>
+    <div className="min-h-screen font-sans" style={{ backgroundColor: theme.bg }}>
 
-      <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-12 relative z-10">
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center md:items-start gap-6 text-white shadow-xl">
-          {branding?.clinic_logo_url ? (
-            <img src={branding.clinic_logo_url} alt="logo" className="w-24 h-24 rounded-full border-4 border-white/20 shadow-lg object-cover bg-white" />
-          ) : (
-            <div className="w-24 h-24 rounded-full border-4 border-white/20 shadow-lg bg-indigo-600 overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl font-bold">
-              {(professional.name || '?').charAt(0)}
+      {/* Header strip */}
+      <div
+        className="w-full py-8 px-4"
+        style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})` }}
+      >
+        <div className="max-w-2xl mx-auto flex items-center gap-4">
+          {logoUrl && !logoError ? (
+            <img
+              src={logoUrl}
+              alt=""
+              onError={() => setLogoError(true)}
+              className="w-14 h-14 rounded-xl object-cover bg-white/20 border-2 border-white/30 shadow-md flex-shrink-0"
+            />
+          ) : clinicName ? (
+            <div className="w-14 h-14 rounded-xl bg-white/20 border-2 border-white/30 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+              {initials(clinicName)}
             </div>
-          )}
-          <div className="text-center md:text-left flex-1">
-            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-              <h2 className="text-2xl font-display font-bold">{professional.name}</h2>
-              <ShieldCheck size={18} className="text-emerald-400" />
-            </div>
-            <p className="text-indigo-100 font-medium mb-3">{professional.profession} - CRP {professional.registrationNumber}</p>
-
-            <div className="flex flex-wrap justify-center md:justify-start gap-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10">
-                <MapPin size={12} /> {branding?.clinic_name || 'Clinica'}
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10">
-                <Calendar size={12} /> Atendimento Presencial & Online
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[32px] shadow-2xl shadow-indigo-900/10 border border-white overflow-hidden animate-[slideUpFade_0.3s_ease-out]">
-          <div className="bg-slate-50 border-b border-slate-100 p-8 md:p-10">
-            <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider mb-4">
-              Formulario Seguro
-            </span>
-            <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-800 mb-4 leading-tight">{form.title}</h1>
-            <p className="text-slate-500 text-lg leading-relaxed max-w-2xl">{form.description}</p>
-
-            {form.interpretations && form.interpretations.length > 0 && (
-              <div className="mt-6 flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg w-fit">
-                <Calculator size={14} />
-                <span>Este questionario gera um resultado automatico ao final.</span>
-              </div>
+          ) : null}
+          <div className="text-white min-w-0">
+            {clinicName && <p className="font-bold text-base leading-tight truncate">{clinicName}</p>}
+            {profName && (
+              <p className="text-white/80 text-sm truncate">
+                {profName}
+                {specialty && ` · ${specialty}`}
+                {crp && ` · CRP ${crp}`}
+              </p>
             )}
           </div>
+        </div>
+      </div>
 
+      {/* Form card */}
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-16">
 
-<div className="mt-6 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
-  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-    <div className="text-xs text-slate-500 font-semibold">
-      Progresso: <span className="text-slate-800 font-bold">{answeredQuestions}/{totalQuestions}</span> respostas
-    </div>
-    <div className="text-xs font-bold text-indigo-600">{progress}%</div>
-  </div>
-  <div className="mt-2 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-    <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }}></div>
-  </div>
-</div>
+        {/* Title block */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-4">
+          <h1 className="text-2xl font-bold text-slate-800 mb-1">{form.title}</h1>
+          {form.description && <p className="text-slate-500 text-sm leading-relaxed">{form.description}</p>}
+          {hasInterpretations && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg w-fit">
+              <Calculator size={12} />
+              <span>Este questionário gera um resultado automático.</span>
+            </div>
+          )}
+        </div>
 
-          <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
-            {!patient ? (
-              <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm relative group hover:border-indigo-200 transition-colors">
-                <div className="absolute -top-4 left-8 bg-indigo-600 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-md">
-                  Passo 1: Sua Identificacao
-                </div>
+        {/* Progress */}
+        {totalQ > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-between text-xs text-slate-500 mb-1.5 font-medium">
+              <span>{answeredQ} de {totalQ} respondidas</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${progress}%`, backgroundColor: theme.button }}
+              />
+            </div>
+          </div>
+        )}
 
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-sm font-bold text-slate-700 ml-1">Nome Completo <span className="text-red-500">*</span></label>
-                    <div className="relative group/input">
-                      <User size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-indigo-600 transition-colors" />
-                      <input
-                        type="text"
-                        required
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 placeholder:text-slate-400"
-                        placeholder="Digite seu nome..."
-                        value={identification.name}
-                        onChange={e => setIdentification({ ...identification, name: e.target.value })}
-                      />
-                    </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+
+          {/* Identification — only if no patient pre-loaded */}
+          {!patientName && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Seus dados</p>
+              <div className="space-y-3">
+                <label className="block">
+                  <span className="text-xs font-semibold text-slate-600 mb-1 block">
+                    Nome completo <span className="text-red-500">*</span>
+                  </span>
+                  <div className="relative">
+                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Seu nome"
+                      value={identification.name}
+                      onChange={e => setIdentification(p => ({ ...p, name: e.target.value }))}
+                      className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                    />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700 ml-1">Telefone / WhatsApp <span className="text-red-500">*</span></label>
-                    <div className="relative group/input">
-                      <Phone size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-indigo-600 transition-colors" />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-xs font-semibold text-slate-600 mb-1 block">
+                      Telefone <span className="text-red-500">*</span>
+                    </span>
+                    <div className="relative">
+                      <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="tel"
                         required
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 placeholder:text-slate-400"
                         placeholder="(00) 00000-0000"
                         value={identification.phone}
-                        onChange={e => setIdentification({ ...identification, phone: e.target.value })}
+                        onChange={e => setIdentification(p => ({ ...p, phone: e.target.value }))}
+                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
                       />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700 ml-1">E-mail</label>
-                    <div className="relative group/input">
-                      <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-indigo-600 transition-colors" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold text-slate-600 mb-1 block">E-mail</span>
+                    <div className="relative">
+                      <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="email"
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 placeholder:text-slate-400"
                         placeholder="seu@email.com"
                         value={identification.email}
-                        onChange={e => setIdentification({ ...identification, email: e.target.value })}
+                        onChange={e => setIdentification(p => ({ ...p, email: e.target.value }))}
+                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
                       />
                     </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 flex items-center gap-4 animate-fadeIn">
-                <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-indigo-600 font-bold border border-indigo-100 text-lg shadow-sm">
-                  {(patient.full_name || '?').charAt(0)}
-                </div>
-                <div>
-                  <p className="text-sm text-indigo-900 font-medium opacity-80">Respondendo como:</p>
-                  <p className="text-xl font-bold text-indigo-800">{patient.full_name}</p>
-                </div>
-                <CheckCircle className="ml-auto text-indigo-400 opacity-50" size={32} />
-              </div>
-            )}
-
-            <div className="space-y-10">
-              <div className="flex items-center gap-4">
-                <div className="h-px bg-slate-100 flex-1"></div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Questionario</span>
-                <div className="h-px bg-slate-100 flex-1"></div>
-              </div>
-
-              {form.questions.map((q, idx) => (
-                <div key={q.id} className="group transition-all duration-500 border border-slate-200 rounded-3xl p-6 md:p-7 shadow-sm hover:border-indigo-200 hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]" style={{ backgroundColor: theme.cardColor }}>
-                  <label className="block text-slate-800 font-bold mb-4 text-xl leading-snug">
-                    <span className="inline-block w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 text-center leading-8 text-sm mr-3 font-mono">{idx + 1}</span>
-                    {q.text}
-                    {q.required && <span className="ml-2 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600">Obrigatorio</span>}
                   </label>
-
-                  <div className="pl-0 md:pl-11">
-                    {q.type === 'text' && (
-                      <input
-                        type="text"
-                        required={q.required}
-                        className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-300 text-lg shadow-sm"
-                        placeholder="Sua resposta..."
-                        onChange={(e) => handleInputChange(q.id, e.target.value)}
-                      />
-                    )}
-
-                    {q.type === 'textarea' && (
-                      <textarea
-                        required={q.required}
-                        rows={4}
-                        className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-300 resize-y min-h-[120px] text-lg shadow-sm leading-relaxed"
-                        placeholder="Digite aqui..."
-                        onChange={(e) => handleInputChange(q.id, e.target.value)}
-                      />
-                    )}
-
-                    {q.type === 'number' && (
-                      <input
-                        type="number"
-                        required={q.required}
-                        className="w-full md:w-48 px-5 py-4 rounded-2xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-300 text-lg shadow-sm font-mono"
-                        placeholder="0"
-                        onChange={(e) => handleInputChange(q.id, e.target.value)}
-                      />
-                    )}
-
-                    {q.type === 'radio' && (
-                      <div className="space-y-3">
-                        {q.options?.map((opt, i) => (
-                          <label key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-transparent hover:border-indigo-200 hover:bg-white cursor-pointer transition-all group/opt shadow-sm hover:shadow-md">
-                            <div className="relative flex items-center justify-center">
-                              <input
-                                type="radio"
-                                name={q.id}
-                                value={opt.label}
-                                className="peer appearance-none w-6 h-6 border-2 border-slate-300 rounded-full checked:border-indigo-600 checked:bg-indigo-600 transition-all cursor-pointer"
-                                required={q.required}
-                                onChange={(e) => handleInputChange(q.id, e.target.value, opt.value)}
-                              />
-                              <div className="absolute w-2.5 h-2.5 bg-white rounded-full opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></div>
-                            </div>
-                            <span className="text-slate-700 group-hover/opt:text-indigo-800 font-medium text-lg">{opt.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-
-                    {q.type === 'checkbox' && (
-                      <div className="space-y-3">
-                        {q.options?.map((opt, i) => (
-                          <label key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-transparent hover:border-indigo-200 hover:bg-white cursor-pointer transition-all group/opt shadow-sm hover:shadow-md">
-                            <div className="relative flex items-center justify-center">
-                              <input
-                                type="checkbox"
-                                name={q.id}
-                                value={opt.label}
-                                className="peer appearance-none w-6 h-6 border-2 border-slate-300 rounded-md checked:border-indigo-600 checked:bg-indigo-600 transition-all cursor-pointer"
-                                onChange={(e) => handleCheckboxChange(q.id, opt.label, opt.value, e.target.checked)}
-                              />
-                              <CheckCircle size={16} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
-                            </div>
-                            <span className="text-slate-700 group-hover/opt:text-indigo-800 font-medium text-lg">{opt.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-
-                    {q.type === 'select' && (
-                      <div className="relative">
-                        <select
-                          required={q.required}
-                          className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all appearance-none cursor-pointer text-lg text-slate-700 shadow-sm"
-                          onChange={(e) => {
-                            const selectedOption = q.options?.find(o => o.label === e.target.value);
-                            handleInputChange(q.id, e.target.value, selectedOption?.value || 0);
-                          }}
-                        >
-                          <option value="">Selecione uma opcao...</option>
-                          {q.options?.map((opt, i) => (
-                            <option key={i} value={opt.label}>{opt.label}</option>
-                          ))}
-                        </select>
-                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                          <ChevronDown size={24} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
-              ))}
+              </div>
             </div>
+          )}
 
-            <div className="pt-8 border-t border-slate-100">
-              <button
-                type="submit"
-                className="w-full text-white font-bold py-5 rounded-2xl shadow-xl transition-all hover:-translate-y-1 active:translate-y-0 text-xl flex items-center justify-center gap-3 group" style={{ backgroundColor: theme.buttonColor }}
-              >
-                Enviar Respostas
-                <ArrowRight className="group-hover:translate-x-1 transition-transform" />
-              </button>
-              <p className="text-center text-xs text-slate-400 mt-6 flex items-center justify-center gap-2">
-                <ShieldCheck size={14} /> Seus dados estao seguros e protegidos pela LGPD.
-              </p>
+          {/* Patient badge */}
+          {patientName && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+                {initials(patientName)}
+              </div>
+              <div>
+                <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-wide">Respondendo como</p>
+                <p className="text-sm font-bold text-indigo-800">{patientName}</p>
+              </div>
+              <CheckCircle size={16} className="ml-auto text-indigo-400 flex-shrink-0" />
             </div>
-          </form>
-        </div>
+          )}
 
-        <div className="text-center mt-8 text-slate-400 text-sm font-medium">
-          Powered by <span className="text-slate-500 font-bold">PsiFlux</span>
-        </div>
-      </main>
+          {/* Questions */}
+          {form.questions.map((q, idx) => (
+            <div
+              key={q.id}
+              className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5"
+              style={{ backgroundColor: theme.card }}
+            >
+              <label className="block text-sm font-semibold text-slate-800 mb-3">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-100 text-slate-500 text-[10px] font-bold mr-2 align-middle">
+                  {idx + 1}
+                </span>
+                {q.text}
+                {q.required && (
+                  <span className="ml-2 text-red-500 text-xs font-bold">*</span>
+                )}
+              </label>
 
-      {/* TOASTS */}
-      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
-        {toasts.map(t => (
-          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
-          </div>
-        ))}
+              {/* Text */}
+              {q.type === 'text' && (
+                <input
+                  type="text"
+                  required={q.required}
+                  placeholder="Sua resposta..."
+                  onChange={e => handleInput(q.id, e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                />
+              )}
+
+              {/* Textarea */}
+              {q.type === 'textarea' && (
+                <textarea
+                  required={q.required}
+                  rows={3}
+                  placeholder="Escreva aqui..."
+                  onChange={e => handleInput(q.id, e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition resize-y"
+                />
+              )}
+
+              {/* Number */}
+              {q.type === 'number' && (
+                <input
+                  type="number"
+                  required={q.required}
+                  placeholder="0"
+                  onChange={e => handleInput(q.id, e.target.value)}
+                  className="w-32 px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition font-mono"
+                />
+              )}
+
+              {/* Radio */}
+              {q.type === 'radio' && (
+                <div className="space-y-2">
+                  {q.options?.map((opt, i) => (
+                    <label key={i} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 cursor-pointer transition-colors">
+                      <input
+                        type="radio"
+                        name={q.id}
+                        value={opt.label}
+                        required={q.required}
+                        onChange={() => handleInput(q.id, opt.label, opt.value)}
+                        className="accent-indigo-600 w-4 h-4 flex-shrink-0"
+                      />
+                      <span className="text-sm text-slate-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Checkbox */}
+              {q.type === 'checkbox' && (
+                <div className="space-y-2">
+                  {q.options?.map((opt, i) => (
+                    <label key={i} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        value={opt.label}
+                        onChange={e => handleCheckbox(q.id, opt.label, opt.value, e.target.checked)}
+                        className="accent-indigo-600 w-4 h-4 rounded flex-shrink-0"
+                      />
+                      <span className="text-sm text-slate-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Select */}
+              {q.type === 'select' && (
+                <div className="relative">
+                  <select
+                    required={q.required}
+                    onChange={e => {
+                      const opt = q.options?.find(o => o.label === e.target.value);
+                      handleInput(q.id, e.target.value, opt?.value || 0);
+                    }}
+                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition appearance-none bg-white pr-8"
+                  >
+                    <option value="">Selecione...</option>
+                    {q.options?.map((opt, i) => (
+                      <option key={i} value={opt.label}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-semibold text-white text-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+            style={{ backgroundColor: theme.button }}
+          >
+            {submitting ? (
+              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                Enviar respostas
+                <ArrowRight size={16} />
+              </>
+            )}
+          </button>
+
+          <p className="text-center text-xs text-slate-400 flex items-center justify-center gap-1 pt-1">
+            <ShieldCheck size={12} />
+            Seus dados são protegidos pela LGPD.
+          </p>
+        </form>
       </div>
     </div>
   );

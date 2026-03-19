@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { FormQuestion, QuestionType, FormOption, InterpretationRule, FormTheme } from '../../types';
-import { 
-  Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, FileSignature, Wand2, Settings, Eye, ArrowLeft, Calculator, Target, Palette
+import {
+  Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, Wand2, ArrowLeft, Calculator, Target, Palette
 } from 'lucide-react';
 import { Button } from '../UI/Button';
+import { Input, Select, TextArea } from '../UI/Input';
 
 interface FormBuilderProps {
   initialData?: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[]; theme?: FormTheme };
@@ -206,14 +207,16 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
             <>
                 {/* Sidebar Tools (Desktop) */}
                 <div className="w-16 md:w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col hidden md:flex">
-                <div className="p-4 border-b border-slate-100">
-                    <button 
-                    onClick={addQuestion}
-                    className="w-full flex items-center justify-center md:justify-start gap-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 p-3 rounded-xl font-bold transition-all"
+                <div className="p-3 border-b border-slate-100">
+                    <Button
+                      variant="soft"
+                      size="sm"
+                      fullWidth
+                      leftIcon={<Plus size={15} />}
+                      onClick={addQuestion}
                     >
-                    <Plus size={20} />
-                    <span className="hidden md:inline">Adicionar Pergunta</span>
-                    </button>
+                      <span className="hidden md:inline">Adicionar Pergunta</span>
+                    </Button>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -284,31 +287,29 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                         </div>
 
                         <div className="p-6">
-                        <div className="flex flex-col md:flex-row gap-4 mb-4">
+                        <div className="flex flex-col md:flex-row gap-3 mb-4">
                             <div className="flex-1">
                             <input
                                 type="text"
                                 value={q.text}
                                 onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
-                                placeholder="Pergunta"
-                                className={`w-full p-4 bg-slate-50 border-b-2 border-slate-200 focus:border-indigo-500 focus:bg-white outline-none transition-colors font-medium text-lg ${activeQuestionId === q.id ? 'bg-white' : ''}`}
+                                placeholder="Texto da pergunta"
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 focus:bg-white outline-none transition-colors font-medium text-sm"
                             />
                             </div>
-                            <div className="w-full md:w-48 shrink-0">
-                            <div className="relative">
-                                <select
+                            <div className="w-full md:w-44 shrink-0">
+                            <Select
+                                label=""
+                                labelClassName="hidden"
                                 value={q.type}
                                 onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg appearance-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 font-medium text-sm"
-                                >
+                                leftIcon={QUESTION_TYPES.find(t => t.type === q.type)?.icon}
+                                size="sm"
+                            >
                                 {QUESTION_TYPES.map(t => (
                                     <option key={t.type} value={t.type}>{t.label}</option>
                                 ))}
-                                </select>
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                                {QUESTION_TYPES.find(t => t.type === q.type)?.icon}
-                                </div>
-                            </div>
+                            </Select>
                             </div>
                         </div>
 
@@ -337,20 +338,26 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                                             className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-center font-bold text-indigo-600 focus:border-indigo-500 outline-none"
                                         />
                                     </div>
-                                    <button 
+                                    <Button
+                                        variant="ghost"
+                                        size="xs"
+                                        iconOnly
                                         onClick={() => removeOption(q.id, optIdx)}
-                                        className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-2"
+                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500"
                                     >
-                                        <Trash2 size={16} />
-                                    </button>
+                                        <Trash2 size={14} />
+                                    </Button>
                                     </div>
                                 ))}
-                                <button 
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    leftIcon={<Plus size={14} />}
                                     onClick={() => addOption(q.id)}
-                                    className="flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 mt-2 px-1"
+                                    className="mt-1"
                                 >
-                                    <Plus size={16} /> Adicionar opção
-                                </button>
+                                    Adicionar opção
+                                </Button>
                             </div>
                         )}
 
@@ -369,26 +376,33 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                             Obrigatória
                             </label>
                             <div className="h-6 w-px bg-slate-200"></div>
-                            <button 
-                            onClick={(e) => removeQuestion(q.id, e)}
-                            className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all"
-                            title="Excluir pergunta"
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              iconOnly
+                              onClick={(e) => removeQuestion(q.id, e)}
+                              title="Excluir pergunta"
+                              className="text-slate-400 hover:text-red-500 hover:bg-red-50"
                             >
-                            <Trash2 size={18} />
-                            </button>
+                              <Trash2 size={16} />
+                            </Button>
                         </div>
                         </div>
                     </div>
                     ))}
                     
                     {/* Mobile Add Button */}
-                    <button 
-                    onClick={addQuestion}
-                    className="w-full py-4 bg-white border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 md:hidden"
-                    >
-                        <Plus size={20} />
+                    <div className="md:hidden">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        fullWidth
+                        leftIcon={<Plus size={15} />}
+                        onClick={addQuestion}
+                      >
                         Adicionar Pergunta
-                    </button>
+                      </Button>
+                    </div>
                     
                     {/* Empty State Help */}
                     {questions.length === 0 && (
@@ -428,9 +442,9 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                                 <Target size={24} className="text-indigo-600" />
                                 <h3 className="text-xl font-bold text-slate-800">Regras de Interpretação</h3>
                             </div>
-                            <button onClick={addInterpretation} className="flex items-center gap-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors">
-                                <Plus size={16} /> Nova Regra
-                            </button>
+                            <Button variant="soft" size="sm" leftIcon={<Plus size={14} />} onClick={addInterpretation}>
+                                Nova Regra
+                            </Button>
                         </div>
 
                         {interpretations.length === 0 ? (
@@ -461,46 +475,39 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                                                 <span className="text-sm font-bold text-slate-600">pontos</span>
                                             </div>
                                             <div className="flex-1"></div>
-                                            <button onClick={() => deleteInterpretation(rule.id)} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={18} /></button>
+                                            <Button variant="ghost" size="xs" iconOnly onClick={() => deleteInterpretation(rule.id)} className="text-red-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={15} /></Button>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Título do Resultado</label>
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Ex: Sono Preservado"
-                                                    value={rule.resultTitle}
-                                                    onChange={e => updateInterpretation(rule.id, 'resultTitle', e.target.value)}
-                                                    className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 font-medium"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Cor do Card</label>
-                                                <select 
-                                                    value={rule.color}
-                                                    onChange={e => updateInterpretation(rule.id, 'color', e.target.value)}
-                                                    className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 bg-white"
-                                                >
-                                                    <option value="bg-slate-100 text-slate-800">Cinza (Neutro)</option>
-                                                    <option value="bg-emerald-100 text-emerald-800">Verde (Positivo)</option>
-                                                    <option value="bg-blue-100 text-blue-800">Azul (Informativo)</option>
-                                                    <option value="bg-amber-100 text-amber-800">Amarelo (Atenção)</option>
-                                                    <option value="bg-red-100 text-red-800">Vermelho (Crítico)</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Descrição Clínica / Orientação</label>
-                                            <textarea 
-                                                rows={2}
-                                                placeholder="Texto que aparecerá na conclusão..."
-                                                value={rule.description}
-                                                onChange={e => updateInterpretation(rule.id, 'description', e.target.value)}
-                                                className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 resize-none"
+                                            <Input
+                                                label="Título do Resultado"
+                                                size="sm"
+                                                placeholder="Ex: Sono Preservado"
+                                                value={rule.resultTitle}
+                                                onChange={e => updateInterpretation(rule.id, 'resultTitle', e.target.value)}
                                             />
+                                            <Select
+                                                label="Cor do Card"
+                                                size="sm"
+                                                value={rule.color}
+                                                onChange={e => updateInterpretation(rule.id, 'color', e.target.value)}
+                                            >
+                                                <option value="bg-slate-100 text-slate-800">Cinza (Neutro)</option>
+                                                <option value="bg-emerald-100 text-emerald-800">Verde (Positivo)</option>
+                                                <option value="bg-blue-100 text-blue-800">Azul (Informativo)</option>
+                                                <option value="bg-amber-100 text-amber-800">Amarelo (Atenção)</option>
+                                                <option value="bg-red-100 text-red-800">Vermelho (Crítico)</option>
+                                            </Select>
                                         </div>
+
+                                        <TextArea
+                                            label="Descrição Clínica / Orientação"
+                                            size="sm"
+                                            rows={2}
+                                            placeholder="Texto que aparecerá na conclusão..."
+                                            value={rule.description}
+                                            onChange={e => updateInterpretation(rule.id, 'description', e.target.value)}
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -528,18 +535,18 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                 </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label className="space-y-2 md:col-span-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Paleta</span>
-                            <select
+                        <div className="md:col-span-2">
+                            <Select
+                                label="Paleta de Cores"
+                                size="sm"
                                 value={selectedPalette}
                                 onChange={e => setSelectedPalette(e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 bg-white"
                             >
                                 {paletteOptions.map((palette) => (
                                     <option key={palette.label} value={palette.label}>{palette.label}</option>
                                 ))}
-                            </select>
-                        </label>
+                            </Select>
+                        </div>
                         <label className="space-y-2">
                             <span className="text-xs font-bold text-slate-500 uppercase">Cor primaria</span>
                             <div className="flex flex-wrap gap-2 pt-1">
@@ -615,10 +622,16 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                             ))}
                         </div>
                     </label>
-                    <label className="space-y-2">
-                        <span className="text-xs font-bold text-slate-500 uppercase">Imagem do cabecalho (URL)</span>
-                        <input type="text" value={theme.headerImageUrl || ''} onChange={e => setTheme(prev => ({ ...prev, headerImageUrl: e.target.value }))} placeholder="https://" className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm" />
-                    </label>
+                    <div>
+                        <Input
+                            label="Imagem do cabeçalho (URL)"
+                            size="sm"
+                            type="text"
+                            value={theme.headerImageUrl || ''}
+                            onChange={e => setTheme(prev => ({ ...prev, headerImageUrl: e.target.value }))}
+                            placeholder="https://"
+                        />
+                    </div>
                 </div>
             </div>
         </div>

@@ -18,6 +18,7 @@ import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
 import { DatePicker } from '../components/UI/DatePicker';
+import { AgendaPlanner } from '../components/UI/AgendaPlanner';
 
 type ComandaTab = 'avulsa' | 'pacote';
 type ViewMode = 'kanban' | 'list';
@@ -1247,127 +1248,34 @@ export const Agenda: React.FC = () => {
                 </div>
             </div>
         ) : (
-            <div className="flex-1 overflow-auto custom-scrollbar bg-white relative">
-                {/* MASTER FLEX CONTAINER */}
-                <div className="flex min-w-max relative" style={{ height: (hours.length * 80) + 50 }}>
-
-                    {/* 1. TIME LABELS COLUMN (Sticky Left) */}
-                    <div className="w-14 sticky left-0 z-40 bg-white border-r border-indigo-100/50 flex-shrink-0 select-none">
-                        {/* Intersection (Sticky Top Left) */}
-                        <div className="h-[50px] sticky top-0 z-50 bg-white border-b border-indigo-100/50"></div>
-                        {hours.map(h => (
-                            <div key={h} className="h-[80px] flex items-start justify-center pt-2 group relative border-b border-indigo-100/5">
-                                <span className="text-[10px] font-black text-indigo-400/40 tabular-nums group-hover:text-indigo-600 transition-colors uppercase tracking-widest">{String(h).padStart(2, '0')}H</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* 2. THE MAIN GRID AREA */}
-                    <div className="flex-1 flex flex-col">
-
-                        {/* DAY HEADERS (Sticky Top) */}
-                        <div className="flex sticky top-0 z-30 bg-white border-b border-slate-200">
-                            {(view === 'day' ? [currentDate] : weekDays).map(day => (
-                                <div key={day.toISOString()} className={`flex-1 min-w-[120px] lg:min-w-0 h-[50px] flex items-center justify-center border-r border-slate-100 transition-all bg-white`}>
-                                    <span className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 ${isSameDay(day, new Date()) ? 'text-rose-500' : 'text-slate-500'}`}>
-                                        {day.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')}
-                                        <span className="text-sm font-black tabular-nums">{day.getDate()}/{String(day.getMonth() + 1).padStart(2, '0')}</span>
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* APPOINTMENTS GRID */}
-                        <div className="flex relative flex-1">
-                            {/* Horizontal Grid Lines */}
-                            <div className="absolute inset-0 pointer-events-none flex flex-col">
-                                {hours.map(h => (
-                                    <div key={h} className="h-[80px] border-b border-indigo-100/5 w-full"></div>
-                                ))}
-                            </div>
-
-                            {/* THE RED TIME INDICATOR (Now Line) */}
-                            {isSameDay(currentDate, new Date()) && view === 'day' && (
-                                <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center gap-2"
-                                    style={{ top: (((new Date().getHours() + new Date().getMinutes()/60) - startHour) * 80) }}>
-                                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-lg shadow-rose-200 ml-[-4px]"></div>
-                                    <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500 to-transparent"></div>
-                                </div>
-                            )}
-
-                            {(view === 'day' ? [currentDate] : weekDays).map(day => (
-                                <div
-                                    key={day.toISOString()}
-                                    className={`flex-1 border-r border-slate-100 relative min-w-[120px] lg:min-w-0 ${isSameDay(day, new Date()) ? 'bg-slate-50/20' : ''}`}
-                                    onClick={() => openNewModal(day)}
-                                >
-                                    {/* APPOINTMENTS CARDS (Precise Reference Match) */}
-                                    {getAppointmentsForDay(day)
-                                        .sort((a, b) => {
-                                            if (a.type === 'bloqueio' && b.type !== 'bloqueio') return -1;
-                                            if (a.type !== 'bloqueio' && b.type === 'bloqueio') return 1;
-                                            return 0;
-                                        })
-                                        .map(apt => {
-                                            const startMin = (apt.start.getHours() * 60 + apt.start.getMinutes()) - (startHour * 60);
-                                            const durMin = (apt.end.getTime() - apt.start.getTime()) / 60000;
-                                            const top = (startMin/60) * 80;
-                                            const height = (durMin/60) * 80;
-
-                                            const cardBg = apt.type === 'bloqueio' ? '#f1f5f9' : '#800040';
-                                            const textColor = apt.type === 'bloqueio' ? '#64748b' : '#ffffff';
-
-                                            return (
-                                                <button
-                                                    key={apt.id}
-                                                    onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }}
-                                                    className={`absolute left-0 right-0 border-r border-b border-black/10 hover:brightness-110 transition-all text-left group z-10 flex flex-col p-1.5 select-none rounded shadow-sm overflow-hidden`}
-                                                    style={{
-                                                        top: top,
-                                                        height: Math.max(height, 35),
-                                                        backgroundColor: cardBg,
-                                                        color: textColor,
-                                                        borderLeft: `3px solid ${typeMeta[apt.type].solid}`
-                                                    }}
-                                                >
-                                                    <div className="flex flex-col h-full relative">
-                                                        {/* Time & Badge */}
-                                                        <div className="flex items-center justify-between gap-1 mb-0.5">
-                                                            <span className="text-[8px] font-black tabular-nums opacity-80 uppercase tracking-tighter">
-                                                                {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                            {apt.comanda_id && (
-                                                                <div className="bg-white/20 px-1 rounded flex items-center gap-0.5 text-[7px] font-black tracking-widest uppercase">
-                                                                    <Package size={7} />
-                                                                    <span>PK</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        {/* Patient Name - Compact */}
-                                                        <h4 className="text-[10px] font-black leading-none mb-0.5 truncate uppercase tracking-tight">
-                                                            {apt.patient_name || apt.title}
-                                                        </h4>
-
-                                                        {/* Status Indicator / Online */}
-                                                        <div className="mt-auto flex items-center justify-between opacity-60">
-                                                            <div className="flex gap-0.5">
-                                                                {apt.modality === 'online' && <Video size={8} />}
-                                                                {(apt.recurrence_rule || apt.parent_appointment_id) && <Repeat size={8}/>}
-                                                            </div>
-                                                            {apt.recurrence_index && (
-                                                                <span className="text-[7px] font-black">{apt.recurrence_index}/{apt.recurrence_count}</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            );                                        })}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <AgendaPlanner
+                view={view as 'day' | 'week'}
+                onViewChange={(v) => setView(v as any)}
+                currentDate={currentDate}
+                onCurrentDateChange={setCurrentDate}
+                events={filteredAppointments.map(a => ({
+                    id: String(a.id),
+                    title: a.patient_name || a.title || 'Paciente',
+                    subtitle: a.duration_minutes ? `${a.duration_minutes} min` : undefined,
+                    description: a.notes,
+                    start: a.start,
+                    end: a.end,
+                    type: (a.type as any) || 'consulta',
+                    status: (a.status as any) || 'scheduled',
+                    modality: a.modality as 'presencial' | 'online',
+                    recurrenceIndex: a.recurrence_index,
+                    recurrenceCount: a.recurrence_count,
+                    color: a.type === 'bloqueio' ? '#64748b' : undefined,
+                }))}
+                onEventClick={(event) => {
+                    const apt = appointments.find(a => String(a.id) === String(event.id));
+                    if (apt) openDetailModal(apt);
+                }}
+                onSlotClick={(date) => openNewModal(date)}
+                showTasksPanel={false}
+                hideHeader
+                hideStats
+            />
         )}
       </div>
 
