@@ -10,6 +10,8 @@ interface AuthUser {
   email?: string;
   avatarUrl?: string;
   clinicLogoUrl?: string;
+  companyName?: string;
+  crp?: string;
   permissions?: Record<string, boolean>;
 }
 
@@ -56,6 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: string;
         avatar_url?: string;
         clinic_logo_url?: string;
+        company_name?: string;
+        crp?: string;
         avatarUrl?: string;
         permissions?: Record<string, boolean>;
       }
@@ -66,6 +70,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: data.email,
         avatarUrl: data.avatar_url || data.avatarUrl || decoded.avatarUrl,
         clinicLogoUrl: data.clinic_logo_url || (decoded as any).clinic_logo_url,
+        companyName: data.company_name,
+        crp: data.crp,
         permissions: data.permissions || {}
       });
     } catch (e) {

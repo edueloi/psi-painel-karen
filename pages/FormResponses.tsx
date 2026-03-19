@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, getStaticUrl } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { Patient, InterpretationRule } from '../types';
 import { 
   ArrowLeft, FileText, Clock, User, Calculator, 
@@ -39,6 +40,8 @@ export const FormResponses: React.FC = () => {
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [aiAnalysisMap, setAiAnalysisMap] = useState<Record<string, string>>({});
 
+  const { user } = useAuth();
+
   const getPatientName = (patientId?: string | null) => {
     if (!patientId) return '';
     return patients.find((p) => String(p.id) === String(patientId))?.full_name || '';
@@ -55,7 +58,12 @@ export const FormResponses: React.FC = () => {
         interpretations,
         patientData: patients.find(p => String(p.id) === String(response.patient_id))
       });
-      setAiAnalysisMap(prev => ({ ...prev, [response.id]: resp.analysis }));
+      // Limpeza de blocos de markdown caso a IA ainda envie
+      const cleanAnalysis = resp.analysis
+        .replace(/```markdown/g, '')
+        .replace(/```/g, '')
+        .trim();
+      setAiAnalysisMap(prev => ({ ...prev, [response.id]: cleanAnalysis }));
     } catch (e) {
       console.error(e);
       alert('Erro ao gerar análise. Verifique se a chave de API está configurada.');
@@ -68,10 +76,18 @@ export const FormResponses: React.FC = () => {
     const { jsPDF } = await import('jspdf');
     const html2canvas = (await import('html2canvas')).default;
     
-    const input = document.getElementById(`analysis-content-${responseId}`);
+    const input = document.getElementById(`pdf-report-content-${responseId}`);
     if (!input) return;
+
+    // Temporarily show the hidden template for capture
+    input.style.display = 'block';
     
-    html2canvas(input, { scale: 2, useCORS: true }).then((canvas) => {
+    html2canvas(input, { 
+      scale: 2, 
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff'
+    }).then((canvas) => {
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -79,6 +95,8 @@ export const FormResponses: React.FC = () => {
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`Relatorio_Aurora_${respondentName.replace(/\s+/g, '_')}.pdf`);
+      
+      input.style.display = 'none';
     });
   };
 
@@ -429,15 +447,72 @@ export const FormResponses: React.FC = () => {
                                 </div>
                              </div>
                              
-                             <div id={`analysis-content-${res.id}`} className="p-10 bg-white">
+                             <div className="p-10 bg-white">
                                 <div 
                                    className="text-sm text-slate-700 leading-relaxed font-medium markdown-content"
-                                   dangerouslySetInnerHTML={{ __html: analysis.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-slate-900">$1</strong>').replace(/\n/g, '<br/>') }} 
+                                   dangerouslySetInnerHTML={{ 
+                                      __html: analysis
+                                         .replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-slate-900 block mt-6 mb-2">$1</strong>')
+                                         .replace(/\n/g, '<br/>') 
+                                   }} 
                                 />
 
                                 <div className="mt-10 pt-10 border-t border-slate-100 flex items-center justify-between">
                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">PsiFlux Intelligence · Relatório Gerado em {new Date().toLocaleDateString()}</p>
-                                   <p className="text-[9px] font-black text-indigo-300">ESTA ANÁLISE NÃO SUBSTITUI O PARECER TERAPÊUTICO</p>
+                                   <p className="text-[9px] font-black text-indigo-300 uppercase">Análise Automática Orientada por IA</p>
+                                </div>
+                             </div>
+
+                             {/* TEMPLATE PARA O PDF (Invisível na UI mas capturado pelo html2canvas) */}
+                             <div 
+                                id={`pdf-report-content-${res.id}`} 
+                                className="bg-white p-[25mm] w-[210mm] text-slate-800"
+                                style={{ display: 'none', position: 'absolute', left: '-10000px', top: '0' }}
+                             >
+                                <div className="flex justify-between items-start border-b-4 border-slate-900 pb-10 mb-12">
+                                   <div>
+                                      {user?.clinicLogoUrl ? (
+                                         <img src={getStaticUrl(user.clinicLogoUrl)} alt="Logo" className="h-20 mb-3 object-contain" />
+                                      ) : (
+                                         <div className="h-16 w-16 bg-slate-900 text-white flex items-center justify-center rounded-2xl font-black text-2xl">P</div>
+                                      )}
+                                      <p className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-400 mt-2">{user?.companyName || 'Clínica de Psicologia'}</p>
+                                   </div>
+                                   <div className="text-right">
+                                      <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{user?.name || 'Profissional'}</h2>
+                                      <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">CRP: {user?.crp || 'Não informado'}</p>
+                                      {user?.email && <p className="text-xs text-slate-400 mt-1">{user.email}</p>}
+                                   </div>
+                                </div>
+
+                                <div className="text-center mb-16 px-10">
+                                   <h1 className="text-3xl font-black text-slate-900 uppercase tracking-[0.3em] leading-tight border-y border-slate-100 py-6">Relatório de Análise Clínica</h1>
+                                   <div className="flex justify-center gap-6 mt-6">
+                                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Formulário: <span className="text-slate-900">{formTitle}</span></p>
+                                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Respondente: <span className="text-slate-900">{respondentDisplay}</span></p>
+                                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Data: <span className="text-slate-900">{new Date().toLocaleDateString('pt-BR')}</span></p>
+                                   </div>
+                                </div>
+
+                                <div 
+                                   className="text-[12pt] leading-relaxed text-slate-800 space-y-6 text-justify"
+                                   dangerouslySetInnerHTML={{ 
+                                      __html: analysis
+                                         .replace(/\*\*(.*?)\*\*/g, '<strong style="display: block; margin-top: 35px; margin-bottom: 15px; color: #0f172a; font-size: 14pt; font-weight: 900; border-left: 5px solid #4f46e5; padding-left: 15px; text-transform: uppercase; letter-spacing: 1px;">$1</strong>')
+                                         .replace(/\n/g, '<br/>') 
+                                   }} 
+                                />
+
+                                <div className="mt-32 pt-10 border-t-2 border-slate-100 flex justify-between items-end">
+                                   <div className="max-w-[300px]">
+                                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Tecnologia PsiFlux</p>
+                                      <p className="text-[9px] leading-relaxed text-slate-400 italic">Este documento foi gerado pela inteligência artificial Aurora e deve ser validado pelo profissional responsável para fins legais e clínicos.</p>
+                                   </div>
+                                   <div className="text-right flex flex-col items-center">
+                                      <div className="w-64 h-px bg-slate-300 mb-4"></div>
+                                      <p className="text-[11pt] font-black text-slate-900 mb-0.5">{user?.name}</p>
+                                      <p className="text-[10pt] font-bold text-slate-400 uppercase tracking-widest leading-none">CRP: {user?.crp}</p>
+                                   </div>
                                 </div>
                              </div>
                           </div>
