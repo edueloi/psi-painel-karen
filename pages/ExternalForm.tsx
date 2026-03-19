@@ -124,7 +124,7 @@ export const ExternalForm: React.FC = () => {
     const load = async () => {
       if (!hash) { setLoadError('Link inválido.'); setLoading(false); return; }
       try {
-        const formData = await api.get<any>(`/forms/public/${hash}`);
+        const formData = await api.get<any>(`/forms/public/${hash}${patientId ? `?p=${patientId}` : ''}`);
         const mapped: ClinicalForm = {
           id: String(formData.id),
           title: formData.title,
@@ -154,21 +154,14 @@ export const ExternalForm: React.FC = () => {
         setForm(mapped);
         setProfessional(formData.professional || {});
 
-        // Pre-load patient name if link has ?p=
-        if (patientId) {
-          try {
-            const token = localStorage.getItem('psi_token');
-            if (token) {
-              const p = await api.get<any>(`/patients/${patientId}`);
-              setPatientName(p.full_name || p.name || '');
-              setIdentification(prev => ({
-                ...prev,
-                name: p.full_name || p.name || '',
-                email: p.email || '',
-                phone: p.whatsapp || p.phone || '',
-              }));
-            }
-          } catch { /* ignore */ }
+        // Se o backend retornou o paciente vinculado
+        if (formData.patient) {
+          setPatientName(formData.patient.name);
+          setIdentification({
+             name: formData.patient.name,
+             email: formData.patient.email || '',
+             phone: formData.patient.phone || ''
+          });
         }
       } catch (e: any) {
         setLoadError(e?.message || 'Erro ao carregar formulário.');

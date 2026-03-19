@@ -155,7 +155,7 @@ router.get('/responses/recent', authMiddleware, async (req, res) => {
 router.get('/public/:hash', async (req, res) => {
   try {
     const [forms] = await db.query(
-      `SELECT f.id, f.title, f.description, f.fields, f.category, f.hash, f.is_global,
+      `SELECT f.id, f.title, f.description, f.fields, f.category, f.hash, f.is_global, f.tenant_id,
               u.name as professional_name, u.specialty as professional_specialty,
               u.crp as professional_crp, u.company_name, u.clinic_logo_url, u.avatar_url
        FROM forms f
@@ -167,6 +167,24 @@ router.get('/public/:hash', async (req, res) => {
 
     const row = forms[0];
     const form = unpackForm(row);
+
+    // Adicionar dados do paciente se tiver o ID no link
+    const patientId = req.query.p;
+    if (patientId) {
+      try {
+        const [patients] = await db.query('SELECT full_name, email, whatsapp, phone FROM patients WHERE id = ? AND tenant_id = ?', [patientId, row.tenant_id]);
+        if (patients.length > 0) {
+          form.patient = { 
+            name: patients[0].full_name,
+            email: patients[0].email,
+            phone: patients[0].whatsapp || patients[0].phone
+          };
+        }
+      } catch (err) {
+        console.error('Erro ao buscar paciente para form público:', err);
+      }
+    }
+
     form.professional = {
       name: row.professional_name || '',
       specialty: row.professional_specialty || '',
