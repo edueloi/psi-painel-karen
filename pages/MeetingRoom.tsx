@@ -609,7 +609,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchWaiting();
-    const interval = setInterval(fetchWaiting, 1000);
+    const interval = setInterval(fetchWaiting, 4000);
     return () => {
       active = false;
       clearInterval(interval);
@@ -679,7 +679,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     pollStatus();
-    const interval = setInterval(pollStatus, 2000);
+    const interval = setInterval(pollStatus, 4000);
     return () => {
       active = false;
       clearInterval(interval);
@@ -917,7 +917,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchMessages();
-    const interval = setInterval(fetchMessages, 800);
+    const interval = setInterval(fetchMessages, 2500);
     return () => {
       active = false;
       clearInterval(interval);
@@ -1115,7 +1115,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchEvents();
-    const interval = setInterval(fetchEvents, 800);
+    const interval = setInterval(fetchEvents, 2500);
     return () => {
       active = false;
       clearInterval(interval);
@@ -1236,7 +1236,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchAssessments();
-    const interval = setInterval(fetchAssessments, 800);
+    const interval = setInterval(fetchAssessments, 3000);
     return () => {
       active = false;
       clearInterval(interval);
@@ -1270,7 +1270,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchTranscripts();
-    const interval = setInterval(fetchTranscripts, 800);
+    const interval = setInterval(fetchTranscripts, 3000);
     return () => {
       active = false;
       clearInterval(interval);
@@ -1311,7 +1311,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchParticipants();
-    const interval = setInterval(fetchParticipants, 1500); // Participants check can be slightly slower
+    const interval = setInterval(fetchParticipants, 5000);
     return () => {
       active = false;
       clearInterval(interval);
