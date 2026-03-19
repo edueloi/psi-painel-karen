@@ -982,6 +982,53 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           setLastEventId(last.id);
           suppressEventHistoryRef.current = false;
           setSuppressEventHistory(false);
+          // Even in suppress mode, still process WebRTC signaling events
+          // so the guest doesn't miss an offer that was sent before they started polling
+          // Collect ICE candidates from this batch to apply after offer is processed
+          const iceCandidatesInBatch: RTCIceCandidateInit[] = [];
+          rows.forEach((evt) => {
+            if (!evt.event_type.startsWith('webrtc_')) return;
+            const payload = parsePayload(evt.payload_json);
+            if (evt.event_type === 'webrtc_ice' && payload?.candidate && !isCompanionMode) {
+              iceCandidatesInBatch.push(payload.candidate);
+            }
+          });
+          rows.forEach((evt) => {
+            if (!evt.event_type.startsWith('webrtc_')) return;
+            const payload = parsePayload(evt.payload_json);
+            if (evt.event_type === 'webrtc_offer' && isGuest && !isCompanionMode && payload?.sdp) {
+              (async () => {
+                if (peerConnectionRef.current) {
+                  peerConnectionRef.current.close();
+                  peerConnectionRef.current = null;
+                }
+                setRemoteStreamActive(false);
+                const pc = new RTCPeerConnection(ICE_CONFIG);
+                peerConnectionRef.current = pc;
+                if (localStreamRef.current) {
+                  localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+                }
+                pc.onicecandidate = (e) => {
+                  if (e.candidate) sendRoomEventRef.current?.('webrtc_ice', { candidate: e.candidate.toJSON() });
+                };
+                pc.ontrack = (e) => {
+                  if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = e.streams[0];
+                    setRemoteStreamActive(true);
+                  }
+                };
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp }));
+                // Apply any ICE candidates that arrived with or before the offer
+                for (const c of [...pendingIceCandidates.current, ...iceCandidatesInBatch]) {
+                  await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+                }
+                pendingIceCandidates.current = [];
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await sendRoomEventRef.current?.('webrtc_answer', { sdp: answer.sdp, type: answer.type });
+              })().catch(() => {});
+            }
+          });
           return;
         }
         rows.forEach((evt) => {
@@ -1115,7 +1162,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchEvents();
-    const interval = setInterval(fetchEvents, 2500);
+    const interval = setInterval(fetchEvents, 1500);
     return () => {
       active = false;
       clearInterval(interval);
