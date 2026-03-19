@@ -4,6 +4,35 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 
+// Helper: pack questions/interpretations/theme into the `fields` LONGTEXT column
+function packFields(body) {
+  const { questions, interpretations, theme, fields } = body;
+  if (questions !== undefined) {
+    return JSON.stringify({ questions: questions || [], interpretations: interpretations || [], theme: theme || null });
+  }
+  // legacy: fields array
+  return fields ? JSON.stringify(fields) : '[]';
+}
+
+// Helper: unpack stored `fields` into questions/interpretations/theme
+function unpackForm(form) {
+  let parsed = null;
+  try { parsed = JSON.parse(form.fields); } catch {}
+
+  if (parsed && !Array.isArray(parsed) && parsed.questions) {
+    form.questions = parsed.questions || [];
+    form.interpretations = parsed.interpretations || [];
+    form.theme = parsed.theme || null;
+    form.fields = [];
+  } else {
+    form.questions = [];
+    form.interpretations = [];
+    form.theme = null;
+    form.fields = Array.isArray(parsed) ? parsed : [];
+  }
+  return form;
+}
+
 // GET /forms
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -46,6 +75,75 @@ router.get('/responses', authMiddleware, async (req, res) => {
   }
 });
 
+// ---- ROTAS PÚBLICAS - devem vir ANTES de /:id ----
+
+// GET /forms/public/:hash
+router.get('/public/:hash', async (req, res) => {
+  try {
+    const [forms] = await db.query(
+      'SELECT id, title, description, fields, hash FROM forms WHERE hash = ? AND is_public = true',
+      [req.params.hash]
+    );
+    if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
+
+    const form = unpackForm(forms[0]);
+    res.json(form);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar formulário' });
+  }
+});
+
+// POST /forms/public/:hash/responses  (frontend chama /responses)
+router.post('/public/:hash/responses', async (req, res) => {
+  try {
+    const { respondent_name, respondent_email, respondent_phone, patient_id, answers, score } = req.body;
+
+    const [forms] = await db.query(
+      'SELECT id FROM forms WHERE hash = ? AND is_public = true',
+      [req.params.hash]
+    );
+    if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
+
+    const data = JSON.stringify({ answers: answers || {}, score: score ?? null, respondent_phone: respondent_phone || null });
+
+    await db.query(
+      'INSERT INTO form_responses (form_id, patient_id, respondent_name, respondent_email, data) VALUES (?, ?, ?, ?, ?)',
+      [forms[0].id, patient_id || null, respondent_name || null, respondent_email || null, data]
+    );
+
+    res.json({ message: 'Resposta enviada com sucesso!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao enviar resposta' });
+  }
+});
+
+// POST /forms/public/:hash/respond  (alias antigo — mantido por compatibilidade)
+router.post('/public/:hash/respond', async (req, res) => {
+  const { respondent_name, respondent_email, respondent_phone, patient_id, answers, data, score } = req.body;
+
+  try {
+    const [forms] = await db.query(
+      'SELECT id FROM forms WHERE hash = ? AND is_public = true',
+      [req.params.hash]
+    );
+    if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
+
+    const payload = JSON.stringify({ answers: answers || data || {}, score: score ?? null, respondent_phone: respondent_phone || null });
+
+    await db.query(
+      'INSERT INTO form_responses (form_id, patient_id, respondent_name, respondent_email, data) VALUES (?, ?, ?, ?, ?)',
+      [forms[0].id, patient_id || null, respondent_name || null, respondent_email || null, payload]
+    );
+
+    res.json({ message: 'Resposta enviada com sucesso!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao enviar resposta' });
+  }
+});
+
 // GET /forms/:id
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
@@ -55,9 +153,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     );
     if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
 
-    const form = forms[0];
-    try { form.fields = JSON.parse(form.fields); } catch { form.fields = []; }
-
+    const form = unpackForm(forms[0]);
     res.json(form);
   } catch (err) {
     console.error(err);
@@ -68,24 +164,21 @@ router.get('/:id', authMiddleware, async (req, res) => {
 // POST /forms
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { title, description, fields, is_public } = req.body;
+    const { title, description, is_public } = req.body;
     if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
 
     const hash = uuidv4().replace(/-/g, '').substring(0, 16);
+    const fieldsJson = packFields(req.body);
+    // Default is_public = true so the share link always works
+    const publicFlag = is_public !== undefined ? (is_public ? 1 : 0) : 1;
 
     const [result] = await db.query(
       'INSERT INTO forms (tenant_id, title, description, fields, is_public, hash, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [
-        req.user.tenant_id, title, description || null,
-        fields ? JSON.stringify(fields) : '[]',
-        is_public ? 1 : 0, hash, req.user.id
-      ]
+      [req.user.tenant_id, title, description || null, fieldsJson, publicFlag, hash, req.user.id]
     );
 
     const [form] = await db.query('SELECT * FROM forms WHERE id = ?', [result.insertId]);
-    const f = form[0];
-    try { f.fields = JSON.parse(f.fields); } catch {}
-    res.status(201).json(f);
+    res.status(201).json(unpackForm(form[0]));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar formulário' });
@@ -95,7 +188,7 @@ router.post('/', authMiddleware, async (req, res) => {
 // PUT /forms/:id
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const { title, description, fields, is_public } = req.body;
+    const { title, description, is_public } = req.body;
 
     const [existing] = await db.query(
       'SELECT id FROM forms WHERE id = ? AND tenant_id = ?',
@@ -103,25 +196,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
 
+    const fieldsJson = packFields(req.body);
+    const publicFlag = is_public !== undefined ? (is_public ? 1 : 0) : 1;
+
     await db.query(
       `UPDATE forms SET
         title = COALESCE(?, title),
         description = COALESCE(?, description),
-        fields = COALESCE(?, fields),
-        is_public = COALESCE(?, is_public)
+        fields = ?,
+        is_public = ?
        WHERE id = ? AND tenant_id = ?`,
-      [
-        title, description,
-        fields !== undefined ? JSON.stringify(fields) : undefined,
-        is_public !== undefined ? (is_public ? 1 : 0) : undefined,
-        req.params.id, req.user.tenant_id
-      ]
+      [title, description, fieldsJson, publicFlag, req.params.id, req.user.tenant_id]
     );
 
     const [updated] = await db.query('SELECT * FROM forms WHERE id = ?', [req.params.id]);
-    const f = updated[0];
-    try { f.fields = JSON.parse(f.fields); } catch {}
-    res.json(f);
+    res.json(unpackForm(updated[0]));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar formulário' });
@@ -159,48 +248,6 @@ router.get('/:id/responses', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar respostas' });
-  }
-});
-
-// ---- ROTA PÚBLICA - Formulário externo ----
-// GET /forms/public/:hash - Dados do formulário público
-router.get('/public/:hash', async (req, res) => {
-  try {
-    const [forms] = await db.query(
-      'SELECT id, title, description, fields FROM forms WHERE hash = ? AND is_public = true',
-      [req.params.hash]
-    );
-    if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
-
-    const form = forms[0];
-    try { form.fields = JSON.parse(form.fields); } catch {}
-    res.json(form);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar formulário' });
-  }
-});
-
-// POST /forms/public/:hash/respond - Resposta pública
-router.post('/public/:hash/respond', async (req, res) => {
-  try {
-    const { respondent_name, respondent_email, data } = req.body;
-
-    const [forms] = await db.query(
-      'SELECT id FROM forms WHERE hash = ? AND is_public = true',
-      [req.params.hash]
-    );
-    if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
-
-    await db.query(
-      'INSERT INTO form_responses (form_id, respondent_name, respondent_email, data) VALUES (?, ?, ?, ?)',
-      [forms[0].id, respondent_name || null, respondent_email || null, JSON.stringify(data || {})]
-    );
-
-    res.json({ message: 'Resposta enviada com sucesso!' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao enviar resposta' });
   }
 });
 

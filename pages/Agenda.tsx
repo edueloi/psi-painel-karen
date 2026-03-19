@@ -2460,7 +2460,7 @@ export const Agenda: React.FC = () => {
                     }},
                     { label: 'LEMBRETE', icon: <Send size={18} />, active: 'text-emerald-500', onClick: () => pushToast('success', 'Lembrete enviado!') },
                     { label: 'EDITAR', icon: <Edit3 size={18} />, active: 'text-indigo-600', onClick: () => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); } },
-                    { label: 'DELETAR', icon: <Trash2 size={18} />, active: 'text-rose-500', onClick: () => { if (selectedApt) setSelectedDeleteIds([selectedApt.id]); setIsDeleteModalOpen(true); } },
+                    { label: 'DELETAR', icon: <Trash2 size={18} />, active: 'text-rose-500', onClick: () => { if (selectedApt) setSelectedDeleteIds([selectedApt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); } },
                 ].map((act, i) => (
                     <button key={i} onClick={act.onClick} className="flex flex-col items-center gap-1 group">
                         <div className={`p-2 rounded-full bg-slate-50 border border-slate-100 group-hover:bg-white group-hover:shadow-sm transition-all ${act.active}`}>
