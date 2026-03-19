@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
-import { 
-  Settings as SettingsIcon, Palette, Bell, Globe, Moon, Monitor, Smartphone, 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Settings as SettingsIcon, Palette, Bell, Globe, Moon, Monitor, Smartphone,
   Check, ChevronRight, Database, CreditCard, UserPlus, ShieldCheck, Mail,
-  Zap, Save, AlertTriangle, ChevronDown, Clock
+  Zap, Save, AlertTriangle, ChevronDown, Clock, Send, Loader2, Calendar,
+  BarChart2, FileText, UserCheck, Users2
 } from 'lucide-react';
+import { Button } from '../components/UI/Button';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Language } from '../translations';
 import { useToast } from '../contexts/ToastContext';
+import { api } from '../services/api';
 
 export const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
@@ -16,9 +19,74 @@ export const Settings: React.FC = () => {
   const { pushToast } = useToast();
 
   
-  // Mock States for Toggles
-  const [notifications, setNotifications] = useState({ email: true, sms: false, push: true, marketing: false });
+  // Integrations (mock — placeholder for future)
   const [integrations, setIntegrations] = useState({ calendar: true, drive: false, zoom: true });
+
+  // ── Email Notification Preferences ──────────────────────────────────────
+  type EmailPrefs = {
+    enabled: boolean;
+    new_appointment: boolean;
+    appointment_reminder_professional: boolean;
+    appointment_reminder_patient: boolean;
+    appointment_reminder_minutes: number;
+    birthday_reminder: boolean;
+    weekly_report: boolean;
+    monthly_report: boolean;
+  };
+  const DEFAULT_EMAIL_PREFS: EmailPrefs = {
+    enabled: true,
+    new_appointment: true,
+    appointment_reminder_professional: true,
+    appointment_reminder_patient: true,
+    appointment_reminder_minutes: 60,
+    birthday_reminder: true,
+    weekly_report: true,
+    monthly_report: true,
+  };
+  const [emailPrefs, setEmailPrefs] = useState<EmailPrefs>(DEFAULT_EMAIL_PREFS);
+  const [prefsLoading, setPrefsLoading] = useState(false);
+  const [prefsSaving, setPrefsSaving] = useState(false);
+  const [testSending, setTestSending] = useState(false);
+
+  const loadEmailPrefs = useCallback(async () => {
+    setPrefsLoading(true);
+    try {
+      const res = await api.get<Record<string, unknown>>('/notifications/preferences');
+      setEmailPrefs({ ...DEFAULT_EMAIL_PREFS, ...(res as any) });
+    } catch {
+      // silently fallback to defaults
+    } finally {
+      setPrefsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'notificacoes') loadEmailPrefs();
+  }, [activeTab, loadEmailPrefs]);
+
+  const saveEmailPrefs = async () => {
+    setPrefsSaving(true);
+    try {
+      await api.put('/notifications/preferences', emailPrefs);
+      pushToast('success', 'Preferências de notificação salvas!');
+    } catch {
+      pushToast('error', 'Erro ao salvar preferências.');
+    } finally {
+      setPrefsSaving(false);
+    }
+  };
+
+  const sendTestEmail = async () => {
+    setTestSending(true);
+    try {
+      const res = await api.post<{ message?: string }>('/notifications/test', {});
+      pushToast('success', (res as any).message || 'Email de teste enviado!');
+    } catch {
+      pushToast('error', 'Erro ao enviar email de teste.');
+    } finally {
+      setTestSending(false);
+    }
+  };
 
   // Theme definition
   const THEME_COLORS = [
@@ -310,56 +378,234 @@ export const Settings: React.FC = () => {
 
           {/* NOTIFICAÇÕES */}
           {activeTab === 'notificacoes' && (
-              <div className="space-y-8 animate-fadeIn max-w-3xl">
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                        <div className="p-2 bg-amber-100 rounded-lg text-amber-600"><Bell size={24} /></div>
-                        {t('settings.notifications.title')}
-                    </h2>
-                    <p className="text-slate-500 text-sm md:text-base">{t('settings.notifications.subtitle')}</p>
-                  </div>
+            <div className="space-y-8 animate-fadeIn max-w-3xl">
 
-                  <div className="space-y-4">
-                      <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all group">
-                          <div className="flex items-center gap-5">
-                              <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-100 transition-colors">
-                                  <Mail size={24} />
-                              </div>
-                              <div>
-                                  <h4 className="font-bold text-slate-800 text-lg">{t('settings.notifications.email')}</h4>
-                                  <p className="text-sm text-slate-500">{t('settings.notifications.email.desc')}</p>
-                              </div>
-                          </div>
-                          <ToggleSwitch checked={notifications.email} onChange={() => setNotifications({...notifications, email: !notifications.email})} />
-                      </div>
-
-                      <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all group">
-                          <div className="flex items-center gap-5">
-                              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:bg-emerald-100 transition-colors">
-                                  <Smartphone size={24} />
-                              </div>
-                              <div>
-                                  <h4 className="font-bold text-slate-800 text-lg">{t('settings.notifications.sms')}</h4>
-                                  <p className="text-sm text-slate-500">{t('settings.notifications.sms.desc')}</p>
-                              </div>
-                          </div>
-                          <ToggleSwitch checked={notifications.sms} onChange={() => setNotifications({...notifications, sms: !notifications.sms})} />
-                      </div>
-
-                      <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all group">
-                          <div className="flex items-center gap-5">
-                              <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl group-hover:bg-purple-100 transition-colors">
-                                  <Bell size={24} />
-                              </div>
-                              <div>
-                                  <h4 className="font-bold text-slate-800 text-lg">{t('settings.notifications.push')}</h4>
-                                  <p className="text-sm text-slate-500">{t('settings.notifications.push.desc')}</p>
-                              </div>
-                          </div>
-                          <ToggleSwitch checked={notifications.push} onChange={() => setNotifications({...notifications, push: !notifications.push})} />
-                      </div>
-                  </div>
+              {/* Header */}
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-1 flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 rounded-xl text-amber-600"><Bell size={22} /></div>
+                  Notificações por Email
+                </h2>
+                <p className="text-slate-500 text-sm ml-12">Configure os emails automáticos do sistema PsiFlux.</p>
               </div>
+
+              {prefsLoading ? (
+                <div className="flex items-center justify-center py-20 text-slate-400 gap-3">
+                  <Loader2 size={28} className="animate-spin" />
+                  <span className="text-sm font-medium">Carregando preferências...</span>
+                </div>
+              ) : (
+                <div className="space-y-6">
+
+                  {/* ── Master toggle ───────────────────────────────── */}
+                  <div className={`relative flex items-center justify-between p-5 rounded-2xl border-2 transition-all duration-300 ${emailPrefs.enabled ? 'border-indigo-300 bg-gradient-to-r from-indigo-50 to-violet-50' : 'border-slate-200 bg-slate-50'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-xl transition-colors ${emailPrefs.enabled ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-200 text-slate-400'}`}>
+                        <Mail size={20} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800">Emails habilitados</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {emailPrefs.enabled ? 'Você está recebendo notificações por email' : 'Todos os emails estão desativados'}
+                        </p>
+                      </div>
+                    </div>
+                    <ToggleSwitch
+                      checked={emailPrefs.enabled}
+                      onChange={() => setEmailPrefs(p => ({ ...p, enabled: !p.enabled }))}
+                    />
+                  </div>
+
+                  {/* ── Grupos de preferências ───────────────────────── */}
+                  <div className={`space-y-4 transition-all duration-300 ${emailPrefs.enabled ? 'opacity-100' : 'opacity-35 pointer-events-none'}`}>
+
+                    {/* Grupo: Agendamentos */}
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Agendamentos</p>
+                      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
+
+                        {/* Novo agendamento */}
+                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
+                              <Calendar size={18} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">Novo agendamento</p>
+                              <p className="text-xs text-slate-400 mt-0.5">Aviso quando um atendimento for criado</p>
+                            </div>
+                          </div>
+                          <ToggleSwitch
+                            checked={emailPrefs.new_appointment}
+                            onChange={() => setEmailPrefs(p => ({ ...p, new_appointment: !p.new_appointment }))}
+                          />
+                        </div>
+
+                        {/* Lembrete — Profissional */}
+                        <div className="px-5 py-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+                                <Clock size={18} />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-800 text-sm">Lembrete para mim (profissional)</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Email antes da consulta no seu endereço</p>
+                              </div>
+                            </div>
+                            <ToggleSwitch
+                              checked={emailPrefs.appointment_reminder_professional}
+                              onChange={() => setEmailPrefs(p => ({ ...p, appointment_reminder_professional: !p.appointment_reminder_professional }))}
+                            />
+                          </div>
+                          {(emailPrefs.appointment_reminder_professional || emailPrefs.appointment_reminder_patient) && (
+                            <div className="mt-3 ml-12 flex items-center gap-2">
+                              <span className="text-[11px] font-semibold text-slate-400">Antecedência:</span>
+                              {[30, 60].map(min => (
+                                <button
+                                  key={min}
+                                  onClick={() => setEmailPrefs(p => ({ ...p, appointment_reminder_minutes: min }))}
+                                  className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
+                                    emailPrefs.appointment_reminder_minutes === min
+                                      ? 'bg-indigo-600 text-white border-indigo-600'
+                                      : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                                  }`}
+                                >
+                                  {min === 30 ? '30 min' : '1 hora'}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Lembrete — Paciente */}
+                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 bg-violet-100 text-violet-600 rounded-xl">
+                              <Users2 size={18} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">Lembrete para o paciente</p>
+                              <p className="text-xs text-slate-400 mt-0.5">Envia ao email do paciente (se cadastrado)</p>
+                            </div>
+                          </div>
+                          <ToggleSwitch
+                            checked={emailPrefs.appointment_reminder_patient}
+                            onChange={() => setEmailPrefs(p => ({ ...p, appointment_reminder_patient: !p.appointment_reminder_patient }))}
+                          />
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* Grupo: Alertas */}
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Alertas</p>
+                      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
+
+                        {/* Aniversariantes */}
+                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 bg-pink-100 text-pink-600 rounded-xl">
+                              <UserCheck size={18} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">Aniversariantes do dia</p>
+                              <p className="text-xs text-slate-400 mt-0.5">Lista de pacientes enviada toda manhã às 8h</p>
+                            </div>
+                          </div>
+                          <ToggleSwitch
+                            checked={emailPrefs.birthday_reminder}
+                            onChange={() => setEmailPrefs(p => ({ ...p, birthday_reminder: !p.birthday_reminder }))}
+                          />
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* Grupo: Relatórios */}
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Relatórios</p>
+                      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
+
+                        {/* Semanal */}
+                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 bg-violet-100 text-violet-600 rounded-xl">
+                              <BarChart2 size={18} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">Relatório semanal</p>
+                              <p className="text-xs text-slate-400 mt-0.5">Atendimentos e receita — toda segunda às 7h</p>
+                            </div>
+                          </div>
+                          <ToggleSwitch
+                            checked={emailPrefs.weekly_report}
+                            onChange={() => setEmailPrefs(p => ({ ...p, weekly_report: !p.weekly_report }))}
+                          />
+                        </div>
+
+                        {/* Mensal */}
+                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
+                              <FileText size={18} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">Relatório mensal</p>
+                              <p className="text-xs text-slate-400 mt-0.5">Desempenho financeiro do mês — todo dia 1 às 7h</p>
+                            </div>
+                          </div>
+                          <ToggleSwitch
+                            checked={emailPrefs.monthly_report}
+                            onChange={() => setEmailPrefs(p => ({ ...p, monthly_report: !p.monthly_report }))}
+                          />
+                        </div>
+
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* ── Ações ─────────────────────────────────────────── */}
+                  <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      radius="xl"
+                      elevation="md"
+                      isLoading={prefsSaving}
+                      loadingText="Salvando..."
+                      leftIcon={<Save size={16} />}
+                      onClick={saveEmailPrefs}
+                    >
+                      Salvar preferências
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      radius="xl"
+                      isLoading={testSending}
+                      loadingText="Enviando..."
+                      leftIcon={<Send size={16} />}
+                      onClick={sendTestEmail}
+                    >
+                      Enviar email de teste
+                    </Button>
+                  </div>
+
+                  {/* ── Rodapé informativo ────────────────────────────── */}
+                  <div className="flex items-start gap-3 p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                    <Mail size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Emails enviados por <strong className="text-slate-700">sistema@psiflux.com.br</strong>.
+                      Este endereço é apenas para envio — não monitore nem responda emails recebidos por ele.
+                    </p>
+                  </div>
+
+                </div>
+              )}
+            </div>
           )}
 
           {/* ASSINATURA */}
