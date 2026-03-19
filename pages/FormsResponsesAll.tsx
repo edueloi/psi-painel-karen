@@ -5,7 +5,8 @@ import { Patient, InterpretationRule, FormCategory } from '../types';
 import { 
   ArrowLeft, FileText, Clock, User, Filter, 
   ChevronDown, Search, Calculator, CheckCircle2, 
-  Phone, Mail, ChevronRight, Target, Brain, Heart, ClipboardList, BarChart3, AlertCircle, Info, Sparkles, ChevronLeft
+  Phone, Mail, ChevronRight, Target, Brain, Heart, ClipboardList, BarChart3, AlertCircle, Info, Sparkles, ChevronLeft,
+  X, FileSearch
 } from 'lucide-react';
 import { 
   FilterLine, 
@@ -15,6 +16,7 @@ import {
 } from '../components/UI/FilterLine';
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
+import { Combobox } from '../components/UI/Combobox';
 
 type FormResponse = {
   id: string;
@@ -39,6 +41,7 @@ export const FormsResponsesAll: React.FC = () => {
   const [userCategories, setUserCategories] = useState<FormCategory[]>([]);
   
   const [selectedFormId, setSelectedFormId] = useState('');
+  const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -216,6 +219,7 @@ export const FormsResponsesAll: React.FC = () => {
 
   const filteredResponses = responses.filter((r) => {
     const matchForm = !selectedFormId || r.form_id === selectedFormId;
+    const matchPatient = !selectedPatientId || r.patient_id === selectedPatientId;
     const matchCategory = selectedCategory === 'Todas' || r.form_category === selectedCategory;
     const pName = getPatientName(r.patient_id).toLowerCase();
     const rName = (r.respondent_name || '').toLowerCase();
@@ -223,7 +227,7 @@ export const FormsResponsesAll: React.FC = () => {
     const fCat = (r.form_category || '').toLowerCase();
     const search = searchTerm.toLowerCase();
     const matchSearch = pName.includes(search) || rName.includes(search) || fTitle.includes(search) || fCat.includes(search);
-    return matchForm && matchCategory && matchSearch;
+    return matchForm && matchPatient && matchCategory && matchSearch;
   });
 
   const staticCategories = ['TCC', 'Neuropsicologia', 'Psicopedagogia', 'Psicanálise', 'Anamnese', 'Eventos', 'Humanista'];
@@ -282,21 +286,59 @@ export const FormsResponsesAll: React.FC = () => {
           />
         </FilterLineSection>
 
-        <div className="h-8 w-px bg-slate-100 hidden xl:block mx-4" />
+        <div className="h-10 w-px bg-slate-100 hidden xl:block mx-2" />
 
-        <FilterLineSection>
-           <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Documento</span>
-             <select
-                value={selectedFormId}
-                onChange={(e) => setSelectedFormId(e.target.value)}
-                className="text-xs font-black text-slate-700 bg-transparent outline-none max-w-[180px] truncate uppercase tracking-tighter"
-             >
-                <option value="">TODOS</option>
-                {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
-             </select>
-           </div>
+        <FilterLineSection className="min-w-[240px]">
+           <Combobox 
+              label="Paciente"
+              options={[
+                { id: '', label: 'TODOS OS PACIENTES' },
+                ...patients.map(p => ({ id: String(p.id), label: p.full_name || p.name || 'Paciente sem nome' }))
+              ]}
+              value={selectedPatientId}
+              onChange={(val) => setSelectedPatientId(val)}
+              icon={<User size={16} />}
+              placeholder="Selecionar paciente"
+              className="border-none"
+           />
         </FilterLineSection>
+
+        <div className="h-10 w-px bg-slate-100 hidden xl:block mx-2" />
+
+        <FilterLineSection className="min-w-[240px]">
+           <Combobox 
+              label="Documento / Teste"
+              options={[
+                { id: '', label: 'TODOS OS FORMULÁRIOS' },
+                ...forms.map(f => ({ id: f.id, label: f.title }))
+              ]}
+              value={selectedFormId}
+              onChange={(val) => setSelectedFormId(val)}
+              icon={<FileSearch size={16} />}
+              placeholder="Selecionar formulário"
+              className="border-none"
+           />
+        </FilterLineSection>
+
+        {(selectedFormId || selectedPatientId || searchTerm || selectedCategory !== 'Todas') && (
+           <FilterLineSection>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                radius="xl" 
+                onClick={() => {
+                   setSelectedFormId('');
+                   setSelectedPatientId('');
+                   setSearchTerm('');
+                   setSelectedCategory('Todas');
+                }}
+                className="text-rose-500 border-rose-100 hover:bg-rose-50 p-2 h-10 w-10 min-w-0"
+                title="Limpar todos os filtros"
+              >
+                <X size={18} />
+              </Button>
+           </FilterLineSection>
+        )}
       </FilterLine>
 
       {/* Category Horizontal Pills */}
