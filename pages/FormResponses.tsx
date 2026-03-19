@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import { Patient, InterpretationRule } from '../types';
 import { 
   ArrowLeft, FileText, Clock, User, Calculator, 
-  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle
+  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle, X, Bot
 } from 'lucide-react';
 import { 
   FilterLine, 
@@ -36,6 +36,51 @@ export const FormResponses: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [questionsMetadata, setQuestionsMetadata] = useState<any[]>([]);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [aiAnalysisMap, setAiAnalysisMap] = useState<Record<string, string>>({});
+
+  const getPatientName = (patientId?: string | null) => {
+    if (!patientId) return '';
+    return patients.find((p) => String(p.id) === String(patientId))?.full_name || '';
+  };
+
+  const generateAiAnalysis = async (response: FormResponse) => {
+    setAnalyzingId(response.id);
+    try {
+      const resp = await api.post<any>('/ai/analyze-form', {
+        formTitle,
+        respondentName: getPatientName(response.patient_id) || response.respondent_name || 'Usuário',
+        answers: response.answers_json,
+        score: response.score,
+        interpretations,
+        patientData: patients.find(p => String(p.id) === String(response.patient_id))
+      });
+      setAiAnalysisMap(prev => ({ ...prev, [response.id]: resp.analysis }));
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao gerar análise. Verifique se a chave de API está configurada.');
+    } finally {
+      setAnalyzingId(null);
+    }
+  };
+
+  const handleExportPDF = async (responseId: string, respondentName: string) => {
+    const { jsPDF } = await import('jspdf');
+    const html2canvas = (await import('html2canvas')).default;
+    
+    const input = document.getElementById(`analysis-content-${responseId}`);
+    if (!input) return;
+    
+    html2canvas(input, { scale: 2, useCORS: true }).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Relatorio_Aurora_${respondentName.replace(/\s+/g, '_')}.pdf`);
+    });
+  };
 
   const load = async () => {
     if (!id) return;
@@ -88,11 +133,6 @@ export const FormResponses: React.FC = () => {
   useEffect(() => {
     load();
   }, [id]);
-
-  const getPatientName = (patientId?: string | null) => {
-    if (!patientId) return '';
-    return patients.find((p) => String(p.id) === String(patientId))?.full_name || '';
-  };
 
   const getInterpretation = (score: number | null | undefined) => {
     if (score === null || score === undefined) return null;
@@ -265,6 +305,15 @@ export const FormResponses: React.FC = () => {
                 )}
               </div>
             </div>
+
+            <div className="mt-auto pt-6 border-t border-white/10 text-left">
+               <div className="flex items-center gap-3 bg-indigo-600/20 p-4 rounded-2xl border border-indigo-500/20 text-left">
+                  <Sparkles size={18} className="text-indigo-400 shrink-0" />
+                  <p className="text-[10px] font-bold text-indigo-200 leading-tight text-left">
+                    Aurora AI está ativada. Você pode gerar análises automáticas para cada resposta.
+                  </p>
+               </div>
+            </div>
           </div>
         </div>
 
@@ -290,9 +339,12 @@ export const FormResponses: React.FC = () => {
               {filteredResponses.map((res) => {
                 const patientName = getPatientName(res.patient_id);
                 const inter = getInterpretation(res.score);
+                const isAnalyzing = analyzingId === res.id;
+                const analysis = aiAnalysisMap[res.id];
+                const respondentDisplay = patientName || res.respondent_name || 'Usuário Externo';
                 
                 return (
-                  <AppCard key={res.id} className="group overflow-visible bg-white border-slate-100 hover:border-indigo-500/10 shadow-lg hover:shadow-2xl transition-all duration-700 rounded-[2.5rem]">
+                  <AppCard key={res.id} noPadding className="group overflow-visible bg-white border-slate-100 hover:border-indigo-500/10 shadow-lg hover:shadow-2xl transition-all duration-700 rounded-[2.5rem]">
                     {/* Header Item */}
                     <div className="p-8 flex flex-col md:flex-row gap-10 justify-between items-start text-left">
                       <div className="flex items-start gap-6 text-left">
@@ -302,7 +354,7 @@ export const FormResponses: React.FC = () => {
                         <div className="space-y-3 text-left">
                           <div className="flex items-center gap-3 flex-wrap text-left">
                             <h3 className="text-2xl font-black text-slate-800 tracking-tight text-left leading-none">
-                              {patientName || res.respondent_name || 'Usuário Externo'}
+                              {respondentDisplay}
                             </h3>
                             {patientName ? (
                               <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl border border-emerald-100">
@@ -345,6 +397,74 @@ export const FormResponses: React.FC = () => {
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* AI Analysis Area */}
+                    <div className="px-8 pb-4">
+                       {analysis ? (
+                          <div id={`analysis-card-${res.id}`} className="bg-indigo-50/50 border border-indigo-100 rounded-[2.5rem] overflow-hidden animate-in zoom-in-95 duration-500">
+                             <div className="p-8 border-b border-indigo-100/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                   <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                                      <Sparkles size={22} />
+                                   </div>
+                                   <div>
+                                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest">Análise da Aurora AI</h4>
+                                      <p className="text-[10px] font-bold text-indigo-500">Insights Clínicos e Sugestões</p>
+                                   </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                   <button 
+                                      onClick={() => handleExportPDF(res.id, respondentDisplay)}
+                                      className="flex items-center gap-2 px-6 py-3 bg-white border border-indigo-100 rounded-2xl text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:bg-white hover:shadow-lg transition-all"
+                                   >
+                                      <FileText size={16} /> Baixar Relatório PDF
+                                   </button>
+                                   <button 
+                                      onClick={() => setAiAnalysisMap(p => { const next = {...p}; delete next[res.id]; return next; })}
+                                      className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                   >
+                                      <X size={18} />
+                                   </button>
+                                </div>
+                             </div>
+                             
+                             <div id={`analysis-content-${res.id}`} className="p-10 bg-white">
+                                <div 
+                                   className="text-sm text-slate-700 leading-relaxed font-medium markdown-content"
+                                   dangerouslySetInnerHTML={{ __html: analysis.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-slate-900">$1</strong>').replace(/\n/g, '<br/>') }} 
+                                />
+
+                                <div className="mt-10 pt-10 border-t border-slate-100 flex items-center justify-between">
+                                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">PsiFlux Intelligence · Relatório Gerado em {new Date().toLocaleDateString()}</p>
+                                   <p className="text-[9px] font-black text-indigo-300">ESTA ANÁLISE NÃO SUBSTITUI O PARECER TERAPÊUTICO</p>
+                                </div>
+                             </div>
+                          </div>
+                       ) : (
+                          <div className="flex items-center justify-between bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
+                             <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-indigo-400 border border-slate-100">
+                                   <Bot size={20} className={isAnalyzing ? 'animate-spin' : ''} />
+                                </div>
+                                <div>
+                                   <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Deseja uma análise da Aurora?</p>
+                                   <p className="text-[10px] font-bold text-slate-400">Gere um insight clínico automático baseado nestas respostas.</p>
+                                </div>
+                             </div>
+                             <button
+                                onClick={() => generateAiAnalysis(res)}
+                                disabled={isAnalyzing}
+                                className="flex items-center gap-3 px-8 py-3.5 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                             >
+                                {isAnalyzing ? 'Analisando...' : (
+                                   <>
+                                      <Sparkles size={16} /> Gerar Análise Clínica
+                                   </>
+                                )}
+                             </button>
+                          </div>
+                       )}
                     </div>
 
                     {/* Details Accordion */}

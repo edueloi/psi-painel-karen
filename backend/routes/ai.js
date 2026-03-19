@@ -265,6 +265,38 @@ async function listCatalog(tenantId) {
   return { services, products, forms };
 }
 
+async function listPatientFormResponses(tenantId, patientId) {
+  const [rows] = await db.query(
+    `SELECT fr.id, f.title as form_title, fr.score, fr.created_at 
+     FROM form_responses fr
+     JOIN forms f ON f.id = fr.form_id
+     WHERE fr.patient_id = ? AND fr.tenant_id = ? 
+     ORDER BY fr.created_at DESC`,
+    [patientId, tenantId]
+  );
+  return rows;
+}
+
+async function getFormResponse(tenantId, responseId) {
+  const [rows] = await db.query(
+    `SELECT fr.*, f.title as form_title 
+     FROM form_responses fr
+     JOIN forms f ON f.id = fr.form_id
+     WHERE fr.id = ? AND fr.tenant_id = ?`,
+    [responseId, tenantId]
+  );
+  if (!rows[0]) return { error: 'Resposta não encontrada' };
+  
+  let answers = {};
+  try {
+    const raw = rows[0].answers_json || rows[0].data;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    answers = parsed?.answers || parsed || {};
+  } catch(e) {}
+  
+  return { ...rows[0], answers_parsed: answers };
+}
+
 async function createAppointment(tenantId, data) {
   const { patient_id, title, start_time, end_time, notes } = data;
   if (!start_time) return { error: 'Inicio e obrigatorio' };
@@ -486,8 +518,32 @@ router.post('/chat', upload.single('file'), async (req, res) => {
       {
         type: 'function',
         function: {
+          name: 'list_patient_form_responses',
+          description: 'Lista todas as respostas de formularios de um paciente especifico.',
+          parameters: {
+            type: 'object',
+            properties: { patient_id: { type: 'number', description: 'ID do paciente' } },
+            required: ['patient_id']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_form_response',
+          description: 'Obtem o conteudo detalhado de uma resposta de formulario baseada no ID da resposta.',
+          parameters: {
+            type: 'object',
+            properties: { response_id: { type: 'number', description: 'ID da resposta do formulario' } },
+            required: ['response_id']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
           name: 'list_catalog',
-          description: 'Lista todos os serviços, pacotes/produtos e formulários clínicos disponíveis no sistema.',
+          description: 'Lista todos os servicos, pacotes/produtos e formularios clinicos disponiveis no sistema.',
           parameters: { type: 'object', properties: {} }
         }
       }
@@ -513,6 +569,11 @@ Capacidades:
   5. so executar bulk_create_patients se o usuario confirmar explicitamente.
 - Para cadastro de pacientes, priorize estes campos do sistema: name, email, phone, cpf, rg, birth_date, address, city, state, zip_code, gender, health_plan, notes, status.
 - Se houver conflitos, informe quais pacientes ja existem antes de seguir.
+- Quando o usuario pedir um relatorio clinico ou analise de respostas de um paciente (ex: "gerar relatorio da Luciana"), voce deve:
+  1. Localizar o paciente pelo nome.
+  2. Usar list_patient_form_responses(id) para ver quais respostas ele enviou.
+  3. Se houver respostas, usar get_form_response(id) da mais recente (ou da pedida) para ler as respostas detalhadas.
+  4. Gerar um resumo/relatorio clinico baseado nesses dados, com impressoes e sugestoes.
 - Nunca invente dados ausentes. Se alguma coluna estiver ambigua, diga isso claramente.
  
 Data/Hora Atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
@@ -547,6 +608,8 @@ Responda sempre em Portugues-BR.`
         else if (functionName === 'get_financial_summary') result = await getFinancialSummary(tenantId, args.month, args.year);
         else if (functionName === 'get_advanced_analytics') result = await getAdvancedAnalytics(tenantId);
         else if (functionName === 'list_catalog') result = await listCatalog(tenantId);
+        else if (functionName === 'list_patient_form_responses') result = await listPatientFormResponses(tenantId, args.patient_id);
+        else if (functionName === 'get_form_response') result = await getFormResponse(tenantId, args.response_id);
         else if (functionName === 'create_appointment') { result = await createAppointment(tenantId, args); actionsTaken.push('appointment_created'); }
         else if (functionName === 'bulk_create_patients') { result = await bulkCreatePatients(tenantId, args.patients || []); actionsTaken.push('patients_created'); }
 
@@ -591,17 +654,18 @@ RESPOSTAS DETALHADAS:
 ${JSON.stringify(answers)}
 
 INSTRUCOES PARA O RELATORIO:
-1. Seja PROFISSIONAL, EMPATICO e BASEADO EM EVIDENCIAS (priorize TCC se aplicavel).
-2. Estruture o relatorio com:
-   - RESUMO DO CASO: Uma breve sintese da situacao atual.
-   - ANALISE DE SINTOMAS: O que os dados e a pontuacao indicam sobre o estado emocional/clinico.
-   - PONTOS DE ATENCAO: Sinais de alerta ou areas que exigem investigacao profunda.
-   - SUGESTOES DE INTERVENCAO: Proximos passos praticos para o psicologo na proxima sessao.
-3. Use uma linguagem que o psicologo possa utilizar como base para sua evolucao de prontuario ou laudo.
-4. Mantenha um tom de suporte e parceria.
+1. Seja PROFISSIONAL, EMPATICO e BASEADO EM EVIDENCIAS.
+2. Estruture o relatorio de forma limpa.
+3. NAO use blocos de codigo markdown (como \`\`\`markdown).
+4. Use Negritos (**texto**) para titulos de secoes.
+5. Estrutura obrigatoria:
+   - **SUMARIO DO CASO**
+   - **ANALISE DE SINTOMAS**
+   - **PONTOS DE ATENCAO**
+   - **DIRETRIZES TERAPEUTICAS**
+6. Retorne o texto puro, limpo e direto.
 
-RESPONDA SEMPRE EM PORTUGUES-BR.
-Retorne o texto formatado em Markdown para melhor visualizacao.`;
+RESPONDA SEMPRE EM PORTUGUES-BR.`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
