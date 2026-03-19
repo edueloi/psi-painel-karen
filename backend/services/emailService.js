@@ -233,6 +233,26 @@ function templateMonthlyReport({ monthLabel, totalAppointments, completedCount, 
   return baseTemplate('📅 Relatório Mensal', content, 'Enviado automaticamente no primeiro dia de cada mês.');
 }
 
+/** 6. Recuperação de senha */
+function templatePasswordReset({ name, link }) {
+  const content = `
+    <p style="margin:0 0 20px;font-size:15px;color:#475569;">Olá, <strong>${name || 'usuário'}</strong> 👋</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#475569;">Recebemos uma solicitação para redefinir a senha da sua conta no <strong>PsiFlux</strong>. Clique no botão abaixo para criar uma nova senha:</p>
+
+    <div style="text-align:center;margin:32px 0;">
+      <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 40px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">🔐 Redefinir Minha Senha</a>
+    </div>
+
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 20px;margin-top:8px;">
+      <p style="margin:0;font-size:12px;color:#c2410c;font-weight:700;">⚠️ Este link expira em 2 horas.</p>
+      <p style="margin:6px 0 0;font-size:12px;color:#c2410c;">Se você não solicitou esta redefinição, ignore este email — sua senha permanece a mesma.</p>
+    </div>
+
+    <p style="margin:20px 0 0;font-size:11px;color:#94a3b8;">Se o botão não funcionar, copie e cole este link no navegador:<br>
+    <span style="color:#6366f1;word-break:break-all;">${link}</span></p>`;
+  return baseTemplate('🔐 Redefinir Senha', content, 'Solicitação de redefinição de senha.');
+}
+
 module.exports = {
   sendMail,
   templates: {
@@ -241,5 +261,6 @@ module.exports = {
     newAppointment: templateNewAppointment,
     weeklyReport: templateWeeklyReport,
     monthlyReport: templateMonthlyReport,
+    passwordReset: templatePasswordReset,
   }
 };

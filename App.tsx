@@ -41,6 +41,7 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { LandingPage } from './pages/LandingPage';
+import { ResetPassword } from './pages/ResetPassword';
 import { AuroraAssistant } from './components/AI/AuroraAssistant';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -104,6 +105,7 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login onLogin={() => {}} />} />
+      <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/f/:hash" element={<ExternalForm />} />
 
       {/* Rotas de Super Admin */}

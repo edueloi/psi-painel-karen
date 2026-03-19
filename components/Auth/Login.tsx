@@ -116,8 +116,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
     setLoading(true);
     setError('');
     try {
-      // TODO: substituir pelo endpoint real quando disponível
-      await new Promise(r => setTimeout(r, 900));
+      await api.post('/auth/forgot-password', { email: forgotEmail });
       setForgotSent(true);
     } catch (err: any) {
       setError(err.message || 'Erro ao enviar e-mail. Tente novamente.');
