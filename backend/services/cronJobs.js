@@ -19,14 +19,14 @@ function fmtWeek(start, end) {
 }
 
 const DEFAULT_PREFS = {
-  enabled: true,
-  new_appointment: true,
-  appointment_reminder_professional: true,
-  appointment_reminder_patient: true,
+  enabled: false,
+  new_appointment: false,
+  appointment_reminder_professional: false,
+  appointment_reminder_patient: false,
   appointment_reminder_minutes: 60,
-  birthday_reminder: true,
-  weekly_report: true,
-  monthly_report: true,
+  birthday_reminder: false,
+  weekly_report: false,
+  monthly_report: false,
 };
 
 function getPrefs(user) {

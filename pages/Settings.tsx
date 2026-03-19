@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Settings as SettingsIcon, Palette, Bell, Globe, Moon, Monitor, Smartphone,
   Check, ChevronRight, Database, CreditCard, UserPlus, ShieldCheck, Mail,
@@ -34,14 +34,14 @@ export const Settings: React.FC = () => {
     monthly_report: boolean;
   };
   const DEFAULT_EMAIL_PREFS: EmailPrefs = {
-    enabled: true,
-    new_appointment: true,
-    appointment_reminder_professional: true,
-    appointment_reminder_patient: true,
+    enabled: false,
+    new_appointment: false,
+    appointment_reminder_professional: false,
+    appointment_reminder_patient: false,
     appointment_reminder_minutes: 60,
-    birthday_reminder: true,
-    weekly_report: true,
-    monthly_report: true,
+    birthday_reminder: false,
+    weekly_report: false,
+    monthly_report: false,
   };
   const [emailPrefs, setEmailPrefs] = useState<EmailPrefs>(DEFAULT_EMAIL_PREFS);
   const [prefsLoading, setPrefsLoading] = useState(false);
