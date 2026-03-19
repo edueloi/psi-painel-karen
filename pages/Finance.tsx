@@ -46,6 +46,7 @@ export const Finance: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
   const [isLoading, setIsLoading] = useState(false);
+  const [annualSeries, setAnnualSeries] = useState<{ label: string; income: number; expense: number }[]>([]);
 
   // States para Modal de Lançamento
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -74,17 +75,19 @@ export const Finance: React.FC = () => {
         const month = currentDate.getMonth() + 1;
         const year = currentDate.getFullYear();
         
-        const [txs, sum, pts] = await Promise.all([
-            api.get<FinancialTransaction[]>('/finance', { 
+        const [txs, sum, pts, annual] = await Promise.all([
+            api.get<FinancialTransaction[]>('/finance', {
                 start: new Date(year, month - 1, 1).toISOString().split('T')[0],
                 end: new Date(year, month, 0).toISOString().split('T')[0]
             }),
             api.get<any>('/finance/summary', { month: month.toString(), year: year.toString() }),
-            api.get<Patient[]>('/patients')
+            api.get<Patient[]>('/patients'),
+            api.get<any>('/finance/analytics/performance?period=year')
         ]);
-        
+
         setTransactions(txs);
         setSummary(sum);
+        if (annual?.series) setAnnualSeries(annual.series);
         setPatients(pts);
     } catch (err) {
         console.error('Erro ao buscar dados financeiros:', err);
@@ -212,24 +215,37 @@ export const Finance: React.FC = () => {
           expense: summary.expense,
           balance: summary.balance,
           methods: methodTotals,
-          bestMonth: { label: 'Nov', revenue: summary.income * 1.1 }, // Simplified for now
-          worstMonth: { label: 'Jan', revenue: summary.income * 0.8 },
-          avgRevenue: summary.income
       };
   }, [transactions, summary]);
 
+  // Real annual chart data from API
   const yearData = useMemo(() => {
-    // Generate dummy historical data based on current summary for chart visualization
-    return Array.from({ length: 12 }, (_, i) => {
-        const isCurrent = i === currentDate.getMonth();
-        return {
-            month: i,
-            label: new Date(2024, i, 1).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'short' }),
-            revenue: isCurrent ? summary.income : summary.income * (0.7 + Math.random() * 0.5),
-            expense: isCurrent ? summary.expense : summary.expense * (0.7 + Math.random() * 0.5)
-        };
-    });
-  }, [summary, currentDate.getMonth(), language]);
+    if (annualSeries.length > 0) {
+      return annualSeries.map(s => {
+        // label is 'YYYY-MM', convert to short month name
+        const [y, m] = s.label.split('-').map(Number);
+        const label = new Date(y, (m || 1) - 1, 1).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'short' });
+        return { label, revenue: Number(s.income) || 0, expense: Number(s.expense) || 0 };
+      });
+    }
+    // Fallback: single bar for current month with real data
+    return [{
+      label: currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'short' }),
+      revenue: summary.income,
+      expense: summary.expense
+    }];
+  }, [annualSeries, summary, currentDate, language]);
+
+  const bestMonth = useMemo(() => {
+    if (yearData.length === 0) return { label: '-', revenue: 0 };
+    return yearData.reduce((best, d) => d.revenue > best.revenue ? d : best, yearData[0]);
+  }, [yearData]);
+
+  const worstMonth = useMemo(() => {
+    const withRevenue = yearData.filter(d => d.revenue > 0);
+    if (withRevenue.length === 0) return { label: '-', revenue: 0 };
+    return withRevenue.reduce((worst, d) => d.revenue < worst.revenue ? d : worst, withRevenue[0]);
+  }, [yearData]);
 
   const maxChartValue = Math.max(...yearData.map(d => Math.max(d.revenue, d.expense, 1)));
 
@@ -421,7 +437,7 @@ export const Finance: React.FC = () => {
                 </div>
                 <div className="relative z-10">
                     <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-0.5">{t('finance.bestMonth')}</p>
-                    <p className="text-base font-black text-slate-800 uppercase tracking-tighter">{stats.bestMonth.label} <span className="opacity-40 text-sm font-bold bg-slate-100 px-2 py-0.5 rounded-lg ml-1">{formatCurrency(stats.bestMonth.revenue)}</span></p>
+                    <p className="text-base font-black text-slate-800 uppercase tracking-tighter">{bestMonth.label} <span className="opacity-40 text-sm font-bold bg-slate-100 px-2 py-0.5 rounded-lg ml-1">{formatCurrency(bestMonth.revenue)}</span></p>
                 </div>
             </div>
 
@@ -432,7 +448,7 @@ export const Finance: React.FC = () => {
                 </div>
                 <div className="relative z-10">
                     <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5">{t('finance.worstMonth')}</p>
-                    <p className="text-base font-black text-slate-800 uppercase tracking-tighter">{stats.worstMonth.label} <span className="opacity-40 text-sm font-bold bg-slate-100 px-2 py-0.5 rounded-lg ml-1">{formatCurrency(stats.worstMonth.revenue)}</span></p>
+                    <p className="text-base font-black text-slate-800 uppercase tracking-tighter">{worstMonth.label} <span className="opacity-40 text-sm font-bold bg-slate-100 px-2 py-0.5 rounded-lg ml-1">{formatCurrency(worstMonth.revenue)}</span></p>
                 </div>
             </div>
 
@@ -443,7 +459,7 @@ export const Finance: React.FC = () => {
                 </div>
                 <div className="relative z-10">
                     <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">{t('finance.avgMonthly')}</p>
-                    <p className="text-lg font-black text-slate-800 uppercase tracking-tighter">{formatCurrency(stats.avgRevenue)}</p>
+                    <p className="text-lg font-black text-slate-800 uppercase tracking-tighter">{formatCurrency(yearData.length > 0 ? yearData.reduce((s, d) => s + d.revenue, 0) / yearData.length : 0)}</p>
                 </div>
             </div>
         </div>

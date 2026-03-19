@@ -716,78 +716,102 @@ router.get('/analytics/best-clients', async (req, res) => {
 // GET /finance/analytics/performance
 router.get('/analytics/performance', async (req, res) => {
   try {
-    const { period } = req.query; 
+    const { period } = req.query;
     const tenantId = req.user.tenant_id;
-    
+
+    // Calculate date range based on period
+    const now = new Date();
+    let startDate, endDate;
+    if (period === 'week') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
+      endDate = now;
+    } else if (period === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    } else {
+      // Default: current month
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    }
+
+    const startStr = startDate.toISOString().slice(0, 10);
+    const endStr = endDate.toISOString().slice(0, 10);
+
     let timeFormat = '%Y-%m-%d';
     if (period === 'year') timeFormat = '%Y-%m';
 
-    // Finnacial Series
+    // Financial Series filtered by period
     const [series] = await db.query(`
-      SELECT DATE_FORMAT(date, '${timeFormat}') as label, 
+      SELECT DATE_FORMAT(date, '${timeFormat}') as label,
              SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
              SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expense
       FROM financial_transactions
-      WHERE tenant_id = ?
+      WHERE tenant_id = ? AND date >= ? AND date <= ?
       GROUP BY label
       ORDER BY MIN(date) ASC
-    `, [tenantId]);
+    `, [tenantId, startStr, endStr]);
 
-    // Totals and Operational Metrics
+    // Totals filtered by period
     const [totals] = await db.query(`
-      SELECT 
+      SELECT
         SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expense,
         COUNT(DISTINCT DATE(date)) as worked_days
       FROM financial_transactions
-      WHERE tenant_id = ?
-    `, [tenantId]);
+      WHERE tenant_id = ? AND date >= ? AND date <= ?
+    `, [tenantId, startStr, endStr]);
 
     const [sessionsData] = await db.query(`
-      SELECT 
+      SELECT
         COUNT(*) as count,
         COALESCE(SUM(duration_minutes), 0) / 60 as total_hours
-      FROM appointments 
-      WHERE tenant_id = ? AND status = 'completed'
-    `, [tenantId]);
+      FROM appointments
+      WHERE tenant_id = ? AND (status = 'completed' OR status = 'confirmed')
+        AND DATE(start_time) >= ? AND DATE(start_time) <= ?
+    `, [tenantId, startStr, endStr]);
 
-    // Peak Days (Day of week distribution)
+    // Peak Days filtered by period
     const [peakDays] = await db.query(`
-      SELECT 
+      SELECT
         DAYOFWEEK(start_time) as day_index,
         COUNT(*) as count
       FROM appointments
-      WHERE tenant_id = ? AND status = 'completed'
+      WHERE tenant_id = ? AND (status = 'completed' OR status = 'confirmed')
+        AND DATE(start_time) >= ? AND DATE(start_time) <= ?
       GROUP BY day_index
       ORDER BY day_index ASC
-    `, [tenantId]);
+    `, [tenantId, startStr, endStr]);
 
-    // Peak Hours (Hour of day distribution)
+    // Peak Hours filtered by period
     const [peakHours] = await db.query(`
-      SELECT 
+      SELECT
         HOUR(start_time) as hour,
         COUNT(*) as count
       FROM appointments
-      WHERE tenant_id = ? AND status = 'completed'
+      WHERE tenant_id = ? AND (status = 'completed' OR status = 'confirmed')
+        AND DATE(start_time) >= ? AND DATE(start_time) <= ?
       GROUP BY hour
       ORDER BY hour ASC
-    `, [tenantId]);
+    `, [tenantId, startStr, endStr]);
 
-    // Hours Distribution Series
+    // Hours Distribution Series filtered by period
     const [hoursSeries] = await db.query(`
       SELECT DATE_FORMAT(start_time, '${timeFormat}') as label,
              COALESCE(SUM(duration_minutes), 0) / 60 as hours
       FROM appointments
-      WHERE tenant_id = ? AND status = 'completed'
+      WHERE tenant_id = ? AND (status = 'completed' OR status = 'confirmed')
+        AND DATE(start_time) >= ? AND DATE(start_time) <= ?
       GROUP BY label
       ORDER BY MIN(start_time) ASC
-    `, [tenantId]);
+    `, [tenantId, startStr, endStr]);
 
     res.json({
       series,
       hoursSeries,
       peakDays,
       peakHours,
+      period: { start: startStr, end: endStr },
       totals: {
         income: parseFloat(totals[0].income || 0),
         expense: parseFloat(totals[0].expense || 0),

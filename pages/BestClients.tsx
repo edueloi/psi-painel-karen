@@ -258,7 +258,7 @@ export const BestClients: React.FC = () => {
                       <div className="flex justify-between items-center text-[10px] font-black text-slate-400 px-1 border-t border-slate-50 pt-5">
                           <div className="flex items-center gap-1.5">
                               <Calendar size={13} className="text-indigo-400"/>
-                              DESDE {client.since.split('/')[2]}
+                              DESDE {client.since ? new Date(client.since).getFullYear() : '-'}
                           </div>
                           <button className="text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 uppercase tracking-widest text-[9px]">
                               DETALHES <ArrowUpRight size={12}/>

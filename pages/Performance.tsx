@@ -123,7 +123,7 @@ export const Performance: React.FC = () => {
       <div className="max-w-7xl mx-auto p-6 space-y-8">
 
       {/* KPI CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-3 sm:gap-4">
           <KPICard 
              title="Faturamento Bruto" 
              value={totals.income} 
@@ -230,7 +230,7 @@ export const Performance: React.FC = () => {
       </div>
 
       {/* BOTTOM SECTION: Peak Days, Peak Hours, Best Clients & Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-4 sm:gap-6">
           
           {/* Peak Days Chart */}
           <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
@@ -387,22 +387,22 @@ const KPICard = ({ title, value, icon, color, isPercent = false, isDecimal = fal
     };
 
     return (
-        <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm hover:shadow-2xl transition-all hover:-translate-y-1 group relative overflow-hidden">
+        <div className="bg-white rounded-xl sm:rounded-2xl lg:rounded-[2.5rem] p-3 sm:p-4 lg:p-6 border border-slate-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-0.5 group relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-20 h-20 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
                <div className={`w-full h-full rounded-full border-[10px] border-current ${colors[color].split(' ')[1]}`}></div>
             </div>
-            
-            <div className="flex justify-between items-start mb-8 relative z-10">
-                <div className={`p-4 rounded-2xl shadow-sm border ${colors[color]} group-hover:scale-110 transition-transform`}>
+
+            <div className="flex justify-between items-start mb-3 sm:mb-4 lg:mb-6 relative z-10">
+                <div className={`p-2 sm:p-2.5 lg:p-3.5 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-sm border ${colors[color]} group-hover:scale-110 transition-transform [&>svg]:w-3 [&>svg]:h-3 sm:[&>svg]:w-4 sm:[&>svg]:h-4 lg:[&>svg]:w-5 lg:[&>svg]:h-5`}>
                     {icon}
                 </div>
                 {subtitle && (
-                   <span className="text-[9px] font-black px-2 py-1 bg-slate-50 text-slate-400 border border-slate-100 rounded-lg uppercase tracking-widest">{subtitle}</span>
+                   <span className="hidden sm:inline text-[8px] lg:text-[9px] font-black px-1.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-100 rounded-lg uppercase tracking-widest leading-tight text-right max-w-[80px]">{subtitle}</span>
                 )}
             </div>
-            
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">{title}</p>
-            <h3 className="text-2xl font-black text-slate-800 leading-tight">
+
+            <p className="text-[7px] sm:text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 leading-tight">{title}</p>
+            <h3 className="text-sm sm:text-base lg:text-2xl font-black text-slate-800 leading-tight">
                 {isPercent ? `${value.toFixed(1)}%` : isDecimal ? `${value.toFixed(1)}h` : formatCurrency(value)}
             </h3>
         </div>
