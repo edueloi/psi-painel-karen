@@ -58,29 +58,33 @@ function SuccessScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 max-w-md w-full p-10 text-center">
-        <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-emerald-100">
-          <CheckCircle className="text-emerald-500" size={32} />
+      <div className="bg-white rounded-[3rem] shadow-2xl shadow-indigo-100 border border-slate-100 max-w-md w-full p-12 text-center">
+        <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-emerald-100 shadow-sm">
+          <CheckCircle className="text-emerald-500" size={40} />
         </div>
         
-        <h2 className="text-2xl font-bold text-slate-800 mb-3">Respostas enviadas!</h2>
+        <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Formulário Enviado!</h2>
         
-        <div className="space-y-4 mb-8">
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Obrigado! Suas respostas foram enviadas com segurança para:<br/>
-            <strong className="text-indigo-600 font-bold block mt-1">{profName} {crp}</strong>
+        <div className="space-y-6 mb-10">
+          <p className="text-sm text-slate-500 font-medium leading-relaxed">
+            Muito obrigado! Suas informações foram enviadas com segurança e criptografia para:<br/>
+            <span className="inline-block mt-3 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-black uppercase tracking-tight border border-indigo-100 shadow-sm">
+               {profName} {crp}
+            </span>
           </p>
           
-          <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
-            <p className="text-xs text-slate-500 leading-relaxed italic">
-              "O profissional entrará em contato após a avaliação dos resultados."
+          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+            <p className="text-sm text-slate-600 font-bold leading-relaxed italic">
+              "Obrigado por preencher. O profissional entrará em contato com você após a avaliação cuidadosa dos seus resultados."
             </p>
           </div>
         </div>
 
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-          Você pode fechar esta página agora.
-        </p>
+        <div className="p-1 bg-slate-100 rounded-full w-fit mx-auto">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-4 py-1">
+             Encerrado com Segurança
+          </p>
+        </div>
       </div>
     </div>
   );

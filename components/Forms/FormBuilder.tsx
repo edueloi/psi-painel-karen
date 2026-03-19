@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { api } from '../../services/api';
 import { FormQuestion, QuestionType, FormOption, InterpretationRule, FormTheme } from '../../types';
 import {
   Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, Wand2, ArrowLeft, Calculator, Target, Palette, Settings, Copy, MoveVertical, AlertCircle, Sparkles
@@ -29,9 +30,16 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [category, setCategory] = useState(initialData?.category || '');
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
   const [questions, setQuestions] = useState<FormQuestion[]>(initialData?.questions || []);
   const [interpretations, setInterpretations] = useState<InterpretationRule[]>(initialData?.interpretations || []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  React.useEffect(() => {
+    api.get<any[]>('/forms/categories').then(data => {
+      setCategories(data || []);
+    }).catch(() => {});
+  }, []);
 
   const [theme, setTheme] = useState<FormTheme>(initialData?.theme || {
     primaryColor: '#4f46e5',
@@ -348,16 +356,27 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                             }`}
                         />
                       </div>
-                      <div className="w-full md:w-64">
+                      <div className="w-full md:w-72">
                          <div className="flex items-center gap-2 mb-1.5 px-1">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria / Tema</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Área / Categoria</span>
                          </div>
-                         <input 
-                            type="text"
+                         <Combobox
+                            label=""
+                            placeholder="Selecione ou digite..."
                             value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            placeholder="Ex: TDAH, Ansiedade..."
-                            className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-100 text-xs font-bold text-indigo-600 outline-none focus:border-indigo-300 transition-all shadow-inner-sm"
+                            onChange={(val) => setCategory(val)}
+                            options={[
+                              { id: 'TCC', label: 'TCC' },
+                              { id: 'Neuropsicologia', label: 'Neuropsicologia' },
+                              { id: 'Psicopedagogia', label: 'Psicopedagogia' },
+                              { id: 'Psicanálise', label: 'Psicanálise' },
+                              { id: 'Anamnese', label: 'Anamnese' },
+                              { id: 'Eventos', label: 'Eventos' },
+                              { id: 'Humanista', label: 'Humanista' },
+                              ...categories.map(c => ({ id: c.name, label: c.name }))
+                            ]}
+                            className="font-bold text-slate-700"
+                            size="sm"
                          />
                       </div>
                     </div>

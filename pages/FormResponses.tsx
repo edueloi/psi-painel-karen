@@ -4,8 +4,15 @@ import { api } from '../services/api';
 import { Patient, InterpretationRule } from '../types';
 import { 
   ArrowLeft, FileText, Clock, User, Calculator, 
-  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search
+  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle
 } from 'lucide-react';
+import { 
+  FilterLine, 
+  FilterLineSection, 
+  FilterLineSearch 
+} from '../components/UI/FilterLine';
+import { AppCard } from '../components/UI/AppCard';
+import { Button } from '../components/UI/Button';
 
 type FormResponse = {
   id: string;
@@ -28,47 +35,57 @@ export const FormResponses: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [questionsMetadata, setQuestionsMetadata] = useState<any[]>([]);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!id) return;
-      setIsLoading(true);
-      try {
-        const [formData, responsesData, patientsData] = await Promise.all([
-          api.get<any>(`/forms/${id}`),
-          api.get<any[]>(`/forms/${id}/responses`),
-          api.get<Patient[]>('/patients')
-        ]);
-        
-        setFormTitle(formData.title || 'Formulário');
-        setInterpretations(formData.interpretations || []);
-        
-        const map: Record<string, string> = {};
-        (formData.questions || []).forEach((q: any) => {
-          const key = String(q.id ?? q.question_id);
-          map[key] = q.question_text ?? q.text ?? '';
-        });
-        setQuestionsMap(map);
-        
-        setResponses(
-          (responsesData || []).map((r: any) => ({
+  const load = async () => {
+    if (!id) return;
+    setIsLoading(true);
+    try {
+      const [formData, responsesData, patientsData] = await Promise.all([
+        api.get<any>(`/forms/${id}`),
+        api.get<any[]>(`/forms/${id}/responses`),
+        api.get<Patient[]>('/patients')
+      ]);
+      
+      setFormTitle(formData.title || 'Formulário');
+      setInterpretations(formData.interpretations || []);
+      setQuestionsMetadata(formData.questions || []);
+      
+      const map: Record<string, string> = {};
+      (formData.questions || []).forEach((q: any) => {
+        const key = String(q.id ?? q.question_id);
+        map[key] = q.question_text ?? q.text ?? '';
+      });
+      setQuestionsMap(map);
+      
+      setResponses(
+        (responsesData || []).map((r: any) => {
+          let answers = {};
+          try {
+            answers = typeof r.data === 'string' ? JSON.parse(r.data).answers : (r.data?.answers || r.answers_json || r.answers || {});
+          } catch(e) { console.error("Error parsing answers", e); }
+          
+          return {
             id: String(r.id),
             patient_id: r.patient_id ? String(r.patient_id) : null,
             respondent_name: r.respondent_name ?? null,
             respondent_email: r.respondent_email ?? null,
             respondent_phone: r.respondent_phone ?? null,
             score: r.score ?? null,
-            answers_json: typeof r.data === 'string' ? JSON.parse(r.data).answers : (r.data?.answers || r.answers_json || r.answers),
+            answers_json: answers,
             created_at: r.created_at
-          }))
-        );
-        setPatients(patientsData || []);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+          };
+        })
+      );
+      setPatients(patientsData || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     load();
   }, [id]);
 
@@ -79,7 +96,7 @@ export const FormResponses: React.FC = () => {
 
   const getInterpretation = (score: number | null | undefined) => {
     if (score === null || score === undefined) return null;
-    return interpretations.find(i => score >= i.minScore && score <= i.maxScore);
+    return interpretations.find(i => score >= (i.minScore ?? 0) && score <= (i.maxScore ?? 999));
   };
 
   const formatDate = (value?: string) => {
@@ -90,19 +107,70 @@ export const FormResponses: React.FC = () => {
   };
 
   const renderAnswers = (answersJson: any) => {
-    if (!answersJson) return <p className="text-xs text-slate-400 italic py-4">Nenhuma resposta detalhada encontrada.</p>;
+    if (!answersJson) return <p className="text-xs text-slate-400 italic py-4">Respostas não detalhadas.</p>;
     const entries = Object.entries(answersJson);
-    if (!entries.length) return <p className="text-xs text-slate-400 italic py-4">Nenhuma resposta detalhada encontrada.</p>;
+    if (!entries.length) return <p className="text-xs text-slate-400 italic py-4">Respostas não detalhadas.</p>;
     
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-4">
+      <div className="flex flex-col gap-4 py-4 text-left">
         {entries.map(([key, value]) => {
-          const label = questionsMap[key] || `Pergunta ${key}`;
+          const qMeta = questionsMetadata.find(q => String(q.id) === key);
+          const label = qMeta?.question_text || qMeta?.text || questionsMap[key] || `Pergunta ${key}`;
           const display = Array.isArray(value) ? value.join(', ') : String(value);
+          
+          let points = 0;
+          let possiblePoints: number[] = [];
+          const rawOptions = qMeta?.options_json || qMeta?.options;
+          if (rawOptions) {
+            const opts = typeof rawOptions === 'string' ? JSON.parse(rawOptions) : rawOptions;
+            if (Array.isArray(opts)) {
+              possiblePoints = opts.map((o: any) => o.value || 0);
+              if (Array.isArray(value)) {
+                points = value.reduce((sum: number, val: any) => {
+                  const opt = opts.find((o: any) => o.label === val);
+                  return sum + (opt?.value || 0);
+                }, 0);
+              } else {
+                const opt = opts.find((o: any) => o.label === value);
+                points = opt?.value || 0;
+              }
+            }
+          }
+
+          const maxPossible = possiblePoints.length > 0 ? Math.max(...possiblePoints) : 0;
+
           return (
-            <div key={key} className="p-3 rounded-xl bg-slate-50/50 border border-slate-100/80">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-              <p className="text-sm text-slate-700 font-medium leading-relaxed">{display || '—'}</p>
+            <div key={key} className="p-6 rounded-[2rem] bg-slate-50 border border-slate-100/50 hover:bg-white hover:border-indigo-100 hover:shadow-xl transition-all duration-300 text-left">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
+                <div className="flex-1 text-left">
+                  <div className="flex items-center gap-2 mb-2 text-left">
+                    <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-black shrink-0">
+                      Q
+                    </span>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight text-left">
+                      {label}
+                    </p>
+                  </div>
+                  <p className="text-sm text-slate-700 font-black leading-relaxed text-left ml-8">
+                    {display || <span className="text-slate-300 italic font-medium">Sem resposta</span>}
+                  </p>
+                </div>
+
+                {(points > 0 || maxPossible > 0) && (
+                  <div className="flex items-center gap-3 shrink-0 ml-8 md:ml-0 text-left">
+                    <div className="h-10 w-px bg-slate-200 hidden md:block" />
+                    <div className="text-right flex flex-col items-end">
+                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Pontuação</span>
+                       <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-indigo-50 shadow-sm">
+                          <span className={`text-sm font-black ${points > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
+                             {points}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-300">/ {maxPossible}</span>
+                       </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
@@ -118,150 +186,206 @@ export const FormResponses: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-10 max-w-6xl mx-auto px-4">
+    <div className="space-y-8 animate-in fade-in duration-700 pb-20 max-w-[1600px] mx-auto px-4 sm:px-8 text-left">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center gap-6 justify-between bg-white/40 backdrop-blur-sm p-6 rounded-[2rem] border border-white shadow-xl shadow-slate-200/20">
-        <div className="flex items-center gap-5">
-          <button
-            onClick={() => navigate('/formularios/metricas')}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-slate-400 hover:text-indigo-600 shadow-sm border border-slate-100 transition-all hover:scale-105 active:scale-95"
+      <div className="flex flex-col md:flex-row md:items-center gap-6 justify-between pt-6 text-left">
+        <div className="flex items-center gap-6 text-left">
+          <Button
+            variant="outline"
+            size="lg"
+            radius="xl"
+            onClick={() => navigate('/formularios/lista')}
+            className="w-14 h-14 p-0 shrink-0 border-slate-200"
           >
-            <ArrowLeft size={22} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">{formTitle}</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">
-                {responses.length} Respostas
-              </span>
-              <span className="text-[10px] font-bold text-slate-400">·</span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Resultados Automáticos</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <div className="relative group flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
-            <input 
-              type="text" 
-              placeholder="Buscar por paciente..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white shadow-inner-sm text-sm outline-none focus:border-indigo-400 transition-all"
-            />
+            <ArrowLeft size={24} />
+          </Button>
+          <div className="text-left">
+             <div className="flex items-center gap-3 text-left">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] bg-indigo-600 text-white px-3 py-1 rounded-lg shadow-lg shadow-indigo-100 text-left">Relatório Clínico</span>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest text-left">
+                  {responses.length} Respostas · Máximo de {
+                    questionsMetadata.reduce((sum, q) => {
+                      const opts = typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || []);
+                      const max = Array.isArray(opts) && opts.length > 0 ? Math.max(...opts.map((o: any) => o.value || 0)) : 0;
+                      return sum + max;
+                    }, 0)
+                  } pts possíveis
+                </span>
+             </div>
+             <h1 className="text-3xl font-black text-slate-800 tracking-tight leading-tight mt-1 text-left">{formTitle}</h1>
           </div>
         </div>
       </div>
 
-      {/* Rules Info */}
-      {interpretations.length > 0 && (
-        <div className="bg-indigo-600 text-white rounded-[1.5rem] p-5 shadow-lg shadow-indigo-200 flex items-start gap-4">
-          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-            <Calculator size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest opacity-80 mb-1">Cálculo de Resultado</p>
-            <p className="text-sm font-medium leading-relaxed">
-              O sistema calcula automaticamente a pontuação somando os valores atribuídos a cada resposta. 
-              Abaixo você verá o título da interpretação baseado na faixa de pontuação configurada.
-            </p>
-          </div>
-        </div>
-      )}
+      <FilterLine className="shadow-lg shadow-slate-200/40 p-5 rounded-[2rem] border-slate-100/50 bg-white/80 backdrop-blur-xl">
+        <FilterLineSection grow>
+          <FilterLineSearch 
+            value={searchTerm} 
+            onChange={setSearchTerm} 
+            placeholder="Pesquisar por nome do paciente ou respondente..."
+            className="border-none bg-slate-50/50 focus-within:bg-white rounded-2xl py-6"
+          />
+        </FilterLineSection>
+      </FilterLine>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Carregando...</p>
-        </div>
-      ) : filteredResponses.length === 0 ? (
-        <div className="p-20 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-center bg-slate-50/50">
-          <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <FileText size={28} className="text-slate-300" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-700">Nenhuma resposta encontrada</h3>
-          <p className="text-sm text-slate-400 mt-1 max-w-xs mx-auto">
-            {searchTerm ? 'Tente buscar por outro nome de paciente.' : 'Aguarde até que os pacientes preencham o formulário.'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-5">
-          {filteredResponses.map((res) => {
-            const patientName = getPatientName(res.patient_id);
-            const inter = getInterpretation(res.score);
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 text-left">
+        {/* Rules Info */}
+        <div className="lg:col-span-1 space-y-6 text-left">
+          <div className="bg-slate-900 text-white rounded-[2.5rem] p-8 shadow-2xl shadow-indigo-900/10 flex flex-col gap-8 sticky top-8 text-left">
+            <div className="flex items-center gap-4 text-left">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <Calculator size={26} />
+              </div>
+              <h3 className="text-xl font-black uppercase tracking-tight text-left">Metodologia</h3>
+            </div>
             
-            return (
-              <div key={res.id} className="group bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all overflow-hidden">
-                {/* Response Header */}
-                <div className="p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 flex items-center justify-center transition-colors">
-                      <User size={24} />
+            <div className="space-y-6 text-left">
+              <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-left">
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-2">Processamento</p>
+                <p className="text-xs font-medium text-slate-300 leading-relaxed text-left">
+                  Este modelo utiliza somatório linear ponderado para cada opção de resposta selecionada, agrupados por escala de interpretação.
+                </p>
+              </div>
+
+              <div className="space-y-3 text-left">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2 text-left">Legenda de Faixas</p>
+                {interpretations.map((i, idx) => (
+                  <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-left">
+                    <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: i.color?.startsWith('bg-') ? 'currentColor' : (i.color || '#4f46e5') }} />
+                    <div className="min-w-0 text-left">
+                      <p className="text-xs font-black truncate text-left">{i.resultTitle}</p>
+                      <p className="text-[10px] font-bold text-slate-500 text-left">{i.minScore} — {i.maxScore} pts</p>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-black text-slate-800 leading-tight">
-                          {patientName || res.respondent_name || 'Visitante'}
-                        </h3>
-                        {patientName ? (
-                          <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-100">
-                            <CheckCircle2 size={10} /> Vinculado
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">Externo</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 mt-1">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                          <Clock size={12} /> {formatDate(res.created_at)}
+                  </div>
+                ))}
+                {interpretations.length === 0 && (
+                  <div className="py-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sem faixas definidas</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Responses List */}
+        <div className="lg:col-span-3 text-left">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <div className="w-14 h-14 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin shadow-inner" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Cruzando dados...</p>
+            </div>
+          ) : filteredResponses.length === 0 ? (
+            <div className="p-24 rounded-[3.5rem] border-4 border-dashed border-slate-100 text-center bg-white shadow-xl shadow-slate-200/10">
+              <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <FileText size={40} className="text-slate-200" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest">Nenhuma Resposta</h3>
+              <p className="text-sm text-slate-400 mt-2 max-w-xs mx-auto font-medium">
+                {searchTerm ? 'Nenhum paciente encontrado com esse nome.' : 'Este formulário ainda não recebeu respostas dos pacientes.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 text-left">
+              {filteredResponses.map((res) => {
+                const patientName = getPatientName(res.patient_id);
+                const inter = getInterpretation(res.score);
+                
+                return (
+                  <AppCard key={res.id} className="group overflow-visible bg-white border-slate-100 hover:border-indigo-500/10 shadow-lg hover:shadow-2xl transition-all duration-700 rounded-[2.5rem]">
+                    {/* Header Item */}
+                    <div className="p-8 flex flex-col md:flex-row gap-10 justify-between items-start text-left">
+                      <div className="flex items-start gap-6 text-left">
+                        <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition-all duration-500 shadow-inner group-hover:shadow-xl group-hover:rotate-12 shrink-0">
+                          <User size={32} />
                         </div>
-                        {(res.respondent_email || res.respondent_phone) && (
-                          <div className="flex items-center gap-3 text-xs text-slate-400 font-medium border-l border-slate-100 pl-4">
-                            {res.respondent_phone && <span className="flex items-center gap-1"><Phone size={11} /> {res.respondent_phone}</span>}
-                            {res.respondent_email && <span className="flex items-center gap-1"><Mail size={11} /> {res.respondent_email}</span>}
+                        <div className="space-y-3 text-left">
+                          <div className="flex items-center gap-3 flex-wrap text-left">
+                            <h3 className="text-2xl font-black text-slate-800 tracking-tight text-left leading-none">
+                              {patientName || res.respondent_name || 'Usuário Externo'}
+                            </h3>
+                            {patientName ? (
+                              <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl border border-emerald-100">
+                                <CheckCircle2 size={12} /> Paciente Ativo
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-3 py-1.5 rounded-xl border border-slate-200">Acesso Público</span>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-bold text-slate-400 text-left">
+                            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl text-[10px] text-slate-500 uppercase tracking-widest text-left">
+                              <Clock size={14} className="text-indigo-500" /> {formatDate(res.created_at)}
+                            </div>
+                            {(res.respondent_phone || res.respondent_email) && (
+                              <div className="flex items-center gap-5 text-[11px] font-medium text-slate-400 text-left">
+                                {res.respondent_phone && <span className="flex items-center gap-1.5"><Phone size={14} className="text-slate-300" /> {res.respondent_phone}</span>}
+                                {res.respondent_email && <span className="flex items-center gap-1.5"><Mail size={14} className="text-slate-300" /> {res.respondent_email}</span>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Score Indicator */}
+                      <div className="w-full md:w-auto text-left">
+                        {res.score !== null && (
+                          <div className={`p-6 rounded-[2rem] border-2 flex items-center gap-8 shadow-xl transition-all ${
+                            inter?.color?.includes('bg-') ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-900 text-white border-slate-800'
+                          } text-left`}>
+                            <div className="text-center pr-8 border-r border-white/20 shrink-0 text-left">
+                              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 text-left">SCORE</p>
+                              <p className="text-4xl font-black text-left">{res.score}</p>
+                            </div>
+                            <div className="min-w-[140px] text-left">
+                              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 leading-none text-left">RESULTADO</p>
+                              <p className="text-lg font-black leading-tight tracking-tight uppercase text-left">{inter?.resultTitle || 'Avaliado'}</p>
+                            </div>
+                            <Sparkles size={24} className="text-white opacity-40 shrink-0" />
                           </div>
                         )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Result Box */}
-                  <div className="flex items-center gap-4 w-full md:w-auto">
-                    {res.score !== null && (
-                      <div className={`p-4 rounded-2xl border flex items-center gap-4 w-full md:min-w-[240px] ${inter?.color || 'bg-slate-50 border-slate-100'}`}>
-                        <div className="text-center shrink-0 border-r border-black/5 pr-4">
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-0.5">Pontos</p>
-                          <p className="text-xl font-black">{res.score}</p>
+                    {/* Details Accordion */}
+                    <div className="px-8 pb-8 text-left">
+                       <details className="group/details">
+                        <summary className="list-none cursor-pointer flex items-center justify-between py-6 border-t border-slate-50 hover:bg-slate-50/50 rounded-2xl transition-all duration-300">
+                          <div className="flex items-center gap-4 text-[10px] font-black text-indigo-600 uppercase tracking-[0.4em] group-hover:translate-x-2 transition-transform text-left">
+                            <Info size={18} /> Rastreabilidade e Respostas Completas
+                          </div>
+                          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center transition-all group-hover:border-indigo-200 group-hover:shadow-md">
+                            <ChevronRight size={22} className="text-slate-300 group-open/details:rotate-90 transition-transform" />
+                          </div>
+                        </summary>
+                        <div className="animate-in fade-in slide-in-from-top-6 duration-700 pt-6 text-left">
+                          <div className="mb-10 p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row gap-8 text-left">
+                             <div className="w-16 h-16 bg-white rounded-2.5xl flex items-center justify-center text-indigo-600 shadow-xl shadow-slate-200 border border-slate-50 shrink-0">
+                                <Calculator size={30} />
+                             </div>
+                             <div className="text-left py-1">
+                                <div className="flex items-center gap-2 mb-2 text-left">
+                                  <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest text-left">Metodologia Ponderada</span>
+                                  <div className="h-px bg-indigo-100 flex-1"></div>
+                                </div>
+                                <h4 className="text-lg font-black text-slate-800 mb-2 text-left">Análise Técnica do Resultado</h4>
+                                <p className="text-sm font-medium text-slate-600 leading-relaxed text-left">
+                                   Score Final: <strong className="font-black text-indigo-700">{res.score}</strong>. Este valor é o resultado da soma de cada opção parametrizada no formulário. 
+                                   A interpretação <strong className="font-black text-indigo-600">{inter ? inter.resultTitle : '—'}</strong> é aplicada automaticamente para faixas entre {inter?.minScore || 0} e {inter?.maxScore || 'máximo'}.
+                                </p>
+                             </div>
+                          </div>
+                          {renderAnswers(res.answers_json)}
                         </div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-0.5">Resultado</p>
-                          <p className="text-sm font-bold leading-tight">{inter?.resultTitle || 'Sem faixa'}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Details Section */}
-                <div className="px-6 pb-6 border-t border-slate-50">
-                  <details className="group/details mt-2">
-                    <summary className="list-none cursor-pointer flex items-center justify-between py-3">
-                      <div className="flex items-center gap-2 text-xs font-black text-indigo-500 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">
-                        <FileText size={14} /> Ver Detalhes das Respostas
-                      </div>
-                      <ChevronRight size={16} className="text-slate-300 group-open/details:rotate-90 transition-transform" />
-                    </summary>
-                    <div className="animate-slideDown">
-                      {renderAnswers(res.answers_json)}
+                      </details>
                     </div>
-                  </details>
-                </div>
-              </div>
-            );
-          })}
+                  </AppCard>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

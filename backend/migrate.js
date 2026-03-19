@@ -5,7 +5,7 @@
  */
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 
 async function migrate() {
   const conn = await mysql.createConnection({
@@ -346,6 +346,7 @@ async function migrate() {
       tenant_id INT NOT NULL,
       title VARCHAR(255) NOT NULL,
       description TEXT,
+      category VARCHAR(100),
       fields LONGTEXT,
       is_public BOOLEAN DEFAULT false,
       is_global BOOLEAN DEFAULT false,
@@ -364,8 +365,22 @@ async function migrate() {
       respondent_name VARCHAR(255),
       respondent_email VARCHAR(255),
       data LONGTEXT,
+      score INT DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (form_id) REFERENCES forms(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- FORM CATEGORIES ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS form_categories (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      icon VARCHAR(100),
+      color VARCHAR(50),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -562,7 +577,9 @@ async function migrate() {
     "ALTER TABLE uploads ADD COLUMN file_url VARCHAR(500)",
     "ALTER TABLE uploads ADD COLUMN file_type VARCHAR(100)",
     "ALTER TABLE uploads ADD COLUMN file_size INT",
-    "ALTER TABLE forms ADD COLUMN is_global BOOLEAN DEFAULT false"
+    "ALTER TABLE forms ADD COLUMN category VARCHAR(100)",
+    "ALTER TABLE forms ADD COLUMN is_global BOOLEAN DEFAULT false",
+    "ALTER TABLE form_responses ADD COLUMN score INT DEFAULT 0"
   ];
 
   for (const stmt of alterStatements) {
@@ -643,4 +660,3 @@ migrate().catch(err => {
   console.error('❌ Erro na migração:', err);
   process.exit(1);
 });
-

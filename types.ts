@@ -268,6 +268,13 @@ export interface InterpretationRule {
   color: string;
 }
 
+export interface FormCategory {
+  id: number;
+  name: string;
+  icon?: string;
+  color?: string;
+}
+
 export interface ClinicalForm {
   id: string;
   title: string;
