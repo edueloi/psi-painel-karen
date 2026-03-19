@@ -272,6 +272,7 @@ export interface ClinicalForm {
   id: string;
   title: string;
   hash: string;
+  category?: string;
   description?: string;
   questions: FormQuestion[];
   interpretations?: InterpretationRule[];

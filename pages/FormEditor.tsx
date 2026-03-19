@@ -7,6 +7,7 @@ import { FormQuestion, InterpretationRule, FormTheme } from '../types';
 type BuilderPayload = {
   title: string;
   description: string;
+  category?: string;
   questions: FormQuestion[];
   interpretations?: InterpretationRule[];
   theme?: FormTheme;
@@ -67,6 +68,7 @@ export const FormEditor: React.FC = () => {
         setInitialData({
           title: form.title || '',
           description: form.description || '',
+          category: form.category || '',
           questions,
           interpretations,
           theme
@@ -88,11 +90,11 @@ export const FormEditor: React.FC = () => {
       } else {
         await api.post('/forms', payload);
       }
-      setNotice({ type: 'success', message: 'Formulario salvo com sucesso.' });
+      setNotice({ type: 'success', message: 'Formulário salvo com sucesso.' });
       setTimeout(() => navigate('/formularios/lista'), 600);
     } catch (e) {
       console.error(e);
-      setNotice({ type: 'error', message: 'Nao foi possivel salvar o formulario.' });
+      setNotice({ type: 'error', message: 'Não foi possível salvar o formulário.' });
     }
   };
 

@@ -6,9 +6,14 @@ const { authMiddleware } = require('../middleware/auth');
 
 // Helper: pack questions/interpretations/theme into the `fields` LONGTEXT column
 function packFields(body) {
-  const { questions, interpretations, theme, fields } = body;
+  const { questions, interpretations, theme, category, fields } = body;
   if (questions !== undefined) {
-    return JSON.stringify({ questions: questions || [], interpretations: interpretations || [], theme: theme || null });
+    return JSON.stringify({ 
+      questions: questions || [], 
+      interpretations: interpretations || [], 
+      theme: theme || null,
+      category: category || ''
+    });
   }
   // legacy: fields array
   return fields ? JSON.stringify(fields) : '[]';
@@ -23,11 +28,13 @@ function unpackForm(form) {
     form.questions = parsed.questions || [];
     form.interpretations = parsed.interpretations || [];
     form.theme = parsed.theme || null;
+    form.category = parsed.category || '';
     form.fields = [];
   } else {
     form.questions = [];
     form.interpretations = [];
     form.theme = null;
+    form.category = '';
     form.fields = Array.isArray(parsed) ? parsed : [];
   }
   return form;
@@ -37,13 +44,13 @@ function unpackForm(form) {
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const [forms] = await db.query(
-      `SELECT f.id, f.title, f.description, f.is_public, f.hash, f.created_at,
+      `SELECT f.id, f.title, f.description, f.is_public, f.is_global, f.hash, f.created_at,
               u.name as created_by_name,
               COUNT(r.id) as response_count
        FROM forms f
        LEFT JOIN users u ON u.id = f.created_by
        LEFT JOIN form_responses r ON r.form_id = f.id
-       WHERE f.tenant_id = ?
+       WHERE f.tenant_id = ? OR f.is_global = true
        GROUP BY f.id
        ORDER BY f.created_at DESC`,
       [req.user.tenant_id]
@@ -81,12 +88,12 @@ router.get('/responses', authMiddleware, async (req, res) => {
 router.get('/public/:hash', async (req, res) => {
   try {
     const [forms] = await db.query(
-      `SELECT f.id, f.title, f.description, f.fields, f.hash,
+      `SELECT f.id, f.title, f.description, f.fields, f.hash, f.is_global,
               u.name as professional_name, u.specialty as professional_specialty,
               u.crp as professional_crp, u.company_name, u.clinic_logo_url, u.avatar_url
        FROM forms f
        LEFT JOIN users u ON u.id = f.created_by
-       WHERE f.hash = ? AND f.is_public = true`,
+       WHERE f.hash = ? AND (f.is_public = true OR f.is_global = true)`,
       [req.params.hash]
     );
     if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });

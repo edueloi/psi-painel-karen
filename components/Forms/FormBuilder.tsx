@@ -10,8 +10,8 @@ import { Combobox } from '../UI/Combobox';
 import { AppCard } from '../UI/AppCard';
 
 interface FormBuilderProps {
-  initialData?: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[]; theme?: FormTheme };
-  onSave: (data: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[]; theme?: FormTheme }) => void;
+  initialData?: { title: string; description: string; category?: string; questions: FormQuestion[]; interpretations?: InterpretationRule[]; theme?: FormTheme };
+  onSave: (data: { title: string; description: string; category?: string; questions: FormQuestion[]; interpretations?: InterpretationRule[]; theme?: FormTheme }) => void;
   onCancel: () => void;
 }
 
@@ -28,6 +28,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
   const [activeTab, setActiveTab] = useState<'editor' | 'logic' | 'settings'>('editor');
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
+  const [category, setCategory] = useState(initialData?.category || '');
   const [questions, setQuestions] = useState<FormQuestion[]>(initialData?.questions || []);
   const [interpretations, setInterpretations] = useState<InterpretationRule[]>(initialData?.interpretations || []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -65,7 +66,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
       return;
     }
     setTitleError('');
-    onSave({ title, description, questions, interpretations, theme });
+    onSave({ title, description, category, questions, interpretations, theme });
   };
 
   // --- Logic Helpers ---
@@ -332,18 +333,34 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                   <div className="absolute -right-12 -top-12 w-48 h-48 bg-indigo-50 rounded-full opacity-50 blur-3xl group-hover:bg-indigo-100 transition-colors"></div>
                   
                   <div className="relative">
-                    <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => {
-                          setTitle(e.target.value);
-                          if (titleError) setTitleError('');
-                        }}
-                        placeholder="Título do Formulário"
-                        className={`w-full text-4xl font-black placeholder:text-slate-200 border-none focus:ring-0 p-0 bg-transparent mb-4 tracking-tight transition-all ${
-                          titleError ? 'text-red-600' : 'text-slate-800'
-                        }`}
-                    />
+                    <div className="flex flex-col md:flex-row md:items-end gap-4 mb-4">
+                      <div className="flex-1">
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => {
+                              setTitle(e.target.value);
+                              if (titleError) setTitleError('');
+                            }}
+                            placeholder="Título do Formulário"
+                            className={`w-full text-4xl font-black placeholder:text-slate-200 border-none focus:ring-0 p-0 bg-transparent tracking-tight transition-all ${
+                              titleError ? 'text-red-600' : 'text-slate-800'
+                            }`}
+                        />
+                      </div>
+                      <div className="w-full md:w-64">
+                         <div className="flex items-center gap-2 mb-1.5 px-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria / Tema</span>
+                         </div>
+                         <input 
+                            type="text"
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            placeholder="Ex: TDAH, Ansiedade..."
+                            className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-100 text-xs font-bold text-indigo-600 outline-none focus:border-indigo-300 transition-all shadow-inner-sm"
+                         />
+                      </div>
+                    </div>
                     {titleError && (
                       <div className="flex items-center gap-2 text-red-500 text-xs font-bold mb-4 animate-bounce">
                         <AlertCircle size={14} /> {titleError}
@@ -353,7 +370,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="Descreva o objetivo deste formulário para quem irá responder..."
-                        className="w-full text-slate-500 placeholder:text-slate-300 border-none focus:ring-0 p-0 bg-transparent resize-none leading-relaxed font-medium"
+                        className="w-full text-slate-500 placeholder:text-slate-300 border-none focus:ring-0 p-0 bg-transparent resize-none leading-relaxed font-medium mt-2"
                         rows={2}
                     />
                   </div>

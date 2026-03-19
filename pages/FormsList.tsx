@@ -16,6 +16,7 @@ export const FormsList: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'Todos' | 'Ativos' | 'Arquivados'>('Todos');
+  const [activeCategory, setActiveCategory] = useState('Todas');
   const [defaultPatientId, setDefaultPatientId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
@@ -45,10 +46,11 @@ export const FormsList: React.FC = () => {
           title: f.title,
           hash: f.hash,
           description: f.description || '',
-          questions: [],
+           questions: [],
           interpretations: [],
           responseCount: f.response_count ?? 0,
-          isGlobal: Boolean(f.is_global)
+          isGlobal: Boolean(f.is_global),
+          category: f.category || ''
         })) as ClinicalForm[];
         setForms(mapped);
         const normalizedPatients = (patientsData || []).map((p: any) => ({
@@ -72,12 +74,18 @@ export const FormsList: React.FC = () => {
 
   const filteredForms = forms.filter(f =>
     f.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (f.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (f.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (f.category || '').toLowerCase().includes(searchTerm.toLowerCase())
   ).filter(f => {
     if (activeFilter === 'Arquivados') return archivedIds.includes(f.id);
     if (activeFilter === 'Ativos') return !archivedIds.includes(f.id);
     return true;
+  }).filter(f => {
+    if (activeCategory === 'Todas') return true;
+    return f.category === activeCategory;
   });
+
+  const categories = ['Todas', ...Array.from(new Set(forms.map(f => f.category).filter(Boolean)))];
 
   const handleOpenShare = (form: ClinicalForm) => {
     setSelectedForm(form);
@@ -194,12 +202,27 @@ export const FormsList: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
           <input
             type="text"
-            placeholder="Buscar formulário..."
+            placeholder="Buscar por título, descrição ou categoria..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 shadow-sm"
           />
         </div>
+        {categories.length > 1 && (
+          <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto no-scrollbar max-w-[300px]">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tight transition-all shrink-0 ${
+                  activeCategory === cat ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Grid */}
@@ -252,6 +275,11 @@ export const FormsList: React.FC = () => {
                       }`}>
                         {form.isGlobal ? 'Global' : 'Personalizado'}
                       </span>
+                      {form.category && (
+                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                          {form.category}
+                        </span>
+                      )}
                       {isArchived && (
                         <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700">
                           Arquivado
