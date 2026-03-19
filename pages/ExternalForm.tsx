@@ -276,102 +276,115 @@ export const ExternalForm: React.FC = () => {
       <div className="max-w-2xl mx-auto px-4 py-6 pb-16">
 
         {/* Title block */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-4">
-          <h1 className="text-2xl font-bold text-slate-800 mb-1">{form.title}</h1>
-          {form.description && <p className="text-slate-500 text-sm leading-relaxed">{form.description}</p>}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 mb-6">
+          <h1 className="text-2xl font-black text-slate-800 mb-2 leading-tight">{form.title}</h1>
+          {form.description && <p className="text-slate-500 text-sm leading-relaxed font-medium">{form.description}</p>}
           {hasInterpretations && (
-            <div className="mt-3 flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg w-fit">
-              <Calculator size={12} />
-              <span>Este questionário gera um resultado automático.</span>
+            <div className="mt-4 flex items-center gap-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50/50 border border-indigo-100 px-4 py-2 rounded-xl w-fit">
+              <Calculator size={14} />
+              <span>Avaliação com Resultado Automático</span>
             </div>
           )}
         </div>
 
         {/* Progress */}
         {totalQ > 0 && (
-          <div className="mb-4">
-            <div className="flex justify-between text-xs text-slate-500 mb-1.5 font-medium">
-              <span>{answeredQ} de {totalQ} respondidas</span>
+          <div className="mb-8 px-2">
+            <div className="flex justify-between text-[10px] font-black text-slate-400 mb-2 uppercase tracking-[0.2em]">
+              <span>{answeredQ} de {totalQ} Questões</span>
               <span>{progress}%</span>
             </div>
-            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
               <div
-                className="h-full rounded-full transition-all duration-300"
+                className="h-full rounded-full transition-all duration-700 ease-out shadow-sm"
                 style={{ width: `${progress}%`, backgroundColor: theme.button }}
               />
             </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Identification — only if no patient pre-loaded */}
-          {!patientName && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Seus dados</p>
-              <div className="space-y-3">
+          {!patientName ? (
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 mb-6">
+              <div className="flex items-center gap-3 mb-6">
+                 <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100">
+                    <User size={20} />
+                 </div>
+                 <div>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Seus Dados</h3>
+                    <p className="text-[10px] text-slate-400 font-bold">Identificação básica para o profissional</p>
+                 </div>
+              </div>
+
+              <div className="space-y-4">
                 <label className="block">
-                  <span className="text-xs font-semibold text-slate-600 mb-1 block">
-                    Nome completo <span className="text-red-500">*</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">
+                    Nome Completo <span className="text-rose-500">*</span>
                   </span>
-                  <div className="relative">
-                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <div className="relative group">
+                    <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                     <input
                       type="text"
                       required
-                      placeholder="Seu nome"
+                      placeholder="Como podemos te chamar?"
                       value={identification.name}
                       onChange={e => setIdentification(p => ({ ...p, name: e.target.value }))}
-                      className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                      className="w-full pl-11 pr-4 py-3 text-sm font-bold text-slate-700 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
                     />
                   </div>
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <label className="block">
-                    <span className="text-xs font-semibold text-slate-600 mb-1 block">
-                      Telefone <span className="text-red-500">*</span>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">
+                      WhatsApp / Telefone <span className="text-rose-500">*</span>
                     </span>
-                    <div className="relative">
-                      <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <div className="relative group">
+                      <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                       <input
                         type="tel"
                         required
                         placeholder="(00) 00000-0000"
                         value={identification.phone}
                         onChange={e => setIdentification(p => ({ ...p, phone: e.target.value }))}
-                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                        className="w-full pl-11 pr-4 py-3 text-sm font-bold text-slate-700 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
                       />
                     </div>
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-slate-600 mb-1 block">E-mail</span>
-                    <div className="relative">
-                      <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">E-mail</span>
+                    <div className="relative group">
+                      <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                       <input
                         type="email"
                         placeholder="seu@email.com"
                         value={identification.email}
                         onChange={e => setIdentification(p => ({ ...p, email: e.target.value }))}
-                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                        className="w-full pl-11 pr-4 py-3 text-sm font-bold text-slate-700 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
                       />
                     </div>
                   </label>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Patient badge */}
-          {patientName && (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
-                {initials(patientName)}
-              </div>
-              <div>
-                <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-wide">Respondendo como</p>
-                <p className="text-sm font-bold text-indigo-800">{patientName}</p>
-              </div>
-              <CheckCircle size={16} className="ml-auto text-indigo-400 flex-shrink-0" />
+          ) : (
+            /* Patient badge when pre-loaded */
+            <div className="bg-indigo-600/5 border-2 border-indigo-600/10 rounded-[2.5rem] px-8 py-6 flex flex-col sm:flex-row items-center gap-5 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+               <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-600 text-white flex items-center justify-center text-2xl font-black shadow-xl shadow-indigo-200">
+                 {initials(patientName)}
+               </div>
+               <div className="text-center sm:text-left flex-1 min-w-0">
+                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                    <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-[9px] font-black uppercase tracking-widest border border-indigo-200">Paciente Identificado</span>
+                 </div>
+                 <h3 className="text-xl font-black text-slate-800 truncate mb-1">{patientName}</h3>
+                 <p className="text-xs text-slate-500 font-medium leading-tight">Preencha o formulário abaixo para continuar sua avaliação clínica.</p>
+               </div>
+               <div className="shrink-0 bg-emerald-500 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+                  <CheckCircle size={24} />
+               </div>
             </div>
           )}
 
@@ -379,16 +392,16 @@ export const ExternalForm: React.FC = () => {
           {form.questions.map((q, idx) => (
             <div
               key={q.id}
-              className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5"
+              className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-8"
               style={{ backgroundColor: theme.card }}
             >
-              <label className="block text-sm font-semibold text-slate-800 mb-3">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-100 text-slate-500 text-[10px] font-bold mr-2 align-middle">
-                  {idx + 1}
+              <label className="block text-base font-black text-slate-800 mb-6 leading-tight">
+                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-50 text-slate-400 text-xs font-black mb-3 border border-slate-100">
+                  {String(idx + 1).padStart(2, '0')}
                 </span>
                 {q.text}
                 {q.required && (
-                  <span className="ml-2 text-red-500 text-xs font-bold">*</span>
+                  <span className="ml-2 text-rose-500 font-bold" title="Obrigatório">*</span>
                 )}
               </label>
 
