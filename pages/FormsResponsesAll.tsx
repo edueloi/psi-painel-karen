@@ -5,7 +5,7 @@ import { Patient, InterpretationRule, FormCategory } from '../types';
 import { 
   ArrowLeft, FileText, Clock, User, Filter, 
   ChevronDown, Search, Calculator, CheckCircle2, 
-  Phone, Mail, ChevronRight, Target, Brain, Heart, ClipboardList, BarChart3, AlertCircle, Info, Sparkles
+  Phone, Mail, ChevronRight, Target, Brain, Heart, ClipboardList, BarChart3, AlertCircle, Info, Sparkles, ChevronLeft
 } from 'lucide-react';
 import { 
   FilterLine, 
@@ -42,6 +42,7 @@ export const FormsResponsesAll: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const categoryScrollRef = React.useRef<HTMLDivElement>(null);
 
   const load = async () => {
     setIsLoading(true);
@@ -299,27 +300,46 @@ export const FormsResponsesAll: React.FC = () => {
       </FilterLine>
 
       {/* Category Horizontal Pills */}
-      <div className="overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 text-left">
-        <div className="flex gap-3 min-w-max pb-2 text-left">
-          {allAvailableCategories.map(cat => {
-            const isActive = selectedCategory === cat;
-            const Icon = getAreaIcon(cat);
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`flex items-center gap-3 px-6 py-3 rounded-2xl border-2 transition-all group shrink-0 ${
-                  isActive 
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100 -translate-y-1' 
-                  : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200 hover:text-indigo-600'
-                }`}
-              >
-                <Icon size={16} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'} />
-                <span className="text-[11px] font-black uppercase tracking-widest">{cat}</span>
-              </button>
-            );
-          })}
+      <div className="relative group/scroll px-12 -mx-12 text-left">
+        <button
+          onClick={() => categoryScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
+          className="absolute left-10 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:scale-110 transition-all opacity-0 group-hover/scroll:opacity-100 hidden sm:flex"
+        >
+          <ChevronLeft size={20} strokeWidth={3} />
+        </button>
+
+        <div 
+          ref={categoryScrollRef}
+          className="overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 text-left scroll-smooth"
+        >
+          <div className="flex gap-3 min-w-max pb-2 text-left">
+            {allAvailableCategories.map(cat => {
+              const isActive = selectedCategory === cat;
+              const Icon = getAreaIcon(cat);
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`flex items-center gap-3 px-6 py-3 rounded-2xl border-2 transition-all group shrink-0 ${
+                    isActive 
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100 -translate-y-1 scale-105 z-10' 
+                    : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200 hover:text-indigo-600'
+                  }`}
+                >
+                  <Icon size={16} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'} />
+                  <span className="text-[11px] font-black uppercase tracking-widest">{cat}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        <button
+          onClick={() => categoryScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
+          className="absolute right-10 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:scale-110 transition-all opacity-0 group-hover/scroll:opacity-100 hidden sm:flex"
+        >
+          <ChevronRight size={20} strokeWidth={3} />
+        </button>
       </div>
 
       {isLoading ? (

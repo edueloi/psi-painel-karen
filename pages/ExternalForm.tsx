@@ -53,11 +53,13 @@ function SuccessScreen({
 }: {
   professional: any;
 }) {
+  const clinicName = professional?.company_name || '';
   const profName = professional?.name || 'o profissional';
-  const crp = professional?.crp ? `CRP ${professional.crp}` : '';
+  const crpRaw = professional?.crp || '';
+  const crp = crpRaw && !crpRaw.includes('@') ? `CRP ${crpRaw}` : '';
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 animate-fadeIn">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 animate-fadeIn font-sans">
       <div className="bg-white rounded-[3rem] shadow-2xl shadow-indigo-100 border border-slate-100 max-w-md w-full p-12 text-center">
         <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-emerald-100 shadow-sm">
           <CheckCircle className="text-emerald-500" size={40} />
@@ -65,13 +67,20 @@ function SuccessScreen({
         
         <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Formulário Enviado!</h2>
         
-        <div className="space-y-6 mb-10">
-          <p className="text-sm text-slate-500 font-medium leading-relaxed">
+        <div className="space-y-6 mb-10 text-center">
+          <div className="text-sm text-slate-500 font-medium leading-relaxed">
             Muito obrigado! Suas informações foram enviadas com segurança e criptografia para:<br/>
-            <span className="inline-block mt-3 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-black uppercase tracking-tight border border-indigo-100 shadow-sm">
-               {profName} {crp}
-            </span>
-          </p>
+            <div className="flex flex-col items-center gap-1 mt-4">
+              <span className="px-5 py-2.5 bg-indigo-50 text-indigo-700 rounded-2xl font-black uppercase tracking-tight border border-indigo-100 shadow-sm text-sm">
+                 {clinicName || profName}
+              </span>
+              {crp && (
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">
+                   {crp}
+                </span>
+              )}
+            </div>
+          </div>
           
           <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
             <p className="text-sm text-slate-600 font-bold leading-relaxed italic">

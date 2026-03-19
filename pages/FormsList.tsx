@@ -5,7 +5,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Plus, ClipboardList, BarChart3, Pen, Trash2, CheckCircle, Share2,
   Copy, Send, FilePlus2, X, Eye, ChevronRight,
-  Filter, Heart, Brain, FileText, Target, AlertCircle, Settings2, PlusCircle, Trash
+  Filter, Heart, Brain, FileText, Target, AlertCircle, Settings2, PlusCircle, Trash,
+  ChevronLeft
 } from 'lucide-react';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { AppCard } from '../components/UI/AppCard';
@@ -26,6 +27,7 @@ export const FormsList: React.FC = () => {
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const categoryScrollRef = React.useRef<HTMLDivElement>(null);
   const [activeFilter, setActiveFilter] = useState<'Todos' | 'Ativos' | 'Arquivados'>('Todos');
   const [activeCategory, setActiveCategory] = useState('Todas');
   const [defaultPatientId, setDefaultPatientId] = useState('');
@@ -305,39 +307,59 @@ export const FormsList: React.FC = () => {
       </FilterLine>
 
       {/* Areas Horizontal Scroll */}
-      <div className="overflow-x-auto no-scrollbar pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth snap-x">
-        <div className="flex gap-4 min-w-max pr-12 pb-2">
-          {allAvailableCategories.map(cat => {
-            const isActive = activeCategory === cat;
-            
-            return (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl border-2 transition-all group shrink-0 ${
-                  isActive 
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                  : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200 hover:bg-slate-50'
-                }`}
-              >
-                <div className={`p-1.5 rounded-lg transition-colors ${
-                  isActive ? 'bg-indigo-500 text-white' : 'bg-slate-50 text-slate-400 group-hover:text-indigo-500'
-                }`}>
-                  {React.cloneElement(getCategoryIcon(cat) as React.ReactElement, { size: 16 })}
-                </div>
-                <span className="text-xs font-bold tracking-tight">{cat}</span>
-              </button>
-            );
-          })}
+      <div className="relative group/scroll px-12 -mx-12">
+        <button
+          onClick={() => categoryScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
+          className="absolute left-10 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:scale-110 transition-all opacity-0 group-hover/scroll:opacity-100 hidden sm:flex"
+        >
+          <ChevronLeft size={20} strokeWidth={3} />
+        </button>
 
-          <button
-             onClick={() => setIsCategoryModalOpen(true)}
-             className="flex items-center gap-3 px-5 py-2.5 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/30 text-slate-400 hover:border-indigo-300 hover:bg-slate-50 hover:text-indigo-600 transition-all shrink-0"
-          >
-             <PlusCircle size={16} />
-             <span className="text-xs font-bold tracking-tight">Nova Categoria</span>
-          </button>
+        <div 
+          ref={categoryScrollRef}
+          className="overflow-x-auto no-scrollbar pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth snap-x"
+        >
+          <div className="flex gap-4 min-w-max pr-12 pb-2">
+            {allAvailableCategories.map(cat => {
+              const isActive = activeCategory === cat;
+              const icon = getCategoryIcon(cat);
+              
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl border-2 transition-all group shrink-0 ${
+                    isActive 
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100 scale-105 z-10' 
+                    : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-lg transition-colors ${
+                    isActive ? 'bg-indigo-500 text-white' : 'bg-slate-50 text-slate-400 group-hover:text-indigo-500'
+                  }`}>
+                    {React.cloneElement(icon as React.ReactElement, { size: 16 })}
+                  </div>
+                  <span className="text-xs font-bold tracking-tight">{cat}</span>
+                </button>
+              );
+            })}
+
+            <button
+               onClick={() => setIsCategoryModalOpen(true)}
+               className="flex items-center gap-3 px-5 py-2.5 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/30 text-slate-400 hover:border-indigo-300 hover:bg-slate-50 hover:text-indigo-600 transition-all shrink-0"
+            >
+               <PlusCircle size={16} />
+               <span className="text-xs font-bold tracking-tight">Nova Categoria</span>
+            </button>
+          </div>
         </div>
+
+        <button
+          onClick={() => categoryScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
+          className="absolute right-10 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:scale-110 transition-all opacity-0 group-hover/scroll:opacity-100 hidden sm:flex"
+        >
+          <ChevronRight size={20} strokeWidth={3} />
+        </button>
       </div>
 
       <div className="space-y-16">
