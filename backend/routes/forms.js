@@ -224,8 +224,15 @@ router.post('/public/:hash/responses', async (req, res) => {
 
     // Criar alerta no sistema para o profissional
     try {
-      const alertTitle = 'Nova Resposta de Formulário';
-      const alertMessage = `${respondent_name || 'Alguém'} acabou de responder: ${formTitle}`;
+      const now = new Date();
+      const formattedDate = now.toLocaleString('pt-BR', { 
+        day: '2-digit', month: '2-digit', year: 'numeric', 
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/Sao_Paulo'
+      });
+      
+      const alertTitle = '📝 Formulário Respondido';
+      const alertMessage = `${respondent_name || 'Um paciente'} enviou uma resposta para "${formTitle}" em ${formattedDate}.`;
       const alertLink = `/formularios/${formId}/respostas`;
       
       await db.query(
@@ -234,7 +241,6 @@ router.post('/public/:hash/responses', async (req, res) => {
       );
     } catch (alertErr) {
       console.error('Erro ao criar alerta de formulário:', alertErr);
-      // Não trava a resposta principal se o alerta falhar
     }
 
     res.json({ message: 'Resposta enviada com sucesso!' });

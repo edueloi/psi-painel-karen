@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Patient, InterpretationRule } from '../types';
 import { 
   ArrowLeft, FileText, Clock, User, Calculator, 
-  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle, X, Bot
+  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle, X, Bot, Calendar
 } from 'lucide-react';
 import { 
   FilterLine, 
@@ -14,6 +14,8 @@ import {
 } from '../components/UI/FilterLine';
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
+import { Combobox } from '../components/UI/Combobox';
+import { DatePicker } from '../components/UI/DatePicker';
 
 type FormResponse = {
   id: string;
@@ -36,11 +38,18 @@ export const FormResponses: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterPatientId, setFilterPatientId] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<string | null>(null);
   const [questionsMetadata, setQuestionsMetadata] = useState<any[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [aiAnalysisMap, setAiAnalysisMap] = useState<Record<string, string>>({});
 
   const { user } = useAuth();
+  
+  const patientOptions = React.useMemo(() => [
+    { id: 'all', label: 'Todos os Pacientes' },
+    ...patients.map(p => ({ id: String(p.id), label: p.full_name || p.name || 'Paciente s/ nome' }))
+  ], [patients]);
 
   const getPatientName = (patientId?: string | null) => {
     if (!patientId) return '';
@@ -252,7 +261,12 @@ export const FormResponses: React.FC = () => {
     const pName = getPatientName(r.patient_id).toLowerCase();
     const rName = (r.respondent_name || '').toLowerCase();
     const search = searchTerm.toLowerCase();
-    return pName.includes(search) || rName.includes(search);
+    
+    const matchesSearch = pName.includes(search) || rName.includes(search);
+    const matchesPatient = filterPatientId === 'all' || String(r.patient_id) === String(filterPatientId);
+    const matchesDate = !filterDate || (r.created_at && r.created_at.startsWith(filterDate));
+    
+    return matchesSearch && matchesPatient && matchesDate;
   });
 
   return (
@@ -296,6 +310,50 @@ export const FormResponses: React.FC = () => {
             className="border-none bg-slate-50/50 focus-within:bg-white rounded-2xl py-6"
           />
         </FilterLineSection>
+        
+        <FilterLineSection className="min-w-[280px]">
+           <Combobox 
+              label="Paciente"
+              options={patientOptions}
+              value={filterPatientId}
+              onChange={(val) => setFilterPatientId(val)}
+              icon={<User size={16} />}
+              placeholder="Selecionar paciente"
+              className="border-none"
+           />
+        </FilterLineSection>
+
+        <FilterLineSection className="min-w-[200px]">
+           <div className="w-full">
+              <label className="mb-2 block text-[12px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                Data da Resposta
+              </label>
+              <DatePicker 
+                value={filterDate}
+                onChange={setFilterDate}
+                placeholder="Qualquer data"
+                className="[&>button]:rounded-xl [&>button]:border-slate-300 [&>button]:h-[44px]"
+              />
+           </div>
+        </FilterLineSection>
+
+        { (filterPatientId !== 'all' || filterDate || searchTerm) && (
+          <FilterLineSection>
+            <Button
+              variant="outline"
+              size="sm"
+              radius="xl"
+              onClick={() => {
+                setSearchTerm('');
+                setFilterPatientId('all');
+                setFilterDate(null);
+              }}
+              className="text-rose-500 border-rose-100 hover:bg-rose-50"
+            >
+              Limpar Filtros
+            </Button>
+          </FilterLineSection>
+        )}
       </FilterLine>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 text-left">

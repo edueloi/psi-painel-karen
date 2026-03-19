@@ -185,7 +185,11 @@ export const FormsMetrics: React.FC = () => {
                       topForms.map((item, i) => {
                           const width = totals.totalResponses ? Math.min(100, Math.round((item.responses / totals.totalResponses) * 100) * 2) : 0;
                           return (
-                              <div key={item.id} className="group relative">
+                              <div 
+                                 key={item.id} 
+                                 className="group relative cursor-pointer hover:opacity-80 transition-opacity"
+                                 onClick={() => navigate(`/formularios/${item.id}/respostas`)}
+                              >
                                   <div className="flex items-center justify-between text-sm font-black text-slate-800 mb-2.5 px-1">
                                       <span className="flex items-center gap-3">
                                           <span className="text-[10px] text-slate-300 w-4">0{i+1}</span>
@@ -205,7 +209,10 @@ export const FormsMetrics: React.FC = () => {
                   )}
               </div>
               
-              <div className="mt-10 p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group cursor-pointer hover:bg-slate-100 transition-colors">
+              <div 
+                 onClick={() => navigate('/formularios/respostas')}
+                 className="mt-10 p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group cursor-pointer hover:bg-slate-100 transition-colors"
+              >
                   <div className="flex items-center gap-3">
                       <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
                           <ArrowUpRight size={16}/>
@@ -247,7 +254,11 @@ export const FormsMetrics: React.FC = () => {
                       </div>
                   ) : (
                       filteredMetrics.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-50 hover:border-sky-100 hover:shadow-md transition-all group">
+                          <div 
+                             key={item.id} 
+                             onClick={() => navigate(`/formularios/${item.id}/respostas`)}
+                             className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-50 hover:border-sky-100 hover:shadow-md transition-all group cursor-pointer"
+                          >
                               <div className="min-w-0">
                                   <p className="text-xs font-black text-slate-800 truncate mb-1">{item.title}</p>
                                   <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 uppercase tracking-tighter">

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { Bell, X, Trash2, Info, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface SystemAlert {
   id: number;
@@ -27,8 +28,8 @@ export const SystemAlerts: React.FC = () => {
 
   useEffect(() => {
     fetchAlerts();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchAlerts, 5 * 60 * 1000);
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchAlerts, 30 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -138,12 +139,13 @@ export const SystemAlerts: React.FC = () => {
                         <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-tighter mb-1 pr-6">{alert.title}</h4>
                         <p className="text-xs text-slate-600 leading-relaxed mb-2">{alert.message}</p>
                         {alert.link && (
-                          <a 
-                            href={alert.link}
+                          <Link 
+                            to={alert.link}
+                            onClick={() => setIsOpen(false)}
                             className="text-[10px] font-black text-indigo-600 hover:underline uppercase tracking-widest"
                           >
                             Ver detalhes
-                          </a>
+                          </Link>
                         )}
                         <p className="text-[9px] text-slate-400 mt-2">
                           {new Date(alert.created_at).toLocaleString('pt-BR')}
