@@ -345,14 +345,14 @@ export const FormsResponsesAll: React.FC = () => {
       <div className="relative group/scroll px-12 -mx-12 text-left">
         <button
           onClick={() => categoryScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
-          className="absolute left-10 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:scale-110 transition-all opacity-0 group-hover/scroll:opacity-100 hidden sm:flex"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-white rounded-full shadow-2xl border-2 border-slate-100 flex items-center justify-center text-slate-900 hover:text-indigo-600 hover:scale-110 active:scale-95 transition-all hidden sm:flex"
         >
-          <ChevronLeft size={20} strokeWidth={3} />
+          <ChevronLeft size={24} strokeWidth={3} />
         </button>
 
         <div 
           ref={categoryScrollRef}
-          className="overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 text-left scroll-smooth"
+          className="overflow-x-auto no-scrollbar pb-2 mx-0 px-12 text-left scroll-smooth"
         >
           <div className="flex gap-3 min-w-max pb-2 text-left">
             {allAvailableCategories.map(cat => {
@@ -365,7 +365,7 @@ export const FormsResponsesAll: React.FC = () => {
                   className={`flex items-center gap-3 px-6 py-3 rounded-2xl border-2 transition-all group shrink-0 ${
                     isActive 
                     ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100 -translate-y-1 scale-105 z-10' 
-                    : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200 hover:text-indigo-600'
+                    : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200 hover:text-indigo-600 font-bold'
                   }`}
                 >
                   <Icon size={16} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'} />
@@ -378,9 +378,9 @@ export const FormsResponsesAll: React.FC = () => {
 
         <button
           onClick={() => categoryScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
-          className="absolute right-10 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:scale-110 transition-all opacity-0 group-hover/scroll:opacity-100 hidden sm:flex"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-white rounded-full shadow-2xl border-2 border-slate-100 flex items-center justify-center text-slate-900 hover:text-indigo-600 hover:scale-110 active:scale-95 transition-all hidden sm:flex"
         >
-          <ChevronRight size={20} strokeWidth={3} />
+          <ChevronRight size={24} strokeWidth={3} />
         </button>
       </div>
 
@@ -477,7 +477,7 @@ export const FormsResponsesAll: React.FC = () => {
                         <Info size={18} /> Rastreabilidade e Respostas Completas
                       </div>
                       <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center transition-all group-hover:border-indigo-200 group-hover:shadow-md">
-                        <ChevronRight size={22} className="text-slate-300 group-open/details:rotate-90 transition-transform" />
+                        <ChevronRight size={22} className="text-slate-600 group-open/details:rotate-90 transition-transform" />
                       </div>
                     </summary>
                     <div className="animate-in fade-in slide-in-from-top-6 duration-700 pt-6 text-left">

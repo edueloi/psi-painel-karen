@@ -530,7 +530,7 @@ export const FormResponses: React.FC = () => {
                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Status</p>
                              <p className="text-xs font-bold text-emerald-600">Completo</p>
                           </div>
-                          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-all duration-500 group-hover:rotate-90">
+                          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all duration-500 group-hover:rotate-90">
                              <ChevronRight size={24} />
                           </div>
                         </div>
