@@ -188,17 +188,36 @@ router.post('/public/:hash/responses', async (req, res) => {
     const { respondent_name, respondent_email, respondent_phone, patient_id, answers, score } = req.body;
 
     const [forms] = await db.query(
-      'SELECT id FROM forms WHERE hash = ? AND is_public = true',
+      'SELECT id, title, tenant_id FROM forms WHERE hash = ? AND (is_public = true OR is_global = true)',
       [req.params.hash]
     );
     if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
+
+    const formId = forms[0].id;
+    const formTitle = forms[0].title;
+    const tenantId = forms[0].tenant_id;
 
     const data = JSON.stringify({ answers: answers || {}, respondent_phone: respondent_phone || null });
 
     await db.query(
       'INSERT INTO form_responses (form_id, patient_id, respondent_name, respondent_email, data, score) VALUES (?, ?, ?, ?, ?, ?)',
-      [forms[0].id, patient_id || null, respondent_name || null, respondent_email || null, data, score || 0]
+      [formId, patient_id || null, respondent_name || null, respondent_email || null, data, score || 0]
     );
+
+    // Criar alerta no sistema para o profissional
+    try {
+      const alertTitle = 'Nova Resposta de Formulário';
+      const alertMessage = `${respondent_name || 'Alguém'} acabou de responder: ${formTitle}`;
+      const alertLink = `/formularios/${formId}/respostas`;
+      
+      await db.query(
+        'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
+        [tenantId, alertTitle, alertMessage, 'success', alertLink]
+      );
+    } catch (alertErr) {
+      console.error('Erro ao criar alerta de formulário:', alertErr);
+      // Não trava a resposta principal se o alerta falhar
+    }
 
     res.json({ message: 'Resposta enviada com sucesso!' });
   } catch (err) {
