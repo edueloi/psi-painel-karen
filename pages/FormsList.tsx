@@ -412,7 +412,7 @@ export const FormsList: React.FC = () => {
                             <div className="flex flex-col text-left">
                               <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1 text-left">Entradas</span>
                               <button 
-                                onClick={() => navigate(`/formularios/respostas/${form.id}`)}
+                                onClick={() => navigate(`/formularios/${form.id}/respostas`)}
                                 className="flex items-center gap-2 group/btn text-left"
                               >
                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 group-hover/btn:scale-150 transition-transform"></div>

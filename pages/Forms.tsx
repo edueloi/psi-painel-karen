@@ -60,31 +60,25 @@ export const Forms: React.FC = () => {
         const mostUsed = sorted[0]?.title || null;
         setStats({ totalForms: mappedForms.length, totalResponses, mostUsed });
 
-        const responseBuckets = await Promise.all(
-          mappedForms.slice(0, 5).map((form) =>
-            api.get<any[]>(`/forms/${form.id}/responses`).then((rows) =>
-              rows.map((r) => ({ ...r, formTitle: form.title, formId: form.id }))
-            ).catch(() => [] as any[])
-          )
-        );
+        const [recentResponsesData] = await Promise.all([
+          api.get<any[]>('/forms/responses/recent?limit=5')
+        ]);
+
         const patientMap = (patientsData || []).reduce((acc: Record<string, string>, p: Patient) => {
           acc[String(p.id)] = (p as any).name || p.full_name || '';
           return acc;
         }, {});
-
+ 
         const now = Date.now();
-        const mappedResponses = responseBuckets.flat()
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 5)
-          .map((r) => {
+        const mappedResponses = (recentResponsesData || []).map((r) => {
             const createdAt = new Date(r.created_at);
             const diff = now - createdAt.getTime();
             const isNew = diff < 24 * 60 * 60 * 1000;
             return {
               id: r.id,
               patient: patientMap[String(r.patient_id)] || r.respondent_name || 'Visitante',
-              form: r.formTitle,
-              formId: r.formId,
+              form: r.form_title,
+              formId: r.form_id,
               date: createdAt.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
               isNew,
             };

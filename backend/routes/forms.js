@@ -131,7 +131,25 @@ router.get('/responses', authMiddleware, async (req, res) => {
   }
 });
 
-// ---- ROTAS PÚBLICAS ----
+// GET /forms/responses/recent
+router.get('/responses/recent', authMiddleware, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const [rows] = await db.query(
+      `SELECT r.id, r.form_id, r.respondent_name, r.patient_id, r.score, r.created_at, f.title as form_title
+       FROM form_responses r
+       JOIN forms f ON f.id = r.form_id
+       WHERE f.tenant_id = ?
+       ORDER BY r.created_at DESC
+       LIMIT ?`,
+      [req.user.tenant_id, limit]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar respostas recentes' });
+  }
+});
 
 // GET /forms/public/:hash
 router.get('/public/:hash', async (req, res) => {
