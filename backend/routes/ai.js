@@ -564,11 +564,58 @@ Responda sempre em Portugues-BR.`
       });
       assistantMessage = response.choices[0].message;
     }
-
     res.json({ text: assistantMessage.content, actions_taken: actionsTaken });
   } catch (err) {
     console.error('Erro na Aurora:', err);
     res.status(500).json({ error: 'Erro ao processar conversa com a Aurora' });
+  }
+});
+
+router.post('/analyze-form', async (req, res) => {
+  try {
+    const { formTitle, respondentName, answers, score, interpretations, patientData } = req.body;
+    
+    const prompt = `Voce e a Aurora, a assistente de inteligencia artificial clinica da Psiflux.
+Seu objetivo e realizar uma ANALISE CLINICA detalhada de uma resposta de formulario.
+
+DADOS DO FORMULARIO:
+- Titulo: ${formTitle}
+- Respondente: ${respondentName}
+- Pontuacao Obtida: ${score}
+- Regras de Interpretacao: ${JSON.stringify(interpretations)}
+
+DADOS DO PACIENTE (Historico):
+${patientData ? JSON.stringify(patientData) : 'Nao fornecido'}
+
+RESPOSTAS DETALHADAS:
+${JSON.stringify(answers)}
+
+INSTRUCOES PARA O RELATORIO:
+1. Seja PROFISSIONAL, EMPATICO e BASEADO EM EVIDENCIAS (priorize TCC se aplicavel).
+2. Estruture o relatorio com:
+   - RESUMO DO CASO: Uma breve sintese da situacao atual.
+   - ANALISE DE SINTOMAS: O que os dados e a pontuacao indicam sobre o estado emocional/clinico.
+   - PONTOS DE ATENCAO: Sinais de alerta ou areas que exigem investigacao profunda.
+   - SUGESTOES DE INTERVENCAO: Proximos passos praticos para o psicologo na proxima sessao.
+3. Use uma linguagem que o psicologo possa utilizar como base para sua evolucao de prontuario ou laudo.
+4. Mantenha um tom de suporte e parceria.
+
+RESPONDA SEMPRE EM PORTUGUES-BR.
+Retorne o texto formatado em Markdown para melhor visualizacao.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Voce e uma assistente clinica para psicologos altamente capacitada.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7
+    });
+
+    res.json({ analysis: response.choices[0].message.content });
+  } catch (err) {
+    console.error('Erro na analise da Aurora:', err);
+    res.status(500).json({ error: 'Erro ao gerar analise clinica' });
   }
 });
 
