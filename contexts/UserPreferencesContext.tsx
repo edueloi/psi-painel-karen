@@ -82,8 +82,24 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
   // ─── Load from backend on mount ───────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
+      // Never attempt if there's no token — avoids 401 redirect loop
+      const token = localStorage.getItem('psi_token');
+      if (!token) {
+        setLoaded(true);
+        return;
+      }
       try {
-        const profile = await api.get<any>('/profile/me');
+        // Use raw fetch (not `api`) so a 401 does NOT trigger window.location redirect
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3013';
+        const res = await fetch(`${baseUrl}/profile/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          // 401 / 403 / 500 — just use defaults, don't crash
+          setLoaded(true);
+          return;
+        }
+        const profile = await res.json();
         if (profile?.ui_preferences) {
           setPreferences(mergeWithDefaults(profile.ui_preferences));
         }
@@ -91,7 +107,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
           setFormsArchivedState(profile.forms_archived.map(String));
         }
       } catch {
-        // silently fall back to defaults — user may not be logged in yet
+        // Network error — just use defaults silently
       } finally {
         setLoaded(true);
       }
