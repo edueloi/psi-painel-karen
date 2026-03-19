@@ -127,7 +127,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full flex font-sans bg-white overflow-y-auto">
+    <div className="min-h-screen w-full flex font-sans bg-white overflow-y-auto">
 
       {/* ── Esquerda — ilustração ── */}
       <div className="hidden lg:flex flex-col justify-between w-[50%] p-12 relative overflow-hidden"
