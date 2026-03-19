@@ -1,48 +1,107 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Settings as SettingsIcon, Palette, Bell, Globe, Moon, Monitor, Smartphone,
-  Check, ChevronRight, Database, CreditCard, UserPlus, ShieldCheck, Mail,
-  Zap, Save, AlertTriangle, ChevronDown, Clock, Send, Loader2, Calendar,
-  BarChart2, FileText, UserCheck, Users2
+  Check, ChevronRight, ShieldCheck, Mail,
+  Save, AlertTriangle, Clock, Send, Loader2, Calendar,
+  BarChart2, FileText, UserCheck, Users2, ExternalLink, Zap,
+  MessageSquare, Video, FileCode, Plug, ArrowRight, Users, Shield,
+  Phone, Briefcase
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
+import { Select } from '../components/UI/Input';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Language } from '../translations';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+type EmailPrefs = {
+  enabled: boolean;
+  new_appointment: boolean;
+  appointment_reminder_professional: boolean;
+  appointment_reminder_patient: boolean;
+  appointment_reminder_minutes: number;
+  birthday_reminder: boolean;
+  weekly_report: boolean;
+  monthly_report: boolean;
+};
+
+const DEFAULT_EMAIL_PREFS: EmailPrefs = {
+  enabled: false,
+  new_appointment: false,
+  appointment_reminder_professional: false,
+  appointment_reminder_patient: false,
+  appointment_reminder_minutes: 60,
+  birthday_reminder: false,
+  weekly_report: false,
+  monthly_report: false,
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Administrador',
+  profissional: 'Profissional',
+  secretaria: 'Secretária',
+  super_admin: 'Super Admin',
+};
+
+const ROLE_COLOR: Record<string, string> = {
+  admin: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+  profissional: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  secretaria: 'bg-amber-50 text-amber-700 border-amber-100',
+  super_admin: 'bg-red-50 text-red-700 border-red-100',
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
+
+const ToggleSwitch = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+  <button
+    onClick={onChange}
+    className={cx(
+      'relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-1 shrink-0',
+      checked ? 'bg-indigo-600' : 'bg-slate-200'
+    )}
+  >
+    <div className={cx(
+      'absolute top-0.5 left-0.5 bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-300',
+      checked ? 'translate-x-6' : 'translate-x-0'
+    )} />
+  </button>
+);
+
+const SectionHeader = ({ icon, title, desc }: { icon: React.ReactNode; title: string; desc?: string }) => (
+  <div className="flex items-start gap-3 mb-8">
+    <div className="p-2.5 bg-slate-100 rounded-xl text-slate-600 shrink-0">{icon}</div>
+    <div>
+      <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+      {desc && <p className="text-slate-500 text-sm mt-0.5">{desc}</p>}
+    </div>
+  </div>
+);
+
+// ─── Component ───────────────────────────────────────────────────────────────
 export const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('aparencia');
   const { mode: selectedMode, setMode, primaryColor: selectedColor, setPrimaryColor: setSelectedColor } = useTheme();
   const { pushToast } = useToast();
 
-  
-  // Integrations (mock — placeholder for future)
-  const [integrations, setIntegrations] = useState({ calendar: true, drive: false, zoom: true });
+  // ── Team ──────────────────────────────────────────────────────────────────
+  const [team, setTeam] = useState<any[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
 
-  // ── Email Notification Preferences ──────────────────────────────────────
-  type EmailPrefs = {
-    enabled: boolean;
-    new_appointment: boolean;
-    appointment_reminder_professional: boolean;
-    appointment_reminder_patient: boolean;
-    appointment_reminder_minutes: number;
-    birthday_reminder: boolean;
-    weekly_report: boolean;
-    monthly_report: boolean;
-  };
-  const DEFAULT_EMAIL_PREFS: EmailPrefs = {
-    enabled: false,
-    new_appointment: false,
-    appointment_reminder_professional: false,
-    appointment_reminder_patient: false,
-    appointment_reminder_minutes: 60,
-    birthday_reminder: false,
-    weekly_report: false,
-    monthly_report: false,
-  };
+  useEffect(() => {
+    if (activeTab !== 'equipe') return;
+    setTeamLoading(true);
+    api.get<any[]>('/users').then((data: any) => {
+      setTeam(Array.isArray(data) ? data : []);
+    }).catch(() => setTeam([])).finally(() => setTeamLoading(false));
+  }, [activeTab]);
+
+  // ── Email Preferences ────────────────────────────────────────────────────
   const [emailPrefs, setEmailPrefs] = useState<EmailPrefs>(DEFAULT_EMAIL_PREFS);
   const [prefsLoading, setPrefsLoading] = useState(false);
   const [prefsSaving, setPrefsSaving] = useState(false);
@@ -51,13 +110,10 @@ export const Settings: React.FC = () => {
   const loadEmailPrefs = useCallback(async () => {
     setPrefsLoading(true);
     try {
-      const res = await api.get<Record<string, unknown>>('/notifications/preferences');
+      const res = await api.get<any>('/notifications/preferences');
       setEmailPrefs({ ...DEFAULT_EMAIL_PREFS, ...(res as any) });
-    } catch {
-      // silently fallback to defaults
-    } finally {
-      setPrefsLoading(false);
-    }
+    } catch { /* fallback to defaults */ }
+    finally { setPrefsLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -68,409 +124,291 @@ export const Settings: React.FC = () => {
     setPrefsSaving(true);
     try {
       await api.put('/notifications/preferences', emailPrefs);
-      pushToast('success', 'Preferências de notificação salvas!');
-    } catch {
-      pushToast('error', 'Erro ao salvar preferências.');
-    } finally {
-      setPrefsSaving(false);
-    }
+      pushToast('success', 'Preferências salvas!');
+    } catch { pushToast('error', 'Erro ao salvar preferências.'); }
+    finally { setPrefsSaving(false); }
   };
 
   const sendTestEmail = async () => {
     setTestSending(true);
     try {
-      const res = await api.post<{ message?: string }>('/notifications/test', {});
+      const res = await api.post<any>('/notifications/test', {});
       pushToast('success', (res as any).message || 'Email de teste enviado!');
-    } catch {
-      pushToast('error', 'Erro ao enviar email de teste.');
-    } finally {
-      setTestSending(false);
-    }
+    } catch { pushToast('error', 'Erro ao enviar email de teste.'); }
+    finally { setTestSending(false); }
   };
 
-  // Theme definition
+  // ── Theme colors ─────────────────────────────────────────────────────────
   const THEME_COLORS = [
-    { name: 'Indigo', hex: '#6366f1', label: t('theme.modern'), gradient: 'from-indigo-500 to-violet-600',
-      vars: { 
-        '50': '#eef2ff', '100': '#e0e7ff', '200': '#c7d2fe', '300': '#a5b4fc', 
-        '400': '#818cf8', '500': '#6366f1', '600': '#4f46e5', '700': '#4338ca', '800': '#3730a3', '900': '#312e81' 
-      } 
-    },
-    { name: 'Emerald', hex: '#10b981', label: t('theme.health'), gradient: 'from-emerald-400 to-teal-600',
-      vars: {
-        '50': '#ecfdf5', '100': '#d1fae5', '200': '#a7f3d0', '300': '#6ee7b7',
-        '400': '#34d399', '500': '#10b981', '600': '#059669', '700': '#047857', '800': '#065f46', '900': '#064e3b'
-      }
-    },
-    { name: 'Rose', hex: '#f43f5e', label: t('theme.cozy'), gradient: 'from-rose-400 to-pink-600',
-      vars: {
-        '50': '#fff1f2', '100': '#ffe4e6', '200': '#fecdd3', '300': '#fda4af',
-        '400': '#fb7185', '500': '#f43f5e', '600': '#e11d48', '700': '#be123c', '800': '#9f1239', '900': '#881337'
-      }
-    },
-    { name: 'Amber', hex: '#f59e0b', label: t('theme.energy'), gradient: 'from-amber-400 to-orange-600',
-      vars: {
-        '50': '#fffbeb', '100': '#fef3c7', '200': '#fde68a', '300': '#fcd34d',
-        '400': '#fbbf24', '500': '#f59e0b', '600': '#d97706', '700': '#b45309', '800': '#92400e', '900': '#78350f'
-      }
-    },
-    { name: 'Blue', hex: '#3b82f6', label: t('theme.trust'), gradient: 'from-blue-400 to-cyan-600',
-      vars: {
-        '50': '#eff6ff', '100': '#dbeafe', '200': '#bfdbfe', '300': '#93c5fd',
-        '400': '#60a5fa', '500': '#3b82f6', '600': '#2563eb', '700': '#1d4ed8', '800': '#1e40af', '900': '#1e3a8a'
-      }
-    },
-    { name: 'Violet', hex: '#8b5cf6', label: t('theme.creative'), gradient: 'from-violet-400 to-fuchsia-600',
-      vars: {
-        '50': '#f5f3ff', '100': '#ede9fe', '200': '#ddd6fe', '300': '#c4b5fd',
-        '400': '#a78bfa', '500': '#8b5cf6', '600': '#7c3aed', '700': '#6d28d9', '800': '#5b21b6', '900': '#4c1d95'
-      }
-    }
+    { name: 'Indigo',   label: 'Moderno',  gradient: 'from-indigo-500 to-violet-600' },
+    { name: 'Emerald',  label: 'Saúde',    gradient: 'from-emerald-400 to-teal-600' },
+    { name: 'Rose',     label: 'Acolhedor',gradient: 'from-rose-400 to-pink-600' },
+    { name: 'Amber',    label: 'Energia',  gradient: 'from-amber-400 to-orange-600' },
+    { name: 'Blue',     label: 'Confiança',gradient: 'from-blue-400 to-cyan-600' },
+    { name: 'Violet',   label: 'Criativo', gradient: 'from-violet-400 to-fuchsia-600' },
   ];
 
-  const changeThemeColor = (colorName: string) => {
-    setSelectedColor(colorName);
-  };
-
+  // ── Menu ─────────────────────────────────────────────────────────────────
   const MENU_ITEMS = [
-    { id: 'aparencia', label: t('settings.menu.appearance'), icon: <Palette size={20} />, desc: t('settings.menu.appearance.desc') },
-    { id: 'geral', label: t('settings.menu.general'), icon: <SettingsIcon size={20} />, desc: t('settings.menu.general.desc') },
-    { id: 'notificacoes', label: t('settings.menu.notifications'), icon: <Bell size={20} />, desc: t('settings.menu.notifications.desc') },
-    { id: 'assinatura', label: t('settings.menu.subscription'), icon: <CreditCard size={20} />, desc: t('settings.menu.subscription.desc') },
-    { id: 'equipe', label: t('settings.menu.team'), icon: <UserPlus size={20} />, desc: t('settings.menu.team.desc') },
-    { id: 'integracoes', label: t('settings.menu.integrations'), icon: <Database size={20} />, desc: t('settings.menu.integrations.desc') },
+    { id: 'aparencia',    label: 'Aparência',      icon: <Palette size={18} />,      desc: 'Cores e modo visual' },
+    { id: 'geral',        label: 'Geral',           icon: <SettingsIcon size={18} />, desc: 'Idioma e preferências' },
+    { id: 'notificacoes', label: 'Notificações',    icon: <Bell size={18} />,         desc: 'Emails automáticos' },
+    { id: 'equipe',       label: 'Equipe',          icon: <Users size={18} />,        desc: 'Profissionais da clínica' },
+    { id: 'integracoes',  label: 'Integrações',     icon: <Plug size={18} />,         desc: 'Módulos e conexões' },
   ];
-
-  // Helper Toggle Switch Component
-  const ToggleSwitch = ({ checked, onChange }: { checked: boolean, onChange: () => void }) => (
-    <button 
-      onClick={onChange}
-      className={`relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 ${checked ? 'bg-indigo-600' : 'bg-slate-200'}`}
-    >
-      <div className={`absolute top-1 left-1 bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${checked ? 'translate-x-6' : 'translate-x-0'}`} />
-    </button>
-  );
 
   return (
-    <div className="max-w-7xl mx-auto pb-20 animate-[fadeIn_0.5s_ease-out] px-4 font-sans">
-      
-      {/* Page Header */}
-      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="max-w-7xl mx-auto pb-20 px-4 font-sans">
+
+      {/* Header */}
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-900">{t('settings.title')}</h1>
-            <p className="text-slate-500 mt-2 text-lg max-w-2xl">{t('settings.subtitle')}</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{t('settings.title')}</h1>
+          <p className="text-slate-500 mt-1 text-sm">{t('settings.subtitle')}</p>
         </div>
-        <button className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-            <ShieldCheck size={18} className="text-emerald-500" />
-            <span className="text-sm">{t('settings.secure')}</span>
-        </button>
+        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 font-semibold rounded-xl text-sm w-fit">
+          <ShieldCheck size={16} />
+          {t('settings.secure')}
+        </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        
-        {/* Modern Sidebar Navigation */}
-        <div className="w-full lg:w-72 flex-shrink-0 space-y-3">
-            {MENU_ITEMS.map(item => (
-            <button
+      <div className="flex flex-col lg:flex-row gap-6">
+
+        {/* Sidebar */}
+        <div className="w-full lg:w-64 flex-shrink-0">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {MENU_ITEMS.map((item, idx) => (
+              <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left transition-all duration-300 group relative overflow-hidden border ${
-                activeTab === item.id 
-                    ? 'bg-white border-indigo-100 shadow-lg shadow-indigo-100/50' 
-                    : 'bg-white/50 border-transparent hover:bg-white hover:border-slate-100 hover:shadow-md'
-                }`}
-            >
-                {/* Active Indicator */}
-                {activeTab === item.id && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600"></div>
+                className={cx(
+                  'w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all relative',
+                  idx < MENU_ITEMS.length - 1 && 'border-b border-slate-100',
+                  activeTab === item.id
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-slate-600 hover:bg-slate-50'
                 )}
-                
-                <div className={`p-2.5 rounded-xl transition-colors ${activeTab === item.id ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600'}`}>
-                    {item.icon}
+              >
+                {activeTab === item.id && (
+                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-600 rounded-r" />
+                )}
+                <div className={cx(
+                  'p-1.5 rounded-lg shrink-0 transition-colors',
+                  activeTab === item.id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'
+                )}>
+                  {item.icon}
                 </div>
-                <div>
-                    <span className={`block font-bold text-sm ${activeTab === item.id ? 'text-indigo-900' : 'text-slate-600'}`}>{item.label}</span>
-                    <span className="block text-[10px] opacity-70 font-medium text-slate-500">{item.desc}</span>
+                <div className="min-w-0">
+                  <p className={cx('text-sm font-semibold', activeTab === item.id ? 'text-indigo-800' : 'text-slate-700')}>
+                    {item.label}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">{item.desc}</p>
                 </div>
-                {activeTab === item.id && <ChevronRight size={16} className="ml-auto text-indigo-400" />}
-            </button>
+                {activeTab === item.id && <ChevronRight size={14} className="ml-auto text-indigo-400 shrink-0" />}
+              </button>
             ))}
+          </div>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8 lg:p-10 min-h-[600px] relative overflow-hidden">
-          
-          {/* APARÊNCIA */}
-          {activeTab === 'aparencia' && (
-            <div className="space-y-10 animate-fadeIn max-w-3xl">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                        <div className="p-2 bg-purple-100 rounded-lg text-purple-600"><Palette size={24} /></div>
-                        {t('settings.appearance.title')}
-                    </h2>
-                    <p className="text-slate-500 text-sm md:text-base leading-relaxed">{t('settings.appearance.subtitle')}</p>
-                </div>
-                
-                {/* Theme Color Selector */}
-                <section className="bg-slate-50 rounded-3xl p-6 md:p-8 border border-slate-100">
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-6">
-                        {t('settings.appearance.color')}
-                    </h3>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        {THEME_COLORS.map(color => (
-                            <button
-                                key={color.name}
-                                onClick={() => changeThemeColor(color.name)}
-                                className={`
-                                    relative p-1 rounded-2xl transition-all duration-300 group
-                                    ${selectedColor === color.name ? 'ring-4 ring-indigo-100 scale-[1.02]' : 'hover:scale-[1.02]'}
-                                `}
-                            >
-                                <div className={`absolute inset-0 bg-gradient-to-br ${color.gradient} rounded-2xl opacity-10`} />
-                                <div className={`
-                                    relative bg-white border h-full rounded-xl p-4 flex flex-col items-center gap-3
-                                    ${selectedColor === color.name ? 'border-transparent shadow-md' : 'border-slate-200'}
-                                `}>
-                                    <div 
-                                        className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform group-hover:scale-110 bg-gradient-to-br ${color.gradient}`}
-                                    >
-                                        {selectedColor === color.name && (
-                                            <Check className="text-white drop-shadow-md animate-[scaleIn_0.2s_ease-out]" size={24} strokeWidth={3} />
-                                        )}
-                                    </div>
-                                    <div className="text-center">
-                                        <span className={`block text-sm font-bold ${selectedColor === color.name ? 'text-slate-900' : 'text-slate-600'}`}>{color.name}</span>
-                                        <span className="text-[10px] text-slate-400 font-medium">{color.label}</span>
-                                    </div>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </section>
+        {/* Content */}
+        <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8 min-h-[560px]">
 
-                {/* Theme Mode */}
-                <section>
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-6">
-                        {t('settings.appearance.mode')}
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {[
-                            { id: 'light', label: t('settings.appearance.light'), icon: <Monitor size={24} />, bg: 'bg-white' },
-                            { id: 'dark', label: t('settings.appearance.dark'), icon: <Moon size={24} />, bg: 'bg-slate-800 text-white' },
-                            { id: 'auto', label: t('settings.appearance.auto'), icon: <Smartphone size={24} />, bg: 'bg-gradient-to-br from-slate-100 to-slate-300' }
-                        ].map((mode) => (
-                            <button 
-                                key={mode.id}
-                                onClick={() => setMode(mode.id as any)}
-                                className={`
-                                    relative group overflow-hidden rounded-2xl border-2 transition-all duration-300
-                                    ${selectedMode === mode.id 
-                                        ? 'border-indigo-600 shadow-lg shadow-indigo-100 scale-[1.02]' 
-                                        : 'border-slate-100 hover:border-slate-300'}
-                                `}
-                            >
-                                <div className="p-6 flex flex-col items-center gap-4 relative z-10">
-                                    <div className={`p-4 rounded-full shadow-md transition-transform group-hover:scale-110 ${mode.bg} ${mode.id === 'dark' ? 'text-white' : 'text-slate-700'}`}>
-                                        {mode.icon}
-                                    </div>
-                                    <span className={`font-bold text-sm ${selectedMode === mode.id ? 'text-indigo-700' : 'text-slate-600'}`}>
-                                        {mode.label}
-                                    </span>
-                                </div>
-                                {selectedMode === mode.id && (
-                                    <div className="absolute top-2 right-2 p-1 bg-indigo-600 rounded-full text-white">
-                                        <Check size={12} strokeWidth={4} />
-                                    </div>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                </section>
+          {/* ── APARÊNCIA ────────────────────────────────────────────────── */}
+          {activeTab === 'aparencia' && (
+            <div className="space-y-8 max-w-2xl">
+              <SectionHeader icon={<Palette size={20} />} title={t('settings.appearance.title')} desc={t('settings.appearance.subtitle')} />
+
+              {/* Cor do tema */}
+              <section>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-4">{t('settings.appearance.color')}</p>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                  {THEME_COLORS.map(color => (
+                    <button
+                      key={color.name}
+                      onClick={() => setSelectedColor(color.name)}
+                      className="flex flex-col items-center gap-2 group"
+                    >
+                      <div className={cx(
+                        `w-12 h-12 rounded-2xl bg-gradient-to-br ${color.gradient} shadow-md flex items-center justify-center transition-all duration-200 group-hover:scale-110`,
+                        selectedColor === color.name ? 'ring-4 ring-offset-2 ring-indigo-400 scale-110' : ''
+                      )}>
+                        {selectedColor === color.name && <Check size={20} className="text-white" strokeWidth={3} />}
+                      </div>
+                      <span className="text-[10px] font-semibold text-slate-500">{color.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Modo */}
+              <section>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-4">{t('settings.appearance.mode')}</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: 'light', label: t('settings.appearance.light'), icon: <Monitor size={22} /> },
+                    { id: 'dark',  label: t('settings.appearance.dark'),  icon: <Moon size={22} /> },
+                    { id: 'auto',  label: t('settings.appearance.auto'),  icon: <Smartphone size={22} /> },
+                  ].map(mode => (
+                    <button
+                      key={mode.id}
+                      onClick={() => setMode(mode.id as any)}
+                      className={cx(
+                        'flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all duration-200',
+                        selectedMode === mode.id
+                          ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      )}
+                    >
+                      <div className={cx(
+                        'p-3 rounded-xl',
+                        selectedMode === mode.id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
+                      )}>
+                        {mode.icon}
+                      </div>
+                      <span className={cx('text-xs font-bold', selectedMode === mode.id ? 'text-indigo-700' : 'text-slate-600')}>
+                        {mode.label}
+                      </span>
+                      {selectedMode === mode.id && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
           )}
 
-          {/* GERAL */}
+          {/* ── GERAL ────────────────────────────────────────────────────── */}
           {activeTab === 'geral' && (
-             <div className="space-y-8 animate-fadeIn max-w-3xl">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg text-blue-600"><SettingsIcon size={24} /></div>
-                        {t('settings.general.title')}
-                    </h2>
-                    <p className="text-slate-500 text-sm md:text-base">{t('settings.general.subtitle')}</p>
+            <div className="space-y-8 max-w-2xl">
+              <SectionHeader icon={<SettingsIcon size={20} />} title={t('settings.general.title')} desc={t('settings.general.subtitle')} />
+
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <Select
+                    label={t('settings.general.language')}
+                    leftIcon={<Globe size={16} />}
+                    value={language}
+                    onChange={e => setLanguage(e.target.value as Language)}
+                    size="lg"
+                  >
+                    <option value="pt">Português (Brasil)</option>
+                    <option value="en">English (US)</option>
+                    <option value="es">Español</option>
+                  </Select>
+
+                  <Select label={t('settings.general.timezone')} leftIcon={<Clock size={16} />} size="lg">
+                    <option>(GMT-03:00) Brasília — São Paulo</option>
+                    <option>(GMT-04:00) Manaus</option>
+                    <option>(GMT-00:00) UTC</option>
+                  </Select>
                 </div>
 
-                <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">{t('settings.general.language')}</label>
-                            <div className="relative group">
-                                <select 
-                                    value={language}
-                                    onChange={(e) => setLanguage(e.target.value as Language)}
-                                    className="w-full pl-11 pr-10 py-4 bg-white rounded-xl border border-slate-200 outline-none font-bold text-slate-700 appearance-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer shadow-sm hover:border-indigo-300"
-                                >
-                                    <option value="pt">Português (Brasil)</option>
-                                    <option value="en">English (US)</option>
-                                    <option value="es">Español</option>
-                                </select>
-                                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-hover:text-indigo-500 transition-colors" size={16} />
-                            </div>
-                        </div>
+                <Select label={t('settings.general.currency')} leftIcon={<span className="text-xs font-bold">R$</span>} size="lg">
+                  <option>BRL (R$) — Real Brasileiro</option>
+                  <option>USD ($) — Dólar Americano</option>
+                  <option>EUR (€) — Euro</option>
+                </Select>
+              </div>
 
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">{t('settings.general.timezone')}</label>
-                            <div className="relative group">
-                                <select className="w-full pl-11 pr-10 py-4 bg-white rounded-xl border border-slate-200 outline-none font-bold text-slate-700 appearance-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer shadow-sm hover:border-indigo-300">
-                                    <option>(GMT-03:00) Brasília - São Paulo</option>
-                                    <option>(GMT-04:00) Manaus</option>
-                                    <option>(GMT-00:00) UTC</option>
-                                </select>
-                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-hover:text-indigo-500 transition-colors" size={16} />
-                            </div>
-                        </div>
-                    </div>
+              <div className="flex justify-end">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  radius="xl"
+                  leftIcon={<Save size={16} />}
+                  onClick={() => pushToast('success', 'Configurações salvas!')}
+                >
+                  {t('common.save')}
+                </Button>
+              </div>
 
-                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">{t('settings.general.currency')}</label>
-                        <div className="relative group">
-                            <select className="w-full pl-11 pr-10 py-4 bg-white rounded-xl border border-slate-200 outline-none font-bold text-slate-700 appearance-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer shadow-sm hover:border-indigo-300">
-                                <option>BRL (R$) - Real Brasileiro</option>
-                                <option>USD ($) - Dólar Americano</option>
-                                <option>EUR (€) - Euro</option>
-                            </select>
-                            <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
-                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-hover:text-indigo-500 transition-colors" size={16} />
-                        </div>
-                    </div>
+              {/* Danger zone */}
+              <div className="pt-6 border-t border-slate-100">
+                <p className="text-xs font-bold text-red-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <AlertTriangle size={14} /> {t('settings.danger.zone')}
+                </p>
+                <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <p className="font-bold text-red-900 text-sm">{t('settings.danger.delete')}</p>
+                    <p className="text-xs text-red-700/70 mt-1">{t('settings.danger.desc')}</p>
+                  </div>
+                  <Button variant="softDanger" size="sm" radius="xl">
+                    {t('settings.danger.endSub')}
+                  </Button>
                 </div>
-
-                <div className="flex justify-end pt-4">
-                    <button 
-                      onClick={() => pushToast('success', 'Configurações salvas com sucesso!')}
-                      className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 active:scale-95"
-                    >
-                        <Save size={18} /> {t('common.save')}
-                    </button>
-                </div>
-
-                {/* Danger Zone */}
-                <div className="mt-12 pt-8 border-t border-slate-100">
-                    <h3 className="text-red-600 font-bold mb-4 flex items-center gap-2">
-                        <AlertTriangle size={20} /> {t('settings.danger.zone')}
-                    </h3>
-                    <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div>
-                            <h4 className="font-bold text-red-900">{t('settings.danger.delete')}</h4>
-                            <p className="text-sm text-red-700/70 mt-1">{t('settings.danger.desc')}</p>
-                        </div>
-                        <button className="px-6 py-2.5 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                            {t('settings.danger.endSub')}
-                        </button>
-                    </div>
-                </div>
-             </div>
+              </div>
+            </div>
           )}
 
-          {/* NOTIFICAÇÕES */}
+          {/* ── NOTIFICAÇÕES ─────────────────────────────────────────────── */}
           {activeTab === 'notificacoes' && (
-            <div className="space-y-8 animate-fadeIn max-w-3xl">
-
-              {/* Header */}
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-1 flex items-center gap-3">
-                  <div className="p-2 bg-amber-100 rounded-xl text-amber-600"><Bell size={22} /></div>
-                  Notificações por Email
-                </h2>
-                <p className="text-slate-500 text-sm ml-12">Configure os emails automáticos do sistema PsiFlux.</p>
-              </div>
+            <div className="space-y-6 max-w-2xl">
+              <SectionHeader icon={<Bell size={20} />} title="Notificações por Email" desc="Configure os emails automáticos do sistema PsiFlux." />
 
               {prefsLoading ? (
                 <div className="flex items-center justify-center py-20 text-slate-400 gap-3">
-                  <Loader2 size={28} className="animate-spin" />
-                  <span className="text-sm font-medium">Carregando preferências...</span>
+                  <Loader2 size={26} className="animate-spin" />
+                  <span className="text-sm">Carregando preferências...</span>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-5">
 
-                  {/* ── Master toggle ───────────────────────────────── */}
-                  <div className={`relative flex items-center justify-between p-5 rounded-2xl border-2 transition-all duration-300 ${emailPrefs.enabled ? 'border-indigo-300 bg-gradient-to-r from-indigo-50 to-violet-50' : 'border-slate-200 bg-slate-50'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-xl transition-colors ${emailPrefs.enabled ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-200 text-slate-400'}`}>
-                        <Mail size={20} />
+                  {/* Master */}
+                  <div className={cx(
+                    'flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300',
+                    emailPrefs.enabled ? 'border-indigo-200 bg-indigo-50/60' : 'border-slate-200 bg-slate-50'
+                  )}>
+                    <div className="flex items-center gap-3">
+                      <div className={cx('p-2.5 rounded-xl transition-colors', emailPrefs.enabled ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-400')}>
+                        <Mail size={18} />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-800">Emails habilitados</p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {emailPrefs.enabled ? 'Você está recebendo notificações por email' : 'Todos os emails estão desativados'}
-                        </p>
+                        <p className="font-semibold text-slate-800 text-sm">Emails habilitados</p>
+                        <p className="text-xs text-slate-500">{emailPrefs.enabled ? 'Recebendo notificações por email' : 'Todos os emails estão desativados'}</p>
                       </div>
                     </div>
-                    <ToggleSwitch
-                      checked={emailPrefs.enabled}
-                      onChange={() => setEmailPrefs(p => ({ ...p, enabled: !p.enabled }))}
-                    />
+                    <ToggleSwitch checked={emailPrefs.enabled} onChange={() => setEmailPrefs(p => ({ ...p, enabled: !p.enabled }))} />
                   </div>
 
-                  {/* ── Grupos de preferências ───────────────────────── */}
-                  <div className={`space-y-4 transition-all duration-300 ${emailPrefs.enabled ? 'opacity-100' : 'opacity-35 pointer-events-none'}`}>
+                  <div className={cx('space-y-4 transition-all duration-300', emailPrefs.enabled ? 'opacity-100' : 'opacity-30 pointer-events-none')}>
 
-                    {/* Grupo: Agendamentos */}
+                    {/* Agendamentos */}
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Agendamentos</p>
-                      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
-
-                        {/* Novo agendamento */}
-                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
-                              <Calendar size={18} />
-                            </div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Agendamentos</p>
+                      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg"><Calendar size={16} /></div>
                             <div>
                               <p className="font-semibold text-slate-800 text-sm">Novo agendamento</p>
-                              <p className="text-xs text-slate-400 mt-0.5">Aviso quando um atendimento for criado</p>
+                              <p className="text-xs text-slate-400">Aviso quando um atendimento for criado</p>
                             </div>
                           </div>
-                          <ToggleSwitch
-                            checked={emailPrefs.new_appointment}
-                            onChange={() => setEmailPrefs(p => ({ ...p, new_appointment: !p.new_appointment }))}
-                          />
+                          <ToggleSwitch checked={emailPrefs.new_appointment} onChange={() => setEmailPrefs(p => ({ ...p, new_appointment: !p.new_appointment }))} />
                         </div>
 
-                        {/* Lembrete — Profissional */}
-                        <div className="px-5 py-4 hover:bg-slate-50 transition-colors">
+                        <div className="px-4 py-3.5 hover:bg-slate-50 transition-colors">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
-                                <Clock size={18} />
-                              </div>
+                            <div className="flex items-center gap-3">
+                              <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Clock size={16} /></div>
                               <div>
                                 <p className="font-semibold text-slate-800 text-sm">Lembrete para mim (profissional)</p>
-                                <p className="text-xs text-slate-400 mt-0.5">Email antes da consulta no seu endereço</p>
+                                <p className="text-xs text-slate-400">Email antes da consulta no seu endereço</p>
                               </div>
                             </div>
-                            <ToggleSwitch
-                              checked={emailPrefs.appointment_reminder_professional}
-                              onChange={() => setEmailPrefs(p => ({ ...p, appointment_reminder_professional: !p.appointment_reminder_professional }))}
-                            />
+                            <ToggleSwitch checked={emailPrefs.appointment_reminder_professional} onChange={() => setEmailPrefs(p => ({ ...p, appointment_reminder_professional: !p.appointment_reminder_professional }))} />
                           </div>
                           {(emailPrefs.appointment_reminder_professional || emailPrefs.appointment_reminder_patient) && (
-                            <div className="mt-3 ml-12 flex items-center gap-2">
-                              <span className="text-[11px] font-semibold text-slate-400">Antecedência:</span>
+                            <div className="mt-2.5 ml-10 flex items-center gap-2">
+                              <span className="text-[10px] font-semibold text-slate-400">Antecedência:</span>
                               {[30, 60].map(min => (
-                                <button
-                                  key={min}
-                                  onClick={() => setEmailPrefs(p => ({ ...p, appointment_reminder_minutes: min }))}
-                                  className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
+                                <button key={min} onClick={() => setEmailPrefs(p => ({ ...p, appointment_reminder_minutes: min }))}
+                                  className={cx('px-3 py-1 rounded-lg text-xs font-bold border transition-all',
                                     emailPrefs.appointment_reminder_minutes === min
                                       ? 'bg-indigo-600 text-white border-indigo-600'
-                                      : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                                  }`}
-                                >
+                                      : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'
+                                  )}>
                                   {min === 30 ? '30 min' : '1 hora'}
                                 </button>
                               ))}
@@ -478,284 +416,283 @@ export const Settings: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Lembrete — Paciente */}
-                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-violet-100 text-violet-600 rounded-xl">
-                              <Users2 size={18} />
-                            </div>
+                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-violet-100 text-violet-600 rounded-lg"><Users2 size={16} /></div>
                             <div>
                               <p className="font-semibold text-slate-800 text-sm">Lembrete para o paciente</p>
-                              <p className="text-xs text-slate-400 mt-0.5">Envia ao email do paciente (se cadastrado)</p>
+                              <p className="text-xs text-slate-400">Envia ao email do paciente (se cadastrado)</p>
                             </div>
                           </div>
-                          <ToggleSwitch
-                            checked={emailPrefs.appointment_reminder_patient}
-                            onChange={() => setEmailPrefs(p => ({ ...p, appointment_reminder_patient: !p.appointment_reminder_patient }))}
-                          />
+                          <ToggleSwitch checked={emailPrefs.appointment_reminder_patient} onChange={() => setEmailPrefs(p => ({ ...p, appointment_reminder_patient: !p.appointment_reminder_patient }))} />
                         </div>
-
                       </div>
                     </div>
 
-                    {/* Grupo: Alertas */}
+                    {/* Alertas */}
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Alertas</p>
-                      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
-
-                        {/* Aniversariantes */}
-                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-pink-100 text-pink-600 rounded-xl">
-                              <UserCheck size={18} />
-                            </div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Alertas</p>
+                      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-pink-100 text-pink-600 rounded-lg"><UserCheck size={16} /></div>
                             <div>
                               <p className="font-semibold text-slate-800 text-sm">Aniversariantes do dia</p>
-                              <p className="text-xs text-slate-400 mt-0.5">Lista de pacientes enviada toda manhã às 8h</p>
+                              <p className="text-xs text-slate-400">Lista enviada toda manhã às 8h</p>
                             </div>
                           </div>
-                          <ToggleSwitch
-                            checked={emailPrefs.birthday_reminder}
-                            onChange={() => setEmailPrefs(p => ({ ...p, birthday_reminder: !p.birthday_reminder }))}
-                          />
+                          <ToggleSwitch checked={emailPrefs.birthday_reminder} onChange={() => setEmailPrefs(p => ({ ...p, birthday_reminder: !p.birthday_reminder }))} />
                         </div>
-
                       </div>
                     </div>
 
-                    {/* Grupo: Relatórios */}
+                    {/* Relatórios */}
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Relatórios</p>
-                      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
-
-                        {/* Semanal */}
-                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-violet-100 text-violet-600 rounded-xl">
-                              <BarChart2 size={18} />
-                            </div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Relatórios</p>
+                      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-violet-100 text-violet-600 rounded-lg"><BarChart2 size={16} /></div>
                             <div>
                               <p className="font-semibold text-slate-800 text-sm">Relatório semanal</p>
-                              <p className="text-xs text-slate-400 mt-0.5">Atendimentos e receita — toda segunda às 7h</p>
+                              <p className="text-xs text-slate-400">Toda segunda às 7h</p>
                             </div>
                           </div>
-                          <ToggleSwitch
-                            checked={emailPrefs.weekly_report}
-                            onChange={() => setEmailPrefs(p => ({ ...p, weekly_report: !p.weekly_report }))}
-                          />
+                          <ToggleSwitch checked={emailPrefs.weekly_report} onChange={() => setEmailPrefs(p => ({ ...p, weekly_report: !p.weekly_report }))} />
                         </div>
-
-                        {/* Mensal */}
-                        <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
-                              <FileText size={18} />
-                            </div>
+                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-amber-100 text-amber-600 rounded-lg"><FileText size={16} /></div>
                             <div>
                               <p className="font-semibold text-slate-800 text-sm">Relatório mensal</p>
-                              <p className="text-xs text-slate-400 mt-0.5">Desempenho financeiro do mês — todo dia 1 às 7h</p>
+                              <p className="text-xs text-slate-400">Todo dia 1 às 7h</p>
                             </div>
                           </div>
-                          <ToggleSwitch
-                            checked={emailPrefs.monthly_report}
-                            onChange={() => setEmailPrefs(p => ({ ...p, monthly_report: !p.monthly_report }))}
-                          />
+                          <ToggleSwitch checked={emailPrefs.monthly_report} onChange={() => setEmailPrefs(p => ({ ...p, monthly_report: !p.monthly_report }))} />
                         </div>
-
                       </div>
                     </div>
-
                   </div>
 
-                  {/* ── Ações ─────────────────────────────────────────── */}
+                  {/* Ações */}
                   <div className="flex flex-col sm:flex-row gap-3 pt-1">
-                    <Button
-                      variant="primary"
-                      size="lg"
-                      radius="xl"
-                      elevation="md"
-                      isLoading={prefsSaving}
-                      loadingText="Salvando..."
-                      leftIcon={<Save size={16} />}
-                      onClick={saveEmailPrefs}
-                    >
+                    <Button variant="primary" size="lg" radius="xl" elevation="md" isLoading={prefsSaving} loadingText="Salvando..." leftIcon={<Save size={16} />} onClick={saveEmailPrefs}>
                       Salvar preferências
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      radius="xl"
-                      isLoading={testSending}
-                      loadingText="Enviando..."
-                      leftIcon={<Send size={16} />}
-                      onClick={sendTestEmail}
-                    >
+                    <Button variant="outline" size="lg" radius="xl" isLoading={testSending} loadingText="Enviando..." leftIcon={<Send size={16} />} onClick={sendTestEmail}>
                       Enviar email de teste
                     </Button>
                   </div>
 
-                  {/* ── Rodapé informativo ────────────────────────────── */}
-                  <div className="flex items-start gap-3 p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                    <Mail size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                  <div className="flex items-start gap-2.5 p-3.5 bg-slate-50 border border-slate-100 rounded-xl">
+                    <Mail size={13} className="mt-0.5 shrink-0 text-slate-400" />
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      Emails enviados por <strong className="text-slate-700">sistema@psiflux.com.br</strong>.
-                      Este endereço é apenas para envio — não monitore nem responda emails recebidos por ele.
+                      Emails enviados por <strong className="text-slate-700">sistema@psiflux.com.br</strong> — não monitore nem responda este endereço.
                     </p>
                   </div>
-
                 </div>
               )}
             </div>
           )}
 
-          {/* ASSINATURA */}
-          {activeTab === 'assinatura' && (
-              <div className="space-y-8 animate-fadeIn max-w-3xl">
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                        <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600"><CreditCard size={24} /></div>
-                        {t('settings.menu.subscription')}
-                    </h2>
-                    <p className="text-slate-500 text-sm md:text-base">{t('settings.menu.subscription.desc')}</p>
-                  </div>
-
-                  <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-900 to-indigo-950 p-8 text-white shadow-2xl">
-                      <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none"></div>
-                      
-                      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                          <div>
-                              <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/30 rounded-full border border-indigo-400/30 text-indigo-200 text-xs font-bold uppercase tracking-widest mb-3">
-                                  <Zap size={12} className="text-yellow-400 fill-yellow-400" /> Plano Profissional
-                              </div>
-                              <h3 className="text-3xl font-display font-bold mb-1">R$ 149,90 <span className="text-base font-medium text-slate-400">/mês</span></h3>
-                              <p className="text-slate-300 text-sm">Próxima cobrança em 15 de Outubro de 2023</p>
-                          </div>
-                          <button className="px-6 py-3 bg-white text-indigo-900 font-bold rounded-xl hover:bg-indigo-50 transition-colors shadow-lg">
-                              Alterar Plano
-                          </button>
-                      </div>
-
-                      <div className="mt-8 pt-8 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-6">
-                          <div>
-                              <p className="text-slate-400 text-xs font-bold uppercase mb-1">Pacientes</p>
-                              <p className="text-xl font-bold">450 <span className="text-slate-500 text-sm">/ ∞</span></p>
-                          </div>
-                          <div>
-                              <p className="text-slate-400 text-xs font-bold uppercase mb-1">Armazenamento</p>
-                              <p className="text-xl font-bold">12GB <span className="text-slate-500 text-sm">/ 50GB</span></p>
-                          </div>
-                          <div>
-                              <p className="text-slate-400 text-xs font-bold uppercase mb-1">Usuários</p>
-                              <p className="text-xl font-bold">3 <span className="text-slate-500 text-sm">/ 5</span></p>
-                          </div>
-                          <div>
-                              <p className="text-slate-400 text-xs font-bold uppercase mb-1">Status</p>
-                              <p className="text-xl font-bold text-emerald-400 flex items-center gap-1"><Check size={16} /> Ativo</p>
-                          </div>
-                      </div>
-                  </div>
-
-                  <div className="bg-slate-50 rounded-2xl border border-slate-100 p-6 flex justify-between items-center">
-                      <div className="flex items-center gap-4">
-                          <div className="bg-white p-3 rounded-xl border border-slate-200 text-slate-600">
-                              <CreditCard size={24} />
-                          </div>
-                          <div>
-                              <p className="font-bold text-slate-800">Mastercard terminada em 8842</p>
-                              <p className="text-xs text-slate-500">Expira em 12/25</p>
-                          </div>
-                      </div>
-                      <button className="text-indigo-600 font-bold text-sm hover:underline">Editar</button>
-                  </div>
-              </div>
-          )}
-
-          {/* EQUIPE */}
+          {/* ── EQUIPE ────────────────────────────────────────────────────── */}
           {activeTab === 'equipe' && (
-              <div className="space-y-8 animate-fadeIn max-w-3xl">
-                  <div className="flex justify-between items-center">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><UserPlus size={24} /></div>
-                            {t('settings.menu.team')}
-                        </h2>
-                        <p className="text-slate-500 text-sm md:text-base">{t('settings.menu.team.desc')}</p>
-                    </div>
-                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 text-sm">
-                        <UserPlus size={18} /> Convidar
-                    </button>
+            <div className="space-y-6 max-w-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <SectionHeader icon={<Users size={20} />} title="Equipe da Clínica" desc="Profissionais e usuários com acesso ao sistema." />
+                <Button variant="primary" size="sm" radius="xl" leftIcon={<ExternalLink size={14} />} onClick={() => navigate('/profissionais')}>
+                  Gerenciar
+                </Button>
+              </div>
+
+              {teamLoading ? (
+                <div className="flex items-center justify-center py-16 text-slate-400 gap-3">
+                  <Loader2 size={24} className="animate-spin" />
+                  <span className="text-sm">Carregando equipe...</span>
+                </div>
+              ) : team.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
+                  <Users size={40} className="opacity-30" />
+                  <p className="text-sm">Nenhum profissional encontrado.</p>
+                  <Button variant="soft" size="sm" radius="xl" onClick={() => navigate('/profissionais')}>
+                    Adicionar profissional
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    {[
+                      { label: 'Total', value: team.length, icon: <Users size={16} />, color: 'indigo' },
+                      { label: 'Admins', value: team.filter(u => u.role === 'admin').length, icon: <Shield size={16} />, color: 'amber' },
+                      { label: 'Ativos', value: team.filter(u => u.is_active !== false).length, icon: <UserCheck size={16} />, color: 'emerald' },
+                    ].map(stat => (
+                      <div key={stat.label} className={cx(
+                        'flex items-center gap-3 p-3 rounded-xl border',
+                        stat.color === 'indigo' ? 'bg-indigo-50 border-indigo-100' :
+                        stat.color === 'amber'  ? 'bg-amber-50 border-amber-100' :
+                        'bg-emerald-50 border-emerald-100'
+                      )}>
+                        <span className={cx(
+                          stat.color === 'indigo' ? 'text-indigo-600' :
+                          stat.color === 'amber'  ? 'text-amber-600' :
+                          'text-emerald-600'
+                        )}>{stat.icon}</span>
+                        <div>
+                          <p className="text-lg font-bold text-slate-800">{stat.value}</p>
+                          <p className="text-[10px] font-semibold text-slate-500">{stat.label}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="space-y-4">
-                      {[
-                          { name: 'Karen Gomes', email: 'karen@clinica.com', role: 'Administrador', avatar: 'K', active: true },
-                          { name: 'João Silva', email: 'joao@clinica.com', role: 'Psicólogo', avatar: 'J', active: true },
-                          { name: 'Ana Costa', email: 'ana@clinica.com', role: 'Secretária', avatar: 'A', active: false }
-                      ].map((member, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all">
-                              <div className="flex items-center gap-4">
-                                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center font-bold text-lg text-slate-600 border-2 border-white shadow-sm">
-                                      {member.avatar}
-                                  </div>
-                                  <div>
-                                      <h4 className="font-bold text-slate-800">{member.name}</h4>
-                                      <p className="text-xs text-slate-500">{member.email}</p>
-                                  </div>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${member.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                                      {member.active ? 'Ativo' : 'Pendente'}
-                                  </span>
-                                  <span className="text-sm font-medium text-slate-600 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">
-                                      {member.role}
-                                  </span>
-                                  <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">
-                                      <SettingsIcon size={16} />
-                                  </button>
-                              </div>
+                  {/* List */}
+                  <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
+                    {team.map((member: any) => {
+                      const initials = (member.name || '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+                      const role = member.role || 'profissional';
+                      const isActive = member.is_active !== false;
+                      return (
+                        <div key={member.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
+                          {member.avatar_url ? (
+                            <img src={member.avatar_url} alt={member.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                              {initials}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-800 text-sm truncate">{member.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {member.email && <p className="text-xs text-slate-400 truncate flex items-center gap-1"><Mail size={10} />{member.email}</p>}
+                            </div>
                           </div>
-                      ))}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={cx('px-2 py-0.5 rounded-full text-[10px] font-bold border', ROLE_COLOR[role] || ROLE_COLOR['profissional'])}>
+                              {ROLE_LABEL[role] || role}
+                            </span>
+                            <span className={cx('w-1.5 h-1.5 rounded-full', isActive ? 'bg-emerald-400' : 'bg-slate-300')} title={isActive ? 'Ativo' : 'Inativo'} />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-              </div>
+
+                  <button
+                    onClick={() => navigate('/profissionais')}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 text-slate-500 text-sm font-medium hover:bg-slate-50 hover:border-indigo-200 hover:text-indigo-600 transition-all"
+                  >
+                    Ver todos no módulo de Profissionais <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* INTEGRAÇÕES */}
+          {/* ── INTEGRAÇÕES ───────────────────────────────────────────────── */}
           {activeTab === 'integracoes' && (
-              <div className="space-y-8 animate-fadeIn max-w-3xl">
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                        <div className="p-2 bg-cyan-100 rounded-lg text-cyan-600"><Database size={24} /></div>
-                        {t('settings.menu.integrations')}
-                    </h2>
-                    <p className="text-slate-500 text-sm md:text-base">{t('settings.menu.integrations.desc')}</p>
-                  </div>
+            <div className="space-y-6 max-w-2xl">
+              <SectionHeader icon={<Plug size={20} />} title={t('settings.menu.integrations')} desc="Módulos nativos e integrações do sistema." />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-6 rounded-2xl border border-slate-200 bg-white hover:border-blue-300 transition-colors group">
-                          <div className="flex justify-between items-start mb-4">
-                              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-bold group-hover:scale-110 transition-transform">G</div>
-                              <ToggleSwitch checked={integrations.calendar} onChange={() => setIntegrations({...integrations, calendar: !integrations.calendar})} />
-                          </div>
-                          <h4 className="font-bold text-slate-800">Google Calendar</h4>
-                          <p className="text-xs text-slate-500 mt-1 mb-4">Sincronize sua agenda automaticamente.</p>
-                          <div className="flex items-center gap-2 text-xs text-emerald-600 font-bold bg-emerald-50 w-fit px-2 py-1 rounded">
-                              <Check size={12} /> Conectado
-                          </div>
+              {/* Módulos nativos — funcionam */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Módulos ativos</p>
+                <div className="space-y-2">
+                  {[
+                    {
+                      icon: <Video size={20} />,
+                      color: 'bg-indigo-100 text-indigo-600',
+                      title: 'Salas Virtuais',
+                      desc: 'Atendimentos por videochamada integrado ao sistema',
+                      badge: 'Ativo',
+                      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                      onClick: () => navigate('/salas-virtuais'),
+                    },
+                    {
+                      icon: <MessageSquare size={20} />,
+                      color: 'bg-emerald-100 text-emerald-600',
+                      title: 'Bot / Automação',
+                      desc: 'Automação de mensagens e fluxos de atendimento',
+                      badge: 'Ativo',
+                      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                      onClick: () => navigate('/bot'),
+                    },
+                    {
+                      icon: <FileCode size={20} />,
+                      color: 'bg-violet-100 text-violet-600',
+                      title: 'Formulários externos',
+                      desc: 'Links públicos de formulários para seus pacientes',
+                      badge: 'Ativo',
+                      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                      onClick: () => navigate('/formularios'),
+                    },
+                    {
+                      icon: <Briefcase size={20} />,
+                      color: 'bg-amber-100 text-amber-600',
+                      title: 'Gerador de documentos',
+                      desc: 'Modelos de laudos, declarações e relatórios clínicos',
+                      badge: 'Ativo',
+                      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                      onClick: () => navigate('/gerador-documentos'),
+                    },
+                  ].map(item => (
+                    <button key={item.title} onClick={item.onClick}
+                      className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm transition-all text-left group">
+                      <div className={cx('p-2.5 rounded-xl shrink-0', item.color)}>{item.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
                       </div>
-
-                      <div className="p-6 rounded-2xl border border-slate-200 bg-white hover:border-blue-300 transition-colors group">
-                          <div className="flex justify-between items-start mb-4">
-                              <div className="w-12 h-12 bg-blue-500 text-white rounded-xl flex items-center justify-center font-bold group-hover:scale-110 transition-transform">Z</div>
-                              <ToggleSwitch checked={integrations.zoom} onChange={() => setIntegrations({...integrations, zoom: !integrations.zoom})} />
-                          </div>
-                          <h4 className="font-bold text-slate-800">Zoom Meetings</h4>
-                          <p className="text-xs text-slate-500 mt-1 mb-4">Crie links de reunião automaticamente.</p>
-                          <div className="flex items-center gap-2 text-xs text-emerald-600 font-bold bg-emerald-50 w-fit px-2 py-1 rounded">
-                              <Check size={12} /> Conectado
-                          </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={cx('px-2 py-0.5 rounded-full text-[10px] font-bold border', item.badgeColor)}>
+                          {item.badge}
+                        </span>
+                        <ArrowRight size={14} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
                       </div>
-                  </div>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Em breve */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Em breve</p>
+                <div className="space-y-2">
+                  {[
+                    {
+                      icon: <span className="font-bold text-base">G</span>,
+                      color: 'bg-blue-50 text-blue-600',
+                      title: 'Google Calendar',
+                      desc: 'Sincronize sua agenda com o Google Calendar',
+                    },
+                    {
+                      icon: <Phone size={20} />,
+                      color: 'bg-green-50 text-green-600',
+                      title: 'WhatsApp Business API',
+                      desc: 'Disparo de mensagens via API oficial do WhatsApp',
+                    },
+                    {
+                      icon: <Zap size={20} />,
+                      color: 'bg-orange-50 text-orange-600',
+                      title: 'Zapier / Webhooks',
+                      desc: 'Conecte o PsiFlux a outros sistemas via webhooks',
+                    },
+                  ].map(item => (
+                    <div key={item.title}
+                      className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/60 opacity-60">
+                      <div className={cx('p-2.5 rounded-xl shrink-0', item.color)}>{item.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-700 text-sm">{item.title}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-500 border border-slate-200 shrink-0">
+                        Em breve
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
         </div>

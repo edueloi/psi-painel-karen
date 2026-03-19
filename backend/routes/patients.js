@@ -309,8 +309,6 @@ router.post('/', async (req, res) => {
       responsible_phone, health_plan, diagnosis
     } = req.body;
 
-    if (!name) return res.status(404).json({ error: 'Nome é obrigatório' });
-
     const [result] = await db.query(
       `INSERT INTO patients (
         tenant_id, name, email, phone, phone2, birth_date, cpf, rg, gender,
@@ -319,19 +317,19 @@ router.post('/', async (req, res) => {
         spouse_name, family_contact, emergency_contact,
         address, city, state, zip_code, notes, status,
         responsible_professional_id, responsible_name,
-        responsible_phone, health_plan, diagnosis, photo_url
+        responsible_phone, health_plan, diagnosis
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, name, email || null, phone || null, phone2 || null,
         birth_date || null, cpf || null, rg || null, gender || null,
-        marital_status || null, education || null, profession || null, 
+        marital_status || null, education || null, profession || null,
         nationality || null, naturality || null,
         has_children ? 1 : 0, children_count || 0, minor_children_count || 0,
         spouse_name || null, family_contact || null, emergency_contact || null,
         address || null, city || null, state || null, zip_code || null,
         notes || null, normalizeStatus(status),
         responsible_professional_id || null, responsible_name || null,
-        responsible_phone || null, health_plan || null, diagnosis || null, photo_url || null
+        responsible_phone || null, health_plan || null, diagnosis || null
       ]
     );
 
