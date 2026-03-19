@@ -77,53 +77,33 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
   const [loaded, setLoaded] = useState(false);
 
   // debounce timer ref so we don't spam the API on every keystroke
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // ─── Load from backend on mount ───────────────────────────────────────────
+  // ─── Load from local storage on mount ──────────────────────────────────────────
   useEffect(() => {
-    const load = async () => {
-      // Never attempt if there's no token — avoids 401 redirect loop
-      const token = localStorage.getItem('psi_token');
-      if (!token) {
-        setLoaded(true);
-        return;
+    try {
+      const storedPrefs = localStorage.getItem('@psi_user_preferences');
+      if (storedPrefs) {
+        setPreferences(mergeWithDefaults(JSON.parse(storedPrefs)));
       }
-      try {
-        // Use raw fetch (not `api`) so a 401 does NOT trigger window.location redirect
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3013';
-        const res = await fetch(`${baseUrl}/profile/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          // 401 / 403 / 500 — just use defaults, don't crash
-          setLoaded(true);
-          return;
-        }
-        const profile = await res.json();
-        if (profile?.ui_preferences) {
-          setPreferences(mergeWithDefaults(profile.ui_preferences));
-        }
-        if (Array.isArray(profile?.forms_archived)) {
-          setFormsArchivedState(profile.forms_archived.map(String));
-        }
-      } catch {
-        // Network error — just use defaults silently
-      } finally {
-        setLoaded(true);
+      
+      const storedArchived = localStorage.getItem('@psi_forms_archived');
+      if (storedArchived) {
+        setFormsArchivedState(JSON.parse(storedArchived));
       }
-    };
-    load();
+    } catch (e) {
+      console.error('Failed to load preferences from storage', e);
+    } finally {
+      setLoaded(true);
+    }
   }, []);
 
-  // ─── Persist to backend (debounced 800ms) ─────────────────────────────────
-  const persistToBackend = (prefs: UserPreferences, archived: string[]) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      api.patch('/profile/preferences', {
-        ui_preferences: prefs,
-        forms_archived: archived,
-      }).catch(() => {/* ignore network errors silently */});
-    }, 800);
+  // ─── Persist to local storage ──────────────────────────────────────────────────
+  const persistToStorage = (prefs: UserPreferences, archived: string[]) => {
+    try {
+      localStorage.setItem('@psi_user_preferences', JSON.stringify(prefs));
+      localStorage.setItem('@psi_forms_archived', JSON.stringify(archived));
+    } catch (e) {
+      console.error('Failed to save preferences to storage', e);
+    }
   };
 
   // ─── updatePreference ──────────────────────────────────────────────────────
@@ -136,7 +116,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
         ...prev,
         [screen]: { ...prev[screen], ...updates },
       };
-      if (loaded) persistToBackend(next, formsArchived);
+      if (loaded) persistToStorage(next, formsArchived);
       return next;
     });
   };
@@ -144,7 +124,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
   // ─── setFormsArchived ──────────────────────────────────────────────────────
   const setFormsArchived = (ids: string[]) => {
     setFormsArchivedState(ids);
-    if (loaded) persistToBackend(preferences, ids);
+    if (loaded) persistToStorage(preferences, ids);
   };
 
   return (

@@ -127,7 +127,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex font-sans">
+    <div className="min-h-[100dvh] w-full flex font-sans bg-white overflow-y-auto">
 
       {/* ── Esquerda — ilustração ── */}
       <div className="hidden lg:flex flex-col justify-between w-[50%] p-12 relative overflow-hidden"
@@ -177,8 +177,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       </div>
 
       {/* ── Direita — formulário ── */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-[400px]">
+      <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 bg-white overflow-y-auto">
+        <div className="w-full max-w-[400px] mx-auto py-8">
 
           {/* Logo mobile */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
