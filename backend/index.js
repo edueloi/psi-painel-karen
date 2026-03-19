@@ -35,6 +35,7 @@ const packagesRoutes = require('./routes/packages');
 const permissionProfilesRoutes = require('./routes/permission-profiles');
 const commissionsRoutes = require('./routes/commissions');
 const notificationsRoutes = require('./routes/notifications');
+const whatsappRoutes = require('./routes/whatsapp');
 const { startCronJobs } = require('./services/cronJobs');
 
 const path = require('path');
@@ -85,6 +86,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/permission-profiles`, permissionProfilesRoutes);
   app.use(`${prefix}/commissions`, commissionsRoutes);
   app.use(`${prefix}/notifications`, notificationsRoutes);
+  app.use(`${prefix}/whatsapp`, whatsappRoutes);
 }
 
 // ---- Middlewares globais ----

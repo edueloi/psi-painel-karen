@@ -1,11 +1,16 @@
-
-import React, { useState } from 'react';
-import { Smartphone, CheckCircle, AlertCircle, Clock, Calendar, DollarSign, Gift, User, FileText, Bell } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Smartphone, CheckCircle, AlertCircle, Clock, Calendar, DollarSign, Gift, User, FileText, Bell, Loader2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { api } from '../services/api';
 
 export const BotIntegration: React.FC = () => {
   const { t } = useLanguage();
-  const [isConnected, setIsConnected] = useState(false);
+  const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [phone, setPhone] = useState<string | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
   const [config, setConfig] = useState({
     patient: {
       remind24h: true,
@@ -20,6 +25,51 @@ export const BotIntegration: React.FC = () => {
     }
   });
 
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  const fetchStatus = async () => {
+    try {
+      setIsLoading(true);
+      const data = await api.get<{ status: any, phone: string | null }>('/whatsapp/status');
+      setStatus(data.status || 'disconnected');
+      setPhone(data.phone);
+    } catch (err) {
+      console.error('Erro ao buscar status:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConnect = async () => {
+    try {
+      setIsActionLoading(true);
+      const data = await api.post<{ qrcode: string, status: any }>('/whatsapp/connect', {});
+      setQrCode(data.qrcode);
+      setStatus('connecting');
+    } catch (err) {
+      console.error('Erro ao conectar:', err);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!window.confirm(t('bot.disconnect') + '?')) return;
+    try {
+      setIsActionLoading(true);
+      await api.post('/whatsapp/disconnect', {});
+      setStatus('disconnected');
+      setQrCode(null);
+      setPhone(null);
+    } catch (err) {
+      console.error('Erro ao desconectar:', err);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   const toggleConfig = (section: 'patient' | 'pro', key: string) => {
     setConfig(prev => ({
       ...prev,
@@ -31,11 +81,13 @@ export const BotIntegration: React.FC = () => {
     }));
   };
 
-  const handleSimulateConnection = () => {
-    setTimeout(() => {
-        setIsConnected(true);
-    }, 2000);
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="animate-spin text-indigo-600" size={40} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
@@ -63,47 +115,73 @@ export const BotIntegration: React.FC = () => {
           
           {/* Left Column: QR Code & Status */}
           <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col items-center text-center">
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col items-center text-center min-h-[440px] justify-center">
                   <h3 className="font-bold text-slate-800 mb-6">{t('bot.connect')}</h3>
                   
-                  {isConnected ? (
-                      <div className="flex flex-col items-center justify-center py-10 animate-fadeIn">
+                  {status === 'connected' ? (
+                      <div className="flex flex-col items-center justify-center py-10 animate-fadeIn w-full">
                           <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-6 shadow-sm border border-emerald-100">
                               <CheckCircle size={48} />
                           </div>
                           <h4 className="text-xl font-bold text-emerald-600 mb-2">{t('bot.connected')}</h4>
-                          <p className="text-sm text-slate-500">Karen Gomes (11) 99999-8888</p>
-                          <button onClick={() => setIsConnected(false)} className="mt-6 text-xs text-red-500 hover:underline">{t('bot.disconnect')}</button>
+                          <p className="text-sm text-slate-500">{phone || 'Dispositivo Vinculado'}</p>
+                          <button 
+                            onClick={handleDisconnect} 
+                            disabled={isActionLoading}
+                            className="mt-6 text-xs text-red-500 hover:underline disabled:opacity-50"
+                          >
+                            {isActionLoading ? t('common.loading') : t('bot.disconnect')}
+                          </button>
                       </div>
                   ) : (
-                      <div className="w-full flex flex-col items-center group cursor-pointer" onClick={handleSimulateConnection}>
+                      <div className="w-full flex flex-col items-center group">
                           <div className="relative bg-slate-900 p-4 rounded-xl shadow-lg mb-6 group-hover:scale-105 transition-transform duration-300">
-                              <div className="w-48 h-48 bg-white rounded-lg flex items-center justify-center overflow-hidden">
-                                  {/* Simulated QR Pattern */}
-                                  <div className="w-full h-full grid grid-cols-6 grid-rows-6 gap-1 p-2">
-                                      {Array.from({length: 36}).map((_, i) => (
-                                          <div key={i} className={`bg-slate-900 ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'} rounded-[1px]`}></div>
-                                      ))}
-                                      {/* Corner Markers */}
-                                      <div className="absolute top-4 left-4 w-10 h-10 border-4 border-slate-900 rounded-md"></div>
-                                      <div className="absolute top-4 right-4 w-10 h-10 border-4 border-slate-900 rounded-md"></div>
-                                      <div className="absolute bottom-4 left-4 w-10 h-10 border-4 border-slate-900 rounded-md"></div>
-                                  </div>
-                                  {/* Loading/Scan Overlay */}
-                                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-[2px] group-hover:opacity-0 transition-opacity">
-                                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-                                  </div>
+                              <div className="w-48 h-48 bg-white rounded-lg flex items-center justify-center overflow-hidden relative">
+                                  {qrCode ? (
+                                      <img src={qrCode} alt="QR Code" className="w-full h-full object-contain p-2" />
+                                  ) : (
+                                    /* Placeholder pattern while not connecting */
+                                    <div className="w-full h-full grid grid-cols-6 grid-rows-6 gap-1 p-2 opacity-20">
+                                        {Array.from({length: 36}).map((_, i) => (
+                                            <div key={i} className={`bg-slate-900 ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'} rounded-[1px]`}></div>
+                                        ))}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Action/Loading Overlay */}
+                                  {(status === 'disconnected' || isActionLoading) && (
+                                    <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center backdrop-blur-[2px] p-4">
+                                        {isActionLoading ? (
+                                            <Loader2 className="animate-spin text-emerald-600 mb-2" size={32} />
+                                        ) : (
+                                            <button 
+                                                onClick={handleConnect}
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md transition-all active:scale-95"
+                                            >
+                                                {t('bot.connect')}
+                                            </button>
+                                        )}
+                                    </div>
+                                  )}
                               </div>
                           </div>
                           <p className="text-sm font-bold text-slate-700 mb-1">{t('bot.scan')}</p>
                           <p className="text-xs text-slate-400">{t('bot.scanHint')}</p>
+                          {status === 'connecting' && (
+                            <button 
+                                onClick={handleDisconnect} 
+                                className="mt-4 text-[10px] text-slate-400 hover:text-red-500 underline"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                          )}
                       </div>
                   )}
               </div>
 
               <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
                   <h4 className="font-bold text-sm text-slate-700 mb-4 flex items-center gap-2">
-                      <AlertCircle size={16} className="text-indigo-500" /> Instruções
+                      <AlertCircle size={16} className="text-indigo-500" /> {t('bot.instructions')}
                   </h4>
                   <ol className="space-y-3 text-xs text-slate-600 list-decimal pl-4">
                       <li>{t('bot.instruction1')}</li>

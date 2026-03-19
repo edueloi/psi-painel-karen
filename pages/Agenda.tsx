@@ -274,12 +274,14 @@ export const Agenda: React.FC = () => {
         setAppointments(apts.map(a => {
             const start = new Date(a.start_time || a.appointment_date);
             const end = a.end_time ? new Date(a.end_time) : new Date(start.getTime() + (a.duration_minutes || 50) * 60000);
+            // Normaliza status: banco usa no_show, frontend usa no-show
+            const rawStatus = (a.status || 'scheduled').replace('no_show', 'no-show');
             return {
                 ...a,
                 start,
                 end,
                 type: a.type || 'consulta',
-                status: a.status || 'scheduled',
+                status: rawStatus,
                 professional_id: a.professional_id || a.psychologist_id,
                 duration_minutes: a.duration_minutes || 50
             };
@@ -827,6 +829,13 @@ export const Agenda: React.FC = () => {
 
   const handleSave = async () => {
     if (isSaving) return;
+
+    // Observação obrigatória quando status é "faltou"
+    if (formData.status === 'no-show' && !formData.notes?.trim()) {
+      pushToast('error', 'Preencha as Observações ao marcar como "Faltou".');
+      return;
+    }
+
     setIsSaving(true);
     try {
         const isPackage = String(formData.service_id).startsWith('pkg_');
@@ -1556,6 +1565,16 @@ export const Agenda: React.FC = () => {
                                 >
                                     {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                                 </Select>
+                                {formData.status === 'no-show' && (
+                                  <p className="text-[10px] font-bold text-amber-600 ml-1 flex items-center gap-1">
+                                    <AlertCircle size={10} /> Preencha as Observações abaixo — campo obrigatório para "Faltou"
+                                  </p>
+                                )}
+                                {formData.status === 'cancelled' && (
+                                  <p className="text-[10px] font-bold text-rose-500 ml-1 flex items-center gap-1">
+                                    <AlertCircle size={10} /> Sessão cancelada será contabilizada na comanda
+                                  </p>
+                                )}
                             </div>
                         </div>
                        )}

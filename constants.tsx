@@ -10,7 +10,6 @@ export const NAV_SECTIONS = [
       { label: 'nav.dashboard', path: '/dashboard', icon: <Activity size={20} /> },
       { label: 'nav.agenda', path: '/agenda', icon: <Calendar size={20} /> },
       { label: 'nav.meeting', path: '/salas-virtuais', icon: <Video size={20} /> },
-      { label: 'nav.bot', path: '/bot', icon: <Smartphone size={20} /> },
     ]
   },
   {

@@ -42,11 +42,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
     ? 'border border-red-500/20 text-red-300 bg-red-500/10 hover:bg-red-500/20'
     : 'border border-red-100 text-red-600 bg-red-50 hover:bg-red-100';
 
-  const visibleSections = NAV_SECTIONS.filter(section => {
+  const visibleSections = NAV_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => {
+      // O Bot só aparece para Admins
+      if (item.path === '/bot' && !isAdmin) return false;
+      return true;
+    })
+  })).filter(section => {
     if (user?.role === 'super_admin') return false;
     const isRestrictedGroup = section.title === 'nav.group.management' || section.title === 'nav.group.financial';
     if (isRestrictedGroup && !isAdmin) return false;
-    return true;
+    return section.items.length > 0;
   });
 
   return (

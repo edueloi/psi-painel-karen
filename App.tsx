@@ -124,7 +124,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
       <Route path="/salas-virtuais" element={<ProtectedRoute><VirtualRooms /></ProtectedRoute>} />
       <Route path="/sala/:id" element={<MeetingRoom />} />
-      <Route path="/bot" element={<ProtectedRoute><BotIntegration /></ProtectedRoute>} />
+      <Route path="/bot" element={<ProtectedRoute allowedRoles={['admin']}><BotIntegration /></ProtectedRoute>} />
 
       {/* Rotas clinicas avancadas */}
       <Route path="/neurodesenvolvimento" element={<ProtectedRoute><PEI /></ProtectedRoute>} />

@@ -512,34 +512,101 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Helper: normaliza status do frontend para o ENUM do banco
+function normalizeStatus(s) {
+  if (!s) return 'scheduled';
+  // Frontend manda 'no-show', banco espera 'no_show'
+  if (s === 'no-show') return 'no_show';
+  const valid = ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'];
+  return valid.includes(s) ? s : 'scheduled';
+}
+
+// PUT /appointments/:id/status  (chamado por handleUpdateAppointmentStatus)
+router.put('/:id/status', async (req, res) => {
+  try {
+    await withSchema();
+    const { status, notes } = req.body;
+    const dbStatus = normalizeStatus(status);
+
+    const [existing] = await db.query(
+      'SELECT id, comanda_id FROM appointments WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (existing.length === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
+
+    await db.query(
+      'UPDATE appointments SET status = ?, notes = COALESCE(?, notes) WHERE id = ? AND tenant_id = ?',
+      [dbStatus, notes || null, req.params.id, req.user.tenant_id]
+    );
+
+    // Contabiliza faltou/cancelado na comanda: incrementa sessions_used
+    const comandaId = existing[0].comanda_id;
+    if (comandaId && (dbStatus === 'no_show' || dbStatus === 'cancelled')) {
+      try {
+        await db.query(
+          'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',
+          [comandaId, req.user.tenant_id]
+        );
+      } catch (e) { /* ignora se comanda não existe */ }
+    }
+
+    const [updated] = await db.query(
+      `SELECT a.*, p.name as patient_name, u.name as professional_name
+       FROM appointments a
+       LEFT JOIN patients p ON p.id = a.patient_id
+       LEFT JOIN users u ON u.id = a.professional_id
+       WHERE a.id = ?`,
+      [req.params.id]
+    );
+
+    res.json(updated[0]);
+  } catch (err) {
+    console.error('Erro ao atualizar status:', err);
+    res.status(500).json({ error: 'Erro ao atualizar status', details: err.message });
+  }
+});
+
 // PUT /appointments/:id
 router.put('/:id', async (req, res) => {
   try {
     await withSchema();
-    const { 
-      patient_id, professional_id, psychologist_id, service_id, package_id, title, 
+    const {
+      patient_id, professional_id, psychologist_id, service_id, package_id, title,
       start_time, end_time, status, notes, color,
       modality, type, duration_minutes, meeting_url,
       reschedule_reason, comanda_id
     } = req.body;
 
     const [existing] = await db.query(
-      'SELECT id FROM appointments WHERE id = ? AND tenant_id = ?',
+      'SELECT id, status as old_status, comanda_id as old_comanda FROM appointments WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
 
-    let formattedStart = start_time;
-    let formattedEnd = end_time;
+    const dbStatus = normalizeStatus(status);
+    const oldStatus = existing[0].old_status;
+
+    let formattedStart = null;
+    let formattedEnd = null;
 
     if (start_time) {
-        formattedStart = new Date(start_time).toISOString().slice(0, 19).replace('T', ' ');
+      const startDate = new Date(start_time);
+      formattedStart = startDate.toISOString().slice(0, 19).replace('T', ' ');
+
+      // Recalcula end_time com base no start_time + duration quando end_time não é enviado
+      if (!end_time) {
+        const dur = parseInt(duration_minutes) || 50;
+        const endDate = new Date(startDate.getTime() + dur * 60000);
+        formattedEnd = endDate.toISOString().slice(0, 19).replace('T', ' ');
+      }
     }
+
     if (end_time) {
-        formattedEnd = new Date(end_time).toISOString().slice(0, 19).replace('T', ' ');
+      formattedEnd = new Date(end_time).toISOString().slice(0, 19).replace('T', ' ');
     }
 
     const finalProfessionalId = professional_id || psychologist_id || null;
+    const finalComandaId = comanda_id || existing[0].old_comanda || null;
 
     await db.query(
       `UPDATE appointments SET
@@ -561,26 +628,37 @@ router.put('/:id', async (req, res) => {
         comanda_id = ?
        WHERE id = ? AND tenant_id = ?`,
       [
-        patient_id || null, 
-        finalProfessionalId, 
-        service_id || null, 
-        package_id || null, 
-        title || null, 
-        formattedStart, 
-        formattedEnd, 
-        status || 'scheduled', 
-        notes || null, 
+        patient_id || null,
+        finalProfessionalId,
+        service_id || null,
+        package_id || null,
+        title || null,
+        formattedStart,
+        formattedEnd,
+        dbStatus,
+        notes || null,
         color || null,
         modality || 'presencial',
         type || 'consulta',
         parseInt(duration_minutes) || 50,
         meeting_url || null,
         reschedule_reason || null,
-        comanda_id || null,
-        req.params.id, 
+        finalComandaId,
+        req.params.id,
         req.user.tenant_id
       ]
     );
+
+    // Se status mudou para faltou/cancelado e há comanda, incrementa sessions_used
+    const statusChanged = dbStatus !== oldStatus;
+    if (statusChanged && finalComandaId && (dbStatus === 'no_show' || dbStatus === 'cancelled')) {
+      try {
+        await db.query(
+          'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',
+          [finalComandaId, req.user.tenant_id]
+        );
+      } catch (e) { /* ignora */ }
+    }
 
     const [updated] = await db.query(
       `SELECT a.*, p.name as patient_name, u.name as professional_name
