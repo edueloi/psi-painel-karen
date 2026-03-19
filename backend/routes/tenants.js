@@ -1,8 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const db = require('../db');
 const { authorize } = require('../middleware/auth');
+const { DEFAULT_FORMS } = require('../default_forms_data');
+
+async function createDefaultFormsForTenant(tenantId, adminUserId) {
+  for (const form of DEFAULT_FORMS) {
+    const fields = JSON.stringify({
+      questions: form.questions,
+      interpretations: form.interpretations || [],
+      theme: null,
+    });
+    const hash = crypto.randomBytes(8).toString('hex');
+    try {
+      await db.query(
+        'INSERT INTO forms (tenant_id, title, description, fields, is_public, hash, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [tenantId, form.title, form.description || null, fields, 1, hash, adminUserId]
+      );
+    } catch (e) {
+      // Ignora duplicata de hash — improvável mas seguro
+    }
+  }
+}
 
 router.use(authorize('super_admin'));
 
@@ -154,10 +175,13 @@ router.post('/', async (req, res) => {
     const tenantId = tenantResult.insertId;
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await db.query(
+    const [userResult] = await db.query(
       'INSERT INTO users (tenant_id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
       [tenantId, admin_name || 'Administrador', admin_email, hashedPassword, 'admin']
     );
+
+    // Cria formulários psicológicos padrão para o novo tenant
+    await createDefaultFormsForTenant(tenantId, userResult.insertId);
 
     const [tenant] = await db.query(`
       SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active,
