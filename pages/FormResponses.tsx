@@ -62,8 +62,20 @@ export const FormResponses: React.FC = () => {
       const cleanAnalysis = resp.analysis
         .replace(/```markdown/g, '')
         .replace(/```/g, '')
+        .replace(/##/g, '') // remove títulos extras para a UI pois já colocamos estilizados
         .trim();
+        
       setAiAnalysisMap(prev => ({ ...prev, [response.id]: cleanAnalysis }));
+
+      // Vincular automaticamente ao prontuário do paciente se houver ID
+      if (response.patient_id) {
+        api.post('/ai/save-analysis', {
+          patientId: response.patient_id,
+          formTitle,
+          analysis: cleanAnalysis
+        }).catch(err => console.error("Falha ao salvar analise automatica", err));
+      }
+
     } catch (e) {
       console.error(e);
       alert('Erro ao gerar análise. Verifique se a chave de API está configurada.');

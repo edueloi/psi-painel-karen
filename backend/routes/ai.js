@@ -683,4 +683,24 @@ RESPONDA SEMPRE EM PORTUGUES-BR.`;
   }
 });
 
+router.post('/save-analysis', async (req, res) => {
+  try {
+    const { patientId, formTitle, analysis } = req.body;
+    if (!patientId || !analysis) return res.status(400).json({ error: 'Dados incompletos' });
+
+    const finalContent = `## ANALISE DE FORMULARIO: ${formTitle}\n\n${analysis}`;
+
+    const [result] = await db.query(
+      `INSERT INTO medical_records (tenant_id, patient_id, professional_id, content, type) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [req.user.tenant_id, patientId, req.user.id, finalContent, 'form_analysis']
+    );
+
+    res.json({ success: true, recordId: result.insertId });
+  } catch (err) {
+    console.error('Erro ao salvar analise:', err);
+    res.status(500).json({ error: 'Erro ao salvar analise no prontuario' });
+  }
+});
+
 module.exports = router;

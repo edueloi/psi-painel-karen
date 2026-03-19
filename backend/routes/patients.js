@@ -696,7 +696,7 @@ router.get('/:id/history', async (req, res) => {
       })),
       ...records.map(r => ({
         id: `rec-${r.id}`, type: 'record', date: r.date,
-        title: r.type === 'session' ? 'Evolução de Sessão' : 'Prontuário',
+        title: r.type === 'session' ? 'Evolução de Sessão' : (r.type === 'form_analysis' ? 'Análise Clínica de Formulário' : 'Prontuário'),
         subtitle: r.professional_name,
         preview: r.content ? String(r.content).slice(0, 150) : null,
       })),
