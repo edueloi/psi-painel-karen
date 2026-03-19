@@ -251,7 +251,13 @@ export const Dashboard: React.FC = () => {
   const InsightWidget = () => {
     const next = upcomingAll[0];
     const nextTime = next?.start ? next.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    const nextLabel = next ? `${next.patient_name} - ${nextTime}` : 'Sem consultas futuras no momento.';
+    const isNextToday = next?.start
+      ? next.start.getDate() === now.getDate() && next.start.getMonth() === now.getMonth()
+      : false;
+    const nextDate = next?.start && !isNextToday
+      ? next.start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às '
+      : '';
+    const nextLabel = next ? `${next.patient_name} - ${nextDate}${nextTime}` : 'Sem consultas futuras no momento.';
 
     return (
       <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden">
