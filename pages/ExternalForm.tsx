@@ -50,37 +50,37 @@ function ErrorScreen({ message, hash }: { message: string; hash?: string }) {
 
 function SuccessScreen({
   professional,
-  scoreResult,
 }: {
   professional: any;
-  scoreResult: { total: number; interpretation?: InterpretationRule } | null;
 }) {
+  const profName = professional?.name || 'o profissional';
+  const crp = professional?.crp ? `CRP ${professional.crp}` : '';
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 max-w-md w-full p-8 text-center">
-        <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle className="text-emerald-500" size={28} />
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 animate-fadeIn">
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 max-w-md w-full p-10 text-center">
+        <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-emerald-100">
+          <CheckCircle className="text-emerald-500" size={32} />
         </div>
-        <h2 className="text-xl font-bold text-slate-800 mb-1">Respostas enviadas!</h2>
-        <p className="text-sm text-slate-500 mb-6">
-          Suas respostas foram enviadas para{' '}
-          <strong>{professional?.name || 'o profissional'}</strong> com segurança.
-        </p>
-
-        {scoreResult?.interpretation && (
-          <div className={`p-4 rounded-xl border text-left mb-6 ${scoreResult.interpretation.color}`}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Resultado</span>
-              <span className="font-mono font-bold text-sm">{scoreResult.total} pts</span>
-            </div>
-            <h3 className="font-bold text-base mb-1">{scoreResult.interpretation.resultTitle}</h3>
-            {scoreResult.interpretation.description && (
-              <p className="text-xs opacity-80 leading-relaxed">{scoreResult.interpretation.description}</p>
-            )}
+        
+        <h2 className="text-2xl font-bold text-slate-800 mb-3">Respostas enviadas!</h2>
+        
+        <div className="space-y-4 mb-8">
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Obrigado! Suas respostas foram enviadas com segurança para:<br/>
+            <strong className="text-indigo-600 font-bold block mt-1">{profName} {crp}</strong>
+          </p>
+          
+          <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
+            <p className="text-xs text-slate-500 leading-relaxed italic">
+              "O profissional entrará em contato após a avaliação dos resultados."
+            </p>
           </div>
-        )}
+        </div>
 
-        <p className="text-xs text-slate-400">Você pode fechar esta página agora.</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          Você pode fechar esta página agora.
+        </p>
       </div>
     </div>
   );
@@ -223,7 +223,7 @@ export const ExternalForm: React.FC = () => {
   /* ─── renders ─── */
   if (loading) return <LoadingScreen />;
   if (loadError || !form) return <ErrorScreen message={loadError || ''} hash={hash} />;
-  if (submitted) return <SuccessScreen professional={professional} scoreResult={scoreResult} />;
+  if (submitted) return <SuccessScreen professional={professional} />;
 
   const hasInterpretations = (form.interpretations?.length || 0) > 0;
   const logoUrl = professional?.clinic_logo_url;
