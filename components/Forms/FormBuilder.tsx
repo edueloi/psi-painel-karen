@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { FormQuestion, QuestionType, FormOption, InterpretationRule, FormTheme } from '../../types';
 import {
-  Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, Wand2, ArrowLeft, Calculator, Target, Palette, Settings, Eye, Copy, MoveVertical, AlertCircle, Sparkles
+  Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, Wand2, ArrowLeft, Calculator, Target, Palette, Settings, Copy, MoveVertical, AlertCircle, Sparkles
 } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { Input, Select, TextArea } from '../UI/Input';
@@ -219,10 +219,6 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-           <button className="p-2 text-slate-400 hover:text-indigo-600 transition-colors hidden lg:block">
-             <Eye size={20} />
-           </button>
-           <div className="h-6 w-px bg-slate-200 mx-1 hidden lg:block"></div>
            <Button variant="primary" size="md" onClick={handleSave} className="rounded-2xl px-4 sm:px-6 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
              <Save size={18} className="sm:mr-2" /> <span className="hidden sm:inline">Salvar Projeto</span>
            </Button>

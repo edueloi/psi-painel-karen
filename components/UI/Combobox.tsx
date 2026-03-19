@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Check, UserPlus, ChevronDown, X } from 'lucide-react';
 
 interface Option {
@@ -47,6 +48,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [dropdownCoords, setDropdownCoords] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
 
   const selectedOptions = useMemo(() => {
     if (multiple && Array.isArray(value)) {
@@ -65,7 +67,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
     inputText: size === 'sm' ? 'text-sm' : 'text-sm',
     inputPadding: size === 'sm' ? 'pl-9 pr-10' : 'pl-10 pr-12',
     dropdownRounded: size === 'sm' ? 'rounded-xl' : 'rounded-2xl',
-    dropdownTop: size === 'sm' ? 'top-[calc(100%+6px)]' : 'top-[calc(100%+8px)]',
+    dropdownTopOffset: size === 'sm' ? 6 : 8,
     headerPadding: size === 'sm' ? 'px-3 py-2' : 'px-4 py-3',
     listPadding: size === 'sm' ? 'p-1.5' : 'p-2',
     listMaxHeight: size === 'sm' ? 'max-h-[220px]' : 'max-h-[260px]',
@@ -90,12 +92,42 @@ export const Combobox: React.FC<ComboboxProps> = ({
 
   const filteredOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery || (multiple && selectedOptions.some(o => o.label.toLowerCase() === normalizedQuery))) return options;
+    
+    // Se o valor da query for EXATAMENTE igual ao selecionado, mostramos todas as opções
+    // Isso resolve o problema de o usuário clicar e não ver as outras opções.
+    const isShowingSelected = !multiple && selectedOptions.length > 0 && query === selectedOptions[0].label;
+    
+    if (!normalizedQuery || isShowingSelected) return options;
 
     return options.filter((option) =>
       option.label.toLowerCase().includes(normalizedQuery)
     );
   }, [options, query, multiple, selectedOptions]);
+
+  // Atualiza posição do dropdown quando abre ou redimensiona
+  const updateDropdownCoords = () => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.querySelector('.input-shell')?.getBoundingClientRect();
+    if (rect) {
+      setDropdownCoords({
+        top: rect.bottom + window.scrollY + ui.dropdownTopOffset,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (isOpen) {
+      updateDropdownCoords();
+      window.addEventListener('scroll', updateDropdownCoords, true);
+      window.addEventListener('resize', updateDropdownCoords);
+    }
+    return () => {
+      window.removeEventListener('scroll', updateDropdownCoords, true);
+      window.removeEventListener('resize', updateDropdownCoords);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     setHighlightedIndex(filteredOptions.length > 0 ? 0 : -1);
@@ -103,7 +135,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
+      if (!containerRef.current?.contains(event.target as Node) && !listRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
         if (multiple) {
             setQuery('');
@@ -115,24 +147,9 @@ export const Combobox: React.FC<ComboboxProps> = ({
         }
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [selectedOptions, allowCustom, onChange, multiple]);
-
-  useEffect(() => {
-    if (!isOpen || highlightedIndex < 0 || !listRef.current) return;
-    const activeItem = listRef.current.querySelector(`[data-index="${highlightedIndex}"]`) as HTMLElement | null;
-    activeItem?.scrollIntoView({ block: 'nearest' });
-  }, [highlightedIndex, isOpen]);
-
-  const openDropdown = () => {
-    if (!disabled) setIsOpen(true);
-  };
-
-  const closeDropdown = () => {
-    setIsOpen(false);
-  };
 
   const handleSelect = (option: Option) => {
     if (multiple) {
@@ -150,6 +167,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
       setHighlightedIndex(-1);
     }
   };
+
+  const openDropdown = () => setIsOpen(true);
 
   const handleClear = () => {
     setQuery('');
@@ -200,24 +219,90 @@ export const Combobox: React.FC<ComboboxProps> = ({
     }
     if (event.key === 'Escape') {
       event.preventDefault();
-      closeDropdown();
+      setIsOpen(false);
       if (!multiple && selectedOptions.length > 0) setQuery(selectedOptions[0].label);
-      else setQuery('');
+      else if (multiple) setQuery('');
     }
   };
 
   const showAddCustom = allowCustom && query.trim() && filteredOptions.length === 0 && typeof onCustomAdd === 'function';
 
+  const dropdownList = isOpen ? createPortal(
+    <div 
+        ref={listRef}
+        className={cx(
+            'fixed z-[300] overflow-hidden border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.2)] animate-[dropdownIn_0.2s_ease-out]',
+            ui.dropdownRounded
+        )}
+        style={{ 
+            top: dropdownCoords.top, 
+            left: dropdownCoords.left, 
+            width: dropdownCoords.width 
+        }}
+    >
+      {showResultCount && (
+        <div className={cx('border-b border-slate-100', ui.headerPadding)}>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            {filteredOptions.length > 0 ? `${filteredOptions.length} resultado(s)` : 'Busca'}
+          </p>
+        </div>
+      )}
+      <div className={cx(ui.listMaxHeight, 'overflow-y-auto custom-scrollbar', ui.listPadding)}>
+        {filteredOptions.length > 0 ? (
+          filteredOptions.map((option, index) => {
+            const isSelected = selectedOptions.some(o => o.id === option.id);
+            const isHighlighted = index === highlightedIndex;
+            return (
+              <button key={option.id} type="button" data-index={index} onClick={() => handleSelect(option)} className={cx('flex w-full items-center justify-between text-left transition', ui.itemPadding, size === 'sm' ? 'rounded-lg' : 'rounded-xl', isSelected ? 'bg-violet-50 text-violet-700' : isHighlighted ? 'bg-slate-50 text-slate-800' : 'text-slate-700 hover:bg-slate-50')}>
+                <div className="min-w-0 pr-2">
+                  <p className={cx('truncate font-bold', ui.itemTitle)}>{option.label}</p>
+                  {isSelected && (
+                    <p className={cx('mt-0.5 font-bold uppercase tracking-wide text-violet-500', ui.itemMeta)}>
+                      {multiple ? 'Ativado' : 'Selecionado'}
+                    </p>
+                  )}
+                </div>
+                <div className={cx('ml-2 flex shrink-0 items-center justify-center rounded-lg border transition', ui.checkSize, isSelected ? 'border-violet-600 bg-violet-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-100')}>
+                  <Check size={12} strokeWidth={4} />
+                </div>
+              </button>
+            );
+          })
+        ) : showAddCustom ? (
+          <button type="button" onClick={() => { onCustomAdd?.(query.trim()); if (!multiple) setIsOpen(false); }} className={cx('flex w-full items-center gap-3 text-left text-violet-700 transition hover:bg-violet-50', size === 'sm' ? 'rounded-lg px-3 py-3' : 'rounded-xl px-4 py-4')}>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600"><UserPlus size={15} /></div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Não encontrado</p>
+              <p className="text-sm font-bold">Adicionar "{query.trim()}"</p>
+            </div>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center px-4 py-8 text-center">
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-300"><Search size={16} /></div>
+            <p className="text-sm font-bold text-slate-500">{noResultsText}</p>
+          </div>
+        )}
+      </div>
+      <style>{`
+        @keyframes dropdownIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div ref={containerRef} className={cx('w-full relative', className)} style={{ zIndex: isOpen ? 130 : 'auto' }}>
-      <label className="mb-1 block text-[12px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-2">
+    <div ref={containerRef} className={cx('w-full', className)}>
+      <label className="mb-2 block text-[12px] font-bold text-slate-500 uppercase tracking-widest leading-none">
         {label}
       </label>
 
       <div className="relative">
         <div
           className={cx(
-            'relative flex items-center rounded-xl border bg-white transition-all',
+            'input-shell relative flex items-center rounded-xl border bg-white transition-all',
             ui.inputHeight,
             disabled ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-70' : isOpen ? 'border-violet-500 ring-4 ring-violet-500/10' : 'border-slate-300 hover:border-slate-400'
           )}
@@ -255,59 +340,12 @@ export const Combobox: React.FC<ComboboxProps> = ({
                 <X size={13} />
               </button>
             )}
-            <button type="button" onClick={() => (isOpen ? closeDropdown() : openDropdown())} disabled={disabled} className={cx('flex items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed', ui.chevronSize)} aria-label="Abrir opções">
+            <button type="button" onClick={() => (isOpen ? setIsOpen(!isOpen) : setIsOpen(true))} disabled={disabled} className={cx('flex items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed', ui.chevronSize)} aria-label="Abrir opções">
               <ChevronDown size={14} className={cx('transition-transform', isOpen && 'rotate-180')} />
             </button>
           </div>
         </div>
-
-        {isOpen && (
-          <div className={cx('absolute left-0 right-0 z-[200] overflow-hidden border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]', ui.dropdownRounded, ui.dropdownTop)}>
-            {showResultCount && (
-              <div className={cx('border-b border-slate-100', ui.headerPadding)}>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  {filteredOptions.length > 0 ? `${filteredOptions.length} resultado(s)` : 'Busca'}
-                </p>
-              </div>
-            )}
-            <div ref={listRef} className={cx(ui.listMaxHeight, 'overflow-y-auto custom-scrollbar', ui.listPadding)}>
-              {filteredOptions.length > 0 ? (
-                filteredOptions.map((option, index) => {
-                  const isSelected = selectedOptions.some(o => o.id === option.id);
-                  const isHighlighted = index === highlightedIndex;
-                  return (
-                    <button key={option.id} type="button" data-index={index} onClick={() => handleSelect(option)} className={cx('flex w-full items-center justify-between text-left transition', ui.itemPadding, size === 'sm' ? 'rounded-lg' : 'rounded-xl', isSelected ? 'bg-violet-50 text-violet-700' : isHighlighted ? 'bg-slate-50 text-slate-800' : 'text-slate-700 hover:bg-slate-50')}>
-                      <div className="min-w-0 pr-2">
-                        <p className={cx('truncate font-bold', ui.itemTitle)}>{option.label}</p>
-                        {isSelected && (
-                          <p className={cx('mt-0.5 font-bold uppercase tracking-wide text-violet-500', ui.itemMeta)}>
-                            {multiple ? 'Ativado' : 'Selecionado'}
-                          </p>
-                        )}
-                      </div>
-                      <div className={cx('ml-2 flex shrink-0 items-center justify-center rounded-lg border transition', ui.checkSize, isSelected ? 'border-violet-600 bg-violet-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-100')}>
-                        <Check size={12} strokeWidth={4} />
-                      </div>
-                    </button>
-                  );
-                })
-              ) : showAddCustom ? (
-                <button type="button" onClick={() => { onCustomAdd?.(query.trim()); if (!multiple) setIsOpen(false); }} className={cx('flex w-full items-center gap-3 text-left text-violet-700 transition hover:bg-violet-50', size === 'sm' ? 'rounded-lg px-3 py-3' : 'rounded-xl px-4 py-4')}>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600"><UserPlus size={15} /></div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Não encontrado</p>
-                    <p className="text-sm font-bold">Adicionar "{query.trim()}"</p>
-                  </div>
-                </button>
-              ) : (
-                <div className="flex flex-col items-center px-4 py-8 text-center">
-                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-300"><Search size={16} /></div>
-                  <p className="text-sm font-bold text-slate-500">{noResultsText}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {dropdownList}
       </div>
     </div>
   );
