@@ -4,6 +4,7 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const xlsx = require('xlsx');
 const db = require('../db');
+const { sendMail, templates } = require('../services/emailService');
 
 const memoryUpload = multer({ storage: multer.memoryStorage() });
 
@@ -483,6 +484,28 @@ router.post('/', async (req, res) => {
     // Adiciona o comanda_id no retorno para o frontend redirecionar se necessário
     const resultData = { ...created[0], comanda_id: comandaId };
     res.status(201).json(resultData);
+
+    // Dispara email de novo agendamento em background (não bloqueia a resposta)
+    setImmediate(async () => {
+      try {
+        const apt = created[0];
+        if (!apt || apt.type !== 'consulta') return;
+        // Busca email do profissional
+        const [[prof]] = await db.query('SELECT email FROM users WHERE id = ? LIMIT 1', [apt.professional_id]).catch(() => [[null]]);
+        const target = prof?.email;
+        if (!target) return;
+        const startDate = new Date(apt.start_time);
+        const html = templates.newAppointment({
+          patientName: apt.patient_name || 'Paciente',
+          date: startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          time: startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          type: apt.type,
+          modality: apt.modality,
+          professional: apt.professional_name,
+        });
+        await sendMail(target, `📅 Novo agendamento — ${apt.patient_name}`, html);
+      } catch (e) { /* silencioso */ }
+    });
   } catch (err) {
     console.error('Erro ao criar agendamento:', err);
     res.status(500).json({ error: 'Erro ao criar agendamento', details: err.message });

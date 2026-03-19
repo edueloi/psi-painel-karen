@@ -34,6 +34,8 @@ const productsRoutes = require('./routes/products');
 const packagesRoutes = require('./routes/packages');
 const permissionProfilesRoutes = require('./routes/permission-profiles');
 const commissionsRoutes = require('./routes/commissions');
+const notificationsRoutes = require('./routes/notifications');
+const { startCronJobs } = require('./services/cronJobs');
 
 const path = require('path');
 const app = express();
@@ -82,6 +84,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/packages`, packagesRoutes);
   app.use(`${prefix}/permission-profiles`, permissionProfilesRoutes);
   app.use(`${prefix}/commissions`, commissionsRoutes);
+  app.use(`${prefix}/notifications`, notificationsRoutes);
 }
 
 // ---- Middlewares globais ----
@@ -110,4 +113,5 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Backend PsiFlux rodando na porta ${PORT}`);
   console.log(`Health: http://localhost:${PORT}/health`);
+  startCronJobs();
 });

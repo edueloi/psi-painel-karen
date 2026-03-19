@@ -3,13 +3,93 @@ const router = express.Router();
 const db = require('../db');
 
 // Avaliações neuropsicológicas pré-definidas (templates fixos)
+// Avaliações neuropsicológicas pré-definidas (templates estruturados)
 const ASSESSMENT_TEMPLATES = [
-  { id: 1, name: 'CARS-2', description: 'Childhood Autism Rating Scale', category: 'autism' },
-  { id: 2, name: 'ADOS-2', description: 'Autism Diagnostic Observation Schedule', category: 'autism' },
-  { id: 3, name: 'Vineland-3', description: 'Vineland Adaptive Behavior Scales', category: 'adaptive' },
-  { id: 4, name: 'WISC-V', description: 'Escala de Inteligência Wechsler para Crianças', category: 'intelligence' },
-  { id: 5, name: 'SNAP-IV', description: 'Swanson, Nolan e Pelham - TDAH', category: 'adhd' },
-  { id: 6, name: 'SDQ', description: 'Questionário de Capacidades e Dificuldades', category: 'behavior' },
+  { 
+    id: 1, 
+    name: 'CARS-2', 
+    description: 'Childhood Autism Rating Scale - 2nd Edition', 
+    category: 'autism',
+    initial: 'C',
+    fields: [
+      { id: 'total_score', label: 'Pontuação Total', type: 'number', placeholder: 'Soma total (15-60)' },
+      { id: 'classification', label: 'Classificação', type: 'select', options: ['Mínimo/Sem Autismo', 'Autismo Leve a Moderado', 'Autismo Grave'] },
+      { id: 'clinical_notes', label: 'Impressões Clínicas', type: 'text' }
+    ]
+  },
+  { 
+    id: 2, 
+    name: 'ADOS-2', 
+    description: 'Autism Diagnostic Observation Schedule', 
+    category: 'autism',
+    initial: 'A',
+    fields: [
+      { id: 'module', label: 'Módulo Aplicado', type: 'select', options: ['Módulo 1', 'Módulo 2', 'Módulo 3', 'Módulo 4', 'Toddler'] },
+      { id: 'social_affect', label: 'Afeto Social (SA)', type: 'number' },
+      { id: 'rrb', label: 'Comportamento Restrito/Repetitivo (RRB)', type: 'number' },
+      { id: 'comparison_score', label: 'Pontuação de Comparação (CSS)', type: 'number', placeholder: '1-10' },
+      { id: 'classification', label: 'Classificação ADOS', type: 'select', options: ['Autismo', 'Espectro do Autismo', 'Não-Espectro'] }
+    ]
+  },
+  { 
+    id: 3, 
+    name: 'Vineland-3', 
+    description: 'Vineland Adaptive Behavior Scales - 3rd Edition', 
+    category: 'adaptive',
+    initial: 'V',
+    fields: [
+      { id: 'abc_score', label: 'Índice de Comportamento Adaptativo (ABC)', type: 'number', placeholder: 'Standard Score (M=100, SD=15)' },
+      { id: 'communication', label: 'Comunicação (Pontuação Padrão)', type: 'number' },
+      { id: 'daily_living', label: 'Habilidades de Vida Diária', type: 'number' },
+      { id: 'socialization', label: 'Socialização', type: 'number' },
+      { id: 'motor_skills', label: 'Habilidades Motoras (se aplicável)', type: 'number' },
+      { id: 'interpretation', label: 'Interpretação qualitativa', type: 'text' }
+    ]
+  },
+  { 
+    id: 4, 
+    name: 'WISC-V', 
+    description: 'Escala de Inteligência Wechsler para Crianças - 5ª Ed.', 
+    category: 'intelligence',
+    initial: 'W',
+    fields: [
+      { id: 'fsiq', label: 'QI Total (FSIQ)', type: 'number' },
+      { id: 'vci', label: 'Compreensão Verbal (VCI)', type: 'number' },
+      { id: 'vsi', label: 'Visuoespacial (VSI)', type: 'number' },
+      { id: 'fri', label: 'Raciocínio Fluido (FRI)', type: 'number' },
+      { id: 'wmi', label: 'Memória Operacional (WMI)', type: 'number' },
+      { id: 'psi', label: 'Velocidade de Processamento (PSI)', type: 'number' }
+    ]
+  },
+  { 
+    id: 5, 
+    name: 'SNAP-IV', 
+    description: 'Swanson, Nolan e Pelham Questionnaire - TDAH', 
+    category: 'adhd',
+    initial: 'S',
+    fields: [
+      { id: 'inattention_avg', label: 'Média de Desatenção (Itens 1-9)', type: 'number', placeholder: 'Normal < 1.2 / Limite 1.2-1.7' },
+      { id: 'hyperactivity_avg', label: 'Média de Hiperat./Impul. (Itens 10-18)', type: 'number', placeholder: 'Normal < 1.2 / Limite 1.2-2.3' },
+      { id: 'opposition_avg', label: 'Média Desafio/Oposição (Itens 19-26)', type: 'number' },
+      { id: 'interpretation', label: 'Sintomatologia clínica detectada?', type: 'select', options: ['Não', 'Sugestivo de TDAH-I', 'Sugestivo de TDAH-H', 'Sugestivo de TDAH-C', 'Sugestivo de TOD'] }
+    ]
+  },
+  { 
+    id: 6, 
+    name: 'SDQ', 
+    description: 'Questionário de Capacidades e Dificuldades', 
+    category: 'behavior',
+    initial: 'S',
+    fields: [
+      { id: 'total_difficulties', label: 'Escore de Dificuldades Totais', type: 'number', placeholder: '0-40' },
+      { id: 'emotional_symptoms', label: 'Sintomas Emocionais', type: 'number' },
+      { id: 'conduct_problems', label: 'Problemas de Conduta', type: 'number' },
+      { id: 'hyperactivity', label: 'Hiperatividade', type: 'number' },
+      { id: 'peer_problems', label: 'Problemas com Pares', type: 'number' },
+      { id: 'prosocial', label: 'Comportamento Prosocial', type: 'number' },
+      { id: 'result_cat', label: 'Classificação Geral', type: 'select', options: ['Normal', 'Limítrofe', 'Anormal'] }
+    ]
+  },
 ];
 
 // GET /neuro-assessments - Lista instrumentos disponíveis

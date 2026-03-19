@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect } from 'react';
 // Data loaded from API
 import { PEI as PEIType, ClinicalGoal, ABCRecord, GoalStatus, Patient } from '../types';
@@ -17,10 +17,10 @@ type NeuroAssessment = {
   id: string;
   name: string;
   description?: string;
+  initial?: string;
   assessment_type?: string;
+  fields?: { id: string; label: string; type: 'number' | 'text' | 'select'; options?: string[]; placeholder?: string }[];
   cutoff?: number | null;
-  questions_json?: any;
-  options_json?: any;
   color?: string | null;
 };
 
@@ -395,8 +395,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [active, setActive] = useState<NeuroAssessment | null>(null);
-    const [score, setScore] = useState('');
-    const [answersJson, setAnswersJson] = useState('');
+    const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
     const [results, setResults] = useState<any[]>([]);
     const [resultsLoading, setResultsLoading] = useState(false);
 
@@ -433,38 +432,20 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
     const openAssessment = async (item: NeuroAssessment) => {
         setActive(item);
         setError(null);
-        setScore('');
-        setAnswersJson('');
+        setDynamicValues({});
         setResults([]);
         await loadResults(String(item.id));
     };
 
     const handleSaveResult = async () => {
         if (!active) return;
-        const trimmed = score.trim();
-        const parsedScore = trimmed === '' ? null : Number(trimmed);
-        if (trimmed !== '' && Number.isNaN(parsedScore)) {
-            setError('Score inválido');
-            return;
-        }
-
-        let parsedAnswers: any = null;
-        if (answersJson.trim()) {
-            try {
-                parsedAnswers = JSON.parse(answersJson);
-            } catch (e) {
-                setError('JSON inválido');
-                return;
-            }
-        }
-
+        
         setLoading(true);
         setError(null);
         try {
             await api.post(`/neuro-assessments/${active.id}/results`, {
                 patient_id: patientId,
-                score: parsedScore,
-                answers_json: parsedAnswers || undefined
+                data: dynamicValues
             });
             await loadResults(String(active.id));
             setActive(null);
@@ -497,8 +478,8 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                     {assessments.map(item => (
                         <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 hover:border-indigo-300 transition-all flex flex-col gap-3">
                             <div className="flex items-center gap-3">
-                                <div className="w-11 h-11 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm font-bold">
-                                    {item.name?.charAt(0) || 'A'}
+                                <div className="w-11 h-11 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                                    {item.initial || item.name?.charAt(0) || 'A'}
                                 </div>
                                 <div className="min-w-0">
                                     <h4 className="font-bold text-slate-800 truncate">{item.name}</h4>
@@ -531,26 +512,43 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                             <h3 className="font-bold text-slate-800">{active.name}</h3>
                             <button onClick={() => setActive(null)}><X size={18} className="text-slate-400" /></button>
                         </div>
-                        <div className="p-5 space-y-4 overflow-y-auto">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pontuação</label>
-                                <input
-                                    type="number"
-                                    className="w-full p-3 rounded-xl border border-slate-200"
-                                    value={score}
-                                    onChange={(e) => setScore(e.target.value)}
-                                    placeholder="Ex: 12"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Respostas JSON (opcional)</label>
-                                <textarea
-                                    className="w-full p-3 rounded-xl border border-slate-200 h-28 resize-none"
-                                    value={answersJson}
-                                    onChange={(e) => setAnswersJson(e.target.value)}
-                                    placeholder='{"q1": 2, "q2": 1}'
-                                />
-                            </div>
+                        <div className="p-5 space-y-5 overflow-y-auto">
+                            {(active.fields || []).map(f => (
+                                <div key={f.id}>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{f.label}</label>
+                                    {f.type === 'select' ? (
+                                        <select
+                                            className="w-full p-3 rounded-xl border border-slate-200 bg-white"
+                                            value={dynamicValues[f.id] || ''}
+                                            onChange={e => setDynamicValues(v => ({ ...v, [f.id]: e.target.value }))}
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                                        </select>
+                                    ) : f.type === 'number' ? (
+                                        <input
+                                            type="number"
+                                            className="w-full p-3 rounded-xl border border-slate-200"
+                                            value={dynamicValues[f.id] || ''}
+                                            onChange={e => setDynamicValues(v => ({ ...v, [f.id]: e.target.value }))}
+                                            placeholder={f.placeholder || '0'}
+                                        />
+                                    ) : (
+                                        <textarea
+                                            className="w-full p-3 rounded-xl border border-slate-200 h-24 resize-none"
+                                            value={dynamicValues[f.id] || ''}
+                                            onChange={e => setDynamicValues(v => ({ ...v, [f.id]: e.target.value }))}
+                                            placeholder={f.placeholder || '...'}
+                                        />
+                                    )}
+                                </div>
+                            ))}
+
+                            {(active.fields || []).length === 0 && (
+                                <div className="p-4 bg-slate-50 rounded-xl text-center text-xs text-slate-400">
+                                    Nenhum campo estruturado para esta avaliação.
+                                </div>
+                            )}
                             <div className="border-t border-slate-100 pt-3">
                                 <div className="text-xs font-bold text-slate-500 uppercase mb-2">Resultados recentes</div>
                                 {resultsLoading ? (
@@ -558,11 +556,20 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                                 ) : results.length === 0 ? (
                                     <div className="text-xs text-slate-400">Sem resultados ainda</div>
                                 ) : (
-                                    <div className="space-y-2">
-                                        {results.slice(0, 5).map(r => (
-                                            <div key={r.id} className="text-xs text-slate-600 flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg">
-                                                <span>{new Date(r.created_at || r.createdAt || Date.now()).toLocaleString()}</span>
-                                                <span className="font-bold">score {r.score ?? '-'}</span>
+                                    <div className="space-y-1">
+                                        {results.map(r => (
+                                            <div key={r.id} className="text-xs text-slate-600 flex flex-col gap-1 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                                                <div className="flex justify-between items-center opacity-60">
+                                                    <span>{new Date(r.created_at || r.createdAt || Date.now()).toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                                                    {Object.entries(r.data || {}).map(([key, val]) => (
+                                                        <div key={key} className="flex gap-1.5 whitespace-nowrap">
+                                                            <span className="font-bold text-slate-400 capitalize">{key.replace(/_/g, ' ')}:</span>
+                                                            <span className="font-bold text-slate-800">{String(val)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -573,7 +580,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                             <button onClick={() => setActive(null)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-200 rounded-lg">
                                 {t('common.cancel') || 'Cancelar'}
                             </button>
-                            <button onClick={handleSaveResult} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">
+                            <button onClick={handleSaveResult} disabled={loading} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                                 {t('common.save') || 'Salvar'}
                             </button>
                         </div>

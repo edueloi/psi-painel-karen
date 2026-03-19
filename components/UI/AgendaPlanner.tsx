@@ -14,6 +14,7 @@ import {
   Sparkles,
   CalendarClock,
   DollarSign,
+  Package,
 } from 'lucide-react';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
@@ -740,7 +741,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                         minute: '2-digit',
                                       })}
                                     </span>
-                                    {event.recurrenceIndex && event.recurrenceCount && (
+                                    {(event.recurrenceIndex !== undefined && event.recurrenceCount !== undefined) && (
                                       <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black text-indigo-600 border border-indigo-100/50">
                                         {event.recurrenceIndex}/{event.recurrenceCount}
                                       </span>
@@ -756,17 +757,20 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                 </div>
 
                                 {/* Title: Patient Name */}
-                                <p className="truncate text-[11px] font-black leading-none text-slate-900 uppercase tracking-tight py-0.5">
+                                <p className="truncate text-[12px] font-black leading-tight text-slate-900 uppercase tracking-tight py-0.5">
                                   {event.title}
                                 </p>
 
                                 {/* Service/Package & Comanda */}
                                 {(event.serviceName || event.comandaId) && (
-                                  <div className="flex items-center gap-1 truncate text-[9px] font-bold text-slate-500 leading-none">
+                                  <div className="flex items-center gap-1.5 truncate text-[9px] font-bold text-slate-500 leading-none">
                                     {event.comandaId && (
-                                      <DollarSign size={9} className="text-emerald-500 shrink-0" strokeWidth={3} />
+                                      <div className="flex items-center gap-0.5 px-1 py-0.5 bg-emerald-50 text-emerald-600 rounded">
+                                        <DollarSign size={8} />
+                                        <Package size={8} />
+                                      </div>
                                     )}
-                                    <span className="truncate opacity-70">
+                                    <span className="truncate opacity-80">
                                       {event.serviceName || event.subtitle || 'Consulta'}
                                     </span>
                                   </div>
@@ -783,6 +787,9 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                     {meta.icon}
                                     {event.height > 80 ? meta.label : ''}
                                   </span>
+                                  {event.comandaId && event.recurrenceIndex === undefined && (
+                                    <span className="text-[8px] font-black bg-indigo-50/50 px-1.5 py-0.5 rounded text-indigo-400 uppercase border border-indigo-100/30">Comanda</span>
+                                  )}
                                 </div>
                               </div>
                             </button>
