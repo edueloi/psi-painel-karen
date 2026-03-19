@@ -901,8 +901,9 @@ export const Agenda: React.FC = () => {
     let targetDuration = formData.duration_minutes;
 
     // Tenta encontrar serviço pelo nome ou ID
+    const srvId = c.service_id || c.items?.[0]?.serviceId || c.items?.[0]?.service_id;
     const srv = services.find(s =>
-        (c.service_id && String(s.id) === String(c.service_id)) ||
+        (srvId && String(s.id) === String(srvId)) ||
         (c.description?.toLowerCase().includes(s.name?.toLowerCase()))
     );
 
@@ -911,15 +912,16 @@ export const Agenda: React.FC = () => {
         targetDuration = srv.duration;
     } else {
         // Tenta encontrar pacote
+        const pkgId = c.package_id || c.packageId;
         const pkg = packages.find(p =>
-            (c.package_id && String(p.id) === String(c.package_id)) ||
+            (pkgId && String(p.id) === String(pkgId)) ||
             (c.description?.toLowerCase().includes(p.name?.toLowerCase()))
         );
         if (pkg) {
             targetServiceId = `pkg_${pkg.id}`;
             const firstItem = pkg.items?.[0];
             if (firstItem) {
-                const srvObj = services.find(s => String(s.id) === String(firstItem.serviceId));
+                const srvObj = services.find(s => String(s.id) === String(firstItem.serviceId || firstItem.service_id));
                 if (srvObj) targetDuration = srvObj.duration;
             }
         }
@@ -1258,20 +1260,34 @@ export const Agenda: React.FC = () => {
                 onViewChange={(v) => setView(v as any)}
                 currentDate={currentDate}
                 onCurrentDateChange={setCurrentDate}
-                events={filteredAppointments.map(a => ({
-                    id: String(a.id),
-                    title: a.patient_name || a.title || 'Paciente',
-                    subtitle: a.duration_minutes ? `${a.duration_minutes} min` : undefined,
-                    description: a.notes,
-                    start: a.start,
-                    end: a.end,
-                    type: (a.type as any) || 'consulta',
-                    status: (a.status as any) || 'scheduled',
-                    modality: a.modality as 'presencial' | 'online',
-                    recurrenceIndex: a.recurrence_index,
-                    recurrenceCount: a.recurrence_count,
-                    color: a.type === 'bloqueio' ? '#64748b' : undefined,
-                }))}
+                events={filteredAppointments.map(a => {
+                    // Tenta encontrar serviço ou pacote
+                    const isPkg = String(a.service_id).startsWith('pkg_');
+                    const id = isPkg ? String(a.service_id).replace('pkg_', '') : String(a.service_id);
+                    let serviceName = '';
+                    if (isPkg) {
+                        serviceName = packages.find(p => String(p.id) === id)?.name || 'Pacote';
+                    } else {
+                        serviceName = services.find(s => String(s.id) === id)?.name || '';
+                    }
+
+                    return {
+                        id: String(a.id),
+                        title: a.patient_name || a.title || 'Paciente',
+                        subtitle: a.duration_minutes ? `${a.duration_minutes} min` : undefined,
+                        description: a.notes,
+                        start: a.start,
+                        end: a.end,
+                        type: (a.type as any) || 'consulta',
+                        status: (a.status as any) || 'scheduled',
+                        modality: a.modality as 'presencial' | 'online',
+                        recurrenceIndex: a.recurrence_index,
+                        recurrenceCount: a.recurrence_count,
+                        serviceName,
+                        comandaId: a.comanda_id,
+                        color: a.type === 'bloqueio' ? '#64748b' : undefined,
+                    };
+                })}
                 onEventClick={(event) => {
                     const apt = appointments.find(a => String(a.id) === String(event.id));
                     if (apt) openDetailModal(apt);
@@ -2370,15 +2386,15 @@ export const Agenda: React.FC = () => {
             {/* Header Actions - Compact and Readable */}
             <div className="grid grid-cols-4 gap-1 mb-3 border-b border-slate-50 pb-3">
                 {[
-                    { label: 'WHATS', icon: <MessageSquare size={18} />, active: 'text-emerald-500', onClick: () => {
+                    { label: 'WHATS', icon: <MessageSquare size={18} />, active: 'text-emerald-500', hide: selectedApt?.type !== 'consulta', onClick: () => {
                         const patient = patients.find(p => String(p.id) === String(selectedApt?.patient_id));
                         if (patient?.phone) window.open(`https://wa.me/${patient.phone.replace(/\D/g, '')}`, '_blank');
                     }},
-                    { label: 'LEMBRETE', icon: <Send size={18} />, active: 'text-emerald-500', onClick: () => pushToast('success', 'Lembrete enviado!') },
-                    { label: 'EDITAR', icon: <Edit3 size={18} />, active: 'text-indigo-600', onClick: () => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); } },
-                    { label: 'DELETAR', icon: <Trash2 size={18} />, active: 'text-rose-500', onClick: () => { if (selectedApt) setSelectedDeleteIds([selectedApt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); } },
-                ].map((act, i) => (
-                    <button key={i} onClick={act.onClick} className="flex flex-col items-center gap-1 group">
+                    { label: 'LEMBRETE', icon: <Send size={18} />, active: 'text-emerald-500', hide: selectedApt?.type !== 'consulta', onClick: () => pushToast('success', 'Lembrete enviado!') },
+                    { label: 'EDITAR', icon: <Edit3 size={18} />, active: 'text-indigo-600', hide: false, onClick: () => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); } },
+                    { label: 'DELETAR', icon: <Trash2 size={18} />, active: 'text-rose-500', hide: false, onClick: () => { if (selectedApt) setSelectedDeleteIds([selectedApt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); } },
+                ].filter(a => !a.hide).map((act, i) => (
+                    <button key={i} onClick={act.onClick} className="flex flex-col items-center gap-1 group flex-1">
                         <div className={`p-2 rounded-full bg-slate-50 border border-slate-100 group-hover:bg-white group-hover:shadow-sm transition-all ${act.active}`}>
                             {act.icon}
                         </div>
@@ -2490,30 +2506,32 @@ export const Agenda: React.FC = () => {
                 )}
             </div>
 
-            <div className="pt-4 flex flex-col items-center gap-4">
-                <div className="flex gap-10">
-                    <button
-                        onClick={handleRemoveCharge}
-                        className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
-                    >
-                        REMOVER COBRANÇA
-                    </button>
-                    <button
-                        onClick={handleGenerateReceipt}
-                        className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-slate-900 transition-colors flex items-center gap-1.5"
-                    >
-                        <FileText size={14} /> GERAR RECIBO
-                    </button>
+            {selectedApt?.type === 'consulta' && (
+                <div className="pt-4 flex flex-col items-center gap-4">
+                    <div className="flex gap-10">
+                        <button
+                            onClick={handleRemoveCharge}
+                            className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
+                        >
+                            REMOVER COBRANÇA
+                        </button>
+                        <button
+                            onClick={handleGenerateReceipt}
+                            className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-slate-900 transition-colors flex items-center gap-1.5"
+                        >
+                            <FileText size={14} /> GERAR RECIBO
+                        </button>
+                    </div>
                 </div>
-                <div className="w-full flex">
-                    <Button
-                        variant="ghost"
-                        onClick={() => setIsDetailModalOpen(false)}
-                        className="w-full text-[11px] font-black uppercase tracking-widest py-3 hover:bg-slate-50 border-none"
-                    >
-                        FECHAR
-                    </Button>
-                </div>
+            )}
+            <div className="w-full flex">
+                <Button
+                    variant="ghost"
+                    onClick={() => setIsDetailModalOpen(false)}
+                    className="w-full text-[11px] font-black uppercase tracking-widest py-3 hover:bg-slate-50 border-none"
+                >
+                    FECHAR
+                </Button>
             </div>
         </div>
       </Modal>
@@ -2607,9 +2625,16 @@ export const Agenda: React.FC = () => {
                                <p className="text-sm font-medium text-slate-800">
                                  {new Date(appointment.start_time || appointment.start_date || appointment.startDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                                </p>
-                              <p className="text-[10px] font-medium text-slate-400 uppercase">
-                                Data e Horário
-                              </p>
+                               <div className="flex items-center gap-2">
+                                    <p className="text-[10px] font-medium text-slate-400 uppercase">
+                                        Data e Horário
+                                    </p>
+                                    {cmnd.package_id && appointment.recurrence_index && (
+                                        <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-indigo-100">
+                                            {appointment.recurrence_index} de {cmnd.sessions_total || appointment.recurrence_count}
+                                        </span>
+                                    )}
+                               </div>
                             </div>
                           </div>
 

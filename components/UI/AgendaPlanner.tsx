@@ -13,6 +13,7 @@ import {
   Circle,
   Sparkles,
   CalendarClock,
+  DollarSign,
 } from 'lucide-react';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
@@ -41,6 +42,8 @@ export interface AgendaPlannerEvent {
   color?: string;
   recurrenceIndex?: number;
   recurrenceCount?: number;
+  serviceName?: string;
+  comandaId?: string | number;
 }
 
 export interface AgendaPlannerTask {
@@ -754,14 +757,27 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                   {event.title}
                                 </p>
 
-                                {event.height > 52 && (
-                                  <p className="mt-0.5 truncate text-[10px] font-medium text-slate-500">
-                                    {event.subtitle || `${durationMinutes} min`}
+                                {event.serviceName && (
+                                  <p className="mt-0.5 truncate text-[10px] font-bold text-indigo-600">
+                                    {event.serviceName}
                                   </p>
                                 )}
 
+                                {event.height > 52 && (
+                                  <div className="mt-0.5 flex items-center gap-1.5 truncate text-[10px] font-medium text-slate-500">
+                                    {event.comandaId && (
+                                      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm">
+                                        <DollarSign size={10} strokeWidth={3} />
+                                      </div>
+                                    )}
+                                    <span className="truncate opacity-80">
+                                      {event.subtitle || `${durationMinutes} min`}
+                                    </span>
+                                  </div>
+                                )}
+
                                 {event.height > 82 && event.description && (
-                                  <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-500">
+                                  <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
                                     {event.description}
                                   </p>
                                 )}
