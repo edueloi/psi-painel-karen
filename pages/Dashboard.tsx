@@ -15,12 +15,19 @@ import {
   Loader2,
   Layers,
   FileText,
-  Send
+  Send,
+  TrendingUp,
+  XCircle,
+  UserCheck
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { AuroraAssistant } from '../components/AI/AuroraAssistant';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
 
 interface Shortcut {
   id: string;
@@ -31,6 +38,8 @@ interface Shortcut {
   isSystem?: boolean;
 }
 
+type UpcomingFilter = 'hoje' | 'semana' | 'mes' | 'todos';
+
 export const Dashboard: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
@@ -39,6 +48,7 @@ export const Dashboard: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [upcomingFilter, setUpcomingFilter] = useState<UpcomingFilter>('todos');
 
   const [shortcuts] = useState<Shortcut[]>([
     { id: 'crp', title: 'Portal CRP', url: 'https://site.cfp.org.br/', icon: 'globe', color: 'bg-blue-600', isSystem: true },
@@ -53,12 +63,16 @@ export const Dashboard: React.FC = () => {
         api.get<any[]>('/appointments')
       ]);
       setPatients(Array.isArray(pts) ? pts : []);
-      setAppointments((Array.isArray(apts) ? apts : []).map(a => ({
-        ...a,
-        start: new Date(a.appointment_date || a.start),
-        end: new Date(new Date(a.appointment_date || a.start).getTime() + (a.duration_minutes || 50) * 60000),
-        patient_name: a.patient_name || a.patientName || 'Consulta'
-      })));
+      setAppointments((Array.isArray(apts) ? apts : []).map(a => {
+        const rawStart = a.start_time || a.appointment_date || a.start;
+        const startDate = rawStart ? new Date(rawStart) : new Date(NaN);
+        return {
+          ...a,
+          start: startDate,
+          end: new Date(startDate.getTime() + (a.duration_minutes || 50) * 60000),
+          patient_name: a.patient_name || a.patientName || 'Consulta'
+        };
+      }));
     } catch (e) {
       console.error(e);
     } finally {
@@ -70,35 +84,70 @@ export const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(now);
-  endOfDay.setHours(23, 59, 59, 999);
+  const now = useMemo(() => new Date(), []);
 
-  const nextWeek = new Date(startOfDay);
-  nextWeek.setDate(nextWeek.getDate() + 7);
+  const startOfDay = useMemo(() => {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [now]);
 
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+  const endOfDay = useMemo(() => {
+    const d = new Date(now);
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, [now]);
 
-  const upcomingAppointments = useMemo(() => {
-    return appointments
-      .filter(a => a.start && a.start >= startOfDay)
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [appointments, startOfDay]);
+  const endOfWeek = useMemo(() => {
+    const d = new Date(startOfDay);
+    d.setDate(d.getDate() + 7);
+    return d;
+  }, [startOfDay]);
+
+  const startOfMonth = useMemo(() => {
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }, [now]);
+
+  const endOfMonth = useMemo(() => {
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  }, [now]);
+
+  // Only count consultas that are not cancelled/no-show
+  const activeConsultas = useMemo(() => {
+    return appointments.filter(a =>
+      a.type === 'consulta' &&
+      a.status !== 'cancelled' &&
+      a.status !== 'no-show'
+    );
+  }, [appointments]);
 
   const todaysAppointments = useMemo(() => {
-    return appointments.filter(a => a.start >= startOfDay && a.start <= endOfDay);
-  }, [appointments, startOfDay, endOfDay]);
-
-  const weekAppointments = useMemo(() => {
-    return appointments.filter(a => a.start >= startOfDay && a.start < nextWeek);
-  }, [appointments, startOfDay, nextWeek]);
+    return activeConsultas.filter(a => a.start >= startOfDay && a.start <= endOfDay);
+  }, [activeConsultas, startOfDay, endOfDay]);
 
   const monthAppointments = useMemo(() => {
-    return appointments.filter(a => a.start && a.start.getMonth() === currentMonth && a.start.getFullYear() === currentYear);
-  }, [appointments, currentMonth, currentYear]);
+    return activeConsultas.filter(a => a.start >= startOfMonth && a.start <= endOfMonth);
+  }, [activeConsultas, startOfMonth, endOfMonth]);
+
+  // Upcoming = from now (not from start of day) – includes scheduled & confirmed
+  const upcomingAll = useMemo(() => {
+    return appointments
+      .filter(a => a.start >= now && a.type === 'consulta' && a.status !== 'cancelled' && a.status !== 'no-show')
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [appointments, now]);
+
+  const upcomingFiltered = useMemo(() => {
+    switch (upcomingFilter) {
+      case 'hoje':
+        return upcomingAll.filter(a => a.start <= endOfDay);
+      case 'semana':
+        return upcomingAll.filter(a => a.start <= endOfWeek);
+      case 'mes':
+        return upcomingAll.filter(a => a.start <= endOfMonth);
+      default:
+        return upcomingAll;
+    }
+  }, [upcomingAll, upcomingFilter, endOfDay, endOfWeek, endOfMonth]);
 
   const statusCounts = useMemo(() => {
     return appointments.reduce((acc, a) => {
@@ -123,6 +172,38 @@ export const Dashboard: React.FC = () => {
       return acc;
     }, {} as Record<string, number>);
   }, [appointments]);
+
+  // Appointments by day of week (last 30 days)
+  const appointmentsByDayOfWeek = useMemo(() => {
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    appointments.forEach(a => {
+      if (a.type === 'consulta' && a.start >= thirtyDaysAgo && a.start <= now) {
+        counts[a.start.getDay()]++;
+      }
+    });
+    return days.map((day, i) => ({ day, atendimentos: counts[i] }));
+  }, [appointments, now]);
+
+  // Status pie chart data
+  const statusPieData = useMemo(() => {
+    const map: Record<string, { label: string; color: string }> = {
+      completed: { label: 'Finalizado', color: '#10b981' },
+      confirmed: { label: 'Confirmado', color: '#6366f1' },
+      scheduled: { label: 'Agendado', color: '#f59e0b' },
+      cancelled: { label: 'Cancelado', color: '#ef4444' },
+      'no-show': { label: 'Falta', color: '#94a3b8' },
+    };
+    return Object.entries(statusCounts)
+      .filter(([, v]) => v > 0)
+      .map(([key, value]) => ({
+        name: map[key]?.label || key,
+        value,
+        color: map[key]?.color || '#94a3b8',
+      }));
+  }, [statusCounts]);
 
   const recentPatients = useMemo(() => {
     const copy = [...patients];
@@ -160,8 +241,15 @@ export const Dashboard: React.FC = () => {
     return <LinkIcon size={size} />;
   };
 
+  // Taxa de confirmação = (confirmed + completed) / total consultas
+  const totalConsultas = (statusCounts.completed || 0) + (statusCounts.confirmed || 0) + (statusCounts.scheduled || 0) + (statusCounts['no-show'] || 0) + (statusCounts.cancelled || 0);
+  const confirmedRate = totalConsultas === 0 ? 0 : Math.round(((statusCounts.confirmed || 0) + (statusCounts.completed || 0)) / totalConsultas * 100);
+
+  const ratio = (value: number, total: number) => total === 0 ? 0 : Math.round((value / total) * 100);
+  const totalAppointments = appointments.length;
+
   const InsightWidget = () => {
-    const next = upcomingAppointments[0];
+    const next = upcomingAll[0];
     const nextTime = next?.start ? next.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const nextLabel = next ? `${next.patient_name} - ${nextTime}` : 'Sem consultas futuras no momento.';
 
@@ -172,7 +260,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex-1">
             <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-100 mb-1">Resumo do dia</h3>
             <p className="text-base font-medium leading-relaxed">
-              {isLoading ? 'Sincronizando dados...' : `Hoje: ${todaysAppointments.length} atendimentos. Proximo: ${nextLabel}`}
+              {isLoading ? 'Sincronizando dados...' : `Hoje: ${todaysAppointments.length} atendimentos. Próximo: ${nextLabel}`}
             </p>
           </div>
           <button onClick={() => navigate('/agenda')} className="shrink-0 text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg border border-white/20">Abrir agenda</button>
@@ -181,8 +269,8 @@ export const Dashboard: React.FC = () => {
     );
   };
 
-  const StatCard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; hint?: string }> = ({ label, value, icon, hint }) => (
-    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all hover:border-indigo-100 group">
+  const StatCard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; hint?: string; onClick?: () => void }> = ({ label, value, icon, hint, onClick }) => (
+    <div onClick={onClick} className={`bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all hover:border-indigo-100 group ${onClick ? 'cursor-pointer' : ''}`}>
       <div className="flex items-start justify-between">
         <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">{icon}</div>
         {hint && <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{hint}</span>}
@@ -192,12 +280,16 @@ export const Dashboard: React.FC = () => {
     </div>
   );
 
-  const ratio = (value: number, total: number) => total === 0 ? 0 : Math.round((value / total) * 100);
-
-  const totalAppointments = appointments.length;
+  const filterLabels: Record<UpcomingFilter, string> = {
+    hoje: 'Hoje',
+    semana: 'Semana',
+    mes: 'Mês',
+    todos: 'Todos',
+  };
 
   return (
     <div className="space-y-6 md:space-y-8 animate-fadeIn pb-20">
+      {/* Header */}
       <div className="relative overflow-hidden bg-white border border-slate-100 shadow-sm rounded-[2.5rem] p-8 md:p-10 group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full -mr-20 -mt-20 opacity-40 blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-1000"></div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -223,45 +315,165 @@ export const Dashboard: React.FC = () => {
 
       <InsightWidget />
 
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label={t('dashboard.totalPatients')} value={isLoading ? '-' : patients.length} icon={<Users size={18} />} hint="cadastros" />
-        <StatCard label="Atendimentos hoje" value={isLoading ? '-' : todaysAppointments.length} icon={<Clock size={18} />} hint="dia" />
-        <StatCard label="Atendimentos no mes" value={isLoading ? '-' : monthAppointments.length} icon={<Calendar size={18} />} hint="mes" />
-        <StatCard label="Taxa de confirmacao" value={isLoading ? '-' : `${ratio(statusCounts.confirmed || 0, totalAppointments)}%`} icon={<CheckCircle size={18} />} hint="geral" />
+        <StatCard
+          label={t('dashboard.totalPatients')}
+          value={isLoading ? '-' : patients.length}
+          icon={<Users size={18} />}
+          hint="cadastros"
+          onClick={() => navigate('/pacientes')}
+        />
+        <StatCard
+          label="Atendimentos hoje"
+          value={isLoading ? '-' : todaysAppointments.length}
+          icon={<Clock size={18} />}
+          hint="dia"
+          onClick={() => setUpcomingFilter('hoje')}
+        />
+        <StatCard
+          label="Atendimentos no mês"
+          value={isLoading ? '-' : monthAppointments.length}
+          icon={<Calendar size={18} />}
+          hint="mês"
+          onClick={() => setUpcomingFilter('mes')}
+        />
+        <StatCard
+          label="Taxa de conclusão"
+          value={isLoading ? '-' : `${confirmedRate}%`}
+          icon={<CheckCircle size={18} />}
+          hint="confirmados+finalizados"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+
+          {/* Upcoming appointments with filter */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-            <div className="p-5 border-b border-slate-50 flex items-center justify-between">
-              <h3 className="font-display font-bold text-base text-slate-800 flex items-center gap-2"><Calendar size={18} className="text-indigo-500" /> Proximos atendimentos</h3>
-              <button onClick={() => navigate('/agenda')} className="text-[11px] font-bold text-indigo-600 hover:underline">Abrir agenda</button>
+            <div className="p-5 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+              <h3 className="font-display font-bold text-base text-slate-800 flex items-center gap-2">
+                <Calendar size={18} className="text-indigo-500" /> Próximos atendimentos
+              </h3>
+              <div className="flex items-center gap-1.5">
+                {(['hoje', 'semana', 'mes', 'todos'] as UpcomingFilter[]).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setUpcomingFilter(f)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide transition-all ${
+                      upcomingFilter === f
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    {filterLabels[f]}
+                  </button>
+                ))}
+                <button onClick={() => navigate('/agenda')} className="ml-2 text-[11px] font-bold text-indigo-600 hover:underline">Agenda</button>
+              </div>
             </div>
             <div className="p-4 space-y-2 max-h-[380px] overflow-y-auto custom-scrollbar">
               {isLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="animate-spin text-indigo-300" /></div>
-              ) : upcomingAppointments.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-sm">Sem atendimentos futuros.</div>
-              ) : upcomingAppointments.slice(0, 8).map(app => (
+              ) : upcomingFiltered.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-sm">
+                  Sem atendimentos {upcomingFilter === 'hoje' ? 'hoje' : upcomingFilter === 'semana' ? 'esta semana' : upcomingFilter === 'mes' ? 'este mês' : 'futuros'}.
+                </div>
+              ) : upcomingFiltered.slice(0, 10).map(app => (
                 <div key={app.id} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
-                  <div className="w-14 text-center">
+                  <div className="w-14 text-center shrink-0">
                     <div className="text-xs font-bold text-indigo-600 uppercase">{app.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short' })}</div>
                     <div className="text-[11px] text-slate-500">{app.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-slate-800 text-sm truncate">{app.patient_name || 'Consulta'}</h4>
-                    <div className="text-[10px] font-bold text-indigo-500 uppercase">{app.type || 'consulta'} - {app.modality || 'presencial'}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-indigo-500 uppercase">{app.type || 'consulta'} · {app.modality || 'presencial'}</span>
+                      {app.status === 'confirmed' && <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md uppercase">Confirmado</span>}
+                      {app.status === 'scheduled' && <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md uppercase">Agendado</span>}
+                    </div>
                   </div>
-                  <button onClick={() => navigate('/agenda')} className="text-xs font-bold text-slate-400 hover:text-indigo-600">Detalhes</button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => navigate(`/pacientes?search=${encodeURIComponent(app.patient_name || '')}`)}
+                      className="text-xs font-bold text-slate-400 hover:text-indigo-600"
+                      title="Ver paciente"
+                    >
+                      Paciente
+                    </button>
+                    <button onClick={() => navigate('/agenda')} className="text-xs font-bold text-slate-400 hover:text-indigo-600">Agenda</button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* Charts row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* Bar chart - atendimentos por dia da semana */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><TrendingUp size={16} className="text-indigo-500" /> Atendimentos (últimos 30 dias)</h3>
+              </div>
+              {isLoading ? (
+                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-indigo-300" /></div>
+              ) : (
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={appointmentsByDayOfWeek} barSize={22}>
+                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} />
+                    <YAxis hide allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                      formatter={(v: any) => [v, 'Atendimentos']}
+                    />
+                    <Bar dataKey="atendimentos" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Pie chart - status */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><UserCheck size={16} className="text-violet-500" /> Status dos atendimentos</h3>
+              </div>
+              {isLoading ? (
+                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-indigo-300" /></div>
+              ) : statusPieData.length === 0 ? (
+                <div className="text-center text-slate-400 text-xs py-10">Sem dados</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie
+                      data={statusPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={65}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {statusPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                      formatter={(v: any, name: any) => [v, name]}
+                    />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, fontWeight: 700 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Type and modality bars */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2"><Layers size={16} className="text-indigo-500" /> Tipos de atendimento</h3>
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><Layers size={16} className="text-indigo-500" /> Tipos de atendimento</h3>
                 <span className="text-[10px] font-bold text-slate-400">{totalAppointments} total</span>
               </div>
               {['consulta', 'pessoal', 'bloqueio'].map((key) => (
@@ -271,7 +483,7 @@ export const Dashboard: React.FC = () => {
                     <span>{typeCounts[key] || 0}</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${ratio(typeCounts[key] || 0, totalAppointments)}%` }}></div>
+                    <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${ratio(typeCounts[key] || 0, totalAppointments)}%` }}></div>
                   </div>
                 </div>
               ))}
@@ -279,7 +491,7 @@ export const Dashboard: React.FC = () => {
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2"><Video size={16} className="text-emerald-500" /> Modalidade</h3>
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><Video size={16} className="text-emerald-500" /> Modalidade</h3>
                 <span className="text-[10px] font-bold text-slate-400">{totalAppointments} total</span>
               </div>
               {['presencial', 'online'].map((key) => (
@@ -289,7 +501,7 @@ export const Dashboard: React.FC = () => {
                     <span>{modalityCounts[key] || 0}</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${ratio(modalityCounts[key] || 0, totalAppointments)}%` }}></div>
+                    <div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${ratio(modalityCounts[key] || 0, totalAppointments)}%` }}></div>
                   </div>
                 </div>
               ))}
@@ -297,6 +509,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Right column */}
         <div className="space-y-6">
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wide">Pacientes recentes</h3>
@@ -312,7 +525,12 @@ export const Dashboard: React.FC = () => {
                       <div className="text-sm font-bold text-slate-700 truncate">{p.full_name}</div>
                       <div className="text-[10px] text-slate-400">{p.email || p.whatsapp || p.phone || 'Sem contato'}</div>
                     </div>
-                    <button onClick={() => navigate('/pacientes')} className="text-xs font-bold text-indigo-600 hover:underline">Abrir</button>
+                    <button
+                      onClick={() => navigate(`/pacientes?search=${encodeURIComponent(p.full_name || '')}`)}
+                      className="text-xs font-bold text-indigo-600 hover:underline ml-2"
+                    >
+                      Abrir
+                    </button>
                   </div>
                 ))}
               </div>
@@ -358,9 +576,9 @@ export const Dashboard: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       {phone && (
-                        <button 
+                        <button
                           onClick={handleSendBirthdayMsg}
                           className={`p-2.5 rounded-xl transition-all active:scale-95 ${isToday ? 'bg-amber-500 text-white shadow-lg shadow-amber-200 hover:bg-amber-600' : 'text-emerald-600 bg-white border border-slate-100 hover:bg-emerald-50 hover:border-emerald-100'}`}
                           title="Mandar mensagem"
@@ -376,7 +594,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-3 text-xs uppercase tracking-wide">Acesso rapido</h3>
+            <h3 className="font-bold text-slate-800 mb-3 text-xs uppercase tracking-wide">Acesso rápido</h3>
             <div className="grid grid-cols-2 gap-2">
               {shortcuts.map(s => (
                 <a key={s.id} href={s.url} target="_blank" rel="noopener" className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-50 hover:bg-white border border-slate-100 transition-all text-center">
@@ -393,5 +611,3 @@ export const Dashboard: React.FC = () => {
     </div>
   );
 };
-
-

@@ -11,7 +11,7 @@ import { Patient } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useToast } from '../contexts/ToastContext';
 import { GridTable, Column } from '../components/UI/GridTable';
@@ -45,10 +45,11 @@ export const Patients: React.FC = () => {
   const { t } = useLanguage();
   const { preferences, updatePreference } = useUserPreferences();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState<'all' | 'ativo' | 'inativo'>(preferences.patients.statusFilter);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Partial<Patient> | undefined>(undefined);
