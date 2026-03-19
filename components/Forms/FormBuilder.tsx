@@ -2,10 +2,11 @@
 import React, { useState } from 'react';
 import { FormQuestion, QuestionType, FormOption, InterpretationRule, FormTheme } from '../../types';
 import {
-  Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, Wand2, ArrowLeft, Calculator, Target, Palette
+  Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, Wand2, ArrowLeft, Calculator, Target, Palette, Settings, Eye, Copy, MoveVertical, AlertCircle, Sparkles
 } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { Input, Select, TextArea } from '../UI/Input';
+import { AppCard } from '../UI/AppCard';
 
 interface FormBuilderProps {
   initialData?: { title: string; description: string; questions: FormQuestion[]; interpretations?: InterpretationRule[]; theme?: FormTheme };
@@ -13,13 +14,13 @@ interface FormBuilderProps {
   onCancel: () => void;
 }
 
-const QUESTION_TYPES: { type: QuestionType; label: string; icon: React.ReactNode }[] = [
-  { type: 'text', label: 'Texto Curto', icon: <Type size={16} /> },
-  { type: 'textarea', label: 'Texto Longo', icon: <AlignLeft size={16} /> },
-  { type: 'number', label: 'Número', icon: <Hash size={16} /> },
-  { type: 'radio', label: 'Múltipla Escolha', icon: <List size={16} /> },
-  { type: 'checkbox', label: 'Caixas de Seleção', icon: <CheckSquare size={16} /> },
-  { type: 'select', label: 'Lista Suspensa', icon: <ChevronDown size={16} /> },
+const QUESTION_TYPES: { type: QuestionType; label: string; icon: React.ReactNode; color: string }[] = [
+  { type: 'text', label: 'Texto Curto', icon: <Type size={16} />, color: 'bg-blue-50 text-blue-600' },
+  { type: 'textarea', label: 'Texto Longo', icon: <AlignLeft size={16} />, color: 'bg-indigo-50 text-indigo-600' },
+  { type: 'number', label: 'Número', icon: <Hash size={16} />, color: 'bg-emerald-50 text-emerald-600' },
+  { type: 'radio', label: 'Múltipla Escolha', icon: <List size={16} />, color: 'bg-amber-50 text-amber-600' },
+  { type: 'checkbox', label: 'Caixas de Seleção', icon: <CheckSquare size={16} />, color: 'bg-rose-50 text-rose-600' },
+  { type: 'select', label: 'Lista Suspensa', icon: <ChevronDown size={16} />, color: 'bg-violet-50 text-violet-600' },
 ];
 
 export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, onCancel }) => {
@@ -156,46 +157,59 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
     <div className="flex flex-col h-[calc(100vh-8rem)] bg-slate-50 rounded-2xl border border-slate-200 shadow-xl overflow-hidden animate-[fadeIn_0.3s_ease-out]">
       
       {/* Top Bar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
-            <ArrowLeft size={20} />
+      <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-20 sticky top-0">
+        <div className="flex items-center gap-5">
+          <button 
+            onClick={onCancel} 
+            className="group flex items-center justify-center w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-white hover:shadow-md transition-all duration-300"
+          >
+            <ArrowLeft size={18} className="text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
           </button>
-          <div>
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <div className="flex flex-col">
+            <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
               {title || 'Novo Formulário'}
+              <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider">Editor</span>
             </h2>
-            <span className="text-xs text-slate-500 flex items-center gap-1">
-              {questions.length} perguntas • <span className="text-emerald-600">Rascunho salvo</span>
-            </span>
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                <Target size={12} /> {questions.length} perguntas
+              </span>
+              <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+              <span className="text-[11px] font-semibold text-emerald-500 flex items-center gap-1 italic">
+                <Sparkles size={11} /> Rascunho automático ativo
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Tab Switcher in Header */}
-        <div className="flex bg-slate-100 p-1 rounded-xl">
-            <button 
-                onClick={() => setActiveTab('editor')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'editor' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-                Editor
-            </button>
-            <button 
-                onClick={() => setActiveTab('logic')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'logic' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-                <Calculator size={14} /> Cálculo & Resultados
-            </button>
-            <button 
-                onClick={() => setActiveTab('settings')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-                <Palette size={14} /> Aparencia
-            </button>
+        <div className="hidden lg:flex bg-slate-100/80 p-1.5 rounded-2xl gap-1">
+            {[
+              { id: 'editor' as const, label: 'Editor', icon: <Settings size={14} /> },
+              { id: 'logic' as const, label: 'Cálculo', icon: <Calculator size={14} /> },
+              { id: 'settings' as const, label: 'Identidade', icon: <Palette size={14} /> }
+            ].map(tab => (
+              <button 
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 ${
+                    activeTab === tab.id 
+                      ? 'bg-white text-indigo-600 shadow-sm transform scale-105' 
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                  }`}
+              >
+                  {tab.icon} {tab.label}
+              </button>
+            ))}
         </div>
 
-        <div className="flex gap-3">
-           <Button variant="primary" size="sm" onClick={handleSave}>
-             <Save size={16} className="mr-2" /> Salvar
+        <div className="flex items-center gap-3">
+           <button className="p-2 text-slate-400 hover:text-indigo-600 transition-colors hidden sm:block">
+             <Eye size={20} />
+           </button>
+           <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+           <Button variant="primary" size="md" onClick={handleSave} className="rounded-2xl px-6 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+             <Save size={18} className="mr-2" /> Salvar Projeto
            </Button>
         </div>
       </div>
@@ -206,211 +220,266 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
         {activeTab === 'editor' && (
             <>
                 {/* Sidebar Tools (Desktop) */}
-                <div className="w-16 md:w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col hidden md:flex">
-                <div className="p-3 border-b border-slate-100">
+                <div className="w-16 lg:w-72 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col hidden md:flex animate-in slide-in-from-left duration-500">
+                <div className="p-5 border-b border-slate-100">
                     <Button
-                      variant="soft"
-                      size="sm"
+                      variant="primary"
+                      size="md"
                       fullWidth
-                      leftIcon={<Plus size={15} />}
+                      leftIcon={<Plus size={18} />}
                       onClick={addQuestion}
+                      className="rounded-2xl shadow-sm"
                     >
-                      <span className="hidden md:inline">Adicionar Pergunta</span>
+                      <span className="hidden lg:inline">Nova Pergunta</span>
                     </Button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                    <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:block">Estrutura</div>
-                    {questions.map((q, idx) => (
-                    <button
-                        key={q.id}
-                        onClick={() => {
-                            setActiveQuestionId(q.id);
-                            document.getElementById(`q-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${activeQuestionId === q.id ? 'bg-slate-100 text-indigo-600 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}
-                    >
-                        <span className="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-xs font-bold shrink-0">{idx + 1}</span>
-                        <span className="truncate hidden md:block">{q.text || 'Sem título'}</span>
-                    </button>
-                    ))}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+                    <div className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:block mb-2">Estrutura do Form</div>
+                    {questions.length === 0 ? (
+                      <div className="px-4 py-8 text-center hidden lg:block">
+                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-dashed border-slate-300">
+                          <Plus size={20} className="text-slate-300" />
+                        </div>
+                        <p className="text-[11px] font-medium text-slate-400">Nenhum campo adicionado ainda</p>
+                      </div>
+                    ) : (
+                      questions.map((q, idx) => {
+                        const typeInfo = QUESTION_TYPES.find(t => t.type === q.type);
+                        return (
+                          <button
+                              key={q.id}
+                              onClick={() => {
+                                  setActiveQuestionId(q.id);
+                                  document.getElementById(`q-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }}
+                              className={`w-full group flex items-center gap-3 px-3 py-3 rounded-2xl text-sm transition-all duration-300 ${
+                                activeQuestionId === q.id 
+                                  ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' 
+                                  : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-100'
+                              }`}
+                          >
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 transition-transform group-hover:scale-110 ${
+                                activeQuestionId === q.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500'
+                              }`}>
+                                {idx + 1}
+                              </div>
+                              <div className="flex-1 text-left min-w-0 hidden lg:block">
+                                <p className={`truncate font-bold text-xs ${activeQuestionId === q.id ? 'text-indigo-900' : 'text-slate-700'}`}>
+                                  {q.text || 'Sem título...'}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className={`p-1 rounded ${typeInfo?.color || 'bg-slate-100'}`}>
+                                    {React.cloneElement(typeInfo?.icon as React.ReactElement, { size: 10 })}
+                                  </span>
+                                  <span className="text-[9px] font-medium text-slate-400 uppercase tracking-tighter">{typeInfo?.label}</span>
+                                </div>
+                              </div>
+                              <div className={`opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block ${activeQuestionId === q.id ? 'text-indigo-400' : 'text-slate-300'}`}>
+                                <GripVertical size={14} />
+                              </div>
+                          </button>
+                        );
+                      })
+                    )}
                 </div>
                 </div>
 
                 {/* Main Canvas */}
-                <div className="flex-1 overflow-y-auto bg-slate-100/50 p-4 md:p-8 scroll-smooth">
-                <div className="max-w-3xl mx-auto space-y-6 pb-20">
+                <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4 lg:p-12 scroll-smooth custom-scrollbar">
+                <div className="max-w-3xl mx-auto space-y-10 pb-32">
                     
                     {/* Header Card */}
-                    <div className="bg-white rounded-t-lg rounded-b-xl border-t-8 border-t-indigo-600 shadow-sm p-6 md:p-8">
-                    <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => {
-                          setTitle(e.target.value);
-                          if (titleError) setTitleError('');
-                        }}
-                        placeholder="Título do Formulário"
-                        className={`w-full text-3xl font-display font-bold placeholder:text-slate-300 border-none focus:ring-0 p-0 bg-transparent mb-2 ${
-                          titleError ? 'text-red-600' : 'text-slate-800'
-                        }`}
-                    />
-                    {titleError ? (
-                      <p className="text-xs font-bold text-red-600 mb-2">
-                        {titleError}
-                      </p>
-                    ) : null}
-                    <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Descrição do formulário"
-                        className="w-full text-slate-600 placeholder:text-slate-400 border-none focus:ring-0 p-0 bg-transparent resize-none"
-                        rows={2}
-                    />
-                    </div>
-
-                    {/* Questions */}
-                    {questions.map((q, index) => (
-                    <div 
-                        key={q.id} 
-                        id={`q-${q.id}`}
-                        onClick={() => setActiveQuestionId(q.id)}
-                        className={`bg-white rounded-xl shadow-sm border transition-all duration-200 overflow-hidden ${
-                        activeQuestionId === q.id 
-                            ? 'border-indigo-500 ring-4 ring-indigo-500/10 scale-[1.01]' 
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                    >
-                        {/* Drag Handle (Visual only for now) */}
-                        <div className="h-6 bg-slate-50 border-b border-slate-100 flex items-center justify-center cursor-move text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors">
-                        <GripVertical size={14} />
-                        </div>
-
-                        <div className="p-6">
-                        <div className="flex flex-col md:flex-row gap-3 mb-4">
-                            <div className="flex-1">
-                            <input
-                                type="text"
-                                value={q.text}
-                                onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
-                                placeholder="Texto da pergunta"
-                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 focus:bg-white outline-none transition-colors font-medium text-sm"
-                            />
-                            </div>
-                            <div className="w-full md:w-44 shrink-0">
-                            <Select
-                                label=""
-                                labelClassName="hidden"
-                                value={q.type}
-                                onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}
-                                leftIcon={QUESTION_TYPES.find(t => t.type === q.type)?.icon}
-                                size="sm"
-                            >
-                                {QUESTION_TYPES.map(t => (
-                                    <option key={t.type} value={t.type}>{t.label}</option>
-                                ))}
-                            </Select>
-                            </div>
-                        </div>
-
-                        {/* Options Area */}
-                        {['radio', 'checkbox', 'select'].includes(q.type) && (
-                            <div className="pl-4 space-y-3 mb-6">
-                                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase px-1">
-                                    <span>Opção</span>
-                                    <span>Pontos (Score)</span>
-                                </div>
-                                {q.options?.map((opt, optIdx) => (
-                                    <div key={optIdx} className="flex items-center gap-3 group">
-                                    <div className={`w-4 h-4 rounded border-2 border-slate-300 ${q.type === 'radio' ? 'rounded-full' : 'rounded-sm'}`}></div>
-                                    <input
-                                        type="text"
-                                        value={opt.label}
-                                        onChange={(e) => updateOption(q.id, optIdx, 'label', e.target.value)}
-                                        className="flex-1 bg-transparent border-b border-transparent focus:border-slate-300 outline-none py-1 text-slate-700 hover:border-slate-200 transition-colors"
-                                    />
-                                    {/* Score Input */}
-                                    <div className="w-20 relative">
-                                        <input
-                                            type="number"
-                                            value={opt.value}
-                                            onChange={(e) => updateOption(q.id, optIdx, 'value', parseInt(e.target.value) || 0)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-center font-bold text-indigo-600 focus:border-indigo-500 outline-none"
-                                        />
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="xs"
-                                        iconOnly
-                                        onClick={() => removeOption(q.id, optIdx)}
-                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500"
-                                    >
-                                        <Trash2 size={14} />
-                                    </Button>
-                                    </div>
-                                ))}
-                                <Button
-                                    variant="link"
-                                    size="sm"
-                                    leftIcon={<Plus size={14} />}
-                                    onClick={() => addOption(q.id)}
-                                    className="mt-1"
-                                >
-                                    Adicionar opção
-                                </Button>
-                            </div>
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 p-8 md:p-12 relative overflow-hidden group transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-100">
+                      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                      <div className="absolute -right-12 -top-12 w-48 h-48 bg-indigo-50 rounded-full opacity-50 blur-3xl group-hover:bg-indigo-100 transition-colors"></div>
+                      
+                      <div className="relative">
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => {
+                              setTitle(e.target.value);
+                              if (titleError) setTitleError('');
+                            }}
+                            placeholder="Título do Formulário"
+                            className={`w-full text-4xl font-black placeholder:text-slate-200 border-none focus:ring-0 p-0 bg-transparent mb-4 tracking-tight transition-all ${
+                              titleError ? 'text-red-600' : 'text-slate-800'
+                            }`}
+                        />
+                        {titleError && (
+                          <div className="flex items-center gap-2 text-red-500 text-xs font-bold mb-4 animate-bounce">
+                            <AlertCircle size={14} /> {titleError}
+                          </div>
                         )}
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Descreva o objetivo deste formulário para quem irá responder..."
+                            className="w-full text-slate-500 placeholder:text-slate-300 border-none focus:ring-0 p-0 bg-transparent resize-none leading-relaxed font-medium"
+                            rows={2}
+                        />
+                      </div>
+                    </div>
 
-                        {/* Footer Actions */}
-                        <div className="flex items-center justify-end gap-6 pt-4 border-t border-slate-50 mt-2">
-                            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-600 select-none">
-                            <div className={`w-10 h-5 rounded-full relative transition-colors ${q.required ? 'bg-indigo-600' : 'bg-slate-200'}`}>
-                                <div className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all ${q.required ? 'left-6' : 'left-1'}`}></div>
+                    {/* Questions Area */}
+                    <div className="space-y-8">
+                      {questions.map((q, index) => {
+                        const typeInfo = QUESTION_TYPES.find(t => t.type === q.type);
+                        const isActive = activeQuestionId === q.id;
+                        
+                        return (
+                          <div 
+                              key={q.id} 
+                              id={`q-${q.id}`}
+                              onClick={() => setActiveQuestionId(q.id)}
+                              className={`group relative transition-all duration-500 ${
+                                isActive ? 'scale-100 opacity-100' : 'scale-[0.98] opacity-90 grayscale-[0.2]'
+                              }`}
+                          >
+                            <div className={`absolute -left-12 top-8 hidden lg:flex flex-col items-center gap-2 transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-0'}`}>
+                              <button onClick={(e) => {e.stopPropagation(); addQuestion();}} className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-md transition-all">
+                                <Plus size={16} />
+                              </button>
                             </div>
-                            <input 
-                                type="checkbox" 
-                                className="hidden" 
-                                checked={q.required}
-                                onChange={(e) => updateQuestion(q.id, 'required', e.target.checked)}
-                            />
-                            Obrigatória
-                            </label>
-                            <div className="h-6 w-px bg-slate-200"></div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              iconOnly
-                              onClick={(e) => removeQuestion(q.id, e)}
-                              title="Excluir pergunta"
-                              className="text-slate-400 hover:text-red-500 hover:bg-red-50"
-                            >
-                              <Trash2 size={16} />
-                            </Button>
-                        </div>
-                        </div>
-                    </div>
-                    ))}
-                    
-                    {/* Mobile Add Button */}
-                    <div className="md:hidden">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        fullWidth
-                        leftIcon={<Plus size={15} />}
+
+                            <div className={`bg-white rounded-[32px] shadow-sm border transition-all duration-500 overflow-hidden ${
+                            isActive 
+                                ? 'border-indigo-500/30 shadow-2xl shadow-indigo-200/50 ring-1 ring-indigo-500/20' 
+                                : 'border-slate-200 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/50'
+                            }`}>
+                                {/* Drag Handle Area */}
+                                <div className={`h-8 flex items-center justify-center cursor-move transition-colors ${isActive ? 'bg-indigo-50/50 text-indigo-300' : 'bg-slate-50/50 text-slate-200'}`}>
+                                  <MoveVertical size={14} className="group-hover:text-slate-400 transition-colors" />
+                                </div>
+
+                                <div className="p-6 md:p-8 pt-2">
+                                  <div className="flex flex-col lg:flex-row gap-6 mb-8">
+                                      <div className="flex-1 space-y-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-[10px] font-black">{index + 1}</span>
+                                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enunciado da Pergunta</span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={q.text}
+                                            onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
+                                            placeholder="Ex: Como você se sentiu hoje?"
+                                            className="w-full px-0 py-2 bg-transparent border-b-2 border-slate-100 focus:border-indigo-500 outline-none transition-all font-bold text-lg text-slate-800 placeholder:text-slate-200"
+                                        />
+                                      </div>
+                                      <div className="w-full lg:w-56 shrink-0">
+                                        <div className="flex items-center gap-2 mb-3">
+                                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Tipo de Resposta</span>
+                                        </div>
+                                        <Select
+                                            label=""
+                                            labelClassName="hidden"
+                                            value={q.type}
+                                            onChange={(e) => updateQuestion(q.id, 'type', e.target.value as QuestionType)}
+                                            leftIcon={React.cloneElement(typeInfo?.icon as React.ReactElement, { size: 16, className: typeInfo?.color })}
+                                            className="rounded-xl bg-slate-50 border-none font-semibold text-slate-700 h-11"
+                                        >
+                                            {QUESTION_TYPES.map(t => (
+                                                <option key={t.type} value={t.type}>{t.label}</option>
+                                            ))}
+                                        </Select>
+                                      </div>
+                                  </div>
+
+                                  {/* Options Area with richer aesthetics */}
+                                  {['radio', 'checkbox', 'select'].includes(q.type) && (
+                                      <div className="mt-6 p-6 rounded-3xl bg-slate-50/50 border border-slate-100 space-y-4">
+                                          <div className="flex justify-between items-center mb-4">
+                                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Opções de Resposta</span>
+                                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest pr-12">Valor/Peso</div>
+                                          </div>
+                                          <div className="space-y-3">
+                                            {q.options?.map((opt, optIdx) => (
+                                                <div key={optIdx} className="flex items-center gap-4 group/opt animate-in fade-in slide-in-from-top-1 duration-300">
+                                                  <div className={`w-5 h-5 rounded-lg border-2 border-slate-300 flex items-center justify-center shrink-0 ${q.type === 'radio' ? 'rounded-full' : 'rounded-md'}`}>
+                                                    <div className="w-2 h-2 rounded-full bg-transparent group-hover/opt:bg-slate-200 transition-colors"></div>
+                                                  </div>
+                                                  <input
+                                                      type="text"
+                                                      value={opt.label}
+                                                      onChange={(e) => updateOption(q.id, optIdx, 'label', e.target.value)}
+                                                      className="flex-1 bg-transparent border-b border-transparent focus:border-indigo-300 outline-none py-1.5 text-sm font-semibold text-slate-700 placeholder:text-slate-300 transition-all"
+                                                      placeholder={`Opção ${optIdx + 1}`}
+                                                  />
+                                                  <div className="w-20 shrink-0">
+                                                      <input
+                                                          type="number"
+                                                          value={opt.value}
+                                                          onChange={(e) => updateOption(q.id, optIdx, 'value', parseInt(e.target.value) || 0)}
+                                                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-center font-black text-indigo-600 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                                                      />
+                                                  </div>
+                                                  <button
+                                                      onClick={() => removeOption(q.id, optIdx)}
+                                                      className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover/opt:opacity-100"
+                                                  >
+                                                      <Trash2 size={14} />
+                                                  </button>
+                                                </div>
+                                            ))}
+                                          </div>
+                                          <button
+                                              onClick={() => addOption(q.id)}
+                                              className="w-full mt-4 flex items-center justify-center gap-2 p-3 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 font-bold text-xs hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/50 transition-all group"
+                                          >
+                                              <Plus size={14} className="group-hover:rotate-90 transition-transform" /> Adicionar nova opção
+                                          </button>
+                                      </div>
+                                  )}
+
+                                  {/* Footer Actions */}
+                                  <div className="flex items-center justify-between pt-8 mt-8 border-t border-slate-100">
+                                      <div className="flex items-center gap-6">
+                                        <label className="flex items-center gap-3 cursor-pointer group/switch">
+                                          <div className={`w-11 h-6 rounded-full relative transition-all duration-300 ${q.required ? 'bg-indigo-600 shadow-lg shadow-indigo-200' : 'bg-slate-200'}`}>
+                                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300 ${q.required ? 'left-6' : 'left-1'}`}></div>
+                                          </div>
+                                          <input 
+                                              type="checkbox" 
+                                              className="hidden" 
+                                              checked={q.required}
+                                              onChange={(e) => updateQuestion(q.id, 'required', e.target.checked)}
+                                          />
+                                          <span className={`text-[11px] font-black uppercase tracking-wider transition-colors ${q.required ? 'text-indigo-600' : 'text-slate-400'}`}>Obrigatória</span>
+                                        </label>
+                                        <div className="h-4 w-px bg-slate-200"></div>
+                                        <button className="flex items-center gap-2 text-slate-400 hover:text-slate-600 transition-colors">
+                                          <Copy size={14} />
+                                          <span className="text-[11px] font-black uppercase tracking-wider">Duplicar</span>
+                                        </button>
+                                      </div>
+
+                                      <button
+                                        onClick={(e) => removeQuestion(q.id, e)}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600 transition-all font-black text-[10px] uppercase tracking-widest"
+                                      >
+                                        <Trash2 size={14} /> Excluir Campo
+                                      </button>
+                                  </div>
+                                </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add Question Empty state or terminal */}
+                      <button 
                         onClick={addQuestion}
+                        className="w-full flex flex-col items-center justify-center p-12 rounded-[40px] border-4 border-dashed border-slate-200 text-slate-300 hover:border-indigo-300 hover:text-indigo-500 hover:bg-white hover:shadow-2xl hover:shadow-indigo-100 transition-all duration-500 group"
                       >
-                        Adicionar Pergunta
-                      </Button>
-                    </div>
-                    
-                    {/* Empty State Help */}
-                    {questions.length === 0 && (
-                        <div className="text-center py-10 text-slate-400">
-                            <Wand2 size={48} className="mx-auto mb-4 opacity-50" />
-                            <p>Seu formulário está vazio. <br/> Adicione perguntas para começar.</p>
+                        <div className="w-20 h-20 rounded-3xl bg-slate-50 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-indigo-50 transition-all">
+                          <Plus size={32} className="group-hover:rotate-90 transition-all duration-500" />
                         </div>
-                    )}
+                        <h3 className="text-xl font-black tracking-tight">Qual a próxima pergunta?</h3>
+                        <p className="text-sm font-medium opacity-60 mt-1">Clique para inserir um novo campo de resposta</p>
+                      </button>
+                    </div>
                 </div>
                 </div>
             </>
@@ -418,96 +487,126 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
 
         {/* --- TAB: LOGIC & CALCULATION --- */}
         {activeTab === 'logic' && (
-            <div className="flex-1 overflow-y-auto bg-slate-100/50 p-4 md:p-8">
-                <div className="max-w-4xl mx-auto space-y-8">
-                    <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
-                        <div className="flex items-start gap-4 mb-6">
-                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                                <Calculator size={24} />
+            <div className="flex-1 overflow-y-auto bg-slate-50 p-4 lg:p-12 animate-in fade-in zoom-in-95 duration-500 custom-scrollbar">
+                <div className="max-w-4xl mx-auto space-y-10 pb-32">
+                    <div className="bg-white rounded-[40px] p-10 lg:p-14 border border-slate-200 shadow-2xl shadow-indigo-100/50 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full -mr-32 -mt-32 blur-3xl opacity-60"></div>
+                        <div className="relative flex flex-col md:flex-row items-center gap-10">
+                            <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-[32px] flex items-center justify-center shadow-xl shadow-indigo-200 shrink-0">
+                                <Calculator size={40} />
                             </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-slate-800">Simulador de Pontuação</h3>
-                                <p className="text-slate-500 text-sm">O sistema soma automaticamente os valores atribuídos às opções.</p>
+                            <div className="flex-1 text-center md:text-left">
+                                <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Motor de Pontuação</h3>
+                                <p className="text-slate-500 font-medium leading-relaxed max-w-lg">Configuramos a soma automática para que você possa criar avaliações clínicas precisas em segundos.</p>
                             </div>
-                        </div>
-                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 text-center">
-                            <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Pontuação Máxima Possível</p>
-                            <p className="text-4xl font-display font-bold text-indigo-600">{calculateMaxScore()} pontos</p>
+                            <div className="bg-slate-50 rounded-[32px] p-8 border border-indigo-100 text-center min-w-[200px] shadow-inner">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Teto de Pontos</p>
+                                <p className="text-5xl font-black text-indigo-600 tracking-tighter">{calculateMaxScore()}</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
-                        <div className="flex justify-between items-center mb-6">
-                            <div className="flex items-center gap-3">
-                                <Target size={24} className="text-indigo-600" />
-                                <h3 className="text-xl font-bold text-slate-800">Regras de Interpretação</h3>
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-end px-4">
+                            <div>
+                                <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                                  <Target size={24} className="text-indigo-500" /> Interpretador Dinâmico
+                                </h3>
+                                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">Defina o que cada faixa de pontuação significa</p>
                             </div>
-                            <Button variant="soft" size="sm" leftIcon={<Plus size={14} />} onClick={addInterpretation}>
-                                Nova Regra
+                            <Button variant="primary" size="md" leftIcon={<Plus size={18} />} onClick={addInterpretation} className="rounded-2xl shadow-lg shadow-indigo-200">
+                                Adicionar Filtro
                             </Button>
                         </div>
 
                         {interpretations.length === 0 ? (
-                            <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-xl">
-                                <p className="text-slate-400">Nenhuma regra definida. O resultado mostrará apenas a soma total.</p>
+                            <div className="text-center py-24 bg-white border-4 border-dashed border-slate-200 rounded-[48px] px-10">
+                                <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                  <AlertCircle size={32} className="text-slate-300" />
+                                </div>
+                                <h4 className="text-xl font-black text-slate-800 mb-2">Nenhuma regra de cálculo</h4>
+                                <p className="text-slate-400 font-medium max-w-sm mx-auto mb-8">O formulário apenas salvará as respostas sem interpretá-las. Adicione uma regra para automatizar sua análise.</p>
+                                <Button variant="soft" onClick={addInterpretation}>Criar primeira regra agora</Button>
                             </div>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="grid grid-cols-1 gap-6">
                                 {interpretations.map((rule, idx) => (
-                                    <div key={rule.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center font-bold text-slate-500 text-sm">{idx + 1}</div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-bold text-slate-600">De</span>
-                                                <input 
-                                                    type="number" 
-                                                    value={rule.minScore} 
-                                                    onChange={e => updateInterpretation(rule.id, 'minScore', parseInt(e.target.value))}
-                                                    className="w-16 p-2 rounded-lg border border-slate-300 text-center font-bold outline-none focus:border-indigo-500"
-                                                />
-                                                <span className="text-sm font-bold text-slate-600">até</span>
-                                                <input 
-                                                    type="number" 
-                                                    value={rule.maxScore} 
-                                                    onChange={e => updateInterpretation(rule.id, 'maxScore', parseInt(e.target.value))}
-                                                    className="w-16 p-2 rounded-lg border border-slate-300 text-center font-bold outline-none focus:border-indigo-500"
-                                                />
-                                                <span className="text-sm font-bold text-slate-600">pontos</span>
+                                    <div key={rule.id} className="group bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all duration-500 animate-in slide-in-from-bottom-4">
+                                        <div className="flex flex-col lg:flex-row items-start gap-8">
+                                            <div className="flex flex-col items-center gap-3 shrink-0">
+                                              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-500 shadow-inner group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">{idx + 1}</div>
+                                              <button onClick={() => deleteInterpretation(rule.id)} className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
                                             </div>
-                                            <div className="flex-1"></div>
-                                            <Button variant="ghost" size="xs" iconOnly onClick={() => deleteInterpretation(rule.id)} className="text-red-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={15} /></Button>
-                                        </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <Input
-                                                label="Título do Resultado"
-                                                size="sm"
-                                                placeholder="Ex: Sono Preservado"
-                                                value={rule.resultTitle}
-                                                onChange={e => updateInterpretation(rule.id, 'resultTitle', e.target.value)}
-                                            />
-                                            <Select
-                                                label="Cor do Card"
-                                                size="sm"
-                                                value={rule.color}
-                                                onChange={e => updateInterpretation(rule.id, 'color', e.target.value)}
-                                            >
-                                                <option value="bg-slate-100 text-slate-800">Cinza (Neutro)</option>
-                                                <option value="bg-emerald-100 text-emerald-800">Verde (Positivo)</option>
-                                                <option value="bg-blue-100 text-blue-800">Azul (Informativo)</option>
-                                                <option value="bg-amber-100 text-amber-800">Amarelo (Atenção)</option>
-                                                <option value="bg-red-100 text-red-800">Vermelho (Crítico)</option>
-                                            </Select>
-                                        </div>
+                                            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
+                                                <div className="lg:col-span-4 space-y-4">
+                                                  <div className="flex items-center gap-4">
+                                                      <div className="flex-1">
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Mínimo</label>
+                                                        <input 
+                                                            type="number" 
+                                                            value={rule.minScore} 
+                                                            onChange={e => updateInterpretation(rule.id, 'minScore', parseInt(e.target.value))}
+                                                            className="w-full bg-slate-50 border-none rounded-2xl p-4 font-black text-indigo-600 text-center focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                                                        />
+                                                      </div>
+                                                      <div className="pt-6 font-bold text-slate-300">até</div>
+                                                      <div className="flex-1">
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Máximo</label>
+                                                        <input 
+                                                            type="number" 
+                                                            value={rule.maxScore} 
+                                                            onChange={e => updateInterpretation(rule.id, 'maxScore', parseInt(e.target.value))}
+                                                            className="w-full bg-slate-50 border-none rounded-2xl p-4 font-black text-indigo-600 text-center focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                                                        />
+                                                      </div>
+                                                  </div>
+                                                  
+                                                  <div className="pt-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Estilo do Resultado</label>
+                                                    <Select
+                                                        label=""
+                                                        labelClassName="hidden"
+                                                        value={rule.color}
+                                                        onChange={e => updateInterpretation(rule.id, 'color', e.target.value)}
+                                                        className="rounded-2xl bg-white border-slate-200 font-bold text-sm h-12"
+                                                    >
+                                                        <option value="bg-slate-100 text-slate-800">Neutral (Cinza)</option>
+                                                        <option value="bg-emerald-100 text-emerald-800">Excellent (Verde)</option>
+                                                        <option value="bg-blue-100 text-blue-800">Standard (Azul)</option>
+                                                        <option value="bg-amber-100 text-amber-800">Attention (Amarelo)</option>
+                                                        <option value="bg-red-100 text-red-800">Critical (Vermelho)</option>
+                                                    </Select>
+                                                  </div>
+                                                </div>
 
-                                        <TextArea
-                                            label="Descrição Clínica / Orientação"
-                                            size="sm"
-                                            rows={2}
-                                            placeholder="Texto que aparecerá na conclusão..."
-                                            value={rule.description}
-                                            onChange={e => updateInterpretation(rule.id, 'description', e.target.value)}
-                                        />
+                                                <div className="lg:col-span-8 space-y-6">
+                                                  <div>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Nomenclatura do Resultado</label>
+                                                    <Input
+                                                        label=""
+                                                        labelClassName="hidden"
+                                                        placeholder="Ex: Nível de Ansiedade Elevado"
+                                                        value={rule.resultTitle}
+                                                        onChange={e => updateInterpretation(rule.id, 'resultTitle', e.target.value)}
+                                                        className="rounded-2xl bg-white border-slate-200 font-black text-slate-800 h-12"
+                                                    />
+                                                  </div>
+                                                  <div>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Instruções / Relatório Gerado</label>
+                                                    <TextArea
+                                                        label=""
+                                                        labelClassName="hidden"
+                                                        rows={3}
+                                                        placeholder="Escreva a análise clínica que será exibida quando esta pontuação for atingida..."
+                                                        value={rule.description}
+                                                        onChange={e => updateInterpretation(rule.id, 'description', e.target.value)}
+                                                        className="rounded-2xl bg-slate-50 border-none font-medium leading-relaxed"
+                                                    />
+                                                  </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -517,126 +616,125 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
             </div>
         )}
 
+        {/* --- TAB: SETTINGS --- */}
+        {activeTab === 'settings' && (
+            <div className="flex-1 overflow-y-auto bg-slate-50 p-4 lg:p-12 animate-in fade-in zoom-in-95 duration-500 custom-scrollbar">
+                <div className="max-w-4xl mx-auto space-y-10 pb-32">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                      
+                      {/* Brand Config */}
+                      <div className="lg:col-span-7 bg-white rounded-[48px] p-10 lg:p-14 border border-slate-200 shadow-xl space-y-12">
+                        <div className="flex items-center gap-5">
+                            <div className="w-16 h-16 rounded-[24px] bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
+                                <Palette size={28} />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Design Experience</h3>
+                                <p className="text-sm font-medium text-slate-400">Configure a identidade visual do formulário público.</p>
+                            </div>
+                        </div>
 
+                        <div className="space-y-10">
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4 px-1">Curadoria de Paletas</label>
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                  {paletteOptions.map((palette) => (
+                                      <button 
+                                        key={palette.label} 
+                                        onClick={() => setSelectedPalette(palette.label)}
+                                        className={`p-3 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-2 ${
+                                          selectedPalette === palette.label ? 'border-indigo-500 bg-indigo-50 shadow-md transform scale-105' : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-200'
+                                        }`}
+                                      >
+                                          <div className="grid grid-cols-2 w-full gap-0.5 rounded overflow-hidden">
+                                            {palette.colors.slice(0, 4).map((c, i) => <div key={i} className="h-3 w-full" style={{backgroundColor: c}}></div>)}
+                                          </div>
+                                          <span className={`text-[9px] font-black uppercase tracking-tighter ${selectedPalette === palette.label ? 'text-indigo-700' : 'text-slate-400'}`}>{palette.label}</span>
+                                      </button>
+                                  ))}
+                                </div>
+                            </div>
 
-{/* --- TAB: SETTINGS --- */}
-{activeTab === 'settings' && (
-    <div className="flex-1 overflow-y-auto bg-slate-100/50 p-4 md:p-8">
-        <div className="max-w-4xl mx-auto space-y-6">
-            <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm space-y-6">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                        <Palette size={18} />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-slate-800">Tema do Formulario Publico</h3>
-                        <p className="text-sm text-slate-500">Personalize as cores e o cabecalho.</p>
-                    </div>
-                </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                            <Select
-                                label="Paleta de Cores"
-                                size="sm"
-                                value={selectedPalette}
-                                onChange={e => setSelectedPalette(e.target.value)}
-                            >
-                                {paletteOptions.map((palette) => (
-                                    <option key={palette.label} value={palette.label}>{palette.label}</option>
+                            <div className="space-y-8 p-8 rounded-[32px] bg-slate-50 border border-slate-100">
+                                {[
+                                  { label: 'Cor Primária / Ação', field: 'primaryColor' },
+                                  { label: 'Cor de Destaque', field: 'accentColor' },
+                                  { label: 'Plano de Fundo', field: 'backgroundColor' },
+                                  { label: 'Interface de Card', field: 'cardColor' }
+                                ].map(colorField => (
+                                  <div key={colorField.field} className="space-y-3">
+                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">{colorField.label}</span>
+                                      <div className="flex flex-wrap gap-2.5">
+                                      {currentPalette.map(color => (
+                                          <button
+                                              key={`${colorField.field}-${color}`}
+                                              type="button"
+                                              onClick={() => setTheme(prev => ({ ...prev, [colorField.field]: color }))}
+                                              className={`h-7 w-7 rounded-lg border-2 border-white shadow-xl transition-all duration-300 hover:scale-125 ${theme[colorField.field as keyof FormTheme] === color ? 'ring-2 ring-indigo-500 ring-offset-2 scale-110' : 'ring-1 ring-slate-200'}`}
+                                              style={{ backgroundColor: color }}
+                                              title={color}
+                                          />
+                                      ))}
+                                  </div>
+                                  </div>
                                 ))}
-                            </Select>
-                        </div>
-                        <label className="space-y-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Cor primaria</span>
-                            <div className="flex flex-wrap gap-2 pt-1">
-                            {currentPalette.map(color => (
-                                <button
-                                    key={`primary-${color}`}
-                                    type="button"
-                                    onClick={() => setTheme(prev => ({ ...prev, primaryColor: color }))}
-                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.primaryColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
-                                    style={{ backgroundColor: color }}
-                                    title={color}
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4 px-1">Imagem de Capa (Header)</label>
+                                <Input
+                                    label=""
+                                    labelClassName="hidden"
+                                    type="text"
+                                    value={theme.headerImageUrl || ''}
+                                    onChange={e => setTheme(prev => ({ ...prev, headerImageUrl: e.target.value }))}
+                                    placeholder="https://sua-imagem.com/banner.jpg"
+                                    className="rounded-2xl border-slate-200 bg-white font-medium h-12"
+                                    leftIcon={<Plus size={18} />}
                                 />
-                            ))}
+                                <p className="text-[10px] text-slate-400 font-medium mt-3 px-1">Formatos suportados: JPG, PNG ou WebP. Proporção recomendada 16:9.</p>
+                            </div>
                         </div>
-                        </label>
-                        <label className="space-y-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Cor secundaria</span>
-                            <div className="flex flex-wrap gap-2 pt-1">
-                            {currentPalette.map(color => (
-                                <button
-                                    key={`accent-${color}`}
-                                    type="button"
-                                    onClick={() => setTheme(prev => ({ ...prev, accentColor: color }))}
-                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.accentColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
-                                    style={{ backgroundColor: color }}
-                                    title={color}
-                                />
-                            ))}
+                      </div>
+
+                      {/* Preview Mobile Rendering */}
+                      <div className="lg:col-span-5 flex flex-col gap-6">
+                        <div className="bg-slate-800 rounded-[60px] p-6 shadow-2xl relative border-[8px] border-slate-700 h-[600px] w-full max-w-[320px] mx-auto overflow-hidden">
+                          {/* iPhone Notch */}
+                          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-700 rounded-b-2xl z-20"></div>
+                          
+                          {/* Inner Screen */}
+                          <div className="w-full h-full bg-white rounded-[40px] overflow-hidden flex flex-col" style={{backgroundColor: theme.backgroundColor}}>
+                            {theme.headerImageUrl ? (
+                              <img src={theme.headerImageUrl} className="h-24 w-full object-cover" />
+                            ) : (
+                              <div className="h-24 w-full" style={{backgroundColor: theme.primaryColor}}></div>
+                            )}
+                            <div className="p-4 flex-1 overflow-y-auto no-scrollbar">
+                              <div className="p-6 rounded-[24px] shadow-sm mb-4" style={{backgroundColor: theme.cardColor}}>
+                                <div className="h-4 w-2/3 bg-slate-100 rounded mb-2"></div>
+                                <div className="h-2 w-full bg-slate-50 rounded"></div>
+                              </div>
+                              {[1,2,3].map(i => (
+                                <div key={i} className="p-4 rounded-[20px] shadow-sm mb-3 border border-slate-100/10" style={{backgroundColor: theme.cardColor}}>
+                                  <div className="h-3 w-3/4 bg-slate-100 rounded mb-6"></div>
+                                  <div className="space-y-3">
+                                    <div className="h-5 w-full bg-slate-50 rounded-lg"></div>
+                                    <div className="h-5 w-full bg-slate-50 rounded-lg"></div>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="mt-4 p-3 rounded-xl text-white text-center font-bold text-xs" style={{backgroundColor: theme.buttonColor}}>ENVIAR RESPOSTAS</div>
+                            </div>
+                          </div>
                         </div>
-                        </label>
-                        <label className="space-y-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Fundo</span>
-                            <div className="flex flex-wrap gap-2 pt-1">
-                            {currentPalette.map(color => (
-                                <button
-                                    key={`bg-${color}`}
-                                    type="button"
-                                    onClick={() => setTheme(prev => ({ ...prev, backgroundColor: color }))}
-                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.backgroundColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
-                                    style={{ backgroundColor: color }}
-                                    title={color}
-                                />
-                            ))}
-                        </div>
-                        </label>
-                        <label className="space-y-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Card</span>
-                            <div className="flex flex-wrap gap-2 pt-1">
-                            {currentPalette.map(color => (
-                                <button
-                                    key={`card-${color}`}
-                                    type="button"
-                                    onClick={() => setTheme(prev => ({ ...prev, cardColor: color }))}
-                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.cardColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
-                                    style={{ backgroundColor: color }}
-                                    title={color}
-                                />
-                            ))}
-                        </div>
-                        </label>
-                        <label className="space-y-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Botao</span>
-                            <div className="flex flex-wrap gap-2 pt-1">
-                            {currentPalette.map(color => (
-                                <button
-                                    key={`button-${color}`}
-                                    type="button"
-                                    onClick={() => setTheme(prev => ({ ...prev, buttonColor: color }))}
-                                    className={`h-6 w-6 rounded-full border border-slate-200 shadow-sm transition ring-2 ring-offset-2 ring-offset-white ${theme.buttonColor === color ? 'ring-indigo-500' : 'ring-transparent'}`}
-                                    style={{ backgroundColor: color }}
-                                    title={color}
-                                />
-                            ))}
-                        </div>
-                    </label>
-                    <div>
-                        <Input
-                            label="Imagem do cabeçalho (URL)"
-                            size="sm"
-                            type="text"
-                            value={theme.headerImageUrl || ''}
-                            onChange={e => setTheme(prev => ({ ...prev, headerImageUrl: e.target.value }))}
-                            placeholder="https://"
-                        />
+                        <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Preview Instantâneo (Mobile)</p>
+                      </div>
+
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-)}
+        )}
 
       </div>
     </div>

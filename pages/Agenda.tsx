@@ -110,6 +110,7 @@ export const Agenda: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isProcessingImport, setIsProcessingImport] = useState(false);
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [filterPatientId, setFilterPatientId] = useState<string | null>(null);
@@ -825,6 +826,8 @@ export const Agenda: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
         const isPackage = String(formData.service_id).startsWith('pkg_');
         const cleanServiceId = isPackage ? formData.service_id.replace('pkg_', '') : formData.service_id;
@@ -888,6 +891,8 @@ export const Agenda: React.FC = () => {
         pushToast('success', 'Agenda atualizada com sucesso.');
     } catch (e: any) {
         pushToast('error', 'Erro ao salvar agendamento.');
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -1309,6 +1314,9 @@ export const Agenda: React.FC = () => {
                 </Button>
                 <Button
                   onClick={handleSave}
+                  disabled={isSaving}
+                  isLoading={isSaving}
+                  loadingText="Salvando..."
                   className="px-6 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm text-xs font-semibold transition-all transform active:scale-95 w-full sm:w-auto"
                 >
                   <CheckCircle2 size={16} className="mr-2" />
