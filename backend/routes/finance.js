@@ -725,6 +725,7 @@ router.post('/comandas/import', async (req, res) => {
                (tenant_id, type, category, description, amount, date, patient_id, comanda_id, payment_method, status)
              VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'Importado', 'paid')`,
             [tenantId, `Pagamento comanda importada - ${client_name}`,
+             paidVal,
              parsedDate || new Date().toISOString().slice(0,10),
              patientId, comandaId]
           );

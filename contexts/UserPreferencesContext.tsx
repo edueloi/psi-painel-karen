@@ -74,6 +74,8 @@ interface UserPreferencesContextType {
   ) => void;
   formsArchived: string[];
   setFormsArchived: (ids: string[]) => void;
+  formsFavorites: string[];
+  setFormsFavorites: (ids: string[]) => void;
 }
 
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
@@ -81,6 +83,7 @@ const UserPreferencesContext = createContext<UserPreferencesContextType | undefi
 export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [formsArchived, setFormsArchivedState] = useState<string[]>([]);
+  const [formsFavorites, setFormsFavoritesState] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   // debounce timer ref so we don't spam the API on every keystroke
@@ -113,6 +116,9 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
         if (Array.isArray(profile?.forms_archived)) {
           setFormsArchivedState(profile.forms_archived.map(String));
         }
+        if (Array.isArray(profile?.forms_favorites)) {
+          setFormsFavoritesState(profile.forms_favorites.map(String));
+        }
       } catch {
         // Network error — just use defaults silently
       } finally {
@@ -123,12 +129,13 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
   }, []);
 
   // ─── Persist to backend (debounced 800ms) ─────────────────────────────────
-  const persistToBackend = (prefs: UserPreferences, archived: string[]) => {
+  const persistToBackend = (prefs: UserPreferences, archived: string[], favorites: string[]) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       api.patch('/profile/preferences', {
         ui_preferences: prefs,
         forms_archived: archived,
+        forms_favorites: favorites,
       }).catch(() => {/* ignore network errors silently */});
     }, 800);
   };
@@ -143,7 +150,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
         ...prev,
         [screen]: { ...prev[screen], ...updates },
       };
-      if (loaded) persistToBackend(next, formsArchived);
+      if (loaded) persistToBackend(next, formsArchived, formsFavorites);
       return next;
     });
   };
@@ -151,13 +158,19 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
   // ─── setFormsArchived ──────────────────────────────────────────────────────
   const setFormsArchived = (ids: string[]) => {
     setFormsArchivedState(ids);
-    if (loaded) persistToBackend(preferences, ids);
+    if (loaded) persistToBackend(preferences, ids, formsFavorites);
+  };
+
+  // ─── setFormsFavorites ─────────────────────────────────────────────────────
+  const setFormsFavorites = (ids: string[]) => {
+    setFormsFavoritesState(ids);
+    if (loaded) persistToBackend(preferences, formsArchived, ids);
   };
 
   if (!loaded) return null;
 
   return (
-    <UserPreferencesContext.Provider value={{ preferences, updatePreference, formsArchived, setFormsArchived }}>
+    <UserPreferencesContext.Provider value={{ preferences, updatePreference, formsArchived, setFormsArchived, formsFavorites, setFormsFavorites }}>
       {children}
     </UserPreferencesContext.Provider>
   );

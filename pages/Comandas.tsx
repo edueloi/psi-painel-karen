@@ -392,14 +392,11 @@ export const Comandas: React.FC = () => {
   }, [filteredComandas, currentPage, itemsPerPage]);
 
   const stats = useMemo(() => {
-    const total = comandas.reduce((acc, c: any) => acc + getComandaTotal(c), 0);
-    const open = comandas
-      .filter((c: any) => c.status === 'open')
-      .reduce((acc, c: any) => acc + getComandaPending(c), 0);
-    const received = comandas.reduce((acc, c: any) => acc + getComandaPaid(c), 0);
-
-    return { total, open, received };
-  }, [comandas]);
+    const total    = filteredComandas.reduce((acc, c: any) => acc + getComandaTotal(c), 0);
+    const pending  = filteredComandas.reduce((acc, c: any) => acc + getComandaPending(c), 0);
+    const received = filteredComandas.reduce((acc, c: any) => acc + getComandaPaid(c), 0);
+    return { total, open: pending, received };
+  }, [filteredComandas]);
 
   const modalGrossTotal = useMemo(() => {
     if (!editingComanda) return 0;
@@ -1282,7 +1279,7 @@ export const Comandas: React.FC = () => {
                 <Clock size={18} />
               </div>
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Saldo em Aberto
+                {statusFilter === 'open' ? 'Saldo em Aberto' : 'Total Pendente'}
               </span>
             </div>
             <p className="text-2xl font-bold text-amber-600">{formatCurrency(stats.open)}</p>
@@ -1301,100 +1298,66 @@ export const Comandas: React.FC = () => {
           </div>
         </div>
 
-        <FilterLine className="mb-6">
-          <FilterLineSection align="left" grow>
-            <FilterLineSearch
-              value={searchTerm}
-              onChange={setSearchTerm}
-              placeholder="Buscar paciente, descrição ou item..."
-              className="xl:max-w-[420px]"
-            />
-          </FilterLineSection>
+        <FilterLine className="mb-6 overflow-x-auto">
+  <div className="flex w-full min-w-max items-end gap-3 flex-nowrap">
+    <div className="min-w-[320px] max-w-[420px] flex-1">
+      <FilterLineSearch
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder="Buscar paciente, descrição ou item..."
+        className="w-full"
+      />
+    </div>
 
-          <FilterLineSection align="right">
-            <FilterLineSegmented
-              value={statusFilter}
-              onChange={(val) => {
-                setStatusFilter(val as any);
-                updatePreference('comandas', { statusFilter: val });
-              }}
-              options={[
-                { value: 'open', label: 'Em aberto' },
-                { value: 'closed', label: 'Finalizadas' },
-              ]}
-              size="sm"
-            />
+    {statusFilter === 'closed' && (
+      <>
+        <div className="shrink-0">
+          <FilterLineDateRange
+            from={closedDateFrom}
+            to={closedDateTo}
+            onFromChange={(val) => {
+              setClosedDateFrom(val);
+              updatePreference('comandas', { closedDateFrom: val });
+            }}
+            onToChange={(val) => {
+              setClosedDateTo(val);
+              updatePreference('comandas', { closedDateTo: val });
+            }}
+            fromLabel="De"
+            toLabel="Até"
+          />
+        </div>
+      </>
+    )}
 
-            {statusFilter === 'closed' && (
-              <div className="flex flex-wrap items-center gap-2">
-                {/* atalhos rápidos */}
-                <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
-                  {([
-                    { label: 'Semana', days: 7 },
-                    { label: 'Mês', days: 30 },
-                    { label: 'Ano', days: 365 },
-                  ] as const).map(({ label, days }) => {
-                    const to = new Date().toISOString().slice(0, 10);
-                    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-                    const active = closedDateFrom === from && closedDateTo === to;
-                    return (
-                      <button
-                        key={label}
-                        onClick={() => {
-                          setClosedDateFrom(from);
-                          setClosedDateTo(to);
-                          updatePreference('comandas', { closedDateFrom: from, closedDateTo: to });
-                        }}
-                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                          active ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={() => {
-                      setClosedDateFrom(null);
-                      setClosedDateTo(null);
-                      updatePreference('comandas', { closedDateFrom: null, closedDateTo: null });
-                    }}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                      !closedDateFrom && !closedDateTo ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    Tudo
-                  </button>
-                </div>
-                {/* seletor de data personalizado */}
-                <FilterLineDateRange
-                  from={closedDateFrom}
-                  to={closedDateTo}
-                  onFromChange={(val) => {
-                    setClosedDateFrom(val);
-                    updatePreference('comandas', { closedDateFrom: val });
-                  }}
-                  onToChange={(val) => {
-                    setClosedDateTo(val);
-                    updatePreference('comandas', { closedDateTo: val });
-                  }}
-                  fromLabel="De"
-                  toLabel="Até"
-                />
-              </div>
-            )}
+    <div className="shrink-0">
+      <FilterLineSegmented
+        value={statusFilter}
+        onChange={(val) => {
+          setStatusFilter(val as any);
+          updatePreference('comandas', { statusFilter: val });
+        }}
+        options={[
+          { value: 'open', label: 'Em aberto' },
+          { value: 'closed', label: 'Finalizadas' },
+        ]}
+        size="sm"
+      />
+    </div>
 
-            <FilterLineViewToggle
-              value={viewMode}
-              onChange={(mode) => {
-                setViewMode(mode as any);
-                updatePreference('comandas', { viewMode: mode });
-              }}
-              gridValue="kanban"
-              listValue="list"
-            />
-          </FilterLineSection>
-        </FilterLine>
+    <div className="shrink-0">
+      <FilterLineViewToggle
+        value={viewMode}
+        onChange={(mode) => {
+          setViewMode(mode as any);
+          updatePreference('comandas', { viewMode: mode });
+        }}
+        gridValue="kanban"
+        listValue="list"
+      />
+    </div>
+  </div>
+</FilterLine>
 
         {viewMode === 'kanban' ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

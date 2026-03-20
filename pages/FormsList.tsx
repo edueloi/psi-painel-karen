@@ -24,12 +24,12 @@ import {
 export const FormsList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { formsArchived: archivedIds, setFormsArchived } = useUserPreferences();
+  const { formsArchived: archivedIds, setFormsArchived, formsFavorites: favoriteIds, setFormsFavorites } = useUserPreferences();
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const categoryScrollRef = React.useRef<HTMLDivElement>(null);
-  const [activeFilter, setActiveFilter] = useState<'Todos' | 'Ativos' | 'Arquivados'>('Todos');
+  const [activeFilter, setActiveFilter] = useState<'Todos' | 'Ativos' | 'Arquivados' | 'Favoritos'>('Todos');
   const [activeCategory, setActiveCategory] = useState('Todas');
   const [defaultPatientId, setDefaultPatientId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -206,6 +206,13 @@ export const FormsList: React.FC = () => {
     setFormsArchived(next);
   };
 
+  const toggleFavorite = (id: string) => {
+    const next = favoriteIds.includes(id)
+      ? favoriteIds.filter(item => item !== id)
+      : [...favoriteIds, id];
+    setFormsFavorites(next);
+  };
+
   const confirmDeleteForm = (form: ClinicalForm) => {
     setFormToDelete(form);
     setIsDeleteModalOpen(true);
@@ -230,6 +237,7 @@ export const FormsList: React.FC = () => {
   ).filter(f => {
     if (activeFilter === 'Arquivados') return archivedIds.includes(f.id);
     if (activeFilter === 'Ativos') return !archivedIds.includes(f.id);
+    if (activeFilter === 'Favoritos') return favoriteIds.includes(f.id);
     return true;
   }).filter(f => {
     if (activeCategory === 'Todas') return true;
@@ -317,6 +325,7 @@ export const FormsList: React.FC = () => {
             options={[
               { value: 'Todos', label: 'Todos' },
               { value: 'Ativos', label: 'Ativos' },
+              { value: 'Favoritos', label: '★ Favoritos' },
               { value: 'Arquivados', label: 'Arquivados' },
             ]}
             className="bg-slate-50 border-none p-1.5 rounded-[1.4rem]"
@@ -471,6 +480,13 @@ export const FormsList: React.FC = () => {
                             </div>
 
                             <div className="flex items-center gap-2">
+                               <button
+                                 onClick={(e) => { e.stopPropagation(); toggleFavorite(form.id); }}
+                                 className={`p-3.5 rounded-2xl transition-all ${favoriteIds.includes(form.id) ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'}`}
+                                 title={favoriteIds.includes(form.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                               >
+                                 <Heart size={16} className={favoriteIds.includes(form.id) ? 'fill-amber-500' : ''} />
+                               </button>
                                <button
                                  onClick={() => window.open(`/f/${form.hash}`, '_blank')}
                                  className="p-3.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all"
