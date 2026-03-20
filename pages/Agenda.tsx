@@ -273,8 +273,9 @@ export const Agenda: React.FC = () => {
 
         setAppointments(apts.map(a => {
             const start = new Date(a.start_time || a.appointment_date);
-            // Sempre calcula end a partir de duration_minutes para garantir card correto
-            const end = new Date(start.getTime() + (a.duration_minutes || 50) * 60000);
+            // Clamp duration entre 5min e 480min (8h) para nunca gerar card gigante
+            const dur = Math.min(Math.max(Number(a.duration_minutes) || 50, 5), 480);
+            const end = new Date(start.getTime() + dur * 60000);
             // Normaliza status: banco usa no_show, frontend usa no-show
             const rawStatus = (a.status || 'scheduled').replace('no_show', 'no-show');
             return {
