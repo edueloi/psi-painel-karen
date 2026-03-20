@@ -151,6 +151,98 @@ router.get('/responses/recent', authMiddleware, async (req, res) => {
   }
 });
 
+// ---- OG META TAGS para compartilhamento social (/f/:hash) ----
+// Esta rota serve um HTML com OG tags para crawlers (WhatsApp, Telegram, Facebook, etc.)
+// Para navegadores reais, redireciona para o frontend SPA.
+router.get('/og/:hash', async (req, res) => {
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+  const formUrl = `${FRONTEND_URL}/f/${req.params.hash}`;
+
+  // Detectar crawlers / bots sociais
+  const ua = (req.headers['user-agent'] || '').toLowerCase();
+  const isCrawler = /whatsapp|telegram|facebookexternalhit|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|embedly|vkshare|pinterest|pocket|flipboard|curl|wget/i.test(ua);
+
+  try {
+    const [forms] = await db.query(
+      `SELECT f.id, f.title, f.description, f.category, f.hash,
+              u.name as professional_name, u.specialty as professional_specialty,
+              u.crp as professional_crp, u.company_name, u.clinic_logo_url, u.avatar_url
+       FROM forms f
+       LEFT JOIN users u ON u.id = f.created_by
+       WHERE f.hash = ? AND (f.is_public = true OR f.is_global = true)`,
+      [req.params.hash]
+    );
+
+    if (forms.length === 0) {
+      return res.redirect(302, formUrl);
+    }
+
+    const form = forms[0];
+    const professionalName = form.professional_name || 'Profissional';
+    const specialty = form.professional_specialty || '';
+    const crp = form.professional_crp || '';
+    const companyName = form.company_name || 'PsiFlux';
+    const formTitle = form.title || 'Formulário Clínico';
+    const formDesc = form.description
+      ? form.description.substring(0, 160)
+      : `Formulário enviado por ${professionalName}${specialty ? ` • ${specialty}` : ''}${crp ? ` • CRP ${crp}` : ''}. Clique para responder.`;
+
+    // Logo: preferir logo da clínica, senão avatar, senão logo padrão PsiFlux
+    const logoUrl = form.clinic_logo_url
+      ? (form.clinic_logo_url.startsWith('http') ? form.clinic_logo_url : `${FRONTEND_URL}${form.clinic_logo_url}`)
+      : form.avatar_url
+        ? (form.avatar_url.startsWith('http') ? form.avatar_url : `${FRONTEND_URL}${form.avatar_url}`)
+        : `${FRONTEND_URL}/og-default.png`;
+
+    if (!isCrawler) {
+      // Navegador real — redireciona para o SPA
+      return res.redirect(302, formUrl);
+    }
+
+    // Crawler — retorna HTML com OG tags completos
+    const ogTitle = `${formTitle} — ${companyName}`;
+    const ogDesc = formDesc;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>${ogTitle}</title>
+  <meta name="description" content="${ogDesc}" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${formUrl}" />
+  <meta property="og:title" content="${ogTitle}" />
+  <meta property="og:description" content="${ogDesc}" />
+  <meta property="og:image" content="${logoUrl}" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:site_name" content="${companyName}" />
+  <meta property="og:locale" content="pt_BR" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${ogTitle}" />
+  <meta name="twitter:description" content="${ogDesc}" />
+  <meta name="twitter:image" content="${logoUrl}" />
+
+  <!-- WhatsApp só usa og: tags acima -->
+  <meta http-equiv="refresh" content="0;url=${formUrl}" />
+</head>
+<body>
+  <p>Redirecionando para o formulário...</p>
+  <script>window.location.href = ${JSON.stringify(formUrl)};</script>
+</body>
+</html>`);
+  } catch (err) {
+    console.error('OG route error:', err);
+    res.redirect(302, formUrl);
+  }
+});
+
 // GET /forms/public/:hash
 router.get('/public/:hash', async (req, res) => {
   try {
