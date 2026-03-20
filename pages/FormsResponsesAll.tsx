@@ -17,6 +17,7 @@ import {
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
 import { Combobox } from '../components/UI/Combobox';
+import { useDateFormat } from '../contexts/UserPreferencesContext';
 
 type FormResponse = {
   id: string;
@@ -136,30 +137,8 @@ export const FormsResponsesAll: React.FC = () => {
     return form.interpretations.find(i => score >= (i.minScore ?? 0) && score <= (i.maxScore ?? 999));
   };
 
-  const formatDate = (value?: string) => {
-    if (!value) return '';
-    try {
-      let dateStr = value;
-      if (value.includes(' ') && !value.includes('T') && !value.includes('Z')) {
-        dateStr = value.replace(' ', 'T') + 'Z';
-      } else if (!value.includes('Z') && !value.includes('+') && value.includes('T')) {
-        dateStr = value + 'Z';
-      }
-      
-      const d = new Date(dateStr);
-      if (Number.isNaN(d.getTime())) return value;
-      return d.toLocaleString('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit',
-        timeZone: 'America/Sao_Paulo'
-      });
-    } catch (e) {
-      return value;
-    }
-  };
+  const { formatDate } = useDateFormat();
+
 
   const renderAnswers = (formId: string, answersJson: any) => {
     if (!answersJson) return <p className="text-xs text-slate-400 italic py-4 text-left">Respostas não disponíveis.</p>;

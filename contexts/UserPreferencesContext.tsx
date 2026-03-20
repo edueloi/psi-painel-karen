@@ -25,6 +25,9 @@ export interface UserPreferences {
     theme: 'light' | 'dark' | 'auto';
     primaryColor: string;
   };
+  general: {
+    timezone: string;
+  };
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -51,6 +54,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     theme: 'auto',
     primaryColor: 'Indigo',
   },
+  general: {
+    timezone: 'America/Sao_Paulo',
+  },
 };
 
 function mergeWithDefaults(stored: any): UserPreferences {
@@ -63,6 +69,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     agenda:      { ...DEFAULT_PREFERENCES.agenda,      ...stored?.agenda },
     caseStudies: { ...DEFAULT_PREFERENCES.caseStudies, ...stored?.caseStudies },
     appearance:  { ...DEFAULT_PREFERENCES.appearance,  ...stored?.appearance },
+    general:     { ...DEFAULT_PREFERENCES.general,     ...stored?.general },
   };
 }
 
@@ -182,4 +189,44 @@ export const useUserPreferences = () => {
     throw new Error('useUserPreferences must be used within UserPreferencesProvider');
   }
   return context;
+};
+
+/**
+ * Hook utilitário para formatar datas usando o fuso horário salvo nas preferências do usuário.
+ * Exemplo: const { formatDate } = useDateFormat();
+ */
+export const useDateFormat = () => {
+  const { preferences } = useUserPreferences();
+  const tz = preferences.general?.timezone || 'America/Sao_Paulo';
+
+  const formatDate = (value?: string | null, opts?: Intl.DateTimeFormatOptions): string => {
+    if (!value) return '';
+    try {
+      let dateStr = value;
+      // Se vier do banco sem indicador de fuso (ex: '2026-03-20 19:56:00'), trata como UTC
+      if (dateStr.includes(' ') && !dateStr.includes('T') && !dateStr.includes('Z')) {
+        dateStr = dateStr.replace(' ', 'T') + 'Z';
+      } else if (!dateStr.includes('Z') && !dateStr.includes('+') && dateStr.includes('T')) {
+        dateStr = dateStr + 'Z';
+      }
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return value;
+      return d.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: tz,
+        ...opts,
+      });
+    } catch {
+      return value;
+    }
+  };
+
+  const formatShortDate = (value?: string | null): string =>
+    formatDate(value, { year: undefined, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  return { formatDate, formatShortDate, timezone: tz };
 };

@@ -8,6 +8,7 @@ import {
   ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle, X, Bot, Calendar,
   ClipboardList
 } from 'lucide-react';
+import { useDateFormat } from '../contexts/UserPreferencesContext';
 import { 
   FilterLine, 
   FilterLineSection, 
@@ -208,32 +209,7 @@ export const FormResponses: React.FC = () => {
     return interpretations.find(i => score >= (i.minScore ?? 0) && score <= (i.maxScore ?? 999));
   };
 
-  const formatDate = (value?: string) => {
-    if (!value) return '';
-    try {
-      // Se a data vier do banco como '2026-03-20 19:23:00' sem o T e sem o Z,
-      // o JS interpreta como local. Forçamos UTC se o formato for esse.
-      let dateStr = value;
-      if (value.includes(' ') && !value.includes('T') && !value.includes('Z')) {
-        dateStr = value.replace(' ', 'T') + 'Z';
-      } else if (!value.includes('Z') && !value.includes('+') && value.includes('T')) {
-        dateStr = value + 'Z';
-      }
-      
-      const d = new Date(dateStr);
-      if (Number.isNaN(d.getTime())) return value;
-      return d.toLocaleString('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit',
-        timeZone: 'America/Sao_Paulo'
-      });
-    } catch (e) {
-      return value;
-    }
-  };
+  const { formatDate } = useDateFormat();
 
   const renderAnswers = (answersJson: any) => {
     if (!answersJson) return <p className="text-xs text-slate-400 italic py-4">Respostas não detalhadas.</p>;

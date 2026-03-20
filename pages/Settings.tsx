@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Language } from '../translations';
 import { useToast } from '../contexts/ToastContext';
 import { api, getStaticUrl } from '../services/api';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type EmailPrefs = {
@@ -88,6 +89,7 @@ export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('aparencia');
   const { mode: selectedMode, setMode, primaryColor: selectedColor, setPrimaryColor: setSelectedColor } = useTheme();
   const { pushToast } = useToast();
+  const { preferences, updatePreference } = useUserPreferences();
 
   // ── Team ──────────────────────────────────────────────────────────────────
   const [team, setTeam] = useState<any[]>([]);
@@ -297,11 +299,59 @@ export const Settings: React.FC = () => {
                     <option value="es">Español</option>
                   </Select>
 
-                  <Select label={t('settings.general.timezone')} leftIcon={<Clock size={16} />} size="lg">
-                    <option>(GMT-03:00) Brasília — São Paulo</option>
-                    <option>(GMT-04:00) Manaus</option>
-                    <option>(GMT-00:00) UTC</option>
+                  <Select
+                    label={t('settings.general.timezone')}
+                    leftIcon={<Clock size={16} />}
+                    size="lg"
+                    value={preferences.general?.timezone || 'America/Sao_Paulo'}
+                    onChange={e => updatePreference('general', { timezone: e.target.value })}
+                  >
+                    <optgroup label="🇧🇷 Brasil">
+                      <option value="America/Sao_Paulo">(GMT-03:00) Brasília — São Paulo, Rio, Belo Horizonte</option>
+                      <option value="America/Manaus">(GMT-04:00) Manaus, Cuiabá, Campo Grande</option>
+                      <option value="America/Belem">(GMT-03:00) Belém, Fortaleza, Recife, Salvador</option>
+                      <option value="America/Noronha">(GMT-02:00) Fernando de Noronha</option>
+                      <option value="America/Rio_Branco">(GMT-05:00) Rio Branco, Acre</option>
+                      <option value="America/Porto_Velho">(GMT-04:00) Porto Velho, Rondônia</option>
+                    </optgroup>
+                    <optgroup label="🌎 Americas">
+                      <option value="America/Argentina/Buenos_Aires">(GMT-03:00) Buenos Aires</option>
+                      <option value="America/Santiago">(GMT-03:00) Santiago</option>
+                      <option value="America/Bogota">(GMT-05:00) Bogotá, Lima, Quito</option>
+                      <option value="America/New_York">(GMT-05:00) New York, Miami, Toronto</option>
+                      <option value="America/Chicago">(GMT-06:00) Chicago, Mexico City</option>
+                      <option value="America/Denver">(GMT-07:00) Denver, Phoenix</option>
+                      <option value="America/Los_Angeles">(GMT-08:00) Los Angeles, San Francisco</option>
+                      <option value="America/Anchorage">(GMT-09:00) Anchorage</option>
+                    </optgroup>
+                    <optgroup label="🌍 Europa / África">
+                      <option value="UTC">(GMT+00:00) UTC — Tempo Universal</option>
+                      <option value="Europe/London">(GMT+00:00) Lisboa, Londres</option>
+                      <option value="Europe/Paris">(GMT+01:00) Paris, Madrid, Roma, Berlin</option>
+                      <option value="Europe/Helsinki">(GMT+02:00) Helsinki, Atenas, Cairo</option>
+                      <option value="Europe/Moscow">(GMT+03:00) Moscou</option>
+                      <option value="Africa/Johannesburg">(GMT+02:00) Joanesburgo</option>
+                    </optgroup>
+                    <optgroup label="🌏 Ásia / Pacífico">
+                      <option value="Asia/Dubai">(GMT+04:00) Dubai, Abu Dhabi</option>
+                      <option value="Asia/Karachi">(GMT+05:00) Karachi, Islamabad</option>
+                      <option value="Asia/Kolkata">(GMT+05:30) Mumbai, Nova Délhi</option>
+                      <option value="Asia/Bangkok">(GMT+07:00) Bangkok, Jakarta</option>
+                      <option value="Asia/Shanghai">(GMT+08:00) Pequim, Xangai, Singapura</option>
+                      <option value="Asia/Tokyo">(GMT+09:00) Tóquio, Seul</option>
+                      <option value="Australia/Sydney">(GMT+10:00) Sydney</option>
+                    </optgroup>
                   </Select>
+                </div>
+
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-3">
+                  <Clock size={16} className="text-indigo-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-indigo-800">Fuso horário ativo</p>
+                    <p className="text-xs text-indigo-600 mt-0.5">
+                      Todas as datas e horários do sistema — incluindo respostas de formulários, agendamentos e registros — serão exibidos no fuso selecionado: <strong>{preferences.general?.timezone || 'America/Sao_Paulo'}</strong>
+                    </p>
+                  </div>
                 </div>
 
                 <Select label={t('settings.general.currency')} leftIcon={<span className="text-xs font-bold">R$</span>} size="lg">
