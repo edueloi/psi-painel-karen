@@ -103,20 +103,14 @@ mountApiRoutes('');
 
 // ---- Rota /f/:hash — OG meta tags para compartilhamento social ----
 // O Nginx redireciona psiflux.com.br/f/:hash para cá.
-// Bots (WhatsApp, Telegram, etc.) recebem HTML com OG tags corretos.
-// Navegadores reais são redirecionados para o SPA.
+// Serve o index.html do SPA com OG tags injetados:
+//   • Browsers: carregam o app React normalmente
+//   • Bots (WhatsApp/Telegram/etc.): lêem os OG tags corretos
 const db = require('./db');
+const fs = require('fs');
 app.get('/f/:hash', async (req, res) => {
   const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
-  const formUrl = `${FRONTEND_URL}/f/${req.params.hash}`;
-
-  const ua = req.headers['user-agent'] || '';
-  const isCrawler = /whatsapp|telegram|facebookexternalhit|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|embedly|vkshare|pinterest|pocket|flipboard|curl|wget/i.test(ua);
-
-  if (!isCrawler) {
-    // Navegador real → SPA
-    return res.redirect(302, formUrl);
-  }
+  const distIndexPath = path.join(__dirname, '../dist/index.html');
 
   try {
     const [forms] = await db.query(
@@ -129,26 +123,30 @@ app.get('/f/:hash', async (req, res) => {
       [req.params.hash]
     );
 
-    if (forms.length === 0) return res.redirect(302, formUrl);
+    // Se não achou o form ou não tem index.html, serve o index.html puro
+    if (forms.length === 0 || !fs.existsSync(distIndexPath)) {
+      return res.sendFile(distIndexPath);
+    }
 
     const form = forms[0];
+    const formUrl = `${FRONTEND_URL}/f/${form.hash}`;
     const profName = form.professional_name || '';
     const specialty = form.professional_specialty || '';
     const crp = form.professional_crp || '';
     const clinic = form.company_name || 'PsiFlux';
     const formTitle = form.title || 'Formulário Clínico';
 
-    // Descrição: nome do formulário + profissional + especialidade + CRP
-    let descParts = [];
+    // Monta partes da descrição
+    const descParts = [];
     if (profName) descParts.push(profName);
     if (specialty) descParts.push(specialty);
     if (crp) descParts.push(`CRP ${crp}`);
     const profLine = descParts.join(' • ');
 
     const ogDesc = form.description
-      ? `${form.description.substring(0, 120)}${profLine ? ` — ${profLine}` : ''}`
+      ? `${form.description.substring(0, 130)}${profLine ? ` — ${profLine}` : ''}`
       : profLine
-        ? `Formulário clínico de ${profLine}. Clique para responder.`
+        ? `Formulário clínico enviado por ${profLine}. Clique para responder.`
         : 'Formulário clínico. Clique para responder.';
 
     const logoUrl = form.clinic_logo_url
@@ -159,37 +157,37 @@ app.get('/f/:hash', async (req, res) => {
 
     const ogTitle = `${formTitle} — ${clinic}`;
 
+    // Injeta os OG tags no <head> do index.html
+    const ogTags = `
+    <title>${ogTitle}</title>
+    <meta name="description" content="${ogDesc}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${formUrl}" />
+    <meta property="og:title" content="${ogTitle}" />
+    <meta property="og:description" content="${ogDesc}" />
+    <meta property="og:image" content="${logoUrl}" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:site_name" content="${clinic}" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="${ogTitle}" />
+    <meta name="twitter:description" content="${ogDesc}" />
+    <meta name="twitter:image" content="${logoUrl}" />`;
+
+    let html = fs.readFileSync(distIndexPath, 'utf8');
+    // Remove qualquer <title> existente e injeta os tags depois do <head>
+    html = html.replace(/<title>.*?<\/title>/is, '');
+    html = html.replace('<head>', `<head>${ogTags}`);
+
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=30');
-    return res.send(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>${ogTitle}</title>
-  <meta name="description" content="${ogDesc}" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="${formUrl}" />
-  <meta property="og:title" content="${ogTitle}" />
-  <meta property="og:description" content="${ogDesc}" />
-  <meta property="og:image" content="${logoUrl}" />
-  <meta property="og:image:width" content="512" />
-  <meta property="og:image:height" content="512" />
-  <meta property="og:site_name" content="${clinic}" />
-  <meta property="og:locale" content="pt_BR" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="${ogTitle}" />
-  <meta name="twitter:description" content="${ogDesc}" />
-  <meta name="twitter:image" content="${logoUrl}" />
-  <meta http-equiv="refresh" content="0;url=${formUrl}" />
-</head>
-<body>
-  <p>Redirecionando...</p>
-  <script>window.location.href=${JSON.stringify(formUrl)};</script>
-</body>
-</html>`);
+    return res.send(html);
   } catch (err) {
     console.error('OG /f/:hash error:', err);
-    return res.redirect(302, formUrl);
+    // Fallback: serve o SPA normalmente
+    if (fs.existsSync(distIndexPath)) return res.sendFile(distIndexPath);
+    return res.status(500).send('Erro ao carregar formulário.');
   }
 });
 
