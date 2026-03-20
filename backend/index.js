@@ -140,11 +140,18 @@ app.get('/f/:hash', async (req, res) => {
         ? `Formulário clínico enviado por ${profLine}. Clique para responder.`
         : 'Formulário clínico. Clique para responder.';
 
-    const logoUrl = form.clinic_logo_url
-      ? (form.clinic_logo_url.startsWith('http') ? form.clinic_logo_url : `${FRONTEND_URL}${form.clinic_logo_url}`)
-      : form.avatar_url
-        ? (form.avatar_url.startsWith('http') ? form.avatar_url : `${FRONTEND_URL}${form.avatar_url}`)
-        : `${FRONTEND_URL}/og-default.png`;
+    // Helper: converte URL do logo para URL pública acessível pelo Nginx
+    // /uploads-static/... → /api/uploads-static/... (rota que passa pelo proxy Nginx)
+    const toPublicUrl = (url) => {
+      if (!url) return null;
+      if (url.startsWith('http')) return url;
+      if (url.startsWith('/uploads-static/')) return `${FRONTEND_URL}/api${url}`;
+      return `${FRONTEND_URL}${url}`;
+    };
+
+    const logoUrl = toPublicUrl(form.clinic_logo_url)
+      || toPublicUrl(form.avatar_url)
+      || null; // sem fallback para não exibir imagem genérica
 
     const ogTitle = `${formTitle} — ${clinic}`;
 
@@ -155,15 +162,15 @@ app.get('/f/:hash', async (req, res) => {
     <meta property="og:url" content="${formUrl}" />
     <meta property="og:title" content="${ogTitle}" />
     <meta property="og:description" content="${ogDesc}" />
-    <meta property="og:image" content="${logoUrl}" />
+    ${logoUrl ? `<meta property="og:image" content="${logoUrl}" />
     <meta property="og:image:width" content="512" />
-    <meta property="og:image:height" content="512" />
+    <meta property="og:image:height" content="512" />` : ''}
     <meta property="og:site_name" content="${clinic}" />
     <meta property="og:locale" content="pt_BR" />
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="${logoUrl ? 'summary_large_image' : 'summary'}" />
     <meta name="twitter:title" content="${ogTitle}" />
     <meta name="twitter:description" content="${ogDesc}" />
-    <meta name="twitter:image" content="${logoUrl}" />`;
+    ${logoUrl ? `<meta name="twitter:image" content="${logoUrl}" />` : ''}`;
 
     let html = fs.readFileSync(distIndexPath, 'utf8');
     // Remove tags que serão substituídas pelas do formulário
