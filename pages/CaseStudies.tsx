@@ -15,7 +15,6 @@ import {
   Plus,
   Search,
   Trash2,
-  X
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
@@ -24,6 +23,7 @@ import { Patient } from '../types';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Combobox } from '../components/UI/Combobox';
+import { Input, Select, TextArea } from '../components/UI/Input';
 
 // --- Types ---
 interface Comment {
@@ -327,8 +327,13 @@ export const CaseStudies: React.FC = () => {
 
   const loadPatients = async () => {
       try {
-          const data = await api.get<Patient[]>('/patients');
-          setPatients(Array.isArray(data) ? data : []);
+          const data = await api.get<any[]>('/patients');
+          const normalized = Array.isArray(data) ? data.map((p: any) => ({
+              ...p,
+              full_name: p.full_name || p.name || '',
+              status: p.status === 'active' ? 'ativo' : p.status === 'inactive' ? 'inativo' : (p.status || ''),
+          })) : [];
+          setPatients(normalized as Patient[]);
       } catch (e) {
           console.error(e);
       }
@@ -353,21 +358,6 @@ export const CaseStudies: React.FC = () => {
               description: newBoardDesc.trim() || null
           });
           const boardId = String(data.id);
-
-          const defaultColumns = [
-              { title: 'A Fazer', color: 'bg-slate-400' },
-              { title: 'Em Progresso', color: 'bg-blue-500' },
-              { title: 'Concluido', color: 'bg-emerald-500' }
-          ];
-          await Promise.all(
-              defaultColumns.map((col, idx) =>
-                  api.post(`/case-studies/boards/${boardId}/columns`, {
-                      title: col.title,
-                      color: col.color,
-                      sort_order: idx
-                  })
-              )
-          );
 
           await loadBoards();
           setActiveBoardId(boardId);
@@ -604,38 +594,23 @@ export const CaseStudies: React.FC = () => {
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20 h-[calc(100vh-6rem)] flex flex-col px-4 sm:px-6 lg:px-0">
       {!activeBoardId ? (
-        <div className="relative overflow-hidden rounded-[28px] p-8 bg-slate-950 shadow-2xl shadow-indigo-900/30 border border-slate-800 text-white shrink-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 opacity-95"></div>
-            <div className="absolute -right-24 -top-24 w-96 h-96 bg-indigo-500/20 rounded-full blur-[110px] pointer-events-none"></div>
-            <div className="absolute -left-16 bottom-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none"></div>
-            <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.35),transparent_60%)]"></div>
-
-            <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-                <div className="max-w-2xl">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-indigo-200 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
-                        <BookOpen size={14} />
-                        <span>{t('cases.title')}</span>
-                    </div>
-                    <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('cases.boards')}</h1>
-                    <p className="text-indigo-100 text-lg leading-relaxed max-w-xl">
-                        {t('cases.subtitle')}
-                    </p>
-                    <div className="mt-6 flex flex-wrap items-center gap-3 text-xs font-bold text-indigo-100/80">
-                        <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{boardStats.boardCount} quadros</span>
-                        <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{boardStats.columnCount} colunas</span>
-                        <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{boardStats.cardCount} casos</span>
-                    </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={() => setIsBoardModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-indigo-900/50 flex items-center gap-2 transition-all"
-                    >
-                        <Plus size={20} />
-                        {t('cases.newBoard')}
-                    </button>
-                </div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+            <div>
+                <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                    <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><BookOpen size={20} /></div>
+                    {t('cases.boards')}
+                </h1>
+                <p className="text-slate-400 text-xs mt-1 font-bold">
+                    {boardStats.boardCount} quadros · {boardStats.columnCount} colunas · {boardStats.cardCount} casos
+                </p>
             </div>
+            <Button
+                variant="primary"
+                leftIcon={<Plus size={16} />}
+                onClick={() => setIsBoardModalOpen(true)}
+            >
+                {t('cases.newBoard')}
+            </Button>
         </div>
       ) : (
         <div className="flex items-center justify-between px-2 shrink-0">
@@ -890,56 +865,36 @@ export const CaseStudies: React.FC = () => {
       )}
 
       {/* --- MODAL: NEW BOARD --- */}
-      {isBoardModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
-              <div className="bg-white w-full max-w-md rounded-[28px] shadow-2xl overflow-hidden animate-[slideUpFade_0.3s_ease-out] border border-slate-100">
-                  <div className="relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900"></div>
-                      <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.4),transparent_60%)]"></div>
-                      <div className="relative p-6 flex items-center justify-between text-white">
-                          <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center border border-white/20">
-                                  <Layout size={18} />
-                              </div>
-                              <div>
-                                  <h3 className="text-xl font-display font-bold">{t('cases.newBoard')}</h3>
-                                  <p className="text-xs text-indigo-100">Estruture trilhas de acompanhamento clinico.</p>
-                              </div>
-                          </div>
-                          <button onClick={() => setIsBoardModalOpen(false)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all">
-                              <X size={18} />
-                          </button>
-                      </div>
-                  </div>
-
-                  <div className="p-6 space-y-4 bg-gradient-to-b from-white via-white to-slate-50/60">
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('cases.boardName')}</label>
-                          <input
-                            type="text"
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                            value={newBoardTitle}
-                            onChange={(e) => setNewBoardTitle(e.target.value)}
-                            placeholder="Ex: Supervisao Clinica"
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('cases.desc')}</label>
-                          <textarea
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-24"
-                            value={newBoardDesc}
-                            onChange={(e) => setNewBoardDesc(e.target.value)}
-                            placeholder="Objetivo e foco do quadro..."
-                          />
-                      </div>
-                  </div>
-                  <div className="p-6 border-t border-slate-100 bg-slate-50/80 flex justify-end gap-3">
-                      <button onClick={() => setIsBoardModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-lg">{t('cases.cancel')}</button>
-                      <button onClick={handleAddBoard} className="px-6 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-lg">{t('cases.create')}</button>
-                  </div>
-              </div>
+      <Modal
+        isOpen={isBoardModalOpen}
+        onClose={() => setIsBoardModalOpen(false)}
+        title={t('cases.newBoard')}
+        subtitle="Estruture trilhas de acompanhamento clínico."
+        maxWidth="md"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setIsBoardModalOpen(false)}>{t('cases.cancel')}</Button>
+            <Button variant="primary" size="sm" onClick={handleAddBoard}>{t('cases.create')}</Button>
           </div>
-      )}
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label={t('cases.boardName')}
+            required
+            value={newBoardTitle}
+            onChange={(e) => setNewBoardTitle(e.target.value)}
+            placeholder="Ex: Supervisão Clínica"
+          />
+          <TextArea
+            label={t('cases.desc')}
+            rows={3}
+            value={newBoardDesc}
+            onChange={(e) => setNewBoardDesc(e.target.value)}
+            placeholder="Objetivo e foco do quadro..."
+          />
+        </div>
+      </Modal>
 
       {/* --- MODAL: NEW CARD --- */}
       <Modal
@@ -1068,265 +1023,155 @@ export const CaseStudies: React.FC = () => {
         </div>
       </Modal>
 
-      {isCardDetailOpen && selectedCard && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
-              <div className="bg-white w-full max-w-3xl rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-100">
-                  <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                      <div>
-                          <h3 className="text-xl font-display font-bold text-slate-800">{selectedCard.patientName}</h3>
-                          <p className="text-xs text-slate-500">Detalhes clinicos do caso</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                          {!isEditingCard && (
-                              <button
-                                onClick={() => setIsEditingCard(true)}
-                                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-900 text-white"
-                              >
-                                Editar
-                              </button>
-                          )}
-                          <button
-                            onClick={() => { setIsCardDetailOpen(false); setSelectedCard(null); setIsEditingCard(false); }}
-                            className="p-2 rounded-full bg-white border border-slate-200"
-                          >
-                              <X size={18} />
-                          </button>
-                      </div>
-                  </div>
-
-                  <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
-                      {isEditingCard ? (
-                        <>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Paciente</label>
-                              <select
-                                className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                value={editCardPatientId}
-                                onChange={(e) => {
-                                    const id = e.target.value;
-                                    setEditCardPatientId(id);
-                                    const patient = patients.find(p => String(p.id) === id);
-                                    setEditCardPatientName(patient?.full_name || '');
-                                }}
-                              >
-                                  <option value="">Selecione...</option>
-                                  {patients.map(p => <option key={p.id} value={String(p.id)}>{p.full_name}</option>)}
-                              </select>
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Paciente (novo)</label>
-                              <input
-                                type="text"
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                value={editCardPatientName}
-                                onChange={(e) => {
-                                    setEditCardPatientName(e.target.value);
-                                    if (editCardPatientId) setEditCardPatientId('');
-                                }}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Resumo / Queixa principal</label>
-                              <textarea
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-28"
-                                value={editCardDesc}
-                                onChange={(e) => setEditCardDesc(e.target.value)}
-                              />
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Prioridade</label>
-                                  <select
-                                    className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                    value={editCardDetails.priority}
-                                    onChange={(e) => setEditCardDetails(prev => ({ ...prev, priority: e.target.value }))}
-                                  >
-                                      <option value="">Selecione...</option>
-                                      <option value="Baixa">Baixa</option>
-                                      <option value="Media">Media</option>
-                                      <option value="Alta">Alta</option>
-                                      <option value="Urgente">Urgente</option>
-                                  </select>
-                              </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Risco / Alerta</label>
-                                  <select
-                                    className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                    value={editCardDetails.risk_level}
-                                    onChange={(e) => setEditCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
-                                  >
-                                      <option value="">Selecione...</option>
-                                      <option value="Baixo">Baixo</option>
-                                      <option value="Moderado">Moderado</option>
-                                      <option value="Alto">Alto</option>
-                                  </select>
-                              </div>
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Historico clinico</label>
-                              <textarea
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-24"
-                                value={editCardDetails.history}
-                                onChange={(e) => setEditCardDetails(prev => ({ ...prev, history: e.target.value }))}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Hipoteses</label>
-                              <textarea
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                                value={editCardDetails.hypothesis}
-                                onChange={(e) => setEditCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Objetivos terapeuticos</label>
-                              <textarea
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                                value={editCardDetails.objectives}
-                                onChange={(e) => setEditCardDetails(prev => ({ ...prev, objectives: e.target.value }))}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Intervencoes realizadas</label>
-                              <textarea
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                                value={editCardDetails.interventions}
-                                onChange={(e) => setEditCardDetails(prev => ({ ...prev, interventions: e.target.value }))}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Proximos passos</label>
-                              <textarea
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                                value={editCardDetails.next_steps}
-                                onChange={(e) => setEditCardDetails(prev => ({ ...prev, next_steps: e.target.value }))}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Observacoes</label>
-                              <textarea
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                                value={editCardDetails.observations}
-                                onChange={(e) => setEditCardDetails(prev => ({ ...prev, observations: e.target.value }))}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tags</label>
-                              <input
-                                type="text"
-                                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                value={editCardTags}
-                                onChange={(e) => setEditCardTags(e.target.value)}
-                              />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex flex-wrap gap-2 text-xs font-bold">
-                              {selectedCard.details?.priority && (
-                                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                    Prioridade: {selectedCard.details.priority}
-                                  </span>
-                              )}
-                              {selectedCard.details?.risk_level && (
-                                  <span className="px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
-                                    Risco: {selectedCard.details.risk_level}
-                                  </span>
-                              )}
-                          </div>
-                          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                              <div className="text-xs font-bold text-slate-500 uppercase mb-2">Resumo / Queixa principal</div>
-                              <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.description || 'Sem resumo.'}</div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="bg-white border border-slate-100 rounded-2xl p-4">
-                                  <div className="text-xs font-bold text-slate-500 uppercase mb-2">Historico clinico</div>
-                                  <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.details?.history || '-'}</div>
-                              </div>
-                              <div className="bg-white border border-slate-100 rounded-2xl p-4">
-                                  <div className="text-xs font-bold text-slate-500 uppercase mb-2">Hipoteses</div>
-                                  <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.details?.hypothesis || '-'}</div>
-                              </div>
-                              <div className="bg-white border border-slate-100 rounded-2xl p-4">
-                                  <div className="text-xs font-bold text-slate-500 uppercase mb-2">Objetivos terapeuticos</div>
-                                  <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.details?.objectives || '-'}</div>
-                              </div>
-                              <div className="bg-white border border-slate-100 rounded-2xl p-4">
-                                  <div className="text-xs font-bold text-slate-500 uppercase mb-2">Intervencoes realizadas</div>
-                                  <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.details?.interventions || '-'}</div>
-                              </div>
-                              <div className="bg-white border border-slate-100 rounded-2xl p-4">
-                                  <div className="text-xs font-bold text-slate-500 uppercase mb-2">Proximos passos</div>
-                                  <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.details?.next_steps || '-'}</div>
-                              </div>
-                              <div className="bg-white border border-slate-100 rounded-2xl p-4">
-                                  <div className="text-xs font-bold text-slate-500 uppercase mb-2">Observacoes</div>
-                                  <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.details?.observations || '-'}</div>
-                              </div>
-                          </div>
-                          {selectedCard.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                              {selectedCard.tags.map(tag => (
-                                <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-md uppercase tracking-wider">{tag}</span>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      )}
-                  </div>
-
-                  {isEditingCard && (
-                    <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-                        <button onClick={() => setIsEditingCard(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-lg">Cancelar</button>
-                        <button onClick={handleUpdateCard} className="px-5 py-2 text-sm font-bold bg-indigo-600 text-white rounded-lg">Salvar</button>
-                    </div>
-                  )}
-              </div>
+      {/* --- MODAL: CARD DETAIL --- */}
+      <Modal
+        isOpen={isCardDetailOpen && !!selectedCard}
+        onClose={() => { setIsCardDetailOpen(false); setSelectedCard(null); setIsEditingCard(false); }}
+        title={selectedCard?.patientName || ''}
+        subtitle="Detalhes clínicos do caso"
+        maxWidth="3xl"
+        footer={isEditingCard ? (
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setIsEditingCard(false)}>Cancelar</Button>
+            <Button variant="primary" size="sm" onClick={handleUpdateCard}>Salvar</Button>
           </div>
-      )}
-
-      {isColumnModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
-              <div className="bg-white w-full max-w-sm rounded-[24px] shadow-2xl overflow-hidden border border-slate-100">
-                  <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                      <div>
-                          <h3 className="text-lg font-bold text-slate-800">Editar coluna</h3>
-                          <p className="text-xs text-slate-500">Altere o nome e a cor.</p>
-                      </div>
-                      <button onClick={() => setIsColumnModalOpen(false)} className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-all">
-                          <X size={16} />
-                      </button>
-                  </div>
-                  <div className="p-5 space-y-4">
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome</label>
-                          <input
-                            type="text"
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                            value={editingColumnTitle}
-                            onChange={(e) => setEditingColumnTitle(e.target.value)}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Cor</label>
-                          <div className="flex flex-wrap gap-2">
-                              {COLUMN_COLORS.map(color => (
-                                  <button
-                                    key={color}
-                                    onClick={() => setEditingColumnColor(color)}
-                                    className={`w-7 h-7 rounded-full ${color} border-2 ${editingColumnColor === color ? 'border-slate-900' : 'border-transparent'}`}
-                                  />
-                              ))}
-                          </div>
-                      </div>
-                  </div>
-                  <div className="p-5 border-t border-slate-100 flex justify-end gap-2">
-                      <button onClick={() => setIsColumnModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                      <button onClick={handleUpdateColumn} className="px-4 py-2 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Salvar</button>
-                  </div>
-              </div>
+        ) : (
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="secondary" size="sm" onClick={() => setIsEditingCard(true)}>Editar</Button>
           </div>
-      )}
+        )}
+      >
+        {selectedCard && (
+          isEditingCard ? (
+            <div className="space-y-4">
+              <Combobox
+                label="Paciente"
+                placeholder="Buscar paciente ativo..."
+                options={patients
+                  .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
+                  .map((p: any) => ({ id: String(p.id), label: p.full_name || p.name || '' }))}
+                value={editCardPatientId}
+                onChange={(val: any, label?: string) => {
+                  setEditCardPatientId(String(val || ''));
+                  setEditCardPatientName(label || '');
+                }}
+                size="md"
+              />
+              <TextArea
+                label="Resumo / Queixa principal"
+                rows={4}
+                value={editCardDesc}
+                onChange={(e) => setEditCardDesc(e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Select
+                  label="Prioridade"
+                  value={editCardDetails.priority}
+                  onChange={(e) => setEditCardDetails(prev => ({ ...prev, priority: e.target.value }))}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Baixa">Baixa</option>
+                  <option value="Media">Média</option>
+                  <option value="Alta">Alta</option>
+                  <option value="Urgente">Urgente</option>
+                </Select>
+                <Select
+                  label="Risco / Alerta"
+                  value={editCardDetails.risk_level}
+                  onChange={(e) => setEditCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Baixo">Baixo</option>
+                  <option value="Moderado">Moderado</option>
+                  <option value="Alto">Alto</option>
+                </Select>
+              </div>
+              <TextArea label="Histórico Clínico" rows={3} value={editCardDetails.history} onChange={(e) => setEditCardDetails(prev => ({ ...prev, history: e.target.value }))} />
+              <div className="grid grid-cols-2 gap-3">
+                <TextArea label="Hipóteses" rows={3} value={editCardDetails.hypothesis} onChange={(e) => setEditCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))} />
+                <TextArea label="Objetivos Terapêuticos" rows={3} value={editCardDetails.objectives} onChange={(e) => setEditCardDetails(prev => ({ ...prev, objectives: e.target.value }))} />
+              </div>
+              <TextArea label="Intervenções Realizadas" rows={3} value={editCardDetails.interventions} onChange={(e) => setEditCardDetails(prev => ({ ...prev, interventions: e.target.value }))} />
+              <TextArea label="Próximos Passos" rows={3} value={editCardDetails.next_steps} onChange={(e) => setEditCardDetails(prev => ({ ...prev, next_steps: e.target.value }))} />
+              <TextArea label="Observações" rows={3} value={editCardDetails.observations} onChange={(e) => setEditCardDetails(prev => ({ ...prev, observations: e.target.value }))} />
+              <Input label="Tags" placeholder="TCC, Ansiedade... (separados por vírgula)" value={editCardTags} onChange={(e) => setEditCardTags(e.target.value)} />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2 text-xs font-bold">
+                {selectedCard.details?.priority && (
+                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">Prioridade: {selectedCard.details.priority}</span>
+                )}
+                {selectedCard.details?.risk_level && (
+                  <span className="px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100">Risco: {selectedCard.details.risk_level}</span>
+                )}
+              </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                <div className="text-xs font-bold text-slate-500 uppercase mb-2">Resumo / Queixa principal</div>
+                <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.description || 'Sem resumo.'}</div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { label: 'Histórico Clínico', value: selectedCard.details?.history },
+                  { label: 'Hipóteses', value: selectedCard.details?.hypothesis },
+                  { label: 'Objetivos Terapêuticos', value: selectedCard.details?.objectives },
+                  { label: 'Intervenções Realizadas', value: selectedCard.details?.interventions },
+                  { label: 'Próximos Passos', value: selectedCard.details?.next_steps },
+                  { label: 'Observações', value: selectedCard.details?.observations },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-white border border-slate-100 rounded-2xl p-4">
+                    <div className="text-xs font-bold text-slate-500 uppercase mb-2">{label}</div>
+                    <div className="text-sm text-slate-700 whitespace-pre-line">{value || '-'}</div>
+                  </div>
+                ))}
+              </div>
+              {selectedCard.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedCard.tags.map(tag => (
+                    <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-md uppercase tracking-wider">{tag}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        )}
+      </Modal>
+
+      {/* --- MODAL: EDIT COLUMN --- */}
+      <Modal
+        isOpen={isColumnModalOpen}
+        onClose={() => setIsColumnModalOpen(false)}
+        title="Editar Coluna"
+        subtitle="Altere o nome e a cor."
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setIsColumnModalOpen(false)}>Cancelar</Button>
+            <Button variant="primary" size="sm" onClick={handleUpdateColumn}>Salvar</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nome"
+            value={editingColumnTitle}
+            onChange={(e) => setEditingColumnTitle(e.target.value)}
+          />
+          <div>
+            <label className="mb-1.5 block text-[12px] font-medium text-slate-600">Cor</label>
+            <div className="flex flex-wrap gap-2">
+              {COLUMN_COLORS.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setEditingColumnColor(color)}
+                  className={`w-7 h-7 rounded-full ${color} border-2 ${editingColumnColor === color ? 'border-slate-900' : 'border-transparent'}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

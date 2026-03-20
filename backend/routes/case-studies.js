@@ -66,8 +66,8 @@ router.post('/boards', async (req, res) => {
 
     // Criar colunas padrão
     await db.query(
-      'INSERT INTO case_study_columns (board_id, title, position) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)',
-      [result.insertId, 'A Fazer', 0, result.insertId, 'Em Progresso', 1, result.insertId, 'Concluído', 2]
+      'INSERT INTO case_study_columns (board_id, title, position) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?)',
+      [result.insertId, 'A Fazer', 0, result.insertId, 'Em Progresso', 1, result.insertId, 'Revisão', 2, result.insertId, 'Concluído', 3]
     );
 
     const [board] = await db.query('SELECT * FROM case_study_boards WHERE id = ?', [result.insertId]);
