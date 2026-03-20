@@ -71,13 +71,14 @@ router.post('/comandas/:id/payments', async (req, res) => {
       return res.status(400).json({ error: 'Valor inválido' });
     }
 
+    const payDate = payment_date || new Date().toISOString().slice(0, 10);
+    const payMethod = payment_method || 'Pix';
+
     // Inserir pagamento individual
     const [result] = await db.query(
       `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method, receipt_code, notes)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [req.user.tenant_id, req.params.id, parseFloat(amount),
-       payment_date || new Date().toISOString().slice(0,10),
-       payment_method || 'Pix', receipt_code || null, notes || null]
+      [req.user.tenant_id, req.params.id, parseFloat(amount), payDate, payMethod, receipt_code || null, notes || null]
     );
 
     // Atualizar paid_value acumulado na comanda
@@ -87,7 +88,10 @@ router.post('/comandas/:id/payments', async (req, res) => {
     );
     const totalPaid = parseFloat(payments[0].total);
 
-    const [comanda] = await db.query('SELECT total FROM comandas WHERE id = ?', [req.params.id]);
+    const [comanda] = await db.query(
+      'SELECT total, patient_id, professional_id FROM comandas WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
     const comandaTotal = parseFloat(comanda[0]?.total || 0);
     const newStatus = totalPaid >= comandaTotal ? 'closed' : 'open';
 
@@ -96,7 +100,22 @@ router.post('/comandas/:id/payments', async (req, res) => {
       [totalPaid, newStatus, req.params.id, req.user.tenant_id]
     );
 
-    res.status(201).json({ id: result.insertId, amount: parseFloat(amount), payment_date, payment_method, totalPaid, status: newStatus });
+    // Criar lançamento financeiro vinculado para aparecer no Financeiro e Melhores Clientes
+    await db.query(
+      `INSERT INTO financial_transactions
+         (tenant_id, type, category, description, amount, date, patient_id, comanda_id, payment_method, status)
+       VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, ?, 'paid')`,
+      [
+        req.user.tenant_id,
+        `Pagamento comanda #${req.params.id}${receipt_code ? ` - ${receipt_code}` : ''}`,
+        payDate,
+        comanda[0]?.patient_id || null,
+        req.params.id,
+        payMethod,
+      ]
+    );
+
+    res.status(201).json({ id: result.insertId, amount: parseFloat(amount), payment_date: payDate, payment_method: payMethod, totalPaid, status: newStatus });
   } catch (err) {
     console.error('Erro ao registrar pagamento:', err);
     res.status(500).json({ error: 'Erro ao registrar pagamento', details: err.message });
@@ -107,10 +126,28 @@ router.post('/comandas/:id/payments', async (req, res) => {
 router.delete('/comandas/:id/payments/:paymentId', async (req, res) => {
   try {
     await withSchema();
+
+    // Busca o pagamento antes de deletar para saber valor/data e remover o lançamento financeiro
+    const [pmtRows] = await db.query(
+      'SELECT amount, payment_date, payment_method FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?',
+      [req.params.paymentId, req.params.id, req.user.tenant_id]
+    );
+
     await db.query(
       'DELETE FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?',
       [req.params.paymentId, req.params.id, req.user.tenant_id]
     );
+
+    // Remove o lançamento financeiro correspondente
+    if (pmtRows.length > 0) {
+      const { amount, payment_date, payment_method } = pmtRows[0];
+      await db.query(
+        `DELETE FROM financial_transactions
+         WHERE tenant_id = ? AND comanda_id = ? AND type = 'income' AND amount = ? AND date = ? AND payment_method = ?
+         LIMIT 1`,
+        [req.user.tenant_id, req.params.id, parseFloat(amount), payment_date, payment_method]
+      );
+    }
 
     // Recalcular paid_value
     const [payments] = await db.query(
@@ -692,20 +729,28 @@ router.get('/analytics/best-clients', async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const [data] = await db.query(`
-      SELECT 
-        p.id, 
-        p.name, 
+      SELECT
+        p.id,
+        p.name,
         p.created_at as since,
-        COALESCE((SELECT SUM(amount) FROM financial_transactions WHERE patient_id = p.id AND type = 'income' AND tenant_id = ?), 0) as totalRevenue,
-        (SELECT COUNT(*) FROM appointments WHERE patient_id = p.id AND status = 'completed' AND tenant_id = ?) as appointmentCount,
+        COALESCE(
+          (SELECT SUM(ft.amount) FROM financial_transactions ft
+           WHERE ft.patient_id = p.id AND ft.type = 'income' AND ft.tenant_id = ?),
+          (SELECT SUM(cp.amount) FROM comanda_payments cp
+           INNER JOIN comandas c ON c.id = cp.comanda_id
+           WHERE c.patient_id = p.id AND cp.tenant_id = ?),
+          0
+        ) as totalRevenue,
+        (SELECT COUNT(*) FROM appointments
+         WHERE patient_id = p.id AND status IN ('completed','no_show') AND tenant_id = ?) as appointmentCount,
         (SELECT MAX(start_time) FROM appointments WHERE patient_id = p.id AND tenant_id = ?) as lastVisit
       FROM patients p
       WHERE p.tenant_id = ?
       HAVING totalRevenue > 0 OR appointmentCount > 0
       ORDER BY totalRevenue DESC
       LIMIT 30
-    `, [tenantId, tenantId, tenantId, tenantId]);
-    
+    `, [tenantId, tenantId, tenantId, tenantId, tenantId]);
+
     res.json(data);
   } catch (err) {
     console.error(err);
