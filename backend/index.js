@@ -20,6 +20,7 @@ const tenantsRoutes = require('./routes/tenants');
 const financeRoutes = require('./routes/finance');
 const docGeneratorRoutes = require('./routes/doc-generator');
 const alertsRoutes = require('./routes/alerts');
+const { ensureAlertSchema } = require('./routes/alerts');
 const messagesRoutes = require('./routes/messages');
 const uploadsRoutes = require('./routes/uploads');
 const neuroAssessmentsRoutes = require('./routes/neuro-assessments');
@@ -215,4 +216,5 @@ app.listen(PORT, () => {
   console.log(`Backend PsiFlux rodando na porta ${PORT}`);
   console.log(`Health: http://localhost:${PORT}/health`);
   startCronJobs();
+  ensureAlertSchema().catch(e => console.warn('⚠️  system_alerts schema:', e.message));
 });

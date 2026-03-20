@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { parseShareToken } = require('../utils/shareToken');
-const { sendMail, templates } = require('../services/emailService');
+const { sendMail } = require('../services/emailService');
 
 // Helper: pack questions/interpretations/theme into the fields LONGTEXT column
 function packFields(body) {
@@ -310,7 +310,7 @@ router.post('/public/:hash/responses', async (req, res) => {
     const shareUserId = req.query.u ? parseShareToken(req.query.u) : null;
 
     const [forms] = await db.query(
-      `SELECT f.id, f.title, f.tenant_id,
+      `SELECT f.id, f.title, f.fields, f.tenant_id,
               COALESCE(?, f.created_by) AS resolved_user_id
        FROM forms f
        WHERE f.hash = ? AND (f.is_public = true OR f.is_global = true)`,
@@ -368,34 +368,140 @@ router.post('/public/:hash/responses', async (req, res) => {
       : {};
     if (professional?.email && emailPrefs.enabled && emailPrefs.form_response) {
       try {
-        const scoreText = score != null ? `Score: ${score}` : '';
+        // Desempacota o formulário para obter perguntas e interpretações
+        let formQuestions = [];
+        let formInterpretations = [];
+        try {
+          const rawFields = forms[0].fields;
+          const parsed = rawFields ? (typeof rawFields === 'string' ? JSON.parse(rawFields) : rawFields) : null;
+          if (parsed && !Array.isArray(parsed) && parsed.questions) {
+            formQuestions = parsed.questions || [];
+            formInterpretations = parsed.interpretations || [];
+          } else if (Array.isArray(parsed)) {
+            formQuestions = parsed;
+          }
+        } catch (_) {}
+
+        const parsedAnswers = answers || {};
+
+        // Encontra a interpretação pelo score
+        const interpretation = score != null
+          ? formInterpretations.find(i => score >= (i.minScore ?? i.min_score ?? 0) && score <= (i.maxScore ?? i.max_score ?? 9999))
+          : null;
+
+        // Cor da interpretação
+        const interpColor = interpretation?.color || '#2563eb';
+        const interpBg = interpretation?.color
+          ? interpretation.color + '15'
+          : '#eff6ff';
+
+        // Gera as linhas de resposta
+        const answerRows = formQuestions.map(q => {
+          const rawVal = parsedAnswers[q.id];
+          let displayVal = '—';
+          if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+            if (Array.isArray(rawVal)) {
+              displayVal = rawVal.join(', ');
+            } else if (typeof rawVal === 'object') {
+              displayVal = JSON.stringify(rawVal);
+            } else {
+              // Tenta resolver label da opção
+              const opt = (q.options || []).find(o => String(o.value) === String(rawVal));
+              displayVal = opt ? (opt.label || String(rawVal)) : String(rawVal);
+            }
+          }
+          return `<tr>
+            <td style="padding:10px 14px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;width:55%;vertical-align:top;line-height:1.5;">${q.label || `Pergunta ${q.id}`}</td>
+            <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:top;line-height:1.5;">${displayVal}</td>
+          </tr>`;
+        }).join('');
+
+        // Barra de progresso do score (só se tiver max definido)
+        const maxScore = formInterpretations.length > 0
+          ? Math.max(...formInterpretations.map(i => i.maxScore ?? i.max_score ?? 0))
+          : 0;
+        const scorePct = (score != null && maxScore > 0) ? Math.min(100, Math.round((score / maxScore) * 100)) : null;
+
+        const scoreSection = score != null ? `
+          <div style="margin-bottom:24px;">
+            <p style="margin:0 0 8px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;">📊 Pontuação Total</p>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="background:${interpBg};border:1.5px solid ${interpColor};border-radius:16px;padding:16px 24px;text-align:center;min-width:80px;">
+                <p style="margin:0;font-size:32px;font-weight:900;color:${interpColor};line-height:1;">${score}</p>
+                ${maxScore > 0 ? `<p style="margin:4px 0 0;font-size:10px;color:#94a3b8;font-weight:700;">de ${maxScore}</p>` : ''}
+              </div>
+              ${scorePct !== null ? `
+              <div style="flex:1;">
+                <div style="background:#e2e8f0;border-radius:999px;height:10px;overflow:hidden;">
+                  <div style="background:${interpColor};height:10px;width:${scorePct}%;border-radius:999px;"></div>
+                </div>
+                <p style="margin:6px 0 0;font-size:11px;color:#64748b;">${scorePct}% da pontuação máxima</p>
+              </div>` : ''}
+            </div>
+          </div>` : '';
+
+        const interpretationSection = interpretation ? `
+          <div style="background:${interpBg};border-left:4px solid ${interpColor};border-radius:0 12px 12px 0;padding:16px 20px;margin-bottom:24px;">
+            <p style="margin:0 0 4px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:${interpColor};">🔍 Interpretação Clínica</p>
+            <p style="margin:4px 0 0;font-size:16px;font-weight:900;color:#1e293b;">${interpretation.label}</p>
+            ${interpretation.description ? `<p style="margin:8px 0 0;font-size:13px;color:#475569;line-height:1.6;">${interpretation.description}</p>` : ''}
+          </div>` : '';
+
+        const answersSection = formQuestions.length > 0 ? `
+          <p style="margin:0 0 12px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;">📋 Respostas Completas</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;">
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th style="padding:10px 14px;text-align:left;font-size:9px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;border-bottom:2px solid #e2e8f0;">Pergunta</th>
+                <th style="padding:10px 14px;text-align:left;font-size:9px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;border-bottom:2px solid #e2e8f0;">Resposta</th>
+              </tr>
+            </thead>
+            <tbody>${answerRows || '<tr><td colspan="2" style="padding:14px;text-align:center;color:#94a3b8;font-size:12px;">Sem respostas registradas</td></tr>'}</tbody>
+          </table>` : '';
+
         const emailHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
-        <tr><td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:20px 20px 0 0;padding:32px;text-align:center;">
-          <p style="margin:0 0 8px;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.6);">PsiFlux</p>
-          <h1 style="margin:0;font-size:22px;font-weight:900;color:#fff;">📝 Formulário Respondido</h1>
+
+        <!-- Header -->
+        <tr><td style="background:linear-gradient(135deg,#1d4ed8,#2563eb,#3b82f6);border-radius:20px 20px 0 0;padding:36px 32px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:10px;font-weight:900;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.55);">PsiFlux · Sistema Clínico</p>
+          <h1 style="margin:0 0 6px;font-size:24px;font-weight:900;color:#fff;line-height:1.3;">📝 Formulário Respondido</h1>
+          <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.75);">${formTitle}</p>
         </td></tr>
+
+        <!-- Subtítulo paciente -->
+        <tr><td style="background:#1e40af;padding:14px 32px;">
+          <table width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td style="font-size:13px;color:rgba(255,255,255,0.9);">👤 <strong>${respondentLabel}</strong></td>
+            <td style="text-align:right;font-size:12px;color:rgba(255,255,255,0.65);">🗓 ${formattedDate}</td>
+          </tr></table>
+        </td></tr>
+
+        <!-- Body -->
         <tr><td style="background:#fff;padding:32px;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
-          <p style="margin:0 0 20px;font-size:15px;color:#475569;">Olá, <strong>${professional.name || 'Profissional'}</strong> 👋</p>
-          <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:16px;padding:24px;margin-bottom:24px;">
-            <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#6366f1;">Nova Resposta</p>
-            <p style="margin:8px 0 0;font-size:20px;font-weight:900;color:#1e293b;">${respondentLabel}</p>
-            <p style="margin:4px 0 0;font-size:14px;color:#475569;"><strong>${formTitle}</strong></p>
-            <p style="margin:8px 0 0;font-size:13px;color:#64748b;">${formattedDate}</p>
-            ${scoreText ? `<p style="margin:12px 0 0;font-size:16px;font-weight:900;color:#4f46e5;">${scoreText}</p>` : ''}
-          </div>
-          <div style="text-align:center;margin:24px 0;">
-            <a href="https://psiflux.com.br${alertLink}" style="display:inline-block;background:#4f46e5;color:#fff;font-weight:900;font-size:14px;padding:14px 32px;border-radius:12px;text-decoration:none;">Ver Resposta Completa</a>
+          <p style="margin:0 0 28px;font-size:15px;color:#475569;">Olá, <strong>${professional.name || 'Profissional'}</strong>! Um paciente completou um formulário e os resultados estão disponíveis abaixo.</p>
+
+          ${scoreSection}
+          ${interpretationSection}
+          ${answersSection}
+
+          <!-- CTA -->
+          <div style="text-align:center;margin:28px 0 8px;">
+            <a href="https://psiflux.com.br${alertLink}" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;font-weight:900;font-size:14px;padding:16px 40px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">Ver no PsiFlux →</a>
           </div>
         </td></tr>
-        <tr><td style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 20px 20px;padding:20px;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#94a3b8;">Email automático · PsiFlux · Não responda este email.</p>
+
+        <!-- Footer -->
+        <tr><td style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 20px 20px;padding:20px 32px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:11px;color:#94a3b8;font-weight:700;">Email automático gerado pelo PsiFlux.</p>
+          <p style="margin:0;font-size:10px;color:#cbd5e1;">sistema@psiflux.com.br · Não responda este email.</p>
         </td></tr>
+
       </table>
     </td></tr>
   </table>
@@ -403,7 +509,7 @@ router.post('/public/:hash/responses', async (req, res) => {
 </html>`;
         await sendMail(
           professional.email,
-          `📝 Nova resposta: ${formTitle} — ${respondentLabel}`,
+          `📝 ${formTitle} respondido por ${respondentLabel}`,
           emailHtml
         );
       } catch (emailErr) {
