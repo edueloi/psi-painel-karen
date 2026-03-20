@@ -1300,13 +1300,18 @@ export const Agenda: React.FC = () => {
                         }
                     }
 
+                    // Garante que end > start para nunca colapsar o card
+                    const safeEnd = (a.end && new Date(a.end) > new Date(a.start))
+                        ? a.end
+                        : new Date(new Date(a.start).getTime() + (a.duration_minutes || 50) * 60000);
+
                     return {
                         id: String(a.id),
                         title: a.patient_name || a.title || 'Paciente',
                         subtitle: a.duration_minutes ? `${a.duration_minutes} min` : undefined,
                         description: a.notes,
                         start: a.start,
-                        end: a.end,
+                        end: safeEnd,
                         type: (a.type as any) || 'consulta',
                         status: status,
                         modality: a.modality as 'presencial' | 'online',

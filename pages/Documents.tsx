@@ -186,7 +186,7 @@ export const Documents: React.FC = () => {
               onClick={() => setIsModalOpen(true)} 
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
           >
-              <Plus size={18} /> Novo Arquivo
+              <Plus size={18} /> {t('documents.new_file')}
           </button>
       </div>
 
@@ -197,7 +197,7 @@ export const Documents: React.FC = () => {
                   <HardDrive size={22} />
               </div>
               <div className="flex-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Armazenamento</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('documents.storage')}</p>
                   <p className="text-xl font-black text-slate-800">{stats.totalSizeMB.toFixed(1)} MB <span className="text-[10px] font-bold text-slate-300">/ 5GB</span></p>
                   <div className="w-full bg-slate-50 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-100">
                     <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000" style={{ width: `${stats.usedPercentage}%` }}></div>
@@ -209,7 +209,7 @@ export const Documents: React.FC = () => {
                   <FileText size={22} />
               </div>
               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">Total Arquivos</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">{t('documents.total_files')}</p>
                   <p className="text-xl font-black text-slate-800">{stats.totalFiles}</p>
               </div>
           </div>
@@ -218,7 +218,7 @@ export const Documents: React.FC = () => {
                   <Clock size={22} />
               </div>
               <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">Recentes (30d)</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">{t('documents.recent')}</p>
                   <p className="text-xl font-black text-slate-800">{stats.recentCount}</p>
               </div>
           </div>
@@ -230,7 +230,7 @@ export const Documents: React.FC = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
               <input 
                   type="text" 
-                  placeholder="Pesquisar arquivos..." 
+                  placeholder={t('documents.search')}
                   value={searchTerm} 
                   onChange={e => setSearchTerm(e.target.value)} 
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
@@ -298,7 +298,7 @@ export const Documents: React.FC = () => {
                     <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center mb-6">
                         <FileText size={40} className="opacity-20" />
                     </div>
-                    <p className="font-black text-xs uppercase tracking-[0.2em]">Nenhum arquivo encontrado</p>
+                    <p className="font-black text-xs uppercase tracking-[0.2em]">{t('documents.empty')}</p>
                 </div>
             )}
         </div>
@@ -307,12 +307,12 @@ export const Documents: React.FC = () => {
             <table className="w-full text-left">
                 <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
                     <tr>
-                        <th className="px-8 py-5">Tipo</th>
-                        <th className="px-8 py-5">Nome do Arquivo</th>
-                        <th className="px-8 py-5">Categoria</th>
-                        <th className="px-8 py-5">Tamanho</th>
-                        <th className="px-8 py-5">Data</th>
-                        <th className="px-8 py-5 text-center">Ações</th>
+                        <th className="px-8 py-5">{t('documents.col_type')}</th>
+                        <th className="px-8 py-5">{t('documents.col_filename')}</th>
+                        <th className="px-8 py-5">{t('documents.col_category')}</th>
+                        <th className="px-8 py-5">{t('documents.col_size')}</th>
+                        <th className="px-8 py-5">{t('documents.col_date')}</th>
+                        <th className="px-8 py-5 text-center">{t('documents.col_actions')}</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -350,26 +350,26 @@ export const Documents: React.FC = () => {
             <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
                 <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
                     <div>
-                        <h3 className="text-xl font-black text-slate-800">Novo Documento</h3>
-                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">ARQUIVO PARA CLOUD</p>
+                        <h3 className="text-xl font-black text-slate-800">{t('documents.modal_title')}</h3>
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{t('documents.modal_subtitle')}</p>
                     </div>
                     <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl text-slate-400 ring-1 ring-slate-200 transition-all"><X size={18}/></button>
                 </div>
                 
                 <div className="p-10 space-y-6">
                     <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Título do Documento</label>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{t('documents.doc_title_label')}</label>
                         <input 
                             type="text" 
                             className="w-full text-base font-black p-5 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all" 
                             value={uploadData.title}
                             onChange={e => setUploadData({...uploadData, title: e.target.value})}
-                            placeholder="Ex: Contrato Terapêutico 2024" 
+                            placeholder={t('documents.doc_title_placeholder')}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Categoria</label>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{t('documents.category_label')}</label>
                         <select 
                             className="w-full text-sm font-black p-4 px-6 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all appearance-none"
                             value={uploadData.category}
@@ -388,16 +388,16 @@ export const Documents: React.FC = () => {
                             <div className={`w-16 h-16 bg-white text-indigo-500 rounded-3xl flex items-center justify-center mb-6 shadow-lg transition-all group-hover:scale-110 ${uploadData.file ? 'bg-indigo-600 text-white' : ''}`}>
                                 <CloudUpload size={32} />
                             </div>
-                            <p className="text-sm font-black text-slate-700 mb-1">{uploadData.file ? uploadData.file.name : 'Selecione o arquivo'}</p>
+                            <p className="text-sm font-black text-slate-700 mb-1">{uploadData.file ? uploadData.file.name : t('documents.select_file')}</p>
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                {uploadData.file ? `${(uploadData.file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF, DOCX, JPG ou PNG (Max 10MB)'}
+                                {uploadData.file ? `${(uploadData.file.size / 1024 / 1024).toFixed(2)} MB` : t('documents.file_hint')}
                             </p>
                         </label>
                     </div>
                 </div>
 
                 <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex justify-end gap-4 px-12 pb-12">
-                    <button onClick={() => setIsModalOpen(false)} className="px-8 py-4 text-xs font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">CANCELAR</button>
+                    <button onClick={() => setIsModalOpen(false)} className="px-8 py-4 text-xs font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">{t('documents.cancel')}</button>
                     <button 
                         onClick={async () => {
                           if (!uploadData.file) return;
@@ -423,7 +423,7 @@ export const Documents: React.FC = () => {
                         disabled={isSaving || !uploadData.file}
                         className="px-14 py-4 text-xs font-black text-white bg-indigo-600 hover:bg-slate-800 rounded-[1.8rem] shadow-2xl transition-all flex items-center gap-3 uppercase tracking-widest active:scale-95 disabled:opacity-50"
                     >
-                        {isSaving ? 'ENVIANDO...' : 'SALVAR NO CLOUD'}
+                        {isSaving ? t('documents.uploading') : t('documents.save')}
                     </button>
                 </div>
             </div>
@@ -435,7 +435,7 @@ export const Documents: React.FC = () => {
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
             <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
                 <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                    <h3 className="text-xl font-black text-slate-800">Categorias</h3>
+                    <h3 className="text-xl font-black text-slate-800">{t('documents.categories')}</h3>
                     <button onClick={() => setIsCategoryModalOpen(false)} className="p-3 hover:bg-white rounded-2xl text-slate-500 transition-all"><X size={18}/></button>
                 </div>
                 
@@ -443,7 +443,7 @@ export const Documents: React.FC = () => {
                     <div className="flex gap-2 mb-6">
                         <input 
                             type="text" 
-                            placeholder="Nova Categoria..." 
+                            placeholder={t('documents.new_category')}
                             className="flex-1 p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:border-indigo-400 focus:bg-white transition-all"
                             value={newCategoryName}
                             onChange={(e) => setNewCategoryName(e.target.value)}
@@ -491,22 +491,22 @@ export const Documents: React.FC = () => {
               <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-lg shadow-rose-100/50">
                 <AlertCircle size={40} />
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-3 tracking-tight">Excluir Arquivo?</h3>
+              <h3 className="text-xl font-black text-slate-800 mb-3 tracking-tight">{t('documents.delete_title')}</h3>
               <p className="text-sm font-bold text-slate-400 mb-10 leading-relaxed">
-                Esta ação apagará o arquivo permanentemente da nuvem. Você não poderá recuperá-lo.
+                {t('documents.delete_desc')}
               </p>
               <div className="flex flex-col gap-3">
                  <button 
                   onClick={handleDelete}
                   className="w-full py-4.5 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-rose-100 transition-all transform active:scale-95"
                  >
-                   CONFIRMAR EXCLUSÃO
+                   {t('documents.confirm_delete')}
                  </button>
                  <button 
                   onClick={() => setDeleteConfirmId(null)}
                   className="w-full py-4 text-slate-400 hover:text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all"
                  >
-                   MANTER ARQUIVO
+                   {t('documents.keep_file')}
                  </button>
               </div>
            </div>

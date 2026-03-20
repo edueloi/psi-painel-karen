@@ -683,10 +683,17 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           const meta = typeMeta[event.type || 'consulta'];
                           const status = statusMeta[event.status || 'scheduled'];
 
+                          // Status-based color: green for confirmed/completed, red for cancelled/no-show
+                          const statusAccent =
+                            (event.status === 'confirmed') ? '#10b981' :
+                            (event.status === 'completed') ? '#059669' :
+                            (event.status === 'cancelled' || event.status === 'no-show') ? '#ef4444' :
+                            null;
+
                           const accent =
                             event.type === 'bloqueio'
                               ? '#64748b'
-                              : event.color || meta.defaultColor;
+                              : statusAccent || event.color || meta.defaultColor;
 
                           const durationMinutes = Math.max(
                             1,

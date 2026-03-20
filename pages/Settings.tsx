@@ -14,7 +14,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Language } from '../translations';
 import { useToast } from '../contexts/ToastContext';
-import { api } from '../services/api';
+import { api, getStaticUrl } from '../services/api';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type EmailPrefs = {
@@ -555,7 +555,7 @@ export const Settings: React.FC = () => {
                       return (
                         <div key={member.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
                           {member.avatar_url ? (
-                            <img src={member.avatar_url} alt={member.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                            <img src={getStaticUrl(member.avatar_url)} alt={member.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
                               {initials}
