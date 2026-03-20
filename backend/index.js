@@ -37,6 +37,8 @@ const commissionsRoutes = require('./routes/commissions');
 const notificationsRoutes = require('./routes/notifications');
 const whatsappRoutes = require('./routes/whatsapp');
 const { startCronJobs } = require('./services/cronJobs');
+const db = require('./db');
+const fs = require('fs');
 
 const path = require('path');
 const app = express();
@@ -97,17 +99,8 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Aceita deploys com e sem prefixo /api no proxy reverso.
-mountApiRoutes('/api');
-mountApiRoutes('');
-
-// ---- Rota /f/:hash — OG meta tags para compartilhamento social ----
-// O Nginx redireciona psiflux.com.br/f/:hash para cá.
-// Serve o index.html do SPA com OG tags injetados:
-//   • Browsers: carregam o app React normalmente
-//   • Bots (WhatsApp/Telegram/etc.): lêem os OG tags corretos
-const db = require('./db');
-const fs = require('fs');
+// ---- Rota pública /f/:hash — OG meta tags para compartilhamento social ----
+// DEVE ficar ANTES de mountApiRoutes para não ser bloqueada pelo authMiddleware.
 app.get('/f/:hash', async (req, res) => {
   const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
   const distIndexPath = path.join(__dirname, '../dist/index.html');
@@ -123,7 +116,6 @@ app.get('/f/:hash', async (req, res) => {
       [req.params.hash]
     );
 
-    // Se não achou o form ou não tem index.html, serve o index.html puro
     if (forms.length === 0 || !fs.existsSync(distIndexPath)) {
       return res.sendFile(distIndexPath);
     }
@@ -136,7 +128,6 @@ app.get('/f/:hash', async (req, res) => {
     const clinic = form.company_name || 'PsiFlux';
     const formTitle = form.title || 'Formulário Clínico';
 
-    // Monta partes da descrição
     const descParts = [];
     if (profName) descParts.push(profName);
     if (specialty) descParts.push(specialty);
@@ -157,7 +148,6 @@ app.get('/f/:hash', async (req, res) => {
 
     const ogTitle = `${formTitle} — ${clinic}`;
 
-    // Injeta os OG tags no <head> do index.html
     const ogTags = `
     <title>${ogTitle}</title>
     <meta name="description" content="${ogDesc}" />
@@ -176,7 +166,6 @@ app.get('/f/:hash', async (req, res) => {
     <meta name="twitter:image" content="${logoUrl}" />`;
 
     let html = fs.readFileSync(distIndexPath, 'utf8');
-    // Remove qualquer <title> existente e injeta os tags depois do <head>
     html = html.replace(/<title>.*?<\/title>/is, '');
     html = html.replace('<head>', `<head>${ogTags}`);
 
@@ -185,11 +174,16 @@ app.get('/f/:hash', async (req, res) => {
     return res.send(html);
   } catch (err) {
     console.error('OG /f/:hash error:', err);
-    // Fallback: serve o SPA normalmente
-    if (fs.existsSync(distIndexPath)) return res.sendFile(distIndexPath);
+    if (fs.existsSync(path.join(__dirname, '../dist/index.html'))) {
+      return res.sendFile(path.join(__dirname, '../dist/index.html'));
+    }
     return res.status(500).send('Erro ao carregar formulário.');
   }
 });
+
+// Aceita deploys com e sem prefixo /api no proxy reverso.
+mountApiRoutes('/api');
+mountApiRoutes('');
 
 // ---- 404 handler ----
 app.use((req, res) => {
