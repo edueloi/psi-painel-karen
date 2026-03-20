@@ -273,7 +273,8 @@ export const Agenda: React.FC = () => {
 
         setAppointments(apts.map(a => {
             const start = new Date(a.start_time || a.appointment_date);
-            const end = a.end_time ? new Date(a.end_time) : new Date(start.getTime() + (a.duration_minutes || 50) * 60000);
+            // Sempre calcula end a partir de duration_minutes para garantir card correto
+            const end = new Date(start.getTime() + (a.duration_minutes || 50) * 60000);
             // Normaliza status: banco usa no_show, frontend usa no-show
             const rawStatus = (a.status || 'scheduled').replace('no_show', 'no-show');
             return {
@@ -1306,18 +1307,13 @@ export const Agenda: React.FC = () => {
                         }
                     }
 
-                    // Garante que end > start para nunca colapsar o card
-                    const safeEnd = (a.end && new Date(a.end) > new Date(a.start))
-                        ? a.end
-                        : new Date(new Date(a.start).getTime() + (a.duration_minutes || 50) * 60000);
-
                     return {
                         id: String(a.id),
                         title: a.patient_name || a.title || 'Paciente',
                         subtitle: a.duration_minutes ? `${a.duration_minutes} min` : undefined,
                         description: a.notes,
                         start: a.start,
-                        end: safeEnd,
+                        end: a.end,
                         type: (a.type as any) || 'consulta',
                         status: status,
                         modality: a.modality as 'presencial' | 'online',

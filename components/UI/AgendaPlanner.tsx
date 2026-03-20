@@ -257,11 +257,13 @@ const layoutDayEvents = (
       column.forEach((event) => {
         const startMinutes =
           event.startDate.getHours() * 60 + event.startDate.getMinutes();
-        const endMinutes =
-          event.endDate.getHours() * 60 + event.endDate.getMinutes();
+
+        // Calcula duração pelo diff de timestamps para evitar bugs de meia-noite/timezone
+        const durationMs = event.endDate.getTime() - event.startDate.getTime();
+        const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
 
         const top = ((startMinutes - startHour * 60) / 60) * hourHeight;
-        const rawHeight = ((endMinutes - startMinutes) / 60) * hourHeight;
+        const rawHeight = (durationMinutes / 60) * hourHeight;
 
         positioned.push({
           ...event,
