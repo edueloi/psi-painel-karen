@@ -1083,12 +1083,12 @@ export const Agenda: React.FC = () => {
         if (savedAppointment.comanda_id) {
             pushToast('success', 'Agendamento e Comanda gerada com sucesso!');
             fetchData();
-            setIsModalOpen(false);
+            closeAppointmentModal();
             return;
         }
 
         fetchData();
-        setIsModalOpen(false);
+        closeAppointmentModal();
         pushToast('success', 'Agenda atualizada com sucesso.');
     } catch (e: any) {
         pushToast('error', 'Erro ao salvar agendamento.');
@@ -1134,6 +1134,13 @@ export const Agenda: React.FC = () => {
         service_id: targetServiceId,
         duration_minutes: targetDuration
     }));
+  };
+
+  // Fecha o modal de agendamento e limpa o modal de comanda para não ficar sujo
+  const closeAppointmentModal = () => {
+    setIsModalOpen(false);
+    setIsNewComandaModalOpen(false);
+    setEditingComanda(null);
   };
 
   const openNewComandaModal = () => {
@@ -1541,7 +1548,7 @@ export const Agenda: React.FC = () => {
       {/* APPOINTMENT MODAL */}
       <Modal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={closeAppointmentModal}
           title={formData.id ? 'Editar Sessão' : 'Novo Agendamento'}
           subtitle={new Date(formData.appointment_date).toLocaleDateString(locale, { dateStyle: 'full' })}
           maxWidth="max-w-4xl"
@@ -1563,7 +1570,7 @@ export const Agenda: React.FC = () => {
                 </Button>
               ) : <div className="hidden sm:block" />}
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="text-xs font-semibold h-10 px-6 rounded-lg">
+                <Button variant="ghost" onClick={closeAppointmentModal} className="text-xs font-semibold h-10 px-6 rounded-lg">
                   Descartar
                 </Button>
                 <Button
@@ -2137,7 +2144,7 @@ export const Agenda: React.FC = () => {
                         await Promise.all(idsToDel.map(id => api.delete(`/appointments/${id}`)));
                         pushToast('success', idsToDel.length > 1 ? `${idsToDel.length} agendamentos removidos.` : 'Agendamento removido.');
                         fetchData();
-                        setIsModalOpen(false);
+                        closeAppointmentModal();
                         setIsDeleteModalOpen(false);
                         setIsDetailModalOpen(false);
                         setSelectedDeleteIds([]);
