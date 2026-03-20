@@ -242,6 +242,10 @@ export const FormsList: React.FC = () => {
   }).filter(f => {
     if (activeCategory === 'Todas') return true;
     return f.category === activeCategory;
+  }).sort((a, b) => {
+    const aFav = favoriteIds.includes(a.id) ? 0 : 1;
+    const bFav = favoriteIds.includes(b.id) ? 0 : 1;
+    return aFav - bFav;
   });
 
   const totalResponses = forms.reduce((sum, f) => sum + (f.responseCount || 0), 0);
@@ -416,117 +420,118 @@ export const FormsList: React.FC = () => {
                 <div className="h-px bg-gradient-to-r from-slate-100 to-transparent flex-1"></div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 text-left">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {sectionForms.length === 0 ? (
-                  <div className="col-span-full py-20 text-center bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center">
-                    <div className="w-20 h-20 bg-white rounded-3xl shadow-sm flex items-center justify-center mb-6 text-slate-200">
-                      <FilePlus2 size={40} />
+                  <div className="col-span-full py-16 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 text-slate-200">
+                      <FilePlus2 size={32} />
                     </div>
-                    <h3 className="text-lg font-black text-slate-400 uppercase tracking-widest">Nenhum Formulário</h3>
-                    <p className="text-slate-400 text-sm mt-2 max-w-xs mx-auto font-medium">
+                    <h3 className="text-base font-black text-slate-400 uppercase tracking-widest">Nenhum Formulário</h3>
+                    <p className="text-slate-400 text-sm mt-1.5 max-w-xs mx-auto font-medium">
                       Não encontramos registros {section === 'Meus Formulários' ? 'pessoais' : 'globais'} nesta categoria.
                     </p>
                   </div>
                 ) : (
                   sectionForms.map((form) => {
-                    const isArchived = archivedIds.includes(form.id);
+                    const isFav = favoriteIds.includes(form.id);
 
                     return (
-                      <AppCard 
-                        key={form.id} 
-                        className="group bg-white border-slate-100 hover:border-indigo-500/20 shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-indigo-500/10 rounded-[2.5rem] transition-all duration-500 flex flex-col h-full overflow-visible"
+                      <AppCard
+                        key={form.id}
+                        className="group bg-white border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-lg hover:shadow-indigo-500/8 rounded-2xl transition-all duration-300 flex flex-col overflow-hidden"
                       >
-                        <div className="text-left flex flex-col h-full">
-                          <div className="flex justify-between items-start mb-6 text-left">
-                            <div className={`p-4 rounded-2xl shadow-lg transition-all group-hover:scale-110 group-hover:rotate-6 ${
-                              form.isGlobal ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white'
-                            }`}>
+                        <div className="flex flex-col h-full">
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className={`p-3 rounded-xl ${form.isGlobal ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white'}`}>
                               {getCategoryIcon(form.category || '')}
                             </div>
-                            <div className="flex flex-col items-end gap-1.5 text-right">
-                               <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl ${
-                                  form.isGlobal ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'
-                                } shadow-sm`}>
+                            <div className="flex items-start gap-1.5">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleFavorite(form.id); }}
+                                className={`p-1.5 rounded-xl transition-all ${isFav ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'}`}
+                                title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                              >
+                                <Heart size={15} className={isFav ? 'fill-amber-500' : ''} />
+                              </button>
+                              <div className="flex flex-col items-end gap-1 pt-0.5">
+                                <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${form.isGlobal ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'}`}>
                                   {form.isGlobal ? 'Global' : 'Pessoal'}
                                 </span>
                                 {form.category && (
-                                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1">
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
                                     {form.category}
                                   </span>
                                 )}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex-1 text-left mb-8">
-                            <h3 className="text-lg font-black text-slate-800 mb-2 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2 min-h-[2.8rem] text-left">
+                          {/* Content */}
+                          <div className="flex-1 mb-4">
+                            <h3 className="text-sm font-black text-slate-800 mb-1.5 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2">
                               {form.title}
                             </h3>
-                            <p className="text-xs text-slate-400 line-clamp-3 font-medium leading-relaxed text-left">
+                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">
                               {form.description || 'Modelo especializado para avaliação clínica estruturada e acompanhamento terapêutico.'}
                             </p>
                           </div>
 
-                          <div className="pt-6 border-t border-slate-50 flex items-center justify-between mt-auto text-left">
-                            <div className="flex flex-col text-left">
-                              <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1 text-left">Entradas</span>
-                              <button 
-                                onClick={() => navigate(`/formularios/${form.id}/respostas`)}
-                                className="flex items-center gap-2 group/btn text-left"
-                              >
-                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 group-hover/btn:scale-150 transition-transform"></div>
-                                 <span className="text-xl font-black text-slate-700 group-hover/btn:text-indigo-600 transition-colors">{form.responseCount}</span>
-                                 <ChevronRight size={14} className="text-slate-300 group-hover/btn:text-indigo-600 transition-all group-hover/btn:translate-x-1" />
-                              </button>
-                            </div>
+                          {/* Footer */}
+                          <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+                            <button
+                              onClick={() => navigate(`/formularios/${form.id}/respostas`)}
+                              className="flex flex-col gap-0.5 group/btn"
+                            >
+                              <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Respostas</span>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 group-hover/btn:scale-150 transition-transform"></div>
+                                <span className="text-lg font-black text-slate-700 group-hover/btn:text-indigo-600 transition-colors leading-none">{form.responseCount}</span>
+                                <ChevronRight size={13} className="text-slate-300 group-hover/btn:text-indigo-500 group-hover/btn:translate-x-0.5 transition-all" />
+                              </div>
+                            </button>
 
-                            <div className="flex items-center gap-2">
-                               <button
-                                 onClick={(e) => { e.stopPropagation(); toggleFavorite(form.id); }}
-                                 className={`p-3.5 rounded-2xl transition-all ${favoriteIds.includes(form.id) ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'}`}
-                                 title={favoriteIds.includes(form.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                               >
-                                 <Heart size={16} className={favoriteIds.includes(form.id) ? 'fill-amber-500' : ''} />
-                               </button>
-                               <button
-                                 onClick={() => window.open(`/f/${form.hash}`, '_blank')}
-                                 className="p-3.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all"
-                                 title="Visualizar"
-                               >
-                                 <Eye size={16} />
-                               </button>
-                               {form.isGlobal ? (
-                                  <button
-                                    onClick={() => handleDuplicate(form.id)}
-                                    className="p-3.5 text-white bg-slate-900 rounded-2xl shadow-lg hover:bg-indigo-600 hover:-translate-y-1 transition-all"
-                                    title="Duplicar"
-                                  >
-                                    <Copy size={16} />
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => navigate(`/formularios/${form.id}`)}
-                                    className="p-3.5 text-indigo-600 bg-indigo-50 rounded-2xl hover:bg-indigo-100 hover:-translate-y-1 transition-all"
-                                    title="Editar"
-                                  >
-                                    <Pen size={16} />
-                                  </button>
-                                )}
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                onClick={() => window.open(`/f/${form.hash}`, '_blank')}
+                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                title="Visualizar"
+                              >
+                                <Eye size={14} />
+                              </button>
+                              {form.isGlobal ? (
                                 <button
-                                  onClick={() => handleOpenShare(form)}
-                                  className="p-3.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all"
-                                  title="Compartilhar"
+                                  onClick={() => handleDuplicate(form.id)}
+                                  className="p-2 text-white bg-slate-800 rounded-xl hover:bg-indigo-600 transition-all"
+                                  title="Duplicar"
                                 >
-                                  <Share2 size={16} />
+                                  <Copy size={14} />
                                 </button>
-                                {!form.isGlobal && (
-                                  <button
-                                    onClick={() => confirmDeleteForm(form)}
-                                    className="p-3.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                                    title="Excluir"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
+                              ) : (
+                                <button
+                                  onClick={() => navigate(`/formularios/${form.id}`)}
+                                  className="p-2 text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-all"
+                                  title="Editar"
+                                >
+                                  <Pen size={14} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleOpenShare(form)}
+                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                title="Compartilhar"
+                              >
+                                <Share2 size={14} />
+                              </button>
+                              {!form.isGlobal && (
+                                <button
+                                  onClick={() => confirmDeleteForm(form)}
+                                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                  title="Excluir"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
