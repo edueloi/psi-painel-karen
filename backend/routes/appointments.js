@@ -510,25 +510,50 @@ router.post('/', async (req, res) => {
     const resultData = { ...created[0], comanda_id: comandaId };
     res.status(201).json(resultData);
 
-    // Dispara email de novo agendamento em background (não bloqueia a resposta)
+    // Dispara email + alerta de novo agendamento em background (não bloqueia a resposta)
     setImmediate(async () => {
       try {
         const apt = created[0];
         if (!apt || apt.type !== 'consulta') return;
-        // Busca email do profissional
-        const [[prof]] = await db.query('SELECT email FROM users WHERE id = ? LIMIT 1', [apt.professional_id]).catch(() => [[null]]);
-        const target = prof?.email;
-        if (!target) return;
+
+        // Busca profissional com preferências
+        const [[prof]] = await db.query(
+          'SELECT id, email, tenant_id, email_preferences FROM users WHERE id = ? LIMIT 1',
+          [apt.professional_id]
+        ).catch(() => [[null]]);
+        if (!prof) return;
+
+        const tenantId = prof.tenant_id || apt.tenant_id;
         const startDate = new Date(apt.start_time);
-        const html = templates.newAppointment({
-          patientName: apt.patient_name || 'Paciente',
-          date: startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-          time: startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          type: apt.type,
-          modality: apt.modality,
-          professional: apt.professional_name,
-        });
-        await sendMail(target, `📅 Novo agendamento — ${apt.patient_name}`, html);
+        const dateStr = startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        // Cria alert no sistema (sempre, independente de email)
+        await db.query(
+          'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
+          [
+            tenantId,
+            '📅 Novo Agendamento',
+            `${apt.patient_name || 'Paciente'} agendou uma consulta para ${dateStr} às ${timeStr}.`,
+            'info',
+            '/agenda'
+          ]
+        ).catch(() => {});
+
+        // Envia email apenas se a preferência estiver ativada
+        const rawPrefs = prof.email_preferences;
+        const prefs = rawPrefs ? (typeof rawPrefs === 'string' ? JSON.parse(rawPrefs) : rawPrefs) : {};
+        if (prof.email && prefs.enabled && prefs.new_appointment) {
+          const html = templates.newAppointment({
+            patientName: apt.patient_name || 'Paciente',
+            date: dateStr,
+            time: timeStr,
+            type: apt.type,
+            modality: apt.modality,
+            professional: apt.professional_name,
+          });
+          await sendMail(prof.email, `📅 Novo agendamento — ${apt.patient_name}`, html);
+        }
       } catch (e) { /* silencioso */ }
     });
   } catch (err) {

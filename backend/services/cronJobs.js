@@ -27,6 +27,7 @@ const DEFAULT_PREFS = {
   birthday_reminder: false,
   weekly_report: false,
   monthly_report: false,
+  form_response: false,
 };
 
 function getPrefs(user) {
@@ -143,6 +144,19 @@ async function checkBirthdays() {
 
       const users = await getTenantUsers(tenantId);
       const html  = templates.birthdayReminder(patients);
+      const names = patients.map(p => p.name || p.full_name).filter(Boolean).join(', ');
+
+      // Cria alerta no sistema para o tenant (independente de preferência de email)
+      await db.query(
+        'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
+        [
+          tenantId,
+          `🎂 ${patients.length} aniversariante(s) hoje`,
+          `Paciente(s) fazendo aniversário hoje: ${names}.`,
+          'info',
+          '/prontuarios'
+        ]
+      ).catch(() => {});
 
       for (const user of users) {
         const prefs = getPrefs(user);
