@@ -412,24 +412,27 @@ router.post('/', async (req, res) => {
     // Padrão de repetição
     const freq = recurrence_freq || null;
     const interval = parseInt(recurrence_interval) || 1;
-    let count = parseInt(recurrence_count) || 1;
+    const parsedCount = parseInt(recurrence_count);
     const until = recurrence_end_date ? new Date(recurrence_end_date) : null;
 
-    if (freq && (!count || count <= 0)) {
-        count = 12; // Default if freq is set but no limit or 0
-    }
+    // Quando usa "Por Data" (until) sem count: usa limite alto para o loop, until vai parar
+    // Quando usa "Por Vezes" (count): usa o count exato
+    // "until" é exclusivo: data escolhida = último dia NÃO incluído (como o usuário espera)
+    let count = (!isNaN(parsedCount) && parsedCount > 0)
+      ? parsedCount
+      : (until ? 365 : (freq ? 12 : 1));
 
     for (let i = 0; i < count; i++) {
         const currentStart = new Date(start);
-        
+
         if (freq === 'DAILY') currentStart.setDate(start.getDate() + (i * interval));
         else if (freq === 'WEEKLY') currentStart.setDate(start.getDate() + (i * 7 * interval));
         else if (freq === 'MONTHLY') currentStart.setMonth(start.getMonth() + (i * interval));
         else if (freq === 'YEARLY') currentStart.setFullYear(start.getFullYear() + (i * interval));
         else if (i > 0) break;
 
-        // Se passar da data limite, para
-        if (until && currentStart > until) break;
+        // Se atingir ou passar da data limite, para (until é exclusivo)
+        if (until && currentStart >= until) break;
 
         const currentEnd = new Date(currentStart.getTime() + duration * 60000);
         
@@ -539,9 +542,9 @@ router.put('/:id/status', async (req, res) => {
       [dbStatus, notes || null, req.params.id, req.user.tenant_id]
     );
 
-    // Contabiliza faltou/cancelado na comanda: incrementa sessions_used
+    // Contabiliza realizado/faltou na comanda: incrementa sessions_used
     const comandaId = existing[0].comanda_id;
-    if (comandaId && (dbStatus === 'no_show' || dbStatus === 'cancelled')) {
+    if (comandaId && (dbStatus === 'completed' || dbStatus === 'no_show')) {
       try {
         await db.query(
           'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',
@@ -650,9 +653,9 @@ router.put('/:id', async (req, res) => {
       ]
     );
 
-    // Se status mudou para faltou/cancelado e há comanda, incrementa sessions_used
+    // Se status mudou para realizado/faltou e há comanda, incrementa sessions_used
     const statusChanged = dbStatus !== oldStatus;
-    if (statusChanged && finalComandaId && (dbStatus === 'no_show' || dbStatus === 'cancelled')) {
+    if (statusChanged && finalComandaId && (dbStatus === 'completed' || dbStatus === 'no_show')) {
       try {
         await db.query(
           'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',

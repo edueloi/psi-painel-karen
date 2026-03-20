@@ -131,6 +131,8 @@ export const Agenda: React.FC = () => {
   });
   const [patientComandas, setPatientComandas] = useState<any[]>([]);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [detailQuickStatus, setDetailQuickStatus] = useState<string | null>(null);
+  const [detailQuickNotes, setDetailQuickNotes] = useState('');
   const [isComandaManagerOpen, setIsComandaManagerOpen] = useState(false);
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
@@ -2451,166 +2453,187 @@ export const Agenda: React.FC = () => {
       </Modal>
 
       {/* APPOINTMENT DETAIL MODAL */}
-      <Modal
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        title=""
-        maxWidth="max-w-md"
-        hideCloseButton
-      >
-        <div className="space-y-3 pt-1 pb-4">
-            {/* Header Actions - Compact and Readable */}
-            <div className="grid grid-cols-4 gap-1 mb-3 border-b border-slate-50 pb-3">
-                {[
-                    { label: 'WHATS', icon: <MessageSquare size={18} />, active: 'text-emerald-500', hide: selectedApt?.type !== 'consulta', onClick: () => {
-                        const patient = patients.find(p => String(p.id) === String(selectedApt?.patient_id));
-                        if (patient?.phone) window.open(`https://wa.me/${patient.phone.replace(/\D/g, '')}`, '_blank');
-                    }},
-                    { label: 'LEMBRETE', icon: <Send size={18} />, active: 'text-emerald-500', hide: selectedApt?.type !== 'consulta', onClick: () => pushToast('success', 'Lembrete enviado!') },
-                    { label: 'EDITAR', icon: <Edit3 size={18} />, active: 'text-indigo-600', hide: false, onClick: () => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); } },
-                    { label: 'DELETAR', icon: <Trash2 size={18} />, active: 'text-rose-500', hide: false, onClick: () => { if (selectedApt) setSelectedDeleteIds([selectedApt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); } },
-                ].filter(a => !a.hide).map((act, i) => (
-                    <button key={i} onClick={act.onClick} className="flex flex-col items-center gap-1 group flex-1">
-                        <div className={`p-2 rounded-full bg-slate-50 border border-slate-100 group-hover:bg-white group-hover:shadow-sm transition-all ${act.active}`}>
-                            {act.icon}
-                        </div>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{act.label}</span>
-                    </button>
-                ))}
-            </div>
+      {isDetailModalOpen && selectedApt && (() => {
+        const apt = selectedApt;
+        const patient = patients.find(p => String(p.id) === String(apt.patient_id));
+        const srv = services.find(s => String(s.id) === String(apt.service_id));
+        const pkg = packages.find(p => String(p.id) === String(apt.package_id));
+        const cmnd = patientComandas.find(c => String(c.id) === String(apt.comanda_id));
+        const currentStatus = detailQuickStatus ?? (apt.status || 'scheduled');
+        const needsNotes = currentStatus === 'no-show' || currentStatus === 'cancelled';
+        const initials = (apt.patient_name || apt.title || 'P').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+        const statusColor: Record<string, string> = {
+          scheduled: '#6366f1', confirmed: '#10b981', completed: '#059669',
+          'no-show': '#f59e0b', cancelled: '#ef4444',
+        };
+        const accentColor = statusColor[currentStatus] || '#6366f1';
 
-            {/* List Content - High Density & Clear */}
-            <div className="space-y-1.5 px-1">
-                <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60" onClick={() => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); }}>
-                    <div className="text-indigo-500 shrink-0"><Clock size={16} /></div>
-                    <div className="flex-1 min-w-0 flex justify-between items-center">
-                        <div className="flex flex-col">
-                            <h4 className="text-[12px] font-bold text-slate-700 leading-tight">
-                                {selectedApt ? `${selectedApt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${selectedApt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '--:--'}
-                            </h4>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    {selectedApt?.start.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
-                                </span>
-                                {selectedApt?.recurrence_index && (
-                                    <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded uppercase tracking-widest">
-                                        Sessão {selectedApt.recurrence_index} de {selectedApt.recurrence_count}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <ChevronRight size={14} className="text-slate-300" />
+        const quickStatuses = [
+          { key: 'scheduled', label: 'Agendado', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', active: 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' },
+          { key: 'confirmed', label: 'Confirmado', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', active: 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100' },
+          { key: 'completed', label: 'Realizado', color: 'bg-green-50 text-green-700 border-green-200', active: 'bg-green-600 text-white border-green-600 shadow-lg shadow-green-100' },
+          { key: 'no-show', label: 'Faltou', color: 'bg-amber-50 text-amber-700 border-amber-200', active: 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100' },
+          { key: 'cancelled', label: 'Cancelado', color: 'bg-rose-50 text-rose-700 border-rose-200', active: 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-100' },
+        ];
+
+        const handleQuickSave = async () => {
+          if (needsNotes && !detailQuickNotes.trim()) {
+            pushToast('error', `Informe o motivo ${currentStatus === 'no-show' ? 'da falta' : 'do cancelamento'}.`);
+            return;
+          }
+          try {
+            await api.put(`/appointments/${apt.id}/status`, { status: currentStatus, notes: detailQuickNotes || undefined });
+            pushToast('success', 'Status atualizado!');
+            fetchData();
+            setDetailQuickStatus(null);
+            setDetailQuickNotes('');
+            setIsDetailModalOpen(false);
+          } catch { pushToast('error', 'Erro ao atualizar status.'); }
+        };
+
+        return (
+          <Modal isOpen={isDetailModalOpen} onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} title="" maxWidth="max-w-md" hideCloseButton>
+            <div className="pb-2 -mt-2">
+
+              {/* ── HERO HEADER ── */}
+              <div className="relative rounded-2xl overflow-hidden mb-5 px-5 pt-5 pb-4" style={{ background: `linear-gradient(135deg, ${accentColor}18 0%, ${accentColor}08 100%)`, border: `1px solid ${accentColor}25` }}>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-lg font-black shadow-lg shrink-0" style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}>
+                    {initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-base font-black text-slate-900 truncate">{apt.patient_name || apt.title || 'Paciente'}</h2>
+                    {patient?.phone && <p className="text-xs font-semibold text-slate-500 mt-0.5">{patient.phone}</p>}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
+                        <Clock size={11} />
+                        {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {apt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-500 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
+                        {apt.start.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'short' })}
+                      </span>
+                      {apt.recurrence_index && (
+                        <span className="text-[11px] font-black bg-white/80 px-2 py-0.5 rounded-full border border-white/50" style={{ color: accentColor }}>
+                          {apt.recurrence_index}/{apt.recurrence_count}
+                        </span>
+                      )}
                     </div>
+                  </div>
+                  <button onClick={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl bg-white/60 text-slate-400 hover:bg-white hover:text-slate-600 transition-all border border-white/50">
+                    <X size={15} />
+                  </button>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60">
-                    <div className="text-indigo-500 shrink-0"><UserIcon size={16} /></div>
-                    <div className="flex-1 min-w-0 flex justify-between items-center">
-                        <div>
-                            <h4 className="text-[12px] font-bold text-slate-800 capitalize leading-tight">
-                                {selectedApt?.patient_name || selectedApt?.title || 'Paciente'}
-                            </h4>
-                            <p className="text-[11px] font-bold text-indigo-500 leading-none">
-                                {patients.find(p => String(p.id) === String(selectedApt?.patient_id))?.phone || 'Sem telefone'}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="p-1.5 bg-slate-50 rounded-lg text-slate-400"><FileText size={14} /></div>
-                            <ChevronRight size={14} className="text-slate-300" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3 py-2 border-b border-slate-50/60">
-                    <div className="text-indigo-500 shrink-0"><Stethoscope size={16} /></div>
-                    <div className="flex-1 flex justify-between items-center min-w-0">
-                        <p className="text-[12px] font-medium text-slate-600 truncate">
-                            {services.find(s => String(s.id) === String(selectedApt?.service_id))?.name || 'Psicoterapia Individual'}
-                        </p>
-                        {(() => {
-                            const srv = services.find(s => String(s.id) === String(selectedApt?.service_id));
-                            return srv ? <span className="text-[11px] font-black text-slate-400">{formatCurrency(srv.price)}</span> : null;
-                        })()}
-                        <ChevronRight size={14} className="text-slate-300" />
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60" onClick={() => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); }}>
-                    <div className="text-indigo-500 shrink-0"><AlignLeft size={16} /></div>
-                    <div className="flex-1 flex justify-between items-center min-w-0">
-                        <p className="text-[11px] font-medium text-slate-500 italic truncate italic">
-                            {selectedApt?.notes || 'Nenhuma observação'}
-                        </p>
-                        <ChevronRight size={14} className="text-slate-300" />
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3 group cursor-pointer py-2 border-b border-slate-50/60" onClick={() => { if (selectedApt) openEditModal(selectedApt); setIsDetailModalOpen(false); }}>
-                    <div className="text-indigo-500 shrink-0"><Tag size={16} /></div>
-                    <div className="flex-1 flex justify-between items-center min-w-0">
-                        <p className="text-[12px] font-bold text-slate-700">
-                             {statusMeta[selectedApt?.status as keyof typeof statusMeta || 'scheduled']?.label || 'Nenhum'}
-                        </p>
-                        <ChevronRight size={14} className="text-slate-300" />
-                    </div>
-                </div>
-
-                {selectedApt?.comanda_id && (
-                    <div className="flex items-center gap-3 group cursor-pointer py-2" onClick={() => setIsComandaManagerOpen(true)}>
-                        <div className="text-emerald-500 shrink-0"><DollarSign size={16} /></div>
-                        <div className="flex-1 flex justify-between items-center min-w-0">
-                            {(() => {
-                                const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt.comanda_id));
-                                const paid = cmnd?.paidValue || 0;
-                                const remaining = (cmnd?.totalValue || cmnd?.total || 0) - paid;
-                                return (
-                                    <div className="flex flex-col">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase">
-                                            Pago <span className="text-indigo-600">{formatCurrency(paid)}</span> <span className="text-slate-300 mx-1">|</span> Devedor <span className="text-rose-500">{formatCurrency(remaining)}</span>
-                                        </p>
-                                        {cmnd?.receipt_code && (
-                                            <p className="text-[9px] font-bold text-slate-400 mt-0.5">
-                                                Cód. Recibo: <span className="text-slate-600">#{cmnd.receipt_code}</span>
-                                            </p>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-                            <ChevronRight size={14} className="text-slate-300" />
-                        </div>
-                    </div>
+              {/* ── INFO PILLS ── */}
+              <div className="flex flex-wrap gap-2 px-1 mb-5">
+                {(srv || pkg) && (
+                  <div className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                    <Stethoscope size={13} className="text-indigo-500 shrink-0" />
+                    <span className="text-[12px] font-semibold text-slate-700 truncate max-w-[160px]">{srv?.name || pkg?.name || 'Serviço'}</span>
+                    {srv && <span className="text-[11px] font-bold text-slate-400 ml-1">{formatCurrency(srv.price)}</span>}
+                  </div>
                 )}
-            </div>
+                {apt.modality && (
+                  <div className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                    {apt.modality === 'online' ? <Video size={13} className="text-indigo-500" /> : <MapPin size={13} className="text-slate-400" />}
+                    <span className="text-[12px] font-semibold text-slate-600 capitalize">{apt.modality}</span>
+                  </div>
+                )}
+                {cmnd && (
+                  <button onClick={() => setIsComandaManagerOpen(true)} className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 hover:bg-emerald-100 transition-colors">
+                    <DollarSign size={13} className="text-emerald-600 shrink-0" />
+                    <span className="text-[12px] font-semibold text-emerald-700">{formatCurrency(cmnd.paidValue || 0)}</span>
+                    <span className="text-[10px] text-emerald-500 font-bold">pago</span>
+                    {((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0)) > 0 && (
+                      <><span className="text-emerald-300 mx-0.5">·</span><span className="text-[12px] font-semibold text-rose-500">{formatCurrency((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0))}</span><span className="text-[10px] text-rose-400 font-bold">dev</span></>
+                    )}
+                    <ChevronRight size={11} className="text-emerald-400 ml-0.5" />
+                  </button>
+                )}
+              </div>
 
-            {selectedApt?.type === 'consulta' && (
-                <div className="pt-4 flex flex-col items-center gap-4">
-                    <div className="flex gap-10">
-                        <button
-                            onClick={handleRemoveCharge}
-                            className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
-                        >
-                            REMOVER COBRANÇA
-                        </button>
-                        <button
-                            onClick={handleGenerateReceipt}
-                            className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-slate-900 transition-colors flex items-center gap-1.5"
-                        >
-                            <FileText size={14} /> GERAR RECIBO
-                        </button>
-                    </div>
+              {/* ── OBSERVAÇÕES ── */}
+              {apt.notes && (
+                <div className="mx-1 mb-4 bg-slate-50 rounded-xl border border-slate-100 px-3 py-2.5">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Observações</p>
+                  <p className="text-[12px] text-slate-600 leading-relaxed">{apt.notes}</p>
                 </div>
-            )}
-            <div className="w-full flex">
-                <Button
-                    variant="ghost"
-                    onClick={() => setIsDetailModalOpen(false)}
-                    className="w-full text-[11px] font-black uppercase tracking-widest py-3 hover:bg-slate-50 border-none"
-                >
-                    FECHAR
-                </Button>
+              )}
+
+              {/* ── QUICK STATUS ── */}
+              <div className="px-1 mb-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Atualizar Status</p>
+                <div className="flex flex-wrap gap-2">
+                  {quickStatuses.map(s => (
+                    <button
+                      key={s.key}
+                      onClick={() => { setDetailQuickStatus(s.key === currentStatus && !detailQuickStatus ? null : s.key); setDetailQuickNotes(''); }}
+                      className={cx('text-[11px] font-black px-3 py-1.5 rounded-xl border transition-all', currentStatus === s.key ? s.active : s.color)}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Notes required when faltou/cancelado */}
+                {detailQuickStatus && needsNotes && (
+                  <div className="mt-3">
+                    <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 block">
+                      {currentStatus === 'no-show' ? 'Motivo da Falta *' : 'Motivo do Cancelamento *'}
+                    </label>
+                    <textarea
+                      value={detailQuickNotes}
+                      onChange={e => setDetailQuickNotes(e.target.value)}
+                      placeholder={currentStatus === 'no-show' ? 'Descreva o motivo da falta...' : 'Descreva o motivo do cancelamento...'}
+                      rows={2}
+                      className={cx('w-full rounded-xl border px-3 py-2 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none transition-colors',
+                        detailQuickNotes.trim() ? 'border-rose-300 focus:border-rose-500' : 'border-rose-400 focus:border-rose-600 bg-rose-50/30')}
+                    />
+                  </div>
+                )}
+
+                {detailQuickStatus && detailQuickStatus !== (apt.status || 'scheduled') && (
+                  <button
+                    onClick={handleQuickSave}
+                    className="mt-3 w-full py-2.5 rounded-xl text-[12px] font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98]"
+                    style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}
+                  >
+                    Confirmar alteração para "{quickStatuses.find(s => s.key === detailQuickStatus)?.label}"
+                  </button>
+                )}
+              </div>
+
+              {/* ── ACTION BAR ── */}
+              <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                {patient?.phone && (
+                  <button onClick={() => window.open(`https://wa.me/${patient.phone!.replace(/\D/g, '')}`, '_blank')}
+                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
+                    <MessageSquare size={16} className="text-emerald-600" />
+                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">WhatsApp</span>
+                  </button>
+                )}
+                <button onClick={handleGenerateReceipt}
+                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all">
+                  <FileText size={16} className="text-slate-500" />
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recibo</span>
+                </button>
+                <button onClick={() => { if (apt) openEditModal(apt); setIsDetailModalOpen(false); }}
+                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all">
+                  <Edit3 size={16} className="text-indigo-600" />
+                  <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Editar</span>
+                </button>
+                <button onClick={() => { if (apt) setSelectedDeleteIds([apt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); }}
+                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all">
+                  <Trash2 size={16} className="text-rose-500" />
+                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Deletar</span>
+                </button>
+              </div>
+
             </div>
-        </div>
-      </Modal>
+          </Modal>
+        );
+      })()}
 
       {/* COMANDA MANAGER MODAL */}
       {/* COMANDA MANAGER MODAL */}
@@ -2631,8 +2654,9 @@ export const Agenda: React.FC = () => {
                 const usedSessionsArr = (cmnd.appointments || []).filter((a: any) => {
                   const startTime = new Date(a.start_time || a.start_date || a.start || a.startDate);
                   const isPast = startTime < now;
-                  const isMissed = a.status === 'cancelled' || a.status === 'no_show' || a.status === 'no-show' || a.status === 'no_realizado';
-                  return a.status === 'completed' || a.status === 'confirmed' || (isPast && !isMissed);
+                  const isCancelled = a.status === 'cancelled';
+                  // no-show conta como sessão consumida (slot foi reservado, profissional estava disponível)
+                  return a.status === 'completed' || a.status === 'no_show' || a.status === 'no-show' || a.status === 'confirmed' || (isPast && !isCancelled);
                 });
                 const calculatedUsed = usedSessionsArr.length;
                 const totalSessions = cmnd.sessions_total || 1;
