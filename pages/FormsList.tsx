@@ -26,12 +26,19 @@ export const FormsList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const { formsArchived: archivedIds, setFormsArchived, formsFavorites: favoriteIds, setFormsFavorites } = useUserPreferences();
+  const { preferences, updatePreference, formsArchived: archivedIds, setFormsArchived, formsFavorites: favoriteIds, setFormsFavorites } = useUserPreferences();
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const categoryScrollRef = React.useRef<HTMLDivElement>(null);
-  const [activeFilter, setActiveFilter] = useState<'Todos' | 'Ativos' | 'Arquivados' | 'Favoritos'>('Todos');
+  const [activeFilter, setActiveFilterState] = useState<'Todos' | 'Ativos' | 'Arquivados' | 'Favoritos'>(
+    preferences.forms?.activeFilter ?? 'Todos'
+  );
+
+  const setActiveFilter = (val: 'Todos' | 'Ativos' | 'Arquivados' | 'Favoritos') => {
+    setActiveFilterState(val);
+    updatePreference('forms', { activeFilter: val });
+  };
   const [activeCategory, setActiveCategory] = useState('Todas');
   const [defaultPatientId, setDefaultPatientId] = useState('');
   const [isLoading, setIsLoading] = useState(true);

@@ -21,6 +21,9 @@ export interface UserPreferences {
   caseStudies: {
     viewMode: 'grid' | 'list';
   };
+  forms: {
+    activeFilter: 'Todos' | 'Ativos' | 'Arquivados' | 'Favoritos';
+  };
   appearance: {
     theme: 'light' | 'dark' | 'auto';
     primaryColor: string;
@@ -50,6 +53,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   caseStudies: {
     viewMode: 'grid',
   },
+  forms: {
+    activeFilter: 'Todos',
+  },
   appearance: {
     theme: 'auto',
     primaryColor: 'Indigo',
@@ -68,6 +74,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     services:    { ...DEFAULT_PREFERENCES.services,    ...stored?.services },
     agenda:      { ...DEFAULT_PREFERENCES.agenda,      ...stored?.agenda },
     caseStudies: { ...DEFAULT_PREFERENCES.caseStudies, ...stored?.caseStudies },
+    forms:       { ...DEFAULT_PREFERENCES.forms,       ...stored?.forms },
     appearance:  { ...DEFAULT_PREFERENCES.appearance,  ...stored?.appearance },
     general:     { ...DEFAULT_PREFERENCES.general,     ...stored?.general },
   };
