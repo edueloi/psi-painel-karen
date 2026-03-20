@@ -156,7 +156,13 @@ router.get('/responses/recent', authMiddleware, async (req, res) => {
 // Para navegadores reais, redireciona para o frontend SPA.
 router.get('/og/:hash', async (req, res) => {
   const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
-  const formUrl = `${FRONTEND_URL}/f/${req.params.hash}`;
+  const userId = req.query.u ? parseInt(req.query.u, 10) : null;
+  // Preserva ?u= na URL de redirect para o frontend
+  const redirectParams = new URLSearchParams();
+  if (req.query.p) redirectParams.set('p', req.query.p);
+  if (req.query.u) redirectParams.set('u', req.query.u);
+  const redirectQs = redirectParams.toString();
+  const formUrl = `${FRONTEND_URL}/f/${req.params.hash}${redirectQs ? `?${redirectQs}` : ''}`;
 
   // Detectar crawlers / bots sociais
   const ua = (req.headers['user-agent'] || '').toLowerCase();
@@ -168,9 +174,9 @@ router.get('/og/:hash', async (req, res) => {
               u.name as professional_name, u.specialty as professional_specialty,
               u.crp as professional_crp, u.company_name, u.clinic_logo_url, u.avatar_url
        FROM forms f
-       LEFT JOIN users u ON u.id = f.created_by
+       LEFT JOIN users u ON u.id = COALESCE(?, f.created_by)
        WHERE f.hash = ? AND (f.is_public = true OR f.is_global = true)`,
-      [req.params.hash]
+      [userId, req.params.hash]
     );
 
     if (forms.length === 0) {
@@ -246,14 +252,15 @@ router.get('/og/:hash', async (req, res) => {
 // GET /forms/public/:hash
 router.get('/public/:hash', async (req, res) => {
   try {
+    const userId = req.query.u ? parseInt(req.query.u, 10) : null;
     const [forms] = await db.query(
       `SELECT f.id, f.title, f.description, f.fields, f.category, f.hash, f.is_global, f.tenant_id,
               u.name as professional_name, u.specialty as professional_specialty,
               u.crp as professional_crp, u.company_name, u.clinic_logo_url, u.avatar_url
        FROM forms f
-       LEFT JOIN users u ON u.id = f.created_by
+       LEFT JOIN users u ON u.id = COALESCE(?, f.created_by)
        WHERE f.hash = ? AND (f.is_public = true OR f.is_global = true)`,
-      [req.params.hash]
+      [userId, req.params.hash]
     );
     if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
 

@@ -10,6 +10,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { useAuth } from '../contexts/AuthContext';
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
 import { Input, Select } from '../components/UI/Input';
@@ -24,6 +25,7 @@ import {
 export const FormsList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const { formsArchived: archivedIds, setFormsArchived, formsFavorites: favoriteIds, setFormsFavorites } = useUserPreferences();
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -176,10 +178,11 @@ export const FormsList: React.FC = () => {
   const getShareLink = () => {
     if (!selectedForm) return '';
     let url = `${window.location.origin}/f/${selectedForm.hash}`;
-    if (shareTab === 'patient' && selectedPatientId) {
-      url += `?p=${selectedPatientId}`;
-    }
-    return url;
+    const params = new URLSearchParams();
+    if (shareTab === 'patient' && selectedPatientId) params.set('p', selectedPatientId);
+    if (user?.id) params.set('u', String(user.id));
+    const qs = params.toString();
+    return qs ? `${url}?${qs}` : url;
   };
 
   // URL especial para compartilhamento social (WhatsApp, Telegram, etc.)
@@ -188,10 +191,11 @@ export const FormsList: React.FC = () => {
     if (!selectedForm) return '';
     const apiBase = (import.meta as any).env?.VITE_API_URL || 'https://psiflux.com.br/api';
     let url = `${apiBase}/forms/og/${selectedForm.hash}`;
-    if (shareTab === 'patient' && selectedPatientId) {
-      url += `?p=${selectedPatientId}`;
-    }
-    return url;
+    const params = new URLSearchParams();
+    if (shareTab === 'patient' && selectedPatientId) params.set('p', selectedPatientId);
+    if (user?.id) params.set('u', String(user.id));
+    const qs = params.toString();
+    return qs ? `${url}?${qs}` : url;
   };
 
   const handleCopyLink = () => {

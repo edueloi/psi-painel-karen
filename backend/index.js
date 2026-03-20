@@ -106,14 +106,15 @@ app.get('/f/:hash', async (req, res) => {
   const distIndexPath = path.join(__dirname, '../dist/index.html');
 
   try {
+    const userId = req.query.u ? parseInt(req.query.u, 10) : null;
     const [forms] = await db.query(
       `SELECT f.title, f.description, f.hash,
               u.name as professional_name, u.specialty as professional_specialty,
               u.crp as professional_crp, u.company_name, u.clinic_logo_url, u.avatar_url
        FROM forms f
-       LEFT JOIN users u ON u.id = f.created_by
+       LEFT JOIN users u ON u.id = COALESCE(?, f.created_by)
        WHERE f.hash = ? AND (f.is_public = true OR f.is_global = true)`,
-      [req.params.hash]
+      [userId, req.params.hash]
     );
 
     if (forms.length === 0 || !fs.existsSync(distIndexPath)) {
