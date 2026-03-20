@@ -1,5 +1,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   BookOpen,
@@ -104,11 +105,12 @@ const EMPTY_BOARDS: CaseBoard[] = [];
 export const CaseStudies: React.FC = () => {
   const { t } = useLanguage();
   const { pushToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // View State
   const [currentView, setCurrentView] = useState<'list' | 'board'>('list');
   const [boards, setBoards] = useState<CaseBoard[]>(EMPTY_BOARDS);
-  const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(() => searchParams.get('board'));
   const [history, setHistory] = useState<{ msg: string; time: string }[]>([]);
   const [boardSearch, setBoardSearch] = useState('');
   const [cardSearch, setCardSearch] = useState('');
@@ -347,6 +349,9 @@ export const CaseStudies: React.FC = () => {
   useEffect(() => {
       if (activeBoardId) {
           void loadBoardDetail(activeBoardId);
+          setSearchParams({ board: activeBoardId }, { replace: true });
+      } else {
+          setSearchParams({}, { replace: true });
       }
   }, [activeBoardId]);
   // --- Board Logic ---
@@ -750,7 +755,7 @@ export const CaseStudies: React.FC = () => {
           </div>
       ) : (
           <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
-              <div className="flex gap-6 h-full px-2 min-w-max">
+              <div className="flex gap-4 h-full px-2 min-w-0">
                   {boardLoading && (
                       <div className="w-full flex items-center justify-center text-slate-400 text-sm font-bold py-10">
                           Carregando...
@@ -759,7 +764,7 @@ export const CaseStudies: React.FC = () => {
                   {activeBoard?.columns.map(col => (
                       <div
                         key={col.id}
-                        className="w-80 flex flex-col bg-slate-50 rounded-2xl border border-slate-200 max-h-full"
+                        className="w-[85vw] sm:w-80 flex-shrink-0 flex flex-col bg-slate-50 rounded-2xl border border-slate-200 max-h-full"
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, col.id)}
                       >

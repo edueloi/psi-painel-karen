@@ -232,7 +232,7 @@ export const BestClients: React.FC = () => {
                           </div>
                           <div>
                               <h3 className="font-black text-slate-800 text-sm leading-tight">{client.name}</h3>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">#{client.id.split('-')[1]}</p>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">#{String(client.id)}</p>
                           </div>
                       </div>
 

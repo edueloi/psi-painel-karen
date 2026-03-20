@@ -28,7 +28,6 @@ export const NAV_SECTIONS = [
     title: 'nav.group.management',
     items: [
       { label: 'nav.professionals', path: '/profissionais', icon: <UserCheck size={20} /> },
-      { label: 'nav.permissions', path: '/permissoes', icon: <Key size={20} /> },
       { label: 'nav.services', path: '/servicos', icon: <Briefcase size={20} /> },
       { label: 'nav.products', path: '/produtos', icon: <Package size={20} /> },
       { label: 'nav.comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },

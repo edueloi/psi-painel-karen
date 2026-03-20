@@ -2,15 +2,31 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// Garante colunas extras na tabela case_study_cards
+(async () => {
+  const cols = [
+    'ALTER TABLE case_study_cards ADD COLUMN patient_id INT NULL',
+    'ALTER TABLE case_study_cards ADD COLUMN description TEXT NULL',
+    'ALTER TABLE case_study_cards ADD COLUMN tags_json TEXT NULL',
+    'ALTER TABLE case_study_cards ADD COLUMN details_json TEXT NULL',
+  ];
+  for (const sql of cols) {
+    try { await db.query(sql); } catch (_) {}
+  }
+})();
+
 // GET /case-studies/boards
 router.get('/boards', async (req, res) => {
   try {
     const [boards] = await db.query(
-      `SELECT b.*, u.name as created_by_name, p.name as patient_name
+      `SELECT b.*,
+              COUNT(DISTINCT col.id) AS column_count,
+              COUNT(DISTINCT c.id)   AS card_count
        FROM case_study_boards b
-       LEFT JOIN users u ON u.id = b.created_by
-       LEFT JOIN patients p ON p.id = b.patient_id
+       LEFT JOIN case_study_columns col ON col.board_id = b.id
+       LEFT JOIN case_study_cards   c   ON c.board_id  = b.id
        WHERE b.tenant_id = ?
+       GROUP BY b.id
        ORDER BY b.created_at DESC`,
       [req.user.tenant_id]
     );
@@ -39,7 +55,11 @@ router.get('/boards/:boardId', async (req, res) => {
 
     for (const col of columns) {
       const [cards] = await db.query(
-        'SELECT * FROM case_study_cards WHERE column_id = ? ORDER BY position',
+        `SELECT c.*, p.full_name AS patient_name
+         FROM case_study_cards c
+         LEFT JOIN patients p ON p.id = c.patient_id
+         WHERE c.column_id = ?
+         ORDER BY c.position`,
         [col.id]
       );
       col.cards = cards;
@@ -56,12 +76,12 @@ router.get('/boards/:boardId', async (req, res) => {
 // POST /case-studies/boards
 router.post('/boards', async (req, res) => {
   try {
-    const { title, description, patient_id } = req.body;
+    const { title, description } = req.body;
     if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
 
     const [result] = await db.query(
-      'INSERT INTO case_study_boards (tenant_id, title, description, patient_id, created_by) VALUES (?, ?, ?, ?, ?)',
-      [req.user.tenant_id, title, description || null, patient_id || null, req.user.id]
+      'INSERT INTO case_study_boards (tenant_id, title, description, created_by) VALUES (?, ?, ?, ?)',
+      [req.user.tenant_id, title, description || null, req.user.id]
     );
 
     // Criar colunas padrão
@@ -150,21 +170,40 @@ router.delete('/boards/:boardId/columns/:columnId', async (req, res) => {
 // POST /case-studies/boards/:boardId/cards
 router.post('/boards/:boardId/cards', async (req, res) => {
   try {
-    const { column_id, title, content, labels } = req.body;
-    if (!column_id || !title) return res.status(400).json({ error: 'Coluna e título são obrigatórios' });
+    const { column_id, patient_id, title, description, tags, details, sort_order } = req.body;
+    if (!column_id || (!title && !patient_id)) {
+      return res.status(400).json({ error: 'Coluna e paciente/título são obrigatórios' });
+    }
 
     const [maxPos] = await db.query(
       'SELECT MAX(position) as max FROM case_study_cards WHERE column_id = ?',
       [column_id]
     );
-    const position = (maxPos[0].max || 0) + 1;
+    const position = sort_order !== undefined ? sort_order : ((maxPos[0].max || 0) + 1);
 
     const [result] = await db.query(
-      'INSERT INTO case_study_cards (board_id, column_id, title, content, position, labels) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.boardId, column_id, title, content || null, position, labels ? JSON.stringify(labels) : null]
+      `INSERT INTO case_study_cards
+         (board_id, column_id, patient_id, title, description, tags_json, details_json, position)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.params.boardId,
+        column_id,
+        patient_id || null,
+        title || null,
+        description || null,
+        tags ? JSON.stringify(tags) : null,
+        details ? JSON.stringify(details) : null,
+        position,
+      ]
     );
 
-    const [card] = await db.query('SELECT * FROM case_study_cards WHERE id = ?', [result.insertId]);
+    const [card] = await db.query(
+      `SELECT c.*, p.full_name AS patient_name
+       FROM case_study_cards c
+       LEFT JOIN patients p ON p.id = c.patient_id
+       WHERE c.id = ?`,
+      [result.insertId]
+    );
     res.status(201).json(card[0]);
   } catch (err) {
     console.error(err);
@@ -175,20 +214,37 @@ router.post('/boards/:boardId/cards', async (req, res) => {
 // PUT /case-studies/cards/:cardId
 router.put('/cards/:cardId', async (req, res) => {
   try {
-    const { title, content, column_id, position, labels } = req.body;
+    const { patient_id, title, description, tags, details, column_id, sort_order } = req.body;
 
     await db.query(
       `UPDATE case_study_cards SET
-        title = COALESCE(?, title),
-        content = COALESCE(?, content),
-        column_id = COALESCE(?, column_id),
-        position = COALESCE(?, position),
-        labels = COALESCE(?, labels)
+        patient_id   = COALESCE(?, patient_id),
+        title        = ?,
+        description  = COALESCE(?, description),
+        tags_json    = COALESCE(?, tags_json),
+        details_json = COALESCE(?, details_json),
+        column_id    = COALESCE(?, column_id),
+        position     = COALESCE(?, position)
        WHERE id = ?`,
-      [title, content, column_id, position, labels ? JSON.stringify(labels) : undefined, req.params.cardId]
+      [
+        patient_id || null,
+        title || null,
+        description || null,
+        tags !== undefined ? JSON.stringify(tags) : null,
+        details !== undefined ? JSON.stringify(details) : null,
+        column_id || null,
+        sort_order !== undefined ? sort_order : null,
+        req.params.cardId,
+      ]
     );
 
-    const [card] = await db.query('SELECT * FROM case_study_cards WHERE id = ?', [req.params.cardId]);
+    const [card] = await db.query(
+      `SELECT c.*, p.full_name AS patient_name
+       FROM case_study_cards c
+       LEFT JOIN patients p ON p.id = c.patient_id
+       WHERE c.id = ?`,
+      [req.params.cardId]
+    );
     res.json(card[0]);
   } catch (err) {
     console.error(err);
@@ -196,14 +252,14 @@ router.put('/cards/:cardId', async (req, res) => {
   }
 });
 
-// PATCH /case-studies/cards/:cardId/move - Mover card entre colunas
+// PATCH /case-studies/cards/:cardId/move
 router.patch('/cards/:cardId/move', async (req, res) => {
   try {
-    const { column_id, position } = req.body;
+    const { column_id, sort_order } = req.body;
 
     await db.query(
       'UPDATE case_study_cards SET column_id = ?, position = ? WHERE id = ?',
-      [column_id, position || 0, req.params.cardId]
+      [column_id, sort_order || 0, req.params.cardId]
     );
 
     res.json({ ok: true });
