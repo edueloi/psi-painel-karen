@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const fs = require('fs');
 const path = require('path');
+const { generateShareToken } = require('../utils/shareToken');
 
 // Add extra profile columns if they don't exist (safe migration)
 const ensureColumns = async () => {
@@ -74,6 +75,8 @@ router.get('/me', async (req, res) => {
     delete u.user_permissions;
     delete u.profile_permissions;
     delete u.profile_slug;
+
+    u.share_token = generateShareToken(u.id);
 
     res.json(u);
   } catch (err) {

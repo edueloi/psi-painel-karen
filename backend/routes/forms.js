@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { parseShareToken } = require('../utils/shareToken');
 
 // Helper: pack questions/interpretations/theme into the fields LONGTEXT column
 function packFields(body) {
@@ -156,7 +157,7 @@ router.get('/responses/recent', authMiddleware, async (req, res) => {
 // Para navegadores reais, redireciona para o frontend SPA.
 router.get('/og/:hash', async (req, res) => {
   const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
-  const userId = req.query.u ? parseInt(req.query.u, 10) : null;
+  const userId = req.query.u ? parseShareToken(req.query.u) : null;
   // Preserva ?u= na URL de redirect para o frontend
   const redirectParams = new URLSearchParams();
   if (req.query.p) redirectParams.set('p', req.query.p);
@@ -252,7 +253,7 @@ router.get('/og/:hash', async (req, res) => {
 // GET /forms/public/:hash
 router.get('/public/:hash', async (req, res) => {
   try {
-    const userId = req.query.u ? parseInt(req.query.u, 10) : null;
+    const userId = req.query.u ? parseShareToken(req.query.u) : null;
     const [forms] = await db.query(
       `SELECT f.id, f.title, f.description, f.fields, f.category, f.hash, f.is_global, f.tenant_id,
               u.name as professional_name, u.specialty as professional_specialty,

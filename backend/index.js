@@ -106,7 +106,8 @@ app.get('/f/:hash', async (req, res) => {
   const distIndexPath = path.join(__dirname, '../dist/index.html');
 
   try {
-    const userId = req.query.u ? parseInt(req.query.u, 10) : null;
+    const { parseShareToken } = require('./utils/shareToken');
+    const userId = req.query.u ? parseShareToken(req.query.u) : null;
     const [forms] = await db.query(
       `SELECT f.title, f.description, f.hash,
               u.name as professional_name, u.specialty as professional_specialty,

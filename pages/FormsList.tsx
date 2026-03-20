@@ -180,7 +180,7 @@ export const FormsList: React.FC = () => {
     let url = `${window.location.origin}/f/${selectedForm.hash}`;
     const params = new URLSearchParams();
     if (shareTab === 'patient' && selectedPatientId) params.set('p', selectedPatientId);
-    if (user?.id) params.set('u', String(user.id));
+    if (user?.shareToken) params.set('u', user.shareToken);
     const qs = params.toString();
     return qs ? `${url}?${qs}` : url;
   };
@@ -193,7 +193,7 @@ export const FormsList: React.FC = () => {
     let url = `${apiBase}/forms/og/${selectedForm.hash}`;
     const params = new URLSearchParams();
     if (shareTab === 'patient' && selectedPatientId) params.set('p', selectedPatientId);
-    if (user?.id) params.set('u', String(user.id));
+    if (user?.shareToken) params.set('u', user.shareToken);
     const qs = params.toString();
     return qs ? `${url}?${qs}` : url;
   };

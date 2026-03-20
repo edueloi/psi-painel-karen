@@ -12,6 +12,7 @@ interface AuthUser {
   clinicLogoUrl?: string;
   companyName?: string;
   crp?: string;
+  shareToken?: string;
   permissions?: Record<string, boolean>;
 }
 
@@ -64,14 +65,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         permissions?: Record<string, boolean>;
       }
       const data = await api.get<FetchProfileResponse>('/profile/me');
-      setUser({ 
-        ...decoded, 
-        name: data.name, 
+      setUser({
+        ...decoded,
+        name: data.name,
         email: data.email,
         avatarUrl: data.avatar_url || data.avatarUrl || decoded.avatarUrl,
         clinicLogoUrl: data.clinic_logo_url || (decoded as any).clinic_logo_url,
         companyName: data.company_name,
         crp: data.crp,
+        shareToken: (data as any).share_token,
         permissions: data.permissions || {}
       });
     } catch (e) {
