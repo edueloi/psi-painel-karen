@@ -383,15 +383,15 @@ router.get('/comandas', async (req, res) => {
         
         // Atendimentos vinculados
         const [aptData] = await db.query(
-          `SELECT start_time, status, notes FROM appointments 
+          `SELECT id, start_time, status, notes FROM appointments
            WHERE comanda_id = ? ORDER BY start_time ASC`,
           [c.id]
         );
         c.appointments = aptData;
 
         // Histórico de sessões (contagem)
-        const usedCount = aptData.filter(a => 
-            ['confirmed', 'completed', 'no-show'].includes(a.status)
+        const usedCount = aptData.filter(a =>
+            ['confirmed', 'completed', 'no_show'].includes(a.status)
         ).length;
         
         c.sessions_used = usedCount;

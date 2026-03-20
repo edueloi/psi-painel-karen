@@ -532,7 +532,7 @@ router.put('/:id/status', async (req, res) => {
     const dbStatus = normalizeStatus(status);
 
     const [existing] = await db.query(
-      'SELECT id, comanda_id FROM appointments WHERE id = ? AND tenant_id = ?',
+      'SELECT id, comanda_id, status as old_status FROM appointments WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
@@ -542,14 +542,25 @@ router.put('/:id/status', async (req, res) => {
       [dbStatus, notes || null, req.params.id, req.user.tenant_id]
     );
 
-    // Só realizado consome sessão da comanda; faltou apenas registra o status
+    // Faltou e Realizado consomem sessão; Cancelado e Agendado não
+    const CONSUMING = ['completed', 'no_show'];
     const comandaId = existing[0].comanda_id;
-    if (comandaId && dbStatus === 'completed') {
+    const oldStatus = existing[0].old_status;
+    if (comandaId && dbStatus !== oldStatus) {
+      const nowConsuming = CONSUMING.includes(dbStatus);
+      const wasConsuming = CONSUMING.includes(oldStatus);
       try {
-        await db.query(
-          'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',
-          [comandaId, req.user.tenant_id]
-        );
+        if (nowConsuming && !wasConsuming) {
+          await db.query(
+            'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',
+            [comandaId, req.user.tenant_id]
+          );
+        } else if (!nowConsuming && wasConsuming) {
+          await db.query(
+            'UPDATE comandas SET sessions_used = GREATEST(sessions_used - 1, 0) WHERE id = ? AND tenant_id = ?',
+            [comandaId, req.user.tenant_id]
+          );
+        }
       } catch (e) { /* ignora se comanda não existe */ }
     }
 
@@ -653,14 +664,24 @@ router.put('/:id', async (req, res) => {
       ]
     );
 
-    // Só realizado consome sessão da comanda; faltou apenas registra o status
+    // Faltou e Realizado consomem sessão; Cancelado e Agendado não
+    const CONSUMING_PUT = ['completed', 'no_show'];
     const statusChanged = dbStatus !== oldStatus;
-    if (statusChanged && finalComandaId && dbStatus === 'completed') {
+    if (statusChanged && finalComandaId) {
+      const nowConsuming = CONSUMING_PUT.includes(dbStatus);
+      const wasConsuming = CONSUMING_PUT.includes(oldStatus);
       try {
-        await db.query(
-          'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',
-          [finalComandaId, req.user.tenant_id]
-        );
+        if (nowConsuming && !wasConsuming) {
+          await db.query(
+            'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',
+            [finalComandaId, req.user.tenant_id]
+          );
+        } else if (!nowConsuming && wasConsuming) {
+          await db.query(
+            'UPDATE comandas SET sessions_used = GREATEST(sessions_used - 1, 0) WHERE id = ? AND tenant_id = ?',
+            [finalComandaId, req.user.tenant_id]
+          );
+        }
       } catch (e) { /* ignora */ }
     }
 

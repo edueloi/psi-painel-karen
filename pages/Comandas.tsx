@@ -1599,189 +1599,131 @@ export const Comandas: React.FC = () => {
         size="xl"
       >
         {historyComanda && (
-  <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-    <div className="space-y-5">
-      {/* topo */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-100 font-bold text-primary-700">
-              {String(
-                (historyComanda as any).patientName ||
-                  (historyComanda as any).patient_name ||
-                  'P'
-              ).charAt(0)}
-            </div>
+  <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+    {/* coluna principal */}
+    <div className="min-w-0 flex-1 space-y-3">
 
-            <div>
-              <p className="text-base font-semibold text-slate-800">
-                {(historyComanda as any).patientName ||
-                  (historyComanda as any).patient_name}
-              </p>
-              <p className="text-sm text-slate-400">Comanda #{historyComanda.id}</p>
-            </div>
+      {/* topo compacto */}
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-sm font-bold text-primary-700">
+            {String(
+              (historyComanda as any).patientName ||
+                (historyComanda as any).patient_name ||
+                'P'
+            ).charAt(0)}
           </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              iconOnly
-              onClick={handleGenerateReceipt}
-              title="Recibo"
-            >
-              <FileText size={16} />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              iconOnly
-              onClick={() => {
-                setIsHistoryOpen(false);
-                handleOpenModal(historyComanda);
-              }}
-              title="Editar"
-            >
-              <Edit3 size={16} />
-            </Button>
-
-            <Button
-              variant="softDanger"
-              size="sm"
-              iconOnly
-              onClick={() => {
-                setIsHistoryOpen(false);
-                setDeleteConfirmId(String(historyComanda.id));
-              }}
-              title="Excluir"
-            >
-              <Trash2 size={16} />
-            </Button>
+          <div>
+            <p className="text-sm font-semibold leading-tight text-slate-800">
+              {(historyComanda as any).patientName ||
+                (historyComanda as any).patient_name}
+            </p>
+            <p className="text-xs text-slate-400">Comanda #{historyComanda.id}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleGenerateReceipt}
+            title="Recibo"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <FileText size={14} />
+          </button>
+          <button
+            onClick={() => { setIsHistoryOpen(false); handleOpenModal(historyComanda); }}
+            title="Editar"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <Edit3 size={14} />
+          </button>
+          <button
+            onClick={() => { setIsHistoryOpen(false); setDeleteConfirmId(String(historyComanda.id)); }}
+            title="Excluir"
+            className="rounded-lg p-1.5 text-rose-300 transition hover:bg-rose-50 hover:text-rose-500"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl bg-slate-50 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Total
-            </p>
-            <p className="mt-1 text-lg font-bold text-slate-800">
-              {formatCurrency(getComandaTotal(historyComanda))}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-emerald-50 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-500">
-              Recebido
-            </p>
-            <p className="mt-1 text-lg font-bold text-emerald-700">
-              {formatCurrency(getComandaPaid(historyComanda))}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-amber-50 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-500">
-              Pendente
-            </p>
-            <p className="mt-1 text-lg font-bold text-amber-700">
-              {formatCurrency(getComandaPending(historyComanda))}
-            </p>
-          </div>
+      {/* resumo financeiro compacto */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-lg bg-slate-50 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Total</p>
+          <p className="text-sm font-bold text-slate-800">{formatCurrency(getComandaTotal(historyComanda))}</p>
+        </div>
+        <div className="rounded-lg bg-emerald-50 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-500">Recebido</p>
+          <p className="text-sm font-bold text-emerald-700">{formatCurrency(getComandaPaid(historyComanda))}</p>
+        </div>
+        <div className="rounded-lg bg-amber-50 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">Pendente</p>
+          <p className="text-sm font-bold text-amber-700">{formatCurrency(getComandaPending(historyComanda))}</p>
         </div>
       </div>
 
       {/* tabs */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-        <div className="inline-flex rounded-xl bg-slate-100 p-1">
-          {(['atendimentos', 'pagamentos', 'pacote'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setManagerTab(tab)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium capitalize transition ${
-                managerTab === tab
-                  ? 'bg-white text-primary-600 shadow-sm'
-                  : 'text-slate-500'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+      <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+        {([
+          { key: 'atendimentos', label: 'Atendimentos' },
+          { key: 'pagamentos', label: 'Pagamentos' },
+          { key: 'pacote', label: 'Pacote' },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setManagerTab(tab.key)}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+              managerTab === tab.key
+                ? 'bg-white text-primary-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* conteúdo */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* conteúdo das tabs */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
         {managerTab === 'atendimentos' && (
-          <div className="space-y-3">
-            {(historyComanda as any).appointments?.map((appointment: any) => (
-              <div
-                key={appointment.id}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-                      <CalendarDays size={18} />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800">
-                        Atendimento vinculado
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        Ajuste data e status conforme necessário
-                      </p>
-
-                      <div className="mt-3 w-full max-w-[260px]">
-                        <input
-                          type="datetime-local"
-                          value={new Date(
-                            new Date(
-                              appointment.start_time ||
-                                appointment.start_date ||
-                                appointment.startDate
-                            ).getTime() -
-                              new Date().getTimezoneOffset() * 60000
-                          )
-                            .toISOString()
-                            .slice(0, 16)}
-                          onChange={(e) =>
-                            handleUpdateAppointmentDate(
-                              appointment.id,
-                              e.target.value
-                            )
-                          }
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-primary-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="w-full lg:w-[180px]">
-                    <Select
-                      label="Status"
-                      value={appointment.status}
-                      onChange={(e) =>
-                        handleUpdateAppointmentStatus(
-                          appointment.id,
-                          e.target.value
-                        )
-                      }
-                    >
-                      <option value="scheduled">Agendado</option>
-                      <option value="completed">Concluído</option>
-                      <option value="cancelled">Cancelado</option>
-                      <option value="no_show">Faltou</option>
-                    </Select>
-                  </div>
+          <div className="divide-y divide-slate-100">
+            {(historyComanda as any).appointments?.map((appointment: any, idx: number) => {
+              const statusMap: Record<string, { label: string; color: string }> = {
+                scheduled:  { label: 'Agendado',  color: 'bg-blue-100 text-blue-700' },
+                completed:  { label: 'Realizado', color: 'bg-emerald-100 text-emerald-700' },
+                cancelled:  { label: 'Cancelado', color: 'bg-slate-100 text-slate-500' },
+                no_show:    { label: 'Faltou',    color: 'bg-rose-100 text-rose-600' },
+                confirmed:  { label: 'Confirmado',color: 'bg-primary-100 text-primary-700' },
+              };
+              const st = statusMap[appointment.status] || { label: appointment.status, color: 'bg-slate-100 text-slate-500' };
+              return (
+                <div key={appointment.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="w-5 shrink-0 text-center text-xs font-medium text-slate-400">{idx + 1}</span>
+                  <input
+                    type="datetime-local"
+                    value={new Date(
+                      new Date(appointment.start_time || appointment.start_date || appointment.startDate).getTime() -
+                        new Date().getTimezoneOffset() * 60000
+                    ).toISOString().slice(0, 16)}
+                    onChange={(e) => handleUpdateAppointmentDate(appointment.id, e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-primary-400 focus:bg-white"
+                  />
+                  <select
+                    value={appointment.status}
+                    onChange={(e) => handleUpdateAppointmentStatus(appointment.id, e.target.value)}
+                    className={`shrink-0 rounded-lg border-0 px-2 py-1.5 text-xs font-medium outline-none ${st.color}`}
+                  >
+                    <option value="scheduled">Agendado</option>
+                    <option value="completed">Realizado</option>
+                    <option value="cancelled">Cancelado</option>
+                    <option value="no_show">Faltou</option>
+                  </select>
                 </div>
-              </div>
-            ))}
-
+              );
+            })}
             {(!(historyComanda as any).appointments ||
               (historyComanda as any).appointments.length === 0) && (
-              <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+              <div className="flex min-h-[120px] items-center justify-center text-xs text-slate-400">
                 Nenhum atendimento vinculado.
               </div>
             )}
@@ -1789,150 +1731,195 @@ export const Comandas: React.FC = () => {
         )}
 
         {managerTab === 'pagamentos' && (
-          <div className="space-y-3">
+          <div className="divide-y divide-slate-100">
             {(historyComanda as any).payments?.map((payment: any) => (
-              <div
-                key={payment.id}
-                className="flex items-center justify-between rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-600">
-                    <Check size={18} />
+              <div key={payment.id} className="flex items-center justify-between px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                    <Check size={13} />
                   </div>
-
                   <div>
-                    <p className="font-semibold text-slate-800">
+                    <p className="text-sm font-semibold text-slate-800">
                       {formatCurrency(Number(payment.amount || 0))}
                     </p>
-                    <p className="text-xs text-slate-400">
-                      {new Date(payment.payment_date).toLocaleDateString('pt-BR')} •{' '}
-                      {payment.payment_method}
+                    <p className="text-[11px] text-slate-400">
+                      {new Date(payment.payment_date).toLocaleDateString('pt-BR')} · {payment.payment_method}
                     </p>
                   </div>
                 </div>
-
-                <span className="text-xs text-slate-400">
-                  #{payment.receipt_code || '---'}
-                </span>
+                <span className="text-[11px] text-slate-400">#{payment.receipt_code || '---'}</span>
               </div>
             ))}
-
             {(!(historyComanda as any).payments ||
               (historyComanda as any).payments.length === 0) && (
-              <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+              <div className="flex min-h-[120px] items-center justify-center text-xs text-slate-400">
                 Nenhum pagamento registrado.
               </div>
             )}
           </div>
         )}
 
-        {managerTab === 'pacote' && (
-          <div className="flex flex-col items-center justify-center py-10">
-            <div
-              className={cx(
-                'mb-2 text-4xl font-bold',
-                ((historyComanda as any).appointments?.length || 0) >
-                  ((historyComanda as any).sessions_total || 0)
-                  ? 'text-red-600'
-                  : 'text-primary-600'
-              )}
-            >
-              {(historyComanda as any).sessions_used || 0} /{' '}
-              {(historyComanda as any).sessions_total || 1}
-            </div>
-
-            {((historyComanda as any).appointments?.length || 0) >
-              ((historyComanda as any).sessions_total || 0) && (
-              <div className="mb-2 text-xs font-bold uppercase text-red-500">
-                {(historyComanda as any).appointments.length} agendamentos no total
+        {managerTab === 'pacote' && (() => {
+          const used = (historyComanda as any).sessions_used || 0;
+          const total = (historyComanda as any).sessions_total || 1;
+          const remaining = Math.max(0, total - used);
+          const over = used > total;
+          const pct = Math.min(100, (used / total) * 100);
+          const items: any[] = (historyComanda as any).items || [];
+          const apts: any[] = (historyComanda as any).appointments || [];
+          const aptLabels: Record<string, string> = {
+            completed: 'Realizado', no_show: 'Faltou',
+            cancelled: 'Cancelado', scheduled: 'Agendado', confirmed: 'Confirmado',
+          };
+          const aptColors: Record<string, string> = {
+            completed: 'bg-emerald-100 text-emerald-700',
+            no_show:   'bg-rose-100 text-rose-600',
+            cancelled: 'bg-slate-100 text-slate-400',
+            scheduled: 'bg-blue-100 text-blue-600',
+            confirmed: 'bg-primary-100 text-primary-600',
+          };
+          return (
+            <div className="divide-y divide-slate-100">
+              {/* tabela de uso do pacote */}
+              <div className="px-3 py-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Uso do Pacote</p>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      <th className="pb-1.5 text-left">Serviço</th>
+                      <th className="pb-1.5 text-center">Quantidade</th>
+                      <th className="pb-1.5 text-center">Utilizados</th>
+                      <th className="pb-1.5 text-center">Restante</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.length > 0 ? items.map((item: any, idx: number) => {
+                      const itemQty = Number(item.qty || 0);
+                      const itemUsed = idx === 0 ? used : 0;
+                      const itemRem = Math.max(0, itemQty - itemUsed);
+                      const itemOver = itemUsed > itemQty;
+                      return (
+                        <tr key={item.id || idx} className="border-b border-slate-50">
+                          <td className="py-2 font-medium text-slate-700">{item.name}</td>
+                          <td className="py-2 text-center text-slate-600">{itemQty}</td>
+                          <td className="py-2 text-center font-semibold text-slate-800">{itemUsed}</td>
+                          <td className="py-2 text-center">
+                            {itemOver ? (
+                              <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-bold text-rose-600">
+                                Excedido {itemUsed - itemQty}
+                              </span>
+                            ) : itemRem === 0 ? (
+                              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-400">Completo</span>
+                            ) : (
+                              <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-700">
+                                Faltam {itemRem}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td className="py-2 font-medium text-slate-700">
+                          {(historyComanda as any).service_name || (historyComanda as any).package_name || 'Serviço'}
+                        </td>
+                        <td className="py-2 text-center text-slate-600">{total}</td>
+                        <td className="py-2 text-center font-semibold text-slate-800">{used}</td>
+                        <td className="py-2 text-center">
+                          {over ? (
+                            <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-bold text-rose-600">Excedido {used - total}</span>
+                          ) : remaining === 0 ? (
+                            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-400">Completo</span>
+                          ) : (
+                            <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-700">Faltam {remaining}</span>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {/* barra de progresso */}
+                <div className="mt-3">
+                  <div className="mb-1 flex justify-between text-[11px] text-slate-400">
+                    <span>{used} de {total} sessões usadas</span>
+                    <span>{Math.round(pct)}%</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full rounded-full transition-all ${over ? 'bg-rose-500' : 'bg-primary-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-            )}
 
-            <div className="mb-4 text-sm text-slate-500">
-              Atendimentos consumidos
+              {/* detalhe dos atendimentos */}
+              {apts.length > 0 && (
+                <div className="px-3 py-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Detalhe das Sessões</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {apts.map((apt: any, i: number) => (
+                      <span
+                        key={apt.id || i}
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${aptColors[apt.status] || aptColors.scheduled}`}
+                      >
+                        <span className="font-bold">#{i + 1}</span>
+                        <span>·</span>
+                        <span>{new Date(apt.start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                        <span>·</span>
+                        <span>{aptLabels[apt.status] || apt.status}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div className="h-3 w-full max-w-md overflow-hidden rounded-full bg-slate-200">
-              <div
-                className="h-full rounded-full bg-primary-600"
-                style={{
-                  width: `${Math.min(
-                    100,
-                    (((historyComanda as any).sessions_used || 0) /
-                      ((historyComanda as any).sessions_total || 1)) *
-                      100
-                  )}%`,
-                }}
-              />
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
 
     {/* lateral direita */}
-    <aside className="space-y-5 xl:sticky xl:top-0 xl:self-start">
-      <div className="rounded-2xl bg-primary-600 p-5 text-white shadow-lg shadow-primary-200">
-        <p className="mb-1 text-xs uppercase tracking-wider text-primary-100">
-          Valor total
-        </p>
-        <p className="mb-4 text-3xl font-bold">
-          {formatCurrency(getComandaTotal(historyComanda))}
-        </p>
-
-        <div className="space-y-2 border-t border-primary-400 pt-4">
-          <div className="flex items-center justify-between text-sm">
-            <span>Recebido</span>
+    <aside className="w-full shrink-0 space-y-3 xl:w-56 xl:sticky xl:top-0 xl:self-start">
+      <div className="rounded-xl bg-primary-600 p-4 text-white shadow-md shadow-primary-100">
+        <p className="text-[10px] uppercase tracking-wider text-primary-200">Valor total</p>
+        <p className="mt-0.5 text-xl font-bold">{formatCurrency(getComandaTotal(historyComanda))}</p>
+        <div className="mt-3 space-y-1.5 border-t border-primary-500 pt-3 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-primary-200">Recebido</span>
             <strong>{formatCurrency(getComandaPaid(historyComanda))}</strong>
           </div>
-
-          <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2 text-sm">
-            <span>Pendente</span>
+          <div className="flex items-center justify-between rounded-lg bg-white/10 px-2 py-1">
+            <span className="text-primary-200">Pendente</span>
             <strong>{formatCurrency(getComandaPending(historyComanda))}</strong>
           </div>
         </div>
-
-        <Button
+        <button
           onClick={() => setIsAddPaymentModalOpen(true)}
-          variant="primary"
-          fullWidth
-          className="mt-4 bg-white !text-primary-600 hover:bg-primary-50"
-          size="lg"
+          className="mt-3 w-full rounded-lg bg-white py-1.5 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
         >
-          Novo pagamento
-        </Button>
+          + Novo pagamento
+        </button>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h4 className="mb-4 text-sm font-semibold text-slate-700">
-          Itens cobrados
-        </h4>
-
-        <div className="space-y-3">
-          {(historyComanda as any).items?.map((item: any, index: number) => (
-            <div
-              key={item.id || index}
-              className="flex items-start justify-between gap-3"
-            >
-              <div>
-                <p className="font-medium text-slate-800">{item.name}</p>
-                <p className="text-xs text-slate-400">
-                  {item.qty} × {formatCurrency(item.price)}
-                </p>
+      {(historyComanda as any).items?.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Itens</p>
+          <div className="space-y-2">
+            {(historyComanda as any).items.map((item: any, index: number) => (
+              <div key={item.id || index} className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-medium text-slate-700">{item.name}</p>
+                  <p className="text-[11px] text-slate-400">{item.qty} × {formatCurrency(item.price)}</p>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-slate-700">
+                  {formatCurrency(Number(item.qty || 0) * Number(item.price || 0))}
+                </span>
               </div>
-
-              <strong className="text-sm text-slate-700">
-                {formatCurrency(Number(item.qty || 0) * Number(item.price || 0))}
-              </strong>
-            </div>
-          ))}
-
-          {(!(historyComanda as any).items ||
-            (historyComanda as any).items.length === 0) && (
-            <p className="text-sm text-slate-400">Nenhum item registrado.</p>
-          )}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   </div>
 )}
