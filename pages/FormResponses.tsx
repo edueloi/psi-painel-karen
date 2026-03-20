@@ -51,11 +51,21 @@ export const FormResponses: React.FC = () => {
 
   const { user } = useAuth();
 
-  // Pré-filtro do paciente vindo da URL (ex: clique no prontuário)
+  // Pré-filtros vindos da URL (ex: clique no histórico do paciente)
   useEffect(() => {
     const pid = searchParams.get('patientId');
-    if (pid) {
-      setFilterPatientId(pid);
+    if (pid) setFilterPatientId(pid);
+
+    const df = searchParams.get('dateFrom');
+    if (df) {
+      // Se veio uma data específica, usa ela como início e o último dia do mês dela como fim
+      const d = new Date(df + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        setFilterDateFrom(df);
+        const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        const dateTo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+        setFilterDateTo(dateTo);
+      }
     }
   }, [searchParams]);
   

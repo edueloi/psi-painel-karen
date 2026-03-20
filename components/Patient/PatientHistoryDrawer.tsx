@@ -253,7 +253,11 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                           {/* Cartão de Conteúdo */}
                           <div
                             className={`bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all group/card ${isClickable ? 'cursor-pointer hover:border-rose-300' : ''}`}
-                            onClick={isClickable ? () => { onClose(); navigate(`/formularios/${item.link_form_id}/respostas?patientId=${patient?.id}`); } : undefined}
+                            onClick={isClickable ? () => {
+                              const responseDate = item.date ? item.date.slice(0, 10) : '';
+                              onClose();
+                              navigate(`/formularios/${item.link_form_id}/respostas?patientId=${patient?.id}${responseDate ? `&dateFrom=${responseDate}` : ''}`);
+                            } : undefined}
                           >
                             <div className="flex flex-col gap-4">
                               
