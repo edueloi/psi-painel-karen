@@ -1023,9 +1023,14 @@ export const Agenda: React.FC = () => {
         // Só envia start_time se o usuário realmente alterou a data/hora
         const dateChanged = !formData._originalDate || formData.appointment_date !== formData._originalDate;
 
+        // Converte o datetime local do browser para UTC ISO antes de enviar ao backend.
+        // Sem isso, o backend (timezone UTC) interpreta "2026-03-20T15:00" como 15:00 UTC
+        // e o browser exibe 12:00 local (UTC-3). new Date(str).toISOString() resolve isso.
+        const localToUtc = (str: string) => str ? new Date(str).toISOString() : null;
+
         const payload = {
             ...formData,
-            start_time: dateChanged ? formData.appointment_date : null,
+            start_time: dateChanged ? localToUtc(formData.appointment_date) : null,
             professional_id: formData.psychologist_id || formData.professional_id,
             service_id: isPackage ? null : cleanServiceId,
             package_id: isPackage ? cleanServiceId : null
@@ -1053,7 +1058,7 @@ export const Agenda: React.FC = () => {
                     patient_id: formData.patient_id,
                     professional_id: formData.psychologist_id || formData.professional_id,
                     appointment_id: savedAppointment.id,
-                    scheduled_start: formData.appointment_date,
+                    scheduled_start: localToUtc(formData.appointment_date),
                     provider: 'interno'
                 };
 
