@@ -56,7 +56,13 @@ export const FormsMetrics: React.FC = () => {
               })
               .sort((a, b) => b.getTime() - a.getTime());
             const lastResponseAt = sorted[0]
-              ? sorted[0].toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+              ? sorted[0].toLocaleString('pt-BR', { 
+                  day: '2-digit', 
+                  month: 'short', 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  timeZone: 'America/Sao_Paulo'
+                })
               : undefined;
             const now = Date.now();
             const last7Days = responses.filter((r) => {

@@ -89,7 +89,13 @@ export const Forms: React.FC = () => {
               patient: patientMap[String(r.patient_id)] || r.respondent_name || 'Visitante',
               form: r.form_title,
               formId: r.form_id,
-              date: createdAt.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+              date: createdAt.toLocaleString('pt-BR', { 
+                day: '2-digit', 
+                month: 'short', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: 'America/Sao_Paulo'
+              }),
               isNew,
             };
           });

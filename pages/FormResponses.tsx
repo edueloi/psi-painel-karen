@@ -227,7 +227,8 @@ export const FormResponses: React.FC = () => {
         month: '2-digit', 
         year: 'numeric', 
         hour: '2-digit', 
-        minute: '2-digit' 
+        minute: '2-digit',
+        timeZone: 'America/Sao_Paulo'
       });
     } catch (e) {
       return value;
