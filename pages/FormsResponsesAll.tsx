@@ -138,9 +138,26 @@ export const FormsResponsesAll: React.FC = () => {
 
   const formatDate = (value?: string) => {
     if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    try {
+      let dateStr = value;
+      if (value.includes(' ') && !value.includes('T') && !value.includes('Z')) {
+        dateStr = value.replace(' ', 'T') + 'Z';
+      } else if (!value.includes('Z') && !value.includes('+') && value.includes('T')) {
+        dateStr = value + 'Z';
+      }
+      
+      const d = new Date(dateStr);
+      if (Number.isNaN(d.getTime())) return value;
+      return d.toLocaleString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } catch (e) {
+      return value;
+    }
   };
 
   const renderAnswers = (formId: string, answersJson: any) => {
@@ -474,7 +491,7 @@ export const FormsResponsesAll: React.FC = () => {
                   <details className="group/details">
                     <summary className="list-none cursor-pointer flex items-center justify-between py-6 border-t border-slate-50 hover:bg-slate-50/50 rounded-2xl transition-all duration-300">
                       <div className="flex items-center gap-4 text-[10px] font-black text-indigo-600 uppercase tracking-[0.4em] group-hover:translate-x-2 transition-transform text-left">
-                        <Info size={18} /> Rastreabilidade e Respostas Completas
+                        <ClipboardList size={18} /> VER DETALHES DAS RESPOSTAS
                       </div>
                       <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center transition-all group-hover:border-indigo-200 group-hover:shadow-md">
                         <ChevronRight size={22} className="text-slate-600 group-open/details:rotate-90 transition-transform" />

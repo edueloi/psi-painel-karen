@@ -45,7 +45,15 @@ export const FormsMetrics: React.FC = () => {
           mappedForms.map(async (form) => {
             const responses = await api.get<any[]>(`/forms/${form.id}/responses`);
             const sorted = responses
-              .map((r) => new Date(r.created_at))
+              .map((r) => {
+                let dateStr = r.created_at;
+                if (dateStr && dateStr.includes(' ') && !dateStr.includes('T') && !dateStr.includes('Z')) {
+                  dateStr = dateStr.replace(' ', 'T') + 'Z';
+                } else if (dateStr && !dateStr.includes('Z') && !dateStr.includes('+') && dateStr.includes('T')) {
+                  dateStr = dateStr + 'Z';
+                }
+                return new Date(dateStr);
+              })
               .sort((a, b) => b.getTime() - a.getTime());
             const lastResponseAt = sorted[0]
               ? sorted[0].toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })

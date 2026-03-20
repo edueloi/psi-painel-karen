@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { Patient, InterpretationRule } from '../types';
 import { 
   ArrowLeft, FileText, Clock, User, Calculator, 
-  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle, X, Bot, Calendar
+  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle, X, Bot, Calendar,
+  ClipboardList
 } from 'lucide-react';
 import { 
   FilterLine, 
@@ -209,9 +210,28 @@ export const FormResponses: React.FC = () => {
 
   const formatDate = (value?: string) => {
     if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    try {
+      // Se a data vier do banco como '2026-03-20 19:23:00' sem o T e sem o Z,
+      // o JS interpreta como local. Forçamos UTC se o formato for esse.
+      let dateStr = value;
+      if (value.includes(' ') && !value.includes('T') && !value.includes('Z')) {
+        dateStr = value.replace(' ', 'T') + 'Z';
+      } else if (!value.includes('Z') && !value.includes('+') && value.includes('T')) {
+        dateStr = value + 'Z';
+      }
+      
+      const d = new Date(dateStr);
+      if (Number.isNaN(d.getTime())) return value;
+      return d.toLocaleString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } catch (e) {
+      return value;
+    }
   };
 
   const renderAnswers = (answersJson: any) => {
@@ -667,7 +687,7 @@ export const FormResponses: React.FC = () => {
                        <details className="group/details">
                         <summary className="list-none cursor-pointer flex items-center justify-between py-6 border-t border-slate-50 hover:bg-slate-50/50 rounded-2xl transition-all duration-300">
                           <div className="flex items-center gap-4 text-[10px] font-black text-indigo-600 uppercase tracking-[0.4em] group-hover:translate-x-2 transition-transform text-left">
-                            <Info size={18} /> Rastreabilidade e Respostas Completas
+                            <ClipboardList size={18} /> VER DETALHES DAS RESPOSTAS
                           </div>
                           <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center transition-all group-hover:border-indigo-200 group-hover:shadow-md">
                             <ChevronRight size={22} className="text-slate-300 group-open/details:rotate-90 transition-transform" />

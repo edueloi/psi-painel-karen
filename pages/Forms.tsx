@@ -17,6 +17,7 @@ import {
   Users,
   Sparkles,
   ExternalLink,
+  ArrowLeft,
 } from 'lucide-react';
 
 export const Forms: React.FC = () => {
@@ -71,7 +72,16 @@ export const Forms: React.FC = () => {
  
         const now = Date.now();
         const mappedResponses = (recentResponsesData || []).map((r) => {
-            const createdAt = new Date(r.created_at);
+            // Se a data vier do banco como '2026-03-20 19:24:00' sem o T e sem o Z,
+            // o JS interpreta como local. Forçamos UTC se o formato for esse.
+            let dateStr = r.created_at;
+            if (dateStr && dateStr.includes(' ') && !dateStr.includes('T') && !dateStr.includes('Z')) {
+              dateStr = dateStr.replace(' ', 'T') + 'Z';
+            } else if (dateStr && !dateStr.includes('Z') && !dateStr.includes('+') && dateStr.includes('T')) {
+              dateStr = dateStr + 'Z';
+            }
+
+            const createdAt = new Date(dateStr);
             const diff = now - createdAt.getTime();
             const isNew = diff < 24 * 60 * 60 * 1000;
             return {
@@ -98,6 +108,13 @@ export const Forms: React.FC = () => {
       {/* Header compacto */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-indigo-600"
+            title="Voltar"
+          >
+            <ArrowLeft size={20} />
+          </button>
           <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
             <FilePlus2 size={18} />
           </div>
