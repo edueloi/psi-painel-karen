@@ -1192,6 +1192,7 @@ export const Agenda: React.FC = () => {
       discount_type: 'fixed',
       discount_value: 0,
       packageId,
+      patientLocked: !!(patientId), // cliente vem do agendamento → campo bloqueado
     });
   };
 
@@ -1672,7 +1673,7 @@ export const Agenda: React.FC = () => {
                                                 </div>
                                                 <button
                                                     type="button"
-                                                    onClick={() => setIsNewComandaModalOpen(true)}
+                                                    onClick={openNewComandaModal}
                                                     className="w-full mt-3 py-2 border border-orange-200 rounded-lg text-[10px] font-bold text-orange-600 hover:bg-orange-100/50 transition-all uppercase tracking-widest"
                                                 >
                                                     CRIAR NOVA COMANDA
@@ -2455,7 +2456,7 @@ export const Agenda: React.FC = () => {
 
                 <Combobox
                   label="Cliente"
-                  options={patients.map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
+                  options={patients.filter((p: any) => p.status === 'ativo' || p.status === 'active').map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
                   value={editingComanda.patientId || ''}
                   onChange={(id, label) => {
                     setEditingComanda({
@@ -2465,6 +2466,7 @@ export const Agenda: React.FC = () => {
                     });
                   }}
                   placeholder="Selecione um cliente..."
+                  disabled={!!editingComanda.patientLocked}
                 />
 
                 <div className="flex flex-col gap-1.5">
@@ -2541,7 +2543,7 @@ export const Agenda: React.FC = () => {
 
                 <Combobox
                   label="Cliente"
-                  options={patients.map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
+                  options={patients.filter((p: any) => p.status === 'ativo' || p.status === 'active').map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
                   value={editingComanda.patientId || ''}
                   onChange={(id, label) => {
                     setEditingComanda({
@@ -2551,6 +2553,7 @@ export const Agenda: React.FC = () => {
                     });
                   }}
                   placeholder="Selecione um cliente..."
+                  disabled={!!editingComanda.patientLocked}
                 />
 
                 <Select
