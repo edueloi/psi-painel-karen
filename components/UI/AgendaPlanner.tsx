@@ -687,17 +687,21 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           const meta = typeMeta[event.type || 'consulta'];
                           const status = statusMeta[event.status || 'scheduled'];
 
-                          // Status-based color: green for confirmed/completed, red for cancelled/no-show
-                          const statusAccent =
-                            (event.status === 'confirmed') ? '#10b981' :
-                            (event.status === 'completed') ? '#059669' :
-                            (event.status === 'cancelled' || event.status === 'no-show') ? '#ef4444' :
-                            null;
+                          // Status-based color só se aplica a consultas.
+                          // Bloqueio = sempre cinza. Pessoal = sempre âmbar.
+                          const statusAccent = event.type === 'consulta'
+                            ? (event.status === 'confirmed') ? '#10b981' :
+                              (event.status === 'completed') ? '#059669' :
+                              (event.status === 'cancelled' || event.status === 'no-show') ? '#ef4444' :
+                              null
+                            : null;
 
                           const accent =
                             event.type === 'bloqueio'
-                              ? '#64748b'
-                              : statusAccent || event.color || meta.defaultColor;
+                              ? '#94a3b8'   // cinza
+                              : event.type === 'pessoal'
+                                ? '#f59e0b' // âmbar fixo
+                                : statusAccent || event.color || meta.defaultColor;
 
                           const durationMinutes = Math.max(
                             1,

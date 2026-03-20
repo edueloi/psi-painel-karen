@@ -200,10 +200,10 @@ export const Agenda: React.FC = () => {
       },
       bloqueio: {
           label: 'Feriado/Bloqueio',
-          chip: 'bg-slate-900 text-white border-slate-800 shadow-xl',
-          solid: 'bg-slate-900',
-          dot: 'bg-slate-900',
-          event: 'bg-slate-900 text-white border-none shadow-xl backdrop-blur-sm ring-1 ring-white/10'
+          chip: 'bg-slate-200 text-slate-600 border-slate-300',
+          solid: 'bg-slate-400',
+          dot: 'bg-slate-400',
+          event: 'bg-slate-100 text-slate-600 border-slate-200 hover:border-slate-300 hover:shadow-md'
       },
   } as const;
 
@@ -275,7 +275,9 @@ export const Agenda: React.FC = () => {
         setProfileData(profile || {});
 
         setAppointments(apts.map(a => {
-            const start = new Date(a.start_time || a.appointment_date);
+            // .replace(' ', 'T') faz o browser tratar como hora LOCAL (sem T é interpretado como UTC)
+            const rawStart = (a.start_time || a.appointment_date || '').replace(' ', 'T');
+            const start = new Date(rawStart);
             // Clamp duration entre 5min e 480min (8h) para nunca gerar card gigante
             const dur = Math.min(Math.max(Number(a.duration_minutes) || 50, 5), 480);
             const end = new Date(start.getTime() + dur * 60000);
