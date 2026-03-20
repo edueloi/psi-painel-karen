@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { ClinicalForm, Patient, FormCategory } from '../types';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { 
+import {
   Plus, ClipboardList, BarChart3, Pen, Trash2, CheckCircle, Share2,
-  Copy, Send, FilePlus2, X, Eye, ChevronRight,
-  Filter, Heart, Brain, FileText, Target, AlertCircle, Settings2, PlusCircle, Trash,
-  ChevronLeft,
-  ArrowLeft
+  Copy, Send, FilePlus2, Eye, ChevronRight,
+  Filter, Heart, Brain, FileText, Target, AlertCircle, Settings2, PlusCircle,
+  ChevronLeft, ArrowLeft
 } from 'lucide-react';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
-import { Input, Select } from '../components/UI/Input';
+import { Input } from '../components/UI/Input';
 import { Modal } from '../components/UI/Modal';
+import { Combobox } from '../components/UI/Combobox';
 import { 
   FilterLine, 
   FilterLineSection, 
@@ -657,89 +657,78 @@ export const FormsList: React.FC = () => {
       </Modal>
 
       {/* SHARE MODAL */}
-      {isShareModalOpen && selectedForm && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 text-left">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsShareModalOpen(false)}></div>
-          <div className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden text-left">
-            <div className="p-8 text-left">
-              <div className="flex justify-between items-start mb-8 text-left">
-                <div className="flex items-center gap-4 text-left">
-                  <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-100">
-                    <Share2 size={24} />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="text-xl font-black text-slate-800 tracking-tight leading-none mb-2 text-left">Compartilhar</h3>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[200px] text-left">{selectedForm.title}</p>
-                  </div>
-                </div>
-                <button onClick={() => setIsShareModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
-                  <X size={24} />
-                </button>
+      <Modal
+        isOpen={isShareModalOpen && !!selectedForm}
+        onClose={() => setIsShareModalOpen(false)}
+        title="Compartilhar"
+        subtitle={selectedForm?.title}
+        maxWidth="max-w-lg"
+        footer={
+          <div className="flex w-full gap-3">
+            <Button variant="outline" onClick={() => setIsShareModalOpen(false)} className="flex-1">
+              Fechar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleWhatsAppShare}
+              leftIcon={<Send size={18} />}
+              className="flex-1 bg-emerald-500 hover:bg-emerald-600 border-emerald-500"
+            >
+              Enviar via WhatsApp
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5 py-1">
+          {/* Tabs */}
+          <div className="flex p-1 bg-slate-50 border border-slate-100 rounded-2xl">
+            {(['public', 'patient'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setShareTab(tab)}
+                className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-xl ${
+                  shareTab === tab
+                    ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200/50'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {tab === 'public' ? 'Link Aberto' : 'Individual'}
+              </button>
+            ))}
+          </div>
+
+          {/* Patient selector — only on Individual tab */}
+          {shareTab === 'patient' && (
+            <Combobox
+              label="Destinatário (Paciente)"
+              options={patients
+                .filter((p: any) => p.status === 'ativo' || p.status === 'active')
+                .map(p => ({ id: p.id, label: p.full_name || p.name || '' }))}
+              value={selectedPatientId}
+              onChange={(val) => setSelectedPatientId(String(val))}
+              placeholder="Selecione o paciente..."
+            />
+          )}
+
+          {/* Link */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link de Acesso</label>
+            <div className="flex gap-2">
+              <div className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 truncate select-all">
+                {getShareLink() || 'Configure os campos acima'}
               </div>
-
-              <div className="space-y-6 text-left">
-                <div className="flex p-1 bg-slate-50 border border-slate-100 rounded-2xl text-left">
-                  {['public', 'patient'].map((tab) => (
-                    <button
-                       key={tab}
-                       onClick={() => setShareTab(tab as any)}
-                       className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-xl ${
-                         shareTab === tab ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200/50' : 'text-slate-400 hover:text-slate-600'
-                       }`}
-                    >
-                      {tab === 'public' ? 'Link Aberto' : 'Individual'}
-                    </button>
-                  ))}
-                </div>
-
-                {shareTab === 'patient' && (
-                  <Select
-                    label="Destinatário (Paciente)"
-                    value={selectedPatientId}
-                    onChange={(e) => setSelectedPatientId(e.target.value)}
-                  >
-                    <option value="">Selecione o paciente...</option>
-                    {patients.map(p => (
-                      <option key={p.id} value={p.id}>{p.full_name}</option>
-                    ))}
-                  </Select>
-                )}
-
-                <div className="space-y-2 text-left">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-left">Link de Acesso</label>
-                  <div className="flex gap-2 text-left">
-                    <div className="flex-1 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-600 truncate select-all">
-                      {getShareLink() || 'Configure os campos acima' }
-                    </div>
-                    <Button
-                       variant={copiedLink ? 'success' : 'secondary'}
-                       onClick={handleCopyLink}
-                       className="shrink-0 rounded-2xl w-14 h-14"
-                       iconOnly
-                    >
-                       {copiedLink ? <CheckCircle size={20} /> : <Copy size={20} />}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="pt-4 text-left">
-                  <Button
-                    variant="primary"
-                    fullWidth
-                    size="xl"
-                    radius="xl"
-                    onClick={handleWhatsAppShare}
-                    leftIcon={<Send size={20} />}
-                    className="bg-emerald-500 hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 py-8"
-                  >
-                    Enviar via WhatsApp
-                  </Button>
-                </div>
-              </div>
+              <Button
+                variant={copiedLink ? 'success' : 'secondary'}
+                onClick={handleCopyLink}
+                iconOnly
+                className="shrink-0 w-12 h-12 rounded-xl"
+              >
+                {copiedLink ? <CheckCircle size={18} /> : <Copy size={18} />}
+              </Button>
             </div>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* TOASTS */}
       <div className="fixed bottom-10 right-10 z-[200] flex flex-col gap-3">
