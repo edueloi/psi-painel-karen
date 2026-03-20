@@ -123,6 +123,8 @@ export const Agenda: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
   const [isRecurrenceConfigOpen, setIsRecurrenceConfigOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [tempDateTime, setTempDateTime] = useState({ date: '', time: '' });
   const [tempRecurrence, setTempRecurrence] = useState({
       freq: '',
       interval: 1,
@@ -1023,9 +1025,12 @@ export const Agenda: React.FC = () => {
         // Só envia start_time se o usuário realmente alterou a data/hora
         const dateChanged = !formData._originalDate || formData.appointment_date !== formData._originalDate;
 
-        // Converte o datetime local do browser para UTC ISO antes de enviar ao backend.
-        // Sem isso, o backend (timezone UTC) interpreta "2026-03-20T15:00" como 15:00 UTC
-        // e o browser exibe 12:00 local (UTC-3). new Date(str).toISOString() resolve isso.
+        // ⚠️ REGRA DE TIMEZONE — NÃO ALTERAR SEM ENTENDER:
+        // O banco (db.js) usa timezone: '+00:00' (UTC). Se enviarmos "2026-03-20T15:00" sem offset,
+        // o backend interpreta como 15:00 UTC e o browser (UTC-3) exibe 12:00. ERRADO.
+        // A função abaixo converte a string local do browser para ISO UTC antes do POST/PUT.
+        // Exemplo: usuário digita 15:00 → new Date("2026-03-20T15:00").toISOString() → "2026-03-20T18:00:00Z"
+        // → backend salva 18:00 UTC → browser recebe 18:00 UTC → exibe 15:00 local. CORRETO.
         const localToUtc = (str: string) => str ? new Date(str).toISOString() : null;
 
         const payload = {
@@ -1789,29 +1794,62 @@ export const Agenda: React.FC = () => {
                           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Horário e Repetição</h4>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data</label>
-                          <DatePicker 
-                            value={formData.appointment_date.slice(0, 10)} 
-                            onChange={val => val && setFormData({...formData, appointment_date: `${val}T${formData.appointment_date.slice(11, 16)}`})}
+                      {formData.id ? (
+                        /* ── MODO EDIÇÃO: data/hora readonly — só muda via botão dedicado ── */
+                        <div className="flex items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white rounded-lg text-indigo-500 border border-slate-100 shadow-sm shrink-0">
+                              <Clock size={16}/>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">Data e Horário</p>
+                              <p className="text-sm font-black text-slate-800 tabular-nums">
+                                {new Date(formData.appointment_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                                {' · '}
+                                {formData.appointment_date.slice(11, 16)}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTempDateTime({
+                                date: formData.appointment_date.slice(0, 10),
+                                time: formData.appointment_date.slice(11, 16)
+                              });
+                              setIsRescheduleModalOpen(true);
+                            }}
+                            className="shrink-0 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm"
+                          >
+                            Alterar
+                          </button>
+                        </div>
+                      ) : (
+                        /* ── MODO CRIAÇÃO: campos editáveis normalmente ── */
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+                            <DatePicker
+                              value={formData.appointment_date.slice(0, 10)}
+                              onChange={val => val && setFormData({...formData, appointment_date: `${val}T${formData.appointment_date.slice(11, 16)}`})}
+                            />
+                          </div>
+                          <Input
+                            label="Hora"
+                            type="time"
+                            icon={<Clock size={16} className="text-slate-400" />}
+                            value={formData.appointment_date.slice(11, 16)}
+                            onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
+                          />
+                          <Input
+                            label="Duração (min)"
+                            type="number"
+                            icon={<Layers size={16} className="text-slate-400" />}
+                            value={formData.duration_minutes}
+                            onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
                           />
                         </div>
-                        <Input
-                          label="Hora"
-                          type="time"
-                          icon={<Clock size={16} className="text-slate-400" />}
-                          value={formData.appointment_date.slice(11, 16)}
-                          onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
-                        />
-                        <Input
-                          label="Duração (min)"
-                          type="number"
-                          icon={<Layers size={16} className="text-slate-400" />}
-                          value={formData.duration_minutes}
-                          onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
-                        />
-                      </div>
+                      )}
 
                       {/* END TIME PREVIEW */}
                       <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200 shadow-sm">
@@ -2186,6 +2224,56 @@ export const Agenda: React.FC = () => {
                     </button>
                 ))}
             </div>
+        </div>
+      </Modal>
+
+      {/* RESCHEDULE MODAL — Altera data/hora apenas deste agendamento */}
+      <Modal
+        isOpen={isRescheduleModalOpen}
+        onClose={() => setIsRescheduleModalOpen(false)}
+        title="Alterar Data e Horário"
+        subtitle="Apenas este agendamento será alterado"
+        maxWidth="max-w-sm"
+        footer={(
+          <div className="flex justify-end gap-2 w-full">
+            <Button variant="ghost" onClick={() => setIsRescheduleModalOpen(false)} className="text-xs font-semibold h-10 px-6">Cancelar</Button>
+            <Button
+              variant="primary"
+              className="!bg-indigo-600 hover:!bg-indigo-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
+              onClick={() => {
+                const newDate = `${tempDateTime.date}T${tempDateTime.time}`;
+                setFormData(prev => ({ ...prev, appointment_date: newDate }));
+                setIsRescheduleModalOpen(false);
+              }}
+            >
+              Confirmar
+            </Button>
+          </div>
+        )}
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+            <DatePicker
+              value={tempDateTime.date}
+              onChange={val => val && setTempDateTime(prev => ({ ...prev, date: val }))}
+            />
+          </div>
+          <Input
+            label="Horário"
+            type="time"
+            icon={<Clock size={16} className="text-slate-400" />}
+            value={tempDateTime.time}
+            onChange={e => setTempDateTime(prev => ({ ...prev, time: e.target.value }))}
+          />
+          {tempDateTime.date && tempDateTime.time && (
+            <div className="flex items-center gap-2 bg-indigo-50 p-3 rounded-xl border border-indigo-100 text-sm font-black text-indigo-700">
+              <Clock size={14} />
+              {new Date(`${tempDateTime.date}T${tempDateTime.time}`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+              {' às '}
+              {tempDateTime.time}
+            </div>
+          )}
         </div>
       </Modal>
 
