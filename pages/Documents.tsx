@@ -1,20 +1,31 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MOCK_DOCUMENTS, DOCUMENT_CATEGORIES } from '../constants';
-import { api } from '../services/api';
+import { api, getStaticUrl } from '../services/api';
 import { Document } from '../types';
 import {
-  FileText, FileImage, FileSpreadsheet, File, Download, Trash2, 
-  Search, Plus, CloudUpload, X, FolderOpen, HardDrive, Clock, 
-  MoreVertical, Film, Music, Settings, Edit3, Check, Sparkles,
-  LayoutGrid, List as ListIcon, Filter, ExternalLink, AlertCircle,
-  FolderPlus, ChevronRight, CheckCircle2, DollarSign,
-  Calendar
+  FileText, FileImage, FileSpreadsheet, File, Download, Trash2,
+  Plus, CloudUpload, X, FolderOpen, HardDrive, Clock,
+  Edit3, Check, Settings,
+  Film, Music,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '../contexts/ToastContext';
+import { Modal } from '../components/UI/Modal';
+import { Button } from '../components/UI/Button';
+import { GridTable } from '../components/UI/GridTable';
+import {
+  FilterLine,
+  FilterLineSection,
+  FilterLineItem,
+  FilterLineSearch,
+  FilterLineViewToggle,
+} from '../components/UI/FilterLine';
+import { DatePicker } from '../components/UI/DatePicker';
 
 export const Documents: React.FC = () => {
   const { t, language } = useLanguage();
+  const { pushToast } = useToast();
   const [searchParams] = useSearchParams();
   const [categories, setCategories] = useState<string[]>(DOCUMENT_CATEGORIES);
   const [activeCategory, setActiveCategory] = useState('Todos');
@@ -26,6 +37,10 @@ export const Documents: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [filterPatientId] = useState<string | null>(searchParams.get('patient_id'));
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Date filter
+  const [filterDateFrom, setFilterDateFrom] = useState<string | null>(null);
+  const [filterDateTo, setFilterDateTo] = useState<string | null>(null);
 
   // Upload States
   const [uploadData, setUploadData] = useState({
@@ -70,57 +85,28 @@ export const Documents: React.FC = () => {
     return num;
   };
 
-  const filteredDocs = useMemo(() => {
-    return documents.filter(doc => {
-      const matchesCategory = activeCategory === 'Todos' || doc.category === activeCategory;
-      const matchesSearch = (doc.title || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const docAny = doc as any;
-      const hasPatientField = docAny.patient_id !== undefined || docAny.patientId !== undefined;
-      const matchesPatient = !filterPatientId || !hasPatientField || String(docAny.patient_id ?? docAny.patientId ?? '') === String(filterPatientId);
-      return matchesCategory && matchesSearch && matchesPatient;
-    });
-  }, [documents, activeCategory, searchTerm, filterPatientId]);
-
-  const visibleDocs = useMemo(() => {
-    const docs = [...filteredDocs];
-    if (sortBy === 'recent') {
-      return docs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }
-    if (sortBy === 'name') {
-      return docs.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-    }
-    return docs.sort((a, b) => parseSizeToMB(b.size) - parseSizeToMB(a.size));
-  }, [filteredDocs, sortBy]);
-
-  const stats = useMemo(() => {
-    const totalSizeMB = documents.reduce((acc, doc) => acc + parseSizeToMB(doc.size), 0);
-    const storageLimitMB = 5 * 1024; // 5 GB limit
-    const usedPercentage = Math.min((totalSizeMB / storageLimitMB) * 100, 100);
-    return {
-      totalFiles: documents.length,
-      totalSizeMB,
-      storageLimitMB,
-      usedPercentage,
-      recentCount: documents.filter(d => {
-         const dDate = new Date(d.date);
-         const now = new Date();
-         const diffTime = Math.abs(now.getTime() - dDate.getTime());
-         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-         return diffDays <= 30;
-      }).length
-    };
-  }, [documents]);
+  const handleDownload = (doc: Document) => {
+    const fileUrl = (doc as any).file_url;
+    if (!fileUrl) return;
+    const fullUrl = getStaticUrl(fileUrl);
+    const link = document.createElement('a');
+    link.href = fullUrl;
+    link.download = (doc as any).file_name || doc.title;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
     try {
       await api.delete(`/uploads/${deleteConfirmId}`);
       setDocuments(prev => prev.filter(d => d.id !== deleteConfirmId));
-      setDeleteConfirmId(null);
     } catch (err) {
       console.error('Erro ao excluir documento:', err);
-      // Fallback for mock environment
       setDocuments(prev => prev.filter(d => d.id !== deleteConfirmId));
+    } finally {
       setDeleteConfirmId(null);
     }
   };
@@ -146,6 +132,50 @@ export const Documents: React.FC = () => {
     }
   };
 
+  const filteredDocs = useMemo(() => {
+    return documents.filter(doc => {
+      const matchesCategory = activeCategory === 'Todos' || doc.category === activeCategory;
+      const matchesSearch = (doc.title || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const docAny = doc as any;
+      const hasPatientField = docAny.patient_id !== undefined || docAny.patientId !== undefined;
+      const matchesPatient = !filterPatientId || !hasPatientField || String(docAny.patient_id ?? docAny.patientId ?? '') === String(filterPatientId);
+      const docDate = new Date(doc.date).getTime();
+      const matchesFrom = !filterDateFrom || docDate >= new Date(filterDateFrom).getTime();
+      const matchesTo = !filterDateTo || docDate <= new Date(filterDateTo + 'T23:59:59').getTime();
+      return matchesCategory && matchesSearch && matchesPatient && matchesFrom && matchesTo;
+    });
+  }, [documents, activeCategory, searchTerm, filterPatientId, filterDateFrom, filterDateTo]);
+
+  const visibleDocs = useMemo(() => {
+    const docs = [...filteredDocs];
+    if (sortBy === 'recent') {
+      return docs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+    if (sortBy === 'name') {
+      return docs.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    }
+    return docs.sort((a, b) => parseSizeToMB(b.size) - parseSizeToMB(a.size));
+  }, [filteredDocs, sortBy]);
+
+  const stats = useMemo(() => {
+    const totalSizeMB = documents.reduce((acc, doc) => acc + parseSizeToMB(doc.size), 0);
+    const storageLimitMB = 5 * 1024;
+    const usedPercentage = Math.min((totalSizeMB / storageLimitMB) * 100, 100);
+    return {
+      totalFiles: documents.length,
+      totalSizeMB,
+      storageLimitMB,
+      usedPercentage,
+      recentCount: documents.filter(d => {
+         const dDate = new Date(d.date);
+         const now = new Date();
+         const diffTime = Math.abs(now.getTime() - dDate.getTime());
+         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+         return diffDays <= 30;
+      }).length
+    };
+  }, [documents]);
+
   const getFileIcon = (type: string, size: number = 24) => {
     switch(type) {
       case 'pdf': return <FileText className="text-rose-500" size={size} />;
@@ -170,9 +200,11 @@ export const Documents: React.FC = () => {
     }
   };
 
+  const deleteTarget = documents.find(d => d.id === deleteConfirmId);
+
   return (
     <div className="space-y-6 animate-fadeIn font-sans pb-24">
-      
+
       {/* HEADER HERO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -182,12 +214,9 @@ export const Documents: React.FC = () => {
               </h1>
               <p className="text-slate-400 text-xs mt-1 font-bold">{t('documents.subtitle') || 'Gestão centralizada de arquivos e modelos'}</p>
           </div>
-          <button 
-              onClick={() => setIsModalOpen(true)} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
-          >
-              <Plus size={18} /> {t('documents.new_file')}
-          </button>
+          <Button variant="primary" size="sm" onClick={() => setIsModalOpen(true)}>
+              <Plus size={16} /> {t('documents.new_file')}
+          </Button>
       </div>
 
       {/* STATS BAR */}
@@ -224,39 +253,57 @@ export const Documents: React.FC = () => {
           </div>
       </div>
 
-      {/* FILTERS & SEARCH BAR */}
-      <div className="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center sticky top-4 z-40 backdrop-blur-md bg-white/90">
-          <div className="relative w-full lg:w-96 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
-              <input 
-                  type="text" 
-                  placeholder={t('documents.search')}
-                  value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)} 
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
-              />
-          </div>
+      {/* FILTER LINE */}
+      <FilterLine>
+        <FilterLineSection grow>
+          <FilterLineItem grow>
+            <FilterLineSearch
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder={t('documents.search') || 'Buscar arquivo...'}
+            />
+          </FilterLineItem>
+          <FilterLineItem>
+            <DatePicker
+              value={filterDateFrom || ''}
+              onChange={(v) => setFilterDateFrom(v || null)}
+              placeholder="De"
+            />
+          </FilterLineItem>
+          <FilterLineItem>
+            <DatePicker
+              value={filterDateTo || ''}
+              onChange={(v) => setFilterDateTo(v || null)}
+              placeholder="Até"
+            />
+          </FilterLineItem>
+        </FilterLineSection>
 
-          <div className="flex gap-3 w-full lg:w-auto">
-              <div className="flex bg-slate-100 p-1.5 rounded-2xl flex-1 lg:flex-none overflow-x-auto no-scrollbar">
-                  {categories.map(cat => (
-                      <button 
-                          key={cat}
-                          onClick={() => setActiveCategory(cat)}
-                          className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
-                      >
-                          {cat}
-                      </button>
-                  ))}
-                  <button onClick={() => setIsCategoryModalOpen(true)} className="px-3 py-2 text-slate-400 hover:text-indigo-600 transition-all"><Settings size={16}/></button>
-              </div>
-
-              <div className="flex gap-1.5 border border-slate-200 bg-white p-1.5 rounded-2xl shadow-sm">
-                  <button onClick={() => setViewMode('grid')} className={`p-2 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-300'}`}><LayoutGrid size={18}/></button>
-                  <button onClick={() => setViewMode('list')} className={`p-2 rounded-xl transition-all ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-300'}`}><ListIcon size={18}/></button>
-              </div>
-          </div>
-      </div>
+        <FilterLineSection align="right">
+          <FilterLineItem>
+            <div className="flex bg-slate-100 p-1 rounded-2xl overflow-x-auto no-scrollbar gap-0.5">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+              <button onClick={() => setIsCategoryModalOpen(true)} className="px-2 py-1.5 text-slate-400 hover:text-indigo-600 transition-all"><Settings size={14}/></button>
+            </div>
+          </FilterLineItem>
+          <FilterLineItem>
+            <FilterLineViewToggle
+              value={viewMode}
+              onChange={setViewMode}
+              gridValue="grid"
+              listValue="list"
+            />
+          </FilterLineItem>
+        </FilterLineSection>
+      </FilterLine>
 
       {/* CONTENT AREA */}
       {viewMode === 'grid' ? (
@@ -264,13 +311,13 @@ export const Documents: React.FC = () => {
             {visibleDocs.map(doc => (
                 <div key={doc.id} className="group bg-white rounded-[2.5rem] p-6 border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/20 rounded-bl-[2.5rem] -mr-6 -mt-6 opacity-0 group-hover:opacity-100 transition-all"></div>
-                    
+
                     <div className="flex justify-between items-start mb-6">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border shadow-sm transition-all group-hover:scale-110 ${getFileBg(doc.type)}`}>
                             {getFileIcon(doc.type, 28)}
                         </div>
                         <div className="flex gap-1.5">
-                            <button className="p-2.5 bg-slate-50 hover:bg-emerald-50 rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-100" title="Baixar"><Download size={14}/></button>
+                            <button onClick={() => handleDownload(doc)} className="p-2.5 bg-slate-50 hover:bg-emerald-50 rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-100" title="Baixar"><Download size={14}/></button>
                             <button onClick={() => setDeleteConfirmId(doc.id)} className="p-2.5 bg-slate-50 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition-all border border-transparent hover:border-rose-100" title="Excluir"><Trash2 size={14}/></button>
                         </div>
                     </div>
@@ -288,7 +335,7 @@ export const Documents: React.FC = () => {
 
                     <div className="flex items-center justify-between pt-6 border-t border-slate-50 text-[10px] font-black text-slate-400">
                         <span className="flex items-center gap-1.5"><HardDrive size={12}/> {doc.size}</span>
-                        <span className="flex items-center gap-1.5"><Calendar size={12}/> {new Date(doc.date).toLocaleDateString()}</span>
+                        <span className="flex items-center gap-1.5"><Clock size={12}/> {new Date(doc.date).toLocaleDateString()}</span>
                     </div>
                 </div>
             ))}
@@ -303,215 +350,220 @@ export const Documents: React.FC = () => {
             )}
         </div>
       ) : (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-            <table className="w-full text-left">
-                <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                    <tr>
-                        <th className="px-8 py-5">{t('documents.col_type')}</th>
-                        <th className="px-8 py-5">{t('documents.col_filename')}</th>
-                        <th className="px-8 py-5">{t('documents.col_category')}</th>
-                        <th className="px-8 py-5">{t('documents.col_size')}</th>
-                        <th className="px-8 py-5">{t('documents.col_date')}</th>
-                        <th className="px-8 py-5 text-center">{t('documents.col_actions')}</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                    {visibleDocs.map(doc => (
-                        <tr key={doc.id} className="group hover:bg-indigo-50/30 transition-all">
-                            <td className="px-8 py-5">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${getFileBg(doc.type)}`}>
-                                    {getFileIcon(doc.type, 18)}
-                                </div>
-                            </td>
-                            <td className="px-8 py-5">
-                                <span className="font-black text-slate-700 text-sm">{doc.title}</span>
-                            </td>
-                            <td className="px-8 py-5">
-                                <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full uppercase tracking-wider">{doc.category}</span>
-                            </td>
-                            <td className="px-8 py-5 text-xs font-bold text-slate-500">{doc.size}</td>
-                            <td className="px-8 py-5 text-xs font-bold text-slate-500">{new Date(doc.date).toLocaleDateString()}</td>
-                            <td className="px-8 py-5">
-                                <div className="flex justify-center gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-xl text-indigo-500 hover:bg-indigo-600 hover:text-white transition-all"><Download size={14}/></button>
-                                    <button onClick={() => setDeleteConfirmId(doc.id)} className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-xl text-rose-500 hover:bg-rose-600 hover:text-white transition-all"><Trash2 size={14}/></button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+        <GridTable<Document>
+          data={visibleDocs}
+          keyExtractor={(doc) => doc.id}
+          emptyMessage={t('documents.empty') || 'Nenhum arquivo encontrado'}
+          columns={[
+            {
+              header: t('documents.col_type') || 'Tipo',
+              render: (doc) => (
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${getFileBg(doc.type)}`}>
+                  {getFileIcon(doc.type, 16)}
+                </div>
+              ),
+            },
+            {
+              header: t('documents.col_filename') || 'Arquivo',
+              render: (doc) => (
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-slate-800 truncate">{doc.title}</div>
+                  <div className="text-[10px] text-slate-400 uppercase">{doc.type}</div>
+                </div>
+              ),
+            },
+            {
+              header: t('documents.col_category') || 'Categoria',
+              className: 'hidden sm:table-cell',
+              headerClassName: 'hidden sm:table-cell',
+              render: (doc) => (
+                <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full uppercase tracking-wider">{doc.category}</span>
+              ),
+            },
+            {
+              header: t('documents.col_size') || 'Tamanho',
+              className: 'hidden md:table-cell',
+              headerClassName: 'hidden md:table-cell',
+              render: (doc) => <span className="text-xs text-slate-500">{doc.size}</span>,
+            },
+            {
+              header: t('documents.col_date') || 'Data',
+              className: 'hidden lg:table-cell',
+              headerClassName: 'hidden lg:table-cell',
+              render: (doc) => <span className="text-xs text-slate-500">{new Date(doc.date).toLocaleDateString()}</span>,
+            },
+            {
+              header: t('documents.col_actions') || 'Ações',
+              className: 'text-right',
+              headerClassName: 'text-right',
+              render: (doc) => (
+                <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => handleDownload(doc)} className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all" title="Baixar"><Download size={13}/></button>
+                  <button onClick={() => setDeleteConfirmId(doc.id)} className="p-1.5 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg hover:bg-rose-100 transition-all" title="Excluir"><Trash2 size={13}/></button>
+                </div>
+              ),
+            },
+          ]}
+        />
       )}
 
-      {/* UPLOAD MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-            <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
-                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                    <div>
-                        <h3 className="text-xl font-black text-slate-800">{t('documents.modal_title')}</h3>
-                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{t('documents.modal_subtitle')}</p>
-                    </div>
-                    <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl text-slate-400 ring-1 ring-slate-200 transition-all"><X size={18}/></button>
-                </div>
-                
-                <div className="p-10 space-y-6">
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{t('documents.doc_title_label')}</label>
-                        <input 
-                            type="text" 
-                            className="w-full text-base font-black p-5 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 focus:ring-8 focus:ring-indigo-100/30 transition-all" 
-                            value={uploadData.title}
-                            onChange={e => setUploadData({...uploadData, title: e.target.value})}
-                            placeholder={t('documents.doc_title_placeholder')}
-                        />
-                    </div>
+      {/* MODAL: DELETE CONFIRMATION */}
+      <Modal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title={t('documents.delete_title') || 'Excluir Arquivo'}
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(null)}>
+              {t('documents.keep_file') || 'Cancelar'}
+            </Button>
+            <Button variant="danger" size="sm" onClick={handleDelete}>
+              {t('documents.confirm_delete') || 'Excluir'}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          {deleteTarget
+            ? `Tem certeza que deseja excluir "${deleteTarget.title}"? Esta ação não pode ser desfeita.`
+            : t('documents.delete_desc')}
+        </p>
+      </Modal>
 
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{t('documents.category_label')}</label>
-                        <select 
-                            className="w-full text-sm font-black p-4 px-6 rounded-[1.8rem] border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all appearance-none"
-                            value={uploadData.category}
-                            onChange={e => setUploadData({...uploadData, category: e.target.value})}
-                        >
-                            {categories.filter(c => c !== 'Todos').map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                    </div>
-
-                    <div className="pt-2">
-                        <input type="file" id="file-upload" className="hidden" onChange={e => {const f = e.target.files?.[0]; if(f) setUploadData({...uploadData, file: f, title: uploadData.title || f.name});}} />
-                        <label 
-                            htmlFor="file-upload"
-                            className={`border-4 border-dashed rounded-[2.5rem] p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all group hover:bg-indigo-50/30 hover:border-indigo-200 ${uploadData.file ? 'bg-indigo-50 border-indigo-500' : 'bg-slate-50 border-slate-100'}`}
-                        >
-                            <div className={`w-16 h-16 bg-white text-indigo-500 rounded-3xl flex items-center justify-center mb-6 shadow-lg transition-all group-hover:scale-110 ${uploadData.file ? 'bg-indigo-600 text-white' : ''}`}>
-                                <CloudUpload size={32} />
-                            </div>
-                            <p className="text-sm font-black text-slate-700 mb-1">{uploadData.file ? uploadData.file.name : t('documents.select_file')}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                {uploadData.file ? `${(uploadData.file.size / 1024 / 1024).toFixed(2)} MB` : t('documents.file_hint')}
-                            </p>
-                        </label>
-                    </div>
-                </div>
-
-                <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex justify-end gap-4 px-12 pb-12">
-                    <button onClick={() => setIsModalOpen(false)} className="px-8 py-4 text-xs font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">{t('documents.cancel')}</button>
-                    <button 
-                        onClick={async () => {
-                          if (!uploadData.file) return;
-                          setIsSaving(true);
-                          try {
-                            const formData = new FormData();
-                            formData.append('file', uploadData.file);
-                            formData.append('title', uploadData.title || uploadData.file.name);
-                            formData.append('category', uploadData.category);
-                            
-                            await api.request('/uploads', { method: 'POST', body: formData });
-                            setIsModalOpen(false);
-                            setUploadData({ title: '', category: 'Geral', file: null });
-                            fetchDocuments();
-                          } catch (e) {
-                            console.error(e);
-                            // Fake success for UI demonstration
-                            const newDoc = { id: Math.random().toString(), title: uploadData.title, category: uploadData.category, size: '0.5 MB', date: new Date().toISOString(), type: 'pdf' } as Document;
-                            setDocuments(prev => [newDoc, ...prev]);
-                            setIsModalOpen(false);
-                          } finally { setIsSaving(false); }
-                        }}
-                        disabled={isSaving || !uploadData.file}
-                        className="px-14 py-4 text-xs font-black text-white bg-indigo-600 hover:bg-slate-800 rounded-[1.8rem] shadow-2xl transition-all flex items-center gap-3 uppercase tracking-widest active:scale-95 disabled:opacity-50"
-                    >
-                        {isSaving ? t('documents.uploading') : t('documents.save')}
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* CATEGORY MANAGEMENT MODAL */}
-      {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-            <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
-                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                    <h3 className="text-xl font-black text-slate-800">{t('documents.categories')}</h3>
-                    <button onClick={() => setIsCategoryModalOpen(false)} className="p-3 hover:bg-white rounded-2xl text-slate-500 transition-all"><X size={18}/></button>
-                </div>
-                
-                <div className="p-10 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                    <div className="flex gap-2 mb-6">
-                        <input 
-                            type="text" 
-                            placeholder={t('documents.new_category')}
-                            className="flex-1 p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:border-indigo-400 focus:bg-white transition-all"
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                        />
-                        <button onClick={handleAddCategory} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg"><Plus size={20}/></button>
-                    </div>
-
-                    <div className="space-y-2">
-                        {categories.map((cat, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
-                                {editingCategoryIndex === idx ? (
-                                    <div className="flex items-center gap-2 flex-1">
-                                        <input 
-                                            type="text" 
-                                            autoFocus
-                                            className="flex-1 p-1 bg-white border-b-2 border-indigo-400 outline-none text-sm font-black text-indigo-600"
-                                            value={editingCategoryName}
-                                            onChange={(e) => setEditingCategoryName(e.target.value)}
-                                        />
-                                        <button onClick={() => handleEditCategory(idx)} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg"><Check size={16} /></button>
-                                        <button onClick={() => setEditingCategoryIndex(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><X size={16} /></button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span className={`text-xs font-black uppercase tracking-wider ${cat === 'Todos' ? 'text-slate-300 italic' : 'text-slate-600'}`}>{cat}</span>
-                                        {cat !== 'Todos' && (
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                <button onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }} className="p-2 text-indigo-400 hover:bg-white hover:shadow-sm rounded-xl transition-all"><Edit3 size={16} /></button>
-                                            </div >
-                                        )}
-                                    </>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* CONFIRM DELETE MODAL */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
-              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-lg shadow-rose-100/50">
-                <AlertCircle size={40} />
+      {/* MODAL: UPLOAD */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={t('documents.modal_title') || 'Novo Arquivo'}
+        subtitle={t('documents.modal_subtitle') || 'Faça upload de um arquivo para a biblioteca'}
+        maxWidth="md"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>{t('documents.cancel')}</Button>
+            <Button
+              variant="primary"
+              size="sm"
+              isLoading={isSaving}
+              loadingText={t('documents.uploading') || 'Enviando...'}
+              disabled={!uploadData.file}
+              onClick={async () => {
+                if (!uploadData.file) return;
+                setIsSaving(true);
+                try {
+                  const formData = new FormData();
+                  formData.append('file', uploadData.file);
+                  formData.append('title', uploadData.title || uploadData.file.name);
+                  formData.append('category', uploadData.category);
+                  await api.request('/uploads', { method: 'POST', body: formData });
+                  setIsModalOpen(false);
+                  setUploadData({ title: '', category: 'Geral', file: null });
+                  pushToast({ type: 'success', message: 'Arquivo enviado com sucesso!' });
+                  fetchDocuments();
+                } catch (e: any) {
+                  console.error(e);
+                  pushToast({ type: 'error', message: e?.message || 'Erro ao enviar arquivo. Tente novamente.' });
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+            >
+              {t('documents.save') || 'Salvar'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('documents.doc_title_label')}</label>
+            <input
+              type="text"
+              className="w-full text-sm font-bold p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all"
+              value={uploadData.title}
+              onChange={e => setUploadData({...uploadData, title: e.target.value})}
+              placeholder={t('documents.doc_title_placeholder')}
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('documents.category_label')}</label>
+            <select
+              className="w-full text-sm font-bold p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all appearance-none"
+              value={uploadData.category}
+              onChange={e => setUploadData({...uploadData, category: e.target.value})}
+            >
+              {categories.filter(c => c !== 'Todos').map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <input type="file" id="file-upload" className="hidden" onChange={e => { const f = e.target.files?.[0]; if(f) setUploadData({...uploadData, file: f, title: uploadData.title || f.name}); }} />
+            <label
+              htmlFor="file-upload"
+              className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-indigo-50/30 hover:border-indigo-200 ${uploadData.file ? 'bg-indigo-50 border-indigo-400' : 'bg-slate-50 border-slate-200'}`}
+            >
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shadow-sm transition-all ${uploadData.file ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-500'}`}>
+                <CloudUpload size={24} />
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-3 tracking-tight">{t('documents.delete_title')}</h3>
-              <p className="text-sm font-bold text-slate-400 mb-10 leading-relaxed">
-                {t('documents.delete_desc')}
+              <p className="text-sm font-black text-slate-700 mb-1">{uploadData.file ? uploadData.file.name : t('documents.select_file')}</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                {uploadData.file ? `${(uploadData.file.size / 1024 / 1024).toFixed(2)} MB` : t('documents.file_hint')}
               </p>
-              <div className="flex flex-col gap-3">
-                 <button 
-                  onClick={handleDelete}
-                  className="w-full py-4.5 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-rose-100 transition-all transform active:scale-95"
-                 >
-                   {t('documents.confirm_delete')}
-                 </button>
-                 <button 
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="w-full py-4 text-slate-400 hover:text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all"
-                 >
-                   {t('documents.keep_file')}
-                 </button>
-              </div>
-           </div>
+            </label>
+          </div>
         </div>
-      )}
+      </Modal>
+
+      {/* MODAL: CATEGORY MANAGEMENT */}
+      <Modal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title={t('documents.categories') || 'Categorias'}
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setIsCategoryModalOpen(false)}>Fechar</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder={t('documents.new_category') || 'Nova categoria...'}
+              className="flex-1 p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none font-bold text-slate-700 text-sm focus:border-indigo-400 focus:bg-white transition-all"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+            />
+            <Button variant="primary" size="sm" onClick={handleAddCategory}><Plus size={16}/></Button>
+          </div>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {categories.map((cat, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
+                {editingCategoryIndex === idx ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="text"
+                      autoFocus
+                      className="flex-1 p-1 bg-white border-b-2 border-indigo-400 outline-none text-sm font-black text-indigo-600"
+                      value={editingCategoryName}
+                      onChange={(e) => setEditingCategoryName(e.target.value)}
+                    />
+                    <button onClick={() => handleEditCategory(idx)} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg"><Check size={14} /></button>
+                    <button onClick={() => setEditingCategoryIndex(null)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <span className={`text-xs font-black uppercase tracking-wider ${cat === 'Todos' ? 'text-slate-300 italic' : 'text-slate-600'}`}>{cat}</span>
+                    {cat !== 'Todos' && (
+                      <button onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }} className="p-1.5 text-indigo-400 hover:bg-white hover:shadow-sm rounded-lg transition-all opacity-0 group-hover:opacity-100"><Edit3 size={14} /></button>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

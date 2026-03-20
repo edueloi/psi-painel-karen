@@ -5,6 +5,23 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// Garante que a tabela uploads existe
+db.query(`
+  CREATE TABLE IF NOT EXISTS uploads (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    patient_id INT,
+    professional_id INT,
+    file_name VARCHAR(255) NOT NULL,
+    file_url VARCHAR(500),
+    file_type VARCHAR(100),
+    file_size INT,
+    category VARCHAR(100),
+    title VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+`).catch(err => console.error('Erro ao criar tabela uploads:', err.message));
+
 // Configuração do Multer para salvamento em disco
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {

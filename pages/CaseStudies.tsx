@@ -25,6 +25,7 @@ import { Button } from '../components/UI/Button';
 import { Combobox } from '../components/UI/Combobox';
 import { Input, Select, TextArea } from '../components/UI/Input';
 import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSearch, FilterLineViewToggle } from '../components/UI/FilterLine';
+import { GridTable } from '../components/UI/GridTable';
 
 // --- Types ---
 interface Comment {
@@ -171,6 +172,15 @@ export const CaseStudies: React.FC = () => {
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingColumnTitle, setEditingColumnTitle] = useState('');
   const [editingColumnColor, setEditingColumnColor] = useState('bg-slate-400');
+
+  // Delete Confirmation Modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteModalConfig, setDeleteModalConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+
+  const openDeleteModal = (title: string, message: string, onConfirm: () => void) => {
+    setDeleteModalConfig({ title, message, onConfirm });
+    setIsDeleteModalOpen(true);
+  };
 
   const activeBoard = boards.find(b => b.id === activeBoardId);
   const getBoardColumnCount = (b: CaseBoard) => (b.columns && b.columns.length ? b.columns.length : b.columnCount || 0);
@@ -368,16 +378,22 @@ export const CaseStudies: React.FC = () => {
       }
   };
 
-  const handleDeleteBoard = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteBoard = (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
-      if (!window.confirm('Tem certeza que deseja excluir este quadro?')) return;
-      try {
-          await api.delete(`/case-studies/boards/${id}`);
-          setBoards(prev => prev.filter(b => b.id !== id));
-          if (activeBoardId === id) setActiveBoardId(null);
-      } catch (e) {
-          console.error(e);
-      }
+      const board = boards.find(b => b.id === id);
+      openDeleteModal(
+          'Excluir Quadro',
+          `Tem certeza que deseja excluir o quadro "${board?.title || ''}"? Esta ação não pode ser desfeita.`,
+          async () => {
+              try {
+                  await api.delete(`/case-studies/boards/${id}`);
+                  setBoards(prev => prev.filter(b => b.id !== id));
+                  if (activeBoardId === id) setActiveBoardId(null);
+              } catch (err) {
+                  console.error(err);
+              }
+          }
+      );
   };
 
   // --- Column Logic ---
@@ -397,23 +413,25 @@ export const CaseStudies: React.FC = () => {
       }
   };
 
-  const deleteColumn = async (columnId: string) => {
+  const deleteColumn = (columnId: string) => {
       if (!activeBoardId) return;
       const board = boards.find(b => b.id === activeBoardId);
       const col = board?.columns.find(c => c.id === columnId);
+      setOpenColumnMenuId(null);
 
-      if (col && col.cards.length > 0) {
-          if (!window.confirm('Esta coluna contem cartoes. Deseja exclui-la mesmo assim?')) return;
-      }
+      const hasCards = col && col.cards.length > 0;
+      const message = hasCards
+          ? `A coluna "${col?.title || ''}" contém ${col.cards.length} cartão(ões). Deseja excluí-la mesmo assim?`
+          : `Tem certeza que deseja excluir a coluna "${col?.title || ''}"?`;
 
-      try {
-          await api.delete(`/case-studies/boards/${activeBoardId}/columns/${columnId}`);
-          await loadBoardDetail(activeBoardId);
-      } catch (e) {
-          console.error(e);
-      } finally {
-          setOpenColumnMenuId(null);
-      }
+      openDeleteModal('Excluir Coluna', message, async () => {
+          try {
+              await api.delete(`/case-studies/boards/${activeBoardId}/columns/${columnId}`);
+              await loadBoardDetail(activeBoardId);
+          } catch (err) {
+              console.error(err);
+          }
+      });
   };
 
   const openEditColumn = (col: CaseColumn) => {
@@ -699,7 +717,7 @@ export const CaseStudies: React.FC = () => {
                                       </div>
                                       <button
                                         onClick={(e) => handleDeleteBoard(e, board.id)}
-                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                       >
                                           <Trash2 size={15} />
                                       </button>
@@ -719,34 +737,64 @@ export const CaseStudies: React.FC = () => {
                       ))}
                   </div>
               ) : (
-                  <div className="space-y-2">
-                      {filteredBoards.map(board => (
-                          <div
-                            key={board.id}
-                            onClick={() => setActiveBoardId(board.id)}
-                            className="group bg-white rounded-xl px-5 py-4 border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center gap-4"
-                          >
-                              <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-black text-sm shrink-0">
-                                  {board.title.charAt(0).toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                  <p className="font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{board.title}</p>
-                                  {board.description && <p className="text-xs text-slate-400 truncate">{board.description}</p>}
-                              </div>
-                              <div className="hidden sm:flex items-center gap-4 text-[11px] text-slate-400 shrink-0">
-                                  <span className="flex items-center gap-1"><Layout size={12} /> {getBoardColumnCount(board)} col.</span>
-                                  <span className="flex items-center gap-1"><FileText size={12} /> {getBoardCardCount(board)} casos</span>
-                                  <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(board.createdAt).toLocaleDateString('pt-BR')}</span>
-                              </div>
-                              <button
-                                onClick={(e) => handleDeleteBoard(e, board.id)}
-                                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                              >
-                                  <Trash2 size={15} />
-                              </button>
+                  <GridTable<CaseBoard>
+                    data={filteredBoards}
+                    keyExtractor={(b) => b.id}
+                    onRowClick={(b) => setActiveBoardId(b.id)}
+                    emptyMessage="Nenhum quadro encontrado"
+                    columns={[
+                      {
+                        header: 'Quadro',
+                        render: (board) => (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-black text-sm shrink-0">
+                              {board.title.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-bold text-slate-800 truncate">{board.title}</div>
+                              {board.description && <div className="text-[10px] text-slate-400 truncate max-w-[200px]">{board.description}</div>}
+                            </div>
                           </div>
-                      ))}
-                  </div>
+                        ),
+                      },
+                      {
+                        header: 'Colunas',
+                        className: 'hidden sm:table-cell',
+                        headerClassName: 'hidden sm:table-cell',
+                        render: (board) => (
+                          <span className="flex items-center gap-1 text-xs text-slate-500"><Layout size={12} /> {getBoardColumnCount(board)}</span>
+                        ),
+                      },
+                      {
+                        header: 'Casos',
+                        className: 'hidden sm:table-cell',
+                        headerClassName: 'hidden sm:table-cell',
+                        render: (board) => (
+                          <span className="flex items-center gap-1 text-xs text-slate-500"><FileText size={12} /> {getBoardCardCount(board)}</span>
+                        ),
+                      },
+                      {
+                        header: 'Criado em',
+                        className: 'hidden md:table-cell',
+                        headerClassName: 'hidden md:table-cell',
+                        render: (board) => (
+                          <span className="text-xs text-slate-500">{new Date(board.createdAt).toLocaleDateString('pt-BR')}</span>
+                        ),
+                      },
+                      {
+                        header: '',
+                        className: 'text-right',
+                        render: (board) => (
+                          <button
+                            onClick={(e: React.MouseEvent) => handleDeleteBoard(e, board.id)}
+                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        ),
+                      },
+                    ]}
+                  />
               )}
 
               {!isLoading && filteredBoards.length === 0 && (
@@ -1144,6 +1192,31 @@ export const CaseStudies: React.FC = () => {
             </div>
           )
         )}
+      </Modal>
+
+      {/* --- MODAL: DELETE CONFIRMATION --- */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title={deleteModalConfig?.title || 'Excluir'}
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(false)}>Cancelar</Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => {
+                deleteModalConfig?.onConfirm();
+                setIsDeleteModalOpen(false);
+              }}
+            >
+              Excluir
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-slate-600">{deleteModalConfig?.message}</p>
       </Modal>
 
       {/* --- MODAL: EDIT COLUMN --- */}
