@@ -101,6 +101,98 @@ app.use(express.urlencoded({ extended: true }));
 mountApiRoutes('/api');
 mountApiRoutes('');
 
+// ---- Rota /f/:hash — OG meta tags para compartilhamento social ----
+// O Nginx redireciona psiflux.com.br/f/:hash para cá.
+// Bots (WhatsApp, Telegram, etc.) recebem HTML com OG tags corretos.
+// Navegadores reais são redirecionados para o SPA.
+const db = require('./db');
+app.get('/f/:hash', async (req, res) => {
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+  const formUrl = `${FRONTEND_URL}/f/${req.params.hash}`;
+
+  const ua = req.headers['user-agent'] || '';
+  const isCrawler = /whatsapp|telegram|facebookexternalhit|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|embedly|vkshare|pinterest|pocket|flipboard|curl|wget/i.test(ua);
+
+  if (!isCrawler) {
+    // Navegador real → SPA
+    return res.redirect(302, formUrl);
+  }
+
+  try {
+    const [forms] = await db.query(
+      `SELECT f.title, f.description, f.hash,
+              u.name as professional_name, u.specialty as professional_specialty,
+              u.crp as professional_crp, u.company_name, u.clinic_logo_url, u.avatar_url
+       FROM forms f
+       LEFT JOIN users u ON u.id = f.created_by
+       WHERE f.hash = ? AND (f.is_public = true OR f.is_global = true)`,
+      [req.params.hash]
+    );
+
+    if (forms.length === 0) return res.redirect(302, formUrl);
+
+    const form = forms[0];
+    const profName = form.professional_name || '';
+    const specialty = form.professional_specialty || '';
+    const crp = form.professional_crp || '';
+    const clinic = form.company_name || 'PsiFlux';
+    const formTitle = form.title || 'Formulário Clínico';
+
+    // Descrição: nome do formulário + profissional + especialidade + CRP
+    let descParts = [];
+    if (profName) descParts.push(profName);
+    if (specialty) descParts.push(specialty);
+    if (crp) descParts.push(`CRP ${crp}`);
+    const profLine = descParts.join(' • ');
+
+    const ogDesc = form.description
+      ? `${form.description.substring(0, 120)}${profLine ? ` — ${profLine}` : ''}`
+      : profLine
+        ? `Formulário clínico de ${profLine}. Clique para responder.`
+        : 'Formulário clínico. Clique para responder.';
+
+    const logoUrl = form.clinic_logo_url
+      ? (form.clinic_logo_url.startsWith('http') ? form.clinic_logo_url : `${FRONTEND_URL}${form.clinic_logo_url}`)
+      : form.avatar_url
+        ? (form.avatar_url.startsWith('http') ? form.avatar_url : `${FRONTEND_URL}${form.avatar_url}`)
+        : `${FRONTEND_URL}/og-default.png`;
+
+    const ogTitle = `${formTitle} — ${clinic}`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    return res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>${ogTitle}</title>
+  <meta name="description" content="${ogDesc}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${formUrl}" />
+  <meta property="og:title" content="${ogTitle}" />
+  <meta property="og:description" content="${ogDesc}" />
+  <meta property="og:image" content="${logoUrl}" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:site_name" content="${clinic}" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${ogTitle}" />
+  <meta name="twitter:description" content="${ogDesc}" />
+  <meta name="twitter:image" content="${logoUrl}" />
+  <meta http-equiv="refresh" content="0;url=${formUrl}" />
+</head>
+<body>
+  <p>Redirecionando...</p>
+  <script>window.location.href=${JSON.stringify(formUrl)};</script>
+</body>
+</html>`);
+  } catch (err) {
+    console.error('OG /f/:hash error:', err);
+    return res.redirect(302, formUrl);
+  }
+});
+
 // ---- 404 handler ----
 app.use((req, res) => {
   res.status(404).json({ error: `Rota nao encontrada: ${req.method} ${req.path}` });
