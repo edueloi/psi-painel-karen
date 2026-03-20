@@ -422,6 +422,10 @@ router.post('/', async (req, res) => {
       ? parsedCount
       : (until ? 365 : (freq ? 12 : 1));
 
+    // Agendamentos só são criados via Agenda.
+    // A repetição respeita exatamente o count/until definido — nunca cria duplicatas.
+    // Antes de inserir cada ocorrência, verifica se já existe um agendamento para o mesmo
+    // paciente + profissional + dia (mesmo horário exacto), para evitar fantasmas.
     for (let i = 0; i < count; i++) {
         const currentStart = new Date(start);
 
@@ -434,28 +438,46 @@ router.post('/', async (req, res) => {
         // Se atingir ou passar da data limite, para (until é exclusivo)
         if (until && currentStart >= until) break;
 
-        const currentEnd = new Date(currentStart.getTime() + duration * 60000);
-        
         const formattedStart = currentStart.toISOString().slice(0, 19).replace('T', ' ');
+
+        // Checagem anti-duplicata: se já existe agendamento para o mesmo paciente/profissional
+        // no mesmo horário exato, pula esta ocorrência para não criar fantasma.
+        if (finalPatientId || finalProfessionalId) {
+            const [existing] = await db.query(
+                `SELECT id FROM appointments
+                 WHERE tenant_id = ?
+                   AND start_time = ?
+                   AND (patient_id = ? OR professional_id = ?)
+                   AND status NOT IN ('cancelled')
+                 LIMIT 1`,
+                [req.user.tenant_id, formattedStart, finalPatientId || null, finalProfessionalId || null]
+            );
+            if (existing.length > 0) {
+                console.log(`[recurrence] Pulando ${formattedStart} — já existe agendamento id=${existing[0].id}`);
+                continue; // não cria duplicata
+            }
+        }
+
+        const currentEnd = new Date(currentStart.getTime() + duration * 60000);
         const formattedEnd = currentEnd.toISOString().slice(0, 19).replace('T', ' ');
 
         const [result] = await db.query(
           `INSERT INTO appointments (
-            tenant_id, patient_id, professional_id, service_id, package_id, title, 
+            tenant_id, patient_id, professional_id, service_id, package_id, title,
             start_time, end_time, status, notes, color,
             modality, type, duration_minutes, meeting_url, recurrence_rule, comanda_id
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            req.user.tenant_id, 
-            finalPatientId, 
-            finalProfessionalId, 
+            req.user.tenant_id,
+            finalPatientId,
+            finalProfessionalId,
             service_id || null,
             package_id || null,
-            title || null, 
-            formattedStart, 
-            formattedEnd, 
+            title || null,
+            formattedStart,
+            formattedEnd,
             status || 'scheduled',
-            notes || null, 
+            notes || null,
             color || null,
             modality || 'presencial',
             type || 'consulta',
@@ -469,7 +491,7 @@ router.post('/', async (req, res) => {
     }
 
     if (createdIds.length === 0) {
-        return res.status(500).json({ error: 'Nenhum agendamento foi gerado. Verifique os parâmetros de repetição.' });
+        return res.status(400).json({ error: 'Nenhum agendamento foi criado. Já existem agendamentos neste horário para este paciente/profissional.' });
     }
 
     // 3. Comanda agora é vinculada manualmente pelo frontend
