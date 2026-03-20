@@ -18,8 +18,12 @@ import {
   X
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
 import { Patient } from '../types';
+import { Modal } from '../components/UI/Modal';
+import { Button } from '../components/UI/Button';
+import { Combobox } from '../components/UI/Combobox';
 
 // --- Types ---
 interface Comment {
@@ -99,6 +103,7 @@ const EMPTY_BOARDS: CaseBoard[] = [];
 
 export const CaseStudies: React.FC = () => {
   const { t } = useLanguage();
+  const { pushToast } = useToast();
 
   // View State
   const [currentView, setCurrentView] = useState<'list' | 'board'>('list');
@@ -110,6 +115,7 @@ export const CaseStudies: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [boardLoading, setBoardLoading] = useState(false);
+  const [isSavingCard, setIsSavingCard] = useState(false);
 
   // Drag & Drop
   const [draggedCard, setDraggedCard] = useState<{ card: CaseCard; sourceColumnId: string } | null>(null);
@@ -508,14 +514,18 @@ export const CaseStudies: React.FC = () => {
       if (!activeBoardId) return;
       const patientName = newCardPatientName.trim();
       const patientId = newCardPatientId || undefined;
-      if (!patientName && !patientId) return;
-      if (!newCardDesc.trim()) return;
+      if (!patientName && !patientId) {
+          pushToast('error', 'Selecione ou informe um paciente.');
+          return;
+      }
+      if (!newCardDesc.trim()) {
+          pushToast('error', 'Informe uma descrição para o caso.');
+          return;
+      }
 
-      const tags = newCardTags
-          .split(',')
-          .map(t => t.trim())
-          .filter(Boolean);
+      const tags = newCardTags.split(',').map((tg: string) => tg.trim()).filter(Boolean);
 
+      setIsSavingCard(true);
       try {
           await api.post(`/case-studies/boards/${activeBoardId}/cards`, {
               column_id: targetColumnId,
@@ -529,10 +539,14 @@ export const CaseStudies: React.FC = () => {
 
           await loadBoardDetail(activeBoardId);
           logActivity(`${t('cases.created')} "${patientName || 'Paciente'}"`);
+          pushToast('success', 'Caso criado com sucesso!');
           resetCardForm();
           setIsCardModalOpen(false);
       } catch (e) {
           console.error(e);
+          pushToast('error', 'Erro ao criar caso. Tente novamente.');
+      } finally {
+          setIsSavingCard(false);
       }
   };
 
@@ -928,168 +942,131 @@ export const CaseStudies: React.FC = () => {
       )}
 
       {/* --- MODAL: NEW CARD --- */}
-      {isCardModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
-              <div className="bg-white w-full max-w-lg rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-[slideUpFade_0.3s_ease-out] border border-slate-100">
-                  <div className="relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-800 to-indigo-600"></div>
-                      <div className="absolute inset-0 opacity-35 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.35),transparent_60%)]"></div>
-                      <div className="relative p-6 flex items-center justify-between text-white">
-                          <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center border border-white/20">
-                                  <FileText size={18} />
-                              </div>
-                              <div>
-                                  <h3 className="text-xl font-display font-bold">{t('cases.newCard')}</h3>
-                                  <p className="text-xs text-indigo-100">Adicione detalhes do caso e observacoes.</p>
-                              </div>
-                          </div>
-                          <button onClick={() => setIsCardModalOpen(false)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all">
-                              <X size={18} />
-                          </button>
-                      </div>
-                  </div>
-
-                  <div className="p-6 overflow-y-auto custom-scrollbar space-y-4 bg-gradient-to-b from-white via-white to-slate-50/60">
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('cases.selectPatient')}</label>
-                          <select
-                            className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
-                            value={newCardPatientId}
-                            onChange={(e) => {
-                                const id = e.target.value;
-                                setNewCardPatientId(id);
-                                const patient = patients.find(p => String(p.id) === id);
-                                setNewCardPatientName(patient?.full_name || '');
-                            }}
-                          >
-                              <option value="">Selecione...</option>
-                              {patients.map(p => <option key={p.id} value={String(p.id)}>{p.full_name}</option>)}
-                          </select>
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Paciente (novo)</label>
-                          <input
-                            type="text"
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                            placeholder="Digite um novo paciente"
-                            value={newCardPatientName}
-                            onChange={(e) => {
-                                setNewCardPatientName(e.target.value);
-                                if (newCardPatientId) setNewCardPatientId('');
-                            }}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('cases.desc')}</label>
-                          <textarea
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-32"
-                            placeholder="Resumo do caso, sinais e contexto..."
-                            value={newCardDesc}
-                            onChange={(e) => setNewCardDesc(e.target.value)}
-                          />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Prioridade</label>
-                              <select
-                                className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                value={newCardDetails.priority}
-                                onChange={(e) => setNewCardDetails(prev => ({ ...prev, priority: e.target.value }))}
-                              >
-                                  <option value="">Selecione...</option>
-                                  <option value="Baixa">Baixa</option>
-                                  <option value="Media">Media</option>
-                                  <option value="Alta">Alta</option>
-                                  <option value="Urgente">Urgente</option>
-                              </select>
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Risco / Alerta</label>
-                              <select
-                                className="w-full p-3 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 font-medium text-slate-700"
-                                value={newCardDetails.risk_level}
-                                onChange={(e) => setNewCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
-                              >
-                                  <option value="">Selecione...</option>
-                                  <option value="Baixo">Baixo</option>
-                                  <option value="Moderado">Moderado</option>
-                                  <option value="Alto">Alto</option>
-                              </select>
-                          </div>
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Historico clinico</label>
-                          <textarea
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-24"
-                            value={newCardDetails.history}
-                            onChange={(e) => setNewCardDetails(prev => ({ ...prev, history: e.target.value }))}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Hipoteses</label>
-                          <textarea
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                            value={newCardDetails.hypothesis}
-                            onChange={(e) => setNewCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Objetivos terapeuticos</label>
-                          <textarea
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                            value={newCardDetails.objectives}
-                            onChange={(e) => setNewCardDetails(prev => ({ ...prev, objectives: e.target.value }))}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Intervencoes realizadas</label>
-                          <textarea
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                            value={newCardDetails.interventions}
-                            onChange={(e) => setNewCardDetails(prev => ({ ...prev, interventions: e.target.value }))}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Proximos passos</label>
-                          <textarea
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                            value={newCardDetails.next_steps}
-                            onChange={(e) => setNewCardDetails(prev => ({ ...prev, next_steps: e.target.value }))}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Observacoes</label>
-                          <textarea
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700 resize-none h-20"
-                            value={newCardDetails.observations}
-                            onChange={(e) => setNewCardDetails(prev => ({ ...prev, observations: e.target.value }))}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('cases.tags')}</label>
-                          <input
-                            type="text"
-                            className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-medium text-slate-700"
-                            placeholder="TCC, Ansiedade, Luto..."
-                            value={newCardTags}
-                            onChange={(e) => setNewCardTags(e.target.value)}
-                          />
-                      </div>
-                  </div>
-
-                  <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/80">
-                      <button onClick={() => { resetCardForm(); setIsCardModalOpen(false); }} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-lg">{t('cases.cancel')}</button>
-                      <button
-                        onClick={handleCreateCard}
-                        className="px-6 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-lg"
-                      >
-                          {t('cases.create')}
-                      </button>
-                  </div>
-              </div>
+      <Modal
+        isOpen={isCardModalOpen}
+        onClose={() => { resetCardForm(); setIsCardModalOpen(false); }}
+        title="Novo Caso"
+        subtitle="Preencha os dados clínicos do caso"
+        maxWidth="lg"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => { resetCardForm(); setIsCardModalOpen(false); }}>
+              Cancelar
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleCreateCard} isLoading={isSavingCard} loadingText="Criando...">
+              Criar Caso
+            </Button>
           </div>
-      )}
+        }
+      >
+        <div className="space-y-4">
+          {/* Paciente — Combobox com apenas ativos */}
+          <Combobox
+            label="Paciente *"
+            placeholder="Buscar paciente ativo..."
+            options={patients
+              .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
+              .map((p: any) => ({ id: String(p.id), label: p.full_name || p.name || '' }))}
+            value={newCardPatientId}
+            onChange={(val: any, label?: string) => {
+              setNewCardPatientId(String(val || ''));
+              setNewCardPatientName(label || '');
+            }}
+            size="md"
+          />
+
+          {/* Descrição */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Descrição *</label>
+            <textarea
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
+              rows={3}
+              placeholder="Resumo do caso, queixa principal, contexto..."
+              value={newCardDesc}
+              onChange={(e) => setNewCardDesc(e.target.value)}
+            />
+          </div>
+
+          {/* Prioridade + Risco */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Prioridade</label>
+              <select
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm font-medium text-slate-700 transition-colors"
+                value={newCardDetails.priority}
+                onChange={(e) => setNewCardDetails(prev => ({ ...prev, priority: e.target.value }))}
+              >
+                <option value="">Selecione...</option>
+                <option value="Baixa">Baixa</option>
+                <option value="Media">Média</option>
+                <option value="Alta">Alta</option>
+                <option value="Urgente">Urgente</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Risco / Alerta</label>
+              <select
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm font-medium text-slate-700 transition-colors"
+                value={newCardDetails.risk_level}
+                onChange={(e) => setNewCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
+              >
+                <option value="">Selecione...</option>
+                <option value="Baixo">Baixo</option>
+                <option value="Moderado">Moderado</option>
+                <option value="Alto">Alto</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Histórico Clínico */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Histórico Clínico</label>
+            <textarea
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
+              rows={2}
+              placeholder="Diagnósticos anteriores, histórico familiar..."
+              value={newCardDetails.history}
+              onChange={(e) => setNewCardDetails(prev => ({ ...prev, history: e.target.value }))}
+            />
+          </div>
+
+          {/* Hipóteses + Objetivos */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hipóteses</label>
+              <textarea
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
+                rows={2}
+                placeholder="Hipóteses diagnósticas..."
+                value={newCardDetails.hypothesis}
+                onChange={(e) => setNewCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Objetivos Terapêuticos</label>
+              <textarea
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
+                rows={2}
+                placeholder="Metas e objetivos..."
+                value={newCardDetails.objectives}
+                onChange={(e) => setNewCardDetails(prev => ({ ...prev, objectives: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tags</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 transition-colors"
+              placeholder="TCC, Ansiedade, Luto... (separados por vírgula)"
+              value={newCardTags}
+              onChange={(e) => setNewCardTags(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
 
       {isCardDetailOpen && selectedCard && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">

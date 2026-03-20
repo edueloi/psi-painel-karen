@@ -542,9 +542,9 @@ router.put('/:id/status', async (req, res) => {
       [dbStatus, notes || null, req.params.id, req.user.tenant_id]
     );
 
-    // Contabiliza realizado/faltou na comanda: incrementa sessions_used
+    // Só realizado consome sessão da comanda; faltou apenas registra o status
     const comandaId = existing[0].comanda_id;
-    if (comandaId && (dbStatus === 'completed' || dbStatus === 'no_show')) {
+    if (comandaId && dbStatus === 'completed') {
       try {
         await db.query(
           'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',
@@ -653,9 +653,9 @@ router.put('/:id', async (req, res) => {
       ]
     );
 
-    // Se status mudou para realizado/faltou e há comanda, incrementa sessions_used
+    // Só realizado consome sessão da comanda; faltou apenas registra o status
     const statusChanged = dbStatus !== oldStatus;
-    if (statusChanged && finalComandaId && (dbStatus === 'completed' || dbStatus === 'no_show')) {
+    if (statusChanged && finalComandaId && dbStatus === 'completed') {
       try {
         await db.query(
           'UPDATE comandas SET sessions_used = LEAST(sessions_used + 1, sessions_total) WHERE id = ? AND tenant_id = ?',

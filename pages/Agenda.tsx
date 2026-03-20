@@ -2651,13 +2651,11 @@ export const Agenda: React.FC = () => {
           return (
             <div className="grid grid-cols-1 gap-6 py-2 lg:grid-cols-[1.6fr_0.9fr]">
               {(() => {
-                const now = new Date();
                 const usedSessionsArr = (cmnd.appointments || []).filter((a: any) => {
-                  const startTime = new Date(a.start_time || a.start_date || a.start || a.startDate);
-                  const isPast = startTime < now;
-                  const isCancelled = a.status === 'cancelled';
-                  // no-show conta como sessão consumida (slot foi reservado, profissional estava disponível)
-                  return a.status === 'completed' || a.status === 'no_show' || a.status === 'no-show' || a.status === 'confirmed' || (isPast && !isCancelled);
+                  // Slot reservado = sessão consumida: concluído, confirmado, faltou e cancelado contam
+                  return a.status === 'completed' || a.status === 'confirmed'
+                    || a.status === 'no_show' || a.status === 'no-show'
+                    || a.status === 'cancelled';
                 });
                 const calculatedUsed = usedSessionsArr.length;
                 const totalSessions = cmnd.sessions_total || 1;
