@@ -166,7 +166,13 @@ app.get('/f/:hash', async (req, res) => {
     <meta name="twitter:image" content="${logoUrl}" />`;
 
     let html = fs.readFileSync(distIndexPath, 'utf8');
+    // Remove tags que serão substituídas pelas do formulário
     html = html.replace(/<title>.*?<\/title>/is, '');
+    html = html.replace(/<meta\s+[^>]*name=["']description["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*property=["']og:[^"']*["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*name=["']twitter:[^"']*["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*property=["']twitter:[^"']*["'][^>]*>/gi, '');
+    // Injeta os OG tags corretos logo após o <head>
     html = html.replace('<head>', `<head>${ogTags}`);
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
