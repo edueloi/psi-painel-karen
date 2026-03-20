@@ -1312,41 +1312,40 @@ export const Agenda: React.FC = () => {
       </div>
 
       {/* FILTERS & NAVIGATION BAR */}
-      <div className="bg-gradient-to-r from-white to-indigo-50/40 p-4 rounded-[2.5rem] border border-indigo-100/50 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
-          <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto justify-center lg:justify-start">
-              <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] shadow-inner border border-slate-200">
-                  <button onClick={() => handleNavigate(-1)} className="p-2.5 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronLeft size={20}/></button>
-                  <button onClick={() => setCurrentDate(new Date())} className="px-4 text-[10px] font-black text-slate-700 uppercase tracking-widest underline decoration-indigo-300 underline-offset-4">Hoje</button>
-                  <button onClick={() => handleNavigate(1)} className="p-2.5 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronRight size={20}/></button>
+      <div className="bg-gradient-to-r from-white to-indigo-50/40 px-4 py-3 rounded-[2.5rem] border border-indigo-100/50 shadow-sm flex flex-wrap gap-2 items-center justify-between">
+
+          {/* Navegação + label de data */}
+          <div className="flex items-center gap-2 min-w-0">
+              <div className="flex bg-slate-100 p-1 rounded-2xl shadow-inner border border-slate-200 shrink-0">
+                  <button onClick={() => handleNavigate(-1)} className="p-2 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronLeft size={18}/></button>
+                  <button onClick={() => setCurrentDate(new Date())} className="px-3 text-[10px] font-black text-slate-700 uppercase tracking-widest underline decoration-indigo-300 underline-offset-4">Hoje</button>
+                  <button onClick={() => handleNavigate(1)} className="p-2 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronRight size={18}/></button>
               </div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-black text-slate-800 truncate px-2">{getRangeLabel()}</h2>
-                <div className="relative group">
-                  <DatePicker 
-                    value={currentDate.toISOString().slice(0, 10)} 
-                    onChange={(val) => val && handleDateChange(val)}
-                  />
-                </div>
-              </div>
+              <h2 className="text-sm font-black text-slate-700 truncate hidden sm:block max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
+              <DatePicker
+                value={currentDate.toISOString().slice(0, 10)}
+                onChange={(val) => val && handleDateChange(val)}
+              />
           </div>
 
-          <div className="flex gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar py-1">
-              <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem]">
-                  <button onClick={() => setView('day')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'day' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Dia</button>
-                  <button onClick={() => setView('week')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Semana</button>
-                  <button onClick={() => setView('month')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Mês</button>
+          {/* Controles: view switcher + filtros */}
+          <div className="flex flex-wrap items-center gap-2">
+              {/* View switcher */}
+              <div className="flex bg-slate-100 p-1 rounded-2xl shrink-0">
+                  <button onClick={() => setView('day')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'day' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Dia</button>
+                  <button onClick={() => setView('week')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Semana</button>
+                  <button onClick={() => setView('month')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Mês</button>
               </div>
 
-              <div className="flex gap-2">
-                <select className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-[10px] font-black text-slate-600 uppercase tracking-wider outline-none focus:border-indigo-400 max-w-[150px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
-                    <option value="">Status</option>
-                    {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-                <select className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-[10px] font-black text-slate-600 uppercase tracking-wider outline-none focus:border-indigo-400 max-w-[150px]" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
-                    <option value="">Profissional</option>
-                    {professionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
-                </select>
-              </div>
+              {/* Filtros */}
+              <select className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 text-[10px] font-black text-slate-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[90px] max-w-[130px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
+                  <option value="">Status</option>
+                  {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <select className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 text-[10px] font-black text-slate-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[100px] max-w-[150px]" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
+                  <option value="">Profissional</option>
+                  {professionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+              </select>
           </div>
       </div>
 
