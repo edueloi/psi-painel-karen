@@ -139,12 +139,14 @@ export const Comandas: React.FC = () => {
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>(
     preferences?.comandas?.dateRangeFilter || 'month'
   );
-  const [closedDateFrom, setClosedDateFrom] = useState<string | null>(
-    preferences?.comandas?.closedDateFrom || null
-  );
-  const [closedDateTo, setClosedDateTo] = useState<string | null>(
-    preferences?.comandas?.closedDateTo || null
-  );
+  const [closedDateFrom, setClosedDateFrom] = useState<string | null>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  });
+  const [closedDateTo, setClosedDateTo] = useState<string | null>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  });
   const [searchTerm, setSearchTerm] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -359,20 +361,18 @@ export const Comandas: React.FC = () => {
       if (!matchesSearch) return false;
       if (statusFilter !== c.status) return false;
 
-      if (statusFilter === 'closed') {
-        if (closedDateFrom || closedDateTo) {
-          const refDate = new Date(c.updated_at || c.createdAt || c.created_at || new Date());
-          refDate.setHours(0, 0, 0, 0);
-          if (closedDateFrom) {
-            const from = new Date(closedDateFrom);
-            from.setHours(0, 0, 0, 0);
-            if (refDate < from) return false;
-          }
-          if (closedDateTo) {
-            const to = new Date(closedDateTo);
-            to.setHours(23, 59, 59, 999);
-            if (refDate > to) return false;
-          }
+      if (closedDateFrom || closedDateTo) {
+        const refDate = new Date(c.updated_at || c.createdAt || c.created_at || new Date());
+        refDate.setHours(0, 0, 0, 0);
+        if (closedDateFrom) {
+          const from = new Date(closedDateFrom);
+          from.setHours(0, 0, 0, 0);
+          if (refDate < from) return false;
+        }
+        if (closedDateTo) {
+          const to = new Date(closedDateTo);
+          to.setHours(23, 59, 59, 999);
+          if (refDate > to) return false;
         }
       }
 
@@ -1309,28 +1309,18 @@ export const Comandas: React.FC = () => {
       />
     </div>
 
-    {statusFilter === 'closed' && (
-      <>
-        <div className="shrink-0">
-          <FilterLineDateRange
-            from={closedDateFrom}
-            to={closedDateTo}
-            onFromChange={(val) => {
-              setClosedDateFrom(val);
-              updatePreference('comandas', { closedDateFrom: val });
-            }}
-            onToChange={(val) => {
-              setClosedDateTo(val);
-              updatePreference('comandas', { closedDateTo: val });
-            }}
-            fromLabel="De"
-            toLabel="Até"
-          />
-        </div>
-      </>
-    )}
-
     <div className="shrink-0">
+      <FilterLineDateRange
+        from={closedDateFrom}
+        to={closedDateTo}
+        onFromChange={(val) => setClosedDateFrom(val)}
+        onToChange={(val) => setClosedDateTo(val)}
+        fromLabel="De"
+        toLabel="Até"
+      />
+    </div>
+
+    <div className="shrink-0 ml-auto flex items-center gap-3">
       <FilterLineSegmented
         value={statusFilter}
         onChange={(val) => {
@@ -1343,9 +1333,6 @@ export const Comandas: React.FC = () => {
         ]}
         size="sm"
       />
-    </div>
-
-    <div className="shrink-0">
       <FilterLineViewToggle
         value={viewMode}
         onChange={(mode) => {
