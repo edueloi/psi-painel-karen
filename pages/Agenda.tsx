@@ -1031,7 +1031,8 @@ export const Agenda: React.FC = () => {
         discount_type: editingComanda.discount_type,
         discount_value: editingComanda.discount_value,
         package_id: editingComanda.packageId || null,
-        items: modalTab === 'pacote' && editingComanda.items?.length 
+        skip_appointment: true, // agendamentos são criados separadamente pela Agenda
+        items: modalTab === 'pacote' && editingComanda.items?.length
           ? editingComanda.items.map(item => ({
               name: item.name,
               service_id: item.serviceId,
