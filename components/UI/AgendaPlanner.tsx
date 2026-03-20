@@ -412,10 +412,12 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
 
     const top = ((clampedMinutes - startHour * 60) / 60) * hourHeight;
 
+    const timeStr = `${String(slotHour).padStart(2, '0')}:${String(slotMinute).padStart(2, '0')}`;
+    const dayStr = slotDate.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
     return {
       top,
       slotDate,
-      label: `${String(slotHour).padStart(2, '0')}:${String(slotMinute).padStart(2, '0')}`,
+      label: `${dayStr} · ${timeStr}`,
     };
   };
 

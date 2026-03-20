@@ -788,35 +788,7 @@ router.post('/comandas', async (req, res) => {
     );
 
     const comandaId = result.insertId;
-    let appointment_id = null;
-
-    // 2. Se tiver data, cria um agendamento automático na agenda (caso não tenha vindo da agenda)
-    if (start_date && !req.body.skip_appointment) {
-      try {
-        const start = new Date(start_date);
-        const end = new Date(start.getTime() + (duration_minutes || 60) * 60000);
-        
-        const [patients] = await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]);
-        const patientName = patients[0] ? patients[0].name : 'Paciente';
-        const title = `Sessão: ${patientName} (via Comanda #${comandaId})`;
-
-        const [aptResult] = await db.query(
-          `INSERT INTO appointments (
-            tenant_id, patient_id, professional_id, title, 
-            start_time, end_time, status, notes, comanda_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            req.user.tenant_id, patient_id || null, professional_id || null, 
-            title, start, end, 'scheduled', notes || 'Gerado via comanda', comandaId
-          ]
-        );
-        appointment_id = aptResult.insertId;
-
-        await db.query('UPDATE comandas SET appointment_id = ? WHERE id = ?', [appointment_id, comandaId]);
-      } catch (aptErr) {
-        console.error('Erro ao gerar agendamento automático via comanda:', aptErr);
-      }
-    }
+    // Agendamentos só são criados via Agenda — comanda não cria appointments automaticamente
 
     const [comanda] = await db.query('SELECT * FROM comandas WHERE id = ?', [comandaId]);
     const c = comanda[0];
