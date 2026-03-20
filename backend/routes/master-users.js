@@ -8,11 +8,16 @@ const { authorize } = require('../middleware/auth');
 router.use(authorize('super_admin'));
 
 async function ensureProfileColumn() {
+  // Adiciona coluna de perfil se não existir
   try {
     await db.query('ALTER TABLE users ADD COLUMN permission_profile_id INT NULL');
   } catch (err) {
     if (err.code !== 'ER_DUP_FIELDNAME') throw err;
   }
+  // Permite tenant_id NULL para usuários super_admin (sem tenant)
+  try {
+    await db.query('ALTER TABLE users MODIFY COLUMN tenant_id INT NULL');
+  } catch (err) { /* ignora se já for NULL */ }
 }
 
 // GET /master-users
