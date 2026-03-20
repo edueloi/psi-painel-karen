@@ -6,7 +6,7 @@ import { Modal } from '../components/UI/Modal';
 import { DatePicker } from '../components/UI/DatePicker';
 import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
-import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle } from '../components/UI/FilterLine';
+import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle, FilterLineDateRange } from '../components/UI/FilterLine';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { GridTable } from '../components/UI/GridTable';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -134,6 +134,12 @@ export const Comandas: React.FC = () => {
   );
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>(
     preferences?.comandas?.dateRangeFilter || 'month'
+  );
+  const [closedDateFrom, setClosedDateFrom] = useState<string | null>(
+    preferences?.comandas?.closedDateFrom || null
+  );
+  const [closedDateTo, setClosedDateTo] = useState<string | null>(
+    preferences?.comandas?.closedDateTo || null
   );
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -343,34 +349,31 @@ export const Comandas: React.FC = () => {
       if (statusFilter !== c.status) return false;
 
       if (statusFilter === 'closed') {
-        const refDate = new Date(c.updated_at || c.createdAt || c.created_at || new Date());
-        const now = new Date();
-
-        if (dateRangeFilter === 'today') {
-          return refDate.toDateString() === now.toDateString();
-        }
-
-        if (dateRangeFilter === 'month') {
-          return (
-            refDate.getMonth() === now.getMonth() &&
-            refDate.getFullYear() === now.getFullYear()
-          );
-        }
-
-        if (dateRangeFilter === 'year') {
-          return refDate.getFullYear() === now.getFullYear();
+        if (closedDateFrom || closedDateTo) {
+          const refDate = new Date(c.updated_at || c.createdAt || c.created_at || new Date());
+          refDate.setHours(0, 0, 0, 0);
+          if (closedDateFrom) {
+            const from = new Date(closedDateFrom);
+            from.setHours(0, 0, 0, 0);
+            if (refDate < from) return false;
+          }
+          if (closedDateTo) {
+            const to = new Date(closedDateTo);
+            to.setHours(23, 59, 59, 999);
+            if (refDate > to) return false;
+          }
         }
       }
 
       return true;
     });
-  }, [comandas, searchTerm, statusFilter, dateRangeFilter]);
+  }, [comandas, searchTerm, statusFilter, closedDateFrom, closedDateTo]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [searchTerm, statusFilter, dateRangeFilter, itemsPerPage]);
+  }, [searchTerm, statusFilter, closedDateFrom, closedDateTo, itemsPerPage]);
 
   const totalPages = Math.max(1, Math.ceil(filteredComandas.length / itemsPerPage));
   const currentComandas = useMemo(() => {
@@ -967,18 +970,19 @@ export const Comandas: React.FC = () => {
             />
 
             {statusFilter === 'closed' && (
-              <FilterLineSegmented
-                value={dateRangeFilter}
-                onChange={(range) => {
-                  setDateRangeFilter(range as DateRangeFilter);
-                  updatePreference('comandas', { dateRangeFilter: range });
+              <FilterLineDateRange
+                from={closedDateFrom}
+                to={closedDateTo}
+                onFromChange={(val) => {
+                  setClosedDateFrom(val);
+                  updatePreference('comandas', { closedDateFrom: val });
                 }}
-                options={[
-                  { value: 'month', label: 'Mês' },
-                  { value: 'year', label: 'Ano' },
-                  { value: 'all', label: 'Tudo' },
-                ]}
-                size="sm"
+                onToChange={(val) => {
+                  setClosedDateTo(val);
+                  updatePreference('comandas', { closedDateTo: val });
+                }}
+                fromLabel="De"
+                toLabel="Até"
               />
             )}
 

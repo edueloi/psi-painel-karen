@@ -46,13 +46,20 @@ export const BestClients: React.FC = () => {
 
     // Filter by Search
     if (searchTerm) {
-        data = data.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      data = data.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+
+    // Filter zeros: receita esconde R$0, presença esconde 0 sessões
+    if (metric === 'revenue') {
+      data = data.filter(c => Number(c.totalRevenue) > 0);
+    } else {
+      data = data.filter(c => Number(c.appointmentCount) > 0);
     }
 
     // Sort by Metric
     data.sort((a, b) => {
-        if (metric === 'revenue') return b.totalRevenue - a.totalRevenue;
-        return b.appointmentCount - a.appointmentCount;
+      if (metric === 'revenue') return Number(b.totalRevenue) - Number(a.totalRevenue);
+      return Number(b.appointmentCount) - Number(a.appointmentCount);
     });
 
     return data.slice(0, topN);

@@ -728,6 +728,9 @@ router.delete('/comandas/:id', async (req, res) => {
 router.get('/analytics/best-clients', async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
+
+    // Receita: soma de financial_transactions (pagamentos registrados)
+    // mais fallback para comanda_payments caso não haja lançamentos ainda
     const [data] = await db.query(`
       SELECT
         p.id,
@@ -736,20 +739,29 @@ router.get('/analytics/best-clients', async (req, res) => {
         COALESCE(
           (SELECT SUM(ft.amount) FROM financial_transactions ft
            WHERE ft.patient_id = p.id AND ft.type = 'income' AND ft.tenant_id = ?),
+          0
+        ) +
+        COALESCE(
           (SELECT SUM(cp.amount) FROM comanda_payments cp
-           INNER JOIN comandas c ON c.id = cp.comanda_id
-           WHERE c.patient_id = p.id AND cp.tenant_id = ?),
+           INNER JOIN comandas cmd ON cmd.id = cp.comanda_id
+           WHERE cmd.patient_id = p.id AND cp.tenant_id = ?
+             AND NOT EXISTS (
+               SELECT 1 FROM financial_transactions ft2
+               WHERE ft2.patient_id = p.id AND ft2.type = 'income' AND ft2.tenant_id = ?
+             )),
           0
         ) as totalRevenue,
         (SELECT COUNT(*) FROM appointments
-         WHERE patient_id = p.id AND status IN ('completed','no_show') AND tenant_id = ?) as appointmentCount,
+         WHERE patient_id = p.id
+           AND status IN ('completed', 'no_show', 'confirmed')
+           AND tenant_id = ?) as appointmentCount,
         (SELECT MAX(start_time) FROM appointments WHERE patient_id = p.id AND tenant_id = ?) as lastVisit
       FROM patients p
       WHERE p.tenant_id = ?
-      HAVING totalRevenue > 0 OR appointmentCount > 0
+      HAVING appointmentCount > 0 OR totalRevenue > 0
       ORDER BY totalRevenue DESC
       LIMIT 30
-    `, [tenantId, tenantId, tenantId, tenantId, tenantId]);
+    `, [tenantId, tenantId, tenantId, tenantId, tenantId, tenantId]);
 
     res.json(data);
   } catch (err) {
