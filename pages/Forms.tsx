@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { ClinicalForm, FormStats, Patient } from '../types';
 import { Link, useNavigate } from 'react-router-dom';
@@ -22,6 +23,7 @@ import {
 
 export const Forms: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [stats, setStats] = useState<FormStats>({ totalForms: 0, totalResponses: 0, mostUsed: null });
   const [recentResponses, setRecentResponses] = useState<any[]>([]);
@@ -29,7 +31,10 @@ export const Forms: React.FC = () => {
   const [copiedFormId, setCopiedFormId] = useState<string | null>(null);
 
   const handleCopyPublicLink = (form: ClinicalForm) => {
-    const link = `${window.location.origin}/f/${form.hash}`;
+    const params = new URLSearchParams();
+    if (user?.shareToken) params.set('u', user.shareToken);
+    const qs = params.toString();
+    const link = `${window.location.origin}/f/${form.hash}${qs ? `?${qs}` : ''}`;
     navigator.clipboard.writeText(link).then(() => {
       setCopiedFormId(form.id);
       setTimeout(() => setCopiedFormId(null), 2000);
