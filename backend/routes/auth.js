@@ -29,7 +29,7 @@ router.post('/login', async (req, res) => {
     const [users] = await db.query(
       `SELECT u.*, t.name as tenant_name, t.slug as tenant_slug, t.active as tenant_active
        FROM users u
-       JOIN tenants t ON t.id = u.tenant_id
+       LEFT JOIN tenants t ON t.id = u.tenant_id
        WHERE u.email = ? AND u.active = true`,
       [email]
     );
@@ -40,7 +40,8 @@ router.post('/login', async (req, res) => {
 
     const user = users[0];
 
-    if (!user.tenant_active) {
+    // Só bloqueia por tenant inativo se o usuário pertencer a um tenant (super_admin não pertence)
+    if (user.tenant_id && !user.tenant_active) {
       return res.status(403).json({ error: 'Esta clínica está desativada' });
     }
 
