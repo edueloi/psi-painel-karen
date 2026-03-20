@@ -1621,7 +1621,7 @@ export const Agenda: React.FC = () => {
                               {/* PAZIENTE COMBOBOX */}
                               <Combobox
                                 label="Paciente"
-                                options={patients.map(p => ({ id: p.id, label: p.full_name }))}
+                                options={patients.filter(p => (p as any).status === 'ativo' || (p as any).status === 'active').map(p => ({ id: p.id, label: p.full_name }))}
                                 value={formData.patient_id || ''}
                                 icon={<UserIcon size={18} className="text-indigo-400" />}
                                 placeholder="Pesquisar ou adicionar paciente..."

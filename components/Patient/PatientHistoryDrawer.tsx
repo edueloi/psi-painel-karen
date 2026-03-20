@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   X, Calendar, DollarSign, FileText, FolderOpen, StickyNote,
   Loader2, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp,
-  TrendingDown, Boxes, BrainCircuit, History, Info
+  TrendingDown, Boxes, BrainCircuit, History, Info, ClipboardList
 } from 'lucide-react';
 import { Patient } from '../../types';
 import { api, getStaticUrl } from '../../services/api';
@@ -10,7 +11,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 interface TimelineItem {
   id: string;
-  type: 'appointment' | 'finance' | 'record' | 'document' | 'note' | 'comanda' | 'pei' | 'tool' | string;
+  type: 'appointment' | 'finance' | 'record' | 'document' | 'note' | 'comanda' | 'pei' | 'tool' | 'form' | string;
   date: string;
   title: string;
   subtitle?: string;
@@ -20,6 +21,7 @@ interface TimelineItem {
   amount?: number;
   financeType?: 'income' | 'expense';
   reschedule_reason?: string;
+  link_form_id?: number;
 }
 
 interface HistoryData {
@@ -34,6 +36,7 @@ interface HistoryData {
     notes: number;
     pei: number;
     tools: number;
+    forms: number;
   };
 }
 
@@ -51,6 +54,7 @@ const typeConfig: Record<string, any> = {
   comanda: { label: 'Comanda', icon: <Boxes size={16} />, bg: 'bg-orange-100', text: 'text-orange-600' },
   pei: { label: 'PEI', icon: <BrainCircuit size={16} />, bg: 'bg-emerald-100', text: 'text-emerald-600' },
   tool: { label: 'Avaliação', icon: <Boxes size={16} />, bg: 'bg-sky-100', text: 'text-sky-600' },
+  form: { label: 'Formulário', icon: <ClipboardList size={16} />, bg: 'bg-rose-100', text: 'text-rose-600' },
 };
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -97,6 +101,7 @@ const FILTER_OPTIONS = (t: any) => [
   { id: 'all', label: t('common.all') },
   { id: 'appointment', label: t('nav.agenda') },
   { id: 'record', label: t('nav.records') },
+  { id: 'form', label: 'Formulários' },
   { id: 'pei', label: 'PEI' },
   { id: 'comanda', label: t('nav.comandas') },
   { id: 'finance', label: t('nav.finance') },
@@ -107,6 +112,7 @@ const FILTER_OPTIONS = (t: any) => [
 
 export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [data, setData] = useState<HistoryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -171,7 +177,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
               { label: t('nav.agenda'), value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={14}/> },
               { label: t('nav.records'), value: data.counts.records, color: 'text-blue-600', icon: <FileText size={14}/> },
               { label: t('nav.comandas'), value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={14}/> },
-              { label: 'Neuro/PEI', value: (data.counts.pei || 0) + (data.counts.tools || 0), color: 'text-emerald-600', icon: <BrainCircuit size={14}/> },
+              { label: 'Formulários', value: data.counts.forms || 0, color: 'text-rose-600', icon: <ClipboardList size={14}/> },
             ].map((s, idx) => (
               <div key={idx} className="py-5 px-3 text-center border-r border-slate-100 last:border-r-0 flex flex-col items-center justify-center hover:bg-white transition-colors">
                 <div className={`flex items-center justify-center gap-2 text-base font-black ${s.color}`}>
@@ -235,16 +241,20 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                     {items.map((item: any) => {
                       const cfg = typeConfig[item.type] || typeConfig.note;
                       const st = item.status ? statusConfig[item.status] : null;
-                      
+                      const isClickable = item.type === 'form' && item.link_form_id;
+
                       return (
                         <div key={item.id} className="relative pl-10 sm:pl-12 group">
                           {/* Ícone Redondo */}
                           <div className={`absolute left-0 top-3 w-8 h-8 rounded-xl ${cfg.bg} ${cfg.text} flex items-center justify-center border-2 border-white shadow-sm z-10 transition-transform group-hover:scale-110`}>
                             {cfg.icon}
                           </div>
-                          
+
                           {/* Cartão de Conteúdo */}
-                          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all group/card">
+                          <div
+                            className={`bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all group/card ${isClickable ? 'cursor-pointer hover:border-rose-300' : ''}`}
+                            onClick={isClickable ? () => { onClose(); navigate(`/formularios/${item.link_form_id}/respostas`); } : undefined}
+                          >
                             <div className="flex flex-col gap-4">
                               
                               <div className="flex items-start justify-between gap-4">

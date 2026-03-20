@@ -607,7 +607,7 @@ router.get('/:id/history', async (req, res) => {
       try { const [rows] = await db.query(sql, params); return rows; } catch { return []; }
     };
 
-    const [appointments, transactions, records, documents, notes, comandas, events, peis, clinicalTools] = await Promise.all([
+    const [appointments, transactions, records, documents, notes, comandas, events, peis, clinicalTools, formResponses] = await Promise.all([
       safeQuery(
         `SELECT a.id, a.start_time as date, a.status, a.title, a.notes, a.modality,
                 s.name as service_name, u.name as professional_name, a.duration_minutes,
@@ -676,6 +676,14 @@ router.get('/:id/history', async (req, res) => {
          ORDER BY created_at DESC LIMIT 50`,
         [id, tenantId]
       ),
+      safeQuery(
+        `SELECT r.id, r.created_at as date, r.score, f.title as form_title, f.id as form_id
+         FROM form_responses r
+         JOIN forms f ON f.id = r.form_id
+         WHERE r.patient_id = ? AND f.tenant_id = ?
+         ORDER BY r.created_at DESC LIMIT 50`,
+        [id, tenantId]
+      ),
     ]);
 
     const timeline = [
@@ -741,6 +749,12 @@ router.get('/:id/history', async (req, res) => {
         title: ct.tool_type.includes('/') ? ct.tool_type.split('/')[1].toUpperCase() : 'Avaliação Clínica',
         subtitle: ct.tool_type,
       })),
+      ...formResponses.map(fr => ({
+        id: `fr-${fr.id}`, type: 'form', date: fr.date,
+        title: fr.form_title || 'Formulário respondido',
+        subtitle: fr.score != null ? `Pontuação: ${fr.score}` : null,
+        link_form_id: fr.form_id,
+      })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     res.json({ timeline, counts: {
@@ -752,7 +766,8 @@ router.get('/:id/history', async (req, res) => {
       documents: documents.length,
       notes: notes.length,
       pei: peis.length,
-      tools: clinicalTools.length
+      tools: clinicalTools.length,
+      forms: formResponses.length,
     }});
   } catch (err) {
     console.error(err);
