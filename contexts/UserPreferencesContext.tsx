@@ -18,6 +18,9 @@ export interface UserPreferences {
   agenda: {
     viewMode: 'day' | 'week' | 'month';
   };
+  caseStudies: {
+    viewMode: 'grid' | 'list';
+  };
   appearance: {
     theme: 'light' | 'dark' | 'auto';
     primaryColor: string;
@@ -41,6 +44,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   agenda: {
     viewMode: 'week',
   },
+  caseStudies: {
+    viewMode: 'grid',
+  },
   appearance: {
     theme: 'auto',
     primaryColor: 'Indigo',
@@ -51,11 +57,12 @@ function mergeWithDefaults(stored: any): UserPreferences {
   return {
     ...DEFAULT_PREFERENCES,
     ...stored,
-    comandas:  { ...DEFAULT_PREFERENCES.comandas,  ...stored?.comandas },
-    patients:  { ...DEFAULT_PREFERENCES.patients,  ...stored?.patients },
-    services:  { ...DEFAULT_PREFERENCES.services,  ...stored?.services },
-    agenda:    { ...DEFAULT_PREFERENCES.agenda,    ...stored?.agenda },
-    appearance:{ ...DEFAULT_PREFERENCES.appearance,...stored?.appearance },
+    comandas:    { ...DEFAULT_PREFERENCES.comandas,    ...stored?.comandas },
+    patients:    { ...DEFAULT_PREFERENCES.patients,    ...stored?.patients },
+    services:    { ...DEFAULT_PREFERENCES.services,    ...stored?.services },
+    agenda:      { ...DEFAULT_PREFERENCES.agenda,      ...stored?.agenda },
+    caseStudies: { ...DEFAULT_PREFERENCES.caseStudies, ...stored?.caseStudies },
+    appearance:  { ...DEFAULT_PREFERENCES.appearance,  ...stored?.appearance },
   };
 }
 

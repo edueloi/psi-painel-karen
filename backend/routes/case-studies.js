@@ -2,15 +2,17 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// Garante colunas extras na tabela case_study_cards
+// Garante colunas extras e ajustes na tabela case_study_cards
 (async () => {
-  const cols = [
+  const migrations = [
     'ALTER TABLE case_study_cards ADD COLUMN patient_id INT NULL',
     'ALTER TABLE case_study_cards ADD COLUMN description TEXT NULL',
     'ALTER TABLE case_study_cards ADD COLUMN tags_json TEXT NULL',
     'ALTER TABLE case_study_cards ADD COLUMN details_json TEXT NULL',
+    // title pode ser nulo quando o card é identificado pelo paciente
+    'ALTER TABLE case_study_cards MODIFY COLUMN title VARCHAR(255) NULL',
   ];
-  for (const sql of cols) {
+  for (const sql of migrations) {
     try { await db.query(sql); } catch (_) {}
   }
 })();
@@ -55,7 +57,7 @@ router.get('/boards/:boardId', async (req, res) => {
 
     for (const col of columns) {
       const [cards] = await db.query(
-        `SELECT c.*, p.full_name AS patient_name
+        `SELECT c.*, p.name AS patient_name
          FROM case_study_cards c
          LEFT JOIN patients p ON p.id = c.patient_id
          WHERE c.column_id = ?
@@ -198,7 +200,7 @@ router.post('/boards/:boardId/cards', async (req, res) => {
     );
 
     const [card] = await db.query(
-      `SELECT c.*, p.full_name AS patient_name
+      `SELECT c.*, p.name AS patient_name
        FROM case_study_cards c
        LEFT JOIN patients p ON p.id = c.patient_id
        WHERE c.id = ?`,
@@ -239,7 +241,7 @@ router.put('/cards/:cardId', async (req, res) => {
     );
 
     const [card] = await db.query(
-      `SELECT c.*, p.full_name AS patient_name
+      `SELECT c.*, p.name AS patient_name
        FROM case_study_cards c
        LEFT JOIN patients p ON p.id = c.patient_id
        WHERE c.id = ?`,

@@ -8,8 +8,6 @@ import {
   FileText,
   History,
   Layout,
-  LayoutGrid,
-  List as ListIcon,
   MessageSquare,
   MoreHorizontal,
   Paperclip,
@@ -19,12 +17,14 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { api } from '../services/api';
 import { Patient } from '../types';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Combobox } from '../components/UI/Combobox';
 import { Input, Select, TextArea } from '../components/UI/Input';
+import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSearch, FilterLineViewToggle } from '../components/UI/FilterLine';
 
 // --- Types ---
 interface Comment {
@@ -105,10 +105,11 @@ const EMPTY_BOARDS: CaseBoard[] = [];
 export const CaseStudies: React.FC = () => {
   const { t } = useLanguage();
   const { pushToast } = useToast();
+  const { preferences, updatePreference } = useUserPreferences();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // View State
-  const [currentView, setCurrentView] = useState<'list' | 'board'>('list');
+  const [currentView, setCurrentView] = useState<'grid' | 'list'>(preferences.caseStudies.viewMode);
   const [boards, setBoards] = useState<CaseBoard[]>(EMPTY_BOARDS);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(() => searchParams.get('board'));
   const [history, setHistory] = useState<{ msg: string; time: string }[]>([]);
@@ -270,12 +271,7 @@ export const CaseStudies: React.FC = () => {
           id: String(c.id),
           title: c.title,
           color: c.color || 'bg-slate-400',
-          cards: []
-      }));
-
-      const columnMap = new Map(columns.map(c => [c.id, c]));
-      (row.cards || []).forEach((card: any) => {
-          const mapped: CaseCard = {
+          cards: (c.cards || []).map((card: any): CaseCard => ({
               id: String(card.id),
               columnId: String(card.column_id),
               patientId: card.patient_id ? String(card.patient_id) : undefined,
@@ -286,10 +282,8 @@ export const CaseStudies: React.FC = () => {
               attachments: [],
               comments: [],
               createdAt: card.created_at || new Date().toISOString()
-          };
-          const col = columnMap.get(String(card.column_id));
-          if (col) col.cards.push(mapped);
-      });
+          }))
+      }));
 
       return {
           id: String(row.id),
@@ -657,90 +651,99 @@ export const CaseStudies: React.FC = () => {
 
       {!activeBoardId ? (
           <div className="space-y-6 overflow-y-auto pb-4">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 px-1">
-                  <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
-                      <Search size={16} className="text-slate-400" />
-                      <input
-                        value={boardSearch}
-                        onChange={(e) => setBoardSearch(e.target.value)}
-                        className="w-full lg:w-80 bg-transparent text-sm outline-none text-slate-600 placeholder:text-slate-400"
-                        placeholder="Buscar quadro por nome ou descricao"
-                      />
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setCurrentView('list')}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border ${currentView === 'list' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
-                      >
-                          <LayoutGrid size={14} /> Grade
-                      </button>
-                      <button
-                        onClick={() => setCurrentView('board')}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border ${currentView === 'board' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
-                      >
-                          <ListIcon size={14} /> Lista
-                      </button>
-                  </div>
-              </div>
+              <FilterLine>
+                  <FilterLineSection grow>
+                      <FilterLineItem grow>
+                          <FilterLineSearch
+                            value={boardSearch}
+                            onChange={setBoardSearch}
+                            placeholder="Buscar quadro por nome ou descrição"
+                          />
+                      </FilterLineItem>
+                  </FilterLineSection>
+                  <FilterLineSection>
+                      <FilterLineItem>
+                          <FilterLineViewToggle
+                            value={currentView}
+                            onChange={(v) => {
+                                const mode = v as 'grid' | 'list';
+                                setCurrentView(mode);
+                                updatePreference('caseStudies', { viewMode: mode });
+                            }}
+                            gridValue="grid"
+                            listValue="list"
+                          />
+                      </FilterLineItem>
+                  </FilterLineSection>
+              </FilterLine>
 
               {isLoading ? (
                   <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
                       <Layout size={48} className="opacity-20 mb-4" />
                       <p>Carregando...</p>
                   </div>
-              ) : currentView === 'list' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ) : currentView === 'grid' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                       {filteredBoards.map(board => (
-                          <div 
+                          <div
                             key={board.id}
                             onClick={() => setActiveBoardId(board.id)}
-                            className="group bg-white rounded-2xl p-6 border border-slate-100 hover:border-indigo-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative"
+                            className="group bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer relative overflow-hidden"
                           >
-                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-indigo-50/60 via-white to-white rounded-2xl"></div>
-                              <div className="relative z-10">
+                              {/* topo colorido */}
+                              <div className="h-1.5 w-full bg-gradient-to-r from-indigo-400 to-violet-400 opacity-70 group-hover:opacity-100 transition-opacity" />
+                              <div className="p-5">
                                   <div className="flex justify-between items-start mb-4">
-                                      <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg">
-                                          {board.title.charAt(0)}
+                                      <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-black text-lg">
+                                          {board.title.charAt(0).toUpperCase()}
                                       </div>
-                                      <button onClick={(e) => handleDeleteBoard(e, board.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                                          <Trash2 size={18} />
+                                      <button
+                                        onClick={(e) => handleDeleteBoard(e, board.id)}
+                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                      >
+                                          <Trash2 size={15} />
                                       </button>
                                   </div>
-                                  <h3 className="font-bold text-lg text-slate-800 mb-2 group-hover:text-indigo-600 transition-colors">{board.title}</h3>
-                                  <p className="text-sm text-slate-500 mb-4 line-clamp-2 h-10">{board.description}</p>
+                                  <h3 className="font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors truncate">{board.title}</h3>
+                                  <p className="text-xs text-slate-400 mb-4 line-clamp-2 min-h-[2.5rem]">{board.description || 'Sem descrição'}</p>
 
-                                  <div className="flex items-center justify-between text-xs text-slate-400 pt-4 border-t border-slate-50">
-                                      <span className="flex items-center gap-1"><Layout size={14} /> {getBoardColumnCount(board)} colunas</span>
-                                      <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(board.createdAt).toLocaleDateString()}</span>
+                                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-3 border-t border-slate-50">
+                                      <div className="flex items-center gap-3">
+                                          <span className="flex items-center gap-1"><Layout size={12} /> {getBoardColumnCount(board)} col.</span>
+                                          <span className="flex items-center gap-1"><FileText size={12} /> {getBoardCardCount(board)} casos</span>
+                                      </div>
+                                      <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(board.createdAt).toLocaleDateString('pt-BR')}</span>
                                   </div>
                               </div>
                           </div>
                       ))}
                   </div>
               ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                       {filteredBoards.map(board => (
                           <div
                             key={board.id}
                             onClick={() => setActiveBoardId(board.id)}
-                            className="group bg-white rounded-2xl p-5 border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                            className="group bg-white rounded-xl px-5 py-4 border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center gap-4"
                           >
-                              <div className="flex items-center gap-4 min-w-0">
-                                  <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg shrink-0">
-                                      {board.title.charAt(0)}
-                                  </div>
-                                  <div className="min-w-0">
-                                      <h3 className="font-bold text-slate-800 truncate">{board.title}</h3>
-                                      <p className="text-sm text-slate-500 line-clamp-1">{board.description}</p>
-                                  </div>
+                              <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-black text-sm shrink-0">
+                                  {board.title.charAt(0).toUpperCase()}
                               </div>
-                              <div className="flex items-center gap-4 text-xs text-slate-400">
-                                  <span className="flex items-center gap-1"><Layout size={14} /> {getBoardColumnCount(board)} colunas</span>
-                                  <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(board.createdAt).toLocaleDateString()}</span>
-                                  <button onClick={(e) => handleDeleteBoard(e, board.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                                      <Trash2 size={18} />
-                                  </button>
+                              <div className="flex-1 min-w-0">
+                                  <p className="font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{board.title}</p>
+                                  {board.description && <p className="text-xs text-slate-400 truncate">{board.description}</p>}
                               </div>
+                              <div className="hidden sm:flex items-center gap-4 text-[11px] text-slate-400 shrink-0">
+                                  <span className="flex items-center gap-1"><Layout size={12} /> {getBoardColumnCount(board)} col.</span>
+                                  <span className="flex items-center gap-1"><FileText size={12} /> {getBoardCardCount(board)} casos</span>
+                                  <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(board.createdAt).toLocaleDateString('pt-BR')}</span>
+                              </div>
+                              <button
+                                onClick={(e) => handleDeleteBoard(e, board.id)}
+                                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                              >
+                                  <Trash2 size={15} />
+                              </button>
                           </div>
                       ))}
                   </div>
@@ -754,117 +757,118 @@ export const CaseStudies: React.FC = () => {
               )}
           </div>
       ) : (
-          <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
-              <div className="flex gap-4 h-full px-2 min-w-0">
-                  {boardLoading && (
-                      <div className="w-full flex items-center justify-center text-slate-400 text-sm font-bold py-10">
+          <div className="flex-1 overflow-x-auto overflow-y-hidden -mx-4 sm:-mx-6 lg:-mx-0">
+              <div className="flex gap-3 h-full px-4 sm:px-6 lg:px-0 min-w-max pb-4">
+                  {boardLoading ? (
+                      <div className="flex items-center justify-center text-slate-400 text-sm font-bold py-10 w-64">
                           Carregando...
                       </div>
-                  )}
-                  {activeBoard?.columns.map(col => (
-                      <div
-                        key={col.id}
-                        className="w-[85vw] sm:w-80 flex-shrink-0 flex flex-col bg-slate-50 rounded-2xl border border-slate-200 max-h-full"
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, col.id)}
-                      >
-                          <div className="p-4 flex items-center justify-between shrink-0 group/col-header">
-                              <div className="flex items-center gap-2">
-                                  <div className={`w-3 h-3 rounded-full ${col.color}`}></div>
-                                  <h4 className="font-bold text-slate-700 text-sm">{col.title}</h4>
-                                  <span className="bg-slate-200 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full">{col.cards.length}</span>
+                  ) : activeBoard?.columns.map(col => {
+                      const filtered = col.cards.filter(card => {
+                          if (!cardSearch.trim()) return true;
+                          const q = cardSearch.toLowerCase();
+                          return card.patientName.toLowerCase().includes(q)
+                              || card.description.toLowerCase().includes(q)
+                              || card.tags.some(tag => tag.toLowerCase().includes(q));
+                      });
+                      return (
+                          <div
+                            key={col.id}
+                            className="w-[268px] flex-shrink-0 flex flex-col bg-slate-50/80 rounded-xl border border-slate-200 max-h-full"
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, col.id)}
+                          >
+                              {/* Header da coluna */}
+                              <div className="px-3 py-3 flex items-center justify-between shrink-0 group/col-header border-b border-slate-200/70">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                      <div className={`w-2 h-2 rounded-full shrink-0 ${col.color}`} />
+                                      <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest truncate">{col.title}</span>
+                                      <span className="text-[11px] font-bold text-slate-400 shrink-0">{col.cards.length}</span>
+                                  </div>
+                                  <div className="relative shrink-0">
+                                      <button
+                                        onClick={() => setOpenColumnMenuId(openColumnMenuId === col.id ? null : col.id)}
+                                        className="p-1 hover:bg-slate-200 rounded text-slate-400 opacity-0 group-hover/col-header:opacity-100 transition-opacity"
+                                      >
+                                          <MoreHorizontal size={14} />
+                                      </button>
+                                      {openColumnMenuId === col.id && (
+                                          <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-20 w-32">
+                                              <button onClick={() => openEditColumn(col)} className="w-full text-left px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-2">
+                                                  <FileText size={13} /> Editar
+                                              </button>
+                                              <button onClick={() => deleteColumn(col.id)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg flex items-center gap-2">
+                                                  <Trash2 size={13} /> Excluir
+                                              </button>
+                                          </div>
+                                      )}
+                                  </div>
                               </div>
-                              <div className="relative">
-                                  <button onClick={() => setOpenColumnMenuId(openColumnMenuId === col.id ? null : col.id)} className="p-1 hover:bg-slate-200 rounded text-slate-400 opacity-0 group-hover/col-header:opacity-100 transition-opacity">
-                                      <MoreHorizontal size={16} />
-                                  </button>
-                                  {openColumnMenuId === col.id && (
-                                      <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-20 w-32 animate-[scaleIn_0.1s_ease-out]">
-                                          <button
-                                            onClick={() => openEditColumn(col)}
-                                            className="w-full text-left px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-2"
-                                          >
-                                              <FileText size={14} /> Editar
-                                          </button>
-                                          <button onClick={() => deleteColumn(col.id)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg flex items-center gap-2">
-                                              <Trash2 size={14} /> Excluir
-                                          </button>
+
+                              {/* Cards */}
+                              <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+                                  {filtered.map(card => (
+                                      <div
+                                        key={card.id}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, card, col.id)}
+                                        onClick={() => openCardDetail({ ...card, columnId: col.id })}
+                                        className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md cursor-pointer hover:border-indigo-200 transition-all group/card"
+                                      >
+                                          {(card.tags.length > 0 || card.details?.priority || card.details?.risk_level) && (
+                                              <div className="flex flex-wrap gap-1 mb-2">
+                                                  {card.tags.map(tag => (
+                                                      <span key={tag} className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded uppercase tracking-wide">{tag}</span>
+                                                  ))}
+                                                  {card.details?.priority && (
+                                                      <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded uppercase tracking-wide">{card.details.priority}</span>
+                                                  )}
+                                                  {card.details?.risk_level && (
+                                                      <span className="px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-bold rounded uppercase tracking-wide">{card.details.risk_level}</span>
+                                                  )}
+                                              </div>
+                                          )}
+                                          <p className="font-semibold text-slate-800 text-sm leading-snug mb-1 group-hover/card:text-indigo-600 transition-colors">
+                                              {card.patientName}
+                                          </p>
+                                          {card.description && (
+                                              <p className="text-xs text-slate-400 line-clamp-2 mb-2">{card.description}</p>
+                                          )}
+                                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-1">
+                                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                  {card.attachments.length > 0 && (
+                                                      <span className="flex items-center gap-1"><Paperclip size={11} /> {card.attachments.length}</span>
+                                                  )}
+                                                  {card.comments.length > 0 && (
+                                                      <span className="flex items-center gap-1"><MessageSquare size={11} /> {card.comments.length}</span>
+                                                  )}
+                                              </div>
+                                              <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-black">
+                                                  {card.patientName.charAt(0).toUpperCase()}
+                                              </div>
+                                          </div>
                                       </div>
+                                  ))}
+                                  {col.cards.length === 0 && (
+                                      <p className="text-center text-[11px] text-slate-400 py-8">Sem casos</p>
+                                  )}
+                                  {col.cards.length > 0 && cardSearch.trim() && filtered.length === 0 && (
+                                      <p className="text-center text-[11px] text-slate-400 py-8">Sem resultados</p>
                                   )}
                               </div>
-                          </div>
 
-                          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 custom-scrollbar">
-                              {col.cards
-                                .filter(card => {
-                                    if (!cardSearch.trim()) return true;
-                                    const q = cardSearch.toLowerCase();
-                                    const tagMatch = card.tags.some(tag => tag.toLowerCase().includes(q));
-                                    return card.patientName.toLowerCase().includes(q) || card.description.toLowerCase().includes(q) || tagMatch;
-                                })
-                                .map(card => (
-                                  <div
-                                    key={card.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, card, col.id)}
-                                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing group hover:border-indigo-200 transition-all"
+                              {/* Botão adicionar */}
+                              <div className="p-2 shrink-0">
+                                  <button
+                                    onClick={() => { setTargetColumnId(col.id); setIsCardModalOpen(true); }}
+                                    className="w-full py-2 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
                                   >
-                                  <div className="flex flex-wrap gap-1 mb-2">
-                                          {card.tags.map(tag => (
-                                              <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-md uppercase tracking-wider">{tag}</span>
-                                          ))}
-                                          {card.details?.priority && (
-                                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded-md uppercase tracking-wider">
-                                                {card.details.priority}
-                                              </span>
-                                          )}
-                                          {card.details?.risk_level && (
-                                              <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-bold rounded-md uppercase tracking-wider">
-                                                {card.details.risk_level}
-                                              </span>
-                                          )}
-                                      </div>
-                                      <h5
-                                        className="font-bold text-slate-800 text-sm mb-1 cursor-pointer hover:text-indigo-600"
-                                        onClick={() => openCardDetail({ ...card, columnId: col.id })}
-                                      >
-                                        {card.patientName}
-                                      </h5>
-                                      <p className="text-xs text-slate-500 line-clamp-3 mb-3">{card.description}</p>
-
-                                      <div className="flex items-center justify-between pt-2 border-t border-slate-50 text-slate-400">
-                                          <div className="flex items-center gap-3 text-xs">
-                                              {card.attachments.length > 0 && <span className="flex items-center gap-1 hover:text-indigo-500"><Paperclip size={12} /> {card.attachments.length}</span>}
-                                              {card.comments.length > 0 && <span className="flex items-center gap-1 hover:text-indigo-500"><MessageSquare size={12} /> {card.comments.length}</span>}
-                                          </div>
-                                          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                                              {card.patientName.charAt(0)}
-                                          </div>
-                                      </div>
-                                  </div>
-                              ))}
-                              {col.cards.length === 0 && (
-                                  <div className="text-center text-xs text-slate-400 py-6">Sem casos nesta coluna</div>
-                              )}
-                              {col.cards.length > 0 && cardSearch.trim() && col.cards.filter(card => {
-                                  const q = cardSearch.toLowerCase();
-                                  const tagMatch = card.tags.some(tag => tag.toLowerCase().includes(q));
-                                  return card.patientName.toLowerCase().includes(q) || card.description.toLowerCase().includes(q) || tagMatch;
-                              }).length === 0 && (
-                                  <div className="text-center text-xs text-slate-400 py-6">Sem resultados para o filtro</div>
-                              )}
+                                      <Plus size={13} /> {t('cases.newCard')}
+                                  </button>
+                              </div>
                           </div>
-
-                          <div className="p-3 pt-0 shrink-0">
-                              <button
-                                onClick={() => { setTargetColumnId(col.id); setIsCardModalOpen(true); }}
-                                className="w-full py-2 flex items-center justify-center gap-2 text-xs font-bold text-slate-500 hover:bg-slate-200/50 hover:text-slate-700 rounded-lg transition-colors border border-dashed border-slate-300"
-                              >
-                                  <Plus size={14} /> {t('cases.newCard')}
-                              </button>
-                          </div>
-                      </div>
-                  ))}
+                      );
+                  })}
               </div>
           </div>
       )}
