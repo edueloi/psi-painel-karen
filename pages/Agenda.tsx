@@ -819,6 +819,7 @@ export const Agenda: React.FC = () => {
     setFormData({
         ...apt,
         appointment_date: toLocalISO(apt.start),
+        _originalDate: toLocalISO(apt.start),
         psychologist_id: apt.professional_id || apt.psychologist_id,
         reschedule_reason: apt.reschedule_reason || '',
         comanda_id: apt.comanda_id || ''
@@ -830,9 +831,11 @@ export const Agenda: React.FC = () => {
   const handleSave = async () => {
     if (isSaving) return;
 
-    // Observação obrigatória quando status é "faltou"
-    if (formData.status === 'no-show' && !formData.notes?.trim()) {
-      pushToast('error', 'Preencha as Observações ao marcar como "Faltou".');
+    // Observação obrigatória quando status é "faltou" ou "cancelado"
+    if ((formData.status === 'no-show' || formData.status === 'cancelled') && !formData.notes?.trim()) {
+      pushToast('error', formData.status === 'no-show'
+        ? 'Informe o motivo da falta no campo Observações.'
+        : 'Informe o motivo do cancelamento no campo Observações.');
       return;
     }
 
@@ -841,9 +844,12 @@ export const Agenda: React.FC = () => {
         const isPackage = String(formData.service_id).startsWith('pkg_');
         const cleanServiceId = isPackage ? formData.service_id.replace('pkg_', '') : formData.service_id;
 
+        // Só envia start_time se o usuário realmente alterou a data/hora
+        const dateChanged = !formData._originalDate || formData.appointment_date !== formData._originalDate;
+
         const payload = {
             ...formData,
-            start_time: formData.appointment_date,
+            start_time: dateChanged ? formData.appointment_date : null,
             professional_id: formData.psychologist_id || formData.professional_id,
             service_id: isPackage ? null : cleanServiceId,
             package_id: isPackage ? cleanServiceId : null
@@ -1695,20 +1701,48 @@ export const Agenda: React.FC = () => {
                   </div>
               )}
 
-              <div className="space-y-3">
-                  <div className="flex items-center gap-2 ml-1">
-                      <div className="w-1.5 h-4 bg-slate-400 rounded-full"></div>
-                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Observações e Histórico</h4>
+              {(() => {
+                const isAbsence = formData.status === 'no-show';
+                const isCancelled = formData.status === 'cancelled';
+                const needsReason = isAbsence || isCancelled;
+                const notesEmpty = !formData.notes?.trim();
+                const notesLabel = isAbsence
+                  ? 'Motivo da Falta'
+                  : isCancelled
+                  ? 'Motivo do Cancelamento'
+                  : 'Observações e Histórico';
+                const notesColor = needsReason ? 'bg-rose-500' : 'bg-slate-400';
+                const borderClass = needsReason && notesEmpty
+                  ? '!border-rose-400 focus:!border-rose-600'
+                  : 'border-slate-200';
+                return (
+                  <div className="space-y-3">
+                      <div className="flex items-center gap-2 ml-1">
+                          <div className={`w-1.5 h-4 ${notesColor} rounded-full`}></div>
+                          <h4 className={`text-xs font-bold uppercase tracking-wider ${needsReason ? 'text-rose-600' : 'text-slate-800'}`}>
+                            {notesLabel}{needsReason && <span className="text-rose-500 ml-1">*</span>}
+                          </h4>
+                      </div>
+                      <TextArea
+                        placeholder={isAbsence
+                          ? 'Descreva o motivo da falta...'
+                          : isCancelled
+                          ? 'Descreva o motivo do cancelamento...'
+                          : 'Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes...'}
+                        value={formData.notes || ''}
+                        onChange={e => setFormData({...formData, notes: e.target.value})}
+                        className={`min-h-[100px] !rounded-xl shadow-sm ${borderClass}`}
+                      />
+                      {needsReason && notesEmpty && (
+                        <p className="text-[10px] font-bold text-rose-500 ml-1 flex items-center gap-1">
+                          <AlertCircle size={10} /> Campo obrigatório para registrar {isAbsence ? 'falta' : 'cancelamento'}
+                        </p>
+                      )}
                   </div>
-                  <TextArea
-                    placeholder="Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes..."
-                    value={formData.notes || ''}
-                    onChange={e => setFormData({...formData, notes: e.target.value})}
-                    className="min-h-[100px] !rounded-xl border-slate-200 shadow-sm"
-                  />
-              </div>
+                );
+              })()}
 
-              {formData.id && (
+              {formData.id && formData.status !== 'no-show' && formData.status !== 'cancelled' && (
                 <div className="bg-amber-50/30 p-5 rounded-3xl border border-dashed border-amber-200/50 flex flex-col gap-3">
                     <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest ml-1">Motivo da Alteração / Reagendamento</p>
                     <TextArea

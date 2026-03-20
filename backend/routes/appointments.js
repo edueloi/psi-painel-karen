@@ -578,7 +578,7 @@ router.put('/:id', async (req, res) => {
     } = req.body;
 
     const [existing] = await db.query(
-      'SELECT id, status as old_status, comanda_id as old_comanda FROM appointments WHERE id = ? AND tenant_id = ?',
+      'SELECT id, status as old_status, comanda_id as old_comanda, start_time as old_start, duration_minutes as old_duration FROM appointments WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
@@ -589,20 +589,21 @@ router.put('/:id', async (req, res) => {
     let formattedStart = null;
     let formattedEnd = null;
 
-    if (start_time) {
-      const startDate = new Date(start_time);
-      formattedStart = startDate.toISOString().slice(0, 19).replace('T', ' ');
+    // Determina o start efetivo: novo ou mantém o do banco
+    const effectiveStartRaw = start_time || existing[0].old_start;
+    const effectiveDur = parseInt(duration_minutes) || existing[0].old_duration || 50;
 
-      // Recalcula end_time com base no start_time + duration quando end_time não é enviado
-      if (!end_time) {
-        const dur = parseInt(duration_minutes) || 50;
-        const endDate = new Date(startDate.getTime() + dur * 60000);
-        formattedEnd = endDate.toISOString().slice(0, 19).replace('T', ' ');
-      }
+    if (start_time) {
+      formattedStart = new Date(start_time).toISOString().slice(0, 19).replace('T', ' ');
     }
 
     if (end_time) {
       formattedEnd = new Date(end_time).toISOString().slice(0, 19).replace('T', ' ');
+    } else if (effectiveStartRaw) {
+      // Sempre recalcula end_time = start + duration para garantir consistência
+      const startDate = new Date(effectiveStartRaw);
+      const endDate = new Date(startDate.getTime() + effectiveDur * 60000);
+      formattedEnd = endDate.toISOString().slice(0, 19).replace('T', ' ');
     }
 
     const finalProfessionalId = professional_id || psychologist_id || null;
@@ -640,7 +641,7 @@ router.put('/:id', async (req, res) => {
         color || null,
         modality || 'presencial',
         type || 'consulta',
-        parseInt(duration_minutes) || 50,
+        effectiveDur,
         meeting_url || null,
         reschedule_reason || null,
         finalComandaId,
