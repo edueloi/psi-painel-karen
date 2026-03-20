@@ -226,6 +226,42 @@ export const ExternalForm: React.FC = () => {
     }
   };
 
+  /* metadata and SEO */
+  useEffect(() => {
+    if (form && professional) {
+      const profName = professional.name || '';
+      const crpText = professional.crp ? ` (${professional.crp})` : '';
+      const fullTitle = `${form.title} | ${profName}${crpText}`;
+      document.title = fullTitle;
+
+      // Update meta tags for standard SEO and social sharing (WhatsApp/LinkedIn)
+      const updateMeta = (key: string, value: string, attr = 'property') => {
+        let el = document.querySelector(`meta[${attr}="${key}"]`);
+        if (!el) {
+          el = document.createElement('meta');
+          el.setAttribute(attr, key);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', value);
+      };
+
+      const description = `${form.title} - Formulário clínico especializado do profissional ${profName}. ${form.description || 'Preencha este formulário para sua avaliação.'}`;
+      updateMeta('name', description, 'name');
+      updateMeta('description', description, 'name');
+      updateMeta('og:title', fullTitle);
+      updateMeta('og:description', description);
+      updateMeta('og:type', 'website');
+      updateMeta('twitter:card', 'summary_large_image', 'name');
+      updateMeta('twitter:title', fullTitle, 'name');
+      updateMeta('twitter:description', description, 'name');
+      
+      if (professional.clinic_logo_url) {
+        updateMeta('og:image', professional.clinic_logo_url);
+        updateMeta('twitter:image', professional.clinic_logo_url, 'name');
+      }
+    }
+  }, [form, professional]);
+
   /* ─── renders ─── */
   if (loading) return <LoadingScreen />;
   if (loadError || !form) return <ErrorScreen message={loadError || ''} hash={hash} />;
@@ -277,6 +313,16 @@ export const ExternalForm: React.FC = () => {
 
         {/* Title block */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-3 mb-6 bg-slate-50/50 p-4 rounded-2xl border border-dashed border-slate-200">
+             <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-indigo-600 shadow-sm">
+                <ShieldCheck size={20} />
+             </div>
+             <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Responsável Técnico</p>
+                <p className="text-sm font-bold text-slate-700">{profName} {crp && <span className="text-slate-400 font-medium">({crp})</span>}</p>
+             </div>
+          </div>
+
           <h1 className="text-2xl font-black text-slate-800 mb-2 leading-tight">{form.title}</h1>
           {form.description && <p className="text-slate-500 text-sm leading-relaxed font-medium">{form.description}</p>}
           {hasInterpretations && (
