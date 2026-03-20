@@ -386,7 +386,11 @@ router.post('/public/:hash/responses', async (req, res) => {
 
         // Encontra a interpretação pelo score
         const interpretation = score != null
-          ? formInterpretations.find(i => score >= (i.minScore ?? i.min_score ?? 0) && score <= (i.maxScore ?? i.max_score ?? 9999))
+          ? formInterpretations.find(i => {
+              const min = i.minScore ?? i.min_score ?? 0;
+              const max = i.maxScore ?? i.max_score ?? 9999;
+              return score >= min && score <= max;
+            })
           : null;
 
         // Cor da interpretação
@@ -396,7 +400,7 @@ router.post('/public/:hash/responses', async (req, res) => {
           : '#eff6ff';
 
         // Gera as linhas de resposta
-        const answerRows = formQuestions.map(q => {
+        const answerRows = formQuestions.map((q, idx) => {
           const rawVal = parsedAnswers[q.id];
           let displayVal = '—';
           if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
@@ -407,11 +411,12 @@ router.post('/public/:hash/responses', async (req, res) => {
             } else {
               // Tenta resolver label da opção
               const opt = (q.options || []).find(o => String(o.value) === String(rawVal));
-              displayVal = opt ? (opt.label || String(rawVal)) : String(rawVal);
+              displayVal = opt ? (opt.label || opt.text || String(rawVal)) : String(rawVal);
             }
           }
+          const questionText = q.text || q.label || q.question_text || `Pergunta ${idx + 1}`;
           return `<tr>
-            <td style="padding:10px 14px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;width:55%;vertical-align:top;line-height:1.5;">${q.label || `Pergunta ${q.id}`}</td>
+            <td style="padding:10px 14px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;width:55%;vertical-align:top;line-height:1.5;">${questionText}</td>
             <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:top;line-height:1.5;">${displayVal}</td>
           </tr>`;
         }).join('');
@@ -443,7 +448,7 @@ router.post('/public/:hash/responses', async (req, res) => {
         const interpretationSection = interpretation ? `
           <div style="background:${interpBg};border-left:4px solid ${interpColor};border-radius:0 12px 12px 0;padding:16px 20px;margin-bottom:24px;">
             <p style="margin:0 0 4px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:${interpColor};">🔍 Interpretação Clínica</p>
-            <p style="margin:4px 0 0;font-size:16px;font-weight:900;color:#1e293b;">${interpretation.label}</p>
+            <p style="margin:4px 0 0;font-size:16px;font-weight:900;color:#1e293b;">${interpretation.resultTitle || interpretation.label || interpretation.title || ''}</p>
             ${interpretation.description ? `<p style="margin:8px 0 0;font-size:13px;color:#475569;line-height:1.6;">${interpretation.description}</p>` : ''}
           </div>` : '';
 
