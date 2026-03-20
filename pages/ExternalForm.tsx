@@ -104,6 +104,7 @@ export const ExternalForm: React.FC = () => {
   const { hash } = useParams<{ hash: string }>();
   const [searchParams] = useSearchParams();
   const patientId = searchParams.get('p');
+  const shareToken = searchParams.get('u'); // token do profissional que compartilhou
 
   const [form, setForm] = useState<ClinicalForm | null>(null);
   const [professional, setProfessional] = useState<any>(null);
@@ -209,7 +210,8 @@ export const ExternalForm: React.FC = () => {
     setScoreResult({ total, interpretation });
     setSubmitting(true);
     try {
-      await api.post(`/forms/public/${hash}/responses`, {
+      const uParam = shareToken ? `?u=${shareToken}` : '';
+      await api.post(`/forms/public/${hash}/responses${uParam}`, {
         answers,
         score: total,
         respondent_name: patientName || identification.name,

@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { parseShareToken } = require('../utils/shareToken');
+const { sendMail, templates } = require('../services/emailService');
 
 // Helper: pack questions/interpretations/theme into the fields LONGTEXT column
 function packFields(body) {
@@ -305,15 +306,29 @@ router.post('/public/:hash/responses', async (req, res) => {
   try {
     const { respondent_name, respondent_email, respondent_phone, patient_id, answers, score } = req.body;
 
+    // Resolve o profissional correto via share token (?u=TOKEN)
+    const shareUserId = req.query.u ? parseShareToken(req.query.u) : null;
+
     const [forms] = await db.query(
-      'SELECT id, title, tenant_id FROM forms WHERE hash = ? AND (is_public = true OR is_global = true)',
-      [req.params.hash]
+      `SELECT f.id, f.title, f.tenant_id,
+              COALESCE(?, f.created_by) AS resolved_user_id
+       FROM forms f
+       WHERE f.hash = ? AND (f.is_public = true OR f.is_global = true)`,
+      [shareUserId || null, req.params.hash]
     );
     if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
 
     const formId = forms[0].id;
     const formTitle = forms[0].title;
-    const tenantId = forms[0].tenant_id;
+    const resolvedUserId = forms[0].resolved_user_id;
+
+    // Busca o profissional resolvido para obter tenant_id e email
+    const [users] = await db.query(
+      'SELECT id, name, email, tenant_id FROM users WHERE id = ?',
+      [resolvedUserId]
+    );
+    const professional = users[0] || null;
+    const tenantId = professional?.tenant_id || forms[0].tenant_id;
 
     const data = JSON.stringify({ answers: answers || {}, respondent_phone: respondent_phone || null });
 
@@ -322,25 +337,75 @@ router.post('/public/:hash/responses', async (req, res) => {
       [formId, patient_id || null, respondent_name || null, respondent_email || null, data, score || 0]
     );
 
-    // Criar alerta no sistema para o profissional
+    const now = new Date();
+    const formattedDate = now.toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
+    });
+    const respondentLabel = respondent_name || 'Um paciente';
+    const alertLink = `/formularios/${formId}/respostas`;
+
+    // Alerta no sistema
     try {
-      const now = new Date();
-      const formattedDate = now.toLocaleString('pt-BR', { 
-        day: '2-digit', month: '2-digit', year: 'numeric', 
-        hour: '2-digit', minute: '2-digit',
-        timeZone: 'America/Sao_Paulo'
-      });
-      
-      const alertTitle = '📝 Formulário Respondido';
-      const alertMessage = `${respondent_name || 'Um paciente'} enviou uma resposta para "${formTitle}" em ${formattedDate}.`;
-      const alertLink = `/formularios/${formId}/respostas`;
-      
       await db.query(
         'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
-        [tenantId, alertTitle, alertMessage, 'success', alertLink]
+        [
+          tenantId,
+          '📝 Formulário Respondido',
+          `${respondentLabel} enviou uma resposta para "${formTitle}" em ${formattedDate}.`,
+          'success',
+          alertLink
+        ]
       );
     } catch (alertErr) {
       console.error('Erro ao criar alerta de formulário:', alertErr);
+    }
+
+    // Email para o profissional
+    if (professional?.email) {
+      try {
+        const scoreText = score != null ? `Score: ${score}` : '';
+        const emailHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr><td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:20px 20px 0 0;padding:32px;text-align:center;">
+          <p style="margin:0 0 8px;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.6);">PsiFlux</p>
+          <h1 style="margin:0;font-size:22px;font-weight:900;color:#fff;">📝 Formulário Respondido</h1>
+        </td></tr>
+        <tr><td style="background:#fff;padding:32px;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
+          <p style="margin:0 0 20px;font-size:15px;color:#475569;">Olá, <strong>${professional.name || 'Profissional'}</strong> 👋</p>
+          <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:16px;padding:24px;margin-bottom:24px;">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#6366f1;">Nova Resposta</p>
+            <p style="margin:8px 0 0;font-size:20px;font-weight:900;color:#1e293b;">${respondentLabel}</p>
+            <p style="margin:4px 0 0;font-size:14px;color:#475569;"><strong>${formTitle}</strong></p>
+            <p style="margin:8px 0 0;font-size:13px;color:#64748b;">${formattedDate}</p>
+            ${scoreText ? `<p style="margin:12px 0 0;font-size:16px;font-weight:900;color:#4f46e5;">${scoreText}</p>` : ''}
+          </div>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="https://psiflux.com.br${alertLink}" style="display:inline-block;background:#4f46e5;color:#fff;font-weight:900;font-size:14px;padding:14px 32px;border-radius:12px;text-decoration:none;">Ver Resposta Completa</a>
+          </div>
+        </td></tr>
+        <tr><td style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 20px 20px;padding:20px;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#94a3b8;">Email automático · PsiFlux · Não responda este email.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+        await sendMail(
+          professional.email,
+          `📝 Nova resposta: ${formTitle} — ${respondentLabel}`,
+          emailHtml
+        );
+      } catch (emailErr) {
+        console.error('Erro ao enviar email de formulário respondido:', emailErr);
+      }
     }
 
     res.json({ message: 'Resposta enviada com sucesso!' });
