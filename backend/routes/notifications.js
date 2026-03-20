@@ -24,6 +24,7 @@ const DEFAULT_PREFS = {
   birthday_reminder: false,
   weekly_report: false,
   monthly_report: false,
+  form_response: false,
 };
 
 // GET /notifications/preferences — preferências do usuário logado

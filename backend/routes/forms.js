@@ -322,9 +322,9 @@ router.post('/public/:hash/responses', async (req, res) => {
     const formTitle = forms[0].title;
     const resolvedUserId = forms[0].resolved_user_id;
 
-    // Busca o profissional resolvido para obter tenant_id e email
+    // Busca o profissional resolvido para obter tenant_id, email e preferências
     const [users] = await db.query(
-      'SELECT id, name, email, tenant_id FROM users WHERE id = ?',
+      'SELECT id, name, email, tenant_id, email_preferences FROM users WHERE id = ?',
       [resolvedUserId]
     );
     const professional = users[0] || null;
@@ -362,8 +362,11 @@ router.post('/public/:hash/responses', async (req, res) => {
       console.error('Erro ao criar alerta de formulário:', alertErr);
     }
 
-    // Email para o profissional
-    if (professional?.email) {
+    // Email para o profissional (apenas se a preferência estiver ativada)
+    const emailPrefs = professional?.email_preferences
+      ? (typeof professional.email_preferences === 'string' ? JSON.parse(professional.email_preferences) : professional.email_preferences)
+      : {};
+    if (professional?.email && emailPrefs.enabled && emailPrefs.form_response) {
       try {
         const scoreText = score != null ? `Score: ${score}` : '';
         const emailHtml = `<!DOCTYPE html>

@@ -4,7 +4,7 @@ import {
   Settings as SettingsIcon, Palette, Bell, Globe, Moon, Monitor, Smartphone,
   Check, ChevronRight, ShieldCheck, Mail,
   Save, AlertTriangle, Clock, Send, Loader2, Calendar,
-  BarChart2, FileText, UserCheck, Users2, ExternalLink, Zap,
+  BarChart2, FileText, UserCheck, Users2, ExternalLink, Zap, ClipboardList,
   MessageSquare, Video, FileCode, Plug, ArrowRight, Users, Shield,
   Phone, Briefcase
 } from 'lucide-react';
@@ -27,6 +27,7 @@ type EmailPrefs = {
   birthday_reminder: boolean;
   weekly_report: boolean;
   monthly_report: boolean;
+  form_response: boolean;
 };
 
 const DEFAULT_EMAIL_PREFS: EmailPrefs = {
@@ -38,6 +39,7 @@ const DEFAULT_EMAIL_PREFS: EmailPrefs = {
   birthday_reminder: false,
   weekly_report: false,
   monthly_report: false,
+  form_response: false,
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -492,6 +494,23 @@ export const Settings: React.FC = () => {
                             </div>
                           </div>
                           <ToggleSwitch checked={emailPrefs.birthday_reminder} onChange={() => setEmailPrefs(p => ({ ...p, birthday_reminder: !p.birthday_reminder }))} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Formulários */}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Formulários</p>
+                      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-rose-100 text-rose-600 rounded-lg"><ClipboardList size={16} /></div>
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">Formulário respondido</p>
+                              <p className="text-xs text-slate-400">Aviso quando um paciente responder um formulário</p>
+                            </div>
+                          </div>
+                          <ToggleSwitch checked={emailPrefs.form_response} onChange={() => setEmailPrefs(p => ({ ...p, form_response: !p.form_response }))} />
                         </div>
                       </div>
                     </div>
