@@ -4,7 +4,7 @@ import {
   Edit2, Trash2, X, AlertCircle, Eye, ClipboardList,
   FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight, ChevronLeft,
   FileUp, FileDown, Download, MapPin, Shield, User,
-  Activity, TrendingUp, CheckSquare, Square, History, CheckCircle2
+  Activity, TrendingUp, CheckSquare, Square, History, CheckCircle2, ChevronDown
 } from 'lucide-react';
 import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
@@ -69,6 +69,8 @@ export const Patients: React.FC = () => {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [historyPatient, setHistoryPatient] = useState<Patient | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [profileData, setProfileData] = useState<any>({});
   const { pushToast } = useToast();
 
 
@@ -94,7 +96,10 @@ export const Patients: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchPatients(); }, []);
+  useEffect(() => {
+    fetchPatients();
+    api.get<any>('/profile/me').then(d => { if (d) setProfileData(d); }).catch(() => {});
+  }, []);
 
   // Escuta Aurora criar pacientes e atualiza a tela sem perder a conversa
   useEffect(() => {
@@ -412,6 +417,166 @@ export const Patients: React.FC = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Nome', 'Email', 'Telefone', 'CPF', 'Status', 'Data de Cadastro'];
+    const lines = [
+      headers.join(';'),
+      ...filteredPatients.map(p => [
+        p.full_name || '',
+        p.email || '',
+        p.whatsapp || p.phone || '',
+        p.cpf_cnpj || '',
+        p.status || '',
+        p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '',
+      ].join(';')),
+    ];
+    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pacientes.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    pushToast('success', 'CSV exportado!');
+  };
+
+  const handleExportPDF = async () => {
+    pushToast('success', 'Gerando PDF...');
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      const rows = filteredPatients;
+      const logoUrl = profileData?.clinic_logo_url ? getStaticUrl(profileData.clinic_logo_url) : '';
+      const profName = profileData?.name || '';
+      const profCrp = profileData?.crp || '';
+      const companyName = profileData?.company_name || 'Consultório';
+      const now = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+      const tableRows = rows.map(p => [
+        p.full_name || '-',
+        p.email || '-',
+        p.whatsapp || p.phone || '-',
+        p.cpf_cnpj || '-',
+        p.status === 'ativo' ? 'Ativo' : 'Inativo',
+        p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-',
+      ]);
+
+      const headers = ['Nome', 'Email', 'Telefone', 'CPF', 'Status', 'Cadastro'];
+
+      const buildRowHtml = (row: string[], i: number) => {
+        const bg = i % 2 === 0 ? '#f8fafc' : '#ffffff';
+        const isAtivo = row[4] === 'Ativo';
+        const statusColor = isAtivo ? '#059669' : '#64748b';
+        const statusBg = isAtivo ? '#d1fae5' : '#f1f5f9';
+        return `<tr style="background:${bg}">
+          ${row.slice(0, 4).map(cell => `<td style="padding:6px 10px;font-size:11px;color:#374151;border-bottom:1px solid #f1f5f9;white-space:nowrap;">${cell}</td>`).join('')}
+          <td style="padding:6px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">
+            <span style="font-size:10px;font-weight:bold;background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:99px;">${row[4]}</span>
+          </td>
+          <td style="padding:6px 10px;font-size:11px;color:#374151;border-bottom:1px solid #f1f5f9;">${row[5]}</td>
+        </tr>`;
+      };
+
+      const headersHtml = headers.map(h => `<th style="padding:10px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#e2e8f0;text-align:left;">${h}</th>`).join('');
+
+      const ROWS_FIRST_PAGE = 20;
+      const ROWS_PER_PAGE = 25;
+
+      const chunks: (typeof tableRows)[] = [];
+      if (tableRows.length <= ROWS_FIRST_PAGE) {
+        chunks.push(tableRows);
+      } else {
+        chunks.push(tableRows.slice(0, ROWS_FIRST_PAGE));
+        for (let i = ROWS_FIRST_PAGE; i < tableRows.length; i += ROWS_PER_PAGE) {
+          chunks.push(tableRows.slice(i, i + ROWS_PER_PAGE));
+        }
+      }
+
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      for (let pageIdx = 0; pageIdx < chunks.length; pageIdx++) {
+        const pageRows = chunks[pageIdx];
+        const isFirstPage = pageIdx === 0;
+        const isLastPage = pageIdx === chunks.length - 1;
+
+        const rowsHtml = pageRows.map((row, i) => buildRowHtml(row, i)).join('');
+
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;background:#ffffff;font-family:Arial,sans-serif;';
+
+        container.innerHTML = `
+          <div style="padding:32px 40px;">
+            ${isFirstPage ? `
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:16px;">
+                  ${logoUrl
+                    ? `<img src="${logoUrl}" style="height:56px;width:56px;object-fit:contain;border-radius:10px;" crossorigin="anonymous"/>`
+                    : `<div style="height:56px;width:56px;background:#e0e7ff;border-radius:10px;"></div>`}
+                  <div>
+                    <div style="font-size:18px;font-weight:900;color:#1e293b;">${companyName}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:2px;">Lista de Pacientes</div>
+                  </div>
+                </div>
+                <div style="text-align:right;font-size:11px;color:#64748b;line-height:1.8;">
+                  ${profName ? `<b style="color:#1e293b;">${profName}</b><br/>` : ''}
+                  ${profCrp ? `CRP: ${profCrp}<br/>` : ''}
+                  ${now}
+                </div>
+              </div>
+              <div style="display:flex;gap:12px;margin-bottom:20px;">
+                <div style="flex:1;background:#eef2ff;border-radius:10px;padding:12px 16px;">
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">Total</div>
+                  <div style="font-size:16px;font-weight:900;color:#4f46e5;margin-top:4px;">${rows.length}</div>
+                </div>
+                <div style="flex:1;background:#f0fdf4;border-radius:10px;padding:12px 16px;">
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">Ativos</div>
+                  <div style="font-size:16px;font-weight:900;color:#059669;margin-top:4px;">${rows.filter(p => p.status === 'ativo').length}</div>
+                </div>
+                <div style="flex:1;background:#f8fafc;border-radius:10px;padding:12px 16px;">
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">Inativos</div>
+                  <div style="font-size:16px;font-weight:900;color:#64748b;margin-top:4px;">${rows.filter(p => p.status !== 'ativo').length}</div>
+                </div>
+              </div>
+            ` : `
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;">
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">Lista de Pacientes · continuação (pág. ${pageIdx + 1})</span>
+                <span style="font-size:11px;color:#94a3b8;">${now}</span>
+              </div>
+            `}
+            <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;">
+              <thead>
+                <tr style="background:#1e293b;">${headersHtml}</tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+            ${isLastPage ? `
+              <div style="margin-top:20px;display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:10px;color:#94a3b8;">Gerado em ${now} · PsiFlux</div>
+                ${profName ? `<div style="font-size:10px;color:#64748b;">${profName}${profCrp ? ` · CRP ${profCrp}` : ''}</div>` : ''}
+              </div>
+            ` : ''}
+          </div>`;
+
+        document.body.appendChild(container);
+        const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 1200 });
+        document.body.removeChild(container);
+
+        const imgData = canvas.toDataURL('image/png');
+        const imgH = (canvas.height / canvas.width) * 297;
+
+        if (pageIdx > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, 0, 297, imgH);
+      }
+
+      pdf.save(`pacientes_${new Date().toISOString().slice(0, 10)}.pdf`);
+      pushToast('success', 'PDF gerado!');
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao gerar PDF.');
+    }
+  };
+
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -456,13 +621,40 @@ export const Patients: React.FC = () => {
               >
                 <Download size={14} /> <span className="hidden sm:inline">Modelo</span>
               </button>
-              <button
-                onClick={handleExportPatients}
-                title="Exportar Pacientes"
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                <FileDown size={14} /> <span className="hidden sm:inline">Exportar</span>
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setExportMenuOpen(o => !o)}
+                  title="Exportar Pacientes"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <Download size={14} /> <span className="hidden sm:inline">Exportar</span> <ChevronDown size={12} />
+                </button>
+                {exportMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    onMouseLeave={() => setExportMenuOpen(false)}
+                  >
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                    </button>
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportPatients(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-green-600" /> Exportar Excel
+                    </button>
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-red-500" /> Exportar PDF
+                    </button>
+                  </div>
+                )}
+              </div>
               <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
                 <FileUp size={14} /> <span className="hidden sm:inline">Importar</span>
                 <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} />

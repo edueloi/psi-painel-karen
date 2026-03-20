@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Appointment, Service, Patient, User, AppointmentType } from '../types';
 import {
-    ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin,
+    ChevronLeft, ChevronRight, ChevronDown, Clock, Plus, Video, MapPin,
     Calendar as CalendarIcon, CalendarDays, CalendarRange, X, Check, Repeat, Trash2, User as UserIcon,
     DollarSign, Package, Layers, Loader2, Briefcase, FileText, UserCheck, Ban, Link2, Search,
     Filter, LayoutGrid, List as ListIcon, ExternalLink, Sparkles, CheckCircle2, AlertCircle,
@@ -145,6 +145,7 @@ export const Agenda: React.FC = () => {
   const [editingComanda, setEditingComanda] = useState<EditableComanda | null>(null);
   const [relatedApts, setRelatedApts] = useState<Appointment[]>([]);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState<(string | number)[]>([]);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   const [formData, setFormData] = useState<any>({
       type: 'consulta',
@@ -510,6 +511,172 @@ export const Agenda: React.FC = () => {
     } catch (err) {
       console.error(err);
       pushToast('error', 'Erro ao exportar agenda.');
+    }
+  };
+
+  const handleExportCSV = () => {
+    try {
+      const columns = ['Data/Hora', 'Paciente', 'Profissional', 'Serviço', 'Duração', 'Status', 'Modalidade'];
+      const rows = filteredAppointments.map(a => {
+        const dateStr = a.start
+          ? a.start.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '';
+        const patient = patients.find(p => String(p.id) === String(a.patient_id));
+        const patientName = a.patient_name || (patient ? (patient.full_name || patient.name) : '') || '';
+        const prof = professionals.find(p => String(p.id) === String(a.professional_id || a.psychologist_id));
+        const profName = prof?.name || '';
+        const srv = services.find(s => String(s.id) === String(a.service_id));
+        const srvName = srv?.name || '';
+        const duration = a.duration_minutes ? `${a.duration_minutes} min` : '';
+        const statusLabels: Record<string, string> = {
+          scheduled: 'Agendado',
+          confirmed: 'Confirmado',
+          completed: 'Realizado',
+          cancelled: 'Cancelado',
+          'no-show': 'Faltou',
+        };
+        const status = statusLabels[a.status || 'scheduled'] || a.status || '';
+        const modalityLabels: Record<string, string> = { presencial: 'Presencial', online: 'Online', domiciliar: 'Domiciliar' };
+        const modality = modalityLabels[a.modality || ''] || a.modality || '';
+        return [dateStr, patientName, profName, srvName, duration, status, modality]
+          .map(v => `"${String(v).replace(/"/g, '""')}"`)
+          .join(';');
+      });
+      const BOM = '\uFEFF';
+      const csvContent = BOM + [columns.join(';'), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `agenda_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      pushToast('success', 'CSV exportado com sucesso.');
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao exportar CSV.');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      pushToast('success', 'Gerando PDF...');
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      const profName = profileData?.name || '';
+      const profCrp = profileData?.crp || '';
+      const logoUrl = profileData?.clinic_logo_url ? getStaticUrl(profileData.clinic_logo_url) : '';
+      const now = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+      const statusLabels: Record<string, string> = {
+        scheduled: 'Agendado',
+        confirmed: 'Confirmado',
+        completed: 'Realizado',
+        cancelled: 'Cancelado',
+        'no-show': 'Faltou',
+      };
+
+      const tableRows = filteredAppointments.map(a => {
+        const dateStr = a.start
+          ? a.start.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '';
+        const patient = patients.find(p => String(p.id) === String(a.patient_id));
+        const patientName = a.patient_name || (patient ? (patient.full_name || patient.name) : '') || '-';
+        const prof = professionals.find(p => String(p.id) === String(a.professional_id || a.psychologist_id));
+        const profNameRow = prof?.name || '-';
+        const srv = services.find(s => String(s.id) === String(a.service_id));
+        const srvName = srv?.name || '-';
+        const status = statusLabels[a.status || 'scheduled'] || a.status || '-';
+        return [dateStr, patientName, profNameRow, srvName, status];
+      });
+
+      const buildRowHtml = (row: string[]) =>
+        `<tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:8px 12px;font-size:12px;color:#334155;">${row[0]}</td>
+          <td style="padding:8px 12px;font-size:12px;color:#334155;">${row[1]}</td>
+          <td style="padding:8px 12px;font-size:12px;color:#334155;">${row[2]}</td>
+          <td style="padding:8px 12px;font-size:12px;color:#334155;">${row[3]}</td>
+          <td style="padding:8px 12px;font-size:12px;color:#334155;">${row[4]}</td>
+        </tr>`;
+
+      const headersHtml = `
+        <tr style="background:#f8fafc;">
+          <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Data/Hora</th>
+          <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Paciente</th>
+          <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Profissional</th>
+          <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Serviço</th>
+          <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Status</th>
+        </tr>`;
+
+      const ROWS_FIRST_PAGE = 20;
+      const ROWS_PER_PAGE = 25;
+
+      const chunks: (typeof tableRows)[] = [];
+      if (tableRows.length <= ROWS_FIRST_PAGE) {
+        chunks.push(tableRows);
+      } else {
+        chunks.push(tableRows.slice(0, ROWS_FIRST_PAGE));
+        for (let i = ROWS_FIRST_PAGE; i < tableRows.length; i += ROWS_PER_PAGE) {
+          chunks.push(tableRows.slice(i, i + ROWS_PER_PAGE));
+        }
+      }
+
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      for (let pageIdx = 0; pageIdx < chunks.length; pageIdx++) {
+        const pageRows = chunks[pageIdx];
+        const isFirstPage = pageIdx === 0;
+        const isLastPage = pageIdx === chunks.length - 1;
+
+        const rowsHtml = pageRows.map(row => buildRowHtml(row)).join('');
+
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;background:#ffffff;font-family:Arial,sans-serif;color:#1e293b;padding:40px;box-sizing:border-box;';
+
+        container.innerHTML = `
+          ${isFirstPage ? `
+            <div style="display:flex;align-items:center;gap:24px;margin-bottom:32px;border-bottom:2px solid #e2e8f0;padding-bottom:24px;">
+              ${logoUrl
+                ? `<img src="${logoUrl}" style="width:72px;height:72px;object-fit:contain;border-radius:12px;border:1px solid #e2e8f0;" crossorigin="anonymous" />`
+                : `<div style="width:72px;height:72px;border-radius:12px;background:#f1f5f9;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#94a3b8;">LOGO</div>`
+              }
+              <div>
+                <div style="font-size:20px;font-weight:900;color:#1e293b;">${profName}</div>
+                ${profCrp ? `<div style="font-size:13px;color:#64748b;">CRP: ${profCrp}</div>` : ''}
+                <div style="font-size:13px;color:#64748b;margin-top:4px;">Agenda de Atendimentos</div>
+                <div style="font-size:12px;color:#94a3b8;">Gerado em: ${now}</div>
+              </div>
+            </div>
+          ` : `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;">
+              <span style="font-size:13px;font-weight:700;color:#1e293b;">Agenda de Atendimentos · continuação (pág. ${pageIdx + 1})</span>
+              <span style="font-size:11px;color:#94a3b8;">${now}</span>
+            </div>
+          `}
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>${headersHtml}</thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+          ${isLastPage ? `<div style="margin-top:20px;font-size:10px;color:#94a3b8;text-align:right;">Gerado em ${now} · PsiFlux${profName ? ` · ${profName}` : ''}${profCrp ? ` · CRP ${profCrp}` : ''}</div>` : ''}
+        `;
+
+        document.body.appendChild(container);
+        const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 1200 });
+        document.body.removeChild(container);
+
+        const imgData = canvas.toDataURL('image/png');
+        const imgH = (canvas.height / canvas.width) * 297;
+
+        if (pageIdx > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, 0, 297, imgH);
+      }
+
+      pdf.save(`agenda_${new Date().toISOString().slice(0, 10)}.pdf`);
+      pushToast('success', 'PDF exportado com sucesso!');
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao gerar PDF.');
     }
   };
 
@@ -1080,12 +1247,27 @@ export const Agenda: React.FC = () => {
               >
                   <Upload size={14} className="text-indigo-500" /> Importar
               </button>
-              <button
-                  onClick={handleExport}
-                  className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
-              >
-                  <Download size={14} className="text-emerald-500" /> Exportar
-              </button>
+              <div className="relative">
+                  <button
+                      onClick={() => setExportMenuOpen((o: boolean) => !o)}
+                      className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
+                  >
+                      <Download size={14} className="text-emerald-500" /> Exportar <ChevronDown size={12} />
+                  </button>
+                  {exportMenuOpen && (
+                      <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg" onMouseLeave={() => setExportMenuOpen(false)}>
+                          <button onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                              <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                          </button>
+                          <button onClick={() => { setExportMenuOpen(false); handleExport(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                              <FileText size={14} className="text-green-600" /> Exportar Excel
+                          </button>
+                          <button onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                              <FileText size={14} className="text-red-500" /> Exportar PDF
+                          </button>
+                      </div>
+                  )}
+              </div>
               <button
                   onClick={() => openNewModal()}
                   className="bg-gradient-to-r from-indigo-600 to-primary-600 hover:from-indigo-700 hover:to-primary-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95"

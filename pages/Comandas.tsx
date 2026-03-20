@@ -155,6 +155,7 @@ export const Comandas: React.FC = () => {
 
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importRows, setImportRows] = useState<any[]>([]);
+  const [importSelectedIds, setImportSelectedIds] = useState<Set<number>>(new Set());
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<{ created: number; errors: any[] } | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -716,7 +717,7 @@ export const Comandas: React.FC = () => {
         body: formData,
       })
         .then(r => r.json())
-        .then(data => { setImportRows(data.rows || []); setImportResult(null); })
+        .then(data => { setImportRows(data.rows || []); setImportResult(null); setImportSelectedIds(new Set()); })
         .catch(() => pushToast('error', 'Erro ao ler arquivo XLSX.'));
       return;
     }
@@ -731,6 +732,7 @@ export const Comandas: React.FC = () => {
       const parsed = lines.slice(1).map(line => parseImportRows(parseLine(line))).filter(r => r.client_name);
       setImportRows(parsed);
       setImportResult(null);
+      setImportSelectedIds(new Set());
     };
     reader.readAsText(file, 'UTF-8');
   };
@@ -940,18 +942,9 @@ export const Comandas: React.FC = () => {
       const totPaid  = rows.reduce((s: number, c: any) => s + getComandaPaid(c), 0);
       const totPend  = rows.reduce((s: number, c: any) => s + getComandaPending(c), 0);
 
-      const colWidths = [40, 120, 170, 80, 55, 90, 90, 90, 70]; // px (approx for 1200px wide)
       const headers = ['ID', 'Descrição', 'Paciente', 'Data', 'Sessões', 'Total', 'Recebido', 'Pendente', 'Status'];
-      const rowH = 28;
-      const headerH = 36;
-      const tableTop = 160;
-      const totalWidth = colWidths.reduce((a, b) => a + b, 0);
-      const pageH = tableTop + headerH + tableRows.length * rowH + 100;
 
-      const container = document.createElement('div');
-      container.style.cssText = `position:fixed;left:-9999px;top:0;width:1200px;background:#ffffff;font-family:Arial,sans-serif;`;
-
-      const rowsHtml = tableRows.map((row, i) => {
+      const buildRowHtml = (row: string[], i: number) => {
         const bg = i % 2 === 0 ? '#f8fafc' : '#ffffff';
         const isOpen = row[8] === 'Aberta';
         const statusColor = isOpen ? '#d97706' : '#059669';
@@ -966,86 +959,102 @@ export const Comandas: React.FC = () => {
               padding:2px 8px;border-radius:99px;">${row[8]}</span>
           </td>
         </tr>`;
-      }).join('');
+      };
 
-      container.innerHTML = `
-        <div style="padding:40px 50px;min-height:${pageH}px;">
-          <!-- cabeçalho -->
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;">
-            <div style="display:flex;align-items:center;gap:16px;">
-              ${logoUrl
-                ? `<img src="${logoUrl}" style="height:56px;width:56px;object-fit:contain;border-radius:10px;" crossorigin="anonymous"/>`
-                : `<div style="height:56px;width:56px;background:#e0e7ff;border-radius:10px;"></div>`}
-              <div>
-                <div style="font-size:18px;font-weight:900;color:#1e293b;">${companyName}</div>
-                <div style="font-size:12px;color:#64748b;margin-top:2px;">Gestão de Comandas · ${filterLabel}</div>
-              </div>
-            </div>
-            <div style="text-align:right;font-size:11px;color:#64748b;line-height:1.8;">
-              ${profName ? `<b style="color:#1e293b;">${profName}</b><br/>` : ''}
-              ${profCrp ? `CRP: ${profCrp}<br/>` : ''}
-              ${now}
-            </div>
-          </div>
+      const headersHtml = headers.map((h, i) => `
+        <th style="padding:10px 8px;font-size:11px;font-weight:700;text-transform:uppercase;
+          letter-spacing:.05em;color:#e2e8f0;text-align:${i >= 5 ? 'right' : 'left'};">${h}</th>
+      `).join('');
 
-          <!-- resumo -->
-          <div style="display:flex;gap:12px;margin-bottom:24px;">
-            ${[
-              ['Faturamento Total', fmtMoney(totTotal), '#1e293b', '#f8fafc'],
-              ['Total Recebido', fmtMoney(totPaid), '#059669', '#f0fdf4'],
-              ['Total Pendente', fmtMoney(totPend), '#d97706', '#fffbeb'],
-              ['Total de Comandas', String(rows.length), '#4f46e5', '#eef2ff'],
-            ].map(([label, val, color, bg]) => `
-              <div style="flex:1;background:${bg};border-radius:10px;padding:12px 16px;">
-                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">${label}</div>
-                <div style="font-size:16px;font-weight:900;color:${color};margin-top:4px;">${val}</div>
-              </div>
-            `).join('')}
-          </div>
+      const ROWS_FIRST_PAGE = 20;
+      const ROWS_PER_PAGE = 25;
 
-          <!-- tabela -->
-          <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;">
-            <thead>
-              <tr style="background:#1e293b;">
-                ${headers.map((h, i) => `
-                  <th style="padding:10px 8px;font-size:11px;font-weight:700;text-transform:uppercase;
-                    letter-spacing:.05em;color:#e2e8f0;text-align:${i >= 5 ? 'right' : 'left'};">${h}</th>
-                `).join('')}
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
+      const chunks: (typeof tableRows)[] = [];
+      if (tableRows.length <= ROWS_FIRST_PAGE) {
+        chunks.push(tableRows);
+      } else {
+        chunks.push(tableRows.slice(0, ROWS_FIRST_PAGE));
+        for (let i = ROWS_FIRST_PAGE; i < tableRows.length; i += ROWS_PER_PAGE) {
+          chunks.push(tableRows.slice(i, i + ROWS_PER_PAGE));
+        }
+      }
 
-          <!-- rodapé -->
-          <div style="margin-top:24px;display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-size:10px;color:#94a3b8;">Gerado em ${now} · PsiFlux</div>
-            ${profName ? `<div style="font-size:10px;color:#64748b;">${profName}${profCrp ? ` · CRP ${profCrp}` : ''}</div>` : ''}
-          </div>
-        </div>`;
-
-      document.body.appendChild(container);
-
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        width: 1200,
-      });
-
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      // A4 landscape: 297 x 210 mm
-      const pdfW = 297;
-      const pdfH = (canvas.height / canvas.width) * pdfW;
-      const pageCount = Math.ceil(pdfH / 210);
 
-      for (let page = 0; page < pageCount; page++) {
-        if (page > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, -page * 210, pdfW, pdfH);
+      for (let pageIdx = 0; pageIdx < chunks.length; pageIdx++) {
+        const pageRows = chunks[pageIdx];
+        const isFirstPage = pageIdx === 0;
+        const isLastPage = pageIdx === chunks.length - 1;
+
+        const rowsHtml = pageRows.map((row, i) => buildRowHtml(row, i)).join('');
+
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;background:#ffffff;font-family:Arial,sans-serif;';
+
+        container.innerHTML = `
+          <div style="padding:32px 40px;">
+            ${isFirstPage ? `
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:16px;">
+                  ${logoUrl
+                    ? `<img src="${logoUrl}" style="height:56px;width:56px;object-fit:contain;border-radius:10px;" crossorigin="anonymous"/>`
+                    : `<div style="height:56px;width:56px;background:#e0e7ff;border-radius:10px;"></div>`}
+                  <div>
+                    <div style="font-size:18px;font-weight:900;color:#1e293b;">${companyName}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:2px;">Gestão de Comandas · ${filterLabel}</div>
+                  </div>
+                </div>
+                <div style="text-align:right;font-size:11px;color:#64748b;line-height:1.8;">
+                  ${profName ? `<b style="color:#1e293b;">${profName}</b><br/>` : ''}
+                  ${profCrp ? `CRP: ${profCrp}<br/>` : ''}
+                  ${now}
+                </div>
+              </div>
+              <div style="display:flex;gap:12px;margin-bottom:20px;">
+                ${[
+                  ['Faturamento Total', fmtMoney(totTotal), '#1e293b', '#f8fafc'],
+                  ['Total Recebido', fmtMoney(totPaid), '#059669', '#f0fdf4'],
+                  ['Total Pendente', fmtMoney(totPend), '#d97706', '#fffbeb'],
+                  ['Total de Comandas', String(rows.length), '#4f46e5', '#eef2ff'],
+                ].map(([label, val, color, bg]) => `
+                  <div style="flex:1;background:${bg};border-radius:10px;padding:12px 16px;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">${label}</div>
+                    <div style="font-size:16px;font-weight:900;color:${color};margin-top:4px;">${val}</div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : `
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;">
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">Gestão de Comandas · ${filterLabel} · continuação (pág. ${pageIdx + 1})</span>
+                <span style="font-size:11px;color:#94a3b8;">${now}</span>
+              </div>
+            `}
+            <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;">
+              <thead>
+                <tr style="background:#1e293b;">${headersHtml}</tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+            ${isLastPage ? `
+              <div style="margin-top:20px;display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:10px;color:#94a3b8;">Gerado em ${now} · PsiFlux</div>
+                ${profName ? `<div style="font-size:10px;color:#64748b;">${profName}${profCrp ? ` · CRP ${profCrp}` : ''}</div>` : ''}
+              </div>
+            ` : ''}
+          </div>`;
+
+        document.body.appendChild(container);
+        const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 1200 });
+        document.body.removeChild(container);
+
+        const imgData = canvas.toDataURL('image/png');
+        const imgH = (canvas.height / canvas.width) * 297;
+
+        if (pageIdx > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, 0, 297, imgH);
       }
 
       pdf.save(`comandas_${filterLabel.toLowerCase().replace(' ', '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
-      document.body.removeChild(container);
       pushToast('success', 'PDF gerado!');
     } catch (err) {
       console.error(err);
@@ -1177,7 +1186,7 @@ export const Comandas: React.FC = () => {
     <div className="min-h-screen bg-slate-50">
 
 
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm">
+      <header className="border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg shadow-primary-200">
@@ -2519,66 +2528,117 @@ export const Comandas: React.FC = () => {
           )}
 
           {/* tabela de preview */}
-          {importRows.length > 0 && !importResult && (
-            <div className="overflow-hidden rounded-xl border border-slate-200">
-              {/* cabeçalho sticky com scroll horizontal */}
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px] text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="w-8 px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">#</th>
-                      <th className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descrição</th>
-                      <th className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">Paciente</th>
-                      <th className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">Data</th>
-                      <th className="px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">Sessões</th>
-                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">Total</th>
-                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pago</th>
-                      <th className="px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</th>
-                      <th className="w-8 px-2 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {importRows.map((r, i) => {
-                      const closed = r.sessions_used >= r.sessions_total;
-                      return (
-                        <tr key={i} className="group hover:bg-slate-50/80">
-                          <td className="px-3 py-2.5 text-center text-[11px] text-slate-400">{i + 1}</td>
-                          <td className="px-3 py-2.5 text-slate-600">{r.description || '—'}</td>
-                          <td className="px-3 py-2.5 font-medium text-slate-800">{r.client_name}</td>
-                          <td className="whitespace-nowrap px-3 py-2.5 text-slate-500">{r.date}</td>
-                          <td className="px-3 py-2.5 text-center">
-                            <span className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                              closed ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
-                            }`}>
-                              {r.sessions_used}<span className="text-slate-400">/</span>{r.sessions_total}
-                            </span>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{formatCurrency(r.total)}</td>
-                          <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-emerald-700">{formatCurrency(r.paid)}</td>
-                          <td className="px-3 py-2.5 text-center">
-                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                              closed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'
-                            }`}>
-                              {closed ? 'Finalizada' : 'Aberta'}
-                            </span>
-                          </td>
-                          <td className="px-2 py-2.5 text-center">
-                            <button
-                              onClick={() => setImportRows(prev => prev.filter((_, idx) => idx !== i))}
-                              title="Remover linha"
-                              className="rounded-lg p-1 text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-500 group-hover:opacity-100"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          {importRows.length > 0 && !importResult && (() => {
+            const allSelected = importSelectedIds.size === importRows.length && importRows.length > 0;
+            const someSelected = importSelectedIds.size > 0;
+            const toggleAll = () => {
+              if (allSelected) setImportSelectedIds(new Set());
+              else setImportSelectedIds(new Set(importRows.map((_, i) => i)));
+            };
+            const toggleOne = (i: number) => {
+              setImportSelectedIds(prev => {
+                const next = new Set(prev);
+                next.has(i) ? next.delete(i) : next.add(i);
+                return next;
+              });
+            };
+            const deleteSelected = () => {
+              setImportRows(prev => prev.filter((_, i) => !importSelectedIds.has(i)));
+              setImportSelectedIds(new Set());
+            };
+
+            return (
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                {/* barra de ações em lote */}
+                {someSelected && (
+                  <div className="flex items-center justify-between bg-primary-50 px-4 py-2.5 border-b border-primary-100">
+                    <span className="text-xs font-semibold text-primary-700">
+                      {importSelectedIds.size} linha(s) selecionada(s)
+                    </span>
+                    <button
+                      onClick={deleteSelected}
+                      className="flex items-center gap-1.5 rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600"
+                    >
+                      <Trash2 size={12} /> Remover selecionadas
+                    </button>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <th className="w-10 px-3 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                            onChange={toggleAll}
+                            className="h-3.5 w-3.5 cursor-pointer rounded accent-primary-600"
+                          />
+                        </th>
+                        {['Descrição', 'Paciente', 'Data', 'Sessões', 'Total', 'Pago', 'Status', ''].map((h, i) => (
+                          <th key={i} className={`px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400 ${
+                            i >= 4 && i <= 5 ? 'text-right' : i === 3 || i === 6 ? 'text-center' : 'text-left'
+                          }`}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {importRows.map((r, i) => {
+                        const closed = r.sessions_used >= r.sessions_total;
+                        const selected = importSelectedIds.has(i);
+                        return (
+                          <tr
+                            key={i}
+                            onClick={() => toggleOne(i)}
+                            className={`cursor-pointer transition ${selected ? 'bg-primary-50/70' : 'hover:bg-slate-50/80'}`}
+                          >
+                            <td className="px-3 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => toggleOne(i)}
+                                className="h-3.5 w-3.5 cursor-pointer rounded accent-primary-600"
+                              />
+                            </td>
+                            <td className="px-3 py-2.5 text-slate-600">{r.description || '—'}</td>
+                            <td className="px-3 py-2.5 font-medium text-slate-800">{r.client_name}</td>
+                            <td className="whitespace-nowrap px-3 py-2.5 text-slate-500">{r.date}</td>
+                            <td className="px-3 py-2.5 text-center">
+                              <span className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                                closed ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+                              }`}>
+                                {r.sessions_used}<span className="opacity-40">/</span>{r.sessions_total}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{formatCurrency(r.total)}</td>
+                            <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-emerald-700">{formatCurrency(r.paid)}</td>
+                            <td className="px-3 py-2.5 text-center">
+                              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                                closed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'
+                              }`}>
+                                {closed ? 'Finalizada' : 'Aberta'}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                              <button
+                                onClick={() => setImportRows(prev => prev.filter((_, idx) => idx !== i))}
+                                title="Remover esta linha"
+                                className="rounded-lg p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* resultado */}
           {importResult && (
