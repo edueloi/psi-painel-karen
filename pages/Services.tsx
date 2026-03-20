@@ -591,8 +591,8 @@ export const Services: React.FC = () => {
       const headersHtml = headers.map(h => `<th style="padding:10px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#e2e8f0;text-align:left;">${h}</th>`).join('');
       const totalItems = isServices ? filteredServices.length : filteredPackages.length;
 
-      const ROWS_FIRST_PAGE = 20;
-      const ROWS_PER_PAGE = 25;
+      const ROWS_FIRST_PAGE = 14;
+      const ROWS_PER_PAGE = 18;
 
       const chunks: (typeof tableRows)[] = [];
       if (tableRows.length <= ROWS_FIRST_PAGE) {
@@ -628,8 +628,8 @@ export const Services: React.FC = () => {
               </div>
             ` : `
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;">
-                <span style="font-size:13px;font-weight:700;color:#1e293b;">${title} · continuação (pág. ${pageIdx + 1})</span>
-                <span style="font-size:11px;color:#94a3b8;">${now}</span>
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">${title}</span>
+                <span style="font-size:11px;color:#94a3b8;">Página ${pageIdx + 1} de ${chunks.length} · ${now}</span>
               </div>
             `}
             <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;">
@@ -647,9 +647,12 @@ export const Services: React.FC = () => {
 
         const imgData = canvas.toDataURL('image/png');
         const imgH = (canvas.height / canvas.width) * 297;
+        const safeScale = imgH > 210 ? 210 / imgH : 1;
+        const finalW = 297 * safeScale;
+        const finalH = imgH * safeScale;
 
         if (pageIdx > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, 0, 297, imgH);
+        pdf.addImage(imgData, 'PNG', (297 - finalW) / 2, 0, finalW, finalH);
       }
 
       pdf.save(filename);
