@@ -3,17 +3,13 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Patient, InterpretationRule } from '../types';
-import { 
-  ArrowLeft, FileText, Clock, User, Calculator, 
-  ChevronRight, CheckCircle2, Phone, Mail, Filter, Search, Info, Sparkles, AlertCircle, X, Bot, Calendar,
+import {
+  ArrowLeft, FileText, Clock, User, Calculator,
+  ChevronRight, CheckCircle2, Phone, Mail, Info, Sparkles, X, Bot,
   ClipboardList
 } from 'lucide-react';
 import { useDateFormat } from '../contexts/UserPreferencesContext';
-import { 
-  FilterLine, 
-  FilterLineSection, 
-  FilterLineSearch 
-} from '../components/UI/FilterLine';
+import { FilterLine, FilterLineSection } from '../components/UI/FilterLine';
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
 import { Combobox } from '../components/UI/Combobox';
@@ -40,9 +36,15 @@ export const FormResponses: React.FC = () => {
   const [questionsMap, setQuestionsMap] = useState<Record<string, string>>({});
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [filterPatientId, setFilterPatientId] = useState<string>('all');
-  const [filterDate, setFilterDate] = useState<string | null>(null);
+
+  // Data de início e fim do filtro — padrão: mês atual (dia 1 até último dia)
+  const now = new Date();
+  const defaultFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const defaultTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const [filterDateFrom, setFilterDateFrom] = useState<string>(defaultFrom);
+  const [filterDateTo, setFilterDateTo] = useState<string>(defaultTo);
   const [questionsMetadata, setQuestionsMetadata] = useState<any[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [aiAnalysisMap, setAiAnalysisMap] = useState<Record<string, string>>({});
@@ -284,15 +286,11 @@ export const FormResponses: React.FC = () => {
   };
 
   const filteredResponses = responses.filter(r => {
-    const pName = getPatientName(r.patient_id).toLowerCase();
-    const rName = (r.respondent_name || '').toLowerCase();
-    const search = searchTerm.toLowerCase();
-    
-    const matchesSearch = pName.includes(search) || rName.includes(search);
     const matchesPatient = filterPatientId === 'all' || String(r.patient_id) === String(filterPatientId);
-    const matchesDate = !filterDate || (r.created_at && r.created_at.startsWith(filterDate));
-    
-    return matchesSearch && matchesPatient && matchesDate;
+    const dateStr = r.created_at ? r.created_at.slice(0, 10) : '';
+    const matchesFrom = !filterDateFrom || dateStr >= filterDateFrom;
+    const matchesTo = !filterDateTo || dateStr <= filterDateTo;
+    return matchesPatient && matchesFrom && matchesTo;
   });
 
   return (
@@ -328,19 +326,8 @@ export const FormResponses: React.FC = () => {
       </div>
 
       <FilterLine className="shadow-lg shadow-slate-200/40 p-5 rounded-[2rem] border-slate-100/50 bg-white/80 backdrop-blur-xl">
-        <FilterLineSection grow>
-          <FilterLineSearch 
-            value={searchTerm} 
-            onChange={setSearchTerm} 
-            placeholder="Pesquisar por nome do paciente ou respondente..."
-            className="border-none bg-slate-50/50 focus-within:bg-white rounded-2xl py-6"
-          />
-        </FilterLineSection>
-        
-        <div className="h-10 w-px bg-slate-100 hidden xl:block mx-2" />
-
-        <FilterLineSection className="min-w-[280px]">
-           <Combobox 
+        <FilterLineSection className="min-w-[280px]" grow>
+           <Combobox
               label="Paciente"
               options={patientOptions}
               value={filterPatientId}
@@ -353,30 +340,46 @@ export const FormResponses: React.FC = () => {
 
         <div className="h-10 w-px bg-slate-100 hidden xl:block mx-2" />
 
-        <FilterLineSection className="min-w-[200px]">
+        <FilterLineSection className="min-w-[180px]">
            <div className="w-full">
               <label className="mb-2 block text-[12px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-                Data da Resposta
+                De
               </label>
-              <DatePicker 
-                value={filterDate}
-                onChange={setFilterDate}
-                placeholder="Qualquer data"
+              <DatePicker
+                value={filterDateFrom}
+                onChange={(v) => setFilterDateFrom(v || '')}
+                placeholder="Data inicial"
                 className="[&>button]:rounded-xl [&>button]:border-slate-300 [&>button]:h-[44px]"
               />
            </div>
         </FilterLineSection>
 
-        { (filterPatientId !== 'all' || filterDate || searchTerm) && (
+        <div className="h-10 w-px bg-slate-100 hidden xl:block mx-2" />
+
+        <FilterLineSection className="min-w-[180px]">
+           <div className="w-full">
+              <label className="mb-2 block text-[12px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                Até
+              </label>
+              <DatePicker
+                value={filterDateTo}
+                onChange={(v) => setFilterDateTo(v || '')}
+                placeholder="Data final"
+                className="[&>button]:rounded-xl [&>button]:border-slate-300 [&>button]:h-[44px]"
+              />
+           </div>
+        </FilterLineSection>
+
+        {(filterPatientId !== 'all' || filterDateFrom !== defaultFrom || filterDateTo !== defaultTo) && (
           <FilterLineSection>
             <Button
               variant="outline"
               size="sm"
               radius="xl"
               onClick={() => {
-                setSearchTerm('');
                 setFilterPatientId('all');
-                setFilterDate(null);
+                setFilterDateFrom(defaultFrom);
+                setFilterDateTo(defaultTo);
               }}
               className="text-rose-500 border-rose-100 hover:bg-rose-50"
             >
@@ -449,7 +452,7 @@ export const FormResponses: React.FC = () => {
               </div>
               <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest">Nenhuma Resposta</h3>
               <p className="text-sm text-slate-400 mt-2 max-w-xs mx-auto font-medium">
-                {searchTerm ? 'Nenhum paciente encontrado com esse nome.' : 'Este formulário ainda não recebeu respostas dos pacientes.'}
+                Nenhuma resposta encontrada para os filtros selecionados.
               </p>
             </div>
           ) : (
