@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
+const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // ── Auto-migrate comandas table ──────────────────────────────────────────────
 async function ensureSchema() {
@@ -510,6 +514,233 @@ router.get('/comandas/patient/:patientId', async (req, res) => {
         console.error('Erro ao buscar comandas do paciente:', err);
         res.status(500).json({ error: 'Erro ao buscar comandas do paciente', details: err.message });
     }
+});
+
+// POST /finance/comandas/parse-xlsx - Lê XLSX e retorna linhas parseadas
+router.post('/comandas/parse-xlsx', uploadMemory.single('file'), (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    // primeira linha = cabeçalho, ignorar
+    const parseMoney = (s) => parseFloat(String(s).replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+    const fmtDate = (v) => {
+      if (!v) return '';
+      if (v instanceof Date) return v.toLocaleDateString('pt-BR');
+      return String(v);
+    };
+
+    const rows = raw.slice(1).map(cols => {
+      const sessStr = String(cols[3] || '');
+      const sessMatch = sessStr.match(/(\d+)\s+de\s+(\d+)/i);
+      return {
+        description:    String(cols[0] || '').trim(),
+        client_name:    String(cols[1] || '').trim(),
+        date:           fmtDate(cols[2]),
+        sessions_used:  sessMatch ? parseInt(sessMatch[1]) : 0,
+        sessions_total: sessMatch ? parseInt(sessMatch[2]) : 1,
+        total:          parseMoney(cols[4]),
+        paid:           parseMoney(cols[5]),
+      };
+    }).filter(r => r.client_name);
+
+    res.json({ rows });
+  } catch (err) {
+    console.error('Erro ao parsear XLSX:', err);
+    res.status(500).json({ error: 'Erro ao ler arquivo', details: err.message });
+  }
+});
+
+// POST /finance/comandas/export-xlsx - Gera planilha formatada
+router.post('/comandas/export-xlsx', async (req, res) => {
+  try {
+    const { rows = [], filterLabel = 'Comandas' } = req.body;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'PsiFlux';
+    const ws = wb.addWorksheet('Comandas');
+
+    // Larguras das colunas
+    ws.columns = [
+      { header: 'ID',             key: 'id',          width: 8  },
+      { header: 'Descrição',      key: 'desc',        width: 22 },
+      { header: 'Paciente',       key: 'patient',     width: 32 },
+      { header: 'Data',           key: 'date',        width: 14 },
+      { header: 'N. Atendimentos',key: 'sessions',    width: 20 },
+      { header: 'Total',          key: 'total',       width: 14 },
+      { header: 'Recebido',       key: 'paid',        width: 14 },
+      { header: 'Pendente',       key: 'pending',     width: 14 },
+      { header: 'Status',         key: 'status',      width: 14 },
+    ];
+
+    // Estilo do cabeçalho
+    const headerRow = ws.getRow(1);
+    headerRow.eachCell(cell => {
+      cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.font   = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF334155' } } };
+    });
+    headerRow.height = 26;
+
+    const fmtDate = (d) => { try { return d ? new Date(d).toLocaleDateString('pt-BR') : '-'; } catch { return '-'; } };
+    const moneyFmt = '#,##0.00';
+
+    rows.forEach((r, i) => {
+      const row = ws.addRow({
+        id:       r.id,
+        desc:     r.description || '',
+        patient:  r.client_name || '',
+        date:     fmtDate(r.date),
+        sessions: `${r.sessions_used} de ${r.sessions_total} atendimentos`,
+        total:    parseFloat(r.total) || 0,
+        paid:     parseFloat(r.paid)  || 0,
+        pending:  parseFloat(r.pending) || 0,
+        status:   r.status || '',
+      });
+
+      const bg = i % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+      row.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+        cell.font = { size: 10 };
+        cell.alignment = { vertical: 'middle' };
+      });
+
+      // Moeda
+      ['F', 'G', 'H'].forEach(col => {
+        const cell = row.getCell(col);
+        cell.numFmt = `"R$ "${moneyFmt}`;
+        cell.alignment = { horizontal: 'right' };
+      });
+
+      // Status colorido
+      const statusCell = row.getCell('I');
+      statusCell.alignment = { horizontal: 'center' };
+      if (r.status === 'Finalizada') {
+        statusCell.font = { color: { argb: 'FF059669' }, bold: true, size: 10 };
+      } else {
+        statusCell.font = { color: { argb: 'FFD97706' }, bold: true, size: 10 };
+      }
+    });
+
+    // Linha de totais
+    if (rows.length > 0) {
+      ws.addRow({});
+      const totRow = ws.addRow({
+        desc:    'TOTAL',
+        total:   rows.reduce((s, r) => s + (parseFloat(r.total) || 0), 0),
+        paid:    rows.reduce((s, r) => s + (parseFloat(r.paid)  || 0), 0),
+        pending: rows.reduce((s, r) => s + (parseFloat(r.pending) || 0), 0),
+      });
+      totRow.eachCell(cell => {
+        cell.font = { bold: true, size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+      });
+      ['F', 'G', 'H'].forEach(col => { totRow.getCell(col).numFmt = `"R$ "${moneyFmt}`; });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="comandas_${filterLabel}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('Erro ao exportar XLSX:', err);
+    res.status(500).json({ error: 'Erro ao gerar Excel', details: err.message });
+  }
+});
+
+// POST /finance/comandas/import - Importação em lote via CSV
+router.post('/comandas/import', async (req, res) => {
+  try {
+    await withSchema();
+    const { rows } = req.body; // [{ description, client_name, date, sessions_used, sessions_total, total, paid }]
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: 'Nenhuma linha para importar' });
+    }
+
+    const tenantId = req.user.tenant_id;
+    const results = { created: 0, errors: [] };
+
+    for (const row of rows) {
+      try {
+        const { description, client_name, date, sessions_used, sessions_total, total, paid } = row;
+        const sessUsed = parseInt(sessions_used) || 0;
+        const sessTotal = parseInt(sessions_total) || 1;
+        const totalVal = parseFloat(total) || 0;
+        const paidVal = parseFloat(paid) || 0;
+        const statusVal = sessUsed >= sessTotal ? 'closed' : 'open';
+
+        // Normaliza a data para YYYY-MM-DD
+        let parsedDate = null;
+        if (date) {
+          const parts = String(date).split('/');
+          if (parts.length === 3) {
+            parsedDate = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+          } else {
+            parsedDate = date;
+          }
+        }
+
+        // Busca ou cria paciente pelo nome
+        let patientId = null;
+        if (client_name) {
+          const name = String(client_name).trim();
+          const [found] = await db.query(
+            'SELECT id FROM patients WHERE tenant_id = ? AND name = ? LIMIT 1',
+            [tenantId, name]
+          );
+          if (found.length > 0) {
+            patientId = found[0].id;
+          } else {
+            const [ins] = await db.query(
+              'INSERT INTO patients (tenant_id, name, status) VALUES (?, ?, ?)',
+              [tenantId, name, 'active']
+            );
+            patientId = ins.insertId;
+          }
+        }
+
+        const items = JSON.stringify([{ name: description || 'Importado', qty: sessTotal, price: sessTotal > 0 ? totalVal / sessTotal : totalVal }]);
+
+        const [cmdResult] = await db.query(
+          `INSERT INTO comandas
+             (tenant_id, patient_id, description, total, paid_value, items, start_date,
+              status, discount_type, discount_value, total_net, sessions_total, sessions_used)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'fixed', 0, ?, ?, ?)`,
+          [tenantId, patientId, description || 'Importado', totalVal, paidVal, items,
+           parsedDate, statusVal, totalVal, sessTotal, sessUsed]
+        );
+        const comandaId = cmdResult.insertId;
+
+        // Se há valor pago, cria pagamento e lançamento financeiro
+        if (paidVal > 0) {
+          await db.query(
+            `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method)
+             VALUES (?, ?, ?, ?, 'Importado')`,
+            [tenantId, comandaId, paidVal, parsedDate || new Date().toISOString().slice(0,10)]
+          );
+          await db.query(
+            `INSERT INTO financial_transactions
+               (tenant_id, type, category, description, amount, date, patient_id, comanda_id, payment_method, status)
+             VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'Importado', 'paid')`,
+            [tenantId, `Pagamento comanda importada - ${client_name}`,
+             parsedDate || new Date().toISOString().slice(0,10),
+             patientId, comandaId]
+          );
+        }
+
+        results.created++;
+      } catch (rowErr) {
+        results.errors.push({ row: row.client_name || '?', error: rowErr.message });
+      }
+    }
+
+    res.json(results);
+  } catch (err) {
+    console.error('Erro ao importar comandas:', err);
+    res.status(500).json({ error: 'Erro ao importar comandas', details: err.message });
+  }
 });
 
 // POST /finance/comandas

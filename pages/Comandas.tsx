@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { api, getStaticUrl } from '../services/api';
+import { api, getStaticUrl, API_BASE_URL } from '../services/api';
 import { Comanda, Patient, Service } from '../types';
 import { Modal } from '../components/UI/Modal';
 import { DatePicker } from '../components/UI/DatePicker';
@@ -32,6 +32,10 @@ import {
   CreditCard,
   Check,
   Package,
+  Upload,
+  Download,
+  ChevronDown,
+  XCircle,
 } from 'lucide-react';
 
 type ComandaTab = 'avulsa' | 'pacote';
@@ -148,6 +152,12 @@ export const Comandas: React.FC = () => {
   const [editingComanda, setEditingComanda] = useState<EditableComanda | null>(
     null
   );
+
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<any[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; errors: any[] } | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyComanda, setHistoryComanda] = useState<Comanda | null>(null);
@@ -679,6 +689,106 @@ export const Comandas: React.FC = () => {
       setDeleteConfirmId(null);
     }
   };
+  const parseImportRows = (cols: string[]) => {
+    const description = cols[0] || '';
+    const client_name = cols[1] || '';
+    const date = cols[2] || '';
+    const sessStr = cols[3] || '';
+    const totalStr = cols[4] || '';
+    const paidStr = cols[5] || '';
+    const sessMatch = sessStr.match(/(\d+)\s+de\s+(\d+)/i);
+    const sessions_used = sessMatch ? parseInt(sessMatch[1]) : 0;
+    const sessions_total = sessMatch ? parseInt(sessMatch[2]) : 1;
+    const parseMoney = (s: string) =>
+      parseFloat(String(s).replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+    return { description, client_name, date, sessions_used, sessions_total, total: parseMoney(totalStr), paid: parseMoney(paidStr) };
+  };
+
+  const parseCsvFile = (file: File) => {
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      // Envia ao backend para parsing
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('psi_token');
+      fetch(`${API_BASE_URL}/finance/comandas/parse-xlsx`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+        .then(r => r.json())
+        .then(data => { setImportRows(data.rows || []); setImportResult(null); })
+        .catch(() => pushToast('error', 'Erro ao ler arquivo XLSX.'));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return;
+      const delim = lines[0].includes(';') ? ';' : ',';
+      const parseLine = (line: string) => line.split(delim).map(c => c.replace(/^["']|["']$/g, '').trim());
+      const parsed = lines.slice(1).map(line => parseImportRows(parseLine(line))).filter(r => r.client_name);
+      setImportRows(parsed);
+      setImportResult(null);
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const handleExportXLSX = async () => {
+    pushToast('success', 'Gerando Excel...');
+    try {
+      const rows = (filteredComandas as any[]).map(c => ({
+        id: c.id,
+        description: c.items?.[0]?.name || c.description || '',
+        client_name: c.patientName || c.patient_name || '',
+        date: c.start_date || c.created_at || '',
+        sessions_used: c.sessions_used ?? 0,
+        sessions_total: c.sessions_total ?? 1,
+        total: getComandaTotal(c),
+        paid: getComandaPaid(c),
+        pending: getComandaPending(c),
+        status: c.status === 'closed' ? 'Finalizada' : 'Aberta',
+      }));
+      const token = localStorage.getItem('psi_token');
+      const res = await fetch(`${API_BASE_URL}/finance/comandas/export-xlsx`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows, filterLabel: statusFilter === 'closed' ? 'Finalizadas' : 'Em Aberto' }),
+      });
+      if (!res.ok) throw new Error('Erro ao gerar Excel');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `comandas_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      pushToast('success', 'Excel exportado!');
+    } catch (err) {
+      pushToast('error', 'Erro ao exportar Excel.');
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importRows.length) return;
+    setImportLoading(true);
+    try {
+      const result = await api.post<{ created: number; errors: any[] }>(
+        '/finance/comandas/import',
+        { rows: importRows }
+      );
+      setImportResult(result);
+      if (result.created > 0) {
+        await fetchData();
+      }
+    } catch (err) {
+      pushToast('error', 'Erro ao importar comandas.');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   const handleUpdateAppointmentStatus = async (
     appointmentId: string | number,
     newStatus: string
@@ -755,6 +865,191 @@ export const Comandas: React.FC = () => {
     } catch (error) {
       console.error(error);
       pushToast('error', 'Erro ao registrar pagamento.');
+    }
+  };
+
+  const handleExportCSV = () => {
+    const rows = filteredComandas as any[];
+    const headers = ['ID', 'Descrição', 'Cliente', 'Data', 'N. Atendimentos', 'Total', 'Recebido', 'Pendente', 'Status'];
+    const fmtMoney = (v: number) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`;
+    const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '';
+
+    const lines = [
+      headers.join(';'),
+      ...rows.map(c => {
+        const sessUsed = c.sessions_used ?? 0;
+        const sessTotal = c.sessions_total ?? 1;
+        const total = getComandaTotal(c);
+        const paid = getComandaPaid(c);
+        const pending = getComandaPending(c);
+        const desc = (c.items?.[0]?.name || c.description || '').replace(/;/g, ',');
+        const patient = (c.patientName || c.patient_name || '').replace(/;/g, ',');
+        const date = fmtDate(c.start_date || c.created_at);
+        const sessions = `${sessUsed} de ${sessTotal} atendimentos`;
+        const status = c.status === 'closed' ? 'Finalizada' : 'Aberta';
+        return [c.id, desc, patient, date, sessions, fmtMoney(total), fmtMoney(paid), fmtMoney(pending), status].join(';');
+      })
+    ];
+
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comandas_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    pushToast('success', 'CSV exportado!');
+  };
+
+  const handleExportPDF = async () => {
+    pushToast('success', 'Gerando PDF...');
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      const rows = filteredComandas as any[];
+      const logoUrl = profileData?.clinic_logo_url ? getStaticUrl(profileData.clinic_logo_url) : '';
+      const profName = profileData?.name || '';
+      const profCrp = profileData?.crp || '';
+      const companyName = profileData?.company_name || 'Consultório';
+      const now = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+      const filterLabel = statusFilter === 'closed' ? 'Finalizadas' : 'Em Aberto';
+
+      const fmtMoney = (v: number) =>
+        `R$ ${Number(v || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+      const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '-';
+
+      const tableRows = rows.map((c: any) => {
+        const sessUsed = c.sessions_used ?? 0;
+        const sessTotal = c.sessions_total ?? 1;
+        return [
+          `#${c.id}`,
+          (c.items?.[0]?.name || c.description || '-').slice(0, 20),
+          (c.patientName || c.patient_name || '-').slice(0, 28),
+          fmtDate(c.start_date || c.created_at),
+          `${sessUsed}/${sessTotal}`,
+          fmtMoney(getComandaTotal(c)),
+          fmtMoney(getComandaPaid(c)),
+          fmtMoney(getComandaPending(c)),
+          c.status === 'closed' ? 'Finalizada' : 'Aberta',
+        ];
+      });
+
+      const totTotal = rows.reduce((s: number, c: any) => s + getComandaTotal(c), 0);
+      const totPaid  = rows.reduce((s: number, c: any) => s + getComandaPaid(c), 0);
+      const totPend  = rows.reduce((s: number, c: any) => s + getComandaPending(c), 0);
+
+      const colWidths = [40, 120, 170, 80, 55, 90, 90, 90, 70]; // px (approx for 1200px wide)
+      const headers = ['ID', 'Descrição', 'Paciente', 'Data', 'Sessões', 'Total', 'Recebido', 'Pendente', 'Status'];
+      const rowH = 28;
+      const headerH = 36;
+      const tableTop = 160;
+      const totalWidth = colWidths.reduce((a, b) => a + b, 0);
+      const pageH = tableTop + headerH + tableRows.length * rowH + 100;
+
+      const container = document.createElement('div');
+      container.style.cssText = `position:fixed;left:-9999px;top:0;width:1200px;background:#ffffff;font-family:Arial,sans-serif;`;
+
+      const rowsHtml = tableRows.map((row, i) => {
+        const bg = i % 2 === 0 ? '#f8fafc' : '#ffffff';
+        const isOpen = row[8] === 'Aberta';
+        const statusColor = isOpen ? '#d97706' : '#059669';
+        const statusBg = isOpen ? '#fef3c7' : '#d1fae5';
+        return `<tr style="background:${bg}">
+          ${row.slice(0, 8).map((cell, ci) => `
+            <td style="padding:6px 8px;font-size:11px;color:#374151;border-bottom:1px solid #f1f5f9;
+              text-align:${ci >= 5 ? 'right' : 'left'};white-space:nowrap;">${cell}</td>
+          `).join('')}
+          <td style="padding:6px 8px;text-align:center;border-bottom:1px solid #f1f5f9;">
+            <span style="font-size:10px;font-weight:bold;background:${statusBg};color:${statusColor};
+              padding:2px 8px;border-radius:99px;">${row[8]}</span>
+          </td>
+        </tr>`;
+      }).join('');
+
+      container.innerHTML = `
+        <div style="padding:40px 50px;min-height:${pageH}px;">
+          <!-- cabeçalho -->
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;">
+            <div style="display:flex;align-items:center;gap:16px;">
+              ${logoUrl
+                ? `<img src="${logoUrl}" style="height:56px;width:56px;object-fit:contain;border-radius:10px;" crossorigin="anonymous"/>`
+                : `<div style="height:56px;width:56px;background:#e0e7ff;border-radius:10px;"></div>`}
+              <div>
+                <div style="font-size:18px;font-weight:900;color:#1e293b;">${companyName}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:2px;">Gestão de Comandas · ${filterLabel}</div>
+              </div>
+            </div>
+            <div style="text-align:right;font-size:11px;color:#64748b;line-height:1.8;">
+              ${profName ? `<b style="color:#1e293b;">${profName}</b><br/>` : ''}
+              ${profCrp ? `CRP: ${profCrp}<br/>` : ''}
+              ${now}
+            </div>
+          </div>
+
+          <!-- resumo -->
+          <div style="display:flex;gap:12px;margin-bottom:24px;">
+            ${[
+              ['Faturamento Total', fmtMoney(totTotal), '#1e293b', '#f8fafc'],
+              ['Total Recebido', fmtMoney(totPaid), '#059669', '#f0fdf4'],
+              ['Total Pendente', fmtMoney(totPend), '#d97706', '#fffbeb'],
+              ['Total de Comandas', String(rows.length), '#4f46e5', '#eef2ff'],
+            ].map(([label, val, color, bg]) => `
+              <div style="flex:1;background:${bg};border-radius:10px;padding:12px 16px;">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">${label}</div>
+                <div style="font-size:16px;font-weight:900;color:${color};margin-top:4px;">${val}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- tabela -->
+          <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;">
+            <thead>
+              <tr style="background:#1e293b;">
+                ${headers.map((h, i) => `
+                  <th style="padding:10px 8px;font-size:11px;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.05em;color:#e2e8f0;text-align:${i >= 5 ? 'right' : 'left'};">${h}</th>
+                `).join('')}
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+
+          <!-- rodapé -->
+          <div style="margin-top:24px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:10px;color:#94a3b8;">Gerado em ${now} · PsiFlux</div>
+            ${profName ? `<div style="font-size:10px;color:#64748b;">${profName}${profCrp ? ` · CRP ${profCrp}` : ''}</div>` : ''}
+          </div>
+        </div>`;
+
+      document.body.appendChild(container);
+
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: 1200,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      // A4 landscape: 297 x 210 mm
+      const pdfW = 297;
+      const pdfH = (canvas.height / canvas.width) * pdfW;
+      const pageCount = Math.ceil(pdfH / 210);
+
+      for (let page = 0; page < pageCount; page++) {
+        if (page > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, -page * 210, pdfW, pdfH);
+      }
+
+      pdf.save(`comandas_${filterLabel.toLowerCase().replace(' ', '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      document.body.removeChild(container);
+      pushToast('success', 'PDF gerado!');
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao gerar PDF.');
     }
   };
 
@@ -894,15 +1189,64 @@ export const Comandas: React.FC = () => {
             </div>
           </div>
 
-          <Button
-            onClick={() => handleOpenModal()}
-            leftIcon={<Plus size={16} />}
-            variant="primary"
-            radius="xl"
-            className="shadow-lg shadow-primary-200"
-          >
-            Nova comanda
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => { setImportRows([]); setImportResult(null); setIsImportOpen(true); }}
+              leftIcon={<Upload size={16} />}
+              variant="outline"
+              radius="xl"
+            >
+              Importar
+            </Button>
+
+            {/* dropdown exportar */}
+            <div className="relative">
+              <Button
+                onClick={() => setExportMenuOpen(o => !o)}
+                leftIcon={<Download size={16} />}
+                rightIcon={<ChevronDown size={14} />}
+                variant="outline"
+                radius="xl"
+              >
+                Exportar
+              </Button>
+              {exportMenuOpen && (
+                <div
+                  className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                  onMouseLeave={() => setExportMenuOpen(false)}
+                >
+                  <button
+                    onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                  </button>
+                  <button
+                    onClick={() => { setExportMenuOpen(false); handleExportXLSX(); }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <FileText size={14} className="text-green-600" /> Exportar Excel
+                  </button>
+                  <button
+                    onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <FileText size={14} className="text-red-500" /> Exportar PDF
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <Button
+              onClick={() => handleOpenModal()}
+              leftIcon={<Plus size={16} />}
+              variant="primary"
+              radius="xl"
+              className="shadow-lg shadow-primary-200"
+            >
+              Nova comanda
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -970,20 +1314,62 @@ export const Comandas: React.FC = () => {
             />
 
             {statusFilter === 'closed' && (
-              <FilterLineDateRange
-                from={closedDateFrom}
-                to={closedDateTo}
-                onFromChange={(val) => {
-                  setClosedDateFrom(val);
-                  updatePreference('comandas', { closedDateFrom: val });
-                }}
-                onToChange={(val) => {
-                  setClosedDateTo(val);
-                  updatePreference('comandas', { closedDateTo: val });
-                }}
-                fromLabel="De"
-                toLabel="Até"
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                {/* atalhos rápidos */}
+                <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+                  {([
+                    { label: 'Semana', days: 7 },
+                    { label: 'Mês', days: 30 },
+                    { label: 'Ano', days: 365 },
+                  ] as const).map(({ label, days }) => {
+                    const to = new Date().toISOString().slice(0, 10);
+                    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+                    const active = closedDateFrom === from && closedDateTo === to;
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => {
+                          setClosedDateFrom(from);
+                          setClosedDateTo(to);
+                          updatePreference('comandas', { closedDateFrom: from, closedDateTo: to });
+                        }}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                          active ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => {
+                      setClosedDateFrom(null);
+                      setClosedDateTo(null);
+                      updatePreference('comandas', { closedDateFrom: null, closedDateTo: null });
+                    }}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                      !closedDateFrom && !closedDateTo ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Tudo
+                  </button>
+                </div>
+                {/* seletor de data personalizado */}
+                <FilterLineDateRange
+                  from={closedDateFrom}
+                  to={closedDateTo}
+                  onFromChange={(val) => {
+                    setClosedDateFrom(val);
+                    updatePreference('comandas', { closedDateFrom: val });
+                  }}
+                  onToChange={(val) => {
+                    setClosedDateTo(val);
+                    updatePreference('comandas', { closedDateTo: val });
+                  }}
+                  fromLabel="De"
+                  toLabel="Até"
+                />
+              </div>
             )}
 
             <FilterLineViewToggle
@@ -2071,6 +2457,153 @@ export const Comandas: React.FC = () => {
             Você irá excluir permanentemente <strong>{selectedIds.size}</strong> comanda{selectedIds.size > 1 ? 's' : ''}.<br />
             Esta ação não pode ser desfeita.
           </p>
+        </div>
+      </Modal>
+
+      {/* MODAL DE IMPORTAÇÃO */}
+      <Modal
+        isOpen={isImportOpen}
+        onClose={() => { setIsImportOpen(false); setImportRows([]); setImportResult(null); }}
+        title="Importar Comandas"
+        maxWidth="5xl"
+        footer={
+          importResult ? (
+            <div className="flex w-full items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <CheckCircle2 size={16} className="text-emerald-500" />
+                <span><strong className="text-emerald-700">{importResult.created}</strong> importada(s){importResult.errors.length > 0 && <span className="ml-2 text-rose-500">· {importResult.errors.length} erro(s)</span>}</span>
+              </div>
+              <button onClick={() => setIsImportOpen(false)} className="rounded-xl bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700">Fechar</button>
+            </div>
+          ) : importRows.length > 0 ? (
+            <div className="flex w-full flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                <span className="font-semibold text-slate-700">{importRows.length} linha(s)</span>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+                  {importRows.filter(r => r.sessions_used >= r.sessions_total).length} finalizadas
+                </span>
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
+                  {importRows.filter(r => r.sessions_used < r.sessions_total).length} abertas
+                </span>
+              </div>
+              <button onClick={handleImport} disabled={importLoading} className="rounded-xl bg-primary-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50">
+                {importLoading ? 'Importando...' : `Importar ${importRows.length} comanda(s)`}
+              </button>
+            </div>
+          ) : null
+        }
+      >
+        <div className="flex flex-col gap-4">
+
+          {/* upload — sempre visível para trocar arquivo */}
+          {!importResult && (
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-5 py-4 transition hover:border-primary-400 hover:bg-primary-50/50">
+              <Upload size={22} className="shrink-0 text-slate-400" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-700">
+                  {importRows.length > 0 ? 'Trocar arquivo' : 'Selecionar arquivo CSV ou Excel (.xlsx)'}
+                </p>
+                <p className="truncate text-xs text-slate-400">
+                  Colunas: Descrição · Paciente · Data · N. Atendimentos · Total · Total Pago
+                </p>
+              </div>
+              {importRows.length > 0 && (
+                <span className="shrink-0 rounded-lg bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-600">
+                  {importRows.length} linhas
+                </span>
+              )}
+              <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) parseCsvFile(f); e.target.value = ''; }}
+              />
+            </label>
+          )}
+
+          {/* tabela de preview */}
+          {importRows.length > 0 && !importResult && (
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              {/* cabeçalho sticky com scroll horizontal */}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[700px] text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <th className="w-8 px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">#</th>
+                      <th className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descrição</th>
+                      <th className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">Paciente</th>
+                      <th className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">Data</th>
+                      <th className="px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">Sessões</th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">Total</th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pago</th>
+                      <th className="px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</th>
+                      <th className="w-8 px-2 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {importRows.map((r, i) => {
+                      const closed = r.sessions_used >= r.sessions_total;
+                      return (
+                        <tr key={i} className="group hover:bg-slate-50/80">
+                          <td className="px-3 py-2.5 text-center text-[11px] text-slate-400">{i + 1}</td>
+                          <td className="px-3 py-2.5 text-slate-600">{r.description || '—'}</td>
+                          <td className="px-3 py-2.5 font-medium text-slate-800">{r.client_name}</td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-slate-500">{r.date}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                              closed ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+                            }`}>
+                              {r.sessions_used}<span className="text-slate-400">/</span>{r.sessions_total}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{formatCurrency(r.total)}</td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-emerald-700">{formatCurrency(r.paid)}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                              closed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'
+                            }`}>
+                              {closed ? 'Finalizada' : 'Aberta'}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2.5 text-center">
+                            <button
+                              onClick={() => setImportRows(prev => prev.filter((_, idx) => idx !== i))}
+                              title="Remover linha"
+                              className="rounded-lg p-1 text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-500 group-hover:opacity-100"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* resultado */}
+          {importResult && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-xl bg-emerald-50 px-4 py-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
+                  <CheckCircle2 size={20} className="text-emerald-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-emerald-800">{importResult.created} comanda(s) importada(s) com sucesso!</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">Pacientes novos foram criados automaticamente.</p>
+                </div>
+              </div>
+              {importResult.errors.length > 0 && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+                  <p className="mb-2 text-xs font-semibold text-rose-700">Erros ({importResult.errors.length}):</p>
+                  <ul className="space-y-1 text-xs text-rose-600">
+                    {importResult.errors.map((e: any, i: number) => (
+                      <li key={i} className="flex gap-2"><span className="shrink-0">•</span><span><strong>{e.row}</strong>: {e.error}</span></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
     </div>
