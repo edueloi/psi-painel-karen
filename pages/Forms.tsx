@@ -109,9 +109,9 @@ export const Forms: React.FC = () => {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-indigo-600"
-            title="Voltar"
+            title="Voltar para o Dashboard"
           >
             <ArrowLeft size={20} />
           </button>

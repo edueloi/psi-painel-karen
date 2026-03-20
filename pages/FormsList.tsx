@@ -256,9 +256,9 @@ export const FormsList: React.FC = () => {
       <div className="flex items-center justify-between gap-6 flex-wrap pt-6 text-left">
         <div className="flex items-center gap-4 text-left">
            <button
-             onClick={() => navigate('/')}
+             onClick={() => navigate('/formularios')}
              className="p-3 hover:bg-slate-100 rounded-2xl transition-all text-slate-400 hover:text-indigo-600 border border-transparent hover:border-slate-200"
-             title="Voltar ao Início"
+             title="Voltar para Formulários"
            >
              <ArrowLeft size={24} />
            </button>
