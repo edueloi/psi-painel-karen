@@ -182,6 +182,18 @@ export const FormsList: React.FC = () => {
     return url;
   };
 
+  // URL especial para compartilhamento social (WhatsApp, Telegram, etc.)
+  // Passa pelo backend que serve os OG meta tags corretos (logo da clínica, nome do formulário, etc.)
+  const getOgShareLink = () => {
+    if (!selectedForm) return '';
+    const apiBase = (import.meta as any).env?.VITE_API_URL || 'https://psiflux.com.br/api';
+    let url = `${apiBase}/forms/og/${selectedForm.hash}`;
+    if (shareTab === 'patient' && selectedPatientId) {
+      url += `?p=${selectedPatientId}`;
+    }
+    return url;
+  };
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(getShareLink()).then(() => {
       setCopiedLink(true);
@@ -190,7 +202,7 @@ export const FormsList: React.FC = () => {
   };
 
   const handleWhatsAppShare = () => {
-    const link = getShareLink();
+    const link = getOgShareLink(); // usa rota OG para preview correto
     const patient = patients.find(p => String(p.id) === selectedPatientId);
     const message = patient
       ? `Olá ${patient.full_name}, por favor preencha este formulário: ${link}`
