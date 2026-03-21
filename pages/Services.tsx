@@ -1229,6 +1229,9 @@ export const Services: React.FC = () => {
                     headerClassName: 'text-right',
                     render: (s: Service) => (
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="xs" iconOnly onClick={() => openHistory('service', String(s.id), s.name)} title="Histórico">
+                          <History size={14} />
+                        </Button>
                         <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenServiceModal(s)} title="Editar">
                           <Edit3 size={14} />
                         </Button>
@@ -1294,6 +1297,9 @@ export const Services: React.FC = () => {
                     headerClassName: 'text-right',
                     render: (p: ServicePackage) => (
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="xs" iconOnly onClick={() => openHistory('package', String(p.id), p.name)} title="Histórico">
+                          <History size={14} />
+                        </Button>
                         <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenPackageModal(p)} title="Editar">
                           <Edit3 size={14} />
                         </Button>
