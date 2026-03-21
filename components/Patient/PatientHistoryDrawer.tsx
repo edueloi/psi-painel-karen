@@ -163,6 +163,14 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
             <div>
               <h3 className="text-base font-bold text-slate-800 leading-tight mb-0.5">{patient?.full_name}</h3>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('patients.history')}</p>
+              {patient && (
+                <button
+                  onClick={() => { navigate(`/pacientes/${patient.id}`); onClose(); }}
+                  className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 hover:underline mt-0.5 block"
+                >
+                  Ver perfil completo →
+                </button>
+              )}
             </div>
           </div>
           <button
@@ -175,10 +183,11 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
 
         {/* Estatísticas (Stats Grid) */}
         {data && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-100 shrink-0 bg-slate-50/50">
+          <div className="grid grid-cols-3 sm:grid-cols-5 border-b border-slate-100 shrink-0 bg-slate-50/50">
             {[
               { label: t('nav.agenda'), value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={14}/> },
               { label: t('nav.records'), value: data.counts.records, color: 'text-blue-600', icon: <FileText size={14}/> },
+              { label: 'Documentos', value: data.counts.documents || 0, color: 'text-amber-600', icon: <FolderOpen size={14}/> },
               { label: t('nav.comandas'), value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={14}/> },
               { label: 'Formulários', value: data.counts.forms || 0, color: 'text-rose-600', icon: <ClipboardList size={14}/> },
             ].map((s, idx) => (

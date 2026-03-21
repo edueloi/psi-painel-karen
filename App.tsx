@@ -5,6 +5,7 @@ import { Topbar } from './components/Layout/Topbar';
 import { Login } from './components/Auth/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
+import { PatientDetail } from './pages/PatientDetail';
 import { Agenda } from './pages/Agenda';
 import { Professionals } from './pages/Professionals';
 import { Permissions } from './pages/Permissions';
@@ -122,6 +123,7 @@ const AppRoutes: React.FC = () => {
       {/* Rotas comuns da clinica */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/pacientes" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+      <Route path="/pacientes/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
       <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
       <Route path="/salas-virtuais" element={<ProtectedRoute><VirtualRooms /></ProtectedRoute>} />
       <Route path="/sala/:id" element={<MeetingRoom />} />

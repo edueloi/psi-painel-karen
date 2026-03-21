@@ -806,7 +806,7 @@ export const Patients: React.FC = () => {
                 <div
                   key={patient.id}
                   className={`bg-white border rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'}`}
-                  onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : openPatientSummary(patient)}
+                  onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : navigate(`/pacientes/${patient.id}`)}
                 >
                   {/* Card Top */}
                   <div className="p-4">
@@ -880,7 +880,7 @@ export const Patients: React.FC = () => {
                   {/* Card Footer */}
                   <div className="border-t border-slate-100 px-3 py-2.5 flex flex-wrap items-center gap-1.5 bg-slate-50/70">
                     <button
-                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); openPatientSummary(patient); }}
+                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate(`/pacientes/${patient.id}`); }}
                       className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all flex-1 justify-center whitespace-nowrap"
                     >
                       <Eye size={12} /> Perfil
@@ -925,7 +925,7 @@ export const Patients: React.FC = () => {
             selectedIds={selectedIds}
             onToggleSelect={(id) => toggleSelect(id)}
             onToggleSelectAll={toggleSelectAll}
-            onRowClick={(p) => openPatientSummary(p)}
+            onRowClick={(p) => navigate(`/pacientes/${p.id}`)}
             emptyMessage={t('patients.empty')}
             columns={[
               {
@@ -999,7 +999,7 @@ export const Patients: React.FC = () => {
                 render: (patient: Patient) => (
                   <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                     <button
-                      onClick={() => openPatientSummary(patient)}
+                      onClick={() => navigate(`/pacientes/${patient.id}`)}
                       className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all"
                       title="Perfil"
                     >

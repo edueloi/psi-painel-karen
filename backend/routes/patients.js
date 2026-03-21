@@ -635,8 +635,12 @@ router.get('/:id/history', async (req, res) => {
         [id, tenantId]
       ),
       safeQuery(
-        `SELECT id, created_at as date, title, category
-         FROM documents
+        `SELECT id, created_at as date,
+                COALESCE(title, original_name, file_name, filename) as title,
+                COALESCE(category, 'Documento') as category,
+                COALESCE(url, file_url) as file_url,
+                COALESCE(mime_type, file_type) as mime_type
+         FROM uploads
          WHERE patient_id = ? AND tenant_id = ?
          ORDER BY created_at DESC LIMIT 50`,
         [id, tenantId]
@@ -721,6 +725,8 @@ router.get('/:id/history', async (req, res) => {
         id: `doc-${d.id}`, type: 'document', date: d.date,
         title: d.title || 'Documento',
         subtitle: d.category,
+        file_url: d.file_url || null,
+        mime_type: d.mime_type || null,
       })),
       ...notes.map(n => ({
         id: `note-${n.id}`, type: 'note', date: n.date,
