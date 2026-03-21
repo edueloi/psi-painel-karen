@@ -354,19 +354,24 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
         const newVal = req.body[field];
         if (newVal === undefined || newVal === null) continue;
         const oldVal = old?.[field];
-        const oldStr = oldVal !== undefined && oldVal !== null ? String(oldVal) : null;
-        const newStr = String(newVal);
-        if (oldStr === newStr) continue; // no change
-        let changePct = null;
         if (numeric) {
           const o = parseFloat(oldVal) || 0;
           const n = parseFloat(newVal) || 0;
-          changePct = o > 0 ? ((n - o) / o) * 100 : null;
+          if (o === n) continue; // no change
+          const changePct = o > 0 ? ((n - o) / o) * 100 : null;
+          await db.query(
+            'INSERT INTO service_history (tenant_id, entity_type, entity_id, changed_by_id, changed_by_name, field, old_value, new_value, change_pct) VALUES (?, "package", ?, ?, ?, ?, ?, ?, ?)',
+            [req.user.tenant_id, req.params.id, req.user.id, req.user.name || req.user.email, field, String(o), String(n), changePct]
+          );
+        } else {
+          const oldStr = oldVal !== undefined && oldVal !== null ? String(oldVal) : '';
+          const newStr = String(newVal);
+          if (oldStr === newStr) continue; // no change
+          await db.query(
+            'INSERT INTO service_history (tenant_id, entity_type, entity_id, changed_by_id, changed_by_name, field, old_value, new_value, change_pct) VALUES (?, "package", ?, ?, ?, ?, ?, ?, ?)',
+            [req.user.tenant_id, req.params.id, req.user.id, req.user.name || req.user.email, field, oldStr, newStr, null]
+          );
         }
-        await db.query(
-          'INSERT INTO service_history (tenant_id, entity_type, entity_id, changed_by_id, changed_by_name, field, old_value, new_value, change_pct) VALUES (?, "package", ?, ?, ?, ?, ?, ?, ?)',
-          [req.user.tenant_id, req.params.id, req.user.id, req.user.name || req.user.email, field, oldStr, newStr, changePct]
-        );
       }
     } catch (histErr) { console.error('History insert error:', histErr.message); }
 
