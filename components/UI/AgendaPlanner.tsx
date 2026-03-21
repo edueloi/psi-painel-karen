@@ -57,6 +57,13 @@ export interface AgendaPlannerTask {
   tag?: string;
 }
 
+export interface WorkScheduleDay {
+  dayKey: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  active: boolean;
+  start: string;  // "HH:MM"
+  end: string;    // "HH:MM"
+}
+
 export interface AgendaPlannerProps {
   currentDate: Date;
   onCurrentDateChange: (date: Date) => void;
@@ -78,6 +85,7 @@ export interface AgendaPlannerProps {
   onCreateEvent?: () => void;
   hideHeader?: boolean;
   hideStats?: boolean;
+  workSchedule?: WorkScheduleDay[];
 }
 
 type NormalizedEvent = AgendaPlannerEvent & {
@@ -300,6 +308,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
   onCreateEvent,
   hideHeader,
   hideStats,
+  workSchedule,
 }) => {
   const [hoveredSlot, setHoveredSlot] = useState<{
     dayIndex: number;
@@ -643,6 +652,21 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
 
                     {visibleDays.map((day, dayIndex) => {
                       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                      const dayKeyMap: Record<number, WorkScheduleDay['dayKey']> = {
+                        0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
+                        4: 'thursday', 5: 'friday', 6: 'saturday',
+                      };
+                      const schedDay = workSchedule?.find((s: WorkScheduleDay) => s.dayKey === dayKeyMap[day.getDay()]);
+                      const schedInactive = schedDay ? !schedDay.active : false;
+                      const schedStartMinutes = schedDay?.active ? parseInt(schedDay.start.split(':')[0]) * 60 + parseInt(schedDay.start.split(':')[1]) : null;
+                      const schedEndMinutes = schedDay?.active ? parseInt(schedDay.end.split(':')[0]) * 60 + parseInt(schedDay.end.split(':')[1]) : null;
+                      const beforeOverlayHeight = schedStartMinutes !== null
+                        ? Math.max(0, ((schedStartMinutes - startHour * 60) / 60) * hourHeight)
+                        : 0;
+                      const afterOverlayTop = schedEndMinutes !== null
+                        ? Math.max(0, ((schedEndMinutes - startHour * 60) / 60) * hourHeight)
+                        : gridHeight;
+                      const afterOverlayHeight = gridHeight - afterOverlayTop;
                       return (
                       <div
                         key={day.toISOString()}
@@ -665,6 +689,17 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           onSlotClick?.(info.slotDate);
                         }}
                       >
+                        {/* overlay horário fora do expediente */}
+                        {workSchedule && schedInactive && (
+                          <div className="pointer-events-none absolute inset-0 z-[3]" style={{ background: 'rgba(148,163,184,0.13)' }} />
+                        )}
+                        {workSchedule && !schedInactive && beforeOverlayHeight > 0 && (
+                          <div className="pointer-events-none absolute left-0 right-0 top-0 z-[3]" style={{ height: beforeOverlayHeight, background: 'rgba(148,163,184,0.13)' }} />
+                        )}
+                        {workSchedule && !schedInactive && afterOverlayHeight > 0 && (
+                          <div className="pointer-events-none absolute left-0 right-0 z-[3]" style={{ top: afterOverlayTop, height: afterOverlayHeight, background: 'rgba(148,163,184,0.13)' }} />
+                        )}
+
                         {/* hover slot afundado */}
                         {hoveredSlot?.dayIndex === dayIndex && (
                           <>

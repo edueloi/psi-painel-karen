@@ -18,7 +18,7 @@ import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
 import { DatePicker } from '../components/UI/DatePicker';
-import { AgendaPlanner } from '../components/UI/AgendaPlanner';
+import { AgendaPlanner, WorkScheduleDay } from '../components/UI/AgendaPlanner';
 
 type ComandaTab = 'avulsa' | 'pacote';
 type ViewMode = 'kanban' | 'list';
@@ -191,8 +191,26 @@ export const Agenda: React.FC = () => {
 
 
   const locale = language === 'pt' ? 'pt-BR' : 'en-US';
-  const startHour = 6;
   const endHour = 22;
+
+  const workSchedule: WorkScheduleDay[] = useMemo(() => {
+    const raw = profileData?.schedule;
+    if (!raw) return [];
+    const parsed = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed as WorkScheduleDay[];
+  }, [profileData]);
+
+  const startHour = useMemo(() => {
+    const activeStarts = workSchedule
+      .filter(d => d.active)
+      .map(d => parseInt(d.start.split(':')[0]));
+    const schedMin = activeStarts.length > 0 ? Math.min(...activeStarts) : 6;
+    const aptMin = appointments.length > 0
+      ? Math.min(...appointments.map(a => new Date(a.start).getHours()))
+      : schedMin;
+    return Math.min(schedMin, aptMin);
+  }, [workSchedule, appointments]);
   const hourHeight = 70;
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
@@ -1564,6 +1582,8 @@ export const Agenda: React.FC = () => {
                 hideHeader
                 hideStats
                 hourHeight={125}
+                startHour={startHour}
+                workSchedule={workSchedule}
             />
         )}
       </div>
