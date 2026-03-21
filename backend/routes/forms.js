@@ -457,9 +457,12 @@ router.post('/public/:hash/responses', async (req, res) => {
         let hasBlocks = false;
         for (const q of formQuestions) {
           if (q.block && blocksMap[q.block]) {
-            const val = parseFloat(parsedAnswers[q.id]);
-            if (!isNaN(val)) blocksMap[q.block].push(val);
             hasBlocks = true;
+            const rawVal = parsedAnswers[q.id];
+            // Answers chegam como label (ex: "Frequentemente") — resolve o valor numérico pela opção
+            const opt = (q.options || []).find(o => o.label === rawVal || String(o.value) === String(rawVal));
+            const val = opt ? Number(opt.value) : parseFloat(rawVal);
+            if (!isNaN(val)) blocksMap[q.block].push(val);
           }
         }
 
