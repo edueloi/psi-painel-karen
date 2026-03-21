@@ -279,9 +279,13 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
     const { name, description, discountType, discountValue, totalPrice, items, active } = req.body;
 
     // Calcular sessões totais se houver items no corpo
-    const sessions_count = items && items.length > 0 
-      ? items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0)
-      : undefined;
+    const sessions_count = items && items.length > 0
+      ? items.reduce((sum, item) => sum + (parseInt(item.quantity) || 1), 0)
+      : null;
+
+    const safeDiscountType = (discountType === 'percentage' || discountType === 'fixed') ? discountType : undefined;
+    const safeDiscountValue = discountValue !== undefined ? parseFloat(discountValue) || 0 : undefined;
+    const safeTotalPrice = totalPrice !== undefined ? parseFloat(totalPrice) || 0 : undefined;
 
     await connection.query(
       `UPDATE packages SET
@@ -290,20 +294,28 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
         discountType = COALESCE(?, discountType),
         discountValue = COALESCE(?, discountValue),
         totalPrice = COALESCE(?, totalPrice),
-        price = COALESCE(?, price),
-        sessions_count = COALESCE(?, sessions_count),
-        active = COALESCE(?, active)
+        sessions_count = COALESCE(?, sessions_count)
        WHERE id = ? AND tenant_id = ?`,
-      [name, description, discountType, discountValue, totalPrice, totalPrice, sessions_count, active !== undefined ? active : undefined, req.params.id, req.user.tenant_id]
+      [name || null, description !== undefined ? description : null, safeDiscountType || null, safeDiscountValue !== undefined ? safeDiscountValue : null, safeTotalPrice !== undefined ? safeTotalPrice : null, sessions_count, req.params.id, req.user.tenant_id]
     );
 
-    if (items) {
-      // Remover itens antigos e inserir novos
+    // Atualizar price (coluna legada, pode não existir em todos os ambientes)
+    try {
+      await connection.query(
+        'UPDATE packages SET price = ? WHERE id = ? AND tenant_id = ?',
+        [safeTotalPrice !== undefined ? safeTotalPrice : null, req.params.id, req.user.tenant_id]
+      );
+    } catch (_) { /* ignora se a coluna price não existir */ }
+
+    if (items && Array.isArray(items)) {
+      // Remover itens antigos e inserir novos (só itens com serviceId válido)
       await connection.query('DELETE FROM package_items WHERE package_id = ?', [req.params.id]);
       for (const item of items) {
+        const sid = item.serviceId || item.service_id;
+        if (!sid) continue; // ignora itens sem serviço vinculado
         await connection.query(
           'INSERT INTO package_items (package_id, service_id, quantity) VALUES (?, ?, ?)',
-          [req.params.id, item.serviceId, item.quantity]
+          [req.params.id, sid, parseInt(item.quantity) || 1]
         );
       }
     }
@@ -314,8 +326,8 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
     res.json({ ...updated[0], items: items || [] });
   } catch (err) {
     await connection.rollback();
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao atualizar pacote' });
+    console.error('PUT /packages error:', err.sqlMessage || err.message, err);
+    res.status(500).json({ error: 'Erro ao atualizar pacote', detail: err.sqlMessage || err.message });
   } finally {
     connection.release();
   }

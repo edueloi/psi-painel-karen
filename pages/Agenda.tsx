@@ -969,6 +969,8 @@ export const Agenda: React.FC = () => {
 
   const openNewModal = (date?: Date) => {
     const initialDate = date || new Date();
+    setSelectedApt(null);
+    setPatientComandas([]);
     setFormData({
         type: 'consulta',
         modality: 'presencial',
@@ -1206,7 +1208,7 @@ export const Agenda: React.FC = () => {
       discount_type: pkgDiscountType,
       discount_value: pkgDiscountValue,
       packageId,
-      patientLocked: !!(patientId), // cliente vem do agendamento → campo bloqueado
+      patientLocked: false,
     });
   };
 
@@ -1414,9 +1416,12 @@ export const Agenda: React.FC = () => {
         ) : view === 'month' ? (
             <div className="flex flex-col h-full bg-slate-50/50 rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-2xl shadow-indigo-100/20">
                 <div className="grid grid-cols-7 border-b border-slate-100 bg-indigo-50/30 backdrop-blur-md sticky top-0 z-20">
-                    {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map((day, idx) => (
-                        <div key={day} className={`py-4 text-center text-[9px] font-black tracking-[0.2em] text-indigo-400 uppercase`}>{day}</div>
-                    ))}
+                    {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map((day, idx) => {
+                        const isWknd = idx === 0 || idx === 6;
+                        return (
+                            <div key={day} className={`py-4 text-center text-[9px] font-black tracking-[0.2em] uppercase ${isWknd ? 'text-slate-400 bg-slate-100/60' : 'text-indigo-400'}`}>{day}</div>
+                        );
+                    })}
                 </div>
                 <div className="grid grid-cols-7 flex-1">
                     {monthDays.map((day, idx) => {
@@ -1428,9 +1433,8 @@ export const Agenda: React.FC = () => {
                         return (
                             <div
                                 key={day.toISOString()}
-                                className={`min-h-[140px] p-2 border-b border-r border-slate-100/60 transition-all group relative
-                                    ${inMonth ? 'bg-white' : 'bg-slate-50/40 opacity-40'}
-                                    ${isWeekend && inMonth ? 'bg-slate-50/30' : ''}
+                                className={`min-h-[140px] p-2 border-b border-r border-slate-200/70 transition-all group relative
+                                    ${!inMonth ? 'bg-slate-100/60 opacity-50' : isWeekend ? 'bg-slate-100/80' : 'bg-white'}
                                     hover:bg-indigo-50/20 cursor-alias
                                 `}
                                 onClick={() => inMonth && openNewModal(day)}

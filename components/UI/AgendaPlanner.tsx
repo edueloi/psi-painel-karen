@@ -590,15 +590,20 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                     className="sticky top-0 z-20 flex border-b border-slate-200 bg-white"
                     style={{ height: HEADER_HEIGHT }}
                   >
-                    {visibleDays.map((day) => (
+                    {visibleDays.map((day) => {
+                      const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                      return (
                       <div
                         key={day.toISOString()}
                         className={cx(
-                          'flex min-w-[128px] flex-1 flex-col items-center justify-center border-r border-slate-100 px-2',
-                          isSameDay(day, new Date()) && 'bg-primary-50/40'
+                          'flex min-w-[128px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-2',
+                          isSameDay(day, new Date()) ? 'bg-primary-50/40' : isWeekend ? 'bg-slate-100/70' : ''
                         )}
                       >
-                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                        <span className={cx(
+                          'text-[10px] font-bold uppercase tracking-[0.18em]',
+                          isWeekend ? 'text-slate-400' : 'text-slate-400'
+                        )}>
                           {day
                             .toLocaleDateString(locale, { weekday: 'short' })
                             .replace('.', '')}
@@ -608,13 +613,14 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                             'mt-1 text-[17px] font-bold tracking-tight',
                             isSameDay(day, new Date())
                               ? 'text-primary-600'
-                              : 'text-slate-800'
+                              : isWeekend ? 'text-slate-500' : 'text-slate-800'
                           )}
                         >
                           {day.getDate()}
                         </span>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="relative flex" style={{ height: gridHeight }}>
@@ -631,12 +637,14 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       ))}
                     </div>
 
-                    {visibleDays.map((day, dayIndex) => (
+                    {visibleDays.map((day, dayIndex) => {
+                      const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                      return (
                       <div
                         key={day.toISOString()}
                         className={cx(
-                          'relative min-w-[128px] flex-1 border-r border-slate-100 transition',
-                          isSameDay(day, new Date()) && 'bg-slate-50/30'
+                          'relative min-w-[128px] flex-1 border-r border-slate-200 transition',
+                          isSameDay(day, new Date()) ? 'bg-indigo-50/20' : isWeekend ? 'bg-slate-100/50' : ''
                         )}
                         onMouseMove={(e) => {
                           const info = getSlotInfo(e.clientY, e.currentTarget, day);
@@ -811,7 +819,8 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           );
                         })}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
