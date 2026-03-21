@@ -12,8 +12,60 @@ const mysql = require('mysql2/promise');
 const crypto = require('crypto');
 require('dotenv').config();
 
-const { DEFAULT_FORMS } = require('./default_forms_data');
-const DISC_FORM = DEFAULT_FORMS.find(f => f.title === 'DISC Adaptado para TCC');
+// Dados do DISC inline (independente do default_forms_data.js)
+const DISC_OPTIONS = [
+  { label: 'Nunca', value: 1 },
+  { label: 'Raramente', value: 2 },
+  { label: 'Às vezes', value: 3 },
+  { label: 'Frequentemente', value: 4 },
+  { label: 'Quase sempre', value: 5 },
+];
+function qb(id, text, block) {
+  return { id, text, type: 'radio', options: DISC_OPTIONS, required: true, block };
+}
+const DISC_FORM = {
+  title: 'DISC Adaptado para TCC',
+  description:
+    'Identifica tendências de comportamento, tomada de decisão, relação com pessoas, ritmo de ação e organização. ' +
+    'Leia cada frase e marque o quanto ela combina com você: 1 = Nunca · 2 = Raramente · 3 = Às vezes · 4 = Frequentemente · 5 = Quase sempre',
+  questions: [
+    qb('q1',  'Gosto de resolver as coisas rapidamente.', 'D'),
+    qb('q2',  'Fico incomodado(a) quando percebo lentidão ou indecisão nos outros.', 'D'),
+    qb('q3',  'Costumo assumir a liderança quando ninguém toma iniciativa.', 'D'),
+    qb('q4',  'Prefiro agir logo do que pensar por muito tempo.', 'D'),
+    qb('q5',  'Sinto necessidade de ter controle sobre o que está acontecendo.', 'D'),
+    qb('q6',  'Tenho facilidade para confrontar situações difíceis.', 'D'),
+    qb('q7',  'Fico frustrado(a) quando as coisas não saem como planejei.', 'D'),
+    qb('q8',  'Em conflitos, costumo me posicionar de forma direta.', 'D'),
+    qb('q9',  'Gosto de conversar e me conectar com pessoas.', 'I'),
+    qb('q10', 'Sinto-me motivado(a) quando recebo atenção ou reconhecimento.', 'I'),
+    qb('q11', 'Tenho facilidade para entusiasmar outras pessoas.', 'I'),
+    qb('q12', 'Gosto de ambientes leves, dinâmicos e com interação.', 'I'),
+    qb('q13', 'Costumo expressar com facilidade o que penso e sinto.', 'I'),
+    qb('q14', 'Gosto de ser visto(a) como alguém agradável e inspirador(a).', 'I'),
+    qb('q15', 'Fico mais animado(a) quando estou em grupo do que sozinho(a).', 'I'),
+    qb('q16', 'Valorizo ambientes calmos, previsíveis e harmoniosos.', 'S'),
+    qb('q17', 'Mudanças bruscas costumam me deixar desconfortável.', 'S'),
+    qb('q18', 'Prefiro manter uma rotina estável.', 'S'),
+    qb('q19', 'Costumo evitar conflitos para preservar a paz.', 'S'),
+    qb('q20', 'Sou uma pessoa paciente e constante.', 'S'),
+    qb('q21', 'Gosto de ajudar os outros de forma acolhedora.', 'S'),
+    qb('q22', 'Preciso de um tempo maior para me adaptar a novidades.', 'S'),
+    qb('q23', 'Sou detalhista e gosto das coisas bem feitas.', 'C'),
+    qb('q24', 'Costumo analisar bastante antes de tomar decisões.', 'C'),
+    qb('q25', 'Fico incomodado(a) quando percebo erros, desorganização ou falta de critério.', 'C'),
+    qb('q26', 'Gosto de regras claras e orientações bem definidas.', 'C'),
+    qb('q27', 'Tenho tendência a cobrar muito de mim mesmo(a).', 'C'),
+    qb('q28', 'Prefiro ter certeza antes de agir.', 'C'),
+    qb('q29', 'Valorizo precisão, lógica e planejamento.', 'C'),
+    qb('q30', 'Reviso mentalmente o que fiz para ver se poderia ter feito melhor.', 'C'),
+  ],
+  interpretations: [
+    { id: 'i1', minScore: 30,  maxScore: 89,  resultTitle: 'Perfil Equilibrado',            description: 'Todos os traços apresentam-se em níveis baixos a moderados. Avaliar respostas por bloco para identificar nuances.', color: '#22c55e' },
+    { id: 'i2', minScore: 90,  maxScore: 119, resultTitle: 'Traços Destacados',             description: 'A pontuação total indica que pelo menos um fator DISC se apresenta com intensidade moderada a alta. Veja a análise por bloco.', color: '#eab308' },
+    { id: 'i3', minScore: 120, maxScore: 150, resultTitle: 'Perfil Intenso',                description: 'Alta pontuação global — um ou mais traços estão muito presentes. A análise por bloco é essencial para identificar os fatores predominantes.', color: '#ef4444' },
+  ],
+};
 
 function generateHash() {
   return crypto.randomBytes(8).toString('hex');
