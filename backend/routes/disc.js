@@ -88,7 +88,7 @@ router.get('/', authMiddleware, async (req, res) => {
     let sql = `
       SELECT fr.id, fr.patient_id, fr.respondent_name, fr.respondent_email,
              fr.data, fr.score, fr.created_at,
-             p.name as patient_name, p.full_name as patient_full_name
+             p.name as patient_name
       FROM form_responses fr
       LEFT JOIN patients p ON p.id = fr.patient_id
       WHERE fr.form_id = ?
@@ -128,7 +128,7 @@ router.get('/', authMiddleware, async (req, res) => {
       return {
         id: row.id,
         patient_id: row.patient_id,
-        patient_name: row.patient_full_name || row.patient_name || row.respondent_name || 'Anônimo',
+        patient_name: row.patient_name || row.respondent_name || 'Anônimo',
         respondent_name: row.respondent_name,
         respondent_email: row.respondent_email,
         answers,
