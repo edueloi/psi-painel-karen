@@ -452,6 +452,57 @@ router.post('/public/:hash/responses', async (req, res) => {
             ${interpretation.description ? `<p style="margin:8px 0 0;font-size:13px;color:#475569;line-height:1.6;">${interpretation.description}</p>` : ''}
           </div>` : '';
 
+        // Seção DISC — sub-scores por bloco (D, I, S, C)
+        const blocksMap = { D: [], I: [], S: [], C: [] };
+        let hasBlocks = false;
+        for (const q of formQuestions) {
+          if (q.block && blocksMap[q.block]) {
+            const val = parseFloat(parsedAnswers[q.id]);
+            if (!isNaN(val)) blocksMap[q.block].push(val);
+            hasBlocks = true;
+          }
+        }
+
+        const blockConfig = {
+          D: { label: 'Dominância', color: '#dc2626', bg: '#fef2f2', desc: 'Direto, assertivo, orientado a resultado e ação' },
+          I: { label: 'Influência',  color: '#f59e0b', bg: '#fffbeb', desc: 'Comunicativo, caloroso, persuasivo e social' },
+          S: { label: 'Estabilidade', color: '#16a34a', bg: '#f0fdf4', desc: 'Estável, acolhedor, paciente, resistente a mudanças' },
+          C: { label: 'Conformidade', color: '#2563eb', bg: '#eff6ff', desc: 'Analítico, cuidadoso, organizado, crítico' },
+        };
+
+        const discSection = hasBlocks ? (() => {
+          const entries = Object.entries(blocksMap).map(([key, vals]) => {
+            const avg = vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+            const pct = Math.round(((avg - 1) / 4) * 100); // 1-5 → 0-100%
+            const level = avg >= 3.5 ? 'Forte' : avg >= 2.5 ? 'Moderado' : 'Baixo';
+            const cfg = blockConfig[key];
+            return { key, avg: avg.toFixed(2), pct, level, ...cfg };
+          }).sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg));
+
+          const rows = entries.map(e => `
+            <tr>
+              <td style="padding:10px 14px;vertical-align:middle;width:30%;">
+                <span style="display:inline-block;background:${e.bg};color:${e.color};border:1px solid ${e.color}33;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:1px;">${e.key} — ${e.label}</span>
+              </td>
+              <td style="padding:10px 14px;vertical-align:middle;">
+                <div style="background:#e2e8f0;border-radius:999px;height:8px;overflow:hidden;">
+                  <div style="background:${e.color};height:8px;width:${e.pct}%;border-radius:999px;"></div>
+                </div>
+                <p style="margin:4px 0 0;font-size:10px;color:#64748b;">${e.desc}</p>
+              </td>
+              <td style="padding:10px 14px;text-align:center;vertical-align:middle;min-width:80px;">
+                <p style="margin:0;font-size:18px;font-weight:900;color:${e.color};">${e.avg}</p>
+                <p style="margin:2px 0 0;font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;">${e.level}</p>
+              </td>
+            </tr>`).join('');
+
+          return `
+          <p style="margin:0 0 12px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;">📊 Análise por Fator DISC (média 1–5)</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;">
+            <tbody>${rows}</tbody>
+          </table>`;
+        })() : '';
+
         const answersSection = formQuestions.length > 0 ? `
           <p style="margin:0 0 12px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;">📋 Respostas Completas</p>
           <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;">
@@ -493,6 +544,7 @@ router.post('/public/:hash/responses', async (req, res) => {
 
           ${scoreSection}
           ${interpretationSection}
+          ${discSection}
           ${answersSection}
 
           <!-- CTA -->

@@ -44,6 +44,10 @@ function q(id, text, options, type = 'radio') {
   return { id, text, type, options, required: true };
 }
 
+function qb(id, text, block, options, type = 'radio') {
+  return { id, text, type, options, required: true, block };
+}
+
 function interp(id, minScore, maxScore, resultTitle, description, color) {
   return { id, minScore, maxScore, resultTitle, description, color };
 }
@@ -577,6 +581,65 @@ const ESCALA_HUMOR = {
   ],
 };
 
+// ─────────────────────────────────────────────────────────────
+// 13. DISC Adaptado para TCC
+// ─────────────────────────────────────────────────────────────
+const DISC_OPTIONS = [
+  { label: 'Nunca', value: 1 },
+  { label: 'Raramente', value: 2 },
+  { label: 'Às vezes', value: 3 },
+  { label: 'Frequentemente', value: 4 },
+  { label: 'Quase sempre', value: 5 },
+];
+
+const DISC_TCC = {
+  title: 'Questionário de Autoconhecimento Comportamental',
+  description:
+    'Identifica tendências de comportamento, tomada de decisão, relação com pessoas, ritmo de ação e organização. ' +
+    'Leia cada frase e marque o quanto ela combina com você: 1 = Nunca · 2 = Raramente · 3 = Às vezes · 4 = Frequentemente · 5 = Quase sempre',
+  questions: [
+    // Bloco D — Dominância (q1–q8)
+    qb('q1',  'Gosto de resolver as coisas rapidamente.', 'D', DISC_OPTIONS),
+    qb('q2',  'Fico incomodado(a) quando percebo lentidão ou indecisão nos outros.', 'D', DISC_OPTIONS),
+    qb('q3',  'Costumo assumir a liderança quando ninguém toma iniciativa.', 'D', DISC_OPTIONS),
+    qb('q4',  'Prefiro agir logo do que pensar por muito tempo.', 'D', DISC_OPTIONS),
+    qb('q5',  'Sinto necessidade de ter controle sobre o que está acontecendo.', 'D', DISC_OPTIONS),
+    qb('q6',  'Tenho facilidade para confrontar situações difíceis.', 'D', DISC_OPTIONS),
+    qb('q7',  'Fico frustrado(a) quando as coisas não saem como planejei.', 'D', DISC_OPTIONS),
+    qb('q8',  'Em conflitos, costumo me posicionar de forma direta.', 'D', DISC_OPTIONS),
+    // Bloco I — Influência (q9–q15)
+    qb('q9',  'Gosto de conversar e me conectar com pessoas.', 'I', DISC_OPTIONS),
+    qb('q10', 'Sinto-me motivado(a) quando recebo atenção ou reconhecimento.', 'I', DISC_OPTIONS),
+    qb('q11', 'Tenho facilidade para entusiasmar outras pessoas.', 'I', DISC_OPTIONS),
+    qb('q12', 'Gosto de ambientes leves, dinâmicos e com interação.', 'I', DISC_OPTIONS),
+    qb('q13', 'Costumo expressar com facilidade o que penso e sinto.', 'I', DISC_OPTIONS),
+    qb('q14', 'Gosto de ser visto(a) como alguém agradável e inspirador(a).', 'I', DISC_OPTIONS),
+    qb('q15', 'Fico mais animado(a) quando estou em grupo do que sozinho(a).', 'I', DISC_OPTIONS),
+    // Bloco S — Estabilidade (q16–q22)
+    qb('q16', 'Valorizo ambientes calmos, previsíveis e harmoniosos.', 'S', DISC_OPTIONS),
+    qb('q17', 'Mudanças bruscas costumam me deixar desconfortável.', 'S', DISC_OPTIONS),
+    qb('q18', 'Prefiro manter uma rotina estável.', 'S', DISC_OPTIONS),
+    qb('q19', 'Costumo evitar conflitos para preservar a paz.', 'S', DISC_OPTIONS),
+    qb('q20', 'Sou uma pessoa paciente e constante.', 'S', DISC_OPTIONS),
+    qb('q21', 'Gosto de ajudar os outros de forma acolhedora.', 'S', DISC_OPTIONS),
+    qb('q22', 'Preciso de um tempo maior para me adaptar a novidades.', 'S', DISC_OPTIONS),
+    // Bloco C — Conformidade (q23–q30)
+    qb('q23', 'Sou detalhista e gosto das coisas bem feitas.', 'C', DISC_OPTIONS),
+    qb('q24', 'Costumo analisar bastante antes de tomar decisões.', 'C', DISC_OPTIONS),
+    qb('q25', 'Fico incomodado(a) quando percebo erros, desorganização ou falta de critério.', 'C', DISC_OPTIONS),
+    qb('q26', 'Gosto de regras claras e orientações bem definidas.', 'C', DISC_OPTIONS),
+    qb('q27', 'Tenho tendência a cobrar muito de mim mesmo(a).', 'C', DISC_OPTIONS),
+    qb('q28', 'Prefiro ter certeza antes de agir.', 'C', DISC_OPTIONS),
+    qb('q29', 'Valorizo precisão, lógica e planejamento.', 'C', DISC_OPTIONS),
+    qb('q30', 'Reviso mentalmente o que fiz para ver se poderia ter feito melhor.', 'C', DISC_OPTIONS),
+  ],
+  interpretations: [
+    interp('i1', 30,  89,  'Perfil Equilibrado',       'Todos os traços apresentam-se em níveis baixos a moderados. Nenhum fator se destaca de forma intensa. Avaliar respostas por bloco para identificar nuances.', '#22c55e'),
+    interp('i2', 90,  119, 'Um ou mais traços destacados', 'A pontuação total indica que pelo menos um fator DISC se apresenta com intensidade moderada a alta. Veja a análise por bloco abaixo.', '#eab308'),
+    interp('i3', 120, 150, 'Perfil intenso',            'Alta pontuação global — um ou mais traços estão muito presentes. A análise por bloco é essencial para identificar o(s) fator(es) predominante(s).', '#ef4444'),
+  ],
+};
+
 /**
  * Lista completa de formulários padrão
  * Cada item tem: title, description, questions, interpretations
@@ -594,6 +657,7 @@ const DEFAULT_FORMS = [
   ANAMNESE_ESCOLAR,
   DIF_APRENDIZAGEM,
   LEITURA_ESCRITA,
+  DISC_TCC,
 ];
 
 module.exports = { DEFAULT_FORMS };
