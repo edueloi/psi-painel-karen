@@ -44,10 +44,18 @@ function computeScores(answers) {
 router.get('/form', authMiddleware, async (req, res) => {
   try {
     const [forms] = await db.query(
-      `SELECT id, title, hash FROM forms WHERE tenant_id = ? AND title LIKE '%DISC%' LIMIT 1`,
+      `SELECT id, title, hash FROM forms
+       WHERE tenant_id = ? AND (title LIKE '%DISC%' OR title LIKE '%Autoconhecimento Comportamental%')
+       ORDER BY id ASC LIMIT 1`,
       [req.user.tenant_id]
     );
-    res.json(forms[0] || null);
+    if (forms.length) return res.json(forms[0]);
+    // Fallback: form com questões DISC (block property)
+    const [byBlock] = await db.query(
+      `SELECT id, title, hash FROM forms WHERE tenant_id = ? AND fields LIKE '%"block"%' LIMIT 1`,
+      [req.user.tenant_id]
+    );
+    res.json(byBlock[0] || null);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -59,21 +67,30 @@ router.get('/', authMiddleware, async (req, res) => {
     const { patient_id } = req.query;
 
     // Descobre o form_id do DISC para este tenant
-    const [forms] = await db.query(
-      `SELECT id FROM forms WHERE tenant_id = ? AND title LIKE '%DISC%' LIMIT 1`,
+    // Tenta pelo título com DISC, depois pelo título padrão do DEFAULT_FORMS, depois pela estrutura (bloco D/I/S/C)
+    let discFormId = null;
+    const [byTitle] = await db.query(
+      `SELECT id FROM forms WHERE tenant_id = ? AND (title LIKE '%DISC%' OR title LIKE '%Autoconhecimento Comportamental%') ORDER BY id ASC LIMIT 1`,
       [req.user.tenant_id]
     );
-    if (!forms.length) return res.json([]);
-    const discFormId = forms[0].id;
+    if (byTitle.length) {
+      discFormId = byTitle[0].id;
+    } else {
+      // Fallback: procura form com questão tendo "block" nos campos JSON
+      const [allForms] = await db.query(
+        `SELECT id, fields FROM forms WHERE tenant_id = ? AND fields LIKE '%"block"%' LIMIT 1`,
+        [req.user.tenant_id]
+      );
+      if (allForms.length) discFormId = allForms[0].id;
+    }
+    if (!discFormId) return res.json([]);
 
     let sql = `
       SELECT fr.id, fr.patient_id, fr.respondent_name, fr.respondent_email,
              fr.data, fr.score, fr.created_at,
-             p.name as patient_name, p.full_name as patient_full_name,
-             da.aurora_analysis, da.notes
+             p.name as patient_name, p.full_name as patient_full_name
       FROM form_responses fr
       LEFT JOIN patients p ON p.id = fr.patient_id
-      LEFT JOIN disc_analysis da ON da.form_response_id = fr.id
       WHERE fr.form_id = ?
     `;
     const params = [discFormId];
@@ -87,6 +104,19 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const [rows] = await db.query(sql, params);
 
+    // Busca análises Aurora separadamente (tabela pode não existir ainda)
+    const analysisMap = {};
+    try {
+      if (rows.length > 0) {
+        const ids = rows.map(r => r.id);
+        const [daRows] = await db.query(
+          `SELECT form_response_id, aurora_analysis, notes FROM disc_analysis WHERE form_response_id IN (?)`,
+          [ids]
+        );
+        daRows.forEach(da => { analysisMap[da.form_response_id] = da; });
+      }
+    } catch (_) {}
+
     const results = rows.map(row => {
       let answers = {};
       try {
@@ -94,6 +124,7 @@ router.get('/', authMiddleware, async (req, res) => {
         answers = parsed?.answers || parsed || {};
       } catch (_) {}
       const scores = computeScores(answers);
+      const da = analysisMap[row.id] || {};
       return {
         id: row.id,
         patient_id: row.patient_id,
@@ -106,8 +137,8 @@ router.get('/', authMiddleware, async (req, res) => {
         score_i: scores.score_i,
         score_s: scores.score_s,
         score_c: scores.score_c,
-        aurora_analysis: row.aurora_analysis || null,
-        notes: row.notes || null,
+        aurora_analysis: da.aurora_analysis || null,
+        notes: da.notes || null,
         created_at: row.created_at,
       };
     });
