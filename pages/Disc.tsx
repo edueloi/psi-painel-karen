@@ -569,21 +569,8 @@ export default function Disc() {
                     </div>
                   </div>
 
-                  {/* Score badges */}
-                  <div className="hidden sm:flex gap-2 shrink-0">
-                    {(['D','I','S','C'] as const).map(k => {
-                      const val = result[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
-                      return (
-                        <div key={k} className="text-center w-10">
-                          <p className="text-base font-black leading-none" style={{ color: BLOCK_CONFIG[k].color }}>{val.toFixed(1)}</p>
-                          <p className="text-[9px] font-black text-slate-400 mt-0.5">{k}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Mini bars (mobile) */}
-                  <div className="flex sm:hidden shrink-0">
+                  {/* Mini bars sempre visíveis — compacto */}
+                  <div className="shrink-0">
                     <MiniDiscBars r={result} />
                   </div>
 
