@@ -420,6 +420,8 @@ export const Agenda: React.FC = () => {
       items,
       totalValue: calculateItemsTotal(items),
       sessions_total: sessionsTotal,
+      discount_type: foundPackage.discountType || 'fixed',
+      discount_value: Number(foundPackage.discountValue || 0),
     });
   };
 
@@ -1147,7 +1149,8 @@ export const Agenda: React.FC = () => {
     if (!selectedApt && !formData.patient_id) return;
 
     const patientId = selectedApt?.patient_id || formData.patient_id;
-    const patientName = selectedApt?.patient_name || formData.patient_name_text || '';
+    const patientFromList = patients.find(p => String(p.id) === String(patientId));
+    const patientName = selectedApt?.patient_name || formData.patient_name_text || patientFromList?.full_name || (patientFromList as any)?.name || '';
     const professionalId = selectedApt?.psychologist_id || formData.psychologist_id || profileData?.id || '';
 
     const comandaDate = selectedApt?.start
@@ -1160,6 +1163,8 @@ export const Agenda: React.FC = () => {
     let sessionsTotal = 1;
     let packageId = '';
     let items: EditableItem[] = [];
+    let pkgDiscountType: 'fixed' | 'percentage' = 'fixed';
+    let pkgDiscountValue = 0;
 
     if (val) {
       const isPkg = val.startsWith('pkg_');
@@ -1173,6 +1178,8 @@ export const Agenda: React.FC = () => {
           items = resolvePackageItems(pkg);
           totalValue = calculateItemsTotal(items);
           sessionsTotal = pkg.items?.length || 1;
+          pkgDiscountType = pkg.discountType || 'fixed';
+          pkgDiscountValue = Number(pkg.discountValue || 0);
         }
       } else {
         const srv = services.find((s) => String(s.id) === id);
@@ -1196,8 +1203,8 @@ export const Agenda: React.FC = () => {
       professionalId: String(professionalId),
       startDate: comandaDate,
       sessions_total: sessionsTotal,
-      discount_type: 'fixed',
-      discount_value: 0,
+      discount_type: pkgDiscountType,
+      discount_value: pkgDiscountValue,
       packageId,
       patientLocked: !!(patientId), // cliente vem do agendamento → campo bloqueado
     });
