@@ -191,7 +191,6 @@ export const Agenda: React.FC = () => {
 
 
   const locale = language === 'pt' ? 'pt-BR' : 'en-US';
-  const endHour = 22;
 
   const workSchedule: WorkScheduleDay[] = useMemo(() => {
     const raw = profileData?.schedule;
@@ -211,6 +210,20 @@ export const Agenda: React.FC = () => {
       : schedMin;
     return Math.min(schedMin, aptMin);
   }, [workSchedule, appointments]);
+
+  const endHour = useMemo(() => {
+    const schedMax = workSchedule.filter(d => d.active).map(d => {
+      const [h, m] = d.end.split(':').map(Number);
+      return m > 0 ? h + 1 : h;
+    });
+    const aptMax = appointments.map((a: any) => {
+      const end = new Date(a.end || a.start);
+      return end.getHours() + (end.getMinutes() > 0 ? 1 : 0);
+    });
+    const allMax = [...schedMax, ...aptMax];
+    return allMax.length > 0 ? Math.max(22, ...allMax) : 22;
+  }, [workSchedule, appointments]);
+
   const hourHeight = 70;
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
@@ -1583,6 +1596,7 @@ export const Agenda: React.FC = () => {
                 hideStats
                 hourHeight={125}
                 startHour={startHour}
+                endHour={endHour}
                 workSchedule={workSchedule}
             />
         )}
@@ -2967,7 +2981,7 @@ export const Agenda: React.FC = () => {
                   }}
                     className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-all">
                     <Clock size={16} className="text-violet-600" />
-                    <span className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Horário</span>
+                    <span className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Editar Horário</span>
                   </button>
                 )}
                 <button onClick={() => { if (apt) openEditModal(apt); setIsDetailModalOpen(false); }}
@@ -3077,7 +3091,7 @@ export const Agenda: React.FC = () => {
         isOpen={isDetailRescheduleOpen}
         onClose={() => setIsDetailRescheduleOpen(false)}
         title="Alterar Horário"
-        maxWidth="max-w-sm"
+        maxWidth="max-w-md"
       >
         <div className="pb-2">
           <p className="text-sm text-slate-500 mb-4">Escolha a nova data e horário para este agendamento.</p>
