@@ -594,12 +594,12 @@ export const FormResponses: React.FC = () => {
                              </div>
 
                              {/* TEMPLATE PARA O PDF (Invisível na UI mas capturado pelo html2canvas) */}
-                             <div 
-                                id={`pdf-report-content-${res.id}`} 
-                                className="bg-white p-[25mm] w-[210mm] text-slate-800"
-                                style={{ display: 'none', position: 'absolute', left: '-10000px', top: '0' }}
+                             <div
+                                id={`pdf-report-content-${res.id}`}
+                                className="bg-white w-[210mm] text-slate-800"
+                                style={{ display: 'none', position: 'absolute', left: '-10000px', top: '0', padding: '28mm 30mm 32mm 30mm' }}
                              >
-                                <div className="flex justify-between items-start border-b-4 border-slate-900 pb-10 mb-12">
+                                <div className="flex justify-between items-start border-b-4 border-slate-900 pb-10 mb-14">
                                    <div>
                                       {user?.clinicLogoUrl ? (
                                          <img src={getStaticUrl(user.clinicLogoUrl)} alt="Logo" className="h-20 mb-3 object-contain" />
@@ -624,13 +624,25 @@ export const FormResponses: React.FC = () => {
                                    </div>
                                 </div>
 
-                                <div 
-                                   className="text-[12pt] leading-relaxed text-slate-800 space-y-6 text-justify"
-                                   dangerouslySetInnerHTML={{ 
-                                      __html: analysis
-                                         .replace(/\*\*(.*?)\*\*/g, '<strong style="display: block; margin-top: 35px; margin-bottom: 15px; color: #0f172a; font-size: 14pt; font-weight: 900; border-left: 5px solid #4f46e5; padding-left: 15px; text-transform: uppercase; letter-spacing: 1px;">$1</strong>')
-                                         .replace(/\n/g, '<br/>') 
-                                   }} 
+                                <div
+                                   className="text-[12pt] leading-relaxed text-slate-800 text-justify"
+                                   dangerouslySetInnerHTML={{
+                                      __html: (() => {
+                                         return analysis
+                                           // Parágrafos duplos → separação real
+                                           .replace(/\n{2,}/g, '\n\n')
+                                           // Remove ": " no início de linhas de conteúdo
+                                           .replace(/^:\s+/gm, '')
+                                           // Números de lista soltos (ex: "2.") → elemento com espaço topo
+                                           .replace(/^(\d+\.)$/gm, '<span style="display:block;margin-top:28px;font-size:11pt;font-weight:700;color:#94a3b8;">$1</span>')
+                                           // Headings **TEXTO** → bloco com barra lateral
+                                           .replace(/\*\*(.*?)\*\*/g, '<strong style="display:block;margin-top:32px;margin-bottom:12px;color:#0f172a;font-size:13pt;font-weight:900;border-left:5px solid #4f46e5;padding-left:14px;text-transform:uppercase;letter-spacing:0.8px;line-height:1.3;">$1</strong>')
+                                           // Duplo \n → parágrafo com espaço
+                                           .replace(/\n\n/g, '<br/><br/>')
+                                           // Simples \n → quebra com respiração
+                                           .replace(/\n/g, '<br style="margin-bottom:6px;"/>');
+                                      })()
+                                   }}
                                 />
 
                                 <div className="mt-32 pt-10 border-t-2 border-slate-100 flex justify-between items-end">
