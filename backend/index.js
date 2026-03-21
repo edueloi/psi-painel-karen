@@ -15,6 +15,7 @@ const peiRoutes = require('./routes/pei');
 const clinicalToolsRoutes = require('./routes/clinical-tools');
 const caseStudiesRoutes = require('./routes/case-studies');
 const formsRoutes = require('./routes/forms');
+const discRoutes = require('./routes/disc');
 const servicesRoutes = require('./routes/services');
 const tenantsRoutes = require('./routes/tenants');
 const financeRoutes = require('./routes/finance');
@@ -38,6 +39,7 @@ const commissionsRoutes = require('./routes/commissions');
 const notificationsRoutes = require('./routes/notifications');
 const whatsappRoutes = require('./routes/whatsapp');
 const { startCronJobs } = require('./services/cronJobs');
+const { provisionFormsForAllTenants } = require('./services/provisionForms');
 const db = require('./db');
 const fs = require('fs');
 
@@ -51,6 +53,7 @@ function mountApiRoutes(prefix = '') {
   // ---- Rotas publicas (sem auth) ----
   app.use(`${prefix}/auth`, authRoutes);
   app.use(`${prefix}/forms`, formsRoutes);
+  app.use(`${prefix}/disc`, discRoutes);
 
   // ---- Health check (publico) ----
   app.get(`${prefix}/health`, (req, res) => {
@@ -217,4 +220,5 @@ app.listen(PORT, () => {
   console.log(`Health: http://localhost:${PORT}/health`);
   startCronJobs();
   ensureAlertSchema().catch(e => console.warn('⚠️  system_alerts schema:', e.message));
+  provisionFormsForAllTenants().catch(e => console.warn('⚠️  provisionForms:', e.message));
 });

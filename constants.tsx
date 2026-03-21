@@ -1,7 +1,7 @@
 
 
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource, PEI, Assessment } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, ShieldAlert, Key } from 'lucide-react';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, ShieldAlert, Key, Radar } from 'lucide-react';
 
 export const NAV_SECTIONS = [
   {
@@ -22,6 +22,7 @@ export const NAV_SECTIONS = [
       { label: 'nav.cases', path: '/estudos-de-caso', icon: <BookOpen size={20} /> },
       { label: 'nav.documents', path: '/documentos', icon: <FolderOpen size={20} /> },
       { label: 'nav.forms', path: '/formularios', icon: <ClipboardList size={20} /> },
+      { label: 'nav.disc', path: '/disc', icon: <Radar size={20} /> },
     ]
   },
   {

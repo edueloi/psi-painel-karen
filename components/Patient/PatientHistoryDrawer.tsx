@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   X, Calendar, DollarSign, FileText, FolderOpen, StickyNote,
   Loader2, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp,
-  TrendingDown, Boxes, BrainCircuit, History, Info, ClipboardList
+  TrendingDown, Boxes, BrainCircuit, History, Info, ClipboardList, Radar
 } from 'lucide-react';
 import { Patient } from '../../types';
 import { api, getStaticUrl } from '../../services/api';
@@ -37,6 +37,7 @@ interface HistoryData {
     pei: number;
     tools: number;
     forms: number;
+    disc: number;
   };
 }
 
@@ -55,6 +56,7 @@ const typeConfig: Record<string, any> = {
   pei: { label: 'PEI', icon: <BrainCircuit size={16} />, bg: 'bg-emerald-100', text: 'text-emerald-600' },
   tool: { label: 'Avaliação', icon: <Boxes size={16} />, bg: 'bg-sky-100', text: 'text-sky-600' },
   form: { label: 'Formulário', icon: <ClipboardList size={16} />, bg: 'bg-rose-100', text: 'text-rose-600' },
+  disc: { label: 'DISC', icon: <Radar size={16} />, bg: 'bg-purple-100', text: 'text-purple-600' },
 };
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -108,6 +110,7 @@ const FILTER_OPTIONS = (t: any) => [
   { id: 'tool', label: t('nav.tools') },
   { id: 'document', label: t('nav.documents') },
   { id: 'note', label: 'Anotações' },
+  { id: 'disc', label: 'DISC' },
 ];
 
 export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
@@ -124,7 +127,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
     setLoading(true);
     api.get<HistoryData>(`/patients/${patient.id}/history`)
       .then(setData)
-      .catch(() => setData({ timeline: [], counts: { appointments: 0, transactions: 0, comandas: 0, records: 0, events: 0, documents: 0, notes: 0, pei: 0, tools: 0 } }))
+      .catch(() => setData({ timeline: [], counts: { appointments: 0, transactions: 0, comandas: 0, records: 0, events: 0, documents: 0, notes: 0, pei: 0, tools: 0, forms: 0, disc: 0 } }))
       .finally(() => setLoading(false));
   }, [patient?.id]);
 
@@ -241,7 +244,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                     {items.map((item: any) => {
                       const cfg = typeConfig[item.type] || typeConfig.note;
                       const st = item.status ? statusConfig[item.status] : null;
-                      const isClickable = item.type === 'form' && item.link_form_id;
+                      const isClickable = (item.type === 'form' && item.link_form_id) || item.type === 'disc';
 
                       return (
                         <div key={item.id} className="relative pl-10 sm:pl-12 group">
@@ -254,9 +257,13 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                           <div
                             className={`bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all group/card ${isClickable ? 'cursor-pointer hover:border-rose-300' : ''}`}
                             onClick={isClickable ? () => {
-                              const responseDate = item.date ? item.date.slice(0, 10) : '';
                               onClose();
-                              navigate(`/formularios/${item.link_form_id}/respostas?patientId=${patient?.id}${responseDate ? `&dateFrom=${responseDate}` : ''}`);
+                              if (item.type === 'disc') {
+                                navigate(`/disc?patientId=${patient?.id}`);
+                              } else {
+                                const responseDate = item.date ? item.date.slice(0, 10) : '';
+                                navigate(`/formularios/${item.link_form_id}/respostas?patientId=${patient?.id}${responseDate ? `&dateFrom=${responseDate}` : ''}`);
+                              }
                             } : undefined}
                           >
                             <div className="flex flex-col gap-4">

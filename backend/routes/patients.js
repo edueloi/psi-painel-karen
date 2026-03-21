@@ -607,7 +607,7 @@ router.get('/:id/history', async (req, res) => {
       try { const [rows] = await db.query(sql, params); return rows; } catch { return []; }
     };
 
-    const [appointments, transactions, records, documents, notes, comandas, events, peis, clinicalTools, formResponses] = await Promise.all([
+    const [appointments, transactions, records, documents, notes, comandas, events, peis, clinicalTools, formResponses, discResponses] = await Promise.all([
       safeQuery(
         `SELECT a.id, a.start_time as date, a.status, a.title, a.notes, a.modality,
                 s.name as service_name, u.name as professional_name, a.duration_minutes,
@@ -684,6 +684,15 @@ router.get('/:id/history', async (req, res) => {
          ORDER BY r.created_at DESC LIMIT 50`,
         [id, tenantId]
       ),
+      safeQuery(
+        `SELECT fr.id, fr.created_at as date, da.aurora_analysis
+         FROM form_responses fr
+         JOIN forms f ON f.id = fr.form_id
+         LEFT JOIN disc_analysis da ON da.form_response_id = fr.id
+         WHERE fr.patient_id = ? AND f.tenant_id = ? AND f.title LIKE '%DISC%'
+         ORDER BY fr.created_at DESC LIMIT 20`,
+        [id, tenantId]
+      ),
     ]);
 
     const timeline = [
@@ -755,6 +764,11 @@ router.get('/:id/history', async (req, res) => {
         subtitle: fr.score != null ? `Pontuação: ${fr.score}` : null,
         link_form_id: fr.form_id,
       })),
+      ...discResponses.map(dr => ({
+        id: `disc-${dr.id}`, type: 'disc', date: dr.date,
+        title: 'Avaliação DISC respondida',
+        subtitle: dr.aurora_analysis ? 'Com análise Aurora' : null,
+      })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     res.json({ timeline, counts: {
@@ -768,6 +782,7 @@ router.get('/:id/history', async (req, res) => {
       pei: peis.length,
       tools: clinicalTools.length,
       forms: formResponses.length,
+      disc: discResponses.length,
     }});
   } catch (err) {
     console.error(err);

@@ -22,6 +22,7 @@ import { Records } from './pages/Records';
 import { CaseStudies } from './pages/CaseStudies';
 import { Documents } from './pages/Documents';
 import { Forms } from './pages/Forms';
+import Disc from './pages/Disc';
 import { FormsList } from './pages/FormsList';
 import { FormsMetrics } from './pages/FormsMetrics';
 import { FormEditor } from './pages/FormEditor';
@@ -133,6 +134,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/estudos-de-caso" element={<ProtectedRoute><CaseStudies /></ProtectedRoute>} />
       <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/formularios" element={<ProtectedRoute><Forms /></ProtectedRoute>} />
+      <Route path="/disc" element={<ProtectedRoute><Disc /></ProtectedRoute>} />
       <Route path="/formularios/lista" element={<ProtectedRoute><FormsList /></ProtectedRoute>} />
       <Route path="/formularios/metricas" element={<ProtectedRoute><FormsMetrics /></ProtectedRoute>} />
       <Route path="/formularios/novo" element={<ProtectedRoute><FormEditor /></ProtectedRoute>} />

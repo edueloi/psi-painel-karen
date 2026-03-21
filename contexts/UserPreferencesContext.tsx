@@ -24,6 +24,9 @@ export interface UserPreferences {
   forms: {
     activeFilter: 'Todos' | 'Ativos' | 'Arquivados' | 'Favoritos';
   };
+  disc: {
+    selectedPatientId: string;
+  };
   appearance: {
     theme: 'light' | 'dark' | 'auto';
     primaryColor: string;
@@ -56,6 +59,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   forms: {
     activeFilter: 'Todos',
   },
+  disc: {
+    selectedPatientId: '',
+  },
   appearance: {
     theme: 'auto',
     primaryColor: 'Indigo',
@@ -75,6 +81,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     agenda:      { ...DEFAULT_PREFERENCES.agenda,      ...stored?.agenda },
     caseStudies: { ...DEFAULT_PREFERENCES.caseStudies, ...stored?.caseStudies },
     forms:       { ...DEFAULT_PREFERENCES.forms,       ...stored?.forms },
+    disc:        { ...DEFAULT_PREFERENCES.disc,        ...stored?.disc },
     appearance:  { ...DEFAULT_PREFERENCES.appearance,  ...stored?.appearance },
     general:     { ...DEFAULT_PREFERENCES.general,     ...stored?.general },
   };
