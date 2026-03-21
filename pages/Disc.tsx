@@ -93,6 +93,39 @@ function getLevel(avg: number): { label: string; color: string } {
   return { label: 'Baixo', color: '#94a3b8' };
 }
 
+const DISC_QUESTIONS: Record<string, { text: string; block: 'D'|'I'|'S'|'C' }> = {
+  q1:  { text: 'Gosto de resolver as coisas rapidamente.', block: 'D' },
+  q2:  { text: 'Fico incomodado(a) quando percebo lentidão ou indecisão nos outros.', block: 'D' },
+  q3:  { text: 'Costumo assumir a liderança quando ninguém toma iniciativa.', block: 'D' },
+  q4:  { text: 'Prefiro agir logo do que pensar por muito tempo.', block: 'D' },
+  q5:  { text: 'Sinto necessidade de ter controle sobre o que está acontecendo.', block: 'D' },
+  q6:  { text: 'Tenho facilidade para confrontar situações difíceis.', block: 'D' },
+  q7:  { text: 'Fico frustrado(a) quando as coisas não saem como planejei.', block: 'D' },
+  q8:  { text: 'Em conflitos, costumo me posicionar de forma direta.', block: 'D' },
+  q9:  { text: 'Gosto de conversar e me conectar com pessoas.', block: 'I' },
+  q10: { text: 'Sinto-me motivado(a) quando recebo atenção ou reconhecimento.', block: 'I' },
+  q11: { text: 'Tenho facilidade para entusiasmar outras pessoas.', block: 'I' },
+  q12: { text: 'Gosto de ambientes leves, dinâmicos e com interação.', block: 'I' },
+  q13: { text: 'Costumo expressar com facilidade o que penso e sinto.', block: 'I' },
+  q14: { text: 'Gosto de ser visto(a) como alguém agradável e inspirador(a).', block: 'I' },
+  q15: { text: 'Fico mais animado(a) quando estou em grupo do que sozinho(a).', block: 'I' },
+  q16: { text: 'Valorizo ambientes calmos, previsíveis e harmoniosos.', block: 'S' },
+  q17: { text: 'Mudanças bruscas costumam me deixar desconfortável.', block: 'S' },
+  q18: { text: 'Prefiro manter uma rotina estável.', block: 'S' },
+  q19: { text: 'Costumo evitar conflitos para preservar a paz.', block: 'S' },
+  q20: { text: 'Sou uma pessoa paciente e constante.', block: 'S' },
+  q21: { text: 'Gosto de ajudar os outros de forma acolhedora.', block: 'S' },
+  q22: { text: 'Preciso de um tempo maior para me adaptar a novidades.', block: 'S' },
+  q23: { text: 'Sou detalhista e gosto das coisas bem feitas.', block: 'C' },
+  q24: { text: 'Costumo analisar bastante antes de tomar decisões.', block: 'C' },
+  q25: { text: 'Fico incomodado(a) quando percebo erros, desorganização ou falta de critério.', block: 'C' },
+  q26: { text: 'Gosto de regras claras e orientações bem definidas.', block: 'C' },
+  q27: { text: 'Tenho tendência a cobrar muito de mim mesmo(a).', block: 'C' },
+  q28: { text: 'Prefiro ter certeza antes de agir.', block: 'C' },
+  q29: { text: 'Valorizo precisão, lógica e planejamento.', block: 'C' },
+  q30: { text: 'Reviso mentalmente o que fiz para ver se poderia ter feito melhor.', block: 'C' },
+};
+
 function getTopFactors(r: DiscResult) {
   return (['D', 'I', 'S', 'C'] as const)
     .map(k => ({ key: k, val: r[`score_${k.toLowerCase()}` as keyof DiscResult] as number }))
@@ -755,17 +788,31 @@ export default function Disc() {
               {/* Full answers */}
               <details className="group">
                 <summary className="flex items-center justify-between cursor-pointer py-3 px-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors list-none">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ver Respostas Completas (30 perguntas)</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Respostas Completas ({Object.keys(dr.answers).length} perguntas)</span>
                   <ChevronRight size={16} className="text-slate-300 group-open:rotate-90 transition-transform" />
                 </summary>
-                <div className="mt-3 space-y-1 max-h-72 overflow-y-auto pr-1">
-                  {Object.entries(dr.answers).map(([qId, answer]) => (
-                    <div key={qId} className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-slate-50">
-                      <span className="text-xs text-slate-400 font-medium uppercase w-8">{qId}</span>
-                      <div className="flex-1 mx-3 h-px bg-slate-100" />
-                      <span className="text-xs font-bold text-slate-700">{String(answer)}</span>
-                    </div>
-                  ))}
+                <div className="mt-3 space-y-1 max-h-96 overflow-y-auto pr-1">
+                  {(['D','I','S','C'] as const).map(block => {
+                    const blockEntries = Object.entries(dr.answers).filter(([qId]) => DISC_QUESTIONS[qId]?.block === block);
+                    if (!blockEntries.length) return null;
+                    const cfg = BLOCK_CONFIG[block];
+                    return (
+                      <div key={block} className="mb-3">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl mb-1" style={{ background: cfg.bg }}>
+                          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: cfg.color }}>{block} — {cfg.label}</span>
+                        </div>
+                        {blockEntries.map(([qId, answer]) => {
+                          const q = DISC_QUESTIONS[qId];
+                          return (
+                            <div key={qId} className="flex items-start justify-between px-3 py-2 rounded-xl hover:bg-slate-50 gap-3">
+                              <span className="text-xs text-slate-600 leading-snug flex-1">{q?.text || qId}</span>
+                              <span className="text-[10px] font-black shrink-0 px-2 py-0.5 rounded-lg" style={{ background: cfg.bg, color: cfg.color }}>{String(answer)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                 </div>
               </details>
             </div>
