@@ -21,7 +21,10 @@ import {
   Info,
   Calendar,
   Lock,
-  Layout
+  Layout,
+  Plus,
+  X,
+  Copy
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,13 +38,14 @@ type DayKey =
   | 'saturday'
   | 'sunday';
 
+type BreakPeriod = { start: string; end: string };
+
 type ScheduleDay = {
   dayKey: DayKey;
   active: boolean;
   start: string;
   end: string;
-  lunchStart: string;
-  lunchEnd: string;
+  breaks: BreakPeriod[];
 };
 
 export const Profile: React.FC = () => {
@@ -79,13 +83,13 @@ export const Profile: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic'>('info');
 
   const [schedule, setSchedule] = useState<ScheduleDay[]>([
-    { dayKey: 'monday', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { dayKey: 'tuesday', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { dayKey: 'wednesday', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { dayKey: 'thursday', active: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { dayKey: 'friday', active: true, start: '08:00', end: '17:00', lunchStart: '12:00', lunchEnd: '13:00' },
-    { dayKey: 'saturday', active: false, start: '09:00', end: '13:00', lunchStart: '', lunchEnd: '' },
-    { dayKey: 'sunday', active: false, start: '', end: '', lunchStart: '', lunchEnd: '' },
+    { dayKey: 'monday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+    { dayKey: 'tuesday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+    { dayKey: 'wednesday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+    { dayKey: 'thursday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+    { dayKey: 'friday', active: true, start: '08:00', end: '17:00', breaks: [{ start: '12:00', end: '13:00' }] },
+    { dayKey: 'saturday', active: false, start: '09:00', end: '13:00', breaks: [] },
+    { dayKey: 'sunday', active: false, start: '', end: '', breaks: [] },
   ]);
 
   useEffect(() => {
@@ -112,7 +116,12 @@ export const Profile: React.FC = () => {
         if (data?.schedule) {
           const scheduleData = typeof data.schedule === 'string' ? JSON.parse(data.schedule) : data.schedule;
           if (Array.isArray(scheduleData)) {
-            setSchedule(scheduleData as ScheduleDay[]);
+            // Migrate old lunchStart/lunchEnd format to breaks array
+            const migrated = scheduleData.map((d: any) => ({
+              ...d,
+              breaks: d.breaks ?? (d.lunchStart ? [{ start: d.lunchStart, end: d.lunchEnd }] : []),
+            }));
+            setSchedule(migrated as ScheduleDay[]);
           }
         }
       } catch (err) {
@@ -192,6 +201,11 @@ export const Profile: React.FC = () => {
 
   const updateDay = (index: number, patch: Partial<ScheduleDay>) => {
     setSchedule(prev => prev.map((d, i) => (i === index ? { ...d, ...patch } : d)));
+  };
+
+  const copyDayToAll = (index: number) => {
+    const src = schedule[index];
+    setSchedule(prev => prev.map((d, i) => i === index ? d : { ...d, start: src.start, end: src.end, breaks: src.breaks.map(b => ({ ...b })) }));
   };
 
   const handleSave = async () => {
@@ -387,12 +401,13 @@ export const Profile: React.FC = () => {
               <Card title="Horários de Atendimento" icon={<Clock className="text-emerald-500" />} subtitle="Configure sua disponibilidade semanal para agendamentos online e presenciais.">
                 <div className="space-y-3">
                   {schedule.map((day, idx) => (
-                    <ScheduleRow 
-                      key={day.dayKey} 
-                      day={day} 
-                      t={t} 
-                      onToggle={() => toggleDay(idx)} 
-                      onUpdate={p => updateDay(idx, p)} 
+                    <ScheduleRow
+                      key={day.dayKey}
+                      day={day}
+                      t={t}
+                      onToggle={() => toggleDay(idx)}
+                      onUpdate={p => updateDay(idx, p)}
+                      onCopyToAll={() => copyDayToAll(idx)}
                     />
                   ))}
                 </div>
