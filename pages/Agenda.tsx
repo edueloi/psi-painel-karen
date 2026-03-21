@@ -2839,7 +2839,7 @@ export const Agenda: React.FC = () => {
         };
 
         return (
-          <Modal isOpen={isDetailModalOpen} onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} title="" maxWidth="max-w-md" hideCloseButton>
+          <Modal isOpen={isDetailModalOpen} onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} title="" maxWidth="max-w-lg" hideCloseButton>
             <div className="pb-2 -mt-2">
 
               {/* ── HERO HEADER ── */}
@@ -2964,6 +2964,11 @@ export const Agenda: React.FC = () => {
                   className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all">
                   <FileText size={16} className="text-slate-500" />
                   <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recibo</span>
+                </button>
+                <button onClick={() => { setIsComandaManagerOpen(true); }}
+                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
+                  <DollarSign size={16} className="text-emerald-600" />
+                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Gestão</span>
                 </button>
                 {apt.comanda_id && (
                   <button onClick={() => {

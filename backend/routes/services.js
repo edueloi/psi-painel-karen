@@ -9,6 +9,22 @@ const xlsx = require('xlsx');
 
 const memoryUpload = multer({ storage: multer.memoryStorage() });
 
+// Ensure service_history table exists
+db.query(`CREATE TABLE IF NOT EXISTS service_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  entity_type ENUM('service','package') NOT NULL,
+  entity_id INT NOT NULL,
+  changed_by_id INT NULL,
+  changed_by_name VARCHAR(255) NULL,
+  field VARCHAR(100) NOT NULL,
+  old_value TEXT NULL,
+  new_value TEXT NULL,
+  change_pct DECIMAL(10,4) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_entity (tenant_id, entity_type, entity_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).catch(e => console.error('service_history table check:', e.message));
+
 // GET /services
 router.get('/', async (req, res) => {
   try {
@@ -209,7 +225,7 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
 });
 
 // GET /services/:id/history
-router.get('/:id/history', authorize('admin', 'super_admin'), async (req, res) => {
+router.get('/:id/history', authorize('admin', 'super_admin', 'psicologo', 'psychologist'), async (req, res) => {
   try {
     const [rows] = await db.query(
       'SELECT * FROM service_history WHERE tenant_id = ? AND entity_type = "service" AND entity_id = ? ORDER BY created_at DESC LIMIT 100',

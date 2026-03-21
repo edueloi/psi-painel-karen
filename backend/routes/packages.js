@@ -271,7 +271,7 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
 });
 
 // GET /packages/:id/history
-router.get('/:id/history', authorize('admin', 'super_admin'), async (req, res) => {
+router.get('/:id/history', authorize('admin', 'super_admin', 'psicologo', 'psychologist'), async (req, res) => {
   try {
     const [rows] = await db.query(
       'SELECT * FROM service_history WHERE tenant_id = ? AND entity_type = "package" AND entity_id = ? ORDER BY created_at DESC LIMIT 100',
