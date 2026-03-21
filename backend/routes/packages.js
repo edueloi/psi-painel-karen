@@ -270,6 +270,20 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
   }
 });
 
+// GET /packages/:id/history
+router.get('/:id/history', authorize('admin', 'super_admin'), async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM service_history WHERE tenant_id = ? AND entity_type = "package" AND entity_id = ? ORDER BY created_at DESC LIMIT 100',
+      [req.user.tenant_id, req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+});
+
 // PUT /packages/:id
 router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
   const connection = await db.getConnection();
@@ -277,6 +291,10 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
     await connection.beginTransaction();
 
     const { name, description, discountType, discountValue, totalPrice, items, active } = req.body;
+
+    // Fetch current before update
+    const [current] = await db.query('SELECT * FROM packages WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    const old = current[0];
 
     // Calcular sessões totais se houver items no corpo
     const sessions_count = items && items.length > 0
@@ -323,6 +341,35 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
     await connection.commit();
 
     const [updated] = await db.query('SELECT * FROM packages WHERE id = ?', [req.params.id]);
+
+    // Record history for changed fields
+    const fieldsToTrack = [
+      { field: 'name', label: 'name' },
+      { field: 'totalPrice', label: 'totalPrice', numeric: true },
+      { field: 'discountValue', label: 'discountValue', numeric: true },
+      { field: 'discountType', label: 'discountType' },
+    ];
+    try {
+      for (const { field, numeric } of fieldsToTrack) {
+        const newVal = req.body[field];
+        if (newVal === undefined || newVal === null) continue;
+        const oldVal = old?.[field];
+        const oldStr = oldVal !== undefined && oldVal !== null ? String(oldVal) : null;
+        const newStr = String(newVal);
+        if (oldStr === newStr) continue; // no change
+        let changePct = null;
+        if (numeric) {
+          const o = parseFloat(oldVal) || 0;
+          const n = parseFloat(newVal) || 0;
+          changePct = o > 0 ? ((n - o) / o) * 100 : null;
+        }
+        await db.query(
+          'INSERT INTO service_history (tenant_id, entity_type, entity_id, changed_by_id, changed_by_name, field, old_value, new_value, change_pct) VALUES (?, "package", ?, ?, ?, ?, ?, ?, ?)',
+          [req.user.tenant_id, req.params.id, req.user.id, req.user.name || req.user.email, field, oldStr, newStr, changePct]
+        );
+      }
+    } catch (histErr) { console.error('History insert error:', histErr.message); }
+
     res.json({ ...updated[0], items: items || [] });
   } catch (err) {
     await connection.rollback();

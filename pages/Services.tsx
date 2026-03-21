@@ -24,6 +24,9 @@ import {
   List as ListIcon,
   ChevronDown,
   FileText,
+  History,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -41,6 +44,7 @@ import { StatusAlert } from '../components/UI/StatusAlert';
 import { useToast } from '../contexts/ToastContext';
 import { GridTable } from '../components/UI/GridTable';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { ActionDrawer } from '../components/UI/ActionDrawer';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(' ');
@@ -126,6 +130,10 @@ export const Services: React.FC = () => {
   }, [colorPickerOpen]);
 
   const [packageServiceToAdd, setPackageServiceToAdd] = useState<string>('');
+
+  const [historyDrawer, setHistoryDrawer] = useState<{ open: boolean; entityType: 'service' | 'package'; entityId: string; entityName: string } | null>(null);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
 
   useEffect(() => {
@@ -702,6 +710,21 @@ export const Services: React.FC = () => {
     }
   };
 
+  const openHistory = async (entityType: 'service' | 'package', entityId: string, entityName: string) => {
+    setHistoryDrawer({ open: true, entityType, entityId, entityName });
+    setHistoryLoading(true);
+    try {
+      const route = entityType === 'service' ? `/services/${entityId}/history` : `/packages/${entityId}/history`;
+      const data = await api.get<any[]>(route);
+      setHistoryData(data);
+    } catch {
+      pushToast('error', 'Erro ao carregar histórico.');
+      setHistoryData([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const renderServiceCard = (service: Service) => {
     return (
       <div
@@ -725,6 +748,16 @@ export const Services: React.FC = () => {
           </div>
 
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="xs"
+              iconOnly
+              onClick={() => openHistory('service', String(service.id), service.name)}
+              title="Histórico"
+            >
+              <History size={14} />
+            </Button>
+
             <Button
               variant="outline"
               size="xs"
@@ -833,6 +866,16 @@ export const Services: React.FC = () => {
           </div>
 
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="xs"
+              iconOnly
+              onClick={() => openHistory('package', String(pkg.id), pkg.name)}
+              title="Histórico"
+            >
+              <History size={14} />
+            </Button>
+
             <Button
               variant="outline"
               size="xs"
@@ -1744,6 +1787,125 @@ export const Services: React.FC = () => {
           />
         </div>
       </Modal>
+
+      {/* Histórico de Preços/Valores */}
+      <ActionDrawer
+        isOpen={!!historyDrawer?.open}
+        onClose={() => setHistoryDrawer(null)}
+        title="Histórico de alterações"
+        subtitle={historyDrawer?.entityName}
+        size="md"
+      >
+        {historyLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
+          </div>
+        ) : historyData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+              <History size={24} />
+            </div>
+            <p className="text-sm text-slate-500">Nenhuma alteração registrada ainda.</p>
+          </div>
+        ) : (
+          <div className="space-y-0">
+            {historyData.map((entry: any, index: number) => {
+              const fieldLabels: Record<string, string> = {
+                price: 'Preço',
+                cost: 'Custo',
+                name: 'Nome',
+                totalPrice: 'Preço Final',
+                discountValue: 'Desconto',
+                discountType: 'Tipo de Desconto',
+              };
+              const label = fieldLabels[entry.field] || entry.field;
+              const isNumeric = ['price', 'cost', 'totalPrice', 'discountValue'].includes(entry.field);
+              const changePct = entry.change_pct !== null && entry.change_pct !== undefined ? parseFloat(entry.change_pct) : null;
+              const isIncrease = changePct !== null && changePct > 0;
+              const isDecrease = changePct !== null && changePct < 0;
+              const isNameChange = entry.field === 'name';
+
+              const formattedDate = new Date(entry.created_at).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <div key={entry.id} className="relative flex gap-4 pb-6">
+                  {/* Timeline line */}
+                  {index < historyData.length - 1 && (
+                    <div className="absolute left-5 top-10 bottom-0 w-px bg-slate-100" />
+                  )}
+
+                  {/* Icon */}
+                  <div className={cx(
+                    'relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
+                    isIncrease
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : isDecrease
+                      ? 'bg-red-50 text-red-500'
+                      : 'bg-blue-50 text-blue-500'
+                  )}>
+                    {isIncrease ? (
+                      <TrendingUp size={16} />
+                    ) : isDecrease ? (
+                      <TrendingDown size={16} />
+                    ) : (
+                      <Edit3 size={16} />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1 pt-1.5">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-700">{label}</span>
+                      {changePct !== null && (
+                        <span className={cx(
+                          'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold',
+                          isIncrease
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-red-100 text-red-600'
+                        )}>
+                          {isIncrease ? '+' : ''}{changePct.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mb-1 text-sm text-slate-500">
+                      <span className="text-slate-400">De:</span>{' '}
+                      <span className="font-medium text-slate-600">
+                        {isNumeric && entry.old_value !== null
+                          ? formatCurrency(parseFloat(entry.old_value) || 0)
+                          : entry.old_value ?? '—'}
+                      </span>
+                      {' '}
+                      <span className="text-slate-400">→ Para:</span>{' '}
+                      <span className="font-semibold text-slate-800">
+                        {isNumeric && entry.new_value !== null
+                          ? formatCurrency(parseFloat(entry.new_value) || 0)
+                          : entry.new_value ?? '—'}
+                      </span>
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                      <span>{formattedDate}</span>
+                      {entry.changed_by_name && (
+                        <>
+                          <span>·</span>
+                          <span>{entry.changed_by_name}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </ActionDrawer>
     </div>
   );
 };

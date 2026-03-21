@@ -5,22 +5,38 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Garante que a tabela uploads existe
-db.query(`
-  CREATE TABLE IF NOT EXISTS uploads (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT NOT NULL,
-    patient_id INT,
-    professional_id INT,
-    file_name VARCHAR(255) NOT NULL,
-    file_url VARCHAR(500),
-    file_type VARCHAR(100),
-    file_size INT,
-    category VARCHAR(100),
-    title VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-`).catch(err => console.error('Erro ao criar tabela uploads:', err.message));
+// Garante que a tabela uploads existe e todas as colunas necessárias existem
+(async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS uploads (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        patient_id INT,
+        professional_id INT,
+        file_name VARCHAR(255) NOT NULL,
+        file_url VARCHAR(500),
+        file_type VARCHAR(100),
+        file_size INT,
+        category VARCHAR(100),
+        title VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    // Garante colunas adicionais que podem não existir em produção
+    const cols = [
+      { name: 'professional_id', def: 'INT NULL' },
+      { name: 'file_size', def: 'INT NULL' },
+      { name: 'category', def: "VARCHAR(100) DEFAULT 'Geral'" },
+      { name: 'title', def: 'VARCHAR(255) NULL' },
+    ];
+    for (const col of cols) {
+      await db.query(`ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Erro ao configurar tabela uploads:', err.message);
+  }
+})();
 
 // Configuração do Multer para salvamento em disco
 const storage = multer.diskStorage({
@@ -52,24 +68,47 @@ router.post('/', upload.single('file'), async (req, res) => {
     const { patient_id, category, title } = req.body;
     const file_url = `/uploads-static/${req.file.filename}`;
 
-    const [result] = await db.query(
-      `INSERT INTO uploads (tenant_id, patient_id, professional_id, file_name, file_url, file_type, file_size, category, title)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.user.tenant_id,
-        patient_id || null,
-        req.user.id,
-        req.file.originalname,
-        file_url,
-        req.file.mimetype,
-        req.file.size,
-        category || 'Geral',
-        title || req.file.originalname
-      ]
-    );
+    let insertId;
+    try {
+      // Tenta inserir com professional_id
+      const [result] = await db.query(
+        `INSERT INTO uploads (tenant_id, patient_id, professional_id, file_name, file_url, file_type, file_size, category, title)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.user.tenant_id,
+          patient_id || null,
+          req.user.id,
+          req.file.originalname,
+          file_url,
+          req.file.mimetype,
+          req.file.size,
+          category || 'Geral',
+          title || req.file.originalname
+        ]
+      );
+      insertId = result.insertId;
+    } catch (insertErr) {
+      // Fallback: sem professional_id (caso coluna não exista ou tenha FK inválida)
+      console.error('Upload insert com professional_id falhou, tentando sem:', insertErr.sqlMessage || insertErr.message);
+      const [result2] = await db.query(
+        `INSERT INTO uploads (tenant_id, patient_id, file_name, file_url, file_type, file_size, category, title)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.user.tenant_id,
+          patient_id || null,
+          req.file.originalname,
+          file_url,
+          req.file.mimetype,
+          req.file.size,
+          category || 'Geral',
+          title || req.file.originalname
+        ]
+      );
+      insertId = result2.insertId;
+    }
 
     res.status(201).json({
-      id: result.insertId,
+      id: insertId,
       file_name: req.file.originalname,
       file_url: file_url,
       category: category || 'Geral',
@@ -77,8 +116,8 @@ router.post('/', upload.single('file'), async (req, res) => {
       date: new Date()
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao fazer upload' });
+    console.error('Erro no upload:', err.sqlMessage || err.message, err);
+    res.status(500).json({ error: 'Erro ao fazer upload', detail: err.sqlMessage || err.message });
   }
 });
 

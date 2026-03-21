@@ -208,10 +208,28 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
   }
 });
 
+// GET /services/:id/history
+router.get('/:id/history', authorize('admin', 'super_admin'), async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM service_history WHERE tenant_id = ? AND entity_type = "service" AND entity_id = ? ORDER BY created_at DESC LIMIT 100',
+      [req.user.tenant_id, req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+});
+
 // PUT /services/:id
 router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
   try {
     const { name, description, price, duration, category, cost, color, modality, active } = req.body;
+
+    // Fetch current before update
+    const [current] = await db.query('SELECT * FROM services WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    const old = current[0];
 
     await db.query(
       `UPDATE services SET
@@ -229,6 +247,34 @@ router.put('/:id', authorize('admin', 'super_admin'), async (req, res) => {
     );
 
     const [updated] = await db.query('SELECT * FROM services WHERE id = ?', [req.params.id]);
+
+    // Record history for changed fields
+    const fieldsToTrack = [
+      { field: 'name', label: 'name' },
+      { field: 'price', label: 'price', numeric: true },
+      { field: 'cost', label: 'cost', numeric: true },
+    ];
+    try {
+      for (const { field, numeric } of fieldsToTrack) {
+        const newVal = req.body[field];
+        if (newVal === undefined || newVal === null) continue;
+        const oldVal = old?.[field];
+        const oldStr = oldVal !== undefined && oldVal !== null ? String(oldVal) : null;
+        const newStr = String(newVal);
+        if (oldStr === newStr) continue; // no change
+        let changePct = null;
+        if (numeric) {
+          const o = parseFloat(oldVal) || 0;
+          const n = parseFloat(newVal) || 0;
+          changePct = o > 0 ? ((n - o) / o) * 100 : null;
+        }
+        await db.query(
+          'INSERT INTO service_history (tenant_id, entity_type, entity_id, changed_by_id, changed_by_name, field, old_value, new_value, change_pct) VALUES (?, "service", ?, ?, ?, ?, ?, ?, ?)',
+          [req.user.tenant_id, req.params.id, req.user.id, req.user.name || req.user.email, field, oldStr, newStr, changePct]
+        );
+      }
+    } catch (histErr) { console.error('History insert error:', histErr.message); }
+
     res.json(updated[0]);
   } catch (err) {
     console.error(err);
