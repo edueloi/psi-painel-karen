@@ -258,11 +258,16 @@ export const Agenda: React.FC = () => {
     // Coleta horas de intervalo/almoço de todos os dias ativos
     const lunchHours = new Set<number>();
     workSchedule.filter(d => d.active).forEach((d: any) => {
-      if (d.lunchStart && d.lunchEnd) {
-        const lh = parseInt(d.lunchStart.split(':')[0]);
-        const le = parseInt(d.lunchEnd.split(':')[0]);
-        for (let h = lh; h < le; h++) lunchHours.add(h);
-      }
+      // Support new breaks[] format and old lunchStart/lunchEnd format
+      const dayBreaks: { start: string; end: string }[] =
+        d.breaks ?? (d.lunchStart ? [{ start: d.lunchStart, end: d.lunchEnd }] : []);
+      dayBreaks.forEach(b => {
+        if (b.start && b.end) {
+          const lh = parseInt(b.start.split(':')[0]);
+          const le = parseInt(b.end.split(':')[0]);
+          for (let h = lh; h < le; h++) lunchHours.add(h);
+        }
+      });
     });
     if (lunchHours.size === 0) return [];
     // Semana visível
