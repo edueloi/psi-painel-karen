@@ -1106,7 +1106,13 @@ export const Agenda: React.FC = () => {
       closeAppointmentModal();
       pushToast('success', extraIds.length > 0 ? `${extraIds.length + 1} agendamentos atualizados!` : 'Agenda atualizada com sucesso.');
     } catch (e: any) {
-      pushToast('error', 'Erro ao salvar agendamento.');
+      if (e?.message?.includes('não encontrado') || e?.message?.includes('not found') || e?.message?.includes('404')) {
+        pushToast('error', 'Agendamento não encontrado. A lista será atualizada.');
+        fetchData();
+        closeAppointmentModal();
+      } else {
+        pushToast('error', 'Erro ao salvar agendamento.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -2208,8 +2214,13 @@ export const Agenda: React.FC = () => {
                     }
 
                     try {
-                        await Promise.all(idsToDel.map(id => api.delete(`/appointments/${id}`)));
-                        pushToast('success', idsToDel.length > 1 ? `${idsToDel.length} agendamentos removidos.` : 'Agendamento removido.');
+                        const results = await Promise.allSettled(idsToDel.map(id => api.delete(`/appointments/${id}`)));
+                        const failures = results.filter(r => r.status === 'rejected' && !(r.reason?.message?.includes('não encontrado') || r.reason?.message?.includes('not found')));
+                        if (failures.length > 0) {
+                            pushToast('error', 'Erro ao remover agendamento(s).');
+                        } else {
+                            pushToast('success', idsToDel.length > 1 ? `${idsToDel.length} agendamentos removidos.` : 'Agendamento removido.');
+                        }
                         fetchData();
                         closeAppointmentModal();
                         setIsDeleteModalOpen(false);
@@ -2218,6 +2229,7 @@ export const Agenda: React.FC = () => {
                     } catch (err) {
                         console.error(err);
                         pushToast('error', 'Erro ao remover agendamento(s).');
+                        fetchData();
                     }
                  }}>
                     {selectedDeleteIds.length > 1 ? `Excluir ${selectedDeleteIds.length} Atendimentos` : 'Confirmar Exclusão'}
