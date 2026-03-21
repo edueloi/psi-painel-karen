@@ -431,6 +431,20 @@ router.post('/', async (req, res) => {
 
         if (freq === 'DAILY') currentStart.setDate(start.getDate() + (i * interval));
         else if (freq === 'WEEKLY') currentStart.setDate(start.getDate() + (i * 7 * interval));
+        else if (freq === 'TWICE_WEEKLY') {
+            // 2x por semana: sessão no dia de início + 3 dias depois, repetindo semanalmente
+            // i=0→dia 0, i=1→dia+3, i=2→dia+7, i=3→dia+10, ...
+            const weekIdx = Math.floor(i / 2);
+            const dayOffset = i % 2 === 0 ? 0 : 3;
+            currentStart.setDate(start.getDate() + (weekIdx * 7) + dayOffset);
+        }
+        else if (freq === 'THREE_WEEKLY') {
+            // 3x por semana: dia de início, +2 dias, +4 dias, repetindo semanalmente
+            // i=0→dia 0, i=1→dia+2, i=2→dia+4, i=3→dia+7, ...
+            const weekIdx = Math.floor(i / 3);
+            const dayOffsets = [0, 2, 4];
+            currentStart.setDate(start.getDate() + (weekIdx * 7) + dayOffsets[i % 3]);
+        }
         else if (freq === 'MONTHLY') currentStart.setMonth(start.getMonth() + (i * interval));
         else if (freq === 'YEARLY') currentStart.setFullYear(start.getFullYear() + (i * interval));
         else if (i > 0) break;
