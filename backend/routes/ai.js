@@ -738,7 +738,7 @@ Use obrigatoriamente estas secoes com negrito (**NOME DA SECAO**):
 REGRAS:
 - Responda SEMPRE em portugues-BR.
 - Seja clinico, direto e util para o psicologo em consulta.
-- NAO use blocos de codigo, NAO use markdown (``` ou ##).
+- NAO use blocos de codigo, NAO use markdown (triple-backtick ou ##).
 - Use apenas **texto em negrito** para titulos de secoes.
 - Escreva parágrafos completos, nao apenas listas.`;
 
