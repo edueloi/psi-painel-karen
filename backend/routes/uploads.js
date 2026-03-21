@@ -38,14 +38,19 @@ const fs = require('fs');
   }
 })();
 
+// Garante que o diretório de uploads existe na inicialização
+const UPLOAD_DIR = path.join(__dirname, '../public/uploads');
+try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch (_) {}
+
 // Configuração do Multer para salvamento em disco
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '../public/uploads');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
+    try {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+      cb(null, UPLOAD_DIR);
+    } catch (err) {
+      cb(err);
     }
-    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -53,13 +58,24 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB limit
 });
 
 // POST /uploads - Upload direto de arquivo
-router.post('/', upload.single('file'), async (req, res) => {
+router.post('/', (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err.code, err.message);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Arquivo muito grande. Máximo 25MB.' });
+      }
+      return res.status(400).json({ error: 'Erro no envio do arquivo: ' + err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
@@ -68,47 +84,30 @@ router.post('/', upload.single('file'), async (req, res) => {
     const { patient_id, category, title } = req.body;
     const file_url = `/uploads-static/${req.file.filename}`;
 
-    let insertId;
-    try {
-      // Tenta inserir com professional_id
-      const [result] = await db.query(
-        `INSERT INTO uploads (tenant_id, patient_id, professional_id, file_name, file_url, file_type, file_size, category, title)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          req.user.tenant_id,
-          patient_id || null,
-          req.user.id,
-          req.file.originalname,
-          file_url,
-          req.file.mimetype,
-          req.file.size,
-          category || 'Geral',
-          title || req.file.originalname
-        ]
-      );
-      insertId = result.insertId;
-    } catch (insertErr) {
-      // Fallback: sem professional_id (caso coluna não exista ou tenha FK inválida)
-      console.error('Upload insert com professional_id falhou, tentando sem:', insertErr.sqlMessage || insertErr.message);
-      const [result2] = await db.query(
-        `INSERT INTO uploads (tenant_id, patient_id, file_name, file_url, file_type, file_size, category, title)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          req.user.tenant_id,
-          patient_id || null,
-          req.file.originalname,
-          file_url,
-          req.file.mimetype,
-          req.file.size,
-          category || 'Geral',
-          title || req.file.originalname
-        ]
-      );
-      insertId = result2.insertId;
-    }
+    const [result] = await db.query(
+      `INSERT INTO uploads (tenant_id, patient_id, uploaded_by, professional_id, filename, original_name, file_name, url, file_url, mime_type, file_type, size, file_size, category, title)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.user.tenant_id,
+        patient_id || null,
+        req.user.id,
+        req.user.id,
+        req.file.filename,
+        req.file.originalname,
+        req.file.originalname,
+        file_url,
+        file_url,
+        req.file.mimetype,
+        req.file.mimetype,
+        req.file.size,
+        req.file.size,
+        category || 'Geral',
+        title || req.file.originalname
+      ]
+    );
 
     res.status(201).json({
-      id: insertId,
+      id: result.insertId,
       file_name: req.file.originalname,
       file_url: file_url,
       category: category || 'Geral',
@@ -116,7 +115,7 @@ router.post('/', upload.single('file'), async (req, res) => {
       date: new Date()
     });
   } catch (err) {
-    console.error('Erro no upload:', err.sqlMessage || err.message, err);
+    console.error('Erro no upload:', err.sqlMessage || err.message);
     res.status(500).json({ error: 'Erro ao fazer upload', detail: err.sqlMessage || err.message });
   }
 });
@@ -157,12 +156,12 @@ router.get('/', async (req, res) => {
     // Mapear campos para compatibilidade com o frontend se necessário
     const mapped = uploads.map(u => ({
         id: u.id,
-        title: u.title || u.file_name,
-        file_name: u.file_name,
-        file_url: u.file_url,
+        title: u.title || u.original_name || u.file_name,
+        file_name: u.original_name || u.file_name,
+        file_url: u.url || u.file_url,
         date: u.created_at,
-        size: u.file_size ? (u.file_size / 1024 / 1024).toFixed(2) + ' MB' : '0 MB',
-        type: u.file_type?.includes('pdf') ? 'pdf' : u.file_type?.includes('image') ? 'image' : 'doc',
+        size: (u.size || u.file_size) ? ((u.size || u.file_size) / 1024 / 1024).toFixed(2) + ' MB' : '0 MB',
+        type: (u.mime_type || u.file_type)?.includes('pdf') ? 'pdf' : (u.mime_type || u.file_type)?.includes('image') ? 'image' : 'doc',
         category: u.category || 'Geral'
     }));
     res.json(mapped);
