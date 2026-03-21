@@ -14,13 +14,13 @@ async function provisionFormsForAllTenants() {
     );
 
     for (const { id: tenantId } of tenants) {
-      // Busca admin do tenant para definir created_by
       const [[adminUser]] = await db.query(
         `SELECT id FROM users WHERE tenant_id = ? ORDER BY id ASC LIMIT 1`,
         [tenantId]
       );
       const adminId = adminUser?.id || null;
 
+      let created = 0;
       for (const form of DEFAULT_FORMS) {
         const [existing] = await db.query(
           'SELECT id FROM forms WHERE tenant_id = ? AND title = ?',
@@ -38,8 +38,10 @@ async function provisionFormsForAllTenants() {
         await db.query(
           'INSERT INTO forms (tenant_id, title, description, fields, is_public, hash, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [tenantId, form.title, form.description || null, fields, 1, hash, adminId]
-        ).catch(() => {}); // ignora duplicata de hash (improvável)
+        ).catch(e => console.warn(`  ⚠️  form "${form.title}":`, e.message));
+        created++;
       }
+      if (created > 0) console.log(`✅ provisionForms: tenant ${tenantId} — ${created} formulário(s) criado(s)`);
     }
   } catch (err) {
     console.warn('⚠️  provisionForms:', err.message);

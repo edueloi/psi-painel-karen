@@ -81,10 +81,6 @@ router.get('/', authMiddleware, async (req, res) => {
     if (patient_id) {
       sql += ' AND fr.patient_id = ?';
       params.push(patient_id);
-    } else {
-      // Filtra pelo tenant via form
-      sql += ` AND fr.form_id IN (SELECT id FROM forms WHERE tenant_id = ?)`;
-      params.push(req.user.tenant_id);
     }
 
     sql += ' ORDER BY fr.created_at DESC';
