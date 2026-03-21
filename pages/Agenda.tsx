@@ -199,6 +199,7 @@ export const Agenda: React.FC = () => {
       recurrence_rule: null,
       recurrence_end_date: '',
       recurrence_count: '',
+      recurrence_explicitly_none: false,
       is_all_day: false,
       reschedule_reason: '',
       comanda_id: ''
@@ -1087,6 +1088,20 @@ export const Agenda: React.FC = () => {
       let response: any;
       if (payload.id) {
         response = await api.put<Appointment>(`/appointments/${payload.id}`, payload);
+
+        // Se o usuário selecionou repetição ao editar um agendamento existente,
+        // criamos a série a partir desta data (o backend pula a data atual por anti-duplicata)
+        if (payload.recurrence_freq && payload.recurrence_freq !== 'CUSTOM') {
+          try {
+            const { id: _id, ...postPayload } = payload;
+            await api.post('/appointments', postPayload);
+          } catch (seriesErr: any) {
+            // Se só não criou por duplicata (todos já existem), ignora silenciosamente
+            if (!seriesErr?.message?.includes('Nenhum agendamento foi criado')) {
+              console.warn('Aviso ao criar série:', seriesErr?.message);
+            }
+          }
+        }
       } else {
         response = await api.post<Appointment>('/appointments', payload);
       }
@@ -1144,6 +1159,16 @@ export const Agenda: React.FC = () => {
         ? 'Informe o motivo da falta no campo Observações.'
         : 'Informe o motivo do cancelamento no campo Observações.');
       return;
+    }
+
+    // Aviso: comanda de pacote sem repetição selecionada (e sem confirmação explícita de "Não Repete")
+    if (formData.comanda_id && !formData.recurrence_freq && !formData.recurrence_explicitly_none) {
+      const selectedComanda = patientComandas.find((c: any) => String(c.id) === String(formData.comanda_id));
+      const isPackageComanda = selectedComanda && (selectedComanda.package_id || Number(selectedComanda.sessions_total) > 1);
+      if (isPackageComanda) {
+        pushToast('error', `Comanda de pacote (${selectedComanda.sessions_total} sessões). Configure a repetição ou clique em "Não Repete" para criar só esta sessão.`);
+        return;
+      }
     }
 
     const isPackage = String(formData.service_id).startsWith('pkg_');
@@ -1213,7 +1238,8 @@ export const Agenda: React.FC = () => {
         ...prev,
         comanda_id: c.id,
         service_id: targetServiceId,
-        duration_minutes: targetDuration
+        duration_minutes: targetDuration,
+        recurrence_explicitly_none: false
     }));
   };
 
@@ -1981,33 +2007,50 @@ export const Agenda: React.FC = () => {
                           />
                       </div>
 
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
-                          <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2.5">
-                                  <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-200 text-indigo-500">
-                                      <Repeat size={14} />
+                      {(() => {
+                          const selComanda = formData.comanda_id ? patientComandas.find((c: any) => String(c.id) === String(formData.comanda_id)) : null;
+                          const needsRecurrence = selComanda && (selComanda.package_id || Number(selComanda.sessions_total) > 1) && !formData.recurrence_rule && !formData.recurrence_explicitly_none;
+                          return (
+                          <div className={`p-4 rounded-xl border space-y-3 transition-colors ${needsRecurrence ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200/60'}`}>
+                              <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2.5">
+                                      <div className={`p-1.5 bg-white rounded-lg shadow-sm border text-indigo-500 ${needsRecurrence ? 'border-amber-300' : 'border-slate-200'}`}>
+                                          <Repeat size={14} />
+                                      </div>
+                                      <div>
+                                          <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider leading-none mb-1">Repetição Fixa</p>
+                                          <p className="text-[10px] font-medium text-slate-400">Marque sessões recorrentes</p>
+                                      </div>
                                   </div>
-                                  <div>
-                                      <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider leading-none mb-1">Repetição Fixa</p>
-                                      <p className="text-[10px] font-medium text-slate-400">Marque sessões recorrentes</p>
-                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsRecurrenceModalOpen(true)}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 bg-white border rounded-lg font-bold uppercase text-[10px] hover:bg-slate-100 transition-all shadow-sm group/btn ${needsRecurrence ? 'border-amber-400 text-amber-700' : 'border-slate-200 text-indigo-600'}`}
+                                  >
+                                    {formData.recurrence_rule ? (
+                                        <>
+                                            {recurrenceOptions.find(o => o.freq === formData.recurrence_freq && o.interval === formData.recurrence_interval)?.label || 'Personalizado'}
+                                            <div className="w-1 h-3 bg-indigo-200 rounded-full mx-1"></div>
+                                            {formData.recurrence_count ? `${formData.recurrence_count}x` : formData.recurrence_end_date ? 'Até data' : ''}
+                                        </>
+                                    ) : 'Não Repete'}
+                                    <ChevronRight size={10} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                                  </button>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => setIsRecurrenceModalOpen(true)}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-indigo-600 uppercase text-[10px] hover:bg-slate-100 transition-all shadow-sm group/btn"
-                              >
-                                {formData.recurrence_rule ? (
-                                    <>
-                                        {recurrenceOptions.find(o => o.freq === formData.recurrence_freq && o.interval === formData.recurrence_interval)?.label || 'Personalizado'}
-                                        <div className="w-1 h-3 bg-indigo-200 rounded-full mx-1"></div>
-                                        {formData.recurrence_count ? `${formData.recurrence_count}x` : formData.recurrence_end_date ? 'Até data' : ''}
-                                    </>
-                                ) : 'Não Repete'}
-                                <ChevronRight size={10} className="group-hover/btn:translate-x-0.5 transition-transform" />
-                              </button>
+                              {needsRecurrence && (
+                                  <div className="flex items-start gap-2 pt-1 border-t border-amber-200">
+                                      <AlertCircle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+                                      <div className="flex-1">
+                                          <p className="text-[11px] font-bold text-amber-700 leading-snug">Repetição necessária</p>
+                                          <p className="text-[10px] text-amber-600 leading-relaxed mt-0.5">
+                                              Esta comanda é de pacote ({selComanda.sessions_total} sessões). Configure a repetição ou confirme "Não Repete" para criar só esta sessão.
+                                          </p>
+                                      </div>
+                                  </div>
+                              )}
                           </div>
-                      </div>
+                          );
+                      })()}
                   </div>
               </div>
 
@@ -2317,7 +2360,8 @@ export const Agenda: React.FC = () => {
                                   recurrence_freq: '',
                                   recurrence_interval: 1,
                                   recurrence_count: '',
-                                  recurrence_end_date: ''
+                                  recurrence_end_date: '',
+                                  recurrence_explicitly_none: true
                               });
                               setIsRecurrenceModalOpen(false);
                           }
