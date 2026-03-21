@@ -87,6 +87,7 @@ export interface AgendaPlannerProps {
   hideHeader?: boolean;
   hideStats?: boolean;
   workSchedule?: WorkScheduleDay[];
+  skippedHours?: number[];
 }
 
 type NormalizedEvent = AgendaPlannerEvent & {
@@ -103,6 +104,7 @@ type PositionedEvent = NormalizedEvent & {
 
 const HEADER_HEIGHT = 68;
 const TIME_COL_WIDTH = 72;
+const COLLAPSE_HEIGHT = 8;
 
 const typeMeta: Record<
   AgendaPlannerEventType,
@@ -203,10 +205,30 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const minutesToTop = (
+  totalMinutes: number,
+  startHour: number,
+  hourHeight: number,
+  skippedHours: number[],
+  collapseHeight: number
+): number => {
+  let top = 0;
+  const targetHour = Math.floor(totalMinutes / 60);
+  const targetMin = totalMinutes % 60;
+  for (let h = startHour; h < targetHour; h++) {
+    top += skippedHours.includes(h) ? collapseHeight : hourHeight;
+  }
+  const thisHourH = skippedHours.includes(targetHour) ? collapseHeight : hourHeight;
+  top += (targetMin / 60) * thisHourH;
+  return top;
+};
+
 const layoutDayEvents = (
   events: NormalizedEvent[],
   startHour: number,
-  hourHeight: number
+  hourHeight: number,
+  skippedHours: number[] = [],
+  collapseHeight: number = 8
 ): PositionedEvent[] => {
   if (!events.length) return [];
 
@@ -271,8 +293,9 @@ const layoutDayEvents = (
         const durationMs = event.endDate.getTime() - event.startDate.getTime();
         const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
 
-        const top = ((startMinutes - startHour * 60) / 60) * hourHeight;
-        const rawHeight = (durationMinutes / 60) * hourHeight;
+        const top = minutesToTop(startMinutes, startHour, hourHeight, skippedHours, collapseHeight);
+        const endMinutes = startMinutes + durationMinutes;
+        const rawHeight = minutesToTop(endMinutes, startHour, hourHeight, skippedHours, collapseHeight) - top;
 
         positioned.push({
           ...event,
@@ -310,6 +333,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
   hideHeader,
   hideStats,
   workSchedule,
+  skippedHours = [],
 }) => {
   const [hoveredSlot, setHoveredSlot] = useState<{
     dayIndex: number;
@@ -341,9 +365,9 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
       const eventsForDay = normalizedEvents.filter((event) =>
         isSameDay(event.startDate, day)
       );
-      return layoutDayEvents(eventsForDay, startHour, hourHeight);
+      return layoutDayEvents(eventsForDay, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT);
     });
-  }, [visibleDays, normalizedEvents, startHour, hourHeight]);
+  }, [visibleDays, normalizedEvents, startHour, hourHeight, skippedHours]);
 
   const stats = useMemo(() => {
     const today = normalizedEvents.filter((event) =>
@@ -389,13 +413,13 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
     })}`;
   }, [currentDate, locale, view, visibleDays]);
 
-  const gridHeight = hours.length * hourHeight;
+  const gridHeight = hours.reduce((acc, h) => acc + (skippedHours.includes(h) ? COLLAPSE_HEIGHT : hourHeight), 0);
   const today = new Date();
 
   const currentTimeTop = useMemo(() => {
     const totalMinutes = today.getHours() * 60 + today.getMinutes();
-    return ((totalMinutes - startHour * 60) / 60) * hourHeight;
-  }, [today, startHour, hourHeight]);
+    return minutesToTop(totalMinutes, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT);
+  }, [today, startHour, hourHeight, skippedHours]);
 
   const getSlotInfo = (
     clientY: number,
@@ -581,17 +605,26 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                     className="sticky top-0 z-40 border-b border-slate-200 bg-white"
                     style={{ height: HEADER_HEIGHT }}
                   />
-                  {hours.map((hour) => (
-                    <div
-                      key={hour}
-                      className="relative flex justify-center border-b border-slate-100/90"
-                      style={{ height: hourHeight }}
-                    >
-                      <span className="absolute top-2 text-[11px] font-bold tabular-nums tracking-wide text-slate-400">
-                        {formatHourLabel(hour)}
-                      </span>
-                    </div>
-                  ))}
+                  {hours.map((hour) => {
+                    const isSkipped = skippedHours.includes(hour);
+                    return isSkipped ? (
+                      <div
+                        key={hour}
+                        className="relative flex items-center justify-center border-b border-dashed border-slate-200/60 bg-slate-50/80"
+                        style={{ height: COLLAPSE_HEIGHT }}
+                      />
+                    ) : (
+                      <div
+                        key={hour}
+                        className="relative flex justify-center border-b border-slate-100/90"
+                        style={{ height: hourHeight }}
+                      >
+                        <span className="absolute top-2 text-[11px] font-bold tabular-nums tracking-wide text-slate-400">
+                          {formatHourLabel(hour)}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Área dos dias */}
@@ -640,15 +673,24 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                   <div className="relative flex" style={{ height: gridHeight }}>
                     {/* linhas principais */}
                     <div className="pointer-events-none absolute inset-0 flex flex-col">
-                      {hours.map((hour) => (
-                        <div
-                          key={hour}
-                          className="relative w-full border-b border-slate-100/90"
-                          style={{ height: hourHeight }}
-                        >
-                          <div className="absolute left-0 right-0 top-1/2 border-b border-dashed border-slate-100/80" />
-                        </div>
-                      ))}
+                      {hours.map((hour) => {
+                        const isSkipped = skippedHours.includes(hour);
+                        return isSkipped ? (
+                          <div
+                            key={hour}
+                            className="relative w-full border-b border-dashed border-slate-300/60 bg-slate-100/40"
+                            style={{ height: COLLAPSE_HEIGHT }}
+                          />
+                        ) : (
+                          <div
+                            key={hour}
+                            className="relative w-full border-b border-slate-100/90"
+                            style={{ height: hourHeight }}
+                          >
+                            <div className="absolute left-0 right-0 top-1/2 border-b border-dashed border-slate-100/80" />
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {visibleDays.map((day, dayIndex) => {
@@ -676,7 +718,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         ? (aptStartMin !== null && aptStartMin < schedStartMinutes ? aptStartMin : schedStartMinutes)
                         : null;
                       const beforeOverlayHeight = effectiveBeforeEnd !== null
-                        ? Math.max(0, ((effectiveBeforeEnd - startHour * 60) / 60) * hourHeight)
+                        ? Math.max(0, minutesToTop(effectiveBeforeEnd, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT))
                         : 0;
 
                       // After-work overlay starts at latest appointment end (if it's after work end)
@@ -684,7 +726,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         ? (aptEndMin !== null && aptEndMin > schedEndMinutes ? aptEndMin : schedEndMinutes)
                         : null;
                       const afterOverlayTop = effectiveAfterStart !== null
-                        ? Math.max(0, ((effectiveAfterStart - startHour * 60) / 60) * hourHeight)
+                        ? Math.max(0, minutesToTop(effectiveAfterStart, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT))
                         : gridHeight;
                       const afterOverlayHeight = gridHeight - afterOverlayTop;
                       return (

@@ -249,8 +249,35 @@ export const Agenda: React.FC = () => {
       .map((a: any) => { const d = new Date(a.end || a.start); return isNaN(d.getTime()) ? null : { h: d.getHours() + (d.getMinutes() > 0 ? 1 : 0), t: new Date(a.start).getTime() }; })
       .filter((x): x is { h: number; t: number } => x !== null && x.t >= ws.getTime() && x.t <= we.getTime())
       .map(x => x.h);
-    const allMax = [...schedMax, ...aptMax];
-    return allMax.length > 0 ? Math.max(22, ...allMax) : 22;
+    const scheduleEnd = schedMax.length > 0 ? Math.max(...schedMax) : 18;
+    return aptMax.length > 0 ? Math.max(scheduleEnd, ...aptMax) : scheduleEnd;
+  }, [workSchedule, appointments, currentDate]);
+
+  const skippedHours = useMemo(() => {
+    if (!workSchedule.length) return [];
+    // Coleta horas de intervalo/almoço de todos os dias ativos
+    const lunchHours = new Set<number>();
+    workSchedule.filter(d => d.active).forEach((d: any) => {
+      if (d.lunchStart && d.lunchEnd) {
+        const lh = parseInt(d.lunchStart.split(':')[0]);
+        const le = parseInt(d.lunchEnd.split(':')[0]);
+        for (let h = lh; h < le; h++) lunchHours.add(h);
+      }
+    });
+    if (lunchHours.size === 0) return [];
+    // Semana visível
+    const ws = (() => { const d = new Date(currentDate); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; })();
+    const we = new Date(ws); we.setDate(we.getDate() + 6); we.setHours(23,59,59,999);
+    // Horas com agendamentos na semana visível
+    const hoursWithApts = new Set<number>();
+    appointments.forEach((a: any) => {
+      const d = new Date(a.start);
+      if (d.getTime() >= ws.getTime() && d.getTime() <= we.getTime()) {
+        hoursWithApts.add(d.getHours());
+      }
+    });
+    // Remove horas de intervalo que tenham agendamentos
+    return Array.from(lunchHours).filter(h => !hoursWithApts.has(h));
   }, [workSchedule, appointments, currentDate]);
 
   const hourHeight = 70;
@@ -1657,6 +1684,7 @@ export const Agenda: React.FC = () => {
                 hourHeight={125}
                 startHour={startHour}
                 endHour={endHour}
+                skippedHours={skippedHours}
                 workSchedule={workSchedule}
             />
         )}
