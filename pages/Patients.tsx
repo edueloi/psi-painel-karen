@@ -131,13 +131,15 @@ export const Patients: React.FC = () => {
     }
   };
 
+  const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
-      const term = searchTerm.toLowerCase();
-      const matchesSearch = (p.full_name || '').toLowerCase().includes(term) ||
+      const term = norm(searchTerm);
+      const matchesSearch = norm(p.full_name).includes(term) ||
         (p.cpf_cnpj && p.cpf_cnpj.includes(searchTerm)) ||
         (p.whatsapp && p.whatsapp.includes(searchTerm)) ||
-        (p.email && p.email.toLowerCase().includes(term));
+        norm(p.email).includes(term);
       const matchesStatus = statusFilter === 'all' ? true : p.status === statusFilter;
       return matchesSearch && matchesStatus;
     });

@@ -90,17 +90,19 @@ export const Combobox: React.FC<ComboboxProps> = ({
     }
   }, [selectedOptions, value, allowCustom, multiple]);
 
+  const normQ = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
   const filteredOptions = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    
+    const normalizedQuery = normQ(query.trim());
+
     // Se o valor da query for EXATAMENTE igual ao selecionado, mostramos todas as opções
     // Isso resolve o problema de o usuário clicar e não ver as outras opções.
     const isShowingSelected = !multiple && selectedOptions.length > 0 && query === selectedOptions[0].label;
-    
+
     if (!normalizedQuery || isShowingSelected) return options;
 
     return options.filter((option) =>
-      option.label.toLowerCase().includes(normalizedQuery)
+      normQ(option.label).includes(normalizedQuery)
     );
   }, [options, query, multiple, selectedOptions]);
 
@@ -181,7 +183,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
     setQuery(nextValue);
     setIsOpen(true);
     if (!multiple) {
-      const exactMatch = options.find((option) => option.label.toLowerCase() === nextValue.trim().toLowerCase());
+      const exactMatch = options.find((option) => normQ(option.label) === normQ(nextValue.trim()));
       if (exactMatch) {
         onChange(exactMatch.id, exactMatch.label);
       } else if (allowCustom) {

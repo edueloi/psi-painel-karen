@@ -164,21 +164,23 @@ export const Services: React.FC = () => {
     }).format(Number(value || 0));
   };
 
+  const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
   const filteredServices = useMemo(
-    () =>
-      services.filter(
-        (service) =>
-          (service.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (service.category || '').toLowerCase().includes(searchTerm.toLowerCase())
-      ),
+    () => {
+      const term = norm(searchTerm);
+      return services.filter(
+        (service) => norm(service.name).includes(term) || norm(service.category).includes(term)
+      );
+    },
     [services, searchTerm]
   );
 
   const filteredPackages = useMemo(
-    () =>
-      packages.filter((pkg) =>
-        (pkg.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-      ),
+    () => {
+      const term = norm(searchTerm);
+      return packages.filter((pkg) => norm(pkg.name).includes(term));
+    },
     [packages, searchTerm]
   );
 

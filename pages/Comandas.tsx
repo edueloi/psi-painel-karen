@@ -347,16 +347,19 @@ export const Comandas: React.FC = () => {
     }
   }, [location.state, comandas]);
 
+  const normC = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
   const filteredComandas = useMemo(() => {
     return comandas.filter((c: any) => {
-      const patientName = String(c.patientName || c.patient_name || '').toLowerCase();
-      const description = String(c.description || '').toLowerCase();
-      const firstItem = String(c.items?.[0]?.name || '').toLowerCase();
+      const patientName = normC(c.patientName || c.patient_name || '');
+      const description = normC(c.description || '');
+      const firstItem = normC(c.items?.[0]?.name || '');
+      const term = normC(searchTerm);
 
       const matchesSearch =
-        patientName.includes(searchTerm.toLowerCase()) ||
-        description.includes(searchTerm.toLowerCase()) ||
-        firstItem.includes(searchTerm.toLowerCase());
+        patientName.includes(term) ||
+        description.includes(term) ||
+        firstItem.includes(term);
 
       if (!matchesSearch) return false;
       if (statusFilter !== c.status) return false;

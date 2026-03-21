@@ -120,6 +120,17 @@ export const Agenda: React.FC = () => {
   const [deleteSeries, setDeleteSeries] = useState(false);
   const { pushToast } = useToast();
 
+  // ── Edit scope modal (which sessions to apply changes to) ──
+  const [isScopeModalOpen, setIsScopeModalOpen] = useState(false);
+  const [pendingSavePayload, setPendingSavePayload] = useState<any>(null);
+  const [scopeRelatedApts, setScopeRelatedApts] = useState<Appointment[]>([]);
+  const [selectedScopeIds, setSelectedScopeIds] = useState<Set<string | number>>(new Set());
+
+  // ── Quick reschedule from detail modal ──
+  const [isDetailRescheduleOpen, setIsDetailRescheduleOpen] = useState(false);
+  const [detailRescheduleDateTime, setDetailRescheduleDateTime] = useState({ date: '', time: '' });
+  const [detailRescheduleScopeIds, setDetailRescheduleScopeIds] = useState<Set<string | number>>(new Set());
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
   const [isRecurrenceConfigOpen, setIsRecurrenceConfigOpen] = useState(false);
@@ -1010,10 +1021,59 @@ export const Agenda: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  // ── Executa o save real (opcionalmente em múltiplos agendamentos) ──
+  const executeSaveAppointment = async (payload: any, extraIds: (string | number)[] = []) => {
+    setIsSaving(true);
+    try {
+      let response: any;
+      if (payload.id) {
+        response = await api.put<Appointment>(`/appointments/${payload.id}`, payload);
+      } else {
+        response = await api.post<Appointment>('/appointments', payload);
+      }
+
+      // Aplica as mesmas alterações (exceto data) nos demais agendamentos selecionados
+      for (const extraId of extraIds) {
+        if (String(extraId) === String(payload.id)) continue;
+        const sibling = appointments.find(a => String(a.id) === String(extraId));
+        const siblingPayload = {
+          ...payload,
+          id: extraId,
+          // mantém a data original de cada sessão — só propaga outros campos
+          start_time: null,
+          appointment_date: sibling ? new Date(sibling.start).toISOString().slice(0, 16) : payload.appointment_date,
+        };
+        await api.put(`/appointments/${extraId}`, siblingPayload).catch(() => {});
+      }
+
+      const savedAppointment = response;
+
+      if (formData.type === 'consulta' && formData.modality === 'online' && !formData.meeting_url) {
+        try {
+          const localToUtc2 = (str: string) => str ? new Date(str).toISOString() : null;
+          const roomCode = Math.random().toString(36).substr(2, 9);
+          const patient = patients.find(p => String(p.id) === String(formData.patient_id));
+          const titleText = `Sessão: ${patient?.full_name || 'Paciente'} - ${new Date(formData.appointment_date).toLocaleDateString()}`;
+          const roomData = { title: titleText, code: roomCode, patient_id: formData.patient_id, professional_id: formData.psychologist_id || formData.professional_id, appointment_id: savedAppointment.id, scheduled_start: localToUtc2(formData.appointment_date), provider: 'interno' };
+          const room = await api.post<any>('/virtual-rooms', roomData);
+          const meetingUrl = `${window.location.origin}/sala/${room.code || roomCode}`;
+          await api.put(`/appointments/${savedAppointment.id}`, { ...payload, meeting_url: meetingUrl });
+        } catch (roomError) { console.error('Erro ao criar sala virtual:', roomError); }
+      }
+
+      fetchData();
+      closeAppointmentModal();
+      pushToast('success', extraIds.length > 0 ? `${extraIds.length + 1} agendamentos atualizados!` : 'Agenda atualizada com sucesso.');
+    } catch (e: any) {
+      pushToast('error', 'Erro ao salvar agendamento.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (isSaving) return;
 
-    // Observação obrigatória quando status é "faltou" ou "cancelado"
     if ((formData.status === 'no-show' || formData.status === 'cancelled') && !formData.notes?.trim()) {
       pushToast('error', formData.status === 'no-show'
         ? 'Informe o motivo da falta no campo Observações.'
@@ -1021,84 +1081,36 @@ export const Agenda: React.FC = () => {
       return;
     }
 
-    setIsSaving(true);
-    try {
-        const isPackage = String(formData.service_id).startsWith('pkg_');
-        const cleanServiceId = isPackage ? formData.service_id.replace('pkg_', '') : formData.service_id;
+    const isPackage = String(formData.service_id).startsWith('pkg_');
+    const cleanServiceId = isPackage ? formData.service_id.replace('pkg_', '') : formData.service_id;
+    const dateChanged = !formData._originalDate || formData.appointment_date !== formData._originalDate;
+    const localToUtc = (str: string) => str ? new Date(str).toISOString() : null;
 
-        // Só envia start_time se o usuário realmente alterou a data/hora
-        const dateChanged = !formData._originalDate || formData.appointment_date !== formData._originalDate;
+    const payload = {
+        ...formData,
+        start_time: dateChanged ? localToUtc(formData.appointment_date) : null,
+        professional_id: formData.psychologist_id || formData.professional_id,
+        service_id: isPackage ? null : cleanServiceId,
+        package_id: isPackage ? cleanServiceId : null
+    };
 
-        // ⚠️ REGRA DE TIMEZONE — NÃO ALTERAR SEM ENTENDER:
-        // O banco (db.js) usa timezone: '+00:00' (UTC). Se enviarmos "2026-03-20T15:00" sem offset,
-        // o backend interpreta como 15:00 UTC e o browser (UTC-3) exibe 12:00. ERRADO.
-        // A função abaixo converte a string local do browser para ISO UTC antes do POST/PUT.
-        // Exemplo: usuário digita 15:00 → new Date("2026-03-20T15:00").toISOString() → "2026-03-20T18:00:00Z"
-        // → backend salva 18:00 UTC → browser recebe 18:00 UTC → exibe 15:00 local. CORRETO.
-        const localToUtc = (str: string) => str ? new Date(str).toISOString() : null;
-
-        const payload = {
-            ...formData,
-            start_time: dateChanged ? localToUtc(formData.appointment_date) : null,
-            professional_id: formData.psychologist_id || formData.professional_id,
-            service_id: isPackage ? null : cleanServiceId,
-            package_id: isPackage ? cleanServiceId : null
-        };
-
-        let response;
-        if (formData.id) {
-            response = await api.put<Appointment>(`/appointments/${formData.id}`, payload);
-        } else {
-            response = await api.post<Appointment>('/appointments', payload);
-        }
-
-        const savedAppointment = response;
-
-        // SE FOR ONLINE E NÃO TEM URL AINDA, CRIA UMA SALA VIRTUAL
-        if (formData.type === 'consulta' && formData.modality === 'online' && !formData.meeting_url) {
-            try {
-                const roomCode = Math.random().toString(36).substr(2, 9);
-                const patient = patients.find(p => String(p.id) === String(formData.patient_id));
-                const titleText = `Sessão: ${patient?.full_name || 'Paciente'} - ${new Date(formData.appointment_date).toLocaleDateString()}`;
-
-                const roomData = {
-                    title: titleText,
-                    code: roomCode,
-                    patient_id: formData.patient_id,
-                    professional_id: formData.psychologist_id || formData.professional_id,
-                    appointment_id: savedAppointment.id,
-                    scheduled_start: localToUtc(formData.appointment_date),
-                    provider: 'interno'
-                };
-
-                const room = await api.post<any>('/virtual-rooms', roomData);
-                const meetingUrl = `${window.location.origin}/sala/${room.code || roomCode}`;
-
-                await api.put(`/appointments/${savedAppointment.id}`, {
-                    ...payload,
-                    meeting_url: meetingUrl
-                });
-            } catch (roomError) {
-                console.error("Erro ao criar sala virtual:", roomError);
-            }
-        }
-
-        // NOVO FLOW: Informa que a comanda foi gerada mas não redireciona (conforme pedido: "por debaixo dos panos")
-        if (savedAppointment.comanda_id) {
-            pushToast('success', 'Agendamento e Comanda gerada com sucesso!');
-            fetchData();
-            closeAppointmentModal();
-            return;
-        }
-
-        fetchData();
-        closeAppointmentModal();
-        pushToast('success', 'Agenda atualizada com sucesso.');
-    } catch (e: any) {
-        pushToast('error', 'Erro ao salvar agendamento.');
-    } finally {
-        setIsSaving(false);
+    // Se é edição com comanda, verifica se há sessões irmãs
+    if (formData.id && formData.comanda_id) {
+      const siblings = appointments.filter(a =>
+        String(a.comanda_id) === String(formData.comanda_id) &&
+        String(a.id) !== String(formData.id)
+      );
+      if (siblings.length > 0) {
+        // Pré-seleciona apenas o atual
+        setSelectedScopeIds(new Set([String(formData.id)]));
+        setScopeRelatedApts(siblings);
+        setPendingSavePayload(payload);
+        setIsScopeModalOpen(true);
+        return;
+      }
     }
+
+    await executeSaveAppointment(payload);
   };
 
   const handleSelectComanda = (c: any) => {
@@ -1632,7 +1644,7 @@ export const Agenda: React.FC = () => {
                               {/* PAZIENTE COMBOBOX */}
                               <Combobox
                                 label="Paciente"
-                                options={patients.filter(p => (p as any).status === 'ativo' || (p as any).status === 'active').map(p => ({ id: p.id, label: p.full_name }))}
+                                options={patients.map(p => ({ id: p.id, label: p.full_name || (p as any).name || '' }))}
                                 value={formData.patient_id || ''}
                                 icon={<UserIcon size={18} className="text-indigo-400" />}
                                 placeholder="Pesquisar ou adicionar paciente..."
@@ -2919,6 +2931,25 @@ export const Agenda: React.FC = () => {
                   <FileText size={16} className="text-slate-500" />
                   <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recibo</span>
                 </button>
+                {apt.comanda_id && (
+                  <button onClick={() => {
+                    const aptDate = new Date(apt.start);
+                    const dateStr = aptDate.toISOString().slice(0,10);
+                    const timeStr = aptDate.toTimeString().slice(0,5);
+                    setDetailRescheduleDateTime({ date: dateStr, time: timeStr });
+                    const siblings = appointments.filter(a =>
+                      a.comanda_id && String(a.comanda_id) === String(apt.comanda_id) && String(a.id) !== String(apt.id)
+                    );
+                    setDetailRescheduleScopeIds(new Set([String(apt.id)]));
+                    setScopeRelatedApts(siblings);
+                    setIsDetailRescheduleOpen(true);
+                    setIsDetailModalOpen(false);
+                  }}
+                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-all">
+                    <Clock size={16} className="text-violet-600" />
+                    <span className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Horário</span>
+                  </button>
+                )}
                 <button onClick={() => { if (apt) openEditModal(apt); setIsDetailModalOpen(false); }}
                   className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all">
                   <Edit3 size={16} className="text-indigo-600" />
@@ -2936,6 +2967,230 @@ export const Agenda: React.FC = () => {
         );
       })()}
 
+      {/* ── SCOPE CONFIRMATION MODAL (save edits to sibling sessions) ── */}
+      <Modal
+        isOpen={isScopeModalOpen}
+        onClose={() => { setIsScopeModalOpen(false); setPendingSavePayload(null); }}
+        title="Aplicar alterações"
+        maxWidth="max-w-sm"
+      >
+        <div className="pb-2">
+          <p className="text-sm text-slate-600 mb-4">
+            Este agendamento faz parte de uma série. Deseja aplicar as alterações também em outros agendamentos da série?
+          </p>
+          <div className="space-y-2 max-h-56 overflow-y-auto mb-4">
+            {/* Current appointment always shown as checked */}
+            <label className="flex items-center gap-3 p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 cursor-default">
+              <input type="checkbox" checked readOnly className="accent-indigo-600 w-4 h-4" />
+              <span className="text-sm font-semibold text-indigo-700">Este agendamento (atual)</span>
+            </label>
+            {scopeRelatedApts.map(a => {
+              const id = String(a.id);
+              const checked = selectedScopeIds.has(id);
+              return (
+                <label key={id} className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    className="accent-indigo-600 w-4 h-4"
+                    onChange={() => {
+                      setSelectedScopeIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(id)) next.delete(id); else next.add(id);
+                        return next;
+                      });
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-slate-700">
+                      {new Date(a.start).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                    </span>
+                    <span className="ml-2 text-xs text-slate-400">
+                      {new Date(a.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => {
+                const allIds = new Set([String(pendingSavePayload?.id), ...scopeRelatedApts.map(a => String(a.id))]);
+                setSelectedScopeIds(allIds);
+              }}
+              className="text-xs font-bold text-indigo-600 hover:underline"
+            >
+              Selecionar todos
+            </button>
+            <span className="text-slate-300">·</span>
+            <button
+              onClick={() => setSelectedScopeIds(new Set([String(pendingSavePayload?.id)]))}
+              className="text-xs font-bold text-slate-400 hover:underline"
+            >
+              Somente este
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setIsScopeModalOpen(false); setPendingSavePayload(null); }}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                if (!pendingSavePayload) return;
+                setIsScopeModalOpen(false);
+                executeSaveAppointment(pendingSavePayload, [...selectedScopeIds].filter(id => String(id) !== String(pendingSavePayload.id)));
+              }}
+              className="flex-1 py-2.5 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+            >
+              Salvar ({selectedScopeIds.size})
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── DETAIL RESCHEDULE MODAL (horário button in detail modal) ── */}
+      <Modal
+        isOpen={isDetailRescheduleOpen}
+        onClose={() => setIsDetailRescheduleOpen(false)}
+        title="Alterar Horário"
+        maxWidth="max-w-sm"
+      >
+        <div className="pb-2">
+          <p className="text-sm text-slate-500 mb-4">Escolha a nova data e horário para este agendamento.</p>
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Data</label>
+              <input
+                type="date"
+                value={detailRescheduleDateTime.date}
+                onChange={e => setDetailRescheduleDateTime(prev => ({ ...prev, date: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Horário</label>
+              <input
+                type="time"
+                value={detailRescheduleDateTime.time}
+                onChange={e => setDetailRescheduleDateTime(prev => ({ ...prev, time: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-indigo-400"
+              />
+            </div>
+          </div>
+
+          {scopeRelatedApts.length > 0 && (
+            <>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Aplicar também em</p>
+              <div className="space-y-2 max-h-44 overflow-y-auto mb-4">
+                {scopeRelatedApts.map(a => {
+                  const id = String(a.id);
+                  const checked = detailRescheduleScopeIds.has(id);
+                  return (
+                    <label key={id} className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        className="accent-indigo-600 w-4 h-4"
+                        onChange={() => {
+                          setDetailRescheduleScopeIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(id)) next.delete(id); else next.add(id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span className="text-sm font-semibold text-slate-700">
+                        {new Date(a.start).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {new Date(a.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  onClick={() => setDetailRescheduleScopeIds(new Set(scopeRelatedApts.map(a => String(a.id))))}
+                  className="text-xs font-bold text-indigo-600 hover:underline"
+                >
+                  Selecionar todos
+                </button>
+                <span className="text-slate-300">·</span>
+                <button
+                  onClick={() => setDetailRescheduleScopeIds(new Set())}
+                  className="text-xs font-bold text-slate-400 hover:underline"
+                >
+                  Nenhum
+                </button>
+              </div>
+            </>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsDetailRescheduleOpen(false)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={async () => {
+                if (!selectedApt || !detailRescheduleDateTime.date || !detailRescheduleDateTime.time) return;
+                const newDateTime = `${detailRescheduleDateTime.date}T${detailRescheduleDateTime.time}:00`;
+                const newStartUtc = new Date(newDateTime).toISOString();
+                const basePayload = {
+                  patient_id: selectedApt.patient_id,
+                  professional_id: selectedApt.professional_id || (selectedApt as any).psychologist_id,
+                  service_id: selectedApt.service_id,
+                  package_id: (selectedApt as any).package_id,
+                  status: selectedApt.status,
+                  notes: selectedApt.notes,
+                  modality: selectedApt.modality,
+                  type: selectedApt.type,
+                  duration_minutes: selectedApt.duration_minutes,
+                  comanda_id: selectedApt.comanda_id,
+                };
+                try {
+                  await api.put(`/appointments/${selectedApt.id}`, { ...basePayload, start_time: newStartUtc });
+                  for (const id of detailRescheduleScopeIds) {
+                    const sibling = scopeRelatedApts.find(a => String(a.id) === String(id));
+                    if (!sibling) continue;
+                    // Preserva data original do sibling, muda apenas o horário
+                    const origDate = new Date(sibling.start);
+                    const [h, m] = detailRescheduleDateTime.time.split(':').map(Number);
+                    origDate.setHours(h, m, 0, 0);
+                    const siblingPayload = {
+                      patient_id: sibling.patient_id,
+                      professional_id: sibling.professional_id || (sibling as any).psychologist_id,
+                      service_id: sibling.service_id,
+                      package_id: (sibling as any).package_id,
+                      status: sibling.status,
+                      notes: sibling.notes,
+                      modality: sibling.modality,
+                      type: sibling.type,
+                      duration_minutes: sibling.duration_minutes,
+                      comanda_id: sibling.comanda_id,
+                    };
+                    await api.put(`/appointments/${id}`, { ...siblingPayload, start_time: origDate.toISOString() });
+                  }
+                  pushToast('success', 'Horário atualizado!');
+                  fetchData();
+                  setIsDetailRescheduleOpen(false);
+                } catch { pushToast('error', 'Erro ao atualizar horário.'); }
+              }}
+              className="flex-1 py-2.5 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+            >
+              Confirmar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* COMANDA MANAGER MODAL */}
       {/* COMANDA MANAGER MODAL */}
       <Modal
@@ -2948,10 +3203,15 @@ export const Agenda: React.FC = () => {
           const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
           if (!cmnd) return null;
 
+          // Pega os agendamentos desta comanda diretamente do state (cmnd.appointments pode estar vazio)
+          const cmndAppointments = appointments
+            .filter(a => a.comanda_id && String(a.comanda_id) === String(cmnd.id))
+            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
           return (
             <div className="grid grid-cols-1 gap-6 py-2 lg:grid-cols-[1.6fr_0.9fr]">
               {(() => {
-                const usedSessionsArr = (cmnd.appointments || []).filter((a: any) => {
+                const usedSessionsArr = cmndAppointments.filter((a: any) => {
                   // Slot reservado = sessão consumida: concluído, confirmado, faltou e cancelado contam
                   return a.status === 'completed' || a.status === 'confirmed'
                     || a.status === 'no_show' || a.status === 'no-show'
@@ -3025,61 +3285,59 @@ export const Agenda: React.FC = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white p-5">
                   {managerTab === 'atendimentos' && (
                     <div className="space-y-3">
-                      {(cmnd.appointments || []).map((appointment: any) => (
-                        <div
-                          key={appointment.id}
-                          className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-                              <CalendarDays size={18} />
+                      {cmndAppointments.map((appointment) => {
+                        const aptStart = new Date(appointment.start);
+                        const statusLabels: Record<string, string> = {
+                          scheduled: 'Agendado', confirmed: 'Confirmado',
+                          completed: 'Realizado', cancelled: 'Cancelado',
+                          'no-show': 'Faltou', no_show: 'Faltou',
+                        };
+                        const statusColors: Record<string, string> = {
+                          scheduled: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                          confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                          completed: 'bg-green-50 text-green-700 border-green-200',
+                          cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
+                          'no-show': 'bg-amber-50 text-amber-700 border-amber-200',
+                          no_show: 'bg-amber-50 text-amber-700 border-amber-200',
+                        };
+                        return (
+                          <div
+                            key={appointment.id}
+                            className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 hover:bg-slate-50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 shrink-0">
+                                <CalendarDays size={16} />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-slate-800">
+                                  {aptStart.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                  {aptStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  {appointment.recurrence_index ? ` · Sessão ${appointment.recurrence_index}/${cmnd.sessions_total || appointment.recurrence_count || '?'}` : ''}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex flex-col gap-1">
-                               <p className="text-sm font-medium text-slate-800">
-                                 {new Date(appointment.start_time || appointment.start_date || appointment.startDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                               </p>
-                               <div className="flex items-center gap-2">
-                                    <p className="text-[10px] font-medium text-slate-400 uppercase">
-                                        Data e Horário
-                                    </p>
-                                    {cmnd.package_id && appointment.recurrence_index && (
-                                        <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-indigo-100">
-                                            {appointment.recurrence_index} de {cmnd.sessions_total || appointment.recurrence_count}
-                                        </span>
-                                    )}
-                               </div>
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={appointment.status || 'scheduled'}
+                                onChange={(e) => handleUpdateAppointmentStatus(appointment.id, e.target.value)}
+                                className={`text-[11px] font-bold rounded-lg border px-2 py-1 outline-none cursor-pointer ${statusColors[appointment.status || 'scheduled'] || 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                                style={{ height: '30px' }}
+                              >
+                                <option value="scheduled">Agendado</option>
+                                <option value="confirmed">Confirmado</option>
+                                <option value="completed">Realizado</option>
+                                <option value="no_show">Faltou</option>
+                                <option value="cancelled">Cancelado</option>
+                              </select>
                             </div>
                           </div>
+                        );
+                      })}
 
-                          <div className="flex flex-col gap-2">
-                            <select
-                              value={appointment.status}
-                              onChange={(e) =>
-                                handleUpdateAppointmentStatus(appointment.id, e.target.value)
-                              }
-                              className={compactInputClass}
-                              style={{ height: '32px', fontSize: '11px' }}
-                            >
-                              <option value="scheduled">Agendado</option>
-                              <option value="completed">Concluido</option>
-                              <option value="cancelled">Cancelado</option>
-                              <option value="no_show">Faltou</option>
-                            </select>
-
-                            <input
-                              type="datetime-local"
-                              value={new Date(
-                                new Date(appointment.start_time || appointment.start_date || appointment.startDate).getTime() - 
-                                (new Date().getTimezoneOffset() * 60000)
-                              ).toISOString().slice(0, 16)}
-                              onChange={(e) => handleUpdateAppointmentDate(appointment.id, e.target.value)}
-                              className="text-[10px] font-bold border border-slate-200 rounded px-2 py-1 outline-none focus:border-indigo-500"
-                            />
-                          </div>
-                        </div>
-                      ))}
-
-                      {(!cmnd.appointments || cmnd.appointments.length === 0) && (
+                      {cmndAppointments.length === 0 && (
                         <div className="py-10 text-center text-sm text-slate-400">
                           Nenhum atendimento vinculado.
                         </div>
