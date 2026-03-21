@@ -597,7 +597,11 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         key={day.toISOString()}
                         className={cx(
                           'flex min-w-[128px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-2',
-                          isSameDay(day, new Date()) ? 'bg-primary-50/40' : isWeekend ? 'bg-slate-100/70' : ''
+                          isSameDay(day, new Date())
+                            ? 'bg-indigo-50'
+                            : isWeekend
+                            ? 'bg-slate-100'
+                            : 'bg-white'
                         )}
                       >
                         <span className={cx(
@@ -612,8 +616,8 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           className={cx(
                             'mt-1 text-[17px] font-bold tracking-tight',
                             isSameDay(day, new Date())
-                              ? 'text-primary-600'
-                              : isWeekend ? 'text-slate-500' : 'text-slate-800'
+                              ? 'text-indigo-600'
+                              : isWeekend ? 'text-slate-400' : 'text-slate-800'
                           )}
                         >
                           {day.getDate()}
@@ -644,7 +648,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         key={day.toISOString()}
                         className={cx(
                           'relative min-w-[128px] flex-1 border-r border-slate-200 transition',
-                          isSameDay(day, new Date()) ? 'bg-indigo-50/20' : isWeekend ? 'bg-slate-100/50' : ''
+                          isSameDay(day, new Date()) ? 'bg-indigo-50/30' : isWeekend ? 'bg-slate-100' : 'bg-white'
                         )}
                         onMouseMove={(e) => {
                           const info = getSlotInfo(e.clientY, e.currentTarget, day);
