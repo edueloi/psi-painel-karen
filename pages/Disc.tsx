@@ -607,6 +607,13 @@ export default function Disc() {
         const drSec = drTop[1];
         const drCombined = COMBINED_PROFILES[`${drDom.key}${drSec.key}`] || COMBINED_PROFILES[`${drSec.key}${drDom.key}`] || null;
         const drAurora = aiMap[dr.id] || dr.aurora_analysis || null;
+        // Histórico: todos os resultados do mesmo paciente, do mais antigo ao mais recente
+        const patientHistory = (dr.patient_id
+          ? results.filter(r => String(r.patient_id) === String(dr.patient_id))
+          : results.filter(r => r.respondent_email && r.respondent_email === dr.respondent_email)
+        ).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        const drIndex = patientHistory.findIndex(r => r.id === dr.id);
+        const prevResult = drIndex > 0 ? patientHistory[drIndex - 1] : null;
 
         return (
           <ActionDrawer
@@ -784,6 +791,143 @@ export default function Disc() {
                   </div>
                 )}
               </div>
+
+              {/* ── Histórico DISC ───────────────────────────────────────────── */}
+              {patientHistory.length > 1 && (
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp size={13} className="text-indigo-500" />
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        Histórico DISC — {patientHistory.length} avaliações
+                      </p>
+                    </div>
+                    <p className="text-[9px] text-slate-400 font-medium">Esta avaliação: #{drIndex + 1}</p>
+                  </div>
+
+                  {/* Comparação com anterior */}
+                  {prevResult && (
+                    <div className="px-4 py-3 border-b border-slate-100 bg-white/60">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                        Variação vs avaliação anterior · {new Date(prevResult.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {(['D','I','S','C'] as const).map(k => {
+                          const cur = dr[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
+                          const prv = prevResult[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
+                          const delta = +(cur - prv).toFixed(2);
+                          const cfg = BLOCK_CONFIG[k];
+                          return (
+                            <div key={k} className="rounded-xl p-2.5 text-center border" style={{ background: cfg.bg, borderColor: cfg.border }}>
+                              <p className="text-[9px] font-black mb-1" style={{ color: cfg.color }}>{k}</p>
+                              <p className="text-base font-black leading-none" style={{ color: cfg.color }}>{cur.toFixed(1)}</p>
+                              <div className={`flex items-center justify-center gap-0.5 mt-1 text-[9px] font-black ${delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                                {delta > 0 ? '▲' : delta < 0 ? '▼' : '—'}
+                                {delta !== 0 && <span>{Math.abs(delta).toFixed(2)}</span>}
+                                {delta === 0 && <span>igual</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Linha do tempo */}
+                  <div className="px-4 py-3 space-y-1 max-h-60 overflow-y-auto">
+                    {patientHistory.map((h, idx) => {
+                      const hTop = getTopFactors(h);
+                      const hDom = hTop[0];
+                      const isCurrent = h.id === dr.id;
+                      const hAurora = !!(aiMap[h.id] || h.aurora_analysis);
+                      return (
+                        <button
+                          key={h.id}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${isCurrent ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-white border border-transparent hover:border-slate-200'}`}
+                          onClick={() => !isCurrent && setDetailResult(h)}
+                        >
+                          {/* Number */}
+                          <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0 ${isCurrent ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                            {idx + 1}
+                          </span>
+                          {/* Date */}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-bold truncate ${isCurrent ? 'text-indigo-700' : 'text-slate-600'}`}>
+                              {new Date(h.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            {isCurrent && <p className="text-[9px] text-indigo-400 font-medium">Avaliação atual</p>}
+                          </div>
+                          {/* Dominant badge */}
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-lg shrink-0" style={{ background: BLOCK_CONFIG[hDom.key].bg, color: BLOCK_CONFIG[hDom.key].color }}>
+                            {hDom.key} {hDom.val.toFixed(1)}
+                          </span>
+                          {/* Mini scores */}
+                          <div className="hidden sm:flex gap-2 shrink-0">
+                            {(['D','I','S','C'] as const).map(k => (
+                              <div key={k} className="text-center w-7">
+                                <p className="text-[10px] font-black leading-none" style={{ color: BLOCK_CONFIG[k].color }}>
+                                  {(h[`score_${k.toLowerCase()}` as keyof DiscResult] as number).toFixed(1)}
+                                </p>
+                                <p className="text-[8px] text-slate-300 font-bold">{k}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Aurora tag */}
+                          {hAurora && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-lg bg-violet-50 text-violet-500 shrink-0">✦</span>}
+                          {!isCurrent && <ChevronRight size={12} className="text-slate-300 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Gráfico de evolução */}
+                  {patientHistory.length >= 2 && (
+                    <div className="px-4 pb-4 pt-2 border-t border-slate-100">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Evolução dos Fatores</p>
+                      <svg viewBox={`0 0 ${Math.max(patientHistory.length * 80, 240)} 80`} className="w-full" style={{ maxHeight: 80 }}>
+                        {(['D','I','S','C'] as const).map(k => {
+                          const pts = patientHistory.map((h, i) => {
+                            const val = h[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
+                            const x = i * (Math.max(patientHistory.length * 80, 240) / (patientHistory.length - 1 || 1));
+                            const y = 70 - ((val - 1) / 4) * 60;
+                            return `${x},${y}`;
+                          });
+                          const cfg = BLOCK_CONFIG[k];
+                          return (
+                            <g key={k}>
+                              <polyline points={pts.join(' ')} fill="none" stroke={cfg.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" opacity={0.7} />
+                              {patientHistory.map((h, i) => {
+                                const val = h[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
+                                const x = i * (Math.max(patientHistory.length * 80, 240) / (patientHistory.length - 1 || 1));
+                                const y = 70 - ((val - 1) / 4) * 60;
+                                return <circle key={i} cx={x} cy={y} r={h.id === dr.id ? 5 : 3} fill={cfg.color} stroke="#fff" strokeWidth={1.5} />;
+                              })}
+                            </g>
+                          );
+                        })}
+                        {/* X axis labels */}
+                        {patientHistory.map((h, i) => {
+                          const x = i * (Math.max(patientHistory.length * 80, 240) / (patientHistory.length - 1 || 1));
+                          return (
+                            <text key={i} x={x} y={78} textAnchor="middle" fontSize={7} fill="#94a3b8" fontWeight={600}>
+                              {new Date(h.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                            </text>
+                          );
+                        })}
+                      </svg>
+                      {/* Legend */}
+                      <div className="flex gap-3 mt-1 flex-wrap">
+                        {(['D','I','S','C'] as const).map(k => (
+                          <div key={k} className="flex items-center gap-1">
+                            <div className="w-4 h-1 rounded-full" style={{ background: BLOCK_CONFIG[k].color }} />
+                            <span className="text-[8px] font-black" style={{ color: BLOCK_CONFIG[k].color }}>{k} — {BLOCK_CONFIG[k].label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Full answers */}
               <details className="group">
