@@ -661,19 +661,33 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           onSlotClick?.(info.slotDate);
                         }}
                       >
-                        {/* hover da linha */}
+                        {/* hover slot afundado */}
                         {hoveredSlot?.dayIndex === dayIndex && (
-                          <div
-                            className="pointer-events-none absolute left-0 right-0 z-10"
-                            style={{ top: hoveredSlot.top }}
-                          >
-                            <div className="relative flex items-center">
-                              <div className="ml-2 rounded-full bg-primary-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                                {hoveredSlot.label}
+                          <>
+                            {/* bloco afundado no slot de 30min */}
+                            <div
+                              className="pointer-events-none absolute left-0 right-0 z-[5] rounded-sm"
+                              style={{
+                                top: hoveredSlot.top,
+                                height: hourHeight / 2,
+                                background: 'rgba(99,102,241,0.07)',
+                                boxShadow: 'inset 0 2px 6px rgba(99,102,241,0.13), inset 0 -1px 3px rgba(99,102,241,0.08)',
+                                borderTop: '1.5px solid rgba(99,102,241,0.25)',
+                              }}
+                            />
+                            {/* linha + label do horário */}
+                            <div
+                              className="pointer-events-none absolute left-0 right-0 z-10"
+                              style={{ top: hoveredSlot.top }}
+                            >
+                              <div className="relative flex items-center">
+                                <div className="ml-2 rounded-full bg-primary-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                                  {hoveredSlot.label}
+                                </div>
+                                <div className="ml-2 h-[1.5px] flex-1 bg-primary-400/50" />
                               </div>
-                              <div className="ml-2 h-[2px] flex-1 bg-primary-300/70" />
                             </div>
-                          </div>
+                          </>
                         )}
 
                         {/* linha do horário atual */}
