@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/UI/Button';
 import { Combobox } from '../components/UI/Combobox';
 import { Modal } from '../components/UI/Modal';
+import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { DatePicker } from '../components/UI/DatePicker';
@@ -280,7 +281,7 @@ export default function Disc() {
   const [discForm, setDiscForm] = useState<DiscForm | null>(null);
   const [results, setResults] = useState<DiscResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailResult, setDetailResult] = useState<DiscResult | null>(null);
 
   // Share modal
   const [shareOpen, setShareOpen] = useState(false);
@@ -331,7 +332,7 @@ export default function Disc() {
   const handlePatientChange = (val: string) => {
     setSelectedPatientId(val);
     updatePreference('disc' as any, { selectedPatientId: val });
-    setExpandedId(null);
+    setDetailResult(null);
   };
 
   const getShareLink = () => {
@@ -363,7 +364,7 @@ export default function Disc() {
     try {
       await api.delete(`/disc/${deleteModal.id}`);
       setResults(prev => prev.filter(r => r.id !== deleteModal.id));
-      if (expandedId === deleteModal.id) setExpandedId(null);
+      if (detailResult?.id === deleteModal.id) setDetailResult(null);
       setDeleteModal({ open: false, id: null });
       showToast('Avaliação excluída', 'success');
     } catch {
@@ -519,41 +520,19 @@ export default function Disc() {
             const top = getTopFactors(result);
             const dominant = top[0];
             const second = top[1];
-            const profileKey = `${dominant.key}${second.key}`;
-            const combinedProfile = COMBINED_PROFILES[profileKey];
-            const isExpanded = expandedId === result.id;
             const aurora = aiMap[result.id] || result.aurora_analysis;
-            const patient = patients.find(p => String(p.id) === String(result.patient_id));
-            const initials = (result.patient_name || '?').split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 
             return (
-              <div key={result.id}
-                className={`bg-white border rounded-3xl shadow-sm overflow-hidden transition-all duration-200 ${isExpanded ? 'border-indigo-200 shadow-lg shadow-indigo-50' : 'border-slate-100 hover:border-slate-200 hover:shadow-md'}`}>
-
-                {/* Card header */}
-                <div
-                  className="flex items-center gap-4 p-5 cursor-pointer transition-colors hover:bg-slate-50/50"
-                  onClick={() => setExpandedId(isExpanded ? null : result.id)}
-                >
-                  {/* Avatar */}
-                  <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center font-black text-sm text-white"
-                    style={{ background: `linear-gradient(135deg, ${BLOCK_CONFIG[dominant.key].color}cc, ${BLOCK_CONFIG[second.key].color}cc)` }}>
-                    {initials}
-                  </div>
-
+              <div
+                key={result.id}
+                className="bg-white border border-slate-100 rounded-3xl shadow-sm hover:border-indigo-200 hover:shadow-md transition-all duration-200 cursor-pointer"
+                onClick={() => setDetailResult(result)}
+              >
+                <div className="flex items-center gap-4 p-5">
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        className="font-black text-slate-900 text-sm hover:text-indigo-600 transition-colors flex items-center gap-1"
-                        onClick={e => {
-                          e.stopPropagation();
-                          if (result.patient_id) navigate(`/pacientes?patientId=${result.patient_id}`);
-                        }}
-                      >
-                        {result.patient_name}
-                        {result.patient_id && <ExternalLink size={11} className="text-slate-300 hover:text-indigo-500" />}
-                      </button>
+                      <span className="font-black text-slate-900 text-sm">{result.patient_name}</span>
                       <span style={{ background: BLOCK_CONFIG[dominant.key].bg, color: BLOCK_CONFIG[dominant.key].color, borderColor: BLOCK_CONFIG[dominant.key].border }}
                         className="text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full border">
                         {dominant.key} dominante
@@ -563,253 +542,236 @@ export default function Disc() {
                     <div className="flex items-center gap-2 mt-0.5">
                       <Clock size={10} className="text-slate-300" />
                       <p className="text-xs text-slate-400">{new Date(result.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                      {result.respondent_email && (
-                        <span className="text-[10px] text-slate-300">· {result.respondent_email}</span>
-                      )}
+                      {result.respondent_email && <span className="text-[10px] text-slate-300">· {result.respondent_email}</span>}
                     </div>
                   </div>
 
-                  {/* Mini bars sempre visíveis — compacto */}
-                  <div className="shrink-0">
-                    <MiniDiscBars r={result} />
-                  </div>
+                  {/* Mini bars */}
+                  <div className="shrink-0"><MiniDiscBars r={result} /></div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                    <button
-                      className="p-2 text-slate-300 hover:text-rose-500 rounded-xl hover:bg-rose-50 transition-all"
-                      onClick={() => setDeleteModal({ open: true, id: result.id })}
-                      title="Excluir avaliação"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    <ChevronDown size={18} className={`text-slate-300 transition-transform duration-200${isExpanded ? ' rotate-180' : ''}`} />
-                  </div>
+                  {/* Delete */}
+                  <button
+                    className="p-2 text-slate-300 hover:text-rose-500 rounded-xl hover:bg-rose-50 transition-all shrink-0"
+                    onClick={e => { e.stopPropagation(); setDeleteModal({ open: true, id: result.id }); }}
+                    title="Excluir"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <ChevronRight size={16} className="text-slate-200 shrink-0" />
                 </div>
-
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div className="border-t border-slate-100 p-6 space-y-6">
-
-                    {/* Score badges row */}
-                    <div className="grid grid-cols-4 gap-3">
-                      {(['D','I','S','C'] as const).map(k => (
-                        <ScoreBadge key={k} k={k} val={result[`score_${k.toLowerCase()}` as keyof DiscResult] as number} />
-                      ))}
-                    </div>
-
-                    {/* Charts */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-slate-50/70 rounded-2xl p-5 flex flex-col items-center">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Gráfico Radar</p>
-                        <DiscRadarChart d={result.score_d} i={result.score_i} s={result.score_s} c={result.score_c} />
-                      </div>
-                      <div className="bg-slate-50/70 rounded-2xl p-5">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Médias por Fator (1 – 5)</p>
-                        <DiscBarChart d={result.score_d} i={result.score_i} s={result.score_s} c={result.score_c} />
-                      </div>
-                    </div>
-
-                    {/* All 4 factor details */}
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Análise por Fator</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {top.map(({ key: k, val }) => {
-                          const cfg = BLOCK_CONFIG[k];
-                          const det = FACTOR_DETAILS[k];
-                          const lv = getLevel(val);
-                          return (
-                            <div key={k} style={{ background: cfg.bg, borderColor: cfg.border }} className="rounded-2xl border p-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: cfg.color }}>
-                                  {k} — {cfg.label}
-                                </p>
-                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: lv.color + '20', color: lv.color }}>{lv.label}</span>
-                              </div>
-                              <p className="text-[10px] text-slate-500 mb-2 italic">{cfg.marston}</p>
-                              <div className="flex flex-wrap gap-1 mb-2">
-                                {det.strengths.map(s => (
-                                  <span key={s} className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg bg-white border text-slate-600" style={{ borderColor: cfg.border }}>{s}</span>
-                                ))}
-                              </div>
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wide mb-1">Na TCC pode aparecer como</p>
-                              <div className="flex flex-wrap gap-1">
-                                {det.tcc.map(t => (
-                                  <span key={t} className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg bg-white border border-slate-100 text-slate-500">{t}</span>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Combined profile + attention */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">
-                          Perfil Combinado — {dominant.key} + {second.key}
-                        </p>
-                        <p className="text-sm text-slate-700 leading-relaxed mb-3">
-                          {combinedProfile || `Perfil com predominância em ${BLOCK_CONFIG[dominant.key].label} e ${BLOCK_CONFIG[second.key].label}.`}
-                        </p>
-                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-wide mb-1">Crenças comuns</p>
-                        {FACTOR_DETAILS[dominant.key].beliefs.map(b => (
-                          <p key={b} className="text-xs text-slate-500 italic">{b}</p>
-                        ))}
-                      </div>
-
-                      <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
-                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Pontos de Atenção Clínicos</p>
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {[...FACTOR_DETAILS[dominant.key].attention, ...FACTOR_DETAILS[second.key].attention.slice(0, 2)].map(a => (
-                            <span key={a} className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white border border-amber-100 text-amber-700">{a}</span>
-                          ))}
-                        </div>
-                        <p className="text-[9px] font-black text-amber-500 uppercase tracking-wide mb-1">Gatilhos comuns</p>
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          {dominant.key === 'D' && 'Lentidão, indecisão, perda de controle, incompetência alheia.'}
-                          {dominant.key === 'I' && 'Rejeição, críticas, ambientes frios, isolamento social.'}
-                          {dominant.key === 'S' && 'Mudanças bruscas, conflitos, pressão, imprevisibilidade.'}
-                          {dominant.key === 'C' && 'Erros, desorganização, ambiguidade, falta de critério.'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Aurora Analysis */}
-                    <div className="border border-violet-200 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #eff6ff 100%)' }}>
-                      {/* Aurora header */}
-                      <div className="flex items-center justify-between px-5 py-4 border-b border-violet-100">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center">
-                            <Sparkles size={13} className="text-white" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest leading-none">Análise Clínica DISC</p>
-                            <p className="text-[9px] text-violet-400 font-medium mt-0.5">Aurora IA — Metodologia Marston</p>
-                          </div>
-                        </div>
-                        <Button
-                          size="xs" variant={aurora ? 'ghost' : 'primary'} radius="xl"
-                          isLoading={analyzingId === result.id}
-                          loadingText="Analisando..."
-                          leftIcon={<Sparkles size={12} />}
-                          onClick={() => generateAurora(result)}
-                        >
-                          {aurora ? 'Regenerar' : 'Gerar Análise'}
-                        </Button>
-                      </div>
-
-                      {aurora ? (
-                        <>
-                          {/* Visual DISC snapshot within the Aurora report */}
-                          <div className="px-5 pt-4 pb-2">
-                            <div className="bg-white/80 border border-violet-100 rounded-2xl p-4 flex gap-4 items-center">
-                              {/* Mini radar */}
-                              <div className="shrink-0 w-[110px]">
-                                <DiscRadarChart d={result.score_d} i={result.score_i} s={result.score_s} c={result.score_c} />
-                              </div>
-                              {/* Score grid */}
-                              <div className="flex-1 grid grid-cols-2 gap-2">
-                                {(['D','I','S','C'] as const).map(k => {
-                                  const val = result[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
-                                  const cfg = BLOCK_CONFIG[k];
-                                  const lv = getLevel(val);
-                                  return (
-                                    <div key={k} className="rounded-xl p-2.5 text-center" style={{ background: cfg.bg, borderColor: cfg.border }}>
-                                      <p className="text-base font-black leading-none" style={{ color: cfg.color }}>{val.toFixed(1)}</p>
-                                      <p className="text-[9px] font-black mt-0.5" style={{ color: cfg.color }}>{k} — {cfg.label}</p>
-                                      <p className="text-[8px] font-bold mt-0.5" style={{ color: lv.color }}>{lv.label}</p>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              {/* Mini bars */}
-                              <div className="shrink-0 hidden sm:block space-y-2 w-32">
-                                {(['D','I','S','C'] as const).map(k => {
-                                  const val = result[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
-                                  const pct = Math.round(((val - 1) / 4) * 100);
-                                  return (
-                                    <div key={k}>
-                                      <div className="flex justify-between mb-0.5">
-                                        <span className="text-[9px] font-black" style={{ color: BLOCK_CONFIG[k].color }}>{k}</span>
-                                        <span className="text-[9px] font-bold text-slate-400">{val.toFixed(1)}</span>
-                                      </div>
-                                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-1.5 rounded-full" style={{ width: `${Math.max(pct, 3)}%`, background: BLOCK_CONFIG[k].color }} />
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Aurora text — clinical sections */}
-                          <div className="px-5 pt-3 pb-5">
-                            <div
-                              className="text-sm leading-relaxed text-slate-700"
-                              dangerouslySetInnerHTML={{
-                                __html: aurora
-                                  .replace(/^:\s+/gm, '')
-                                  .replace(/\*\*(.*?)\*\*/g, '<div style="display:flex;align-items:center;gap:8px;margin-top:22px;margin-bottom:8px;"><div style="width:3px;height:18px;background:#7c3aed;border-radius:2px;flex-shrink:0;"></div><strong style="color:#1e293b;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;">$1</strong></div>')
-                                  .replace(/\n\n/g, '<br/>').replace(/\n/g, '<br/>')
-                              }}
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <div className="px-5 py-6 flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center shrink-0 mt-0.5">
-                            <Brain size={15} className="text-violet-500" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-700 mb-1">Relatório clínico DISC com IA</p>
-                            <p className="text-xs text-slate-400 leading-relaxed">
-                              A Aurora gera um relatório clínico completo: perfil comportamental, análise dos fatores D/I/S/C, crenças automáticas associadas, pontos de desenvolvimento e intervenções terapêuticas baseadas na metodologia Marston e TCC.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quick actions */}
-                    <div className="flex gap-2 flex-wrap">
-                      {result.patient_id && (
-                        <Button size="xs" variant="ghost" radius="xl" leftIcon={<User size={12} />}
-                          onClick={() => navigate(`/pacientes?patientId=${result.patient_id}`)}>
-                          Ver paciente
-                        </Button>
-                      )}
-                      <Button size="xs" variant="ghost" radius="xl" leftIcon={<Share2 size={12} />}
-                        onClick={() => { setSharePatientId(result.patient_id || ''); setShareTab('patient'); setShareOpen(true); }}>
-                        Compartilhar novo DISC
-                      </Button>
-                    </div>
-
-                    {/* Full answers accordion */}
-                    <details className="group">
-                      <summary className="flex items-center justify-between cursor-pointer py-3 px-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors list-none">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ver Respostas Completas (30 perguntas)</span>
-                        <ChevronRight size={16} className="text-slate-300 group-open:rotate-90 transition-transform" />
-                      </summary>
-                      <div className="mt-3 space-y-1 max-h-72 overflow-y-auto pr-1">
-                        {Object.entries(result.answers).map(([qId, answer]) => (
-                          <div key={qId} className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-slate-50">
-                            <span className="text-xs text-slate-400 font-medium uppercase w-8">{qId}</span>
-                            <div className="flex-1 mx-3 h-px bg-slate-100" />
-                            <span className="text-xs font-bold text-slate-700">{String(answer)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       )}
+
+      {/* ─── Detail Drawer ─────────────────────────────────────────────── */}
+      {(() => {
+        const dr = detailResult;
+        if (!dr) return null;
+        const drTop = getTopFactors(dr);
+        const drDom = drTop[0];
+        const drSec = drTop[1];
+        const drCombined = COMBINED_PROFILES[`${drDom.key}${drSec.key}`] || COMBINED_PROFILES[`${drSec.key}${drDom.key}`] || null;
+        const drAurora = aiMap[dr.id] || dr.aurora_analysis || null;
+
+        return (
+          <ActionDrawer
+            isOpen={!!detailResult}
+            onClose={() => setDetailResult(null)}
+            title={dr.patient_name}
+            subtitle={new Date(dr.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            size="xl"
+            footer={
+              <div className="flex gap-2 flex-wrap">
+                {dr.patient_id && (
+                  <Button size="sm" variant="outline" radius="xl" leftIcon={<User size={14} />}
+                    onClick={() => { setDetailResult(null); navigate(`/pacientes?patientId=${dr.patient_id}`); }}>
+                    Ver Paciente
+                  </Button>
+                )}
+                {dr.patient_id && (
+                  <Button size="sm" variant="ghost" radius="xl" leftIcon={<Brain size={14} />}
+                    onClick={() => { setDetailResult(null); handlePatientChange(dr.patient_id!); }}>
+                    Histórico DISC
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" radius="xl" leftIcon={<Share2 size={14} />}
+                  onClick={() => { setSharePatientId(dr.patient_id || ''); setShareTab('patient'); setShareOpen(true); }}>
+                  Compartilhar DISC
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-6 pb-4">
+              {/* Score grid */}
+              <div className="grid grid-cols-4 gap-3">
+                {(['D','I','S','C'] as const).map(k => (
+                  <ScoreBadge key={k} k={k} val={dr[`score_${k.toLowerCase()}` as keyof DiscResult] as number} />
+                ))}
+              </div>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-50 rounded-2xl p-5 flex flex-col items-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Gráfico Radar</p>
+                  <DiscRadarChart d={dr.score_d} i={dr.score_i} s={dr.score_s} c={dr.score_c} />
+                </div>
+                <div className="bg-slate-50 rounded-2xl p-5">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Médias por Fator (1–5)</p>
+                  <DiscBarChart d={dr.score_d} i={dr.score_i} s={dr.score_s} c={dr.score_c} />
+                </div>
+              </div>
+
+              {/* Factor analysis */}
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Análise por Fator</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {drTop.map(({ key: k, val }) => {
+                    const cfg = BLOCK_CONFIG[k];
+                    const det = FACTOR_DETAILS[k];
+                    const lv = getLevel(val);
+                    return (
+                      <div key={k} style={{ background: cfg.bg, borderColor: cfg.border }} className="rounded-2xl border p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: cfg.color }}>{k} — {cfg.label}</p>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: lv.color + '20', color: lv.color }}>{lv.label}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mb-2 italic">{cfg.marston}</p>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {det.strengths.map(s => (
+                            <span key={s} className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg bg-white border text-slate-600" style={{ borderColor: cfg.border }}>{s}</span>
+                          ))}
+                        </div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wide mb-1">Na TCC pode aparecer como</p>
+                        <div className="flex flex-wrap gap-1">
+                          {det.tcc.map(t => (
+                            <span key={t} className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg bg-white border border-slate-100 text-slate-500">{t}</span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Combined profile + attention */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+                  <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">Perfil Combinado — {drDom.key} + {drSec.key}</p>
+                  <p className="text-sm text-slate-700 leading-relaxed mb-3">
+                    {drCombined || `Perfil com predominância em ${BLOCK_CONFIG[drDom.key].label} e ${BLOCK_CONFIG[drSec.key].label}.`}
+                  </p>
+                  <p className="text-[9px] font-black text-indigo-400 uppercase tracking-wide mb-1">Crenças comuns</p>
+                  {FACTOR_DETAILS[drDom.key].beliefs.map(b => (
+                    <p key={b} className="text-xs text-slate-500 italic">{b}</p>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Pontos de Atenção Clínicos</p>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {[...FACTOR_DETAILS[drDom.key].attention, ...FACTOR_DETAILS[drSec.key].attention.slice(0, 2)].map(a => (
+                      <span key={a} className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white border border-amber-100 text-amber-700">{a}</span>
+                    ))}
+                  </div>
+                  <p className="text-[9px] font-black text-amber-500 uppercase tracking-wide mb-1">Gatilhos comuns</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {drDom.key === 'D' && 'Lentidão, indecisão, perda de controle, incompetência alheia.'}
+                    {drDom.key === 'I' && 'Rejeição, críticas, ambientes frios, isolamento social.'}
+                    {drDom.key === 'S' && 'Mudanças bruscas, conflitos, pressão, imprevisibilidade.'}
+                    {drDom.key === 'C' && 'Erros, desorganização, ambiguidade, falta de critério.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Aurora */}
+              <div className="border border-violet-200 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#faf5ff 0%,#eff6ff 100%)' }}>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-violet-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center">
+                      <Sparkles size={13} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest leading-none">Análise Clínica DISC</p>
+                      <p className="text-[9px] text-violet-400 font-medium mt-0.5">Aurora IA — Metodologia Marston</p>
+                    </div>
+                  </div>
+                  <Button size="xs" variant={drAurora ? 'ghost' : 'primary'} radius="xl"
+                    isLoading={analyzingId === dr.id} loadingText="Analisando..."
+                    leftIcon={<Sparkles size={12} />}
+                    onClick={() => generateAurora(dr)}>
+                    {drAurora ? 'Regenerar' : 'Gerar Análise'}
+                  </Button>
+                </div>
+                {drAurora ? (
+                  <>
+                    <div className="px-5 pt-4 pb-2">
+                      <div className="bg-white/80 border border-violet-100 rounded-2xl p-4 flex gap-4 items-center">
+                        <div className="shrink-0 w-[110px]">
+                          <DiscRadarChart d={dr.score_d} i={dr.score_i} s={dr.score_s} c={dr.score_c} />
+                        </div>
+                        <div className="flex-1 grid grid-cols-2 gap-2">
+                          {(['D','I','S','C'] as const).map(k => {
+                            const val = dr[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
+                            const cfg = BLOCK_CONFIG[k];
+                            const lv = getLevel(val);
+                            return (
+                              <div key={k} className="rounded-xl p-2.5 text-center" style={{ background: cfg.bg }}>
+                                <p className="text-base font-black leading-none" style={{ color: cfg.color }}>{val.toFixed(1)}</p>
+                                <p className="text-[9px] font-black mt-0.5" style={{ color: cfg.color }}>{k} — {cfg.label}</p>
+                                <p className="text-[8px] font-bold mt-0.5" style={{ color: lv.color }}>{lv.label}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-5 pt-3 pb-5">
+                      <div className="text-sm leading-relaxed text-slate-700"
+                        dangerouslySetInnerHTML={{
+                          __html: drAurora
+                            .replace(/^:\s+/gm, '')
+                            .replace(/\*\*(.*?)\*\*/g, '<div style="display:flex;align-items:center;gap:8px;margin-top:22px;margin-bottom:8px;"><div style="width:3px;height:18px;background:#7c3aed;border-radius:2px;flex-shrink:0;"></div><strong style="color:#1e293b;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;">$1</strong></div>')
+                            .replace(/\n\n/g, '<br/>').replace(/\n/g, '<br/>')
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="px-5 py-6 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <Brain size={15} className="text-violet-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-700 mb-1">Relatório clínico DISC com IA</p>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        A Aurora gera um relatório clínico completo: perfil comportamental, análise dos fatores D/I/S/C, crenças automáticas, pontos de desenvolvimento e intervenções TCC baseadas na metodologia Marston.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Full answers */}
+              <details className="group">
+                <summary className="flex items-center justify-between cursor-pointer py-3 px-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors list-none">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ver Respostas Completas (30 perguntas)</span>
+                  <ChevronRight size={16} className="text-slate-300 group-open:rotate-90 transition-transform" />
+                </summary>
+                <div className="mt-3 space-y-1 max-h-72 overflow-y-auto pr-1">
+                  {Object.entries(dr.answers).map(([qId, answer]) => (
+                    <div key={qId} className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-slate-50">
+                      <span className="text-xs text-slate-400 font-medium uppercase w-8">{qId}</span>
+                      <div className="flex-1 mx-3 h-px bg-slate-100" />
+                      <span className="text-xs font-bold text-slate-700">{String(answer)}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          </ActionDrawer>
+        );
+      })()}
 
       {/* Share Modal */}
       <Modal
