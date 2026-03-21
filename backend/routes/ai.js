@@ -683,6 +683,82 @@ RESPONDA SEMPRE EM PORTUGUES-BR.`;
   }
 });
 
+router.post('/analyze-disc', async (req, res) => {
+  try {
+    const { respondentName, patientData, scores, dominantFactor, secondFactor, dominantLabel, secondLabel, combinedKey, combinedProfile, factorDetails } = req.body;
+
+    const prompt = `Voce e a Aurora, assistente clinica especializada em psicologia comportamental da Psiflux.
+Gere um RELATORIO CLINICO DISC detalhado para uso do psicologo em consulta. Seja profissional, clinico e preciso.
+
+DADOS DO AVALIADO:
+- Nome: ${respondentName}
+${patientData ? `- Dados adicionais: ${JSON.stringify(patientData)}` : ''}
+
+SCORES DISC (escala 1.0 a 5.0):
+- D (Dominancia):   ${scores.D.toFixed(2)}
+- I (Influencia):   ${scores.I.toFixed(2)}
+- S (Estabilidade): ${scores.S.toFixed(2)}
+- C (Conformidade): ${scores.C.toFixed(2)}
+
+PERFIL IDENTIFICADO:
+- Fator dominante: ${dominantLabel} (${dominantFactor}: ${scores[dominantFactor].toFixed(2)})
+- Segundo fator:   ${secondLabel} (${secondFactor}: ${scores[secondFactor].toFixed(2)})
+- Perfil combinado ${combinedKey}: ${combinedProfile || 'Nao identificado'}
+
+DETALHES DOS FATORES DOMINANTES (do sistema):
+- Tendencias TCC do fator ${dominantFactor}: ${(factorDetails[dominantFactor]?.tcc || []).join(', ')}
+- Crencas comuns do fator ${dominantFactor}: ${(factorDetails[dominantFactor]?.beliefs || []).join(' | ')}
+- Pontos de atencao: ${(factorDetails[dominantFactor]?.attention || []).join(', ')}
+- Forcas: ${(factorDetails[dominantFactor]?.strengths || []).join(', ')}
+
+INSTRUCOES DE ESTRUTURA DO RELATORIO:
+Use obrigatoriamente estas secoes com negrito (**NOME DA SECAO**):
+
+**PERFIL COMPORTAMENTAL**
+(Descreva em 3-4 frases o perfil geral da pessoa com base nos scores D/I/S/C. Relacione o perfil combinado ao contexto clinico.)
+
+**ANALISE DO FATOR DOMINANTE**
+(Analise profunda do fator mais alto: como esse padrao comportamental se manifesta, como a pessoa se sente, reage e age em situacoes cotidianas e de pressao.)
+
+**INTERACAO DOS FATORES**
+(Como os dois fatores dominantes interagem? Que tensoes ou sinergias criam no comportamento?)
+
+**CRENCAS AUTOMATICAS ASSOCIADAS**
+(Identifique as crencas cognitivas automaticas provaveis com base no perfil DISC — foque em TCC. Liste de 3 a 5.)
+
+**PONTOS DE DESENVOLVIMENTO**
+(Areas que merecem atencao terapeutica: vulnerabilidades, padroes limitantes, comportamentos a serem trabalhados em terapia.)
+
+**INTERVENÇÕES TERAPEUTICAS SUGERIDAS**
+(Tecnicas TCC, estrategias e abordagens especificas para trabalhar com esse perfil DISC em sessao.)
+
+**SINTESE CLINICA**
+(Paragrafo de conclusao clinica para o psicologo: visao geral do caso, potencial terapeutico, alertas.)
+
+REGRAS:
+- Responda SEMPRE em portugues-BR.
+- Seja clinico, direto e util para o psicologo em consulta.
+- NAO use blocos de codigo, NAO use markdown (``` ou ##).
+- Use apenas **texto em negrito** para titulos de secoes.
+- Escreva parágrafos completos, nao apenas listas.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Voce e uma psicóloga clínica especialista em avaliação comportamental DISC e Terapia Cognitivo-Comportamental. Seus relatorios sao profissionais, densos e clinicamente ricos.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.65,
+      max_tokens: 1800,
+    });
+
+    res.json({ analysis: response.choices[0].message.content });
+  } catch (err) {
+    console.error('Erro na análise DISC Aurora:', err);
+    res.status(500).json({ error: 'Erro ao gerar análise DISC' });
+  }
+});
+
 router.post('/save-analysis', async (req, res) => {
   try {
     const { patientId, formTitle, analysis } = req.body;

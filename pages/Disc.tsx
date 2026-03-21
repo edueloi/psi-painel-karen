@@ -13,6 +13,7 @@ import { Combobox } from '../components/UI/Combobox';
 import { Modal } from '../components/UI/Modal';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { DatePicker } from '../components/UI/DatePicker';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface DiscResult {
@@ -377,21 +378,20 @@ export default function Disc() {
     try {
       const scores = { D: result.score_d, I: result.score_i, S: result.score_s, C: result.score_c };
       const top = getTopFactors(result);
-      const resp = await api.post<any>('/ai/analyze-form', {
-        formTitle: 'DISC Adaptado para TCC',
+      const dominant = top[0];
+      const second = top[1];
+      const combinedKey = `${dominant.key}${second.key}`;
+      const resp = await api.post<any>('/ai/analyze-disc', {
         respondentName: result.patient_name,
-        answers: result.answers,
-        score: result.score_total,
-        interpretations: [
-          { resultTitle: 'Dominância',   description: `Média D: ${scores.D.toFixed(2)} — ${getLevel(scores.D).label}` },
-          { resultTitle: 'Influência',   description: `Média I: ${scores.I.toFixed(2)} — ${getLevel(scores.I).label}` },
-          { resultTitle: 'Estabilidade', description: `Média S: ${scores.S.toFixed(2)} — ${getLevel(scores.S).label}` },
-          { resultTitle: 'Conformidade', description: `Média C: ${scores.C.toFixed(2)} — ${getLevel(scores.C).label}` },
-        ],
         patientData: patients.find(p => String(p.id) === String(result.patient_id)),
-        discScores: scores,
-        dominantFactors: top.slice(0, 2).map(t => `${t.key} (${t.val.toFixed(2)})`).join(' + '),
-        methodology: 'DISC de William Moulton Marston — avalia como a pessoa reage a desafios (D), influencia pessoas (I), lida com mudanças (S) e segue regras (C). Escala 1–5, média por bloco.',
+        scores,
+        dominantFactor: dominant.key,
+        secondFactor: second.key,
+        dominantLabel: BLOCK_CONFIG[dominant.key].label,
+        secondLabel: BLOCK_CONFIG[second.key].label,
+        combinedKey,
+        combinedProfile: COMBINED_PROFILES[combinedKey] || COMBINED_PROFILES[`${second.key}${dominant.key}`] || null,
+        factorDetails: FACTOR_DETAILS,
       });
 
       const clean = (resp.analysis || '')
@@ -457,21 +457,11 @@ export default function Disc() {
           <div className="flex gap-2 shrink-0">
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">De</p>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium focus:outline-none focus:border-indigo-400"
-              />
+              <DatePicker value={dateFrom} onChange={v => setDateFrom(v || '')} placeholder="Data inicial" className="w-36" />
             </div>
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Até</p>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium focus:outline-none focus:border-indigo-400"
-              />
+              <DatePicker value={dateTo} onChange={v => setDateTo(v || '')} placeholder="Data final" className="w-36" />
             </div>
           </div>
           <div className="text-xs text-slate-400 whitespace-nowrap pb-2">
@@ -700,11 +690,17 @@ export default function Disc() {
                     </div>
 
                     {/* Aurora Analysis */}
-                    <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl p-5">
-                      <div className="flex items-center justify-between mb-3">
+                    <div className="border border-violet-200 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #eff6ff 100%)' }}>
+                      {/* Aurora header */}
+                      <div className="flex items-center justify-between px-5 py-4 border-b border-violet-100">
                         <div className="flex items-center gap-2">
-                          <Sparkles size={15} className="text-violet-600" />
-                          <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Análise Clínica — Aurora IA</p>
+                          <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center">
+                            <Sparkles size={13} className="text-white" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest leading-none">Análise Clínica DISC</p>
+                            <p className="text-[9px] text-violet-400 font-medium mt-0.5">Aurora IA — Metodologia Marston</p>
+                          </div>
                         </div>
                         <Button
                           size="xs" variant={aurora ? 'ghost' : 'primary'} radius="xl"
@@ -716,20 +712,77 @@ export default function Disc() {
                           {aurora ? 'Regenerar' : 'Gerar Análise'}
                         </Button>
                       </div>
+
                       {aurora ? (
-                        <div
-                          className="text-sm leading-relaxed text-slate-700 text-justify"
-                          dangerouslySetInnerHTML={{
-                            __html: aurora
-                              .replace(/^:\s+/gm, '')
-                              .replace(/\*\*(.*?)\*\*/g, '<strong style="display:block;margin-top:20px;margin-bottom:8px;color:#1e293b;font-size:12px;font-weight:900;border-left:3px solid #7c3aed;padding-left:10px;text-transform:uppercase;letter-spacing:0.05em;">$1</strong>')
-                              .replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')
-                          }}
-                        />
+                        <>
+                          {/* Visual DISC snapshot within the Aurora report */}
+                          <div className="px-5 pt-4 pb-2">
+                            <div className="bg-white/80 border border-violet-100 rounded-2xl p-4 flex gap-4 items-center">
+                              {/* Mini radar */}
+                              <div className="shrink-0 w-[110px]">
+                                <DiscRadarChart d={result.score_d} i={result.score_i} s={result.score_s} c={result.score_c} />
+                              </div>
+                              {/* Score grid */}
+                              <div className="flex-1 grid grid-cols-2 gap-2">
+                                {(['D','I','S','C'] as const).map(k => {
+                                  const val = result[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
+                                  const cfg = BLOCK_CONFIG[k];
+                                  const lv = getLevel(val);
+                                  return (
+                                    <div key={k} className="rounded-xl p-2.5 text-center" style={{ background: cfg.bg, borderColor: cfg.border }}>
+                                      <p className="text-base font-black leading-none" style={{ color: cfg.color }}>{val.toFixed(1)}</p>
+                                      <p className="text-[9px] font-black mt-0.5" style={{ color: cfg.color }}>{k} — {cfg.label}</p>
+                                      <p className="text-[8px] font-bold mt-0.5" style={{ color: lv.color }}>{lv.label}</p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {/* Mini bars */}
+                              <div className="shrink-0 hidden sm:block space-y-2 w-32">
+                                {(['D','I','S','C'] as const).map(k => {
+                                  const val = result[`score_${k.toLowerCase()}` as keyof DiscResult] as number;
+                                  const pct = Math.round(((val - 1) / 4) * 100);
+                                  return (
+                                    <div key={k}>
+                                      <div className="flex justify-between mb-0.5">
+                                        <span className="text-[9px] font-black" style={{ color: BLOCK_CONFIG[k].color }}>{k}</span>
+                                        <span className="text-[9px] font-bold text-slate-400">{val.toFixed(1)}</span>
+                                      </div>
+                                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-1.5 rounded-full" style={{ width: `${Math.max(pct, 3)}%`, background: BLOCK_CONFIG[k].color }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Aurora text — clinical sections */}
+                          <div className="px-5 pt-3 pb-5">
+                            <div
+                              className="text-sm leading-relaxed text-slate-700"
+                              dangerouslySetInnerHTML={{
+                                __html: aurora
+                                  .replace(/^:\s+/gm, '')
+                                  .replace(/\*\*(.*?)\*\*/g, '<div style="display:flex;align-items:center;gap:8px;margin-top:22px;margin-bottom:8px;"><div style="width:3px;height:18px;background:#7c3aed;border-radius:2px;flex-shrink:0;"></div><strong style="color:#1e293b;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;">$1</strong></div>')
+                                  .replace(/\n\n/g, '<br/>').replace(/\n/g, '<br/>')
+                              }}
+                            />
+                          </div>
+                        </>
                       ) : (
-                        <p className="text-xs text-slate-400 italic">
-                          Clique em "Gerar Análise" para que a Aurora crie uma análise clínica detalhada baseada no perfil DISC deste paciente, considerando os fatores predominantes e padrões comportamentais da metodologia Marston.
-                        </p>
+                        <div className="px-5 py-6 flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center shrink-0 mt-0.5">
+                            <Brain size={15} className="text-violet-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-700 mb-1">Relatório clínico DISC com IA</p>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                              A Aurora gera um relatório clínico completo: perfil comportamental, análise dos fatores D/I/S/C, crenças automáticas associadas, pontos de desenvolvimento e intervenções terapêuticas baseadas na metodologia Marston e TCC.
+                            </p>
+                          </div>
+                        </div>
                       )}
                     </div>
 
