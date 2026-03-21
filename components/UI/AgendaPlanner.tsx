@@ -15,6 +15,7 @@ import {
   CalendarClock,
   DollarSign,
   Package,
+  MapPin,
 } from 'lucide-react';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
@@ -660,11 +661,30 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       const schedInactive = schedDay ? !schedDay.active : false;
                       const schedStartMinutes = schedDay?.active ? parseInt(schedDay.start.split(':')[0]) * 60 + parseInt(schedDay.start.split(':')[1]) : null;
                       const schedEndMinutes = schedDay?.active ? parseInt(schedDay.end.split(':')[0]) * 60 + parseInt(schedDay.end.split(':')[1]) : null;
-                      const beforeOverlayHeight = schedStartMinutes !== null
-                        ? Math.max(0, ((schedStartMinutes - startHour * 60) / 60) * hourHeight)
+
+                      // Punch holes in overlay where appointments exist on this day
+                      const dayApts = dayEvents[dayIndex] || [];
+                      const aptStartMin = dayApts.length > 0
+                        ? Math.min(...dayApts.map(e => e.startDate.getHours() * 60 + e.startDate.getMinutes()))
+                        : null;
+                      const aptEndMin = dayApts.length > 0
+                        ? Math.max(...dayApts.map(e => e.endDate.getHours() * 60 + e.endDate.getMinutes()))
+                        : null;
+
+                      // Before-work overlay ends at earliest appointment (if it's before work start)
+                      const effectiveBeforeEnd = schedStartMinutes !== null
+                        ? (aptStartMin !== null && aptStartMin < schedStartMinutes ? aptStartMin : schedStartMinutes)
+                        : null;
+                      const beforeOverlayHeight = effectiveBeforeEnd !== null
+                        ? Math.max(0, ((effectiveBeforeEnd - startHour * 60) / 60) * hourHeight)
                         : 0;
-                      const afterOverlayTop = schedEndMinutes !== null
-                        ? Math.max(0, ((schedEndMinutes - startHour * 60) / 60) * hourHeight)
+
+                      // After-work overlay starts at latest appointment end (if it's after work end)
+                      const effectiveAfterStart = schedEndMinutes !== null
+                        ? (aptEndMin !== null && aptEndMin > schedEndMinutes ? aptEndMin : schedEndMinutes)
+                        : null;
+                      const afterOverlayTop = effectiveAfterStart !== null
+                        ? Math.max(0, ((effectiveAfterStart - startHour * 60) / 60) * hourHeight)
                         : gridHeight;
                       const afterOverlayHeight = gridHeight - afterOverlayTop;
                       return (
@@ -757,12 +777,17 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                               null
                             : null;
 
+                          // Online consultas get a teal accent; presencial keep indigo default
+                          const modalityDefaultColor = event.type === 'consulta' && event.modality === 'online'
+                            ? '#0891b2'  // cyan-600 — online
+                            : meta.defaultColor; // indigo — presencial / default
+
                           const accent =
                             event.type === 'bloqueio'
                               ? '#94a3b8'   // cinza
                               : event.type === 'pessoal'
                                 ? '#f59e0b' // âmbar fixo
-                                : statusAccent || event.color || meta.defaultColor;
+                                : statusAccent || event.color || modalityDefaultColor;
 
                           const durationMinutes = Math.max(
                             1,
@@ -825,9 +850,11 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                   </div>
 
                                   <div className="flex shrink-0 items-center gap-1.5">
-                                    {event.modality === 'online' && (
-                                      <Video size={10} className="text-slate-400" />
-                                    )}
+                                    {event.modality === 'online' ? (
+                                      <Video size={11} style={{ color: '#0891b2' }} />
+                                    ) : event.modality === 'presencial' ? (
+                                      <MapPin size={11} className="text-slate-400" />
+                                    ) : null}
                                     <span className={cx('h-1.5 w-1.5 rounded-full', status.dot)} />
                                   </div>
                                 </div>

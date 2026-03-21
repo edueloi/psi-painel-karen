@@ -204,25 +204,35 @@ export const Agenda: React.FC = () => {
     const activeStarts = workSchedule
       .filter(d => d.active)
       .map(d => parseInt(d.start.split(':')[0]));
-    const schedMin = activeStarts.length > 0 ? Math.min(...activeStarts) : 6;
-    const aptMin = appointments.length > 0
-      ? Math.min(...appointments.map(a => new Date(a.start).getHours()))
-      : schedMin;
+    // Base: minimum work start hour (default 7 if no schedule configured)
+    const schedMin = activeStarts.length > 0 ? Math.min(...activeStarts) : 7;
+
+    // Only consider appointments in the CURRENT visible week to extend startHour lower
+    const ws = (() => { const d = new Date(currentDate); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; })();
+    const we = new Date(ws); we.setDate(we.getDate() + 6); we.setHours(23,59,59,999);
+    const visibleAptHours = appointments
+      .map(a => { const d = new Date(a.start); return isNaN(d.getTime()) ? null : { h: d.getHours(), t: d.getTime() }; })
+      .filter((x): x is { h: number; t: number } => x !== null && x.t >= ws.getTime() && x.t <= we.getTime())
+      .map(x => x.h);
+    const aptMin = visibleAptHours.length > 0 ? Math.min(...visibleAptHours) : schedMin;
     return Math.min(schedMin, aptMin);
-  }, [workSchedule, appointments]);
+  }, [workSchedule, appointments, currentDate]);
 
   const endHour = useMemo(() => {
     const schedMax = workSchedule.filter(d => d.active).map(d => {
       const [h, m] = d.end.split(':').map(Number);
       return m > 0 ? h + 1 : h;
     });
-    const aptMax = appointments.map((a: any) => {
-      const end = new Date(a.end || a.start);
-      return end.getHours() + (end.getMinutes() > 0 ? 1 : 0);
-    });
+    // Only consider appointments in the CURRENT visible week to extend endHour higher
+    const ws = (() => { const d = new Date(currentDate); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; })();
+    const we = new Date(ws); we.setDate(we.getDate() + 6); we.setHours(23,59,59,999);
+    const aptMax = appointments
+      .map((a: any) => { const d = new Date(a.end || a.start); return isNaN(d.getTime()) ? null : { h: d.getHours() + (d.getMinutes() > 0 ? 1 : 0), t: new Date(a.start).getTime() }; })
+      .filter((x): x is { h: number; t: number } => x !== null && x.t >= ws.getTime() && x.t <= we.getTime())
+      .map(x => x.h);
     const allMax = [...schedMax, ...aptMax];
     return allMax.length > 0 ? Math.max(22, ...allMax) : 22;
-  }, [workSchedule, appointments]);
+  }, [workSchedule, appointments, currentDate]);
 
   const hourHeight = 70;
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
