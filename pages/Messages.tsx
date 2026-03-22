@@ -6,7 +6,7 @@ import {
   Loader2, MessageSquare, Tag, Users, Sparkles, LayoutGrid, List
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
-import { GridTable, Column } from '../components/UI/GridTable';
+import { GridTable } from '../components/UI/GridTable';
 import { useToast } from '../contexts/ToastContext';
 
 // ── Variáveis disponíveis ─────────────────────────────────────────────────────
@@ -469,13 +469,62 @@ export const Messages: React.FC = () => {
           </div>
         </div>
 
+        {/* ── LISTA ── */}
+        {!isLoading && viewMode === 'list' && (
+          <GridTable<MessageTemplate>
+            data={filteredTemplates}
+            keyExtractor={(row) => row.id}
+            columns={[
+              {
+                header: 'Categoria',
+                headerClassName: 'w-32',
+                render: (row) => <span className={getCategoryClass(row.category)}>{row.category}</span>,
+              },
+              {
+                header: 'Título',
+                render: (row) => (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 text-sm">{row.title}</span>
+                    {row.is_global === 1 && <Sparkles size={12} className="text-amber-400 shrink-0" />}
+                  </div>
+                ),
+              },
+              {
+                header: 'Conteúdo',
+                render: (row) => <p className="text-xs text-slate-500 truncate max-w-xs">{row.content}</p>,
+              },
+              {
+                header: 'Ações',
+                headerClassName: 'w-48',
+                render: (row) => (
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="success" size="sm" radius="xl" leftIcon={<Send size={12} />} onClick={() => handleOpenSendModal(row)}>
+                      WhatsApp
+                    </Button>
+                    <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleCopy(row)} title="Copiar">
+                      {copiedId === row.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                    </Button>
+                    <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleOpenModal(row)} title="Editar">
+                      <Edit3 size={13} />
+                    </Button>
+                    <Button variant="softDanger" size="sm" iconOnly radius="xl" onClick={() => handleDelete(row.id)} title="Excluir">
+                      <Trash2 size={13} />
+                    </Button>
+                  </div>
+                ),
+              },
+            ]}
+            emptyMessage="Nenhum modelo encontrado"
+          />
+        )}
+
         {/* ── GRID DE CARDS ── */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 text-slate-400">
             <Loader2 size={40} className="animate-spin text-indigo-500 mb-4" />
             <p className="text-sm font-medium">Carregando modelos...</p>
           </div>
-        ) : (
+        ) : viewMode === 'cards' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredTemplates.map(template => (
               <div
@@ -579,7 +628,7 @@ export const Messages: React.FC = () => {
               <span className="text-sm font-bold">Nova Mensagem</span>
             </button>
           </div>
-        )}
+        ) : null}
       </main>
 
       {/* ══════════════════════════════════════════════════════════════
