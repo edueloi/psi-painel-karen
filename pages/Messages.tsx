@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { MessageTemplate } from '../types';
 import { api } from '../services/api';
 import { 
@@ -16,12 +16,82 @@ const AVAILABLE_VARIABLES = [
   { label: 'Nome da Clínica', tag: '{{nome_clinica}}' },
 ];
 
+const VARIABLE_MAP: Record<string, string> = Object.fromEntries(
+  AVAILABLE_VARIABLES.map(v => [v.tag, v.label])
+);
+
+const VARIABLE_COLORS: Record<string, string> = {
+  '{{nome_paciente}}':     'bg-indigo-100 text-indigo-700 border-indigo-300',
+  '{{data_agendamento}}':  'bg-sky-100 text-sky-700 border-sky-300',
+  '{{horario}}':           'bg-violet-100 text-violet-700 border-violet-300',
+  '{{servico}}':           'bg-emerald-100 text-emerald-700 border-emerald-300',
+  '{{nome_profissional}}': 'bg-amber-100 text-amber-700 border-amber-300',
+  '{{valor_total}}':       'bg-rose-100 text-rose-700 border-rose-300',
+  '{{nome_clinica}}':      'bg-teal-100 text-teal-700 border-teal-300',
+};
+
+function getBadgeClass(tag: string) {
+  const colors = VARIABLE_COLORS[tag] || 'bg-slate-100 text-slate-700 border-slate-300';
+  return `inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border mx-0.5 select-none cursor-default align-middle ${colors}`;
+}
+
+// Converte string com {{var}} para HTML com badges
+function contentToHtml(content: string): string {
+  if (!content) return '';
+  let result = '';
+  let i = 0;
+  while (i < content.length) {
+    if (content[i] === '\n') { result += '<br>'; i++; continue; }
+    let matched = false;
+    for (const [tag, label] of Object.entries(VARIABLE_MAP)) {
+      if (content.startsWith(tag, i)) {
+        const cls = getBadgeClass(tag);
+        result += `<span contenteditable="false" data-var="${tag}" class="${cls}"><span style="opacity:0.6;font-size:9px">⬡</span> ${label}</span>`;
+        i += tag.length;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const ch = content[i];
+      result += ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch;
+      i++;
+    }
+  }
+  return result;
+}
+
+// Converte innerHTML do editor de volta para string com {{var}}
+function htmlToContent(html: string): string {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const walk = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      if (el.tagName === 'BR') return '\n';
+      if (el.hasAttribute('data-var')) return el.getAttribute('data-var') || '';
+      return Array.from(el.childNodes).map(walk).join('');
+    }
+    return '';
+  };
+  return walk(tmp);
+}
+
 export const Messages: React.FC = () => {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState<Partial<MessageTemplate>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  // Inicializa o editor quando o modal abre (com conteúdo existente ou vazio)
+  useEffect(() => {
+    if (isModalOpen && editorRef.current) {
+      editorRef.current.innerHTML = contentToHtml(currentTemplate.content || '');
+    }
+  }, [isModalOpen]);
   
   // WhatsApp Sending States
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
@@ -187,24 +257,42 @@ export const Messages: React.FC = () => {
   };
 
   const handleInsertVariable = (tag: string) => {
-    const textarea = document.getElementById('message-content') as HTMLTextAreaElement;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const text = currentTemplate.content || '';
-      const newText = text.substring(0, start) + tag + text.substring(end);
-      
-      setCurrentTemplate(prev => ({ ...prev, content: newText }));
-      
-      // Restore focus (timeout needed for React re-render)
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + tag.length, start + tag.length);
-      }, 0);
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const variable = AVAILABLE_VARIABLES.find(v => v.tag === tag);
+    if (!variable) return;
+
+    editor.focus();
+
+    // Cria o badge span não-editável
+    const span = document.createElement('span');
+    span.contentEditable = 'false';
+    span.setAttribute('data-var', tag);
+    span.className = getBadgeClass(tag);
+    span.textContent = `⬡ ${variable.label}`;
+
+    // Insere no cursor ou no final
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      // Garante que o range está dentro do editor
+      if (editor.contains(range.commonAncestorContainer)) {
+        range.deleteContents();
+        range.insertNode(span);
+        range.setStartAfter(span);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else {
+        editor.appendChild(span);
+      }
     } else {
-      // Fallback if textarea ref not found
-      setCurrentTemplate(prev => ({ ...prev, content: (prev.content || '') + tag }));
+      editor.appendChild(span);
     }
+
+    // Sincroniza com o estado
+    setCurrentTemplate(prev => ({ ...prev, content: htmlToContent(editor.innerHTML) }));
   };
 
   const handleOpenSendModal = async (template: MessageTemplate) => {
@@ -597,25 +685,40 @@ export const Messages: React.FC = () => {
                         
                         {/* Variables Toolbar */}
                         <div className="flex flex-wrap gap-2 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <span className="w-full text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Clique para inserir no texto:</span>
                             {AVAILABLE_VARIABLES.map(v => (
                                 <button
                                     key={v.tag}
                                     onClick={() => handleInsertVariable(v.tag)}
-                                    className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:text-sky-600 hover:border-sky-200 hover:shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 border border-indigo-200 rounded-full text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 hover:shadow-sm transition-all active:scale-95"
                                     title={`Inserir ${v.label}`}
                                 >
-                                    <Variable size={10} className="text-slate-400" />
+                                    <Variable size={10} className="text-indigo-400" />
                                     {v.label}
                                 </button>
                             ))}
                         </div>
 
-                        <textarea 
-                            id="message-content"
-                            value={currentTemplate.content || ''}
-                            onChange={e => setCurrentTemplate({...currentTemplate, content: e.target.value})}
-                            placeholder="Olá, gostaria de confirmar..." 
-                            className="w-full p-4 h-40 rounded-xl border border-slate-200 focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all font-medium text-slate-700 resize-none leading-relaxed" 
+                        <div
+                            ref={editorRef}
+                            contentEditable
+                            suppressContentEditableWarning
+                            onInput={() => {
+                              if (editorRef.current) {
+                                setCurrentTemplate(prev => ({
+                                  ...prev,
+                                  content: htmlToContent(editorRef.current!.innerHTML)
+                                }));
+                              }
+                            }}
+                            onPaste={e => {
+                              // Só permite colar texto puro (sem HTML externo)
+                              e.preventDefault();
+                              const text = e.clipboardData.getData('text/plain');
+                              document.execCommand('insertText', false, text);
+                            }}
+                            data-placeholder="Olá, gostaria de confirmar..."
+                            className="w-full p-4 min-h-[10rem] rounded-xl border border-slate-200 focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all font-medium text-slate-700 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400"
                         />
                     </div>
                 </div>
