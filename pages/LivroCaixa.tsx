@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Plus, ArrowLeft, Search,
   TrendingUp, TrendingDown, Wallet, ChevronLeft, ChevronRight,
   Edit3, Trash2, RefreshCw, CheckCircle2, Clock, X, FileText,
   User, AlertCircle, Loader2, Download, Upload, DollarSign,
-  Calendar, CreditCard, Filter
+  Calendar, CreditCard, Filter, LayoutGrid, List
 } from 'lucide-react';
 import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
@@ -83,9 +84,18 @@ const METHOD_LABEL: Record<string, string> = {
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+const safeDate = (dateStr: string | null | undefined): Date | null => {
+  if (!dateStr) return null;
+  // Extract only YYYY-MM-DD part in case MySQL returns full ISO datetime
+  const datePart = String(dateStr).slice(0, 10);
+  const d = new Date(datePart + 'T12:00:00');
+  return isNaN(d.getTime()) ? null : d;
+};
+
 const formatDate = (dateStr: string) => {
-  if (!dateStr) return '';
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR');
+  const d = safeDate(dateStr);
+  if (!d) return '';
+  return d.toLocaleDateString('pt-BR');
 };
 
 const parseBrDate = (s: string): string => {
@@ -250,15 +260,22 @@ const exportPDF = async (data: Transaction[], summary: { income: number; expense
 
 export const LivroCaixa: React.FC = () => {
   const { pushToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // ── View ─────────────────────────────────────────────────────────────────────
   const [view, setView]               = useState<'archive' | 'detail'>('archive');
   const [selectedMonth, setSelectedMonth] = useState<{ month: number; year: number } | null>(null);
   const [selectedYear, setSelectedYear]   = useState(new Date().getFullYear());
 
+  // ── Archive layout (grid/list) persisted to localStorage ─────────────────────
+  const [archiveLayout, setArchiveLayout] = useState<'grid' | 'list'>(() =>
+    (localStorage.getItem('livrocaixa_layout') as 'grid' | 'list') || 'grid'
+  );
+
   // ── Archive ───────────────────────────────────────────────────────────────────
   const [monthSummaries, setMonthSummaries] = useState<MonthSummary[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
+  const [deleteMonthConfirm, setDeleteMonthConfirm] = useState<{ month: number; year: number } | null>(null);
 
   // ── Detail ────────────────────────────────────────────────────────────────────
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -284,6 +301,10 @@ export const LivroCaixa: React.FC = () => {
   const [previewRows, setPreviewRows] = useState<any[]>([]);
   const [importStep, setImportStep] = useState<'input' | 'preview'>('input');
 
+  // ── Selection (bulk actions) ──────────────────────────────────────────────────
+  const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
   // ── Form ──────────────────────────────────────────────────────────────────────
   const [txType, setTxType]               = useState<'income' | 'expense'>('income');
   const [txDate, setTxDate]               = useState<string | null>(new Date().toISOString().split('T')[0]);
@@ -305,6 +326,17 @@ export const LivroCaixa: React.FC = () => {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ─── URL sync on mount ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const m = searchParams.get('month');
+    const y = searchParams.get('year');
+    if (m && y) {
+      setSelectedMonth({ month: Number(m), year: Number(y) });
+      setView('detail');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Fetch Archive ────────────────────────────────────────────────────────────
@@ -373,6 +405,30 @@ export const LivroCaixa: React.FC = () => {
     setView('detail');
     setSearchQuery('');
     setFlowFilter('all');
+    setSearchParams({ month: String(month), year: String(year) });
+  };
+
+  const goToArchive = () => {
+    setView('archive');
+    setSearchParams({});
+  };
+
+  const handleDeleteMonth = async () => {
+    if (!deleteMonthConfirm) return;
+    try {
+      await api.delete(`/finance/month/${deleteMonthConfirm.year}/${deleteMonthConfirm.month}`);
+      pushToast('Lançamentos do mês excluídos', 'success');
+      setDeleteMonthConfirm(null);
+      fetchArchive();
+    } catch {
+      pushToast('Erro ao excluir lançamentos do mês', 'error');
+    }
+  };
+
+  const toggleArchiveLayout = () => {
+    const next = archiveLayout === 'grid' ? 'list' : 'grid';
+    setArchiveLayout(next);
+    localStorage.setItem('livrocaixa_layout', next);
   };
 
   const filtered = transactions.filter((tx) => {
@@ -503,7 +559,7 @@ export const LivroCaixa: React.FC = () => {
       }
       pushToast(`${success} lançamento(s) importado(s) com sucesso!`, 'success');
       setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); setImportStep('input');
-      if (view === 'detail') fetchDetail();
+      goToArchive(); // volta ao arquivo e recarrega os meses com os dados importados
     } catch {
       pushToast('Erro ao importar dados', 'error');
     } finally {
@@ -584,8 +640,55 @@ export const LivroCaixa: React.FC = () => {
   const handleRepeat = async (id: number) => {
     try {
       await api.post(`/finance/repeat/${id}`, {});
-      pushToast('Repetido para o próximo mês!', 'success'); fetchDetail();
-    } catch { pushToast('Erro ao repetir lançamento', 'error'); }
+      pushToast('Lançamento reprocessado para o próximo mês!', 'success');
+      fetchDetail();
+    } catch { pushToast('Erro ao reprocessar lançamento', 'error'); }
+  };
+
+  // ─── Selection helpers ────────────────────────────────────────────────────────
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedTxIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    setSelectedTxIds(prev =>
+      prev.size === filtered.length
+        ? new Set()
+        : new Set(filtered.map(tx => String(tx.id)))
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedTxIds.size) return;
+    setIsBulkProcessing(true);
+    try {
+      let ok = 0;
+      for (const id of selectedTxIds) {
+        try { await api.delete(`/finance/${id}`); ok++; } catch { /* skip */ }
+      }
+      pushToast(`${ok} lançamento(s) excluído(s)!`, 'success');
+      setSelectedTxIds(new Set());
+      fetchDetail();
+    } finally { setIsBulkProcessing(false); }
+  };
+
+  const handleBulkRepeat = async () => {
+    if (!selectedTxIds.size) return;
+    setIsBulkProcessing(true);
+    try {
+      let ok = 0;
+      for (const id of selectedTxIds) {
+        try { await api.post(`/finance/repeat/${id}`, {}); ok++; } catch { /* skip */ }
+      }
+      pushToast(`${ok} lançamento(s) reprocessado(s) para o próximo mês!`, 'success');
+      setSelectedTxIds(new Set());
+      fetchDetail();
+    } finally { setIsBulkProcessing(false); }
   };
 
   // ─── GridTable Columns ────────────────────────────────────────────────────────
@@ -593,16 +696,19 @@ export const LivroCaixa: React.FC = () => {
   const columns: Column<Transaction>[] = [
     {
       header: 'Data',
-      render: (tx) => (
-        <div className="flex flex-col items-center justify-center w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl shadow-sm shrink-0">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">
-            {new Date(tx.date + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
-          </span>
-          <span className="text-base font-black text-slate-800 leading-none">
-            {new Date(tx.date + 'T12:00:00').getDate().toString().padStart(2,'0')}
-          </span>
-        </div>
-      ),
+      render: (tx) => {
+        const d = safeDate(tx.date);
+        return (
+          <div className="flex flex-col items-center justify-center w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl shadow-sm shrink-0">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">
+              {d ? d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') : '—'}
+            </span>
+            <span className="text-base font-black text-slate-800 leading-none">
+              {d ? d.getDate().toString().padStart(2, '0') : '—'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: 'Descrição',
@@ -742,6 +848,24 @@ export const LivroCaixa: React.FC = () => {
             </button>
           </div>
 
+          {/* Grid/List toggle */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
+            <button
+              onClick={() => { if (archiveLayout !== 'grid') toggleArchiveLayout(); }}
+              title="Visualização em grade"
+              className={`p-2 rounded-lg transition-all ${archiveLayout === 'grid' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              onClick={() => { if (archiveLayout !== 'list') toggleArchiveLayout(); }}
+              title="Visualização em lista"
+              className={`p-2 rounded-lg transition-all ${archiveLayout === 'list' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <List size={14} />
+            </button>
+          </div>
+
           <button
             onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
@@ -774,29 +898,94 @@ export const LivroCaixa: React.FC = () => {
           <p className="font-black text-lg">Nenhum lançamento em {selectedYear}</p>
           <p className="text-sm mt-2 font-bold opacity-60">Clique em "Novo Lançamento" para começar</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      ) : archiveLayout === 'grid' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {monthSummaries.map((ms) => (
             <AppCard
               key={`${ms.year}-${ms.month}`}
               title={ms.label}
               subtitle="CONSOLIDADO"
               avatarIcon={<BookOpen size={20} />}
+              topActions={[
+                {
+                  label: 'Excluir mês',
+                  icon: <Trash2 size={13} />,
+                  variant: 'danger',
+                  onClick: () => setDeleteMonthConfirm({ month: ms.month, year: ms.year }),
+                },
+              ]}
               stats={[
-                { label: 'Receitas',   value: formatCurrency(ms.income),  tone: 'success' },
-                { label: 'Despesas',   value: formatCurrency(ms.expense), tone: 'danger'  },
-                { label: 'Saldo Final',value: formatCurrency(ms.balance), tone: ms.balance >= 0 ? 'default' : 'danger' },
+                { label: 'Receitas',    value: formatCurrency(ms.income),  tone: 'success' },
+                { label: 'Despesas',    value: formatCurrency(ms.expense), tone: 'danger'  },
+                { label: 'Saldo',       value: formatCurrency(ms.balance), tone: ms.balance >= 0 ? 'default' : 'danger' },
               ]}
               bottomActions={[
-                {
-                  label: 'Abrir Livro Caixa',
-                  variant: 'outline',
-                  onClick: () => openDetail(ms.month, ms.year),
-                },
+                { label: 'Abrir Livro Caixa', variant: 'outline', onClick: () => openDetail(ms.month, ms.year) },
               ]}
             />
           ))}
         </div>
+      ) : (
+        <GridTable<MonthSummary>
+          data={monthSummaries}
+          keyExtractor={(ms) => `${ms.year}-${ms.month}`}
+          onRowClick={(ms) => openDetail(ms.month, ms.year)}
+          columns={[
+            {
+              header: 'Período',
+              render: (ms) => (
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center shrink-0">
+                    <BookOpen size={15} />
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-800 text-sm">{ms.label}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Consolidado</p>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              header: 'Receitas',
+              render: (ms) => (
+                <p className="font-black text-emerald-600">{formatCurrency(ms.income)}</p>
+              ),
+            },
+            {
+              header: 'Despesas',
+              render: (ms) => (
+                <p className="font-black text-rose-500">{formatCurrency(ms.expense)}</p>
+              ),
+            },
+            {
+              header: 'Saldo',
+              render: (ms) => (
+                <p className={`font-black ${ms.balance >= 0 ? 'text-slate-800' : 'text-rose-500'}`}>
+                  {formatCurrency(ms.balance)}
+                </p>
+              ),
+            },
+            {
+              header: '',
+              render: (ms) => (
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); openDetail(ms.month, ms.year); }}
+                    className="px-4 py-1.5 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all"
+                  >
+                    Abrir
+                  </button>
+                  <button
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteMonthConfirm({ month: ms.month, year: ms.year }); }}
+                    className="p-1.5 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );
@@ -814,7 +1003,7 @@ export const LivroCaixa: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setView('archive'); fetchArchive(); }}
+              onClick={() => goToArchive()}
               className="p-2.5 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-800 transition-all shadow-sm"
             >
               <ArrowLeft size={16} />
@@ -938,6 +1127,38 @@ export const LivroCaixa: React.FC = () => {
           </div>
         </div>
 
+        {/* Bulk action bar */}
+        {selectedTxIds.size > 0 && (
+          <div className="flex items-center gap-3 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl">
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
+              {selectedTxIds.size} selecionado(s)
+            </span>
+            <div className="flex-1" />
+            <button
+              onClick={handleBulkRepeat}
+              disabled={isBulkProcessing}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-emerald-500 transition-all disabled:opacity-50"
+            >
+              <RefreshCw size={13} />
+              Reprocessar selecionados
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkProcessing}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-rose-500 transition-all disabled:opacity-50"
+            >
+              <Trash2 size={13} />
+              Excluir selecionados
+            </button>
+            <button
+              onClick={() => setSelectedTxIds(new Set())}
+              className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-all"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Transactions Table */}
         {isLoadingDetail ? (
           <div className="flex flex-col items-center justify-center p-32 gap-4 text-slate-500">
@@ -949,6 +1170,9 @@ export const LivroCaixa: React.FC = () => {
             data={filtered}
             columns={columns}
             keyExtractor={(tx) => tx.id}
+            selectedIds={selectedTxIds}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectAll={handleToggleSelectAll}
             emptyMessage="Nenhum lançamento encontrado para este período."
           />
         )}
@@ -1053,7 +1277,7 @@ export const LivroCaixa: React.FC = () => {
                   value={pasteText}
                   onChange={(e) => setPasteText(e.target.value)}
                   rows={8}
-                  placeholder={'07/01/26\tPix recebido\tCamila Souza\t044.614.079-18\tR$ 100,00\tPsicoterapia Individual\tSessão Avulsa\tCamila'}
+                  placeholder={'07/01/26\tPix recebido\tCamila Souza\t123.456.789-00\tR$ 100,00\tPsicoterapia Individual\tSessão Avulsa\tCamila'}
                   className="w-full border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 bg-slate-50 outline-none focus:border-slate-400 focus:bg-white resize-none placeholder:text-slate-300 font-mono transition-all"
                 />
               </div>
@@ -1338,6 +1562,44 @@ export const LivroCaixa: React.FC = () => {
           <p className="text-sm font-bold text-slate-600">
             Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.
           </p>
+        </div>
+      </Modal>
+
+      {/* ── Delete Month Confirm Modal ─────────────────────────────────────────── */}
+      <Modal
+        isOpen={deleteMonthConfirm !== null}
+        onClose={() => setDeleteMonthConfirm(null)}
+        title="Excluir Mês Inteiro"
+        maxWidth="sm"
+        footer={
+          <>
+            <button
+              onClick={() => setDeleteMonthConfirm(null)}
+              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteMonth}
+              className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2"
+            >
+              <Trash2 size={14} /> Excluir Tudo
+            </button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-3 py-2">
+          <AlertCircle size={20} className="text-rose-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-slate-600">
+              Isso vai excluir <span className="text-rose-600">todos os lançamentos</span> de{' '}
+              {deleteMonthConfirm
+                ? `${MONTH_NAMES[deleteMonthConfirm.month - 1]} ${deleteMonthConfirm.year}`
+                : ''}
+              .
+            </p>
+            <p className="text-xs text-slate-400 mt-1 font-bold">Esta ação não pode ser desfeita.</p>
+          </div>
         </div>
       </Modal>
     </div>

@@ -340,25 +340,26 @@ export const AppCard: React.FC<AppCardProps> = ({
           {stats.length > 0 && (
             <div
               className={cx(
-                'mt-4 grid gap-4 border-t border-slate-100 pt-4 text-left',
+                'mt-4 grid gap-3 border-t border-slate-100 pt-4 text-left',
                 stats.length === 1
                   ? 'grid-cols-1'
                   : stats.length === 2
                   ? 'grid-cols-2'
-                  : 'grid-cols-2 md:grid-cols-3'
+                  : 'grid-cols-3'
               )}
             >
               {stats.map((stat, index) => (
                 <div
                   key={index}
                   className={cx(
+                    'min-w-0 overflow-hidden',
                     stat.align === 'right' && 'text-right'
                   )}
                 >
-                  <p className="text-[11px] text-slate-400 text-left">{stat.label}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{stat.label}</p>
                   <p
                     className={cx(
-                      'text-lg font-bold text-left',
+                      'text-base font-black truncate',
                       statToneMap[stat.tone || 'default']
                     )}
                   >

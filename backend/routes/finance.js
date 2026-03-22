@@ -344,6 +344,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// DELETE /finance/month/:year/:month - Deletar todos os lançamentos de um mês
+router.delete('/month/:year/:month', async (req, res) => {
+  try {
+    const { year, month } = req.params;
+    const start = `${year}-${String(month).padStart(2, '0')}-01`;
+    const end   = new Date(Number(year), Number(month), 0).toISOString().split('T')[0];
+    const [result] = await db.query(
+      'DELETE FROM financial_transactions WHERE tenant_id = ? AND date >= ? AND date <= ?',
+      [req.user.tenant_id, start, end]
+    );
+    res.json({ deleted: result.affectedRows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao deletar lançamentos do mês' });
+  }
+});
+
 // DELETE /finance/:id
 router.delete('/:id', async (req, res) => {
   try {
