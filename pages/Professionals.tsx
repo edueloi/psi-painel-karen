@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select } from '../components/UI/Input';
@@ -20,6 +21,7 @@ const cx = (...classes: Array<string | false | null | undefined>) =>
 
 export const Professionals: React.FC = () => {
   const { t } = useLanguage();
+  const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'team' | 'permissions' | 'commissions'>('team');
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -267,7 +269,7 @@ export const Professionals: React.FC = () => {
         name: '', 
         email: '', 
         password: '', 
-        role: 'profissional', 
+        role: 'professional',
         tenant_profile_id: '',
         phone: '', 
         specialty: '',
@@ -486,25 +488,31 @@ export const Professionals: React.FC = () => {
           </div>
         ) : activeTab === 'team' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPros.map(pro => (
-              <div 
-                key={pro.id} 
+            {filteredPros.map(pro => {
+              const isOwner = currentUser?.id === pro.id;
+              const effectiveActive = isOwner ? true : pro.is_active;
+              return (
+              <div
+                key={pro.id}
                 className={cx(
                   "bg-white p-6 rounded-[32px] border transition-all group relative overflow-hidden flex flex-col",
-                  !pro.is_active ? "opacity-75 border-slate-200" : "border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1"
+                  !effectiveActive ? "opacity-75 border-slate-200" : "border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1"
                 )}
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/20 rounded-bl-[4rem] -mr-8 -mt-8 opacity-0 group-hover:opacity-100 transition-opacity" />
-                
+
                 <div className="flex justify-between items-start mb-6 relative z-10">
                   <div className="flex items-center gap-4">
                     <div className={cx(
-                      "h-14 w-14 rounded-2xl flex items-center justify-center font-bold text-xl border transition-all",
-                      !pro.is_active 
-                        ? "bg-slate-50 text-slate-300 border-slate-200" 
+                      "h-14 w-14 rounded-2xl flex items-center justify-center font-bold text-xl border transition-all overflow-hidden",
+                      !effectiveActive
+                        ? "bg-slate-50 text-slate-300 border-slate-200"
                         : "bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-400 group-hover:shadow-lg group-hover:shadow-indigo-100"
                     )}>
-                      {(pro.name || '?').charAt(0).toUpperCase()}
+                      {pro.avatar_url
+                        ? <img src={pro.avatar_url} alt={pro.name} className="h-full w-full object-cover" />
+                        : (pro.name || '?').charAt(0).toUpperCase()
+                      }
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-bold text-slate-800 text-[16px] truncate max-w-[150px]">{pro.name}</h3>
@@ -525,26 +533,28 @@ export const Professionals: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="flex gap-1.5 p-1 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-100 shadow-sm">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      iconOnly
-                      onClick={() => handleOpenModal(pro)}
-                      title="Editar"
-                    >
-                      <Edit3 size={15} />
-                    </Button>
-                    <Button
-                      variant="softDanger"
-                      size="xs"
-                      iconOnly
-                      onClick={() => handleDelete(pro.id, pro.name)}
-                      title="Remover"
-                    >
-                      <Trash2 size={15} />
-                    </Button>
-                  </div>
+                  {!isOwner && (
+                    <div className="flex gap-1.5 p-1 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-100 shadow-sm">
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        iconOnly
+                        onClick={() => handleOpenModal(pro)}
+                        title="Editar"
+                      >
+                        <Edit3 size={15} />
+                      </Button>
+                      <Button
+                        variant="softDanger"
+                        size="xs"
+                        iconOnly
+                        onClick={() => handleDelete(pro.id, pro.name)}
+                        title="Remover"
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3 mb-6 flex-1 relative z-10">
@@ -570,19 +580,20 @@ export const Professionals: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <div className={cx(
                       "w-2 h-2 rounded-full",
-                      pro.is_active ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" : "bg-rose-400 shadow-sm"
+                      effectiveActive ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" : "bg-rose-400 shadow-sm"
                     )} />
                     <span className={cx(
                       "font-bold text-[10px] uppercase tracking-wider",
-                      pro.is_active ? "text-emerald-600" : "text-rose-500"
+                      effectiveActive ? "text-emerald-600" : "text-rose-500"
                     )}>
-                      {pro.is_active ? 'Acesso Ativo' : 'Suspenso'}
+                      {effectiveActive ? 'Acesso Ativo' : 'Suspenso'}
                     </span>
                   </div>
                   {pro.role === 'admin' && <Shield size={14} className="text-amber-400" />}
                 </div>
               </div>
-            ))}
+              );
+            })}
             
             {filteredPros.length === 0 && (
               <div className="col-span-full py-32 text-center bg-white rounded-[32px] border border-slate-200 shadow-sm flex flex-col items-center">
