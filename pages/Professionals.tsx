@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, getStaticUrl } from '../services/api';
 import { 
   UserCheck, Plus, Edit3, Trash2, Shield, 
   Briefcase, CheckCircle, X, DollarSign, Users, Lock, Key, 
@@ -510,7 +510,7 @@ export const Professionals: React.FC = () => {
                         : "bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-400 group-hover:shadow-lg group-hover:shadow-indigo-100"
                     )}>
                       {pro.avatar_url
-                        ? <img src={pro.avatar_url} alt={pro.name} className="h-full w-full object-cover" />
+                        ? <img src={getStaticUrl(pro.avatar_url)} alt={pro.name} className="h-full w-full object-cover" />
                         : (pro.name || '?').charAt(0).toUpperCase()
                       }
                     </div>
