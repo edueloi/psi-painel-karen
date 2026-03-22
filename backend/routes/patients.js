@@ -309,6 +309,16 @@ router.post('/', async (req, res) => {
       responsible_phone, health_plan, diagnosis
     } = req.body;
 
+    if (cpf) {
+      const [existing] = await db.query(
+        'SELECT name FROM patients WHERE cpf = ? AND tenant_id = ? LIMIT 1',
+        [cpf, req.user.tenant_id]
+      );
+      if (existing.length > 0) {
+        return res.status(409).json({ error: `CPF já cadastrado para o paciente: ${existing[0].name}` });
+      }
+    }
+
     const [result] = await db.query(
       `INSERT INTO patients (
         tenant_id, name, email, phone, phone2, birth_date, cpf, rg, gender,

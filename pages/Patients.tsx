@@ -257,9 +257,14 @@ export const Patients: React.FC = () => {
       await fetchPatients();
       setIsWizardOpen(false);
       pushToast('success', data.id ? 'Paciente atualizado com sucesso!' : 'Paciente criado com sucesso!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao salvar paciente:', err);
-      pushToast('error', 'Erro ao salvar paciente. Verifique os dados e tente novamente.');
+      const msg = err?.message || '';
+      if (msg.startsWith('CPF já cadastrado')) {
+        pushToast('warning', msg);
+      } else {
+        pushToast('error', 'Erro ao salvar paciente. Verifique os dados e tente novamente.');
+      }
     }
   };
 
