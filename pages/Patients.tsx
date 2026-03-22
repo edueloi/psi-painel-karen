@@ -76,6 +76,7 @@ export const Patients: React.FC = () => {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [importSelectedIds, setImportSelectedIds] = useState<Set<string>>(new Set());
   const { pushToast } = useToast();
 
 
@@ -601,7 +602,10 @@ export const Patients: React.FC = () => {
     formData.append('file', file);
     try {
       const result = await api.request<any>('/patients/import/preview', { method: 'POST', body: formData });
-      setImportPreview(result.preview || []);
+      const rows = result.preview || [];
+      setImportPreview(rows);
+      // Pré-seleciona apenas os não-duplicados
+      setImportSelectedIds(new Set(rows.filter((r: any) => !r.duplicate).map((_: any, i: number) => String(i))));
       setImportFile(file);
       setImportPreviewOpen(true);
     } catch (err) {
@@ -613,21 +617,16 @@ export const Patients: React.FC = () => {
   };
 
   const handleConfirmImport = async () => {
-    if (!importFile) return;
+    if (importSelectedIds.size === 0) return;
     setIsImporting(true);
-    const formData = new FormData();
-    formData.append('file', importFile);
+    const selectedRows = [...importSelectedIds].map(id => importPreview[Number(id)]).filter(Boolean);
     try {
-      const result = await api.request<any>('/patients/import', { method: 'POST', body: formData });
-      pushToast('success', result.message);
-      if (result.duplicates && result.duplicates.length > 0) {
-        result.duplicates.forEach((d: any) => {
-          pushToast('warning', `CPF ${d.cpf} já cadastrado para "${d.existingName}" — "${d.name}" ignorado.`);
-        });
-      }
+      const result = await api.post<any>('/patients/import/confirm', { rows: selectedRows });
+      pushToast('success', `${result.importedLength} paciente(s) importado(s) com sucesso!`);
       setImportPreviewOpen(false);
       setImportFile(null);
       setImportPreview([]);
+      setImportSelectedIds(new Set());
       fetchPatients();
     } catch (err) {
       console.error('Erro ao importar:', err);
@@ -1414,91 +1413,163 @@ export const Patients: React.FC = () => {
       />
 
       {/* Import Preview Modal */}
-      {importPreviewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Pré-visualização da Importação</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {importPreview.length} pacientes encontrados
-                  {importPreview.filter(r => r.duplicate).length > 0 && (
-                    <span className="ml-2 text-rose-500 font-semibold">
-                      · {importPreview.filter(r => r.duplicate).length} CPF(s) duplicado(s)
-                    </span>
-                  )}
-                </p>
-              </div>
-              <button onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
+      {importPreviewOpen && (() => {
+        const dupCount = importPreview.filter(r => r.duplicate).length;
+        const selectedCount = importSelectedIds.size;
+        const allNonDup = importPreview.filter(r => !r.duplicate);
+        const allSelected = allNonDup.length > 0 && allNonDup.every((_,i) => importSelectedIds.has(String(importPreview.indexOf(_))));
 
-            {/* Table */}
-            <div className="overflow-auto flex-1 px-6 py-4">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b border-slate-100">
-                    <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Nome</th>
-                    <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">CPF</th>
-                    <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Telefone</th>
-                    <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Nascimento</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {importPreview.map((row, idx) => (
-                    <tr key={idx} className={row.duplicate ? 'bg-rose-50' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                      <td className="py-2 pr-4 font-medium text-slate-800">{row.name}</td>
-                      <td className="py-2 pr-4">
-                        {row.cpf ? (
-                          <span className={row.duplicate ? 'text-rose-600 font-bold flex items-center gap-1' : 'text-slate-600'}>
-                            {row.duplicate && <AlertCircle size={13} />}
-                            {row.cpf}
-                            {row.duplicate && (
-                              <span className="ml-1 text-[10px] font-semibold bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full">
-                                duplicado · {row.existingName}
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="text-slate-300 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-4 text-slate-600">{row.phone || <span className="text-slate-300 text-xs">—</span>}</td>
-                      <td className="py-2 text-slate-600">{row.birth_date || <span className="text-slate-300 text-xs">—</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        const toggleRow = (idx: string) => {
+          setImportSelectedIds(prev => {
+            const next = new Set(prev);
+            next.has(idx) ? next.delete(idx) : next.add(idx);
+            return next;
+          });
+        };
+        const toggleAll = () => {
+          if (allSelected) {
+            setImportSelectedIds(new Set());
+          } else {
+            setImportSelectedIds(new Set(importPreview.map((_,i) => String(i)).filter(i => !importPreview[Number(i)].duplicate)));
+          }
+        };
+        const removeRow = (idx: number) => {
+          setImportPreview(prev => prev.filter((_, i) => i !== idx));
+          setImportSelectedIds(prev => {
+            const next = new Set<string>();
+            prev.forEach(id => { const n = Number(id); if (n < idx) next.add(String(n)); else if (n > idx) next.add(String(n - 1)); });
+            return next;
+          });
+        };
 
-            {/* Footer */}
-            {importPreview.filter(r => r.duplicate).length > 0 && (
-              <div className="px-6 py-3 bg-rose-50 border-t border-rose-100 text-xs text-rose-600 font-medium flex items-center gap-2">
-                <AlertCircle size={14} />
-                Pacientes com CPF duplicado serão ignorados na importação. Os demais serão importados normalmente.
+        const importColumns: Column<any>[] = [
+          {
+            header: 'Nome',
+            render: (row) => (
+              <span className={`font-medium ${row.duplicate ? 'text-rose-700' : 'text-slate-800'}`}>{row.name}</span>
+            ),
+          },
+          {
+            header: 'CPF',
+            render: (row) => row.cpf ? (
+              <div className="flex flex-col gap-0.5">
+                <span className={`font-mono text-xs font-semibold ${row.duplicate ? 'text-rose-600' : 'text-slate-700'}`}>
+                  {row.duplicate && <AlertCircle size={11} className="inline mr-1 mb-0.5" />}
+                  {row.cpf}
+                </span>
+                {row.duplicate && (
+                  <span className="text-[10px] text-rose-500 font-medium">já existe: {row.existingName}</span>
+                )}
               </div>
-            )}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
-              <button
-                onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }}
-                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmImport}
-                disabled={isImporting || importPreview.filter(r => !r.duplicate).length === 0}
-                className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isImporting ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
-                Importar {importPreview.filter(r => !r.duplicate).length} paciente(s)
-              </button>
+            ) : <span className="text-slate-300 text-xs">—</span>,
+          },
+          {
+            header: 'Telefone',
+            render: (row) => <span className="text-slate-600 text-xs">{row.phone || <span className="text-slate-300">—</span>}</span>,
+          },
+          {
+            header: 'Nascimento',
+            render: (row) => <span className="text-slate-600 text-xs">{row.birth_date || <span className="text-slate-300">—</span>}</span>,
+          },
+          {
+            header: 'Ação',
+            headerClassName: 'text-center',
+            className: 'text-center',
+            render: (row) => {
+              const idx = importPreview.indexOf(row);
+              return (
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeRow(idx); }}
+                  title="Remover da lista"
+                  className="text-slate-300 hover:text-rose-500 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              );
+            },
+          },
+        ];
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col" style={{ maxHeight: '90vh' }}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+                    <FileUp size={18} className="text-indigo-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-800">Pré-visualização da Importação</h2>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-xs text-slate-500">{importPreview.length} pacientes na planilha</span>
+                      {dupCount > 0 && (
+                        <span className="text-[11px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                          {dupCount} CPF duplicado{dupCount > 1 ? 's' : ''}
+                        </span>
+                      )}
+                      <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                        {selectedCount} selecionado{selectedCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Table — scrollable */}
+              <div className="overflow-y-auto flex-1 px-6 py-4">
+                <GridTable
+                  data={importPreview}
+                  keyExtractor={(_, i) => String(importPreview.indexOf(_))}
+                  columns={importColumns}
+                  selectedIds={importSelectedIds}
+                  onToggleSelect={(id) => { if (!importPreview[Number(id)]?.duplicate) toggleRow(id); }}
+                  onToggleSelectAll={toggleAll}
+                  emptyMessage="Nenhum paciente encontrado na planilha."
+                />
+              </div>
+
+              {/* Alert duplicates */}
+              {dupCount > 0 && (
+                <div className="px-6 py-2.5 bg-rose-50 border-t border-rose-100 text-xs text-rose-600 font-medium flex items-center gap-2 shrink-0">
+                  <AlertCircle size={13} />
+                  Linhas com CPF duplicado não podem ser selecionadas e serão ignoradas na importação.
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 shrink-0">
+                <button
+                  onClick={toggleAll}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  {allSelected ? 'Desmarcar todos' : 'Selecionar todos'}
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }}
+                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors rounded-xl hover:bg-slate-100"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmImport}
+                    disabled={isImporting || selectedCount === 0}
+                    className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-indigo-100"
+                  >
+                    {isImporting ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
+                    Importar {selectedCount} paciente{selectedCount !== 1 ? 's' : ''}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );

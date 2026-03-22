@@ -575,6 +575,40 @@ router.post('/import/preview', memoryUpload.single('file'), async (req, res) => 
   }
 });
 
+// POST /patients/import/confirm — Importa as linhas já selecionadas do preview
+router.post('/import/confirm', async (req, res) => {
+  try {
+    const { rows } = req.body;
+    if (!rows || !Array.isArray(rows)) return res.status(400).json({ error: 'Nenhuma linha enviada' });
+
+    const imported = [];
+    const errors = [];
+
+    for (const row of rows) {
+      if (!row.name) continue;
+      try {
+        const [result] = await db.query(
+          `INSERT INTO patients (tenant_id, name, email, phone, cpf, birth_date, status)
+           VALUES (?, ?, ?, ?, ?, ?, 'active')`,
+          [req.user.tenant_id, row.name, row.email || null, row.phone || null, row.cpf || null, row.birth_date || null]
+        );
+        imported.push({ id: result.insertId, name: row.name });
+      } catch (e) {
+        errors.push(`${row.name}: ${e.message}`);
+      }
+    }
+
+    res.json({
+      message: `${imported.length} pacientes importados com sucesso`,
+      importedLength: imported.length,
+      errors
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao confirmar importação' });
+  }
+});
+
 // POST /patients/import
 router.post('/import', memoryUpload.single('file'), async (req, res) => {
   try {
