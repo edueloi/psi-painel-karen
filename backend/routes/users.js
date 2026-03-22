@@ -23,7 +23,7 @@ router.get('/me', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const [users] = await db.query(
-      "SELECT id, name, email, role, specialty, crp, phone, avatar_url, active, permissions, tenant_profile_id, created_at FROM users WHERE tenant_id = ? AND role != 'super_admin' ORDER BY name",
+      "SELECT id, name, email, role, specialty, crp, cpf, phone, avatar_url, active, permissions, tenant_profile_id, created_at FROM users WHERE tenant_id = ? AND role != 'super_admin' ORDER BY name",
       [req.user.tenant_id]
     );
     res.json(users);
@@ -51,7 +51,7 @@ router.get('/:id', async (req, res) => {
 // POST /users - Criar usuário (admin+)
 router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
   try {
-    const { name, email, password, role, specialty, crp, phone, is_active, active } = req.body;
+    const { name, email, password, role, specialty, crp, cpf, phone, is_active, active } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
@@ -61,8 +61,8 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
     const finalActive = (is_active !== undefined ? is_active : (active !== undefined ? active : true)) ? 1 : 0;
 
     const [result] = await db.query(
-      'INSERT INTO users (tenant_id, name, email, password, role, specialty, crp, phone, permissions, tenant_profile_id, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.tenant_id, name, email, hashedPassword, role || 'professional', specialty || null, crp || null, phone || null, JSON.stringify({}), req.body.tenant_profile_id || null, finalActive]
+      'INSERT INTO users (tenant_id, name, email, password, role, specialty, crp, cpf, phone, permissions, tenant_profile_id, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.tenant_id, name, email, hashedPassword, role || 'professional', specialty || null, crp || null, cpf || null, phone || null, JSON.stringify({}), req.body.tenant_profile_id || null, finalActive]
     );
 
     const [newUser] = await db.query(
@@ -83,7 +83,7 @@ router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
 // PUT /users/:id - Atualizar usuário
 router.put('/:id', async (req, res) => {
   try {
-    const { name, email, role, specialty, crp, phone, avatar_url, active, is_active, permissions, tenant_profile_id } = req.body;
+    const { name, email, role, specialty, crp, cpf, phone, avatar_url, active, is_active, permissions, tenant_profile_id } = req.body;
 
     // Só admin pode mudar role ou desativar outros
     const isSelf = req.user.id == req.params.id;
@@ -112,13 +112,14 @@ router.put('/:id', async (req, res) => {
         role = COALESCE(?, role),
         specialty = COALESCE(?, specialty),
         crp = COALESCE(?, crp),
+        cpf = COALESCE(?, cpf),
         phone = COALESCE(?, phone),
         avatar_url = COALESCE(?, avatar_url),
         active = COALESCE(?, active),
         permissions = COALESCE(?, permissions),
         tenant_profile_id = COALESCE(?, tenant_profile_id)
        WHERE id = ? AND tenant_id = ?`,
-      [name || null, email || null, isAdmin ? (role || null) : null, specialty || null, crp || null, phone || null, avatar_url || null, finalActive, permissions ? JSON.stringify(permissions) : null, tenant_profile_id || null,
+      [name || null, email || null, isAdmin ? (role || null) : null, specialty || null, crp || null, cpf || null, phone || null, avatar_url || null, finalActive, permissions ? JSON.stringify(permissions) : null, tenant_profile_id || null,
        req.params.id, req.user.tenant_id]
     );
 

@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { api, getStaticUrl } from '../services/api';
+
+const maskPhone = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 10) return d.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+  return d.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+};
+
+const maskCpf = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  return d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4').replace(/[.-]$/, '').replace(/\.$/, '');
+};
 import { 
   UserCheck, Plus, Edit3, Trash2, Shield, 
   Briefcase, CheckCircle, X, DollarSign, Users, Lock, Key, 
@@ -964,18 +975,27 @@ export const Professionals: React.FC = () => {
               <Input
                 label="Telefone / WhatsApp"
                 value={editingPro.phone || ''}
-                onChange={e => setEditingPro({...editingPro, phone: e.target.value})}
+                onChange={e => setEditingPro({...editingPro, phone: maskPhone(e.target.value)})}
                 placeholder="(00) 00000-0000"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Input
+                label="CPF"
+                value={editingPro.cpf || ''}
+                onChange={e => setEditingPro({...editingPro, cpf: maskCpf(e.target.value)})}
+                placeholder="000.000.000-00"
+              />
+              <Input
                 label="Especialidade / Título"
                 value={editingPro.specialty || ''}
                 onChange={e => setEditingPro({...editingPro, specialty: e.target.value})}
                 placeholder="Ex: TCC, Neuropsi..."
               />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Input
                 label="Registro Profissional (CRP/CRM)"
                 value={editingPro.crp || ''}
