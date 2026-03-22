@@ -37,6 +37,7 @@ export interface UserPreferences {
   messages: {
     viewMode: 'cards' | 'list';
     patientStatusFilter: 'all' | 'ativo' | 'inativo';
+    itemsPerPage: number;
   };
 }
 
@@ -76,6 +77,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   messages: {
     viewMode: 'cards',
     patientStatusFilter: 'all',
+    itemsPerPage: 15,
   },
 };
 

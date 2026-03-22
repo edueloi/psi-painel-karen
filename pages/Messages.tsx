@@ -209,7 +209,8 @@ export const Messages: React.FC = () => {
 
   // ── Paginação ─────────────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const itemsPerPage = preferences.messages.itemsPerPage;
+  const setItemsPerPage = (n: number) => updatePreference('messages', { itemsPerPage: n });
 
   useEffect(() => { setCurrentPage(1); }, [searchTerm, categoryFilter, itemsPerPage]);
 
