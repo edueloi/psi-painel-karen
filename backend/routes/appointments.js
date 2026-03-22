@@ -486,8 +486,8 @@ router.post('/', async (req, res) => {
             const [conflicts] = await db.query(
                 `SELECT a.id,
                         u.name AS prof_name,
-                        DATE_FORMAT(a.start_time, '%H:%i') AS h_start,
-                        DATE_FORMAT(a.end_time,   '%H:%i') AS h_end
+                        a.start_time AS raw_start,
+                        a.end_time   AS raw_end
                  FROM appointments a
                  LEFT JOIN users u ON u.id = a.professional_id
                  WHERE a.tenant_id       = ?
@@ -502,9 +502,13 @@ router.post('/', async (req, res) => {
                 if (!freq) {
                     // Agendamento único — retorna erro ao invés de salvar
                     const c = conflicts[0];
+                    const toISO = (v) => (v instanceof Date ? v.toISOString() : String(v));
                     return res.status(409).json({
-                        error: `${c.prof_name || 'O profissional'} já possui um agendamento das ${c.h_start} às ${c.h_end} neste período.`,
-                        conflict: true
+                        error: 'conflict',
+                        conflict: true,
+                        prof_name: c.prof_name || 'O profissional',
+                        start_time: toISO(c.raw_start),
+                        end_time: toISO(c.raw_end),
                     });
                 }
                 // Recorrência — pula apenas esta ocorrência conflitante

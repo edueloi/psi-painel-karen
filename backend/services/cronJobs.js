@@ -313,28 +313,21 @@ async function autoConfirmAppointments() {
 
 // ─── Inicializar todos os cron jobs ──────────────────────────────────────────
 function startCronJobs() {
+  // Jobs que NÃO dependem de email sempre rodam
+  cron.schedule('0 8 * * *', checkBirthdays, { timezone: 'America/Sao_Paulo' });
+  cron.schedule('*/30 * * * *', autoConfirmAppointments, { timezone: 'America/Sao_Paulo' });
+  autoConfirmAppointments(); // roda uma vez na inicialização
+
+  // Jobs de email só rodam se as variáveis de ambiente estiverem configuradas
   if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER) {
     console.warn('⚠️  Cron de emails desativado (EMAIL_HOST/EMAIL_USER não configurados)');
+    console.log('✅ Cron jobs de automação iniciados (sem email)');
     return;
   }
 
-  // A cada minuto: lembrete de atendimento (1h antes)
   cron.schedule('* * * * *', checkAppointmentReminders, { timezone: 'America/Sao_Paulo' });
-
-  // Todo dia às 8h: aniversariantes
-  cron.schedule('0 8 * * *', checkBirthdays, { timezone: 'America/Sao_Paulo' });
-
-  // Toda segunda às 7h: relatório semanal
   cron.schedule('0 7 * * 1', sendWeeklyReport, { timezone: 'America/Sao_Paulo' });
-
-  // Todo dia 1 às 7h: relatório mensal
   cron.schedule('0 7 1 * *', sendMonthlyReport, { timezone: 'America/Sao_Paulo' });
-
-  // A cada 30 minutos: confirmação de atendimentos passados
-  cron.schedule('*/30 * * * *', autoConfirmAppointments, { timezone: 'America/Sao_Paulo' });
-  
-  // Executa uma vez no início
-  autoConfirmAppointments();
 
   console.log('✅ Cron jobs de email e automação iniciados');
 }

@@ -93,7 +93,14 @@ export const api: Api = {
           : '';
         const message = data?.error
           || (rawPreview ? `Erro ${response.status}: resposta nao-JSON do servidor (${rawPreview})` : `Erro ${response.status}: ${response.statusText}`);
-        throw new Error(message);
+        const err: any = new Error(message);
+        if (data?.conflict) {
+          err.conflict = true;
+          err.prof_name = data.prof_name;
+          err.start_time = data.start_time;
+          err.end_time = data.end_time;
+        }
+        throw err;
       }
 
       return data as T;

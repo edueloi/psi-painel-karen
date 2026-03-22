@@ -1175,8 +1175,13 @@ export const Agenda: React.FC = () => {
         pushToast('error', 'Agendamento não encontrado. A lista será atualizada.');
         fetchData();
         closeAppointmentModal();
+      } else if (e?.conflict) {
+        const fmt = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const who = e.prof_name || 'O profissional';
+        const hStart = e.start_time ? fmt(e.start_time) : '?';
+        const hEnd = e.end_time ? fmt(e.end_time) : '?';
+        pushToast('error', `${who} já possui um agendamento das ${hStart} às ${hEnd} neste período.`);
       } else {
-        // Exibe a mensagem do backend diretamente (conflito de horário, duplicata, etc.)
         pushToast('error', e?.message || 'Erro ao salvar agendamento.');
       }
     } finally {
