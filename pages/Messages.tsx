@@ -3,7 +3,8 @@ import { MessageTemplate } from '../types';
 import { api } from '../services/api';
 import {
   MessageCircle, Search, Plus, Edit3, Trash2, Send, Variable, X, Copy, Check,
-  Loader2, MessageSquare, Tag, Users, Sparkles, LayoutGrid, List, AlertTriangle
+  Loader2, MessageSquare, Tag, Users, Sparkles, LayoutGrid, List, AlertTriangle,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { GridTable } from '../components/UI/GridTable';
@@ -205,6 +206,17 @@ export const Messages: React.FC = () => {
       return matchCat && matchSearch;
     });
   }, [templates, searchTerm, categoryFilter]);
+
+  // ── Paginação ─────────────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, categoryFilter, itemsPerPage]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTemplates.length / itemsPerPage));
+  const pagedTemplates = useMemo(() =>
+    filteredTemplates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+  [filteredTemplates, currentPage, itemsPerPage]);
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
@@ -498,7 +510,7 @@ export const Messages: React.FC = () => {
         {/* ── LISTA ── */}
         {!isLoading && viewMode === 'list' && (
           <GridTable<MessageTemplate>
-            data={filteredTemplates}
+            data={pagedTemplates}
             keyExtractor={(row) => row.id}
             columns={[
               {
@@ -552,7 +564,7 @@ export const Messages: React.FC = () => {
           </div>
         ) : viewMode === 'cards' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filteredTemplates.map(template => (
+            {pagedTemplates.map(template => (
               <div
                 key={template.id}
                 className="bg-white rounded-[24px] border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden group"
@@ -655,6 +667,45 @@ export const Messages: React.FC = () => {
             </button>
           </div>
         ) : null}
+
+        {/* ── PAGINAÇÃO ── */}
+        {!isLoading && filteredTemplates.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span>Itens por página:</span>
+              <select
+                value={itemsPerPage}
+                onChange={e => setItemsPerPage(Number(e.target.value))}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100"
+              >
+                {[5, 15, 30, 50, 100].map(limit => (
+                  <option key={limit} value={limit}>{limit}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-500">
+                Página {currentPage} de {totalPages}
+              </span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all font-bold"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all font-bold"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* ══════════════════════════════════════════════════════════════
