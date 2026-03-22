@@ -38,7 +38,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-[72px] px-4 md:px-8 flex items-center justify-between transition-all duration-300 bg-white/90 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_1px_3px_0_rgba(0,0,0,0.04),0_1px_2px_-1px_rgba(0,0,0,0.04)]">
+    <header className="sticky top-0 z-[100] h-[72px] px-4 md:px-8 flex items-center justify-between transition-all duration-300 bg-white/90 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_1px_3px_0_rgba(0,0,0,0.04),0_1px_2px_-1px_rgba(0,0,0,0.04)]">
 
       {/* Left Area: Mobile Menu & Search */}
       <div className="flex items-center gap-4 flex-1">
@@ -100,7 +100,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
 
            {/* Dropdown Menu */}
            {isDropdownOpen && (
-              <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden origin-top-right animate-[slideUpFade_0.2s_ease-out]">
+              <div className="absolute top-full right-0 mt-2 w-64 z-[200] bg-white rounded-2xl shadow-[0_8px_32px_-4px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden origin-top-right animate-[slideDownFade_0.18s_ease-out]">
                  <div className="p-4 border-b border-slate-50 bg-slate-50/50">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('topbar.connected')}</p>
                     <div className="flex items-center gap-3">

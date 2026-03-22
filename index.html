@@ -113,6 +113,10 @@
                 '0%': { opacity: '0', transform: 'translateY(20px)' },
                 '100%': { opacity: '1', transform: 'translateY(0)' },
               },
+              slideDownFade: {
+                '0%': { opacity: '0', transform: 'translateY(-10px) scale(0.97)' },
+                '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+              },
               slideLeft: {
                 '0%': { transform: 'translateX(100%)' },
                 '100%': { transform: 'translateX(0)' },
@@ -140,6 +144,7 @@
             animation: {
               fadeIn: 'fadeIn 0.3s ease-out',
               slideUpFade: 'slideUpFade 0.35s ease-out',
+              slideDownFade: 'slideDownFade 0.18s ease-out',
               slideLeft: 'slideLeft 0.3s ease-out',
               scaleIn: 'scaleIn 0.2s ease-out',
               slideIn: 'slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
