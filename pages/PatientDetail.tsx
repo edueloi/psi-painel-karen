@@ -168,31 +168,30 @@ export const PatientDetail: React.FC = () => {
 
   return (
     <div className="-m-4 md:-m-6 lg:-m-8 bg-slate-50 flex flex-col">
-      {/* Top bar — sticky relativo ao scroll do main layout */}
-      <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-20 shadow-sm">
-        <button onClick={() => navigate('/pacientes')} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-black text-slate-800 truncate">{patientName(patient)}</h1>
-          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Perfil do paciente</p>
+      {/* Top bar */}
+      <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center gap-3">
+          <button onClick={() => navigate('/pacientes')} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors">
+            <ArrowLeft size={18} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-sm font-black text-slate-800 truncate">{patientName(patient)}</h1>
+            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Perfil do paciente</p>
+          </div>
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            title="Histórico"
+          >
+            <History size={16} />
+          </button>
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
+          >
+            <Edit2 size={13} /> Editar
+          </button>
         </div>
-        <button
-          onClick={() => setHistoryOpen(true)}
-          className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-          title="Histórico"
-        >
-          <History size={16} />
-        </button>
-        <button
-          onClick={() => setIsWizardOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
-        >
-          <Edit2 size={13} /> Editar
-        </button>
-      </div>
 
-      <div>
         {/* Hero header */}
         <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-6">
           <div className="flex items-center gap-4">
@@ -268,15 +267,14 @@ export const PatientDetail: React.FC = () => {
           ))}
         </div>
 
-        {/* Tab content */}
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          {activeTab === 'dados' && <TabDados patient={patient} navigate={navigate} />}
-          {activeTab === 'agenda' && <TabAgenda appointments={appointments} loading={tabLoading} patientId={id!} navigate={navigate} />}
-          {activeTab === 'documentos' && <TabDocumentos documents={documents} loading={tabLoading} patientId={id!} onRefresh={() => loadTab('documentos')} />}
-          {activeTab === 'prontuario' && <TabProntuario records={records} loading={tabLoading} patientId={id!} navigate={navigate} />}
-          {activeTab === 'formularios' && <TabFormularios forms={forms} loading={tabLoading} patientId={id!} navigate={navigate} />}
-          {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
-        </div>
+      {/* Tab content */}
+      <div className="max-w-4xl mx-auto w-full px-4 py-6">
+        {activeTab === 'dados' && <TabDados patient={patient} navigate={navigate} />}
+        {activeTab === 'agenda' && <TabAgenda appointments={appointments} loading={tabLoading} patientId={id!} navigate={navigate} />}
+        {activeTab === 'documentos' && <TabDocumentos documents={documents} loading={tabLoading} patientId={id!} onRefresh={() => loadTab('documentos')} />}
+        {activeTab === 'prontuario' && <TabProntuario records={records} loading={tabLoading} patientId={id!} navigate={navigate} />}
+        {activeTab === 'formularios' && <TabFormularios forms={forms} loading={tabLoading} patientId={id!} navigate={navigate} />}
+        {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
       </div>
 
       {/* Edit wizard */}
