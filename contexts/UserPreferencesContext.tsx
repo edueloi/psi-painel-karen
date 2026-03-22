@@ -34,6 +34,10 @@ export interface UserPreferences {
   general: {
     timezone: string;
   };
+  messages: {
+    viewMode: 'cards' | 'list';
+    patientStatusFilter: 'all' | 'ativo' | 'inativo';
+  };
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -69,6 +73,10 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   general: {
     timezone: 'America/Sao_Paulo',
   },
+  messages: {
+    viewMode: 'cards',
+    patientStatusFilter: 'all',
+  },
 };
 
 function mergeWithDefaults(stored: any): UserPreferences {
@@ -84,6 +92,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     disc:        { ...DEFAULT_PREFERENCES.disc,        ...stored?.disc },
     appearance:  { ...DEFAULT_PREFERENCES.appearance,  ...stored?.appearance },
     general:     { ...DEFAULT_PREFERENCES.general,     ...stored?.general },
+    messages:    { ...DEFAULT_PREFERENCES.messages,    ...stored?.messages },
   };
 }
 

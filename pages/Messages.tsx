@@ -3,11 +3,13 @@ import { MessageTemplate } from '../types';
 import { api } from '../services/api';
 import {
   MessageCircle, Search, Plus, Edit3, Trash2, Send, Variable, X, Copy, Check,
-  Loader2, MessageSquare, Tag, Users, Sparkles, LayoutGrid, List
+  Loader2, MessageSquare, Tag, Users, Sparkles, LayoutGrid, List, AlertTriangle
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { GridTable } from '../components/UI/GridTable';
+import { Combobox } from '../components/UI/Combobox';
 import { useToast } from '../contexts/ToastContext';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 // ── Variáveis disponíveis ─────────────────────────────────────────────────────
 const AVAILABLE_VARIABLES = [
@@ -105,12 +107,17 @@ function htmlToContent(html: string): string {
 // ── Componente principal ──────────────────────────────────────────────────────
 export const Messages: React.FC = () => {
   const { pushToast } = useToast();
+  const { preferences, updatePreference } = useUserPreferences();
+
   const [templates, setTemplates]           = useState<MessageTemplate[]>([]);
   const [searchTerm, setSearchTerm]         = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [allCategories, setAllCategories]   = useState<string[]>(['Lembrete', 'Financeiro', 'Aniversário', 'Outros']);
   const [isLoading, setIsLoading]           = useState(true);
-  const [viewMode, setViewMode]             = useState<'cards' | 'list'>('cards');
+
+  // viewMode persisted in preferences
+  const viewMode = preferences.messages.viewMode;
+  const setViewMode = (mode: 'cards' | 'list') => updatePreference('messages', { viewMode: mode });
 
   // Modal criar/editar
   const [isModalOpen, setIsModalOpen]       = useState(false);
@@ -120,12 +127,18 @@ export const Messages: React.FC = () => {
   const [showNewCat, setShowNewCat]         = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
 
+  // Modal confirmar exclusão
+  const [deleteTarget, setDeleteTarget]     = useState<MessageTemplate | null>(null);
+  const [isDeleting, setIsDeleting]         = useState(false);
+
   // Modal envio WhatsApp
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [patients, setPatients]             = useState<any[]>([]);
-  const [patientSearch, setPatientSearch]   = useState('');
   const [isPatientsLoading, setIsPatientsLoading] = useState(false);
-  const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  // patientStatusFilter persisted in preferences
+  const patientStatusFilter = preferences.messages.patientStatusFilter;
+  const setPatientStatusFilter = (v: 'all' | 'ativo' | 'inativo') => updatePreference('messages', { patientStatusFilter: v });
   const [sendTemplate, setSendTemplate]     = useState<MessageTemplate | null>(null);
   const [sendMeta, setSendMeta]             = useState({
     appointmentDate: new Date().toISOString().split('T')[0],
@@ -195,16 +208,18 @@ export const Messages: React.FC = () => {
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
-      const name  = (p.full_name || p.name || '').toLowerCase();
-      const email = (p.email || '').toLowerCase();
-      const phone = (p.whatsapp || p.phone || p.celular || '').toLowerCase();
-      const term  = patientSearch.toLowerCase();
-      return name.includes(term) || email.includes(term) || phone.includes(term);
+      if (patientStatusFilter === 'ativo')   return p.active === 1 || p.active === true || p.is_active === 1;
+      if (patientStatusFilter === 'inativo') return p.active === 0 || p.active === false || p.is_active === 0;
+      return true;
     });
-  }, [patients, patientSearch]);
+  }, [patients, patientStatusFilter]);
 
-  const allFilteredSelected = filteredPatients.length > 0 &&
-    filteredPatients.every(p => selectedPatientIds.includes(String(p.id)));
+  const patientOptions = useMemo(() =>
+    filteredPatients.map(p => ({
+      id: String(p.id),
+      label: p.full_name || p.name || 'Sem nome',
+    })),
+  [filteredPatients]);
 
   // ── Contagens por categoria ────────────────────────────────────────────────
   const catCounts = useMemo(() => {
@@ -343,15 +358,14 @@ export const Messages: React.FC = () => {
   };
 
   const previewMessage = useMemo(() => {
-    if (!sendTemplate || selectedPatientIds.length === 0) return '';
-    const patient = patients.find(p => String(p.id) === selectedPatientIds[0]);
+    if (!sendTemplate || !selectedPatientId) return '';
+    const patient = patients.find(p => String(p.id) === selectedPatientId);
     return patient ? fillTemplate(sendTemplate.content, patient) : '';
-  }, [sendTemplate, selectedPatientIds, sendMeta, patients]);
+  }, [sendTemplate, selectedPatientId, sendMeta, patients]);
 
   const handleOpenSendModal = async (template: MessageTemplate) => {
     setSendTemplate(template);
-    setSelectedPatientIds([]);
-    setPatientSearch('');
+    setSelectedPatientId('');
     setIsSendModalOpen(true);
     if (patients.length === 0) {
       setIsPatientsLoading(true);
@@ -368,21 +382,33 @@ export const Messages: React.FC = () => {
 
   const handleSendWhatsApp = () => {
     if (!sendTemplate) return;
-    if (selectedPatientIds.length === 0) {
-      pushToast('error', 'Selecione pelo menos um paciente.');
+    if (!selectedPatientId) {
+      pushToast('error', 'Selecione um paciente.');
       return;
     }
-    let opened = 0;
-    selectedPatientIds.forEach((id, index) => {
-      const patient = patients.find(p => String(p.id) === id);
-      if (!patient) return;
-      const phone = normalizePhone(patient.whatsapp || patient.phone || patient.celular);
-      if (!phone) { pushToast('error', `Sem telefone: ${patient.full_name || patient.name}`); return; }
-      const url = `https://wa.me/${phone}?text=${encodeURIComponent(fillTemplate(sendTemplate.content, patient))}`;
-      setTimeout(() => window.open(url, '_blank'), 150 * index);
-      opened++;
-    });
-    if (opened > 0) { pushToast('success', `WhatsApp aberto para ${opened} paciente(s).`); setIsSendModalOpen(false); }
+    const patient = patients.find(p => String(p.id) === selectedPatientId);
+    if (!patient) return;
+    const phone = normalizePhone(patient.whatsapp || patient.phone || patient.celular);
+    if (!phone) { pushToast('error', `Sem telefone: ${patient.full_name || patient.name}`); return; }
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(fillTemplate(sendTemplate.content, patient))}`;
+    window.open(url, '_blank');
+    pushToast('success', 'WhatsApp aberto!');
+    setIsSendModalOpen(false);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/messages/templates/${deleteTarget.id}`);
+      setTemplates(prev => prev.filter(t => t.id !== deleteTarget.id));
+      pushToast('success', 'Modelo removido.');
+      setDeleteTarget(null);
+    } catch (err: any) {
+      pushToast('error', err.message || 'Erro ao remover');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -790,76 +816,59 @@ export const Messages: React.FC = () => {
             <div className="px-8 py-6 space-y-6 overflow-y-auto">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                {/* Lista de pacientes */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                      <Users size={12} /> Pacientes
-                    </label>
-                    <button
-                      onClick={() => {
-                        const ids = filteredPatients.map(p => String(p.id));
-                        if (allFilteredSelected) {
-                          setSelectedPatientIds(prev => prev.filter(id => !ids.includes(id)));
-                        } else {
-                          setSelectedPatientIds(prev => Array.from(new Set([...prev, ...ids])));
-                        }
-                      }}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
-                    >
-                      {allFilteredSelected ? 'Desmarcar todos' : 'Selecionar todos'}
-                    </button>
+                {/* Paciente — Combobox + filtro status */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Users size={12} /> Paciente
+                  </label>
+
+                  {/* Filtro ativo/inativo/todos */}
+                  <div className="flex gap-1.5">
+                    {(['all', 'ativo', 'inativo'] as const).map(opt => (
+                      <button
+                        key={opt}
+                        onClick={() => setPatientStatusFilter(opt)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                          patientStatusFilter === opt
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                        }`}
+                      >
+                        {opt === 'all' ? 'Todos' : opt === 'ativo' ? 'Ativos' : 'Inativos'}
+                      </button>
+                    ))}
                   </div>
 
-                  <div className="relative mb-2">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      value={patientSearch}
-                      onChange={e => setPatientSearch(e.target.value)}
+                  {isPatientsLoading ? (
+                    <div className="flex items-center gap-2 py-3 text-slate-400 text-sm">
+                      <Loader2 size={16} className="animate-spin" /> Carregando pacientes...
+                    </div>
+                  ) : (
+                    <Combobox
+                      label="Selecionar paciente"
+                      options={patientOptions}
+                      value={selectedPatientId}
+                      onChange={(id) => setSelectedPatientId(String(id))}
                       placeholder="Buscar paciente..."
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
+                      showSelectedBadge
+                      showResultCount
                     />
-                  </div>
-
-                  <div className="border border-slate-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
-                    {isPatientsLoading && (
-                      <div className="flex items-center justify-center py-8 text-slate-400">
-                        <Loader2 size={20} className="animate-spin mr-2" /> Carregando...
-                      </div>
-                    )}
-                    {!isPatientsLoading && filteredPatients.length === 0 && (
-                      <div className="py-6 text-center text-sm text-slate-400">Nenhum paciente encontrado</div>
-                    )}
-                    {!isPatientsLoading && filteredPatients.map(p => {
-                      const id = String(p.id);
-                      const name = p.full_name || p.name || 'Sem nome';
-                      const phone = p.whatsapp || p.phone || p.celular || '';
-                      const checked = selectedPatientIds.includes(id);
-                      return (
-                        <label key={id} className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => setSelectedPatientIds(prev =>
-                              prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-                            )}
-                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-700 truncate">{name}</p>
-                            <p className="text-xs text-slate-400 truncate">{phone || p.email || '—'}</p>
-                          </div>
-                          {checked && <Check size={14} className="text-indigo-500 shrink-0" />}
-                        </label>
-                      );
-                    })}
-                  </div>
-
-                  {selectedPatientIds.length > 0 && (
-                    <p className="text-xs font-bold text-indigo-600 mt-2">
-                      {selectedPatientIds.length} paciente(s) selecionado(s)
-                    </p>
                   )}
+
+                  {selectedPatientId && (() => {
+                    const p = patients.find(x => String(x.id) === selectedPatientId);
+                    if (!p) return null;
+                    const phone = p.whatsapp || p.phone || p.celular || '';
+                    return (
+                      <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 text-sm space-y-0.5">
+                        <p className="font-semibold text-slate-700">{p.full_name || p.name}</p>
+                        <p className="text-xs text-slate-400">{phone || p.email || 'Sem contato'}</p>
+                        {!phone && (
+                          <p className="text-xs text-rose-500 font-semibold mt-1">⚠ Sem telefone — não será possível enviar</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Dados variáveis + preview */}
@@ -899,7 +908,7 @@ export const Messages: React.FC = () => {
                   {/* Preview */}
                   <div>
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">
-                      Preview <span className="font-normal normal-case">(1º paciente selecionado)</span>
+                      Preview
                     </label>
                     <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed min-h-[80px]">
                       {previewMessage || (
@@ -919,10 +928,10 @@ export const Messages: React.FC = () => {
                 radius="xl"
                 leftIcon={<Send size={15} />}
                 onClick={handleSendWhatsApp}
-                disabled={selectedPatientIds.length === 0}
+                disabled={!selectedPatientId}
                 className="shadow-lg shadow-emerald-100"
               >
-                Enviar para {selectedPatientIds.length > 0 ? selectedPatientIds.length : '...'} paciente(s)
+                Enviar via WhatsApp
               </Button>
             </div>
           </div>
