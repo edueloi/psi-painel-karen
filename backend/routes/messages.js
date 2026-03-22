@@ -29,45 +29,89 @@ ensureColumns();
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_TEMPLATES = [
+  // ── Lembretes ──────────────────────────────────────────────────────────────
   {
-    name: 'Lembrete de Consulta',
+    name: 'Lembrete de Consulta (Amanhã)',
     category: 'Lembrete',
-    content: 'Olá, {{nome_paciente}}! 👋 Passando para lembrá-lo(a) da sua consulta amanhã, *{{data_agendamento}}* às *{{horario}}*.\n\nServiço: {{servico}}\n\nQualquer dúvida estamos à disposição! 😊\n— {{nome_clinica}}'
+    content: '{{saudacao}}, {{primeiro_nome}}! 👋\n\nPassando para lembrá-lo(a) da sua consulta *amanhã*:\n\n📅 Data: *{{data_agendamento}}*\n⏰ Horário: *{{horario}}*\n💼 Serviço: {{servico}}\n\nQualquer dúvida, estamos à disposição! 😊\n— {{nome_clinica}}'
+  },
+  {
+    name: 'Lembrete de Consulta (Hoje)',
+    category: 'Lembrete',
+    content: '{{saudacao}}, {{primeiro_nome}}! ⏰\n\nSua sessão de *hoje* está confirmada:\n\n🕐 Horário: *{{horario}}*\n💼 Serviço: {{servico}}\n👤 Profissional: {{nome_profissional}}\n\nTe esperamos! — {{nome_clinica}}'
   },
   {
     name: 'Confirmação de Agendamento',
     category: 'Lembrete',
-    content: 'Olá, {{nome_paciente}}! ✅ Seu agendamento foi confirmado.\n\n📅 Data: *{{data_agendamento}}*\n⏰ Horário: *{{horario}}*\n💼 Serviço: {{servico}}\n👤 Profissional: {{nome_profissional}}\n\nAté lá! — {{nome_clinica}}'
+    content: '{{saudacao}}, {{primeiro_nome}}! ✅\n\nSeu agendamento foi confirmado com sucesso:\n\n📅 Data: *{{data_agendamento}}*\n⏰ Horário: *{{horario}}*\n💼 Serviço: {{servico}}\n👤 Profissional: {{nome_profissional}}\n\nEm caso de imprevisto, avise-nos com antecedência.\n— {{nome_clinica}}'
+  },
+  {
+    name: 'Reagendamento de Sessão',
+    category: 'Lembrete',
+    content: '{{saudacao}}, {{primeiro_nome}}! 🔄\n\nSua sessão foi *reagendada* para:\n\n📅 Nova data: *{{data_agendamento}}*\n⏰ Horário: *{{horario}}*\n\nQualquer dúvida, entre em contato!\n— {{nome_clinica}}'
   },
   {
     name: 'Início de Tratamento',
     category: 'Lembrete',
-    content: 'Olá, {{nome_paciente}}! 🌟 Ficamos felizes em iniciar este processo com você!\n\nSua primeira sessão está agendada para *{{data_agendamento}}* às *{{horario}}* com {{nome_profissional}}.\n\nQualquer dúvida, estamos à disposição! — {{nome_clinica}}'
+    content: '{{saudacao}}, {{primeiro_nome}}! 🌟\n\nFicamos felizes em iniciar este processo com você!\n\nSua *primeira sessão* está agendada para:\n📅 *{{data_agendamento}}* às *{{horario}}*\n👤 Com {{nome_profissional}}\n\nSe tiver qualquer dúvida antes, estamos aqui! 💙\n— {{nome_clinica}}'
   },
+  {
+    name: 'Sessão em 1 Hora',
+    category: 'Lembrete',
+    content: '{{saudacao}}, {{primeiro_nome}}! ⏳\n\nEm *1 hora* começa sua sessão de *{{servico}}* com {{nome_profissional}}.\n\n🕐 Horário: *{{horario}}*\n\nTe esperamos em breve!\n— {{nome_clinica}}'
+  },
+  // ── Financeiro ─────────────────────────────────────────────────────────────
   {
     name: 'Cobrança Pendente',
     category: 'Financeiro',
-    content: 'Olá, {{nome_paciente}}! 💳 Identificamos que você possui um valor pendente de *R$ {{valor_total}}*.\n\nPor favor, entre em contato para regularizar.\n\n— {{nome_clinica}}'
+    content: '{{saudacao}}, {{primeiro_nome}}! 💳\n\nIdentificamos um valor *pendente* de *R$ {{valor_total}}* referente a {{servico}}.\n\nPor favor, entre em contato para regularizar.\n— {{nome_clinica}}'
   },
   {
-    name: 'Recibo de Pagamento',
+    name: 'Confirmação de Pagamento',
     category: 'Financeiro',
-    content: 'Olá, {{nome_paciente}}! 🎉 Confirmamos o recebimento do seu pagamento de *R$ {{valor_total}}* referente a {{servico}}.\n\nObrigado pela confiança! — {{nome_clinica}}'
+    content: '{{saudacao}}, {{primeiro_nome}}! 🎉\n\nConfirmamos o recebimento do seu pagamento de *R$ {{valor_total}}* referente a {{servico}}.\n\nObrigado pela confiança! 💙\n— {{nome_clinica}}'
   },
+  {
+    name: 'Link de Pagamento',
+    category: 'Financeiro',
+    content: '{{saudacao}}, {{primeiro_nome}}! 💳\n\nSegue o link para pagamento do seu serviço de *{{servico}}* no valor de *R$ {{valor_total}}*.\n\nEm caso de dúvidas, entre em contato.\n— {{nome_clinica}}'
+  },
+  // ── Aniversário ────────────────────────────────────────────────────────────
   {
     name: 'Parabéns pelo Aniversário',
     category: 'Aniversário',
-    content: '🎂 Feliz aniversário, {{nome_paciente}}!\n\nToda a equipe da *{{nome_clinica}}* deseja a você um dia muito especial! Que este novo ciclo seja repleto de saúde, alegria e conquistas! 🎉'
+    content: '🎂 Feliz aniversário, {{primeiro_nome}}!\n\nToda a equipe da *{{nome_clinica}}* deseja a você um dia muito especial! Que este novo ciclo seja repleto de saúde, alegria e conquistas! 🎉🎊'
   },
+  {
+    name: 'Aniversário + Desconto',
+    category: 'Aniversário',
+    content: '🎉 Feliz aniversário, {{primeiro_nome}}!\n\nPara celebrar este dia especial, a *{{nome_clinica}}* tem um presentinho para você: um desconto especial na próxima sessão! 🎁\n\nEntre em contato para saber mais! 💙'
+  },
+  // ── Outros ─────────────────────────────────────────────────────────────────
   {
     name: 'Cancelamento de Sessão',
     category: 'Outros',
-    content: 'Olá, {{nome_paciente}}. Infelizmente precisamos cancelar sua sessão do dia *{{data_agendamento}}* às *{{horario}}*.\n\nEntraremos em contato para reagendar o mais breve possível.\n\nDesculpe o transtorno. — {{nome_clinica}}'
+    content: '{{saudacao}}, {{primeiro_nome}}.\n\nInfelizmente precisamos *cancelar* sua sessão do dia *{{data_agendamento}}* às *{{horario}}*.\n\nEntraremos em contato para reagendar o mais breve possível. Desculpe o transtorno.\n— {{nome_clinica}}'
   },
   {
     name: 'Falta na Sessão',
     category: 'Outros',
-    content: 'Olá, {{nome_paciente}}! Notamos sua ausência na sessão de hoje, *{{data_agendamento}}* às *{{horario}}*.\n\nEntre em contato para reagendar. — {{nome_clinica}}'
+    content: '{{saudacao}}, {{primeiro_nome}}! 😟\n\nNotamos sua ausência na sessão de hoje (*{{data_agendamento}}* às *{{horario}}*).\n\nEntre em contato para reagendar e manter a continuidade do seu atendimento.\n— {{nome_clinica}}'
+  },
+  {
+    name: 'Retorno após Pausa',
+    category: 'Outros',
+    content: '{{saudacao}}, {{primeiro_nome}}! 😊\n\nSentimos sua falta! Gostaríamos de saber como você está e verificar se há interesse em retomar os atendimentos.\n\nEstamos à disposição sempre que precisar! 💙\n— {{nome_clinica}}'
+  },
+  {
+    name: 'Documentos Pendentes',
+    category: 'Outros',
+    content: '{{saudacao}}, {{primeiro_nome}}!\n\nIdentificamos que existem *documentos pendentes* relacionados ao seu cadastro em nossa clínica.\n\nPor favor, entre em contato para regularizar.\n— {{nome_clinica}}'
+  },
+  {
+    name: 'Pesquisa de Satisfação',
+    category: 'Outros',
+    content: '{{saudacao}}, {{primeiro_nome}}! 🌟\n\nSua opinião é muito importante para nós! Gostaríamos de saber como foi sua experiência com a *{{nome_clinica}}*.\n\nDe 1 a 5, como você avalia nosso atendimento?\n\nObrigado pela sua avaliação! 💙'
   },
 ];
 
@@ -108,19 +152,19 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// POST /messages/seed-defaults - cria templates padrão para o tenant se não tiver nenhum
+// POST /messages/seed-defaults - cria templates padrão que ainda não existem para o tenant
 router.post('/seed-defaults', async (req, res) => {
   try {
-    const [existing] = await db.query(
-      'SELECT COUNT(*) as total FROM message_templates WHERE tenant_id = ?',
+    // Busca nomes já existentes para não duplicar
+    const [existingRows] = await db.query(
+      'SELECT name FROM message_templates WHERE tenant_id = ?',
       [req.user.tenant_id]
     );
-    if (existing[0].total > 0) {
-      return res.json({ seeded: 0, message: 'Tenant já possui templates' });
-    }
+    const existingNames = new Set(existingRows.map(r => r.name));
 
     let seeded = 0;
     for (const tpl of DEFAULT_TEMPLATES) {
+      if (existingNames.has(tpl.name)) continue; // já existe, pula
       await db.query(
         'INSERT INTO message_templates (tenant_id, name, content, channel, category, is_global) VALUES (?, ?, ?, ?, ?, ?)',
         [req.user.tenant_id, tpl.name, tpl.content, 'whatsapp', tpl.category, 1]

@@ -3,24 +3,37 @@ import { MessageTemplate } from '../types';
 import { api } from '../services/api';
 import {
   MessageCircle, Search, Plus, Edit3, Trash2, Send, Variable, X, Copy, Check,
-  Loader2, MessageSquare, Tag, Users, Sparkles
+  Loader2, MessageSquare, Tag, Users, Sparkles, LayoutGrid, List
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
+import { GridTable, Column } from '../components/UI/GridTable';
 import { useToast } from '../contexts/ToastContext';
 
 // ── Variáveis disponíveis ─────────────────────────────────────────────────────
 const AVAILABLE_VARIABLES = [
-  { label: 'Nome do Cliente',    tag: '{{nome_paciente}}' },
-  { label: 'Data Agendamento',   tag: '{{data_agendamento}}' },
-  { label: 'Horário',            tag: '{{horario}}' },
-  { label: 'Serviço',            tag: '{{servico}}' },
-  { label: 'Nome Profissional',  tag: '{{nome_profissional}}' },
-  { label: 'Valor Total',        tag: '{{valor_total}}' },
-  { label: 'Nome da Clínica',    tag: '{{nome_clinica}}' },
+quem esta l  { label: 'Saudação (auto)',    tag: '{{saudacao}}',         hint: 'Bom dia / Boa tarde / Boa noite conforme o horário' },
+  { label: 'Nome do Cliente',    tag: '{{nome_paciente}}',    hint: 'Nome completo do paciente' },
+  { label: 'Primeiro Nome',      tag: '{{primeiro_nome}}',    hint: 'Somente o primeiro nome' },
+  { label: 'Data Agendamento',   tag: '{{data_agendamento}}', hint: 'Data da sessão' },
+  { label: 'Horário',            tag: '{{horario}}',          hint: 'Hora da sessão' },
+  { label: 'Serviço',            tag: '{{servico}}',          hint: 'Tipo de serviço' },
+  { label: 'Nome Profissional',  tag: '{{nome_profissional}}',hint: 'Profissional responsável' },
+  { label: 'Valor Total',        tag: '{{valor_total}}',      hint: 'Valor cobrado' },
+  { label: 'Nome da Clínica',    tag: '{{nome_clinica}}',     hint: 'Nome do consultório' },
 ];
 
+// Retorna a saudação correta com base na hora atual
+function getSaudacao(): string {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return 'Bom dia';
+  if (h >= 12 && h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
 const VARIABLE_COLORS: Record<string, string> = {
+  '{{saudacao}}':          'bg-pink-100 text-pink-700 border-pink-300',
   '{{nome_paciente}}':     'bg-indigo-100 text-indigo-700 border-indigo-300',
+  '{{primeiro_nome}}':     'bg-indigo-50 text-indigo-600 border-indigo-200',
   '{{data_agendamento}}':  'bg-sky-100 text-sky-700 border-sky-300',
   '{{horario}}':           'bg-violet-100 text-violet-700 border-violet-300',
   '{{servico}}':           'bg-emerald-100 text-emerald-700 border-emerald-300',
@@ -97,6 +110,7 @@ export const Messages: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [allCategories, setAllCategories]   = useState<string[]>(['Lembrete', 'Financeiro', 'Aniversário', 'Outros']);
   const [isLoading, setIsLoading]           = useState(true);
+  const [viewMode, setViewMode]             = useState<'cards' | 'list'>('cards');
 
   // Modal criar/editar
   const [isModalOpen, setIsModalOpen]       = useState(false);
@@ -129,11 +143,9 @@ export const Messages: React.FC = () => {
     const load = async () => {
       setIsLoading(true);
       try {
+        // Garante que todos os templates padrão existam (inclui novos sem duplicar)
+        await api.post<any>('/messages/seed-defaults', {});
         let rows = await api.get<any[]>('/messages/templates');
-        if (rows.length === 0) {
-          const seeded = await api.post<any>('/messages/seed-defaults', {});
-          rows = seeded.templates || [];
-        }
         const mapped = rows.map(mapTemplate);
         setTemplates(mapped);
         // Atualiza categorias únicas
@@ -310,14 +322,18 @@ export const Messages: React.FC = () => {
   const normalizePhone = (v?: string) => (v || '').replace(/\D/g, '');
 
   const fillTemplate = (content: string, patient: any) => {
+    const fullName     = patient?.full_name || patient?.name || '';
+    const primeiroNome = fullName.split(' ')[0] || fullName;
     const data: Record<string, string> = {
-      nome_paciente:    patient?.full_name || patient?.name || '',
-      data_agendamento: sendMeta.appointmentDate,
-      horario:          sendMeta.appointmentTime,
-      servico:          sendMeta.service,
+      saudacao:          getSaudacao(),
+      nome_paciente:     fullName,
+      primeiro_nome:     primeiroNome,
+      data_agendamento:  sendMeta.appointmentDate,
+      horario:           sendMeta.appointmentTime,
+      servico:           sendMeta.service,
       nome_profissional: '',
-      valor_total:      sendMeta.total,
-      nome_clinica:     sendMeta.clinic,
+      valor_total:       sendMeta.total,
+      nome_clinica:      sendMeta.clinic,
     };
     let result = content;
     Object.entries(data).forEach(([k, v]) => {
@@ -401,15 +417,33 @@ export const Messages: React.FC = () => {
 
         {/* ── SEARCH + CATEGORY TABS ── */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Buscar por título ou conteúdo..."
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
-            />
+          {/* Search + view toggle */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Buscar por título ou conteúdo..."
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setViewMode('cards')}
+                title="Visualização em cards"
+                className={`p-2.5 rounded-xl border transition-all ${viewMode === 'cards' ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'}`}
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                title="Visualização em lista"
+                className={`p-2.5 rounded-xl border transition-all ${viewMode === 'list' ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'}`}
+              >
+                <List size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Category tabs */}
@@ -631,6 +665,7 @@ export const Messages: React.FC = () => {
                     <button
                       key={v.tag}
                       onClick={() => handleInsertVariable(v.tag)}
+                      title={v.hint}
                       className={`${getBadgeClass(v.tag)} cursor-pointer hover:opacity-80 active:scale-95 transition-all`}
                     >
                       <Variable size={9} />
