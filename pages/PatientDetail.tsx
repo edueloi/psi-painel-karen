@@ -4,7 +4,7 @@ import {
   ArrowLeft, Calendar, FileText, BrainCircuit, ClipboardList, FolderOpen,
   Boxes, StickyNote, MapPin, Shield, Phone, Mail, User, Edit2,
   Loader2, Download, Trash2, FileUp, TrendingUp, ExternalLink,
-  ChevronRight, History, Activity
+  ChevronRight, History, Activity, AlertTriangle, X
 } from 'lucide-react';
 import { api, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
@@ -167,9 +167,9 @@ export const PatientDetail: React.FC = () => {
   const active = isActive(patient);
 
   return (
-    <div className="flex flex-col h-full min-h-screen bg-slate-50">
-      {/* Top bar */}
-      <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
+    <div className="-m-4 md:-m-6 lg:-m-8 bg-slate-50 flex flex-col">
+      {/* Top bar — sticky relativo ao scroll do main layout */}
+      <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-20 shadow-sm">
         <button onClick={() => navigate('/pacientes')} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors">
           <ArrowLeft size={18} />
         </button>
@@ -192,7 +192,7 @@ export const PatientDetail: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div>
         {/* Hero header */}
         <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-6">
           <div className="flex items-center gap-4">
@@ -434,13 +434,14 @@ const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: st
       {sorted.map((a: any) => {
         const dt = new Date(a.start || a.appointment_date || '');
         const isPast = dt < new Date();
-        const statusColor: Record<string, string> = {
-          completed: 'bg-emerald-100 text-emerald-700',
-          cancelled: 'bg-red-100 text-red-700',
-          'no-show': 'bg-amber-100 text-amber-700',
-          confirmed: 'bg-blue-100 text-blue-700',
-          scheduled: 'bg-indigo-100 text-indigo-700',
+        const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+          completed:  { label: 'Realizado',   cls: 'bg-emerald-100 text-emerald-700' },
+          cancelled:  { label: 'Cancelado',   cls: 'bg-red-100 text-red-700' },
+          'no-show':  { label: 'Faltou',      cls: 'bg-amber-100 text-amber-700' },
+          confirmed:  { label: 'Confirmado',  cls: 'bg-blue-100 text-blue-700' },
+          scheduled:  { label: 'Agendado',    cls: 'bg-indigo-100 text-indigo-700' },
         };
+        const statusInfo = a.status ? (STATUS_MAP[a.status] || { label: a.status, cls: 'bg-slate-100 text-slate-500' }) : null;
         return (
           <div key={a.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-4">
             <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center text-center shrink-0 ${isPast ? 'bg-slate-100' : 'bg-indigo-100'}`}>
@@ -458,9 +459,9 @@ const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: st
                 {a.psychologist_name || a.professional_name_text ? ` · ${a.psychologist_name || a.professional_name_text}` : ''}
               </div>
             </div>
-            {a.status && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor[a.status] || 'bg-slate-100 text-slate-500'}`}>
-                {a.status}
+            {statusInfo && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusInfo.cls}`}>
+                {statusInfo.label}
               </span>
             )}
           </div>
@@ -473,6 +474,8 @@ const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: st
 // ─── Tab: Documentos ─────────────────────────────────────────────────────────
 const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: string; onRefresh: () => void }> = ({ documents, loading, patientId, onRefresh }) => {
   const [uploading, setUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleUpload = async (file: File) => {
@@ -491,11 +494,12 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
     setUploading(false);
   };
 
-  const handleDelete = async (docId: string) => {
-    if (!confirm('Excluir documento?')) return;
-    await safeGet(`/uploads/${docId}` as any);
-    // use DELETE
-    try { await api.request(`/uploads/${docId}`, { method: 'DELETE' }); } catch {}
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try { await api.request(`/uploads/${deleteTarget.id}`, { method: 'DELETE' }); } catch {}
+    setDeleting(false);
+    setDeleteTarget(null);
     onRefresh();
   };
 
@@ -545,7 +549,7 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
               </a>
             )}
             <button
-              onClick={() => handleDelete(String(doc.id))}
+              onClick={() => setDeleteTarget({ id: String(doc.id), name: doc.title || doc.file_name || 'documento' })}
               className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
               title="Excluir"
             >
@@ -554,6 +558,17 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
           </div>
         </div>
       ))}
+
+      {/* Modal de confirmação de exclusão */}
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Excluir documento"
+        message={`Tem certeza que deseja excluir "${deleteTarget?.name}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 };
@@ -586,22 +601,49 @@ const TabProntuario: React.FC<{ records: any[]; loading: boolean; patientId: str
 // ─── Tab: Formulários ─────────────────────────────────────────────────────────
 const TabFormularios: React.FC<{ forms: any[]; loading: boolean; patientId: string; navigate: (p: string) => void }> = ({ forms, loading, patientId, navigate }) => {
   if (loading) return <TabLoader />;
+
+  const goToForm = (f: any) => {
+    const formId = f.form_id || f.formId;
+    if (formId) {
+      navigate(`/formularios/${formId}/respostas?patient_id=${patientId}`);
+    } else {
+      navigate(`/formularios/respostas?patient_id=${patientId}`);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-black text-slate-500 uppercase tracking-wide">{forms.length} resposta(s)</span>
         <button onClick={() => navigate(`/formularios/lista?patient_id=${patientId}`)} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:underline">
-          Ver formulários <ExternalLink size={11} />
+          Ver todos <ExternalLink size={11} />
         </button>
       </div>
       {forms.length === 0 && <EmptyState icon={<ClipboardList size={32} />} label="Nenhuma resposta de formulário" />}
       {forms.map((f: any) => (
-        <div key={f.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3">
+        <button
+          key={f.id}
+          onClick={() => goToForm(f)}
+          className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 hover:border-indigo-200 hover:bg-indigo-50/40 transition-all group"
+        >
           <div className="flex items-center justify-between gap-2">
-            <div className="text-xs font-bold text-slate-800 truncate">{f.form_title || f.title || 'Formulário'}</div>
-            <div className="text-[10px] text-slate-400 shrink-0">{formatDate(f.submitted_at || f.created_at)}</div>
+            <div className="flex items-center gap-2 min-w-0">
+              <ClipboardList size={14} className="text-indigo-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
+                {f.form_title || f.title || 'Formulário'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {f.score != null && (
+                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                  {f.score} pts
+                </span>
+              )}
+              <span className="text-[10px] text-slate-400">{formatDate(f.submitted_at || f.created_at)}</span>
+              <ChevronRight size={12} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
+            </div>
           </div>
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -637,3 +679,48 @@ const EmptyState: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, 
     <p className="text-xs font-semibold text-slate-400">{label}</p>
   </div>
 );
+
+const ConfirmModal: React.FC<{
+  open: boolean;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  loading?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({ open, title, message, confirmLabel = 'Confirmar', loading, onConfirm, onCancel }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+            <AlertTriangle size={18} className="text-red-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-slate-800">{title}</h3>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{message}</p>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {loading && <Loader2 size={12} className="animate-spin" />}
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
