@@ -91,8 +91,10 @@ const formatDate = (dateStr: string) => {
 const parseBrDate = (s: string): string => {
   if (!s) return '';
   if (s.includes('/')) {
-    const [d, m, y] = s.split('/');
-    // Handle 2-digit year: "26" → "2026"
+    const parts = s.split('/');
+    if (parts.length < 3) return ''; // ex: "27/02" sem ano → inválido
+    const [d, m, y] = parts;
+    if (!y) return '';
     const fullYear = y.length === 2 ? `20${y}` : y.padStart(4, '0');
     return `${fullYear}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
   }
@@ -280,6 +282,7 @@ export const LivroCaixa: React.FC = () => {
   const [csvFile, setCsvFile]       = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [previewRows, setPreviewRows] = useState<any[]>([]);
+  const [importStep, setImportStep] = useState<'input' | 'preview'>('input');
 
   // ── Form ──────────────────────────────────────────────────────────────────────
   const [txType, setTxType]               = useState<'income' | 'expense'>('income');
@@ -391,73 +394,116 @@ export const LivroCaixa: React.FC = () => {
     ? `${MONTH_NAMES[selectedMonth.month - 1]}-${selectedMonth.year}`
     : 'livro-caixa';
 
-  // Parser para o formato real do Excel:
-  // Col A: Data (DD/MM/YY)  B: Formato pagamento  C: Pagador  D: CPF Pagador
-  // Col E: Valor recebido (R$ 100,00)  F: Descrição do Serviço  G: Categoria/Formato  H: Paciente
+  // Parser para o formato real do Excel.
+  // Aceita dois modos automaticamente:
+  //   Modo COMPLETO (A→M): Data | Formato | Pagador | CPF | Valor | Descrição | Categoria | Paciente | ...
+  //   Modo PARCIAL  (E→M): Valor | Descrição | Categoria | Paciente | ... (sem data/pagador)
   const parsePaste = (text: string) => {
     const lines = text.trim().split('\n').filter(l => l.trim());
-    // Se a primeira linha for cabeçalho (contém "data" ou "valor"), pular
-    const startIdx = lines[0] && /data|valor|pagador/i.test(lines[0].split('\t')[0]) ? 1 : 0;
-    return lines.slice(startIdx).map(line => {
+    if (!lines.length) return [];
+
+    // Pular linha de cabeçalho se existir
+    const startIdx = lines[0] && /data|valor|pagador|formato/i.test(lines[0].split('\t')[0]) ? 1 : 0;
+    const dataLines = lines.slice(startIdx).filter(l => l.trim());
+    if (!dataLines.length) return [];
+
+    // Detectar modo: se a 1ª coluna parece um valor (R$ ou número com vírgula) → modo parcial
+    const firstCols = dataLines[0].split('\t').map(c => c.trim());
+    const isParcial = /^R?\$?\s*[\d.,]+/.test(firstCols[0]) && !firstCols[0].includes('/');
+
+    return dataLines.map(line => {
       const cols = line.split('\t').map(c => c.trim());
-      const dateRaw   = cols[0] || '';
-      const formatPay = cols[1] || '';  // Formato de pagamento (ex: "Pix recebido")
-      const payerName = cols[2] || '';  // Pagador
-      const payerCpf  = cols[3] || '';  // CPF Pagador
-      const valueRaw  = cols[4] || '';  // Valor recebido (ex: "R$ 100,00")
-      const serviceDesc = cols[5] || '';  // Descrição do Serviço
-      const category  = cols[6] || '';  // Categoria/Formato (ex: "Sessão Avulsa")
-      const patientName = cols[7] || ''; // Paciente
+
+      let dateRaw: string, formatPay: string, payerName: string, payerCpf: string;
+      let valueRaw: string, serviceDesc: string, category: string, patientName: string;
+
+      if (isParcial) {
+        // Modo E→M: sem data, sem pagador
+        dateRaw     = '';
+        formatPay   = 'pix';
+        payerName   = '';
+        payerCpf    = '';
+        valueRaw    = cols[0] || '';   // Valor recebido
+        serviceDesc = cols[1] || '';   // Descrição do Serviço
+        category    = cols[2] || '';   // Categoria/Formato
+        patientName = cols[3] || '';   // Paciente
+      } else {
+        // Modo completo A→M
+        dateRaw     = cols[0] || '';
+        formatPay   = cols[1] || '';
+        payerName   = cols[2] || '';
+        payerCpf    = cols[3] || '';
+        valueRaw    = cols[4] || '';
+        serviceDesc = cols[5] || '';
+        category    = cols[6] || '';
+        patientName = cols[7] || '';
+      }
 
       const date   = parseBrDate(dateRaw);
-      // Strip "R$", spaces, dots (thousands), replace comma with dot
       const rawVal = valueRaw.replace(/R\$\s*/i, '').replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
       const amount = parseFloat(rawVal) || 0;
 
-      const description = serviceDesc || formatPay || 'Importado';
-      const resolvedCategory = category || detectCategory(serviceDesc) || 'Geral';
+      const description     = serviceDesc || formatPay || 'Importado';
+      const resolvedCategory = detectCategory(category || serviceDesc) || 'Geral';
+      const resolvedPatient  = patientName || payerName;
 
       return {
-        date, description,
-        payer_name: payerName, payer_cpf: payerCpf,
-        patient_name: patientName,
-        amount, payment_method: detectPaymentMethod(formatPay),
-        type: 'income' as const, category: resolvedCategory, status: 'paid' as const,
+        date: date || new Date().toISOString().split('T')[0],
+        description,
+        payer_name: payerName || resolvedPatient,
+        payer_cpf: payerCpf,
+        patient_name: resolvedPatient,
+        amount,
+        payment_method: detectPaymentMethod(formatPay),
+        type: 'income' as const,
+        category: resolvedCategory,
+        status: 'paid' as const,
       };
-    }).filter(r => r.date && r.amount > 0);
+    }).filter(r => r.amount > 0); // só filtra por valor — data tem fallback
   };
 
   // ─── Import ───────────────────────────────────────────────────────────────────
 
-  const handleImport = async () => {
+  const parseCsvRows = async (): Promise<any[]> => {
+    if (!csvFile) return [];
+    const text = await csvFile.text();
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    const startIdx = lines[0].toLowerCase().includes('data') ? 1 : 0;
+    return lines.slice(startIdx).map(line => {
+      const [dateRaw, description, valueRaw, typeRaw] = line.split(',').map(c => c.trim().replace(/^"|"$/g,''));
+      const date   = parseBrDate(dateRaw);
+      const amount = parseFloat((valueRaw || '').replace(',','.')) || 0;
+      const type   = typeRaw?.toLowerCase().includes('despesa') ? 'expense' : 'income';
+      return { date, description: description || 'Importado', amount, type, category: 'Geral', payment_method: 'pix', status: 'paid' };
+    }).filter((r: any) => r.date && r.amount > 0);
+  };
+
+  const handlePreview = async () => {
     let rows: any[] = [];
     if (importTab === 'paste') {
       rows = parsePaste(pasteText);
       if (!rows.length) { pushToast('Nenhuma linha válida. Cole os dados diretamente do Excel (Data, Formato, Pagador, CPF, Valor, Descrição, Categoria, Paciente)', 'error'); return; }
     } else if (importTab === 'csv' && csvFile) {
-      const text = await csvFile.text();
-      const lines = text.trim().split('\n').filter(l => l.trim());
-      const startIdx = lines[0].toLowerCase().includes('data') ? 1 : 0;
-      rows = lines.slice(startIdx).map(line => {
-        const [dateRaw, description, valueRaw, typeRaw] = line.split(',').map(c => c.trim().replace(/^"|"$/g,''));
-        const date   = parseBrDate(dateRaw);
-        const amount = parseFloat((valueRaw || '').replace(',','.')) || 0;
-        const type   = typeRaw?.toLowerCase().includes('despesa') ? 'expense' : 'income';
-        return { date, description: description || 'Importado', amount, type, category: 'Geral', payment_method: 'pix', status: 'paid' };
-      }).filter(r => r.date && r.amount > 0);
+      rows = await parseCsvRows();
+      if (!rows.length) { pushToast('Nenhuma linha válida no arquivo CSV', 'error'); return; }
     } else {
       pushToast('Selecione um arquivo CSV ou cole os dados', 'error'); return;
     }
+    setPreviewRows(rows);
+    setImportStep('preview');
+  };
 
+  const handleImport = async () => {
+    if (!previewRows.length) return;
     setIsImporting(true);
     try {
       let success = 0;
-      for (const row of rows) {
+      for (const row of previewRows) {
         try { await api.post('/finance', row); success++; } catch { /* skip */ }
       }
       pushToast(`${success} lançamento(s) importado(s) com sucesso!`, 'success');
-      setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]);
-      fetchDetail();
+      setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); setImportStep('input');
+      if (view === 'detail') fetchDetail();
     } catch {
       pushToast('Erro ao importar dados', 'error');
     } finally {
@@ -697,6 +743,13 @@ export const LivroCaixa: React.FC = () => {
           </div>
 
           <button
+            onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
+          >
+            <Upload size={14} /> Importar
+          </button>
+
+          <button
             onClick={() => {
               const now = new Date();
               openDetail(now.getMonth() + 1, now.getFullYear());
@@ -916,103 +969,139 @@ export const LivroCaixa: React.FC = () => {
       {/* ── Import Modal ─────────────────────────────────────────────────────── */}
       <Modal
         isOpen={isImportOpen}
-        onClose={() => { setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); }}
-        title="Importar Lançamentos"
-        subtitle="SINCRONIZAÇÃO EM LOTE"
+        onClose={() => { setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); setImportStep('input'); }}
+        title={importStep === 'preview' ? 'Pré-análise da Importação' : 'Importar Lançamentos'}
+        subtitle={importStep === 'preview' ? `${previewRows.length} LANÇAMENTO(S) IDENTIFICADO(S)` : 'SINCRONIZAÇÃO EM LOTE'}
         maxWidth="lg"
         footer={
           <>
             <button
-              onClick={() => { setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); }}
+              onClick={() => {
+                if (importStep === 'preview') { setImportStep('input'); setPreviewRows([]); }
+                else { setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); }
+              }}
               className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
             >
-              Cancelar
+              {importStep === 'preview' ? '← Voltar' : 'Cancelar'}
             </button>
-            <button
-              onClick={handleImport}
-              disabled={isImporting}
-              className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-slate-900 hover:bg-slate-800 shadow-xl transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-60"
-            >
-              {isImporting && <Loader2 size={14} className="animate-spin" />}
-              Importar Dados
-            </button>
+            {importStep === 'input' ? (
+              <button
+                onClick={handlePreview}
+                className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-slate-900 hover:bg-slate-800 shadow-xl transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2"
+              >
+                <Search size={14} /> Pré-visualizar
+              </button>
+            ) : (
+              <button
+                onClick={handleImport}
+                disabled={isImporting}
+                className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-60"
+              >
+                {isImporting && <Loader2 size={14} className="animate-spin" />}
+                <CheckCircle2 size={14} /> Confirmar Importação
+              </button>
+            )}
           </>
         }
       >
-        {/* Tab Selector */}
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-5">
-          {[
-            { id: 'csv',   label: 'Arquivo CSV' },
-            { id: 'paste', label: 'Colar Dados (Excel)' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => { setImportTab(tab.id as any); setPreviewRows([]); }}
-              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                importTab === tab.id
-                  ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {importTab === 'csv' ? (
-          <div>
-            <div
-              onClick={() => document.getElementById('csv-upload-lc')?.click()}
-              className="border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition-all"
-            >
-              <FileText size={40} className="text-slate-300 mb-3" />
-              {csvFile ? (
-                <p className="font-black text-slate-700 text-sm">{csvFile.name}</p>
-              ) : (
-                <>
-                  <p className="font-black text-slate-600">Clique para selecionar seu CSV</p>
-                  <p className="text-[10px] font-black text-slate-400 mt-1.5 uppercase tracking-widest">DATA, DESCRIÇÃO, VALOR, TIPO</p>
-                </>
-              )}
+        {importStep === 'input' ? (
+          <>
+            {/* Tab Selector */}
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-5">
+              {[
+                { id: 'csv',   label: 'Arquivo CSV' },
+                { id: 'paste', label: 'Colar Dados (Excel)' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setImportTab(tab.id as any); }}
+                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    importTab === tab.id
+                      ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
-            <input id="csv-upload-lc" type="file" accept=".csv" className="hidden" onChange={(e) => setCsvFile(e.target.files?.[0] || null)} />
-          </div>
-        ) : (
-          <div>
-            <p className="text-sm font-bold text-slate-500 mb-3">
-              Selecione as linhas na sua planilha e cole abaixo (Ctrl+V). Colunas: <span className="text-slate-700">Data · Formato · Pagador · CPF · Valor · Descrição · Categoria · Paciente</span>
-            </p>
-            <textarea
-              value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              rows={8}
-              placeholder={'07/01/26\tPix recebido\tCamila Souza\t044.614.079-18\tR$ 100,00\tPsicoterapia Individual\tSessão Avulsa\tCamila'}
-              className="w-full border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 bg-slate-50 outline-none focus:border-slate-400 focus:bg-white resize-none placeholder:text-slate-300 font-mono transition-all"
-            />
-            {pasteText && (
-              <button
-                onClick={() => setPreviewRows(parsePaste(pasteText))}
-                className="mt-2 text-[10px] font-black text-slate-700 uppercase tracking-widest hover:text-slate-900 transition-colors"
-              >
-                Visualizar Preview ({parsePaste(pasteText).length} linha(s) válida(s))
-              </button>
-            )}
-            {previewRows.length > 0 && (
-              <div className="mt-3 border border-slate-100 rounded-2xl overflow-hidden">
-                <div className="bg-slate-50 px-4 py-2.5 text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                  Preview — {previewRows.length} lançamento(s)
+
+            {importTab === 'csv' ? (
+              <div>
+                <div
+                  onClick={() => document.getElementById('csv-upload-lc')?.click()}
+                  className="border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  <FileText size={40} className="text-slate-300 mb-3" />
+                  {csvFile ? (
+                    <p className="font-black text-slate-700 text-sm">{csvFile.name}</p>
+                  ) : (
+                    <>
+                      <p className="font-black text-slate-600">Clique para selecionar seu CSV</p>
+                      <p className="text-[10px] font-black text-slate-400 mt-1.5 uppercase tracking-widest">DATA, DESCRIÇÃO, VALOR, TIPO</p>
+                    </>
+                  )}
                 </div>
-                <div className="divide-y divide-slate-50 max-h-48 overflow-y-auto">
-                  {previewRows.slice(0, 10).map((r, i) => (
-                    <div key={i} className="px-4 py-2 flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-slate-400">{r.date}</span>
-                      <span className="text-xs font-bold text-slate-700 truncate mx-3 flex-1">{r.payer_name || r.description}</span>
-                      <span className="text-xs font-black text-emerald-600">{formatCurrency(r.amount)}</span>
-                    </div>
-                  ))}
-                </div>
+                <input id="csv-upload-lc" type="file" accept=".csv" className="hidden" onChange={(e) => setCsvFile(e.target.files?.[0] || null)} />
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-bold text-slate-500 mb-3">
+                  Selecione as linhas na sua planilha e cole abaixo (Ctrl+V). Colunas: <span className="text-slate-700">Data · Formato · Pagador · CPF · Valor · Descrição · Categoria · Paciente</span>
+                </p>
+                <textarea
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  rows={8}
+                  placeholder={'07/01/26\tPix recebido\tCamila Souza\t044.614.079-18\tR$ 100,00\tPsicoterapia Individual\tSessão Avulsa\tCamila'}
+                  className="w-full border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 bg-slate-50 outline-none focus:border-slate-400 focus:bg-white resize-none placeholder:text-slate-300 font-mono transition-all"
+                />
               </div>
             )}
+          </>
+        ) : (
+          /* ── Preview Step ── */
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
+                <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Receitas</p>
+                <p className="text-base font-black text-emerald-700">{previewRows.filter(r => r.type === 'income').length}</p>
+              </div>
+              <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center">
+                <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Despesas</p>
+                <p className="text-base font-black text-rose-700">{previewRows.filter(r => r.type === 'expense').length}</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 text-center">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total</p>
+                <p className="text-base font-black text-slate-700">{formatCurrency(previewRows.reduce((s, r) => s + (r.type === 'income' ? r.amount : -r.amount), 0))}</p>
+              </div>
+            </div>
+
+            <div className="border border-slate-100 rounded-2xl overflow-hidden">
+              <div className="bg-slate-50 px-4 py-2.5 grid grid-cols-[80px_1fr_100px_90px] gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                <span>Data</span><span>Descrição / Pagador</span><span className="text-right">Valor</span><span className="text-right">Método</span>
+              </div>
+              <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+                {previewRows.map((r, i) => (
+                  <div key={i} className="px-4 py-2.5 grid grid-cols-[80px_1fr_100px_90px] gap-2 items-center hover:bg-slate-50 transition-colors">
+                    <span className="text-[10px] font-bold text-slate-400">{formatDate(r.date)}</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-700 truncate">{r.description || r.payer_name || '—'}</p>
+                      {r.payer_name && <p className="text-[9px] text-slate-400 truncate">{r.payer_name}</p>}
+                    </div>
+                    <span className={`text-xs font-black text-right ${r.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      {r.type === 'income' ? '+' : '-'}{formatCurrency(r.amount)}
+                    </span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase text-right">{METHOD_LABEL[r.payment_method] ?? r.payment_method}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+              <AlertCircle size={14} className="text-amber-500 shrink-0" />
+              <p className="text-[10px] font-bold text-amber-700">Revise os dados acima antes de confirmar. Esta ação não pode ser desfeita automaticamente.</p>
+            </div>
           </div>
         )}
       </Modal>

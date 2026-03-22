@@ -445,6 +445,24 @@ async function migrate() {
       comanda_id INT,
       payment_method VARCHAR(100),
       status ENUM('pending','paid','cancelled') DEFAULT 'paid',
+      payer_name VARCHAR(255),
+      payer_cpf VARCHAR(20),
+      beneficiary_name VARCHAR(255),
+      beneficiary_cpf VARCHAR(20),
+      observation TEXT,
+      receipt_status ENUM('pending','issued') DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- TIPOS DE SESSÃO ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS session_types (
+      id VARCHAR(50) PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      default_value DECIMAL(10,2) DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

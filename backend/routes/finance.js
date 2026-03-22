@@ -7,6 +7,33 @@ const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+// ── Auto-migrate financial_transactions ───────────────────────────────────────
+async function ensureFinanceColumns() {
+  const cols = [
+    "ALTER TABLE financial_transactions ADD COLUMN payer_name VARCHAR(255) NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN payer_cpf VARCHAR(20) NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN beneficiary_name VARCHAR(255) NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN beneficiary_cpf VARCHAR(20) NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN observation TEXT NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN receipt_status ENUM('pending','issued') DEFAULT 'pending'",
+    `CREATE TABLE IF NOT EXISTS session_types (
+      id VARCHAR(50) PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      default_value DECIMAL(10,2) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  ];
+  for (const sql of cols) {
+    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column') && !e.message.includes('already exists')) console.warn('Finance schema warning:', e.message); }
+  }
+}
+let financeSchemaReady = false;
+async function withFinanceSchema() {
+  if (!financeSchemaReady) { await ensureFinanceColumns(); financeSchemaReady = true; }
+}
+
 // ── Auto-migrate comandas table ──────────────────────────────────────────────
 async function ensureSchema() {
   const cols = [
@@ -179,6 +206,7 @@ router.delete('/comandas/:id/payments/:paymentId', async (req, res) => {
 // GET /finance - Transações com filtros
 router.get('/', async (req, res) => {
   try {
+    await withFinanceSchema();
     const { start, end, type, category } = req.query;
 
     let query = `
@@ -246,8 +274,9 @@ router.get('/summary', async (req, res) => {
 // POST /finance
 router.post('/', async (req, res) => {
   try {
-    const { 
-      type, category, description, amount, date, 
+    await withFinanceSchema();
+    const {
+      type, category, description, amount, date,
       patient_id, appointment_id, payment_method, status,
       payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation
     } = req.body;

@@ -116,7 +116,7 @@ router.post('/forgot-password', async (req, res) => {
       [token, expiresStr, user.id]
     );
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
     const link = `${frontendUrl}/redefinir-senha?token=${token}`;
     const html = templates.passwordReset({ name: user.name, link });
     await sendMail(user.email, '🔐 Redefinir Senha — PsiFlux', html);
