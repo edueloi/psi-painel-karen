@@ -547,12 +547,12 @@ router.post('/import/preview', memoryUpload.single('file'), async (req, res) => 
       if (cpf) {
         const cleanCpf = String(cpf).replace(/\D/g, '');
         const [existing] = await db.query(
-          'SELECT full_name FROM patients WHERE tenant_id = ? AND REPLACE(REPLACE(REPLACE(cpf, ".", ""), "-", ""), "/", "") = ?',
+          'SELECT name FROM patients WHERE tenant_id = ? AND REPLACE(REPLACE(REPLACE(cpf, ".", ""), "-", ""), "/", "") = ?',
           [req.user.tenant_id, cleanCpf]
         );
         if (existing.length > 0) {
           duplicate = true;
-          existingName = existing[0].full_name;
+          existingName = existing[0].name;
         }
       }
 
@@ -614,11 +614,11 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
         if (cpfRaw) {
             const cleanCpf = String(cpfRaw).replace(/\D/g, '');
             const [existing] = await db.query(
-                'SELECT full_name FROM patients WHERE tenant_id = ? AND REPLACE(REPLACE(REPLACE(cpf, ".", ""), "-", ""), "/", "") = ?',
+                'SELECT name FROM patients WHERE tenant_id = ? AND REPLACE(REPLACE(REPLACE(cpf, ".", ""), "-", ""), "/", "") = ?',
                 [req.user.tenant_id, cleanCpf]
             );
             if (existing.length > 0) {
-                duplicates.push({ name, cpf: cpfRaw, existingName: existing[0].full_name });
+                duplicates.push({ name, cpf: cpfRaw, existingName: existing[0].name });
                 continue;
             }
         }
