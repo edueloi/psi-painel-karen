@@ -4,6 +4,20 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const { authorize } = require('../middleware/auth');
 
+// ── Auto-migrate users table ──────────────────────────────────────────────────
+async function ensureUsersColumns() {
+  const stmts = [
+    'ALTER TABLE users ADD COLUMN cpf VARCHAR(20) NULL',
+    'ALTER TABLE users ADD COLUMN permissions JSON NULL',
+    'ALTER TABLE users ADD COLUMN tenant_profile_id INT NULL',
+  ];
+  for (const sql of stmts) {
+    try { await db.query(sql); } catch (e) { /* coluna já existe */ }
+  }
+}
+ensureUsersColumns();
+// ─────────────────────────────────────────────────────────────────────────────
+
 // GET /users/me - Perfil do usuário autenticado (sem filtro de tenant)
 router.get('/me', async (req, res) => {
   try {

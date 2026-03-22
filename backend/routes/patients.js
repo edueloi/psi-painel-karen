@@ -515,6 +515,66 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST /patients/import/preview — Pré-visualiza planilha e detecta CPFs duplicados
+router.post('/import/preview', memoryUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+
+    const findValue = (row, ...names) => {
+      const rowKeys = Object.keys(row);
+      for (const name of names) {
+        const key = rowKeys.find(k => k.toLowerCase().trim() === name.toLowerCase().trim());
+        if (key && row[key] !== undefined && row[key] !== '') return row[key];
+      }
+      return null;
+    };
+
+    const preview = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const name = findValue(row, 'Nome', 'Nome Completo', 'Paciente');
+      if (!name || String(name).toLowerCase().includes('exemplo')) continue;
+
+      const cpf = findValue(row, 'CPF', 'Documento') || null;
+      let duplicate = false;
+      let existingName = null;
+
+      if (cpf) {
+        const cleanCpf = String(cpf).replace(/\D/g, '');
+        const [existing] = await db.query(
+          'SELECT full_name FROM patients WHERE tenant_id = ? AND REPLACE(REPLACE(REPLACE(cpf, ".", ""), "-", ""), "/", "") = ?',
+          [req.user.tenant_id, cleanCpf]
+        );
+        if (existing.length > 0) {
+          duplicate = true;
+          existingName = existing[0].full_name;
+        }
+      }
+
+      preview.push({
+        line: i + 2,
+        name,
+        cpf: cpf || null,
+        email: findValue(row, 'Email', 'E-mail') || null,
+        phone: findValue(row, 'Telefone', 'Celular', 'WhatsApp', 'Fone') || null,
+        birth_date: findValue(row, 'Data Nascimento', 'Nascimento', 'Data Nasc') || null,
+        duplicate,
+        existingName
+      });
+    }
+
+    res.json({ preview });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao processar prévia' });
+  }
+});
+
 // POST /patients/import
 router.post('/import', memoryUpload.single('file'), async (req, res) => {
   try {
@@ -527,6 +587,7 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
 
     const imported = [];
     const errors = [];
+    const duplicates = [];
 
     // Helper para encontrar valor em colunas com nomes variados
     const findValue = (row, ...names) => {
@@ -542,10 +603,24 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const name = findValue(row, 'Nome', 'Nome Completo', 'Paciente');
-        
+
         if (!name || String(name).toLowerCase().includes('exemplo')) {
             if (!name) errors.push(`Linha ${i + 2}: Nome não encontrado`);
             continue;
+        }
+
+        // Verificar CPF duplicado antes de inserir
+        const cpfRaw = findValue(row, 'CPF', 'Documento');
+        if (cpfRaw) {
+            const cleanCpf = String(cpfRaw).replace(/\D/g, '');
+            const [existing] = await db.query(
+                'SELECT full_name FROM patients WHERE tenant_id = ? AND REPLACE(REPLACE(REPLACE(cpf, ".", ""), "-", ""), "/", "") = ?',
+                [req.user.tenant_id, cleanCpf]
+            );
+            if (existing.length > 0) {
+                duplicates.push({ name, cpf: cpfRaw, existingName: existing[0].full_name });
+                continue;
+            }
         }
 
         try {
@@ -599,7 +674,8 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
     res.json({
         message: `${imported.length} pacientes importados com sucesso`,
         importedLength: imported.length,
-        errors
+        errors,
+        duplicates
     });
   } catch (err) {
     console.error(err);

@@ -71,6 +71,11 @@ export const Patients: React.FC = () => {
   const [historyPatient, setHistoryPatient] = useState<Patient | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [profileData, setProfileData] = useState<any>({});
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importPreviewOpen, setImportPreviewOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const { pushToast } = useToast();
 
 
@@ -590,21 +595,45 @@ export const Patients: React.FC = () => {
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = '';
+    setIsLoadingPreview(true);
     const formData = new FormData();
     formData.append('file', file);
     try {
+      const result = await api.request<any>('/patients/import/preview', { method: 'POST', body: formData });
+      setImportPreview(result.preview || []);
+      setImportFile(file);
+      setImportPreviewOpen(true);
+    } catch (err) {
+      console.error('Erro ao gerar prévia:', err);
+      pushToast('error', 'Erro ao ler o arquivo. Verifique o formato.');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importFile) return;
+    setIsImporting(true);
+    const formData = new FormData();
+    formData.append('file', importFile);
+    try {
       const result = await api.request<any>('/patients/import', { method: 'POST', body: formData });
       pushToast('success', result.message);
-      if (result.errors && result.errors.length > 0) {
-        console.warn('Erros na importação:', result.errors);
-        pushToast('error', 'Algumas linhas tiveram erros. Verifique o console.');
+      if (result.duplicates && result.duplicates.length > 0) {
+        result.duplicates.forEach((d: any) => {
+          pushToast('warning', `CPF ${d.cpf} já cadastrado para "${d.existingName}" — "${d.name}" ignorado.`);
+        });
       }
+      setImportPreviewOpen(false);
+      setImportFile(null);
+      setImportPreview([]);
       fetchPatients();
     } catch (err) {
       console.error('Erro ao importar:', err);
       pushToast('error', 'Erro ao importar pacientes.');
     } finally {
-      e.target.value = '';
+      setIsImporting(false);
     }
   };
 
@@ -666,8 +695,9 @@ export const Patients: React.FC = () => {
                 )}
               </div>
               <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
-                <FileUp size={14} /> <span className="hidden sm:inline">Importar</span>
-                <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} />
+                {isLoadingPreview ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />}
+                <span className="hidden sm:inline">{isLoadingPreview ? 'Lendo...' : 'Importar'}</span>
+                <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
               </label>
               <button
                 onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
@@ -1382,6 +1412,93 @@ export const Patients: React.FC = () => {
         patient={historyPatient}
         onClose={() => setHistoryPatient(null)}
       />
+
+      {/* Import Preview Modal */}
+      {importPreviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Pré-visualização da Importação</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {importPreview.length} pacientes encontrados
+                  {importPreview.filter(r => r.duplicate).length > 0 && (
+                    <span className="ml-2 text-rose-500 font-semibold">
+                      · {importPreview.filter(r => r.duplicate).length} CPF(s) duplicado(s)
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-auto flex-1 px-6 py-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-slate-100">
+                    <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Nome</th>
+                    <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">CPF</th>
+                    <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Telefone</th>
+                    <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Nascimento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importPreview.map((row, idx) => (
+                    <tr key={idx} className={row.duplicate ? 'bg-rose-50' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                      <td className="py-2 pr-4 font-medium text-slate-800">{row.name}</td>
+                      <td className="py-2 pr-4">
+                        {row.cpf ? (
+                          <span className={row.duplicate ? 'text-rose-600 font-bold flex items-center gap-1' : 'text-slate-600'}>
+                            {row.duplicate && <AlertCircle size={13} />}
+                            {row.cpf}
+                            {row.duplicate && (
+                              <span className="ml-1 text-[10px] font-semibold bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full">
+                                duplicado · {row.existingName}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-4 text-slate-600">{row.phone || <span className="text-slate-300 text-xs">—</span>}</td>
+                      <td className="py-2 text-slate-600">{row.birth_date || <span className="text-slate-300 text-xs">—</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            {importPreview.filter(r => r.duplicate).length > 0 && (
+              <div className="px-6 py-3 bg-rose-50 border-t border-rose-100 text-xs text-rose-600 font-medium flex items-center gap-2">
+                <AlertCircle size={14} />
+                Pacientes com CPF duplicado serão ignorados na importação. Os demais serão importados normalmente.
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
+              <button
+                onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }}
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmImport}
+                disabled={isImporting || importPreview.filter(r => !r.duplicate).length === 0}
+                className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isImporting ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
+                Importar {importPreview.filter(r => !r.duplicate).length} paciente(s)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
