@@ -128,7 +128,7 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
             <div className="min-w-0 flex-1">
               <h4
                 className={cx(
-                  'truncate font-semibold',
+                  'font-semibold leading-snug',
                   compact ? 'text-sm' : 'text-[15px]',
                   theme.title
                 )}

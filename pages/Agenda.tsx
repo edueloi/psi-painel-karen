@@ -1176,7 +1176,8 @@ export const Agenda: React.FC = () => {
         fetchData();
         closeAppointmentModal();
       } else {
-        pushToast('error', 'Erro ao salvar agendamento.');
+        // Exibe a mensagem do backend diretamente (conflito de horário, duplicata, etc.)
+        pushToast('error', e?.message || 'Erro ao salvar agendamento.');
       }
     } finally {
       setIsSaving(false);

@@ -481,6 +481,38 @@ router.post('/', async (req, res) => {
         const currentEnd = new Date(currentStart.getTime() + duration * 60000);
         const formattedEnd = currentEnd.toISOString().slice(0, 19).replace('T', ' ');
 
+        // Checagem de conflito de horário: mesmo profissional com período sobreposto
+        if (finalProfessionalId) {
+            const [conflicts] = await db.query(
+                `SELECT a.id,
+                        u.name AS prof_name,
+                        DATE_FORMAT(a.start_time, '%H:%i') AS h_start,
+                        DATE_FORMAT(a.end_time,   '%H:%i') AS h_end
+                 FROM appointments a
+                 LEFT JOIN users u ON u.id = a.professional_id
+                 WHERE a.tenant_id       = ?
+                   AND a.professional_id = ?
+                   AND a.status NOT IN ('cancelled')
+                   AND a.start_time < ?
+                   AND a.end_time   > ?
+                 LIMIT 1`,
+                [req.user.tenant_id, finalProfessionalId, formattedEnd, formattedStart]
+            );
+            if (conflicts.length > 0) {
+                if (!freq) {
+                    // Agendamento único — retorna erro ao invés de salvar
+                    const c = conflicts[0];
+                    return res.status(409).json({
+                        error: `${c.prof_name || 'O profissional'} já possui um agendamento das ${c.h_start} às ${c.h_end} neste período.`,
+                        conflict: true
+                    });
+                }
+                // Recorrência — pula apenas esta ocorrência conflitante
+                console.log(`[recurrence] Pulando ${formattedStart} — conflito de horário para prof_id=${finalProfessionalId}`);
+                continue;
+            }
+        }
+
         const [result] = await db.query(
           `INSERT INTO appointments (
             tenant_id, patient_id, professional_id, service_id, package_id, title,
