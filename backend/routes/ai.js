@@ -887,6 +887,206 @@ REGRAS:
   }
 });
 
+// ── Aura Contábil: busca dados financeiros consolidados do tenant ─────────────
+async function getFullFinancialContext(tenantId) {
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear - 1, currentYear];
+
+  // Resumo por mês/ano
+  const [byMonth] = await db.query(`
+    SELECT YEAR(date) as year, MONTH(date) as month,
+      COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as income,
+      COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as expense,
+      COUNT(*) as count
+    FROM financial_transactions
+    WHERE tenant_id = ? AND YEAR(date) IN (?, ?)
+    GROUP BY YEAR(date), MONTH(date)
+    ORDER BY year, month
+  `, [tenantId, ...years]);
+
+  // Resumo anual
+  const [byYear] = await db.query(`
+    SELECT YEAR(date) as year,
+      COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as income,
+      COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as expense
+    FROM financial_transactions
+    WHERE tenant_id = ? AND YEAR(date) IN (?, ?)
+    GROUP BY YEAR(date)
+    ORDER BY year
+  `, [tenantId, ...years]);
+
+  // Pendentes
+  const [[pending]] = await db.query(`
+    SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as count
+    FROM financial_transactions
+    WHERE tenant_id = ? AND type='income' AND status='pending'
+  `, [tenantId]);
+
+  // Categorias mais comuns
+  const [topCategories] = await db.query(`
+    SELECT category, COALESCE(SUM(amount),0) as total, COUNT(*) as count
+    FROM financial_transactions
+    WHERE tenant_id = ? AND type='income' AND YEAR(date) = ?
+    GROUP BY category ORDER BY total DESC LIMIT 10
+  `, [tenantId, currentYear]);
+
+  // Maiores pagadores
+  const [topPayers] = await db.query(`
+    SELECT payer_name, payer_cpf, COALESCE(SUM(amount),0) as total, COUNT(*) as sessions
+    FROM financial_transactions
+    WHERE tenant_id = ? AND type='income' AND YEAR(date) = ?
+      AND payer_name IS NOT NULL AND payer_name != ''
+    GROUP BY payer_name, payer_cpf ORDER BY total DESC LIMIT 20
+  `, [tenantId, currentYear]);
+
+  const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  const monthsText = byMonth.map(m =>
+    `  ${monthNames[m.month-1]}/${m.year}: Receitas R$${Number(m.income).toFixed(2)} | Despesas R$${Number(m.expense).toFixed(2)} | Saldo R$${(Number(m.income)-Number(m.expense)).toFixed(2)}`
+  ).join('\n');
+
+  const yearsText = byYear.map(y =>
+    `  ${y.year}: Receitas R$${Number(y.income).toFixed(2)} | Despesas R$${Number(y.expense).toFixed(2)} | Lucro R$${(Number(y.income)-Number(y.expense)).toFixed(2)}`
+  ).join('\n');
+
+  const payersText = topPayers.map(p =>
+    `  ${p.payer_name}${p.payer_cpf ? ' (CPF: '+p.payer_cpf+')' : ''}: R$${Number(p.total).toFixed(2)} em ${p.sessions} sessão(ões)`
+  ).join('\n');
+
+  const categoriesText = topCategories.map(c =>
+    `  ${c.category}: R$${Number(c.total).toFixed(2)} (${c.count} lançamentos)`
+  ).join('\n');
+
+  return { monthsText, yearsText, payersText, categoriesText, pending, currentYear };
+}
+
+// POST /ai/aura-contabil — Chat especializado em contabilidade/fiscal
+router.post('/aura-contabil', async (req, res) => {
+  try {
+    let { messages } = req.body;
+    if (typeof messages === 'string') messages = JSON.parse(messages);
+
+    const tenantId = req.user.tenant_id;
+    const userName = req.user.name || 'Profissional';
+
+    const { monthsText, yearsText, payersText, categoriesText, pending, currentYear } = await getFullFinancialContext(tenantId);
+
+    const systemPrompt = `Voce e a Aura, assistente especializada em contabilidade e gestao fiscal para psicologos autonomos e clinicas de psicologia no Brasil.
+Seu tom e profissional, preciso e educado. Voce e parceira de ${userName}.
+
+═══════════════════════════════════════════════════
+DADOS FINANCEIROS REAIS DO USUARIO (${currentYear} e ano anterior)
+═══════════════════════════════════════════════════
+
+RESUMO POR MES:
+${monthsText || '  Nenhum lancamento encontrado.'}
+
+RESUMO ANUAL:
+${yearsText || '  Nenhum dado anual.'}
+
+RECEBIMENTOS PENDENTES:
+  Total pendente: R$${Number(pending.total).toFixed(2)} (${pending.count} lancamentos)
+
+PRINCIPAIS PAGADORES (${currentYear}):
+${payersText || '  Nenhum pagador identificado.'}
+
+PRINCIPAIS CATEGORIAS DE RECEITA (${currentYear}):
+${categoriesText || '  Nenhuma categoria encontrada.'}
+
+═══════════════════════════════════════════════════
+CONHECIMENTO CONTABIL E FISCAL PARA PSICOLOGA(O) AUTONOMA(O)
+═══════════════════════════════════════════════════
+
+── CARNE LEAO (DARF Mensal) ──
+Psicologos autonomos que recebem de pessoas fisicas devem recolher DARF via Carne-Leao mensalmente.
+Tabela progressiva de IR 2024/2025 (mensal):
+  Ate R$ 2.259,20: isento
+  R$ 2.259,21 a R$ 2.826,65: 7,5% (deducao R$ 169,44)
+  R$ 2.826,66 a R$ 3.751,05: 15% (deducao R$ 381,44)
+  R$ 3.751,06 a R$ 4.664,68: 22,5% (deducao R$ 662,77)
+  Acima de R$ 4.664,68: 27,5% (deducao R$ 896,00)
+Deducoes permitidas no Carne-Leao: despesas de manutencao do consultorio (aluguel, materiais, cursos), contribuicao ao INSS, dependentes (R$ 189,59/dependente/mes).
+Prazo de recolhimento: ultimo dia util do mes seguinte ao mes de competencia.
+Como calcular: rendimentos tributaveis do mes - deducoes = base de calculo → aplicar aliquota → subtrair parcela a deduzir.
+
+── DECLARACAO DE AJUSTE ANUAL (IRPF) ──
+Obrigatorio para quem recebeu rendimentos tributaveis acima do limite anual ou usou Carne-Leao no ano.
+Livro Caixa e necessario para comprovar despesas dedutivas.
+Deve informar todos os recebimentos de PF e PJ, separados por mes.
+
+── ISS (IMPOSTO SOBRE SERVICOS) ──
+Incide sobre servicos de psicologia (codigo 8.01 – servicos de saude).
+Aliquota: varia por municipio, geralmente 2% a 5%.
+Competencia do municipio onde esta o estabelecimento.
+Nota Fiscal de Servico (NFS-e) obrigatoria para pessoas juridicas e recomendada para PF.
+
+── INSS AUTONOMO ──
+Psicologo autonomo deve contribuir ao INSS como contribuinte individual.
+Aliquota sobre o salario-de-contribuicao: 20% (autonomo sem vinculo empregaticio) ou 11%/15%/20% por opcao.
+Competencia mensal; DARF com codigo 1007.
+Teto INSS 2025: R$ 7.786,02/mes.
+
+── MEI E CLINICA ──
+Psicologia NAO pode ser exercida como MEI (atividade vedada pelo CBO/Receita Federal).
+Opcoes: autonomo (CPF), empresa individual (EIRELI/SLU), sociedade simples, S/S.
+Simples Nacional pode ser opcao se constituir PJ; verificar anexo III (servicos).
+
+── LIVRO CAIXA ──
+Registro cronologico de receitas e despesas do consultorio.
+Obrigatorio para autonomos que desejam deduzir despesas no IRPF.
+Nao precisa ser autenticado; basta ter documentos comprobatorios.
+Cada lancamento deve ter: data, descricao, valor, CPF do pagador (para NF/Carne-Leao).
+
+── DESPESAS DEDUTIVAS PERMITIDAS ──
+Despesas necessarias para a atividade: aluguel do consultorio, energia/agua/telefone proporcionais, material de escritorio, softwares profissionais (ex: PsiFlux), cursos e especializacoes, supervisao clinica, livros tecnicos, contribuicao ao CRP.
+Despesas NAO dedutivas: roupas, alimentacao, transporte pessoal (exceto visitas a pacientes), reformas que valorizem o imovel.
+
+── RETENCAO NA FONTE (PJ CONTRATANTE) ──
+Quando psicologo presta servico a pessoa juridica, a PJ deve reter:
+  IR na fonte: aliquota de 1,5% sobre servicos profissionais.
+  INSS: 11% (limitado ao teto), retido e recolhido pela PJ.
+  ISS: depende do municipio.
+
+── DICAS PARA PLANEJAMENTO TRIBUTARIO ──
+Separar receitas de PF (tributadas via Carne-Leao) e PJ (retencao na fonte).
+Guardar todos os recibos e documentos por 5 anos.
+Registrar CPF de cada paciente para comprovacao.
+Considerar abertura de PJ se faturamento mensal superar R$ 10.000 (analise caso a caso).
+Sempre buscar orientacao de contador para decisoes especificas.
+
+═══════════════════════════════════════════════════
+INSTRUCOES DE COMPORTAMENTO
+═══════════════════════════════════════════════════
+
+- Responda SEMPRE em portugues-BR.
+- Use os dados financeiros reais do usuario (acima) para calcular impostos e dar orientacoes especificas.
+- Quando calcular Carne-Leao, use os valores mensais reais dos dados acima.
+- Seja preciso com numeros: calcule corretamente.
+- Deixe claro que voce fornece orientacao informativa e que o usuario deve consultar um contador para decisoes especificas.
+- Formate respostas com negritos (**texto**) para titulos e use listas quando adequado.
+- NAO use blocos de codigo markdown (triple-backtick).
+- Se o usuario perguntar sobre um mes especifico, use os dados do resumo por mes acima.
+
+Data atual: ${new Date().toLocaleDateString('pt-BR')}`;
+
+    const chatMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.text || m.content }))
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: chatMessages,
+      temperature: 0.4,
+    });
+
+    res.json({ text: response.choices[0].message.content });
+  } catch (err) {
+    console.error('Erro na Aura Contábil:', err);
+    res.status(500).json({ error: 'Erro ao processar conversa contábil' });
+  }
+});
+
 router.post('/save-analysis', async (req, res) => {
   try {
     const { patientId, formTitle, analysis } = req.body;

@@ -6,7 +6,7 @@ import {
   TrendingUp, TrendingDown, Wallet, ChevronLeft, ChevronRight,
   Edit3, Trash2, RefreshCw, CheckCircle2, Clock, X, FileText,
   User, AlertCircle, Loader2, Download, Upload, DollarSign,
-  Calendar, CreditCard, Filter, LayoutGrid, List
+  Calendar, CreditCard, Filter, LayoutGrid, List, Sparkles
 } from 'lucide-react';
 import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
@@ -14,6 +14,7 @@ import { Button } from '../components/UI/Button';
 import { DatePicker } from '../components/UI/DatePicker';
 import { GridTable, Column } from '../components/UI/GridTable';
 import { AppCard } from '../components/UI/AppCard';
+import { AuraContabil } from '../components/AI/AuraContabil';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 
@@ -83,6 +84,33 @@ const METHOD_LABEL: Record<string, string> = {
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+// ─── Masks ────────────────────────────────────────────────────────────────────
+
+const maskCpf = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+};
+
+const maskCurrency = (v: string) => {
+  const digits = v.replace(/\D/g, '');
+  if (!digits) return '';
+  const num = parseInt(digits, 10) / 100;
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const amountToDisplay = (raw: string | number) => {
+  if (!raw && raw !== 0) return '';
+  const num = typeof raw === 'string' ? parseFloat(raw) : raw;
+  if (isNaN(num)) return '';
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const parseDisplayAmount = (display: string) =>
+  parseFloat(display.replace(/\./g, '').replace(',', '.')) || 0;
 
 const safeDate = (dateStr: string | null | undefined): Date | null => {
   if (!dateStr) return null;
@@ -285,6 +313,7 @@ export const LivroCaixa: React.FC = () => {
   const [flowFilter, setFlowFilter]     = useState<'all' | 'income' | 'expense'>('all');
 
   // ── Modals ────────────────────────────────────────────────────────────────────
+  const [isAuraContabilOpen, setIsAuraContabilOpen] = useState(false);
   const [isImportOpen, setIsImportOpen]   = useState(false);
   const [isNewTxOpen, setIsNewTxOpen]     = useState(false);
   const [editingTx, setEditingTx]         = useState<Transaction | null>(null);
@@ -309,13 +338,19 @@ export const LivroCaixa: React.FC = () => {
   const [txType, setTxType]               = useState<'income' | 'expense'>('income');
   const [txDate, setTxDate]               = useState<string | null>(new Date().toISOString().split('T')[0]);
   const [txDescription, setTxDescription] = useState('');
-  const [txAmount, setTxAmount]           = useState('');
+  const [txAmount, setTxAmount]           = useState(''); // formatted display: "1.250,00"
   const [txMethod, setTxMethod]           = useState('pix');
   const [txCategory, setTxCategory]       = useState('Geral');
   const [txPayerName, setTxPayerName]     = useState('');
   const [txPayerCpf, setTxPayerCpf]       = useState('');
   const [txPayerIsPatient, setTxPayerIsPatient] = useState(true);
   const [txObservation, setTxObservation] = useState('');
+
+  // ── Patients combobox ─────────────────────────────────────────────────────────
+  const [patients, setPatients] = useState<Array<{id: number; name: string; cpf: string}>>([]);
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
+  const patientRef = useRef<HTMLDivElement>(null);
 
   // ── Close export menu on outside click ────────────────────────────────────────
   useEffect(() => {
@@ -327,6 +362,30 @@ export const LivroCaixa: React.FC = () => {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // ─── Close patient dropdown on outside click ──────────────────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (patientRef.current && !patientRef.current.contains(e.target as Node)) {
+        setPatientDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ─── Fetch patients when modal opens ─────────────────────────────────────────
+  useEffect(() => {
+    if (!isNewTxOpen || patients.length > 0) return;
+    api.get<any[]>('/patients').then(data => {
+      const list = (Array.isArray(data) ? data : []).map((p: any) => ({
+        id: p.id,
+        name: p.name || p.full_name || '',
+        cpf: p.cpf || p.cpf_cnpj || '',
+      })).filter(p => p.name);
+      setPatients(list);
+    }).catch(() => {});
+  }, [isNewTxOpen]);
 
   // ─── URL sync on mount ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -388,7 +447,7 @@ export const LivroCaixa: React.FC = () => {
       setTransactions(txs);
       setSummary(sum);
     } catch {
-      pushToast('Erro ao carregar lançamentos', 'error');
+      pushToast('error', 'Erro ao carregar lançamentos');
     } finally {
       setIsLoadingDetail(false);
     }
@@ -417,11 +476,11 @@ export const LivroCaixa: React.FC = () => {
     if (!deleteMonthConfirm) return;
     try {
       await api.delete(`/finance/month/${deleteMonthConfirm.year}/${deleteMonthConfirm.month}`);
-      pushToast('Lançamentos do mês excluídos', 'success');
+      pushToast('success', 'Mês excluído', 'Todos os lançamentos do mês foram removidos.');
       setDeleteMonthConfirm(null);
       fetchArchive();
     } catch {
-      pushToast('Erro ao excluir lançamentos do mês', 'error');
+      pushToast('error', 'Erro ao excluir lançamentos do mês');
     }
   };
 
@@ -538,12 +597,12 @@ export const LivroCaixa: React.FC = () => {
     let rows: any[] = [];
     if (importTab === 'paste') {
       rows = parsePaste(pasteText);
-      if (!rows.length) { pushToast('Nenhuma linha válida. Cole os dados diretamente do Excel (Data, Formato, Pagador, CPF, Valor, Descrição, Categoria, Paciente)', 'error'); return; }
+      if (!rows.length) { pushToast('error', 'Nenhuma linha válida', 'Cole os dados diretamente do Excel: Data, Formato, Pagador, CPF, Valor, Descrição, Categoria, Paciente'); return; }
     } else if (importTab === 'csv' && csvFile) {
       rows = await parseCsvRows();
-      if (!rows.length) { pushToast('Nenhuma linha válida no arquivo CSV', 'error'); return; }
+      if (!rows.length) { pushToast('error', 'Nenhuma linha válida no arquivo CSV'); return; }
     } else {
-      pushToast('Selecione um arquivo CSV ou cole os dados', 'error'); return;
+      pushToast('error', 'Selecione um arquivo CSV ou cole os dados'); return;
     }
     setPreviewRows(rows);
     setImportStep('preview');
@@ -557,11 +616,11 @@ export const LivroCaixa: React.FC = () => {
       for (const row of previewRows) {
         try { await api.post('/finance', row); success++; } catch { /* skip */ }
       }
-      pushToast(`${success} lançamento(s) importado(s) com sucesso!`, 'success');
+      pushToast('success', 'Importação concluída!', `${success} lançamento(s) importado(s) com sucesso.`);
       setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); setImportStep('input');
       goToArchive(); // volta ao arquivo e recarrega os meses com os dados importados
     } catch {
-      pushToast('Erro ao importar dados', 'error');
+      pushToast('error', 'Erro ao importar dados');
     } finally {
       setIsImporting(false);
     }
@@ -573,6 +632,7 @@ export const LivroCaixa: React.FC = () => {
     setTxType('income'); setTxDate(new Date().toISOString().split('T')[0]);
     setTxDescription(''); setTxAmount(''); setTxMethod('pix'); setTxCategory('Geral');
     setTxPayerName(''); setTxPayerCpf(''); setTxPayerIsPatient(true); setTxObservation('');
+    setPatientQuery(''); setPatientDropdownOpen(false);
     setEditingTx(null);
   };
 
@@ -590,25 +650,28 @@ export const LivroCaixa: React.FC = () => {
     setTxType(tx.type);
     setTxDate(tx.date?.split('T')[0] ?? tx.date);
     setTxDescription(tx.description || '');
-    setTxAmount(String(tx.amount || ''));
+    setTxAmount(amountToDisplay(tx.amount));
     setTxMethod(tx.payment_method || 'pix');
     setTxCategory(tx.category || 'Geral');
     setTxPayerName(tx.payer_name || '');
-    setTxPayerCpf(tx.payer_cpf || '');
+    setTxPayerCpf(tx.payer_cpf ? maskCpf(tx.payer_cpf.replace(/\D/g,'')) : '');
     setTxPayerIsPatient(true);
     setTxObservation(tx.observation || '');
+    setPatientQuery(tx.payer_name || '');
+    setPatientDropdownOpen(false);
     setIsNewTxOpen(true);
   };
 
   const handleSaveTx = async () => {
-    if (!txAmount || parseFloat(txAmount) <= 0) { pushToast('Informe um valor válido', 'error'); return; }
-    if (!txDate) { pushToast('Informe a data', 'error'); return; }
+    const parsedAmount = parseDisplayAmount(txAmount);
+    if (!txAmount || parsedAmount <= 0) { pushToast('error', 'Informe um valor válido'); return; }
+    if (!txDate) { pushToast('error', 'Informe a data'); return; }
     setIsSaving(true);
     try {
       const payload = {
         type: txType, date: txDate,
         description: txDescription || (txType === 'income' ? 'Receita' : 'Despesa'),
-        amount: parseFloat(txAmount), payment_method: txMethod, category: txCategory,
+        amount: parsedAmount, payment_method: txMethod, category: txCategory,
         payer_name: txPayerName || null, payer_cpf: txPayerCpf || null,
         beneficiary_name: txPayerIsPatient ? txPayerName || null : null,
         beneficiary_cpf:  txPayerIsPatient ? txPayerCpf  || null : null,
@@ -616,14 +679,14 @@ export const LivroCaixa: React.FC = () => {
       };
       if (editingTx) {
         await api.put(`/finance/${editingTx.id}`, payload);
-        pushToast('Lançamento atualizado!', 'success');
+        pushToast('success', 'Lançamento atualizado!');
       } else {
         await api.post('/finance', payload);
-        pushToast('Lançamento criado!', 'success');
+        pushToast('success', 'Lançamento criado!');
       }
       setIsNewTxOpen(false); resetForm(); fetchDetail();
     } catch (err: any) {
-      pushToast(err.message || 'Erro ao salvar lançamento', 'error');
+      pushToast('error', err.message || 'Erro ao salvar lançamento');
     } finally {
       setIsSaving(false);
     }
@@ -632,17 +695,17 @@ export const LivroCaixa: React.FC = () => {
   const handleDelete = async (id: number) => {
     try {
       await api.delete(`/finance/${id}`);
-      pushToast('Lançamento removido', 'success');
+      pushToast('success', 'Lançamento removido');
       setDeleteConfirmId(null); fetchDetail();
-    } catch { pushToast('Erro ao remover lançamento', 'error'); }
+    } catch { pushToast('error', 'Erro ao remover lançamento'); }
   };
 
   const handleRepeat = async (id: number) => {
     try {
       await api.post(`/finance/repeat/${id}`, {});
-      pushToast('Lançamento reprocessado para o próximo mês!', 'success');
+      pushToast('success', 'Reprocessado com sucesso!', 'Lançamento copiado para o próximo mês.');
       fetchDetail();
-    } catch { pushToast('Erro ao reprocessar lançamento', 'error'); }
+    } catch { pushToast('error', 'Erro ao reprocessar lançamento'); }
   };
 
   // ─── Selection helpers ────────────────────────────────────────────────────────
@@ -671,7 +734,7 @@ export const LivroCaixa: React.FC = () => {
       for (const id of selectedTxIds) {
         try { await api.delete(`/finance/${id}`); ok++; } catch { /* skip */ }
       }
-      pushToast(`${ok} lançamento(s) excluído(s)!`, 'success');
+      pushToast('success', `${ok} excluído(s)!`, `${ok} lançamento(s) removido(s) com sucesso.`);
       setSelectedTxIds(new Set());
       fetchDetail();
     } finally { setIsBulkProcessing(false); }
@@ -685,7 +748,7 @@ export const LivroCaixa: React.FC = () => {
       for (const id of selectedTxIds) {
         try { await api.post(`/finance/repeat/${id}`, {}); ok++; } catch { /* skip */ }
       }
-      pushToast(`${ok} lançamento(s) reprocessado(s) para o próximo mês!`, 'success');
+      pushToast('success', 'Reprocessados com sucesso!', `${ok} lançamento(s) copiado(s) para o próximo mês.`);
       setSelectedTxIds(new Set());
       fetchDetail();
     } finally { setIsBulkProcessing(false); }
@@ -865,6 +928,13 @@ export const LivroCaixa: React.FC = () => {
               <List size={14} />
             </button>
           </div>
+
+          <button
+            onClick={() => setIsAuraContabilOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-2xl text-[10px] font-black text-emerald-700 uppercase tracking-widest transition-all shadow-sm"
+          >
+            <Sparkles size={14} /> Aura Fiscal
+          </button>
 
           <button
             onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}
@@ -1424,14 +1494,14 @@ export const LivroCaixa: React.FC = () => {
                 Valor do Repasse (R$)
               </label>
               <div className="relative">
-                <DollarSign className={`absolute left-4 top-1/2 -translate-y-1/2 ${txType === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} size={16} />
+                <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black ${txType === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>R$</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={txAmount}
-                  onChange={(e) => setTxAmount(e.target.value)}
+                  onChange={(e) => setTxAmount(maskCurrency(e.target.value))}
                   placeholder="0,00"
-                  min="0" step="0.01"
-                  className={`w-full text-lg font-black p-3.5 pl-10 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white transition-all ${
+                  className={`w-full text-lg font-black p-3.5 pl-11 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white transition-all ${
                     txType === 'income'
                       ? 'focus:border-emerald-400 text-emerald-700'
                       : 'focus:border-rose-400 text-rose-700'
@@ -1479,12 +1549,12 @@ export const LivroCaixa: React.FC = () => {
           </div>
 
           {/* Patient Identification */}
-          <div className="border-2 border-slate-100 rounded-2xl p-4 bg-slate-50/50">
-            <div className="flex items-center justify-between mb-3">
+          <div className="border-2 border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-3">
+            <div className="flex items-center justify-between">
               <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
                 Identificação do Atendimento
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={txPayerIsPatient}
@@ -1494,28 +1564,105 @@ export const LivroCaixa: React.FC = () => {
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pagador é o Paciente</span>
               </label>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Nome do Paciente</label>
+
+            {/* Patient combobox */}
+            <div ref={patientRef} className="relative">
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
+                {txPayerIsPatient ? 'Paciente / Pagador' : 'Paciente'}
+              </label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
-                  value={txPayerName}
-                  onChange={(e) => setTxPayerName(e.target.value)}
-                  placeholder="Nome completo"
-                  className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
+                  value={patientQuery}
+                  onChange={(e) => {
+                    setPatientQuery(e.target.value);
+                    setPatientDropdownOpen(true);
+                    if (!e.target.value) { setTxPayerName(''); setTxPayerCpf(''); }
+                  }}
+                  onFocus={() => setPatientDropdownOpen(true)}
+                  placeholder="Buscar paciente..."
+                  className="w-full p-3 pl-9 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
                 />
+                {txPayerName && (
+                  <button
+                    type="button"
+                    onClick={() => { setPatientQuery(''); setTxPayerName(''); setTxPayerCpf(''); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">CPF Paciente</label>
-                <input
-                  type="text"
-                  value={txPayerCpf}
-                  onChange={(e) => setTxPayerCpf(e.target.value)}
-                  placeholder="000.000.000-00"
-                  className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
-                />
-              </div>
+              {patientDropdownOpen && patientQuery.length >= 1 && (
+                <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                  {patients
+                    .filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery))
+                    .slice(0, 8)
+                    .map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setTxPayerName(p.name);
+                          setTxPayerCpf(maskCpf(p.cpf.replace(/\D/g, '')));
+                          setPatientQuery(p.name);
+                          setPatientDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+                      >
+                        <p className="text-sm font-bold text-slate-700">{p.name}</p>
+                        {p.cpf && <p className="text-[10px] text-slate-400 font-bold">{maskCpf(p.cpf.replace(/\D/g,''))}</p>}
+                      </button>
+                    ))}
+                  {patients.filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery)).length === 0 && (
+                    <p className="px-4 py-3 text-sm text-slate-400 font-bold">Nenhum paciente encontrado</p>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* CPF do paciente (auto-preenchido ou manual) */}
+            <div>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
+                CPF {txPayerIsPatient ? 'do Paciente / Pagador' : 'do Paciente'}
+              </label>
+              <input
+                type="text"
+                value={txPayerCpf}
+                onChange={(e) => setTxPayerCpf(maskCpf(e.target.value))}
+                placeholder="000.000.000-00"
+                maxLength={14}
+                className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
+              />
+            </div>
+
+            {/* Pagador separado (quando pagador ≠ paciente) */}
+            {!txPayerIsPatient && (
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Nome do Pagador</label>
+                  <input
+                    type="text"
+                    value={txPayerName}
+                    onChange={(e) => setTxPayerName(e.target.value)}
+                    placeholder="Nome completo do pagador"
+                    className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">CPF do Pagador</label>
+                  <input
+                    type="text"
+                    value={txPayerIsPatient ? txPayerCpf : ''}
+                    onChange={(e) => { if (!txPayerIsPatient) setTxPayerCpf(maskCpf(e.target.value)); }}
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                    className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Observation */}
@@ -1564,6 +1711,9 @@ export const LivroCaixa: React.FC = () => {
           </p>
         </div>
       </Modal>
+
+      {/* ── Aura Contábil Chat ───────────────────────────────────────────────── */}
+      <AuraContabil isOpen={isAuraContabilOpen} onClose={() => setIsAuraContabilOpen(false)} />
 
       {/* ── Delete Month Confirm Modal ─────────────────────────────────────────── */}
       <Modal
