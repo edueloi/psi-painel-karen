@@ -140,7 +140,7 @@ export const Professionals: React.FC = () => {
     setIsLoading(true);
     try {
         const data = await api.get<any[]>('/users');
-        setProfessionals(data);
+        setProfessionals(data.map((u: any) => ({ ...u, is_active: u.is_active ?? !!u.active })));
     } catch (e: any) {
         console.error("Erro ao carregar profissionais:", e.message);
         pushToast('error', "Erro ao carregar profissionais");
