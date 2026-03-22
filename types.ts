@@ -303,9 +303,10 @@ export interface ClinicalRecord {
 export interface MessageTemplate {
   id: string;
   title: string;
-  category: 'Lembrete' | 'Financeiro' | 'Aniversário' | 'Outros';
+  category: string;
   content: string;
   lastUsed?: string;
+  is_global?: number;
 }
 
 export interface Service {
