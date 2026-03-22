@@ -46,6 +46,7 @@ import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { LandingPage } from './pages/LandingPage';
 import { ResetPassword } from './pages/ResetPassword';
 import { AuroraAssistant } from './components/AI/AuroraAssistant';
+import { OnboardingController } from './components/Onboarding/OnboardingController';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
@@ -82,6 +83,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
     <MainLayout>
       {children}
       <AuroraAssistant />
+      {user && <OnboardingController userId={user.id} userName={user.name || ''} />}
     </MainLayout>
   );
 };

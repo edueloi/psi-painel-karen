@@ -14,6 +14,7 @@ interface AuthUser {
   crp?: string;
   shareToken?: string;
   permissions?: Record<string, boolean>;
+  uiPreferences?: Record<string, any>;
 }
 
 interface AuthContextType {
@@ -74,7 +75,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         companyName: data.company_name,
         crp: data.crp,
         shareToken: (data as any).share_token,
-        permissions: data.permissions || {}
+        permissions: data.permissions || {},
+        uiPreferences: (data as any).ui_preferences || {},
       });
     } catch (e) {
       setUser(decoded); // fallback só com id/role

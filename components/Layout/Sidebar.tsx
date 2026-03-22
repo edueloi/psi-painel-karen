@@ -93,11 +93,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                   <div className="space-y-0.5">
                     {section.items.map((item) => {
                       const isActive = item.path === '/dashboard' ? location.pathname === '/dashboard' : location.pathname.startsWith(item.path);
+                      const tourMap: Record<string, string> = {
+                        '/agenda': 'agenda',
+                        '/pacientes': 'pacientes',
+                        '/prontuario': 'prontuarios',
+                        '/formularios': 'formularios',
+                        '/servicos': 'servicos',
+                        '/comandas': 'comandas',
+                        '/financeiro': 'financeiro',
+                      };
                       return (
                         <Link
                           key={item.path}
                           to={item.path}
                           onClick={() => window.innerWidth < 1024 && onClose()}
+                          data-tour={tourMap[item.path]}
                           className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${isActive ? activeItem : inactiveItem}`}
                         >
                           {isActive && <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 ${activeBar} rounded-r-full`}></div>}

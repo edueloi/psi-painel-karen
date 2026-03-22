@@ -169,6 +169,7 @@ export const AuroraAssistant: React.FC = () => {
           onClick={() => setIsOpen(true)}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          data-tour="aurora"
           className="relative group w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
         >
           {/* Animated Background */}
