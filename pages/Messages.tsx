@@ -11,7 +11,7 @@ import { useToast } from '../contexts/ToastContext';
 
 // ── Variáveis disponíveis ─────────────────────────────────────────────────────
 const AVAILABLE_VARIABLES = [
-quem esta l  { label: 'Saudação (auto)',    tag: '{{saudacao}}',         hint: 'Bom dia / Boa tarde / Boa noite conforme o horário' },
+ { label: 'Saudação (auto)',    tag: '{{saudacao}}',         hint: 'Bom dia / Boa tarde / Boa noite conforme o horário' },
   { label: 'Nome do Cliente',    tag: '{{nome_paciente}}',    hint: 'Nome completo do paciente' },
   { label: 'Primeiro Nome',      tag: '{{primeiro_nome}}',    hint: 'Somente o primeiro nome' },
   { label: 'Data Agendamento',   tag: '{{data_agendamento}}', hint: 'Data da sessão' },
