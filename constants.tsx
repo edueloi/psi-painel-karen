@@ -37,6 +37,7 @@ export const NAV_SECTIONS = [
   {
     title: 'nav.group.financial',
     items: [
+      { label: 'nav.livroCaixa', path: '/livro-caixa', icon: <BookOpen size={20} /> },
       { label: 'nav.finance', path: '/financeiro', icon: <DollarSign size={20} /> },
       { label: 'nav.docGen', path: '/gerador-documentos', icon: <Printer size={20} /> },
       { label: 'nav.bestClients', path: '/melhores-clientes', icon: <Trophy size={20} /> },

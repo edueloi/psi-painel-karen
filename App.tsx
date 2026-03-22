@@ -11,6 +11,7 @@ import { Professionals } from './pages/Professionals';
 import { Permissions } from './pages/Permissions';
 import { SuperAdmin } from './pages/SuperAdmin';
 import { Finance } from './pages/Finance';
+import { LivroCaixa } from './pages/LivroCaixa';
 import { Services } from './pages/Services';
 import { Comandas } from './pages/Comandas';
 import { Products } from './pages/Products';
@@ -151,6 +152,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/produtos" element={<ProtectedRoute allowedRoles={['admin']}><Products /></ProtectedRoute>} />
       <Route path="/comandas" element={<ProtectedRoute allowedRoles={['admin']}><Comandas /></ProtectedRoute>} />
       <Route path="/financeiro" element={<ProtectedRoute allowedRoles={['admin']}><Finance /></ProtectedRoute>} />
+      <Route path="/livro-caixa" element={<ProtectedRoute allowedRoles={['admin']}><LivroCaixa /></ProtectedRoute>} />
       <Route path="/gerador-documentos" element={<ProtectedRoute allowedRoles={['admin']}><DocGenerator /></ProtectedRoute>} />
       <Route path="/melhores-clientes" element={<ProtectedRoute allowedRoles={['admin']}><BestClients /></ProtectedRoute>} />
       <Route path="/desempenho" element={<ProtectedRoute allowedRoles={['admin']}><Performance /></ProtectedRoute>} />
