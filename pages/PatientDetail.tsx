@@ -418,7 +418,22 @@ const TabDados: React.FC<{ patient: Patient; navigate: (p: string) => void }> = 
 // ─── Tab: Agenda ──────────────────────────────────────────────────────────────
 const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: string; navigate: (p: string) => void }> = ({ appointments, loading, patientId, navigate }) => {
   if (loading) return <TabLoader />;
-  const sorted = [...appointments].sort((a, b) => new Date(b.start || b.appointment_date || 0).getTime() - new Date(a.start || a.appointment_date || 0).getTime());
+  const sorted = [...appointments].sort((a, b) => new Date(b.start || b.start_time || b.appointment_date || 0).getTime() - new Date(a.start || a.start_time || a.appointment_date || 0).getTime());
+
+  // Build comanda session index map: comanda_id -> sorted list of appointment ids by date asc
+  const comandaGroups: Record<string, string[]> = {};
+  for (const a of appointments) {
+    if (a.comanda_id) {
+      if (!comandaGroups[a.comanda_id]) comandaGroups[a.comanda_id] = [];
+      comandaGroups[a.comanda_id].push(a);
+    }
+  }
+  // Sort each group by date asc so index reflects chronological order
+  const comandaIndexMap: Record<string, number> = {};
+  for (const [, group] of Object.entries(comandaGroups)) {
+    (group as any[]).sort((a: any, b: any) => new Date(a.start || a.start_time || 0).getTime() - new Date(b.start || b.start_time || 0).getTime());
+    (group as any[]).forEach((a: any, i: number) => { comandaIndexMap[a.id] = i + 1; });
+  }
 
   return (
     <div className="space-y-3">
@@ -430,7 +445,7 @@ const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: st
       </div>
       {sorted.length === 0 && <EmptyState icon={<Calendar size={32} />} label="Nenhum atendimento encontrado" />}
       {sorted.map((a: any) => {
-        const dt = new Date(a.start || a.appointment_date || '');
+        const dt = new Date(a.start || a.start_time || a.appointment_date || '');
         const isPast = dt < new Date();
         const STATUS_MAP: Record<string, { label: string; cls: string }> = {
           completed:  { label: 'Realizado',   cls: 'bg-emerald-100 text-emerald-700' },
@@ -440,6 +455,18 @@ const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: st
           scheduled:  { label: 'Agendado',    cls: 'bg-indigo-100 text-indigo-700' },
         };
         const statusInfo = a.status ? (STATUS_MAP[a.status] || { label: a.status, cls: 'bg-slate-100 text-slate-500' }) : null;
+
+        const hasComanda = !!a.comanda_id;
+        const sessionIdx = hasComanda ? comandaIndexMap[a.id] : null;
+        const sessionTotal = hasComanda ? (a.comanda_sessions_total || null) : null;
+        const sessionLabel = hasComanda && sessionIdx && sessionTotal ? `${sessionIdx}/${sessionTotal}` : null;
+
+        const price = a.service_price != null ? Number(a.service_price)
+          : (hasComanda && a.comanda_total && a.comanda_sessions_total)
+            ? Number(a.comanda_total) / Number(a.comanda_sessions_total)
+            : null;
+        const priceLabel = price != null ? price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null;
+
         return (
           <div key={a.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-4">
             <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center text-center shrink-0 ${isPast ? 'bg-slate-100' : 'bg-indigo-100'}`}>
@@ -451,14 +478,28 @@ const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: st
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-slate-800 truncate">{a.service_name || a.title || 'Atendimento'}</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">
-                {isNaN(dt.getTime()) ? '' : dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                {a.psychologist_name || a.professional_name_text ? ` · ${a.psychologist_name || a.professional_name_text}` : ''}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 truncate">{a.service_name || a.title || 'Atendimento'}</span>
+                {sessionLabel && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 shrink-0">
+                    {sessionLabel}
+                  </span>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                {!isNaN(dt.getTime()) && (
+                  <span>{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                )}
+                {(a.psychologist_name || a.professional_name || a.professional_name_text) && (
+                  <span>· {a.psychologist_name || a.professional_name || a.professional_name_text}</span>
+                )}
+                {priceLabel && (
+                  <span className="text-emerald-600 font-semibold">· {priceLabel}</span>
+                )}
               </div>
             </div>
             {statusInfo && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusInfo.cls}`}>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusInfo.cls}`}>
                 {statusInfo.label}
               </span>
             )}

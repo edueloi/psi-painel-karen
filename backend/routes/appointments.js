@@ -314,11 +314,17 @@ router.get('/', async (req, res) => {
       SELECT a.*,
         p.name as patient_name,
         u.name as professional_name,
-        s.name as service_name
+        s.name as service_name,
+        s.price as service_price,
+        c.sessions_total as comanda_sessions_total,
+        c.sessions_used as comanda_sessions_used,
+        c.total as comanda_total,
+        c.description as comanda_description
       FROM appointments a
       LEFT JOIN patients p ON p.id = a.patient_id
       LEFT JOIN users u ON u.id = a.professional_id
       LEFT JOIN services s ON s.id = a.service_id
+      LEFT JOIN comandas c ON c.id = a.comanda_id
       WHERE a.tenant_id = ?
     `;
     const params = [req.user.tenant_id];
