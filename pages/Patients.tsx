@@ -182,18 +182,18 @@ export const Patients: React.FC = () => {
     withPlan: patients.filter(p => p.health_plan).length,
   }), [patients]);
 
-  const uploadPatientDocuments = async (patientId: string | number, files: File[]) => {
+  const uploadPatientDocuments = async (patientId: string | number, files: { file: File; label: string }[]) => {
     if (!files.length) return;
-    for (const file of files) {
+    for (const doc of files) {
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('title', file.name);
+      formData.append('file', doc.file);
+      formData.append('title', doc.label.trim() || doc.file.name);
       formData.append('category', 'Paciente');
       formData.append('patient_id', String(patientId));
-      
-      await api.request('/uploads', { 
-        method: 'POST', 
-        body: formData 
+
+      await api.request('/uploads', {
+        method: 'POST',
+        body: formData
       });
     }
   };
@@ -207,7 +207,7 @@ export const Patients: React.FC = () => {
     });
   };
 
-  const handleSavePatient = async (data: Partial<Patient>, files: File[], photoFile?: File | null) => {
+  const handleSavePatient = async (data: Partial<Patient>, files: { file: File; label: string }[], photoFile?: File | null) => {
     try {
       const payload = {
         name: data.full_name,

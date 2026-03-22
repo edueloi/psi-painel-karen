@@ -23,9 +23,11 @@ const maskCep = (v: string) => {
   return d.replace(/(\d{5})(\d{0,3})/, '$1-$2').replace(/-$/, '');
 };
 
+interface DocFile { file: File; label: string; }
+
 interface PatientFormWizardProps {
   initialData?: Partial<Patient>;
-  onSave: (data: Partial<Patient>, files: File[], photoFile?: File | null) => void;
+  onSave: (data: Partial<Patient>, files: DocFile[], photoFile?: File | null) => void;
   onCancel: () => void;
 }
 
@@ -33,7 +35,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [cepLoading, setCepLoading] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<DocFile[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>(initialData.photo_url || (initialData as any).photoUrl || '');
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -477,10 +479,13 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               id="patient-docs-upload" 
               multiple 
               onChange={async (e) => {
-                const files = Array.from(e.target.files || []);
+                const files: File[] = Array.from(e.target.files || []);
                 if (!files.length) return;
-                
-                setSelectedFiles(files);
+                setSelectedFiles(prev => [
+                  ...prev,
+                  ...files.map(f => ({ file: f, label: f.name }))
+                ]);
+                e.target.value = '';
               }}
             />
             <label 
@@ -497,14 +502,30 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">{t('wizard.lgpd')}</span>
             </div>
             {selectedFiles.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
                 <div className="text-xs font-semibold text-slate-600">
                   {selectedFiles.length} arquivo(s) selecionado(s)
                 </div>
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {selectedFiles.map(file => (
-                    <div key={`${file.name}-${file.size}`} className="text-xs text-slate-500 truncate">
-                      {file.name}
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedFiles.map((doc, idx) => (
+                    <div key={`${doc.file.name}-${doc.file.size}-${idx}`} className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <input
+                          type="text"
+                          value={doc.label}
+                          onChange={e => setSelectedFiles(prev => prev.map((d, i) => i === idx ? { ...d, label: e.target.value } : d))}
+                          placeholder="Nome do documento (opcional)"
+                          className="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400 text-slate-700"
+                        />
+                        <div className="text-[10px] text-slate-400 mt-0.5 truncate px-0.5">{doc.file.name}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                        className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   ))}
                 </div>

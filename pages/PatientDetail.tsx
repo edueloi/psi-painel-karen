@@ -10,6 +10,7 @@ import { api, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
+import { DatePicker } from '../components/UI/DatePicker';
 
 const AVATAR_COLORS = [
   'from-primary-500 to-purple-600',
@@ -416,45 +417,134 @@ const TabDados: React.FC<{ patient: Patient; navigate: (p: string) => void }> = 
 );
 
 // ─── Tab: Agenda ──────────────────────────────────────────────────────────────
-const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: string; navigate: (p: string) => void }> = ({ appointments, loading, patientId, navigate }) => {
-  if (loading) return <TabLoader />;
-  const sorted = [...appointments].sort((a, b) => new Date(b.start || b.start_time || b.appointment_date || 0).getTime() - new Date(a.start || a.start_time || a.appointment_date || 0).getTime());
+const STATUS_MAP: Record<string, { label: string; activeCls: string; inactiveCls: string; badgeCls: string }> = {
+  scheduled:   { label: 'Agendado',    activeCls: 'bg-indigo-600 text-white border-indigo-600',    inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300',   badgeCls: 'bg-indigo-100 text-indigo-700' },
+  confirmed:   { label: 'Confirmado',  activeCls: 'bg-blue-600 text-white border-blue-600',         inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-blue-300',    badgeCls: 'bg-blue-100 text-blue-700' },
+  completed:   { label: 'Realizado',   activeCls: 'bg-emerald-600 text-white border-emerald-600',   inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300', badgeCls: 'bg-emerald-100 text-emerald-700' },
+  cancelled:   { label: 'Cancelado',   activeCls: 'bg-red-500 text-white border-red-500',           inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-red-300',     badgeCls: 'bg-red-100 text-red-700' },
+  'no-show':   { label: 'Faltou',      activeCls: 'bg-amber-500 text-white border-amber-500',       inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-amber-300',   badgeCls: 'bg-amber-100 text-amber-700' },
+  rescheduled: { label: 'Reagendado',  activeCls: 'bg-orange-500 text-white border-orange-500',     inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-orange-300',  badgeCls: 'bg-orange-100 text-orange-700' },
+};
+const STATUS_CHIPS = ['scheduled', 'confirmed', 'completed', 'cancelled', 'no-show', 'rescheduled'];
 
-  // Build comanda session index map: comanda_id -> sorted list of appointment ids by date asc
-  const comandaGroups: Record<string, string[]> = {};
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: string; navigate: (p: string) => void }> = ({ appointments, loading, patientId, navigate }) => {
+  const today = todayISO();
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [dateFrom, setDateFrom] = useState<string | null>(today);
+  const [dateTo, setDateTo] = useState<string | null>(null);
+
+  if (loading) return <TabLoader />;
+
+  // Build comanda session index map
+  const comandaGroups: Record<string, any[]> = {};
   for (const a of appointments) {
     if (a.comanda_id) {
       if (!comandaGroups[a.comanda_id]) comandaGroups[a.comanda_id] = [];
       comandaGroups[a.comanda_id].push(a);
     }
   }
-  // Sort each group by date asc so index reflects chronological order
   const comandaIndexMap: Record<string, number> = {};
   for (const [, group] of Object.entries(comandaGroups)) {
-    (group as any[]).sort((a: any, b: any) => new Date(a.start || a.start_time || 0).getTime() - new Date(b.start || b.start_time || 0).getTime());
-    (group as any[]).forEach((a: any, i: number) => { comandaIndexMap[a.id] = i + 1; });
+    group.sort((a: any, b: any) => new Date(a.start || a.start_time || 0).getTime() - new Date(b.start || b.start_time || 0).getTime());
+    group.forEach((a: any, i: number) => { comandaIndexMap[a.id] = i + 1; });
   }
 
+  // Apply filters
+  const filtered = appointments.filter((a: any) => {
+    const dt = new Date(a.start || a.start_time || a.appointment_date || '');
+    if (statusFilter.length > 0 && !statusFilter.includes(a.status)) return false;
+    if (dateFrom && !isNaN(dt.getTime())) {
+      if (dt < new Date(dateFrom + 'T00:00:00')) return false;
+    }
+    if (dateTo && !isNaN(dt.getTime())) {
+      if (dt > new Date(dateTo + 'T23:59:59')) return false;
+    }
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) =>
+    new Date(a.start || a.start_time || a.appointment_date || 0).getTime() -
+    new Date(b.start || b.start_time || b.appointment_date || 0).getTime()
+  );
+
+  const toggleStatus = (val: string) =>
+    setStatusFilter((prev: string[]) => prev.includes(val) ? prev.filter((s: string) => s !== val) : [...prev, val]);
+
+  const isViewingHistory = !dateFrom || dateFrom < today;
+  const hasActiveFilters = statusFilter.length > 0 || dateTo !== null || isViewingHistory;
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-black text-slate-500 uppercase tracking-wide">{sorted.length} atendimentos</span>
+        <span className="text-xs font-black text-slate-500 uppercase tracking-wide">{sorted.length} atendimento{sorted.length !== 1 ? 's' : ''}</span>
         <button onClick={() => navigate(`/agenda?patient_id=${patientId}`)} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:underline">
           Abrir na agenda <ExternalLink size={11} />
         </button>
       </div>
+
+      {/* Filter panel */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
+        {/* Status chips */}
+        <div className="flex flex-wrap gap-1.5">
+          {STATUS_CHIPS.map(key => {
+            const s = STATUS_MAP[key];
+            const active = statusFilter.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleStatus(key)}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all ${active ? s.activeCls : s.inactiveCls}`}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+          {statusFilter.length > 0 && (
+            <button type="button" onClick={() => setStatusFilter([])} className="text-[11px] font-semibold px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors">
+              Limpar
+            </button>
+          )}
+        </div>
+
+        {/* Date range */}
+        <div className="flex items-center gap-2">
+          <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="De" className="flex-1 text-xs" />
+          <span className="text-[11px] text-slate-400 shrink-0">até</span>
+          <DatePicker value={dateTo} onChange={setDateTo} placeholder="Até" className="flex-1 text-xs" />
+        </div>
+
+        {/* History toggle */}
+        <div className="flex items-center justify-between pt-0.5">
+          {!isViewingHistory ? (
+            <button type="button" onClick={() => setDateFrom(null)} className="text-[11px] font-semibold text-indigo-600 hover:underline flex items-center gap-1">
+              <History size={12} /> Ver histórico completo
+            </button>
+          ) : (
+            <button type="button" onClick={() => { setDateFrom(today); setDateTo(null); setStatusFilter([]); }} className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 hover:underline flex items-center gap-1">
+              <Calendar size={12} /> Mostrar apenas próximos
+            </button>
+          )}
+          {hasActiveFilters && (
+            <span className="text-[10px] text-slate-400">
+              {isViewingHistory ? 'Histórico ativo' : 'Filtros ativos'}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* List */}
       {sorted.length === 0 && <EmptyState icon={<Calendar size={32} />} label="Nenhum atendimento encontrado" />}
       {sorted.map((a: any) => {
         const dt = new Date(a.start || a.start_time || a.appointment_date || '');
         const isPast = dt < new Date();
-        const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-          completed:  { label: 'Realizado',   cls: 'bg-emerald-100 text-emerald-700' },
-          cancelled:  { label: 'Cancelado',   cls: 'bg-red-100 text-red-700' },
-          'no-show':  { label: 'Faltou',      cls: 'bg-amber-100 text-amber-700' },
-          confirmed:  { label: 'Confirmado',  cls: 'bg-blue-100 text-blue-700' },
-          scheduled:  { label: 'Agendado',    cls: 'bg-indigo-100 text-indigo-700' },
-        };
-        const statusInfo = a.status ? (STATUS_MAP[a.status] || { label: a.status, cls: 'bg-slate-100 text-slate-500' }) : null;
+        const statusInfo = a.status ? (STATUS_MAP[a.status] || { label: a.status, badgeCls: 'bg-slate-100 text-slate-500', activeCls: '', inactiveCls: '' }) : null;
 
         const hasComanda = !!a.comanda_id;
         const sessionIdx = hasComanda ? comandaIndexMap[a.id] : null;
@@ -487,19 +577,15 @@ const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: st
                 )}
               </div>
               <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
-                {!isNaN(dt.getTime()) && (
-                  <span>{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                )}
+                {!isNaN(dt.getTime()) && <span>{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                 {(a.psychologist_name || a.professional_name || a.professional_name_text) && (
                   <span>· {a.psychologist_name || a.professional_name || a.professional_name_text}</span>
                 )}
-                {priceLabel && (
-                  <span className="text-emerald-600 font-semibold">· {priceLabel}</span>
-                )}
+                {priceLabel && <span className="text-emerald-600 font-semibold">· {priceLabel}</span>}
               </div>
             </div>
             {statusInfo && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusInfo.cls}`}>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusInfo.badgeCls}`}>
                 {statusInfo.label}
               </span>
             )}
