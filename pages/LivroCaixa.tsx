@@ -1499,231 +1499,214 @@ export const LivroCaixa: React.FC = () => {
           {/* Type + Date */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                Tipo de Movimentação
-              </label>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Tipo de Movimentação</label>
               <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-                <button
-                  onClick={() => { setTxType('income'); setTxCategory('Geral'); }}
-                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    txType === 'income'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-emerald-600'
-                  }`}
-                >
+                <button onClick={() => { setTxType('income'); setTxCategory('Geral'); setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
+                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txType === 'income' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-emerald-600'}`}>
                   Receita
                 </button>
-                <button
-                  onClick={() => { setTxType('expense'); setTxCategory(CATEGORIES_EXPENSE[0]); }}
-                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    txType === 'expense'
-                      ? 'bg-rose-500 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-rose-500'
-                  }`}
-                >
+                <button onClick={() => { setTxType('expense'); setTxCategory(CATEGORIES_EXPENSE[0]); setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
+                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txType === 'expense' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500 hover:text-rose-500'}`}>
                   Despesa
                 </button>
               </div>
             </div>
             <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                Data Competência
-              </label>
-              <DatePicker
-                value={txDate}
-                onChange={setTxDate}
-                placeholder="Selecionar data"
-              />
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data Competência</label>
+              <DatePicker value={txDate} onChange={setTxDate} placeholder="Selecionar data" />
             </div>
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-              Descrição Detalhada
-            </label>
-            <input
-              type="text"
-              value={txDescription}
-              onChange={(e) => setTxDescription(e.target.value)}
-              placeholder="Ex: Pacote Mensal – Paciente João Silva"
-              className="w-full p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
-            />
-          </div>
-
-          {/* Amount + Method */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                Valor do Repasse (R$)
-              </label>
-              <div className="relative">
-                <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black ${txType === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>R$</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={txAmount}
-                  onChange={(e) => setTxAmount(maskCurrency(e.target.value))}
-                  placeholder="0,00"
-                  className={`w-full text-lg font-black p-3.5 pl-11 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white transition-all ${
-                    txType === 'income'
-                      ? 'focus:border-emerald-400 text-emerald-700'
-                      : 'focus:border-rose-400 text-rose-700'
-                  }`}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                Meio de Recebimento
-              </label>
-              <select
-                value={txMethod}
-                onChange={(e) => setTxMethod(e.target.value)}
-                className="w-full p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-slate-400 transition-all text-sm font-bold text-slate-700 appearance-none"
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
-              Categoria / Serviço
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setTxCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
-                    txCategory === cat
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-200'
-                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Patient Identification */}
+          {/* Patient Identification — MOVED UP */}
           <div className="border-2 border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
-                Identificação do Atendimento
-              </label>
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Identificação do Atendimento</label>
               <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={txPayerIsPatient}
-                  onChange={(e) => setTxPayerIsPatient(e.target.checked)}
-                  className="accent-slate-900 w-4 h-4"
-                />
+                <input type="checkbox" checked={txPayerIsPatient} onChange={(e) => setTxPayerIsPatient(e.target.checked)} className="accent-slate-900 w-4 h-4" />
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pagador é o Paciente</span>
               </label>
             </div>
-
-            {/* Patient combobox */}
             <div ref={patientRef} className="relative">
               <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
                 {txPayerIsPatient ? 'Paciente / Pagador' : 'Paciente'}
               </label>
               <div className="relative">
                 <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={patientQuery}
-                  onChange={(e) => {
-                    setPatientQuery(e.target.value);
-                    setPatientDropdownOpen(true);
-                    if (!e.target.value) { setTxPatientName(''); setTxPatientCpf(''); }
-                  }}
+                <input type="text" value={patientQuery}
+                  onChange={(e) => { setPatientQuery(e.target.value); setPatientDropdownOpen(true); if (!e.target.value) { setTxPatientName(''); setTxPatientCpf(''); } }}
                   onFocus={() => setPatientDropdownOpen(true)}
                   placeholder="Buscar paciente..."
                   className="w-full p-3 pl-9 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
                 />
-                {txPayerName && (
-                  <button
-                    type="button"
-                    onClick={() => { setPatientQuery(''); setTxPatientName(''); setTxPatientCpf(''); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"
-                  >
-                    <X size={14} />
-                  </button>
+                {patientQuery && (
+                  <button type="button" onClick={() => { setPatientQuery(''); setTxPatientName(''); setTxPatientCpf(''); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"><X size={14} /></button>
                 )}
               </div>
               {patientDropdownOpen && patientQuery.length >= 1 && (
                 <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                  {patients
-                    .filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery))
-                    .slice(0, 8)
-                    .map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          setTxPatientName(p.name);
-                          setTxPatientCpf(maskCpf(p.cpf.replace(/\D/g, '')));
-                          setPatientQuery(p.name);
-                          setPatientDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
-                      >
-                        <p className="text-sm font-bold text-slate-700">{p.name}</p>
-                        {p.cpf && <p className="text-[10px] text-slate-400 font-bold">{maskCpf(p.cpf.replace(/\D/g,''))}</p>}
-                      </button>
-                    ))}
+                  {patients.filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery)).slice(0, 8).map(p => (
+                    <button key={p.id} type="button" onClick={() => { setTxPatientName(p.name); setTxPatientCpf(maskCpf(p.cpf.replace(/\D/g,''))); setPatientQuery(p.name); setPatientDropdownOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+                      <p className="text-sm font-bold text-slate-700">{p.name}</p>
+                      {p.cpf && <p className="text-[10px] text-slate-400 font-bold">{maskCpf(p.cpf.replace(/\D/g,''))}</p>}
+                    </button>
+                  ))}
                   {patients.filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery)).length === 0 && (
                     <p className="px-4 py-3 text-sm text-slate-400 font-bold">Nenhum paciente encontrado</p>
                   )}
                 </div>
               )}
             </div>
-
-            {/* CPF do paciente (auto-preenchido ou manual) */}
             <div>
               <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
                 CPF {txPayerIsPatient ? 'do Paciente / Pagador' : 'do Paciente'}
               </label>
-              <input
-                type="text"
-                value={txPatientCpf}
-                onChange={(e) => setTxPatientCpf(maskCpf(e.target.value))}
-                placeholder="000.000.000-00"
-                maxLength={14}
-                className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
-              />
+              <input type="text" value={txPatientCpf} onChange={(e) => setTxPatientCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14}
+                className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
             </div>
-
-            {/* Pagador separado (quando pagador ≠ paciente) */}
             {!txPayerIsPatient && (
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                 <div>
                   <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Nome do Pagador</label>
-                  <input
-                    type="text"
-                    value={txPayerName}
-                    onChange={(e) => setTxPayerName(e.target.value)}
-                    placeholder="Nome completo do pagador"
-                    className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
-                  />
+                  <input type="text" value={txPayerName} onChange={(e) => setTxPayerName(e.target.value)} placeholder="Nome completo do pagador"
+                    className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
                 </div>
                 <div>
                   <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">CPF do Pagador</label>
-                  <input
-                    type="text"
-                    value={txPayerCpf}
-                    onChange={(e) => setTxPayerCpf(maskCpf(e.target.value))}
-                    placeholder="000.000.000-00"
-                    maxLength={14}
-                    className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
+                  <input type="text" value={txPayerCpf} onChange={(e) => setTxPayerCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14}
+                    className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Service / Package combobox (income) OR Category tags (expense) */}
+          {txType === 'income' ? (
+            <div ref={serviceRef} className="relative">
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Serviço / Pacote</label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input type="text" value={txServiceQuery}
+                  onChange={(e) => { setTxServiceQuery(e.target.value); setTxServiceDropdownOpen(true); if (!e.target.value) { setTxSelectedService(null); setTxBaseAmount(''); setTxDiscount(''); } }}
+                  onFocus={() => setTxServiceDropdownOpen(true)}
+                  placeholder="Buscar serviço ou pacote..."
+                  className="w-full p-3 pl-9 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
+                />
+                {txSelectedService && (
+                  <button type="button" onClick={() => { setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"><X size={14} /></button>
+                )}
+              </div>
+              {txServiceDropdownOpen && txServiceQuery.length >= 1 && (
+                <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-52 overflow-y-auto">
+                  {txServices.filter(s => s.name.toLowerCase().includes(txServiceQuery.toLowerCase())).slice(0, 10).map(s => (
+                    <button key={s.id} type="button" onClick={() => {
+                        setTxSelectedService(s);
+                        setTxServiceQuery(s.name);
+                        setTxServiceDropdownOpen(false);
+                        setTxCategory(s.type === 'package' ? 'Pacote de Sessões' : 'Sessão Individual');
+                        setTxDescription(s.name);
+                        const priceStr = s.price.toFixed(2).replace('.', ',');
+                        setTxBaseAmount(priceStr);
+                        setTxAmount(priceStr);
+                        setTxDiscount('');
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">{s.name}</p>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${s.type === 'package' ? 'bg-indigo-50 text-indigo-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {s.type === 'package' ? 'Pacote' : 'Serviço'}
+                        </span>
+                      </div>
+                      <span className="text-sm font-black text-slate-700">R$ {s.price.toFixed(2).replace('.', ',')}</span>
+                    </button>
+                  ))}
+                  {txServices.filter(s => s.name.toLowerCase().includes(txServiceQuery.toLowerCase())).length === 0 && (
+                    <p className="px-4 py-3 text-sm text-slate-400 font-bold">Nenhum resultado encontrado</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Categoria</label>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES_EXPENSE.map((cat) => (
+                  <button key={cat} type="button" onClick={() => setTxCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${txCategory === cat ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Description */}
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Descrição Detalhada</label>
+            <input type="text" value={txDescription} onChange={(e) => setTxDescription(e.target.value)}
+              placeholder="Ex: Pacote Mensal – Paciente João Silva"
+              className="w-full p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
+          </div>
+
+          {/* Amount + Discount + Method */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
+                  Valor {txBaseAmount && txBaseAmount !== txAmount ? `(base: R$ ${txBaseAmount})` : '(R$)'}
+                </label>
+                <div className="relative">
+                  <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black ${txType === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>R$</span>
+                  <input type="text" inputMode="numeric" value={txAmount} onChange={(e) => setTxAmount(maskCurrency(e.target.value))} placeholder="0,00"
+                    className={`w-full text-lg font-black p-3.5 pl-11 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white transition-all ${txType === 'income' ? 'focus:border-emerald-400 text-emerald-700' : 'focus:border-rose-400 text-rose-700'}`} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Meio de Recebimento</label>
+                <select value={txMethod} onChange={(e) => setTxMethod(e.target.value)}
+                  className="w-full p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-slate-400 transition-all text-sm font-bold text-slate-700 appearance-none">
+                  {PAYMENT_METHODS.map((m) => (<option key={m.id} value={m.id}>{m.label}</option>))}
+                </select>
+              </div>
+            </div>
+
+            {/* Discount row — only for income with service selected */}
+            {txType === 'income' && txBaseAmount && (
+              <div className="flex items-end gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-3">
+                <div className="flex-1">
+                  <label className="block text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1.5 px-1">Desconto</label>
+                  <input type="text" inputMode="numeric" value={txDiscount}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9,]/g, '');
+                      setTxDiscount(v);
+                      const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
+                      const disc = parseFloat(v.replace(',', '.')) || 0;
+                      const final = txDiscountType === 'percentage'
+                        ? Math.max(0, base - (base * disc / 100))
+                        : Math.max(0, base - disc);
+                      setTxAmount(final.toFixed(2).replace('.', ','));
+                    }}
+                    placeholder="0,00"
+                    className="w-full p-2.5 rounded-xl border border-amber-200 bg-white outline-none focus:border-amber-400 text-sm font-bold text-amber-700 placeholder:font-normal placeholder:text-amber-300"
                   />
+                </div>
+                <div className="flex bg-white border border-amber-200 rounded-xl overflow-hidden shrink-0">
+                  <button type="button" onClick={() => {
+                      setTxDiscountType('fixed');
+                      const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
+                      const disc = parseFloat(txDiscount.replace(',', '.')) || 0;
+                      setTxAmount(Math.max(0, base - disc).toFixed(2).replace('.', ','));
+                    }}
+                    className={`px-3 py-2.5 text-[10px] font-black transition-all ${txDiscountType === 'fixed' ? 'bg-amber-500 text-white' : 'text-amber-500 hover:bg-amber-50'}`}>R$</button>
+                  <button type="button" onClick={() => {
+                      setTxDiscountType('percentage');
+                      const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
+                      const disc = parseFloat(txDiscount.replace(',', '.')) || 0;
+                      setTxAmount(Math.max(0, base - (base * disc / 100)).toFixed(2).replace('.', ','));
+                    }}
+                    className={`px-3 py-2.5 text-[10px] font-black transition-all ${txDiscountType === 'percentage' ? 'bg-amber-500 text-white' : 'text-amber-500 hover:bg-amber-50'}`}>%</button>
                 </div>
               </div>
             )}
