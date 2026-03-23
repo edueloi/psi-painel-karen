@@ -241,14 +241,20 @@ router.get('/summary', async (req, res) => {
     const m = month || (now.getMonth() + 1);
     const y = year || now.getFullYear();
 
-    const [income] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
+    const [incomeData] = await db.query(
+      `SELECT 
+         COALESCE(SUM(CASE WHEN status IN ('paid', 'confirmed') THEN amount ELSE 0 END), 0) as paid,
+         COALESCE(SUM(CASE WHEN status IN ('pending', 'waiting', 'overdue') THEN amount ELSE 0 END), 0) as pending
+       FROM financial_transactions 
        WHERE tenant_id = ? AND type = 'income' AND MONTH(date) = ? AND YEAR(date) = ?`,
       [req.user.tenant_id, m, y]
     );
 
-    const [expense] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
+    const [expenseData] = await db.query(
+      `SELECT 
+         COALESCE(SUM(CASE WHEN status IN ('paid', 'confirmed') THEN amount ELSE 0 END), 0) as paid,
+         COALESCE(SUM(CASE WHEN status IN ('pending', 'waiting', 'overdue') THEN amount ELSE 0 END), 0) as pending
+       FROM financial_transactions 
        WHERE tenant_id = ? AND type = 'expense' AND MONTH(date) = ? AND YEAR(date) = ?`,
       [req.user.tenant_id, m, y]
     );
@@ -259,14 +265,17 @@ router.get('/summary', async (req, res) => {
       [req.user.tenant_id, m, y]
     );
 
-    const totalIncome = parseFloat(income[0].total);
-    const totalExpense = parseFloat(expense[0].total);
+    const totalIncome = parseFloat(incomeData[0].paid);
+    const totalExpense = parseFloat(expenseData[0].paid);
+    const pendingIncome = parseFloat(incomeData[0].pending);
+    const pendingExpense = parseFloat(expenseData[0].pending);
     const totalCount = counts[0].total;
 
     res.json({
       income: totalIncome,
       expense: totalExpense,
       balance: totalIncome - totalExpense,
+      pending: pendingIncome - pendingExpense,
       count: totalCount,
       month: m,
       year: y,

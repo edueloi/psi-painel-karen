@@ -7,7 +7,8 @@ import {
   Edit3, Trash2, RefreshCw, CheckCircle2, Clock, X, FileText,
   User, AlertCircle, Loader2, Download, Upload, DollarSign,
   Calendar, CreditCard, Filter, LayoutGrid, List,
-  Sparkles
+  Sparkles,
+  Edit2
 } from 'lucide-react';
 import { Modal } from '../components/UI/Modal';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
@@ -52,6 +53,7 @@ interface MonthSummary {
   income: number;
   expense: number;
   balance: number;
+  pending: number;
   count: number;
   label: string;
 }
@@ -237,7 +239,7 @@ const exportCSV = (data: Transaction[], monthLabel: string) => {
   URL.revokeObjectURL(url);
 };
 
-const exportXLS = async (data: Transaction[], monthLabel: string, summary: { income: number; expense: number; balance: number }) => {
+const exportXLS = async (data: Transaction[], monthLabel: string, summary: { income: number; expense: number; balance: number; pending: number }) => {
   const ExcelJS = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'PsiFlux';
@@ -260,6 +262,7 @@ const exportXLS = async (data: Transaction[], monthLabel: string, summary: { inc
   const cards = [
     { label: 'TOTAL DE ENTRADAS', value: summary.income, color: 'FF059669', bg: 'FFECFDF5' },
     { label: 'TOTAL DE SAÍDAS',   value: summary.expense, color: 'FFDC2626', bg: 'FFFEF2F2' },
+    { label: 'TOTAL PENDENTE',    value: summary.pending, color: 'FFD97706', bg: 'FFFBEBEE' },
     { label: 'SALDO FINAL',     value: summary.balance, color: 'FF4F46E5', bg: 'FFEFF6FF' },
   ];
 
@@ -380,7 +383,7 @@ const exportXLS = async (data: Transaction[], monthLabel: string, summary: { inc
 };
 
 
-const exportPDF = async (data: Transaction[], summary: { income: number; expense: number; balance: number }, monthLabel: string) => {
+const exportPDF = async (data: Transaction[], summary: { income: number; expense: number; balance: number; pending: number }, monthLabel: string) => {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -399,6 +402,7 @@ const exportPDF = async (data: Transaction[], summary: { income: number; expense
   [
     { label: 'Entradas', value: formatCurrency(summary.income), color: [16, 185, 129] as [number,number,number] },
     { label: 'Saídas',   value: formatCurrency(summary.expense), color: [239, 68, 68] as [number,number,number] },
+    { label: 'Pendente', value: formatCurrency(summary.pending), color: [217, 119, 6] as [number,number,number] },
     { label: 'Saldo',    value: formatCurrency(summary.balance), color: [99, 102, 241] as [number,number,number] },
   ].forEach(({ label, value, color }) => {
     doc.setFillColor(...color);
@@ -483,7 +487,7 @@ export const LivroCaixa: React.FC = () => {
 
   // ── Detail ────────────────────────────────────────────────────────────────────
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [summary, setSummary]           = useState({ income: 0, expense: 0, balance: 0 });
+  const [summary, setSummary]           = useState({ income: 0, expense: 0, balance: 0, pending: 0 });
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [searchQuery, setSearchQuery]   = useState('');
   const [flowFilter, setFlowFilter]     = useState<'all' | 'income' | 'expense'>('all');
@@ -672,10 +676,11 @@ export const LivroCaixa: React.FC = () => {
             const sum = await api.get<any>('/finance/summary', {
               month: month.toString(), year: selectedYear.toString(),
             });
-            if (sum.income > 0 || sum.expense > 0) {
+            if (sum.income > 0 || sum.expense > 0 || sum.pending > 0) {
               results.push({
                 month, year: selectedYear,
                 income: sum.income, expense: sum.expense, balance: sum.balance,
+                pending: sum.pending,
                 count: sum.count || 0,
                 label: `${MONTH_NAMES[month - 1]} ${selectedYear}`,
               });
@@ -1257,68 +1262,44 @@ export const LivroCaixa: React.FC = () => {
           </div>
 
           {tx.comanda_id && tx.comanda_total !== undefined && tx.comanda_paid_value !== undefined && (
-            <div className="mt-2.5 flex justify-end">
-              {Number(tx.comanda_total) - Number(tx.comanda_paid_value) > 0 ? (
-                <span className="text-[9.5px] font-black tracking-tight text-amber-500 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100 flex items-center gap-1 shadow-sm leading-none">
-                  Falta R$ {Math.max(0, Number(tx.comanda_total) - Number(tx.comanda_paid_value)).toFixed(2).replace('.', ',')}
-                </span>
-              ) : (
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-[8.5px] font-black tracking-widest text-slate-400 uppercase leading-none">
-                    Total Comanda: R$ {Number(tx.comanda_total).toFixed(2).replace('.', ',')}
-                  </span>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-100 flex items-center gap-1 leading-none">
-                    <CheckCircle2 size={10} /> Quitada
-                  </span>
-                </div>
-              )}
-            </div>
+            <span className="text-[10px] font-bold text-slate-400 mt-1 leading-none italic">
+              (Total da comanda: {formatCurrency(tx.comanda_total)})
+            </span>
           )}
         </div>
       ),
     },
     {
-      header: 'Ações',
+      header: '',
       render: (tx) => (
-        <div className="flex gap-1.5">
+        <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
           {tx.comanda_id && (
-            <>
-              {tx.comanda_total !== undefined && tx.comanda_paid_value !== undefined && tx.comanda_total - tx.comanda_paid_value > 0 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); openNewExtra(tx); }}
-                  title="Lançar Parcela Pendente"
-                  className="p-2.5 bg-emerald-50 hover:bg-emerald-100 hover:shadow-md rounded-xl text-emerald-500 hover:text-emerald-700 transition-all border border-emerald-100/50 flex items-center justify-center"
-                >
-                  <Plus size={14} />
-                </button>
-              )}
-              <button
-                onClick={(e) => { e.stopPropagation(); openHistory(tx.comanda_id!); }}
-                title="Histórico de pagamentos"
-                className="p-2.5 bg-indigo-50 hover:bg-indigo-100 hover:shadow-md rounded-xl text-indigo-400 hover:text-indigo-600 transition-all border border-indigo-100/50"
-              >
-                <Clock size={14} />
-              </button>
-            </>
+            <button
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); openHistory(tx.comanda_id!); }}
+              title="Ver histórico da comanda"
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-all"
+            >
+              <Clock size={13} />
+            </button>
           )}
           <button
-            onClick={(e) => { e.stopPropagation(); handleRepeat(tx.id); }}
-            title="Repetir próximo mês"
-            className="p-2.5 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-slate-100"
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); openEditTx(tx); }}
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-amber-500 hover:bg-slate-50 transition-all"
           >
-            <RefreshCw size={14} />
+            <Edit3 size={13} />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); openEditTx(tx); }}
-            className="p-2.5 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-slate-700 transition-all border border-slate-100"
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleRepeat(tx.id); }}
+            title="Reprocessar para o próximo mês"
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-emerald-500 hover:bg-slate-50 transition-all"
           >
-            <Edit3 size={14} />
+            <RefreshCw size={13} />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(tx.id); }}
-            className="p-2.5 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-rose-600 transition-all border border-slate-100"
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteConfirmId(tx.id); }}
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-slate-50 transition-all"
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
           </button>
         </div>
       ),
@@ -1427,6 +1408,7 @@ export const LivroCaixa: React.FC = () => {
               stats={[
                 { label: 'Receitas',    value: formatCurrency(ms.income),  tone: 'success' },
                 { label: 'Despesas',    value: formatCurrency(ms.expense), tone: 'danger'  },
+                { label: 'Pendente',    value: formatCurrency(ms.pending), tone: 'default' },
                 { label: 'Saldo',       value: formatCurrency(ms.balance), tone: ms.balance >= 0 ? 'default' : 'danger' },
               ]}
               bottomActions={[
@@ -1465,6 +1447,12 @@ export const LivroCaixa: React.FC = () => {
               header: 'Despesas',
               render: (ms) => (
                 <p className="font-black text-rose-500">{formatCurrency(ms.expense)}</p>
+              ),
+            },
+            {
+              header: 'Pendente',
+              render: (ms) => (
+                <p className="font-black text-amber-600">{formatCurrency(ms.pending)}</p>
               ),
             },
             {
@@ -1541,8 +1529,8 @@ export const LivroCaixa: React.FC = () => {
               {showExportMenu && (
                 <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
                   {[
-                    { label: 'CSV', action: () => { exportCSV(filtered, monthLabel); setShowExportMenu(false); } },
-                    { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, monthLabel, summary); setShowExportMenu(false); } },
+                    { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
+                    { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
                     { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
                   ].map(item => (
                     <button
@@ -1574,13 +1562,13 @@ export const LivroCaixa: React.FC = () => {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
             <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all">
               <TrendingUp size={22} />
             </div>
             <div>
-              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Entradas Totais</p>
+              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Entradas (Pagos)</p>
               <p className="text-xl font-black text-slate-800">{formatCurrency(summary.income)}</p>
             </div>
           </div>
@@ -1589,8 +1577,17 @@ export const LivroCaixa: React.FC = () => {
               <TrendingDown size={22} />
             </div>
             <div>
-              <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Saídas Totais</p>
+              <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Saídas (Pagos)</p>
               <p className="text-xl font-black text-slate-800">{formatCurrency(summary.expense)}</p>
+            </div>
+          </div>
+          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
+            <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-600 group-hover:text-white transition-all">
+              <Clock size={22} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Total Pendente</p>
+              <p className="text-xl font-black text-slate-800">{formatCurrency(summary.pending)}</p>
             </div>
           </div>
           <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-slate-300 transition-all">
@@ -1598,7 +1595,7 @@ export const LivroCaixa: React.FC = () => {
               <Wallet size={22} />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Saldo Líquido</p>
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Saldo Líquido</p>
               <p className="text-xl font-black text-slate-800">{formatCurrency(summary.balance)}</p>
             </div>
           </div>
