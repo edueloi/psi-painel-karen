@@ -135,22 +135,14 @@ export const AuraContabil: React.FC<AuraContabilProps> = ({ isOpen, onClose }) =
 
   return (
     <div
-      className={`fixed inset-0 z-[200] flex items-end sm:items-center justify-center sm:justify-end p-0 sm:p-6 transition-all duration-300 ${
-        isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      className={`fixed bottom-6 right-6 z-[200] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+        isOpen ? 'opacity-100 pointer-events-auto translate-y-0 scale-100' : 'opacity-0 pointer-events-none translate-y-6 scale-95'
       }`}
     >
-      {/* Overlay */}
-      <div
-        className={`absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
-        onClick={onClose}
-      />
-
       {/* Panel */}
       <div
-        className={`relative z-10 w-full sm:w-[420px] bg-white rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-slate-100 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
-          isOpen ? 'translate-y-0 scale-100' : 'translate-y-8 scale-95'
-        }`}
-        style={{ maxHeight: 'calc(100vh - 24px)', height: '680px' }}
+        className="w-[420px] max-w-[calc(100vw-48px)] bg-white rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-slate-100"
+        style={{ maxHeight: 'calc(100vh - 48px)', height: '680px' }}
       >
         {/* Header */}
         <div className="relative flex items-center px-5 py-4 bg-slate-900 shrink-0 overflow-hidden">

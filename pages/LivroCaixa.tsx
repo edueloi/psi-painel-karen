@@ -15,6 +15,7 @@ import { DatePicker } from '../components/UI/DatePicker';
 import { GridTable, Column } from '../components/UI/GridTable';
 import { AppCard } from '../components/UI/AppCard';
 import { AuraContabil } from '../components/AI/AuraContabil';
+import { FinancialHealth } from '../components/Finance/FinancialHealth';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 
@@ -299,6 +300,9 @@ export const LivroCaixa: React.FC = () => {
   const [archiveLayout, setArchiveLayout] = useState<'grid' | 'list'>(() =>
     (localStorage.getItem('livrocaixa_layout') as 'grid' | 'list') || 'grid'
   );
+
+  // ── Archive tab ───────────────────────────────────────────────────────────────
+  const [archiveTab, setArchiveTab] = useState<'arquivo' | 'planejamento'>('arquivo');
 
   // ── Archive ───────────────────────────────────────────────────────────────────
   const [monthSummaries, setMonthSummaries] = useState<MonthSummary[]>([]);
@@ -956,8 +960,33 @@ export const LivroCaixa: React.FC = () => {
         </div>
       </div>
 
+      {/* Tab selector */}
+      <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 w-fit">
+        {[
+          { id: 'arquivo',      label: 'Arquivo Mensal' },
+          { id: 'planejamento', label: 'Planejamento Financeiro' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setArchiveTab(tab.id as 'arquivo' | 'planejamento')}
+            className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              archiveTab === tab.id
+                ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Planejamento tab */}
+      {archiveTab === 'planejamento' && (
+        <FinancialHealth monthSummaries={monthSummaries} selectedYear={selectedYear} />
+      )}
+
       {/* Month Cards */}
-      {isLoadingArchive ? (
+      {archiveTab === 'arquivo' && (isLoadingArchive ? (
         <div className="flex flex-col items-center justify-center p-32 gap-4 text-slate-500">
           <Loader2 className="animate-spin" size={48} />
           <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-40">Carregando Períodos...</span>
@@ -1056,7 +1085,7 @@ export const LivroCaixa: React.FC = () => {
             },
           ]}
         />
-      )}
+      ))}
     </div>
   );
 
