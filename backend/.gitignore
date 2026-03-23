@@ -1,2 +1,14 @@
 node_modules/
 .env
+
+
+# WhatsApp Tokens
+backend/tokens/
+../../whatsapp_tokens/
+
+# Scripts temporários
+backend/tmp_*.js
+backend/fix_*.js
+backend/tokens/
+backend/tmp_*.js
+backend/fix_patient_cascades.js

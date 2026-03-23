@@ -104,7 +104,7 @@ async function checkAppointmentReminders() {
             packageInfo = `\n📦 *Pacote:* ${apt.package_name || 'Sessões'} (${currentSession}/${apt.sessions_total})`;
           }
 
-          const message = `🔔 *PsiFlux: Lembrete de Sessão*\n\nOlá *${apt.professional_name}*, você tem um atendimento em breve:\n\n👤 *Paciente:* ${apt.patient_name}\n⏰ *Horário:* ${timeStr}${serviceInfo}${packageInfo}\n\nBom atendimento! 🚀`;
+          const message = `🔔 *PsiFlux: Notificação de Atendimento*\n\nOlá, *${apt.professional_name}*.\nInformamos que há um agendamento confirmado para os próximos 60 minutos:\n\n👤 *Paciente:* ${apt.patient_name}\n⏰ *Horário:* ${timeStr}${serviceInfo}${packageInfo}\n\nDesejamos um excelente atendimento!\n\nAtenciosamente,\n*Equipe PsiFlux* 🛡️`;
           
           await wppService.sendReminder(apt.professional_phone, message);
           console.log(`[CRON-WPP] Lembrete enviado: ${apt.professional_name} às ${timeStr}`);
