@@ -294,14 +294,14 @@ router.post('/', async (req, res) => {
     const [result] = await db.query(
       `INSERT INTO financial_transactions
         (tenant_id, type, category, description, amount, date, patient_id, appointment_id, payment_method, status,
-         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation, comanda_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation, comanda_id, due_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, type, category || null, description || null,
         amount, date, patient_id || null, appointment_id || null,
         payment_method || null, status || 'paid',
         payer_name || null, beneficiary_name || null, payer_cpf || null, beneficiary_cpf || null, observation || null,
-        comanda_id || null
+        comanda_id || null, req.body.due_date || null
       ]
     );
 
@@ -364,11 +364,13 @@ router.put('/:id', async (req, res) => {
         payer_cpf = COALESCE(?, payer_cpf),
         beneficiary_cpf = COALESCE(?, beneficiary_cpf),
         observation = COALESCE(?, observation),
+        due_date = ?,
         comanda_id = ?
        WHERE id = ? AND tenant_id = ?`,
       [
         type, category, description, amount, date, payment_method, status,
         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation,
+        req.body.due_date,
         newComandaId,
         req.params.id, req.user.tenant_id
       ]
@@ -469,12 +471,13 @@ router.post('/repeat/:id', async (req, res) => {
     const [result] = await db.query(
       `INSERT INTO financial_transactions
         (tenant_id, type, category, description, amount, date, patient_id, payment_method, status, 
-         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation, due_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         original.tenant_id, original.type, original.category, original.description, original.amount, 
         nextMonthDate, original.patient_id, original.payment_method, 'pending',
-        original.payer_name, original.beneficiary_name, original.payer_cpf, original.beneficiary_cpf, original.observation
+        original.payer_name, original.beneficiary_name, original.payer_cpf, original.beneficiary_cpf, original.observation,
+        original.due_date
       ]
     );
 

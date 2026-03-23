@@ -30,6 +30,23 @@ const photoUpload = multer({
   }
 });
 
+// ── Auto-migrate patients ───────────────────────────────────────────────────
+async function ensurePatientColumns() {
+  const cols = [
+    "ALTER TABLE patients ADD COLUMN is_payer TINYINT(1) DEFAULT 1",
+    "ALTER TABLE patients ADD COLUMN payer_name VARCHAR(255) NULL",
+    "ALTER TABLE patients ADD COLUMN payer_cpf VARCHAR(20) NULL",
+    "ALTER TABLE patients ADD COLUMN payer_phone VARCHAR(20) NULL",
+  ];
+  for (const sql of cols) {
+    try { await db.query(sql); } catch (e) { if (!e.message.includes('Duplicate column')) console.warn('Patients schema warning:', e.message); }
+  }
+}
+let patientSchemaReady = false;
+async function withPatientSchema() {
+  if (!patientSchemaReady) { await ensurePatientColumns(); patientSchemaReady = true; }
+}
+
 // Normaliza status pt-BR para valores aceitos pelo banco
 const normalizeStatus = (s) => {
   if (s === 'ativo') return 'active';
@@ -41,6 +58,7 @@ const normalizeStatus = (s) => {
 // GET /patients
 router.get('/', async (req, res) => {
   try {
+    await withPatientSchema();
     const { search, status, professional_id } = req.query;
 
     let query = 'SELECT * FROM patients WHERE tenant_id = ?';
@@ -284,6 +302,7 @@ router.get('/export', async (req, res) => {
 // GET /patients/:id
 router.get('/:id', async (req, res) => {
   try {
+    await withPatientSchema();
     const [patients] = await db.query(
       'SELECT * FROM patients WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
@@ -299,6 +318,7 @@ router.get('/:id', async (req, res) => {
 // POST /patients
 router.post('/', async (req, res) => {
   try {
+    await withPatientSchema();
     const {
       name, email, phone, phone2, birth_date, cpf, rg, gender,
       marital_status, education, profession, nationality, naturality,
@@ -358,6 +378,7 @@ router.post('/', async (req, res) => {
 // PUT /patients/:id
 router.put('/:id', async (req, res) => {
   try {
+    await withPatientSchema();
     const {
       name, email, phone, phone2, birth_date, cpf, rg, gender,
       marital_status, education, profession, nationality, naturality,

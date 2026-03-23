@@ -154,8 +154,10 @@ const amountToDisplay = (raw: string | number) => {
 const parseDisplayAmount = (display: string) =>
   parseFloat(display.replace(/\./g, '').replace(',', '.')) || 0;
 
-const safeDate = (dateStr: string | null | undefined): Date | null => {
+const safeDate = (dateStr: string | Date | null | undefined): Date | null => {
   if (!dateStr) return null;
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+  
   // Extract only YYYY-MM-DD part in case MySQL returns full ISO datetime
   const datePart = String(dateStr).slice(0, 10);
   const d = new Date(datePart + 'T12:00:00');
