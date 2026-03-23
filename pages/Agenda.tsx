@@ -3581,26 +3581,39 @@ export const Agenda: React.FC = () => {
                               </div>
                               
                               {isEditing ? (
-                                <div className="flex items-center gap-2 flex-1">
-                                  <div className="w-[130px]">
-                                    <DatePicker 
+                                <div className="flex items-center gap-2 flex-1 animate-fadeIn">
+                                  <div className="w-[125px]">
+                                    <DatePicker
                                       value={editAptValues.date}
                                       onChange={(val) => setEditAptValues(prev => ({ ...prev, date: val }))}
-                                      className="h-8 text-xs font-bold"
+                                      className="!h-8 !border-slate-200 !rounded-lg text-[11px] font-black"
                                     />
                                   </div>
-                                  <input 
-                                    type="time"
-                                    value={editAptValues.time}
-                                    onChange={e => setEditAptValues(prev => ({ ...prev, time: e.target.value }))}
-                                    className="h-8 w-20 rounded-lg border border-slate-200 px-2 text-xs font-bold outline-none focus:border-indigo-400"
-                                  />
-                                  <button onClick={() => handleSaveAptEdit(cmndAppointments.indexOf(appointment))} className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
-                                    <Check size={14} />
-                                  </button>
-                                  <button onClick={() => setEditingAptId(null)} className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-200 transition-colors">
-                                    <X size={14} />
-                                  </button>
+                                  <div className="relative group">
+                                    <Clock size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                                    <input
+                                      type="time"
+                                      value={editAptValues.time}
+                                      onChange={e => setEditAptValues(prev => ({ ...prev, time: e.target.value }))}
+                                      className="h-8 w-[85px] rounded-lg border border-slate-200 pl-7 pr-2 text-[11px] font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-white"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1 ml-auto">
+                                    <button
+                                      onClick={() => handleSaveAptEdit(cmndAppointments.indexOf(appointment))}
+                                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-100 transition-all transform active:scale-90"
+                                      title="Salvar alteração"
+                                    >
+                                      <Check size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingAptId(null)}
+                                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all transform active:scale-90"
+                                      title="Descartar"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
                                 </div>
                               ) : (
                                 <div>
