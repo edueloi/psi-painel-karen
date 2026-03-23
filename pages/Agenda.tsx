@@ -99,13 +99,16 @@ const recurrenceOptions = [
     // 3x por semana (dia de início, +2 dias, +4 dias, todo semana)
     { label: '3x por semana — 12 sessões (4 semanas)', freq: 'THREE_WEEKLY', interval: 1, count: 12 },
     { label: '3x por semana — 24 sessões (8 semanas)', freq: 'THREE_WEEKLY', interval: 1, count: 24 },
-    // Quinzenal (a cada 15 dias)
-    { label: 'Quinzenal — 4 sessões', freq: 'DAILY', interval: 15, count: 4 },
-    { label: 'Quinzenal — 6 sessões', freq: 'DAILY', interval: 15, count: 6 },
-    { label: 'Quinzenal — 8 sessões', freq: 'DAILY', interval: 15, count: 8 },
-    // A cada 20 dias
-    { label: 'A cada 20 dias — 3 sessões', freq: 'DAILY', interval: 20, count: 3 },
-    { label: 'A cada 20 dias — 6 sessões', freq: 'DAILY', interval: 20, count: 6 },
+    // Quinzenal (A cada 2 semanas — Mantém o dia da semana)
+    { label: 'Quinzenal — 2 sessões', freq: 'WEEKLY', interval: 2, count: 2 },
+    { label: 'Quinzenal — 4 sessões', freq: 'WEEKLY', interval: 2, count: 4 },
+    { label: 'Quinzenal — 8 sessões', freq: 'WEEKLY', interval: 2, count: 8 },
+    { label: 'Quinzenal — 12 sessões', freq: 'WEEKLY', interval: 2, count: 12 },
+    { label: 'Quinzenal — 16 sessões', freq: 'WEEKLY', interval: 2, count: 16 },
+    { label: 'Quinzenal — 24 sessões', freq: 'WEEKLY', interval: 2, count: 24 },
+    // A cada 15 dias (Intervalo fixo — Muda o dia da semana)
+    { label: 'A cada 15 dias — 4 sessões', freq: 'DAILY', interval: 15, count: 4 },
+    { label: 'A cada 15 dias — 8 sessões', freq: 'DAILY', interval: 15, count: 8 },
     // Mensal
     { label: 'Mensal — 3 sessões', freq: 'MONTHLY', interval: 1, count: 3 },
     { label: 'Mensal — 6 sessões', freq: 'MONTHLY', interval: 1, count: 6 },

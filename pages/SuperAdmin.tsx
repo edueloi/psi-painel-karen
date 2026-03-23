@@ -13,6 +13,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
+import { useAuth } from '../contexts/AuthContext';
 
 // ── formatters ────────────────────────────────────────────────────────────────
 const _fmtCurrency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -165,6 +166,8 @@ const StatusBadge = ({ active }: { active: boolean }) => active
 
 // ═════════════════════════════════════════════════════════════════════════════
 export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'super_admin';
   const [tab, setTab] = useState<Tab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -586,13 +589,11 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
                               {/* Actions */}
                               <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-                                <button onClick={() => handleToggleClient(t)}
-                                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition ${t.active ? 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-600' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
+                                <button
+                                  onClick={() => handleToggleClient(t)}
+                                  disabled={!isAdmin || t.id === 1}
+                                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition ${(!isAdmin || t.id === 1) ? 'opacity-50 cursor-not-allowed bg-slate-50 text-slate-400' : (t.active ? 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-600' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100')}`}>
                                   {t.active ? <><ToggleLeft size={13} /> Desativar</> : <><ToggleRight size={13} /> Ativar</>}
-                                </button>
-                                <button onClick={() => handleDeleteClient(t)}
-                                  className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition">
-                                  <Trash2 size={14} />
                                 </button>
                               </div>
                             </div>

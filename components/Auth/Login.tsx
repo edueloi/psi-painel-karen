@@ -100,6 +100,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
   const [forgot, setForgot]           = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent]   = useState(false);
+  const [isSuspended, setIsSuspended] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,7 +113,19 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       login(res.token);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'E-mail ou senha incorretos.');
+      const msg = (err.message || '').toLowerCase();
+      const isBlocked = msg.includes('suspensa') || 
+                        msg.includes('desativada') || 
+                        msg.includes('inativa') || 
+                        msg.includes('clínica') ||
+                        msg.includes('forbidden') ||
+                        msg.includes('403');
+
+      if (isBlocked) {
+        setIsSuspended(true);
+      } else {
+        setError(err.message || 'E-mail ou senha incorretos.');
+      }
     } finally {
       setLoading(false);
     }
