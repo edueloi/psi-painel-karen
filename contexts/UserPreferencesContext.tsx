@@ -33,6 +33,7 @@ export interface UserPreferences {
   };
   general: {
     timezone: string;
+    language: 'pt' | 'en' | 'es';
   };
   messages: {
     viewMode: 'cards' | 'list';
@@ -76,6 +77,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   },
   general: {
     timezone: 'America/Sao_Paulo',
+    language: 'pt',
   },
   messages: {
     viewMode: 'cards',
@@ -119,7 +121,10 @@ interface UserPreferencesContextType {
 
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
 
+import { useAuth } from './AuthContext';
+
 export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [formsArchived, setFormsArchivedState] = useState<string[]>([]);
   const [formsFavorites, setFormsFavoritesState] = useState<string[]>([]);
@@ -128,23 +133,24 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
   // debounce timer ref so we don't spam the API on every keystroke
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ─── Load from backend on mount ───────────────────────────────────────────
+  // ─── Load from backend on mount/auth ───────────────────────────────────────
   useEffect(() => {
     const load = async () => {
-      // Never attempt if there's no token — avoids 401 redirect loop
-      const token = localStorage.getItem('psi_token');
-      if (!token) {
+      if (!isAuthenticated) {
+        setPreferences(DEFAULT_PREFERENCES);
+        setFormsArchivedState([]);
+        setFormsFavoritesState([]);
         setLoaded(true);
         return;
       }
+
+      const token = localStorage.getItem('psi_token');
       try {
-        // Use raw fetch (not `api`) so a 401 does NOT trigger window.location redirect
         const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3013';
         const res = await fetch(`${baseUrl}/profile/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
-          // 401 / 403 / 500 — just use defaults, don't crash
           setLoaded(true);
           return;
         }
@@ -165,7 +171,8 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
       }
     };
     load();
-  }, []);
+  }, [isAuthenticated]);
+
 
   // ─── Persist to backend (debounced 800ms) ─────────────────────────────────
   const persistToBackend = (prefs: UserPreferences, archived: string[], favorites: string[]) => {

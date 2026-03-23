@@ -1,6 +1,6 @@
-
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
 import { translations, Language } from '../translations';
+import { useUserPreferences } from './UserPreferencesContext';
 
 interface LanguageContextType {
   language: Language;
@@ -10,8 +10,14 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('pt');
+  const { preferences, updatePreference } = useUserPreferences();
+  const language = preferences.general.language || 'pt';
+
+  const setLanguage = (lang: Language) => {
+    updatePreference('general', { language: lang });
+  };
 
   const t = (key: string): string => {
     // @ts-ignore

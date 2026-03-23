@@ -205,19 +205,19 @@ import { ToastProvider } from './contexts/ToastContext';
 
 const App: React.FC = () => {
   return (
-    <LanguageProvider>
+    <AuthProvider>
       <UserPreferencesProvider>
-        <ThemeProvider>
-          <AuthProvider>
+        <LanguageProvider>
+          <ThemeProvider>
             <ToastProvider>
               <BrowserRouter>
                 <AppRoutes />
               </BrowserRouter>
             </ToastProvider>
-          </AuthProvider>
-        </ThemeProvider>
+          </ThemeProvider>
+        </LanguageProvider>
       </UserPreferencesProvider>
-    </LanguageProvider>
+    </AuthProvider>
   );
 };
 
