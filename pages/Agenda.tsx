@@ -2002,13 +2002,18 @@ export const Agenda: React.FC = () => {
                               onChange={val => val && setFormData({...formData, appointment_date: `${val}T${formData.appointment_date.slice(11, 16)}`})}
                             />
                           </div>
-                          <Input
-                            label="Hora"
-                            type="time"
-                            icon={<Clock size={16} className="text-slate-400" />}
-                            value={formData.appointment_date.slice(11, 16)}
-                            onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
-                          />
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Hora</label>
+                            <div className="relative group">
+                              <Clock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                              <input
+                                type="time"
+                                value={formData.appointment_date.slice(11, 16)}
+                                onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
+                                className="h-10 w-full rounded-xl border border-slate-300 pl-8 pr-2 text-xs font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-white"
+                              />
+                            </div>
+                          </div>
                           <Input
                             label="Duração (min)"
                             type="number"
