@@ -620,7 +620,8 @@ export const LivroCaixa: React.FC = () => {
       }
       pushToast('success', 'Importação concluída!', `${success} lançamento(s) importado(s) com sucesso.`);
       setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); setImportStep('input');
-      goToArchive(); // volta ao arquivo e recarrega os meses com os dados importados
+      goToArchive();
+      fetchArchive();
     } catch {
       pushToast('error', 'Erro ao importar dados');
     } finally {

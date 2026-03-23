@@ -113,10 +113,34 @@ const MONTH_NAMES = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const IR_BRACKETS = [
+  { label: 'Isento',  range: 'Até R$2.259,20',             aliquota: '—',    deducao: '—',       min: 0,       max: 2259.20,   color: 'emerald' },
+  { label: '7,5%',   range: 'R$2.259,21 – R$2.826,65',    aliquota: '7,5%', deducao: 'R$169,44',min: 2259.21, max: 2826.65,   color: 'sky' },
+  { label: '15%',    range: 'R$2.826,66 – R$3.751,05',    aliquota: '15%',  deducao: 'R$381,44',min: 2826.66, max: 3751.05,   color: 'amber' },
+  { label: '22,5%',  range: 'R$3.751,06 – R$4.664,68',    aliquota: '22,5%',deducao: 'R$662,77',min: 3751.06, max: 4664.68,   color: 'orange' },
+  { label: '27,5%',  range: 'Acima de R$4.664,68',        aliquota: '27,5%',deducao: 'R$896,00',min: 4664.69, max: Infinity,  color: 'rose' },
+];
+
 export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear }) => {
   const [profile, setProfile] = useState<FinancialProfile | null>(null);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [step, setStep] = useState(1);
+  const [darfPaid, setDarfPaid] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(`psiflux_darf_${selectedYear}`);
+      return new Set(saved ? JSON.parse(saved) : []);
+    } catch { return new Set(); }
+  });
+
+  const toggleDarf = (month: number) => {
+    setDarfPaid(prev => {
+      const key = `${selectedYear}-${month}`;
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      localStorage.setItem(`psiflux_darf_${selectedYear}`, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   // Setup form state
   const [fWorkType, setFWorkType] = useState<FinancialProfile['workType']>('autonomo');
@@ -168,7 +192,10 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
 
   // ── Compute averages ─────────────────────────────────────────────────────────
 
-  const sortedMonths = [...monthSummaries].sort((a, b) => {
+  const monthsWithActivity = monthSummaries.filter(
+    (m: MonthSummary) => Number(m.income) > 0 || Number(m.expense) > 0
+  );
+  const sortedMonths = [...monthsWithActivity].sort((a, b) => {
     if (a.year !== b.year) return b.year - a.year;
     return b.month - a.month;
   });
@@ -556,6 +583,148 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
               <span className="text-[15px] font-black text-amber-400">{formatCurrency(annualTotalObligation)}</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* IR Progressive Table */}
+      {profile.workType !== 'pj_simples' && profile.workType !== 'clt' && (
+        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-4">
+            📊 Tabela Carnê-Leão 2025 — sua faixa
+          </p>
+          <div className="space-y-2">
+            {IR_BRACKETS.map((faixa) => {
+              const baseCalc = Math.max(0, base - inss - 189.59 * profile.dependentCount);
+              const isActive = baseCalc >= faixa.min && baseCalc <= faixa.max;
+              return (
+                <div
+                  key={faixa.label}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
+                    isActive
+                      ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-300'
+                      : 'bg-slate-50 border-slate-100'
+                  }`}
+                >
+                  <div className={`w-12 text-center shrink-0 text-[12px] font-black ${isActive ? 'text-amber-700' : 'text-slate-400'}`}>
+                    {faixa.aliquota}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[11px] font-bold ${isActive ? 'text-amber-800' : 'text-slate-500'}`}>{faixa.range}</p>
+                    {faixa.deducao !== '—' && (
+                      <p className="text-[9px] text-slate-400 font-bold">Parcela a deduzir: {faixa.deducao}</p>
+                    )}
+                  </div>
+                  {isActive && (
+                    <span className="text-[9px] font-black uppercase text-amber-700 bg-amber-100 px-2 py-0.5 rounded-lg shrink-0">
+                      Você está aqui
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[9px] text-slate-400 font-bold mt-3 flex items-center gap-1">
+            <Info size={11} />
+            Base de cálculo atual: {formatCurrency(Math.max(0, base - inss - 189.59 * profile.dependentCount))} (receita − INSS − dependentes)
+          </p>
+        </div>
+      )}
+
+      {/* Deductions */}
+      {profile.workType === 'autonomo' && (
+        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-4">
+            ✂️ Deduções que reduzem seu IR
+          </p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl">
+              <div>
+                <p className="text-[11px] font-black text-blue-700">INSS Autônomo pago</p>
+                <p className="text-[10px] text-slate-400">Deduzido da base do Carnê-Leão todo mês</p>
+              </div>
+              <span className="text-[13px] font-black text-blue-700">−{formatCurrency(inss)}</span>
+            </div>
+            {profile.dependentCount > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                <div>
+                  <p className="text-[11px] font-black text-emerald-700">{profile.dependentCount} dependente(s)</p>
+                  <p className="text-[10px] text-slate-400">R$189,59 por dependente/mês</p>
+                </div>
+                <span className="text-[13px] font-black text-emerald-700">−{formatCurrency(189.59 * profile.dependentCount)}</span>
+              </div>
+            )}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mt-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                Também dedutíveis no IRPF anual (Livro Caixa)
+              </p>
+              {[
+                'Aluguel / sublocação do consultório',
+                'Material de escritório e higiene',
+                'Cursos, livros e formação profissional',
+                'Telefone e internet de uso profissional',
+                `Anuidade ${profOption.council}`,
+              ].map(item => (
+                <div key={item} className="flex items-center gap-2 py-1">
+                  <CheckCircle2 size={10} className="text-emerald-400 shrink-0" />
+                  <span className="text-[10px] font-bold text-slate-500">{item}</span>
+                </div>
+              ))}
+              <p className="text-[9px] text-amber-600 font-bold mt-2 flex items-center gap-1">
+                <AlertCircle size={10} />
+                Registre no Livro Caixa com comprovante — reduzem o IR no ajuste anual.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DARF / DAS monthly tracker */}
+      {profile.workType !== 'clt' && (
+        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+              {profile.workType === 'pj_simples' ? '🗓️ Rastreador de DAS mensais' : '🗓️ Rastreador de DARFs mensais'}
+            </p>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
+              {darfPaid.size}/{monthSummaries.filter(m => m.income > 0).length} pagos
+            </span>
+          </div>
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+            {MONTH_NAMES.map((name, idx) => {
+              const month = idx + 1;
+              const key = `${selectedYear}-${month}`;
+              const paid = darfPaid.has(key);
+              const hasIncome = monthSummaries.some(m => m.month === month && m.income > 0);
+              return (
+                <button
+                  key={month}
+                  onClick={() => hasIncome && toggleDarf(month)}
+                  disabled={!hasIncome}
+                  title={hasIncome ? (paid ? 'Marcar como pendente' : 'Marcar como pago') : 'Sem receita neste mês'}
+                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border text-center transition-all ${
+                    !hasIncome
+                      ? 'opacity-30 cursor-default bg-slate-50 border-slate-100'
+                      : paid
+                      ? 'bg-emerald-50 border-emerald-300 ring-1 ring-emerald-200 hover:bg-emerald-100'
+                      : 'bg-rose-50 border-rose-200 hover:bg-rose-100'
+                  }`}
+                >
+                  <span className={`text-[9px] font-black uppercase tracking-widest ${paid ? 'text-emerald-700' : hasIncome ? 'text-rose-600' : 'text-slate-400'}`}>
+                    {name}
+                  </span>
+                  {hasIncome && (
+                    paid
+                      ? <CheckCircle2 size={14} className="text-emerald-500" />
+                      : <AlertCircle size={14} className="text-rose-400" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[9px] text-slate-400 font-bold mt-3 flex items-center gap-1">
+            <Info size={11} />
+            Clique em um mês com receita para marcar o {profile.workType === 'pj_simples' ? 'DAS' : 'DARF'} como pago. Salvo localmente.
+          </p>
         </div>
       )}
 
