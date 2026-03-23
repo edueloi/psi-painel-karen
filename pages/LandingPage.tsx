@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Calendar, Video, FileText, Users, BarChart2, Shield,
   CheckCircle, ArrowRight, Menu, X, Star, MessageSquare,
@@ -67,7 +68,11 @@ const stats = [
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Se já está logado, vai direto para o dashboard
+  const handleAccess = () => navigate(isAuthenticated ? '/dashboard' : '/login');
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
@@ -84,10 +89,10 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <button onClick={() => navigate('/login')} className="text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 transition-colors">
+            <button onClick={() => handleAccess()} className="text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 transition-colors">
               Entrar
             </button>
-            <button onClick={() => navigate('/login')} className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-colors shadow-sm shadow-indigo-200">
+            <button onClick={() => handleAccess()} className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-colors shadow-sm shadow-indigo-200">
               Acessar agora
             </button>
           </div>
@@ -102,7 +107,7 @@ export const LandingPage: React.FC = () => {
             <a href="#funcionalidades" className="py-2 text-slate-700 font-medium" onClick={() => setMenuOpen(false)}>Funcionalidades</a>
             <a href="#planos" className="py-2 text-slate-700 font-medium" onClick={() => setMenuOpen(false)}>Planos</a>
             <a href="#depoimentos" className="py-2 text-slate-700 font-medium" onClick={() => setMenuOpen(false)}>Depoimentos</a>
-            <button onClick={() => navigate('/login')} className="mt-2 bg-indigo-600 text-white py-3 rounded-xl font-semibold">
+            <button onClick={() => handleAccess()} className="mt-2 bg-indigo-600 text-white py-3 rounded-xl font-semibold">
               Entrar no sistema
             </button>
           </div>
@@ -132,13 +137,13 @@ export const LandingPage: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => handleAccess()}
               className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-semibold text-base transition-all shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5"
             >
               Acessar agora <ArrowRight size={18} />
             </button>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => handleAccess()}
               className="flex items-center justify-center gap-2 border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-8 py-4 rounded-2xl font-semibold text-base transition-all"
             >
               Ver demonstração
@@ -240,7 +245,7 @@ export const LandingPage: React.FC = () => {
             <p className="text-indigo-100 text-lg mb-8 leading-relaxed">
               A Aurora analisa histórico clínico, sugere condutas, gera relatórios automáticos e responde dúvidas sobre o sistema — tudo integrado à sua rotina.
             </p>
-            <button onClick={() => navigate('/login')} className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 px-7 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-indigo-900/20">
+            <button onClick={() => handleAccess()} className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 px-7 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-indigo-900/20">
               Conhecer a Aurora <ChevronRight size={18} />
             </button>
           </div>
@@ -298,7 +303,7 @@ export const LandingPage: React.FC = () => {
                   ))}
                 </ul>
                 <button
-                  onClick={() => navigate('/login')}
+                  onClick={() => handleAccess()}
                   className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${plan.highlight ? 'bg-white text-indigo-700 hover:bg-indigo-50' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
                 >
                   {plan.highlight ? 'Começar agora' : plan.cta}
@@ -347,7 +352,7 @@ export const LandingPage: React.FC = () => {
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Pronto para começar?</h2>
             <p className="text-slate-500 text-lg mb-8">Configure sua clínica em menos de 5 minutos.</p>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => handleAccess()}
               className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-semibold text-base transition-all shadow-lg shadow-indigo-200 hover:-translate-y-0.5"
             >
               Acessar o PsiFlux <ArrowRight size={18} />
@@ -369,7 +374,7 @@ export const LandingPage: React.FC = () => {
           <div className="flex gap-6 text-sm text-slate-400">
             <a href="/privacidade" className="hover:text-slate-600 transition-colors">Privacidade</a>
             <a href="/ajuda" className="hover:text-slate-600 transition-colors">Suporte</a>
-            <button onClick={() => navigate('/login')} className="hover:text-slate-600 transition-colors">Login</button>
+            <button onClick={() => handleAccess()} className="hover:text-slate-600 transition-colors">Login</button>
           </div>
         </div>
       </footer>

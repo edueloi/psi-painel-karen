@@ -81,8 +81,15 @@ const LeftIllustration = () => (
 
 // ─────────────────────────────────────────────────────────────────────────────
 export const Login: React.FC<{ onLogin: () => void }> = () => {
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate  = useNavigate();
+
+  // Se já está logado, redireciona para o dashboard
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const [email, setEmail]             = useState(() => localStorage.getItem('psi_remembered_email') || '');
   const [password, setPassword]       = useState('');
