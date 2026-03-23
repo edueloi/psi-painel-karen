@@ -5,8 +5,9 @@ export interface Column<T> {
   header: ReactNode | string;
   accessor?: keyof T;
   render?: (row: T) => ReactNode;
-  className?: string;       // Applied to <td>
-  headerClassName?: string; // Applied to <th>
+  className?: string;
+  headerClassName?: string;
+  sortKey?: string;
 }
 
 interface GridTableProps<T> {
@@ -18,6 +19,20 @@ interface GridTableProps<T> {
   onToggleSelectAll?: () => void;
   onRowClick?: (row: T) => void;
   emptyMessage?: ReactNode | string;
+  sortKey?: string;
+  sortOrder?: 'asc' | 'desc';
+  onSort?: (key: string) => void;
+}
+
+function SortIndicator({ active, order }: { active: boolean; order: 'asc' | 'desc' }) {
+  if (!active) {
+    return <span className="inline-block ml-1.5 w-1.5 h-1.5 rounded-full bg-slate-300 align-middle" />;
+  }
+  return (
+    <span className={`inline-block ml-1.5 align-middle text-indigo-500 leading-none`} style={{ fontSize: 12 }}>
+      {order === 'asc' ? '↑' : '↓'}
+    </span>
+  );
 }
 
 export function GridTable<T>({
@@ -29,6 +44,9 @@ export function GridTable<T>({
   onToggleSelectAll,
   onRowClick,
   emptyMessage = 'Nenhum registro encontrado.',
+  sortKey,
+  sortOrder = 'asc',
+  onSort,
 }: GridTableProps<T>) {
   const isSelectable = !!selectedIds && !!onToggleSelect;
   const allSelected =
@@ -38,7 +56,6 @@ export function GridTable<T>({
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-      {/* horizontal scroll wrapper keeps the table from collapsing on small screens */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse" style={{ minWidth: 520 }}>
           <thead className="bg-slate-100/80">
@@ -60,14 +77,29 @@ export function GridTable<T>({
                   </button>
                 </th>
               )}
-              {columns.map((col, idx) => (
-                <th
-                  key={idx}
-                  className={`px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap ${col.headerClassName || ''}`}
-                >
-                  {col.header}
-                </th>
-              ))}
+              {columns.map((col, idx) => {
+                const isSortable = !!col.sortKey && !!onSort;
+                const isActive = isSortable && sortKey === col.sortKey;
+                return (
+                  <th
+                    key={idx}
+                    onClick={isSortable ? () => onSort!(col.sortKey!) : undefined}
+                    className={[
+                      'px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap',
+                      isSortable ? 'cursor-pointer select-none hover:text-indigo-600 transition-colors' : '',
+                      isActive ? 'text-indigo-600' : '',
+                      col.headerClassName || '',
+                    ].join(' ')}
+                  >
+                    <span className="inline-flex items-center">
+                      {col.header}
+                      {isSortable && (
+                        <SortIndicator active={isActive} order={sortOrder} />
+                      )}
+                    </span>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 

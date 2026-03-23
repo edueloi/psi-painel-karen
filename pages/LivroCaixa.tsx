@@ -313,7 +313,17 @@ export const LivroCaixa: React.FC = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [searchQuery, setSearchQuery]   = useState('');
   const [flowFilter, setFlowFilter]     = useState<'all' | 'income' | 'expense'>('all');
-  const [dateSort, setDateSort]         = useState<'asc' | 'desc'>('asc');
+  const [sortKey, setSortKey]           = useState<string>(() => localStorage.getItem('lc_sort_key') ?? 'date');
+  const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>(() => (localStorage.getItem('lc_sort_order') as 'asc' | 'desc') ?? 'asc');
+
+  const handleSort = (key: string) => {
+    const next = key === sortKey && sortOrder === 'asc' ? 'desc' : 'asc';
+    const nextKey = key;
+    setSortKey(nextKey);
+    setSortOrder(next);
+    localStorage.setItem('lc_sort_key', nextKey);
+    localStorage.setItem('lc_sort_order', next);
+  };
 
   // ── Modals ────────────────────────────────────────────────────────────────────
   const [isAuraContabilOpen, setIsAuraContabilOpen] = useState(false);
@@ -509,9 +519,17 @@ export const LivroCaixa: React.FC = () => {
       return true;
     })
     .sort((a, b) => {
-      const da = new Date(a.date).getTime();
-      const db = new Date(b.date).getTime();
-      return dateSort === 'asc' ? da - db : db - da;
+      const dir = sortOrder === 'asc' ? 1 : -1;
+      if (sortKey === 'date') {
+        return (new Date(a.date).getTime() - new Date(b.date).getTime()) * dir;
+      }
+      if (sortKey === 'amount') {
+        return (Number(a.amount) - Number(b.amount)) * dir;
+      }
+      if (sortKey === 'payer') {
+        return ((a.payer_name || a.patient_name || '').localeCompare(b.payer_name || b.patient_name || '')) * dir;
+      }
+      return 0;
     });
 
   const monthLabel = selectedMonth
@@ -769,6 +787,7 @@ export const LivroCaixa: React.FC = () => {
   const columns: Column<Transaction>[] = [
     {
       header: 'Data',
+      sortKey: 'date',
       render: (tx) => {
         const d = safeDate(tx.date);
         return (
@@ -813,6 +832,7 @@ export const LivroCaixa: React.FC = () => {
     },
     {
       header: 'Paciente / Pagador',
+      sortKey: 'payer',
       render: (tx) => {
         const name = tx.payer_name || tx.patient_name || '—';
         const cpf  = tx.payer_cpf  || '';
@@ -846,6 +866,7 @@ export const LivroCaixa: React.FC = () => {
     },
     {
       header: 'Valor',
+      sortKey: 'amount',
       render: (tx) => (
         <div className="text-right">
           <p className={`text-base font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
@@ -1198,13 +1219,6 @@ export const LivroCaixa: React.FC = () => {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setDateSort(s => s === 'asc' ? 'desc' : 'asc')}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border border-slate-100 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-all"
-          >
-            <Calendar size={12} />
-            Data {dateSort === 'asc' ? '↑' : '↓'}
-          </button>
         </div>
 
         {/* Bulk action bar */}
@@ -1254,6 +1268,9 @@ export const LivroCaixa: React.FC = () => {
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAll}
             emptyMessage="Nenhum lançamento encontrado para este período."
+            sortKey={sortKey}
+            sortOrder={sortOrder}
+            onSort={handleSort}
           />
         )}
       </div>
