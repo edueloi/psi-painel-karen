@@ -498,6 +498,8 @@ export const Comandas: React.FC = () => {
       items,
       totalValue: calculateItemsTotal(items),
       sessions_total: sessionsTotal,
+      discount_type: (foundPackage as any).discount_type || 'fixed',
+      discount_value: Number((foundPackage as any).discount_value || 0),
     });
   };
 
