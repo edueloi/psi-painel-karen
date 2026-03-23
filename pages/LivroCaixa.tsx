@@ -925,14 +925,17 @@ export const LivroCaixa: React.FC = () => {
     setEditingTx(null);
     setIsExtraMode(false);
     setTxStatus('paid');
-    setTxDueDate(null);
+    const today = new Date().toISOString().split('T')[0];
+    setTxDueDate(today);
   };
 
   const openNewTx = () => {
     resetForm();
     if (selectedMonth) {
       const { month, year } = selectedMonth;
-      setTxDate(`${year}-${String(month).padStart(2,'0')}-01`);
+      const d = `${year}-${String(month).padStart(2,'0')}-01`;
+      setTxDate(d);
+      setTxDueDate(d);
     }
     setIsNewTxOpen(true);
   };
@@ -942,8 +945,9 @@ export const LivroCaixa: React.FC = () => {
     setIsExtraMode(true);
     setIsNewTxOpen(true);
     setTxType('income');
-    const d = new Date();
-    setTxDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+    const d = new Date().toISOString().split('T')[0];
+    setTxDate(d);
+    setTxDueDate(d);
     setTxSelectedComandaId(String(tx.comanda_id));
     setTxPatientName(tx.patient_name || tx.payer_name || tx.beneficiary_name || '');
     setTxDescription(`Nova parcela - Comanda #${tx.comanda_id}`);
@@ -1928,18 +1932,16 @@ export const LivroCaixa: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className={`grid grid-cols-${txStatus === 'pending' || txStatus === 'waiting' ? '2' : '1'} gap-4`}>
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data Lançamento</label>
-                <DatePicker value={txDate} onChange={setTxDate} placeholder="Selecionar data" />
-              </div>
-              {(txStatus === 'pending' || txStatus === 'waiting') && (
-                <div>
-                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data de Vencimento</label>
-                  <DatePicker value={txDueDate} onChange={setTxDueDate} placeholder="Quando vence?" />
-                </div>
-              )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data da Operação</label>
+              <DatePicker value={txDate} onChange={setTxDate} placeholder="Selecionar data" />
             </div>
+            <div>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data de Vencimento</label>
+              <DatePicker value={txDueDate} onChange={setTxDueDate} placeholder="Quando vence?" />
+            </div>
+          </div>
           </div>
 
           <div>
