@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   DollarSign, TrendingUp, TrendingDown, Calendar, CreditCard,
   Wallet, PieChart, ArrowUpRight, ArrowDownRight, Filter, Download, 
-  Briefcase, Calculator, BookOpen, AlertCircle, Trash2, Loader2,
+  Calculator, AlertCircle, Trash2, Loader2,
   Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2, Sparkles
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -13,6 +13,7 @@ import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
 import { useToast } from '../contexts/ToastContext';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
+import { AuraContabil } from '../components/AI/AuraContabil';
 
 const PAYMENT_METHODS = [
   { id: 'pix', label: 'Pix', icon: <Smartphone size={16} />, color: 'bg-emerald-500' },
@@ -67,6 +68,7 @@ export const Finance: React.FC = () => {
   const [txObservation, setTxObservation] = useState('');
   
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isAuraOpen, setIsAuraOpen] = useState(false);
   const { pushToast } = useToast();
 
 
@@ -691,11 +693,11 @@ export const Finance: React.FC = () => {
               >
                   <Plus size={16} /> {t('finance.addExpense')}
               </button>
-              <button 
-                  onClick={() => setActiveTab('tax')} // Or a specific AI trigger
+              <button
+                  onClick={() => setIsAuraOpen(true)}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 tracking-widest"
               >
-                  <Briefcase size={16} /> AI Insights
+                  <Sparkles size={16} /> Aura Fiscal
               </button>
           </div>
       </div>
@@ -1015,6 +1017,7 @@ export const Finance: React.FC = () => {
         </div>
       )}
 
+      <AuraContabil isOpen={isAuraOpen} onClose={() => setIsAuraOpen(false)} />
     </div>
   );
 };
