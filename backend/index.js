@@ -93,6 +93,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/commissions`, commissionsRoutes);
   app.use(`${prefix}/notifications`, notificationsRoutes);
   app.use(`${prefix}/whatsapp`, whatsappRoutes);
+  app.use(`${prefix}/backup`, require('./routes/backup'));
 }
 
 // ---- Middlewares globais ----

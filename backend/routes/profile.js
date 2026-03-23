@@ -3,6 +3,9 @@ const router = express.Router();
 const db = require('../db');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 const { generateShareToken } = require('../utils/shareToken');
 
 // Add extra profile columns if they don't exist (safe migration)
@@ -42,6 +45,7 @@ router.get('/me', async (req, res) => {
               u.avatar_url, u.bio, u.company_name, u.address, u.clinic_logo_url, u.cover_url, 
               u.schedule, u.active, u.permissions as user_permissions,
               u.ui_preferences, u.forms_archived, u.forms_favorites,
+              u.two_factor_enabled,
               p.permissions as profile_permissions, p.slug as profile_slug
        FROM users u 
        LEFT JOIN tenant_permission_profiles p ON u.tenant_profile_id = p.id
@@ -122,6 +126,29 @@ router.put('/me', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Erro ao salvar perfil' });
   }
+});
+
+// PUT /profile/password — Alterar senha com validação da atual
+router.put('/password', async (req, res) => {
+    try {
+        const { current, new: newPass } = req.body;
+        if (!current || !newPass) return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
+
+        const [user] = await db.query('SELECT password FROM users WHERE id = ?', [req.user.id]);
+        const match = await bcrypt.compare(current, user[0].password);
+
+        if (!match) {
+            return res.status(401).json({ error: 'Senha atual incorreta.' });
+        }
+
+        const hashed = await bcrypt.hash(newPass, 10);
+        await db.query('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user.id]);
+        
+        res.json({ success: true, message: 'Senha alterada com sucesso!' });
+    } catch (err) {
+        console.error('Erro ao trocar senha:', err);
+        res.status(500).json({ error: 'Erro interno ao trocar senha.' });
+    }
 });
 
 // PATCH /profile/preferences — salva ui_preferences e/ou forms_archived sem tocar no perfil
@@ -278,6 +305,73 @@ router.post('/cover', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao fazer upload da capa' });
+  }
+});
+
+// ── TWO FACTOR AUTHENTICATION (2FA) ──────────────────────────────────────────
+
+// POST /profile/2fa/setup — Gera o segredo e o QR Code
+router.post('/2fa/setup', async (req, res) => {
+  try {
+    const secret = speakeasy.generateSecret({
+      name: `PsiFlux: ${req.user.email}`,
+      issuer: 'PsiFlux'
+    });
+
+    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+
+    res.json({
+      secret: secret.base32,
+      qrCodeUrl
+    });
+  } catch (err) {
+    console.error('Erro ao configurar 2FA:', err);
+    res.status(500).json({ error: 'Erro ao configurar 2FA' });
+  }
+});
+
+// POST /profile/2fa/verify — Valida o código e ativa o 2FA permanentemente
+router.post('/2fa/verify', async (req, res) => {
+  try {
+    const { token, secret } = req.body;
+    
+    const verified = speakeasy.totp.verify({
+      secret: secret,
+      encoding: 'base32',
+      token: token
+    });
+
+    if (verified) {
+      await db.query(
+        'UPDATE users SET two_factor_enabled = true, two_factor_secret = ? WHERE id = ?',
+        [secret, req.user.id]
+      );
+      res.json({ success: true, message: '2FA ativado com sucesso!' });
+    } else {
+      res.status(400).json({ error: 'Código de verificação inválido' });
+    }
+  } catch (err) {
+    console.error('Erro ao verificar 2FA:', err);
+    res.status(500).json({ error: 'Erro ao verificar 2FA' });
+  }
+});
+
+// POST /profile/2fa/disable — Desativa o 2FA
+router.post('/2fa/disable', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const [user] = await db.query('SELECT password FROM users WHERE id = ?', [req.user.id]);
+    const match = await bcrypt.compare(password, user[0].password);
+
+    if (!match) {
+        return res.status(401).json({ error: 'Senha incorreta!' });
+    }
+
+    await db.query('UPDATE users SET two_factor_enabled = false, two_factor_secret = NULL WHERE id = ?', [req.user.id]);
+    res.json({ success: true, message: '2FA desativado com sucesso.' });
+  } catch (err) {
+    console.error('Erro ao desativar 2FA:', err);
+    res.status(500).json({ error: 'Erro ao desativar 2FA' });
   }
 });
 

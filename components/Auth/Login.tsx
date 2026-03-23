@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, BrainCircuit, ShieldCheck, ChevronLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, BrainCircuit, ShieldCheck, ChevronLeft, Smartphone, AlertCircle } from 'lucide-react';
 import logoUrl from '../../images/logo-psiflux.png';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -8,33 +8,22 @@ import { useAuth } from '../../contexts/AuthContext';
 // ── Ilustração SVG da esquerda ─────────────────────────────────────────────
 const LeftIllustration = () => (
   <svg viewBox="0 0 480 480" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full max-w-sm mx-auto">
-    {/* Fundo blob suave */}
     <ellipse cx="240" cy="260" rx="200" ry="180" fill="#e0e7ff" fillOpacity="0.5" />
     <ellipse cx="300" cy="180" rx="130" ry="120" fill="#ede9fe" fillOpacity="0.6" />
-
-    {/* Tela / monitor estilizado */}
     <rect x="100" y="120" width="280" height="190" rx="20" fill="white" stroke="#c7d2fe" strokeWidth="2" />
     <rect x="100" y="120" width="280" height="36" rx="20" fill="#6366f1" />
     <rect x="100" y="138" width="280" height="18" fill="#6366f1" />
-    {/* dots da barra */}
     <circle cx="122" cy="138" r="5" fill="white" fillOpacity="0.5" />
     <circle cx="140" cy="138" r="5" fill="white" fillOpacity="0.5" />
     <circle cx="158" cy="138" r="5" fill="white" fillOpacity="0.5" />
-
-    {/* Conteúdo da tela — gráfico de linha */}
     <polyline points="120,270 160,240 200,255 250,210 300,220 360,185" stroke="#6366f1" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     <polyline points="120,270 160,240 200,255 250,210 300,220 360,185 360,290 120,290" fill="#6366f1" fillOpacity="0.08" />
-    {/* pontos do gráfico */}
     {[[160,240],[200,255],[250,210],[300,220],[360,185]].map(([cx,cy],i) => (
       <circle key={i} cx={cx} cy={cy} r="4" fill="#6366f1" />
     ))}
-    {/* linhas de grade */}
     {[200,230,260,290].map((y,i) => (
       <line key={i} x1="118" y1={y} x2="365" y2={y} stroke="#e0e7ff" strokeWidth="1" />
     ))}
-
-    {/* Cards flutuantes */}
-    {/* Card 1 — pacientes */}
     <rect x="50" y="200" width="110" height="62" rx="14" fill="white" stroke="#e0e7ff" strokeWidth="1.5" style={{ filter:'drop-shadow(0 4px 12px rgba(99,102,241,0.10))' }} />
     <rect x="62" y="212" width="26" height="26" rx="8" fill="#eef2ff" />
     <path d="M75 218 a5 5 0 1 1 0 .01 M68 232 a7 5 0 0 1 14 0" stroke="#6366f1" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
@@ -42,8 +31,6 @@ const LeftIllustration = () => (
     <rect x="96" y="224" width="36" height="5" rx="2.5" fill="#c7d2fe" />
     <rect x="62" y="245" width="82" height="8" rx="4" fill="#6366f1" fillOpacity="0.15" />
     <text x="74" y="252" fontSize="7" fill="#6366f1" fontWeight="600">48 pacientes ativos</text>
-
-    {/* Card 2 — agenda */}
     <rect x="320" y="240" width="110" height="62" rx="14" fill="white" stroke="#e0e7ff" strokeWidth="1.5" style={{ filter:'drop-shadow(0 4px 12px rgba(139,92,246,0.10))' }} />
     <rect x="332" y="252" width="26" height="26" rx="8" fill="#f5f3ff" />
     <rect x="337" y="257" width="16" height="16" rx="3" stroke="#8b5cf6" strokeWidth="1.8" fill="none" />
@@ -54,8 +41,6 @@ const LeftIllustration = () => (
     <rect x="366" y="264" width="36" height="5" rx="2.5" fill="#ddd6fe" />
     <rect x="332" y="285" width="82" height="8" rx="4" fill="#8b5cf6" fillOpacity="0.12" />
     <text x="341" y="292" fontSize="7" fill="#8b5cf6" fontWeight="600">6 consultas hoje</text>
-
-    {/* Card 3 — faturamento */}
     <rect x="160" y="330" width="160" height="60" rx="14" fill="white" stroke="#e0e7ff" strokeWidth="1.5" style={{ filter:'drop-shadow(0 4px 16px rgba(99,102,241,0.12))' }} />
     <rect x="172" y="342" width="26" height="26" rx="8" fill="#ecfdf5" />
     <path d="M185 348 v12 M181 352 h8 M181 356 h8" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round"/>
@@ -63,13 +48,9 @@ const LeftIllustration = () => (
     <rect x="206" y="354" width="80" height="6" rx="3" fill="#d1fae5" />
     <text x="206" y="362" fontSize="9" fill="#065f46" fontWeight="700">R$ 12.400</text>
     <text x="206" y="374" fontSize="7" fill="#6ee7b7">↑ +18% este mês</text>
-
-    {/* Ícone central flutuante */}
     <circle cx="240" cy="108" r="32" fill="#6366f1" style={{ filter:'drop-shadow(0 8px 24px rgba(99,102,241,0.35))' }} />
     <path d="M228 108 q0-8 8-10 q4-1 8 2 q6 4 4 10 q-1 4-5 6 l0 4" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
     <circle cx="240" cy="134" r="2" fill="white" />
-
-    {/* Estrelinhas decorativas */}
     {[[80,150],[400,300],[420,140],[60,340]].map(([cx,cy],i)=>(
       <g key={i} transform={`translate(${cx},${cy})`} opacity="0.5">
         <line x1="-5" y1="0" x2="5" y2="0" stroke="#a5b4fc" strokeWidth="1.5" strokeLinecap="round"/>
@@ -84,7 +65,6 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
   const { login, isAuthenticated } = useAuth();
   const navigate  = useNavigate();
 
-  // Se já está logado, redireciona para o dashboard
   React.useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard', { replace: true });
@@ -102,14 +82,28 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
   const [forgotSent, setForgotSent]   = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
 
+  // 2FA States
+  const [is2FA, setIs2FA]             = useState(false);
+  const [twoFactorToken, setTwoFactorToken] = useState('');
+  const [tempUserId, setTempUserId]   = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const res = await api.post<{ token: string }>('/auth/login', { email, password });
+      const res = await api.post<any>('/auth/login', { email, password });
+      
+      if (res.requires_2fa) {
+          setTempUserId(res.userId);
+          setIs2FA(true);
+          setLoading(false);
+          return;
+      }
+
       if (remember) localStorage.setItem('psi_remembered_email', email);
       else localStorage.removeItem('psi_remembered_email');
+      
       login(res.token);
       navigate('/dashboard');
     } catch (err: any) {
@@ -128,6 +122,26 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handle2FAVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+        const res = await api.post<any>('/auth/verify-2fa', { 
+            userId: tempUserId, 
+            token: twoFactorToken 
+        });
+        
+        if (remember) localStorage.setItem('psi_remembered_email', email);
+        login(res.token);
+        navigate('/dashboard');
+    } catch (err: any) {
+        setError(err.message || 'Código 2FA inválido ou expirado.');
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -151,13 +165,10 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       {/* ── Esquerda — ilustração ── */}
       <div className="hidden lg:flex flex-col justify-between w-[50%] p-12 relative overflow-hidden"
         style={{ background: 'linear-gradient(145deg, #eef2ff 0%, #f5f3ff 55%, #fdf4ff 100%)' }}>
-
-        {/* blobs suaves */}
         <div className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-40" style={{ background: 'radial-gradient(circle, #c7d2fe, transparent 70%)', transform: 'translate(30%,-30%)' }} />
         <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full opacity-30" style={{ background: 'radial-gradient(circle, #ddd6fe, transparent 70%)', transform: 'translate(-30%,30%)' }} />
         <div className="absolute top-1/2 left-1/2 w-96 h-96 rounded-full opacity-15" style={{ background: 'radial-gradient(circle, #e0e7ff, transparent 70%)', transform: 'translate(-50%,-50%)' }} />
 
-        {/* Logo */}
         <div className="flex items-center gap-4 relative z-10">
           <div className="w-[52px] h-[52px] rounded-2xl overflow-hidden shadow-xl ring-2 ring-indigo-200/60 bg-white/80 backdrop-blur-sm flex-shrink-0">
             <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-1" />
@@ -171,7 +182,6 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           </div>
         </div>
 
-        {/* Ilustração central */}
         <div className="flex-1 flex flex-col items-center justify-center relative z-10 py-6">
           <LeftIllustration />
           <div className="text-center mt-2">
@@ -180,7 +190,6 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           </div>
         </div>
 
-        {/* Indicadores */}
         <div className="flex items-center justify-center gap-4 relative z-10">
           {[
             { value: '98%', label: 'Satisfação', color: 'bg-indigo-50' },
@@ -213,9 +222,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
             </div>
           </div>
 
-          {/* ── Esqueci a senha ── */}
           {forgot ? (
-            <div>
+            <div className="animate-[fadeIn_0.5s_ease-out]">
               <button onClick={() => { setForgot(false); setForgotSent(false); setForgotEmail(''); }}
                 className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-8 transition">
                 <ChevronLeft size={15} /> Voltar ao login
@@ -259,24 +267,71 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                 </>
               )}
             </div>
+          ) : is2FA ? (
+            <div className="animate-[fadeIn_0.5s_ease-out]">
+                  <button onClick={() => { setIs2FA(false); setTwoFactorToken(''); setError(''); }}
+                    className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-8 transition">
+                    <ChevronLeft size={15} /> Voltar
+                  </button>
 
+                  <div className="mb-8">
+                    <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-5 shadow-inner">
+                        <ShieldCheck size={32} />
+                    </div>
+                    <h2 className="text-[28px] font-display font-bold text-slate-900 mb-1.5 tracking-tight">Verificação de Segurança</h2>
+                    <p className="text-slate-400 text-sm">Insira o código de 6 dígitos gerado pelo seu aplicativo autenticador.</p>
+                  </div>
+
+                  {(error || isSuspended) && (
+                    <div className={`flex items-start gap-3 border text-sm px-4 py-3 rounded-xl mb-6 ${isSuspended ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-red-50 border-red-100 text-red-600'}`}>
+                      {isSuspended ? <AlertCircle size={18} className="mt-0.5 flex-shrink-0" /> : <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-2 flex-shrink-0" />}
+                      <p className={isSuspended ? 'font-medium' : ''}>
+                        {isSuspended ? 'Sua conta ou clínica foi suspensa. Entre em contato com o suporte para regularizar seu acesso.' : error}
+                      </p>
+                    </div>
+                  )}
+
+                  <form onSubmit={handle2FAVerify} className="space-y-6">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Código de Autenticação</label>
+                      <div className="relative">
+                        <Smartphone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input 
+                          type="text" 
+                          required 
+                          maxLength={6}
+                          value={twoFactorToken} 
+                          onChange={e => setTwoFactorToken(e.target.value.replace(/[^0-9]/g, ''))}
+                          placeholder="000 000"
+                          autoFocus
+                          className="w-full pl-11 pr-4 py-4 rounded-xl text-2xl font-black tracking-[0.3em] bg-slate-50 border border-slate-200 text-indigo-600 placeholder:text-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition text-center" 
+                        />
+                      </div>
+                    </div>
+
+                    <button type="submit" disabled={loading || twoFactorToken.length < 6}
+                      className="w-full py-4 rounded-xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2 transition-all duration-200 shadow-xl shadow-indigo-100 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]">
+                      {loading ? <><Loader2 size={16} className="animate-spin" /> Verificando...</> : 'Confirmar e Entrar'}
+                    </button>
+                  </form>
+               </div>
           ) : (
-          /* ── Login ── */
             <>
-              <div className="mb-8">
+              <div className="mb-8 animate-[fadeIn_0.5s_ease-out]">
                 <h2 className="text-[28px] font-display font-bold text-slate-900 mb-1.5 tracking-tight">Bem-vindo de volta</h2>
                 <p className="text-slate-400 text-sm">Entre com suas credenciais para acessar o painel</p>
               </div>
 
-              {error && (
-                <div className="flex items-center gap-2.5 bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl mb-6">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                  {error}
+              {(error || isSuspended) && (
+                <div className={`flex items-start gap-3 border text-sm px-4 py-3 rounded-xl mb-6 animate-[shake_0.5s_ease-in-out] ${isSuspended ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-red-50 border-red-100 text-red-600'}`}>
+                  {isSuspended ? <AlertCircle size={18} className="mt-0.5 flex-shrink-0" /> : <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-2 flex-shrink-0" />}
+                  <p className={isSuspended ? 'font-medium' : ''}>
+                    {isSuspended ? 'Sua conta ou clínica foi suspensa. Entre em contato com o suporte para regularizar seu acesso.' : error}
+                  </p>
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Email */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">E-mail</label>
                   <div className="relative">
@@ -287,7 +342,6 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                   </div>
                 </div>
 
-                {/* Senha */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Senha</label>
@@ -308,14 +362,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                   </div>
                 </div>
 
-                {/* Lembrar-me */}
                 <label className="flex items-center gap-3 cursor-pointer select-none group">
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={remember}
-                    onChange={e => setRemember(e.target.checked)}
-                  />
+                  <input type="checkbox" className="sr-only" checked={remember} onChange={e => setRemember(e.target.checked)} />
                   <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${remember ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300 group-hover:border-indigo-400'}`}>
                     {remember && (
                       <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
@@ -326,9 +374,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                   <span className="text-sm text-slate-600">Lembrar-me neste dispositivo</span>
                 </label>
 
-                {/* Botão entrar */}
                 <button type="submit" disabled={loading}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-indigo-200/60 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99] mt-1">
+                  className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-indigo-200/60 disabled:opacity-60 active:scale-[0.99] mt-1">
                   {loading
                     ? <><Loader2 size={16} className="animate-spin" /> Entrando...</>
                     : <>Entrar <ArrowRight size={16} /></>}

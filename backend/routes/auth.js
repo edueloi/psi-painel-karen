@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const speakeasy = require('speakeasy');
 const db = require('../db');
 const { sendMail, templates } = require('../services/emailService');
 
@@ -50,6 +51,15 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Email ou senha inválidos' });
     }
 
+    // Se o 2FA estiver ativo, não entrega o token ainda
+    if (user.two_factor_enabled) {
+        return res.json({ 
+            requires_2fa: true, 
+            userId: user.id,
+            message: 'Autenticação de dois fatores necessária.' 
+        });
+    }
+
     const payload = {
       id: user.id,
       tenant_id: user.tenant_id,
@@ -62,11 +72,144 @@ router.post('/login', async (req, res) => {
       expiresIn: process.env.JWT_EXPIRES_IN || '7d',
     });
 
-    res.json({ token });
+    // Record session
+    const tokenId = crypto.randomBytes(16).toString('hex');
+    const userAgent = req.headers['user-agent'] || 'Desconhecido';
+    const ipAddress = req.ip || req.connection.remoteAddress || '0.0.0.0';
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await db.query(
+      `INSERT INTO user_sessions (user_id, token_id, user_agent, ip_address, expires_at) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [user.id, tokenId, userAgent, ipAddress, expiresAt]
+    );
+
+    // Update payload with tokenId
+    const tokenWithId = jwt.sign({...payload, tokenId}, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    });
+
+    res.json({ token: tokenWithId });
   } catch (err) {
     console.error('Erro no login:', err);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
+});
+
+/**
+ * POST /auth/verify-2fa
+ * Verifica o código 2FA e emite o token final
+ */
+router.post('/verify-2fa', async (req, res) => {
+  try {
+    const { userId, token: totpToken } = req.body;
+
+    const [users] = await db.query(
+      'SELECT id, tenant_id, role, email, name, two_factor_secret FROM users WHERE id = ? AND active = true',
+      [userId]
+    );
+
+    if (users.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+    const user = users[0];
+
+    const verified = speakeasy.totp.verify({
+      secret: user.two_factor_secret,
+      encoding: 'base32',
+      token: totpToken
+    });
+
+    if (!verified) {
+      return res.status(401).json({ error: 'Código 2FA inválido ou expirado' });
+    }
+
+    const payload = {
+      id: user.id,
+      tenant_id: user.tenant_id,
+      role: user.role,
+      email: user.email,
+      name: user.name,
+    };
+
+    // Record session
+    const tokenId = crypto.randomBytes(16).toString('hex');
+    const userAgent = req.headers['user-agent'] || 'Desconhecido';
+    const ipAddress = req.ip || req.connection.remoteAddress || '0.0.0.0';
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await db.query(
+      `INSERT INTO user_sessions (user_id, token_id, user_agent, ip_address, expires_at) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [user.id, tokenId, userAgent, ipAddress, expiresAt]
+    );
+
+    const jwtToken = jwt.sign({...payload, tokenId}, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    });
+
+    res.json({ token: jwtToken });
+  } catch (err) {
+    console.error('Erro na verificação 2FA:', err);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+/**
+ * GET /auth/sessions
+ * List active sessions for the current user
+ */
+const { authMiddleware } = require('../middleware/auth');
+router.get('/sessions', authMiddleware, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT id, token_id, user_agent, ip_address, created_at, last_active 
+             FROM user_sessions 
+             WHERE user_id = ? AND (expires_at > NOW() OR expires_at IS NULL)
+             ORDER BY last_active DESC`,
+            [req.user.id]
+        );
+
+        // Map session info to be more readable
+        const sessions = rows.map(s => {
+            const ua = s.user_agent.toLowerCase();
+            let device = 'monitor';
+            if (ua.includes('mobi') || ua.includes('android')) device = 'smartphone';
+            else if (ua.includes('tablet') || ua.includes('ipad')) device = 'tablet';
+            else if (ua.includes('mac') || ua.includes('windows')) device = 'laptop';
+
+            return {
+                id: s.id,
+                tokenId: s.token_id,
+                device,
+                name: s.user_agent.split(') ')[0].split(' (')[1] || s.user_agent.slice(0, 30),
+                location: s.ip_address,
+                status: s.token_id === req.user.tokenId ? 'online' : 'offline',
+                lastAccess: new Date(s.last_active).toLocaleString('pt-BR')
+            };
+        });
+
+        res.json(sessions);
+    } catch (err) {
+        console.error('Erro ao buscar sessões:', err);
+        res.status(500).json({ error: 'Erro interno ao buscar sessões.' });
+    }
+});
+
+/**
+ * DELETE /auth/sessions/:id
+ * Revoke a specific session
+ */
+router.delete('/sessions/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.query(
+            'DELETE FROM user_sessions WHERE id = ? AND user_id = ?',
+            [id, req.user.id]
+        );
+        res.json({ success: true, message: 'Sessão revogada com sucesso.' });
+    } catch (err) {
+        console.error('Erro ao revogar sessão:', err);
+        res.status(500).json({ error: 'Erro ao revogar sessão.' });
+    }
 });
 
 // POST /auth/me - Retorna dados do usuário logado

@@ -597,8 +597,26 @@ async function migrate() {
     "ALTER TABLE uploads ADD COLUMN file_size INT",
     "ALTER TABLE forms ADD COLUMN category VARCHAR(100)",
     "ALTER TABLE forms ADD COLUMN is_global BOOLEAN DEFAULT false",
-    "ALTER TABLE form_responses ADD COLUMN score INT DEFAULT 0"
+    "ALTER TABLE form_responses ADD COLUMN score INT DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN DEFAULT false",
+    "ALTER TABLE users ADD COLUMN two_factor_secret VARCHAR(255) NULL"
   ];
+
+  // ---- USER SESSIONS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      token_id VARCHAR(255) NOT NULL,
+      user_agent TEXT,
+      ip_address VARCHAR(45),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_active DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME,
+      INDEX (user_id),
+      INDEX (token_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   for (const stmt of alterStatements) {
     try {

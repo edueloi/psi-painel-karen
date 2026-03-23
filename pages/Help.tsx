@@ -3,12 +3,11 @@ import {
   HelpCircle, MessageCircle, FileText, ChevronDown, CheckCircle, Mail,
   Search, Sparkles, Send, Bot, Calendar, Users, DollarSign, Video,
   BookOpen, Zap, Shield, Star, Clock, ChevronRight, LifeBuoy, X,
-  MessageSquare, Loader2, Phone, ExternalLink
+  MessageSquare, Loader2, Phone, ExternalLink, AlertCircle
 } from 'lucide-react';
 import { API_BASE_URL } from '../services/api';
 import { Button } from '../components/UI/Button';
 import { Modal } from '../components/UI/Modal';
-import { AlertCircle } from 'lucide-react';
 
 // ── FAQ Data ─────────────────────────────────────────────────────────────────
 const FAQ_CATEGORIES = [
@@ -86,73 +85,62 @@ const FAQ_CATEGORIES = [
       { q: 'Onde vejo as respostas dos pacientes?', a: 'Em Formulários > Respostas, ou no perfil do paciente > aba Formulários. Você vê a data de preenchimento, a pontuação obtida e pode abrir cada resposta para ver os detalhes.' },
     ]
   },
-  {
-    id: 'disc',
-    label: 'DISC',
-    icon: <Star size={14} />,
-    color: 'bg-violet-50 text-violet-700 border-violet-200',
-    faqs: [
-      { q: 'O que é o DISC?', a: 'DISC é um modelo de avaliação comportamental que classifica os padrões de comportamento em 4 fatores: D (Dominância — assertividade e foco em resultados), I (Influência — sociabilidade e otimismo), S (Estabilidade — paciência e consistência) e C (Conformidade — precisão e análise).' },
-      { q: 'Como aplicar o DISC no PsiFlux?', a: 'Acesse o menu DISC, selecione o paciente e clique em "Iniciar Avaliação". O paciente responde 28 conjuntos de adjetivos indicando os mais e menos representativos. O relatório é gerado automaticamente ao finalizar.' },
-      { q: 'O que o relatório DISC inclui?', a: 'O relatório gerado pela Aurora inclui: perfil comportamental detalhado, análise do fator dominante, interação entre fatores, crenças automáticas associadas (TCC), pontos de desenvolvimento terapêutico e intervenções sugeridas.' },
-      { q: 'Posso usar o DISC sem vincular a um paciente?', a: 'Sim. Na tela DISC, você pode iniciar uma avaliação sem vincular a nenhum paciente. Útil para triagens rápidas ou avaliações de profissionais da equipe.' },
-      { q: 'O perfil DISC muda com o tempo?', a: 'Sim, o comportamento pode mudar com o contexto e o desenvolvimento pessoal. Recomenda-se reaplicar o DISC a cada 6-12 meses ou após eventos de vida significativos para acompanhar a evolução do paciente.' },
-    ]
-  },
-  {
-    id: 'sala_virtual',
-    label: 'Sala Virtual',
-    icon: <Video size={14} />,
-    color: 'bg-sky-50 text-sky-700 border-sky-200',
-    faqs: [
-      { q: 'Como iniciar uma videoconsulta?', a: 'Acesse o menu "Sala Virtual" ou clique em um agendamento online na Agenda e selecione "Entrar na Sala". A sala inicia no navegador sem precisar instalar nenhum aplicativo.' },
-      { q: 'Como o paciente entra na sala virtual?', a: 'O sistema gera um link único para cada sala. Envie o link para o paciente via WhatsApp ou e-mail. O paciente acessa pelo link no navegador do celular ou computador, sem precisar de cadastro.' },
-      { q: 'Quais recursos a sala virtual oferece?', a: 'A sala virtual inclui: vídeo HD, áudio, chat de texto durante a consulta, compartilhamento de tela (útil para mostrar materiais psicoeducativos) e controles de câmera/microfone.' },
-      { q: 'Posso criar uma sala avulsa (sem agendamento)?', a: 'Sim. Em Sala Virtual, clique em "Nova Sala Instantânea". A sala é criada imediatamente e você pode compartilhar o link com o paciente pelo WhatsApp ou e-mail.' },
-      { q: 'A consulta online é registrada na agenda?', a: 'Se criada via agendamento, sim. As salas avulsas não criam agendamento automaticamente, mas você pode registrar a evolução manualmente no prontuário do paciente após a sessão.' },
-    ]
-  },
-  {
-    id: 'mensagens',
-    label: 'Mensagens',
-    icon: <MessageCircle size={14} />,
-    color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    faqs: [
-      { q: 'Como funciona o módulo de Mensagens?', a: 'O módulo de Mensagens é uma biblioteca de templates para WhatsApp. Você cria mensagens com variáveis dinâmicas (nome, data, horário, etc.) e envia para pacientes com um clique, que abre o WhatsApp Web já preenchido.' },
-      { q: 'Quais variáveis posso usar nos templates?', a: 'As variáveis disponíveis são: {{saudacao}} (bom dia/boa tarde conforme o horário), {{nome_paciente}}, {{primeiro_nome}}, {{data_agendamento}}, {{horario}}, {{servico}}, {{valor_total}}, {{nome_clinica}}, {{nome_profissional}}.' },
-      { q: 'O que são templates globais?', a: 'Templates globais são mensagens padrão criadas pelo sistema e disponíveis para todos os usuários (ex: confirmação de consulta, lembrete 24h, cobrança). Você pode editar o conteúdo para personalizar ao seu estilo.' },
-      { q: 'Posso criar categorias de mensagens?', a: 'Sim. Ao criar ou editar um template, você pode selecionar uma categoria existente (Lembrete, Financeiro, Aniversário, Outros) ou digitar uma nova categoria personalizada.' },
-      { q: 'Como enviar uma mensagem para um paciente?', a: 'Em Mensagens, clique no botão "WhatsApp" no template desejado. Selecione o paciente no combobox (filtrando por ativos/inativos/todos), preencha os dados variáveis (data, horário, serviço) e clique em "Enviar". O WhatsApp abre com a mensagem pronta.' },
-    ]
-  },
-  {
-    id: 'profissionais',
-    label: 'Profissionais',
-    icon: <Users size={14} />,
-    color: 'bg-rose-50 text-rose-700 border-rose-200',
-    faqs: [
-      { q: 'Como adicionar um novo profissional?', a: 'Em Profissionais, clique em "+ Novo Integrante". Preencha nome, e-mail, telefone, especialidade e CRP/CRM. Defina o perfil de acesso e uma senha temporária. O profissional recebe um e-mail de boas-vindas.' },
-      { q: 'Quais são os perfis de acesso disponíveis?', a: 'Os perfis são: Super Admin (dono do sistema, acesso total), Admin (gestor da clínica, acesso total exceto configurações de sistema), Profissional (vê seus próprios pacientes e agenda), Recepcionista (gerencia agenda e cadastros, sem acesso ao financeiro), Viewer (somente leitura).' },
-      { q: 'O dono da clínica pode ser deletado ou suspenso?', a: 'Não. O perfil do proprietário principal (tenant owner) não pode ser deletado ou suspenso. Os botões de edição e exclusão ficam ocultos no card dele para evitar erros.' },
-      { q: 'Como alterar o perfil de acesso de um profissional?', a: 'No card do profissional em Profissionais, clique no ícone de edição. Altere o campo "Perfil de Acesso" e salve. A mudança tem efeito imediato no próximo login do profissional.' },
-      { q: 'Como adicionar uma foto de perfil?', a: 'Cada profissional pode fazer upload do avatar em Meu Perfil > clique na foto. O admin também pode fazer o upload pelo cadastro do profissional em Profissionais. O avatar aparece no card e no topbar.' },
-    ]
-  },
-  {
-    id: 'configuracoes',
-    label: 'Configurações',
-    icon: <Shield size={14} />,
-    color: 'bg-violet-50 text-violet-700 border-violet-200',
-    faqs: [
-      { q: 'Como alterar minha senha?', a: 'Acesse Configurações > Segurança (ou Privacidade) e clique em "Alterar Senha". Informe a senha atual e a nova senha duas vezes. Recomendamos senhas com pelo menos 12 caracteres com letras, números e símbolos.' },
-      { q: 'Como configurar os dados da clínica?', a: 'Em Configurações > Dados da Clínica, você edita nome, CNPJ, endereço completo, telefone de contato e logo. Essas informações aparecem nos documentos, prontuários exportados e nas notas fiscais.' },
-      { q: 'Como configurar notificações automáticas?', a: 'Em Configurações > Notificações, ative os lembretes de consulta. Escolha o canal (WhatsApp, e-mail ou ambos) e a antecedência (24 horas ou 1 hora antes). Os templates de mensagem são configurados em Mensagens.' },
-      { q: 'Como configurar a emissão de notas fiscais?', a: 'Em Configurações > Fiscal, insira seu CPF ou CNPJ, código do município (IBGE), regime tributário e credenciais de acesso à prefeitura. Após salvar e testar, as NFS-e são emitidas automaticamente ao fechar comandas pagas.' },
-      { q: 'Como mudar o tema (claro/escuro) do sistema?', a: 'Em Configurações > Aparência, selecione o tema: Claro, Escuro ou Automático (segue as configurações do sistema operacional). Você também pode escolher a cor primária da interface.' },
-      { q: 'O sistema funciona offline?', a: 'O PsiFlux é uma PWA (Progressive Web App). Dados em cache ficam acessíveis offline para consulta, mas ações que dependem de banco de dados (novo agendamento, salvar evolução, etc.) requerem conexão ativa.' },
-    ]
-  },
 ];
+
+const GUIDES_CONTENT: Record<string, any> = {
+  'Primeiros Passos': {
+    steps: [
+      { t: 'Cadastro da Clínica', d: 'Acesse Configurações e preencha os dados da sua clínica ou consultório para que apareçam nos documentos.' },
+      { t: 'Cadastre Profissionais', d: 'Adicione sua equipe em "Profissionais" para que cada um tenha sua própria agenda.' },
+      { t: 'Configure seus Serviços', d: 'Em "Serviços", defina o que você oferece, preços e durações padrão.' },
+      { t: 'Personalize sua Agenda', d: 'Defina seus horários de trabalho e intervalos em Configurações > Agenda.' },
+      { t: 'Faça seu Primeiro Agendamento', d: 'Vá na Agenda, clique em um horário e pronto! Seu sistema está rodando.' }
+    ],
+    themeColor: 'amber'
+  },
+  'Dominando a Agenda': {
+    steps: [
+      { t: 'Bloqueios de Horário', d: 'Aprenda a reservar horários para almoço, reuniões ou férias clicando no slot e selecionando "Bloqueio".' },
+      { t: 'Recorrências Inteligentes', d: 'Agende sessões semanais com um clique e o sistema reserva os próximos meses automaticamente.' },
+      { t: 'Visualizações', d: 'Alterne entre visão de Dia, Semana ou Mês para ter o controle total da sua semana.' },
+      { t: 'Lembretes Automáticos', d: 'Configure lembretes de WhatsApp para reduzir faltas em até 40%.' }
+    ],
+    themeColor: 'sky'
+  },
+  'Financeiro Avançado': {
+    steps: [
+      { t: 'Gestão de Comandas', d: 'Toda sessão gera uma comanda. Resolva o pagamento e a evolução no mesmo lugar.' },
+      { t: 'Fluxo de Caixa', d: 'Acompanhe entradas e saídas e veja seu lucro real no Dashboard.' },
+      { t: 'Emissão de Notas', d: 'Configure o módulo fiscal para emitir notas automaticamente ao finalizar um pagamento.' },
+      { t: 'Relatórios Contábeis', d: 'Exporte tudo em Excel ou PDF no final do mês para seu contador.' }
+    ],
+    themeColor: 'emerald'
+  },
+  'Salas Virtuais': {
+    steps: [
+      { t: 'Criando uma Sala', d: 'Gere links únicos de atendimento online de forma instantânea ou via agendamento.' },
+      { t: 'Experiência do Paciente', d: 'O paciente não precisa baixar nada. Ele entra pelo navegador com segurança total.' },
+      { t: 'Recursos Integrados', d: 'Use o chat e o compartilhamento de tela para aplicações de psicoeducação.' }
+    ],
+    themeColor: 'violet'
+  },
+  'Gestão de Equipe': {
+    steps: [
+      { t: 'Níveis de Permissão', d: 'Defina quem pode ver o financeiro, quem só vê a agenda e quem tem acesso total.' },
+      { t: 'Agendas Compartilhadas', d: 'Visualize a agenda de todos os profissionais de forma unificada ou individual.' },
+      { t: 'Performance', d: 'Veja quais profissionais estão com a agenda cheia e quais precisam de mais captação.' }
+    ],
+    themeColor: 'rose'
+  },
+  'Prontuário Digital': {
+    steps: [
+      { t: 'Evoluções com Assinatura', d: 'Registre sessões com segurança ética. As evoluções são datadas e assinadas digitalmente.' },
+      { t: 'Histórico Unificado', d: 'Veja consultas, documentos, formulários e financeiro em uma linha do tempo única.' },
+      { t: 'DISC e Ferramentas', d: 'Aplique testes comportamentais e escalas clínicas diretamente pelo prontuário.' }
+    ],
+    themeColor: 'indigo'
+  }
+};
 
 const GUIDES = [
   { icon: <Zap size={18} />, color: 'bg-amber-50 text-amber-600', title: 'Primeiros Passos', desc: 'Configure sua clínica em 5 passos simples.', tag: 'Essencial' },
@@ -172,7 +160,6 @@ const TAG_COLORS: Record<string, string> = {
   'Clínico':   'bg-indigo-100 text-indigo-700',
 };
 
-// ── Aurora inline chat types ──────────────────────────────────────────────────
 interface ChatMsg { id: string; role: 'user' | 'model'; text: string; }
 
 const getSaudacao = () => {
@@ -190,7 +177,6 @@ const AURORA_SUGGESTIONS = [
   'Como criar uma sala virtual?',
 ];
 
-// ── Componente Principal ──────────────────────────────────────────────────────
 export const Help: React.FC = () => {
   const [searchTerm, setSearchTerm]         = useState('');
   const [activeCategory, setActiveCategory] = useState('agenda');
@@ -198,7 +184,6 @@ export const Help: React.FC = () => {
   const [activeTab, setActiveTab]           = useState<'faq' | 'guides' | 'contact'>('faq');
   const [selectedGuide, setSelectedGuide]   = useState<any>(null);
 
-  // Aurora chat state
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([{
     id: 'welcome',
     role: 'model',
@@ -251,7 +236,6 @@ export const Help: React.FC = () => {
     }
   };
 
-  // Filtered FAQs by search
   const activeGroup = FAQ_CATEGORIES.find(c => c.id === activeCategory);
   const displayedFaqs = useMemo(() => {
     if (!searchTerm.trim()) return activeGroup?.faqs ?? [];
@@ -263,17 +247,14 @@ export const Help: React.FC = () => {
 
   return (
     <div className="max-w-[1300px] mx-auto pb-20 animate-[fadeIn_0.4s_ease-out]">
-
-      {/* ── HERO ── */}
       <div className="relative rounded-[32px] overflow-hidden mb-10 bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 shadow-2xl shadow-indigo-900/30">
-        {/* decorative blobs */}
         <div className="absolute -right-16 -top-16 w-72 h-72 bg-violet-500 rounded-full blur-[120px] opacity-40" />
         <div className="absolute left-0 bottom-0 w-56 h-56 bg-sky-500 rounded-full blur-[100px] opacity-25" />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10" />
 
         <div className="relative z-10 px-8 py-14 text-center text-white">
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-bold mb-5 backdrop-blur-sm">
-            <LifeBuoy size={13} /> Central de Ajuda &amp; Suporte
+            <LifeBuoy size={13} /> Central de Ajuda & Suporte
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
             Como podemos<br />
@@ -283,7 +264,6 @@ export const Help: React.FC = () => {
             Encontre respostas nas perguntas frequentes, guias detalhados ou converse diretamente com a Aurora.
           </p>
 
-          {/* Search */}
           <div className="max-w-lg mx-auto relative">
             <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -291,7 +271,7 @@ export const Help: React.FC = () => {
               value={searchTerm}
               onChange={e => { setSearchTerm(e.target.value); setActiveTab('faq'); }}
               placeholder="Buscar nas perguntas frequentes..."
-              className="w-full py-4 pl-13 pr-5 rounded-2xl text-slate-800 text-sm focus:outline-none shadow-xl focus:ring-4 focus:ring-indigo-300/30 pl-12"
+              className="w-full py-4 pl-12 pr-5 rounded-2xl text-slate-800 text-sm focus:outline-none shadow-xl focus:ring-4 focus:ring-indigo-300/30"
             />
             {searchTerm && (
               <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -300,7 +280,6 @@ export const Help: React.FC = () => {
             )}
           </div>
 
-          {/* Quick stats */}
           <div className="flex justify-center gap-8 mt-8 text-sm text-indigo-200">
             <span className="flex items-center gap-1.5"><BookOpen size={13} /> 20+ Artigos</span>
             <span className="flex items-center gap-1.5"><Clock size={13} /> Resposta em &lt;2h</span>
@@ -309,22 +288,17 @@ export const Help: React.FC = () => {
         </div>
       </div>
 
-      {/* ── MAIN GRID ── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-
-        {/* ── LEFT: FAQ + Guides + Contact ── */}
         <div className="xl:col-span-2 space-y-6">
-
-          {/* Tab navigation */}
           <div className="flex gap-2 bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm">
-            {([
+            {[
               { id: 'faq',     label: 'Perguntas Frequentes', icon: <HelpCircle size={14} /> },
               { id: 'guides',  label: 'Guias e Tutoriais',    icon: <BookOpen size={14} /> },
               { id: 'contact', label: 'Falar com Suporte',    icon: <Mail size={14} /> },
-            ] as const).map(tab => (
+            ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => setActiveTab(tab.id as any)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
                   activeTab === tab.id
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
@@ -336,10 +310,8 @@ export const Help: React.FC = () => {
             ))}
           </div>
 
-          {/* ── FAQ TAB ── */}
           {activeTab === 'faq' && (
             <div className="space-y-4">
-              {/* Category pills */}
               {!searchTerm && (
                 <div className="flex gap-2 flex-wrap">
                   {FAQ_CATEGORIES.map(cat => (
@@ -401,7 +373,6 @@ export const Help: React.FC = () => {
             </div>
           )}
 
-          {/* ── GUIDES TAB ── */}
           {activeTab === 'guides' && (
             <div className="space-y-4">
               <p className="text-sm text-slate-500 px-1">Guias detalhados para aproveitar ao máximo o PsiFlux.</p>
@@ -410,61 +381,8 @@ export const Help: React.FC = () => {
                   <div
                     key={i}
                     onClick={() => {
-                        const content: Record<string, any> = {
-                            'Primeiros Passos': {
-                                steps: [
-                                    { t: 'Cadastro da Clínica', d: 'Acesse Configurações e preencha os dados da sua clínica ou consultório para que apareçam nos documentos.' },
-                                    { t: 'Cadastre Profissionais', d: 'Adicione sua equipe em "Profissionais" para que cada um tenha sua própria agenda.' },
-                                    { t: 'Configure seus Serviços', d: 'Em "Serviços", defina o que você oferece, preços e durações padrão.' },
-                                    { t: 'Personalize sua Agenda', d: 'Defina seus horários de trabalho e intervalos em Configurações > Agenda.' },
-                                    { t: 'Faça seu Primeiro Agendamento', d: 'Vá na Agenda, clique em um horário e pronto! Seu sistema está rodando.' }
-                                ],
-                                color: 'indigo'
-                            },
-                            'Dominando a Agenda': {
-                                steps: [
-                                    { t: 'Bloqueios de Horário', d: 'Aprenda a reservar horários para almoço, reuniões ou férias clicando no slot e selecionando "Bloqueio".' },
-                                    { t: 'Recorrências Inteligentes', d: 'Agende sessões semanais com um clique e o sistema reserva os próximos meses automaticamente.' },
-                                    { t: 'Visualizações', d: 'Alterne entre visão de Dia, Semana ou Mês para ter o controle total da sua semana.' },
-                                    { t: 'Lembretes Automáticos', d: 'Configure lembretes de WhatsApp para reduzir faltas em até 40%.' }
-                                ],
-                                color: 'sky'
-                            },
-                            'Financeiro Avançado': {
-                                steps: [
-                                    { t: 'Gestão de Comandas', d: 'Toda sessão gera uma comanda. Resolva o pagamento e a evolução no mesmo lugar.' },
-                                    { t: 'Fluxo de Caixa', d: 'Acompanhe entradas e saídas e veja seu lucro real no Dashboard.' },
-                                    { t: 'Emissão de Notas', d: 'Configure o módulo fiscal para emitir notas automaticamente ao finalizar um pagamento.' },
-                                    { t: 'Relatórios Contábeis', d: 'Exporte tudo em Excel ou PDF no final do mês para seu contador.' }
-                                ],
-                                color: 'emerald'
-                            },
-                            'Salas Virtuais': {
-                                steps: [
-                                    { t: 'Criando uma Sala', d: 'Gere links únicos de atendimento online de forma instantânea ou via agendamento.' },
-                                    { t: 'Experiência do Paciente', d: 'O paciente não precisa baixar nada. Ele entra pelo navegador com segurança total.' },
-                                    { t: 'Recursos Integrados', d: 'Use o chat e o compartilhamento de tela para aplicações de psicoeducação.' }
-                                ],
-                                color: 'violet'
-                            },
-                            'Gestão de Equipe': {
-                                steps: [
-                                    { t: 'Níveis de Permissão', d: 'Defina quem pode ver o financeiro, quem só vê a agenda e quem tem acesso total.' },
-                                    { t: 'Agendas Compartilhadas', d: 'Visualize a agenda de todos os profissionais de forma unificada ou individual.' },
-                                    { t: 'Performance', d: 'Veja quais profissionais estão com a agenda cheia e quais precisam de mais captação.' }
-                                ],
-                                color: 'rose'
-                            },
-                            'Prontuário Digital': {
-                                steps: [
-                                    { t: 'Evoluções com Assinatura', d: 'Registre sessões com segurança ética. As evoluções são datadas e assinadas digitalmente.' },
-                                    { t: 'Histórico Unificado', d: 'Veja consultas, documentos, formulários e financeiro em uma linha do tempo única.' },
-                                    { t: 'DISC e Ferramentas', d: 'Aplique testes comportamentais e escalas clínicas diretamente pelo prontuário.' }
-                                ],
-                                color: 'indigo'
-                            }
-                        };
-                        setSelectedGuide({ ...g, steps: content[g.title]?.steps || [], themeColor: content[g.title]?.color || 'indigo' });
+                        const content = GUIDES_CONTENT[g.title];
+                        setSelectedGuide({ ...g, steps: content?.steps || [], themeColor: content?.themeColor || 'indigo' });
                     }}
                     className="group bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer"
                   >
@@ -487,10 +405,8 @@ export const Help: React.FC = () => {
             </div>
           )}
 
-          {/* ── CONTACT TAB ── */}
           {activeTab === 'contact' && (
             <div className="space-y-4">
-              {/* Contact channels */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   { icon: <MessageCircle size={20} />, color: 'bg-emerald-50 text-emerald-600', label: 'WhatsApp', desc: 'Resposta em minutos', badge: 'Rápido' },
@@ -508,7 +424,6 @@ export const Help: React.FC = () => {
                 ))}
               </div>
 
-              {/* Contact form */}
               <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
                 <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                   <Mail size={18} className="text-indigo-500" /> Enviar Mensagem
@@ -550,12 +465,8 @@ export const Help: React.FC = () => {
           )}
         </div>
 
-        {/* ── RIGHT: Aurora + Status ── */}
         <div className="space-y-6">
-
-          {/* Aurora Chat */}
           <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm overflow-hidden flex flex-col" style={{ height: 520 }}>
-            {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4 flex items-center gap-3 shrink-0">
               <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
                 <Sparkles size={17} className="text-white" />
@@ -567,7 +478,6 @@ export const Help: React.FC = () => {
               <div className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.5)]" />
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50/50">
               {chatMessages.map(msg => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -602,7 +512,6 @@ export const Help: React.FC = () => {
               <div ref={chatEndRef} />
             </div>
 
-            {/* Suggestions */}
             {chatMessages.length <= 1 && (
               <div className="px-4 pt-2 pb-1 flex gap-2 flex-wrap shrink-0 border-t border-slate-100 bg-white">
                 {AURORA_SUGGESTIONS.slice(0, 3).map(s => (
@@ -617,7 +526,6 @@ export const Help: React.FC = () => {
               </div>
             )}
 
-            {/* Input */}
             <div className="px-4 py-3 border-t border-slate-100 bg-white shrink-0">
               <div className="flex items-center gap-2">
                 <input
@@ -641,7 +549,6 @@ export const Help: React.FC = () => {
             </div>
           </div>
 
-          {/* System Status */}
           <div className="bg-white border border-slate-200 rounded-[24px] p-5 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-sm">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -674,8 +581,8 @@ export const Help: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
 
-      {/* ── GUIDE MODAL ── */}
       <Modal
         isOpen={!!selectedGuide}
         onClose={() => setSelectedGuide(null)}
@@ -702,7 +609,7 @@ export const Help: React.FC = () => {
                     {selectedGuide?.steps?.map((step: any, idx: number) => (
                         <div key={idx} className="flex gap-4 group">
                             <div className="flex flex-col items-center">
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${selectedGuide?.themeColor === 'indigo' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-100 border-slate-200 text-slate-500 group-hover:border-indigo-400'}`}>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${selectedGuide?.themeColor === 'indigo' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-500 group-hover:border-indigo-400'}`}>
                                     {idx + 1}
                                 </div>
                                 {idx < selectedGuide?.steps.length - 1 && <div className="w-0.5 flex-1 bg-slate-100 my-1 group-hover:bg-indigo-100 transition-colors" />}
@@ -730,7 +637,6 @@ export const Help: React.FC = () => {
             </div>
         </div>
       </Modal>
-    </div>
     </div>
   );
 };
