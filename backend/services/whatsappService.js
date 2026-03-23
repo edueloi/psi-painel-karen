@@ -1,6 +1,7 @@
 const wppconnect = require('@wppconnect-team/wppconnect');
 const db = require('../db');
 const path = require('path');
+const fs = require('fs');
 
 /**
  * WhatsAppService - Serviço Global para o Bot do Super Admin
@@ -13,8 +14,9 @@ class WhatsAppService {
     this.qrcode = null;
     this.instanceName = 'psiflux-system-bot';
     this.phone = null;
-    // Movemos a pasta de tokens para fora para evitar o --watch do node reiniciar o servidor em loop
-    this.tokensPath = path.join(__dirname, '../../whatsapp_tokens'); 
+    this.isInitializing = false;
+    // Movemos a pasta de tokens para 'backend/tokens' para centralizar
+    this.tokensPath = path.join(__dirname, '../tokens'); 
   }
 
   getStatus() {
@@ -26,50 +28,73 @@ class WhatsAppService {
   }
 
   async connect() {
+    console.log('🚀 Recebida solicitação de conexão WhatsApp Global...');
+
     if (this.status === 'connected') return;
 
+    // Se já estiver tentando, vamos encerrar a instância anterior se possível
+    if (this.client) {
+      console.log('[WPP] Encerrando instância anterior...');
+      try { await this.client.close(); } catch(e) {}
+      this.client = null;
+    }
+
+    // LIMPEZA CRÍTICA: Se não está conectado, apaga a pasta da sessão para forçar QR Code novo
+    const sessionFolder = path.join(this.tokensPath, this.instanceName);
+    if (fs.existsSync(sessionFolder)) {
+      console.log('[WPP] Removendo arquivos de sessão antigos...');
+      try { fs.rmSync(sessionFolder, { recursive: true, force: true }); } catch(e) {}
+    }
+    
+    this.status = 'connecting';
+    this.qrcode = null;
+    this.createClient();
+  }
+  async createClient() {
+    if (this.isInitializing) return;
+    this.isInitializing = true;
+    
     console.log('🚀 Iniciando conexão WhatsApp Global...');
     this.status = 'connecting';
 
     try {
       this.client = await wppconnect.create({
         session: this.instanceName,
-        mkdirFolder: this.tokensPath, // Define caminho customizado para os tokens
-        catchQR: (base64Qr) => {
+        catchQR: (base64Qr, asciiQR, attempts) => {
           this.qrcode = base64Qr;
           this.status = 'connecting';
+          console.log(`[WPP] QR Code recebido (Tentativa ${attempts})`);
+          if (base64Qr) console.log(`[WPP] QR Base64 (início): ${base64Qr.substring(0, 50)}...`);
         },
         statusFind: (statusSession) => {
           console.log(`[WPP] Status da Sessão: ${statusSession}`);
           if (['isLogged', 'qrReadSuccess', 'chatsAvailable'].includes(statusSession)) {
             this.status = 'connected';
             this.qrcode = null;
+            this.isInitializing = false;
           }
           if (['desloged', 'notLogged'].includes(statusSession)) {
             this.status = 'disconnected';
             this.phone = null;
+            this.isInitializing = false;
           }
         },
+        mkdirFolder: this.tokensPath,
         headless: true,
         devtools: false,
         useChrome: false,
         debug: false,
         logQR: false,
-        browserArgs: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process',
-          '--disable-gpu'
-        ],
-        autoClose: 0, 
+        browserArgs: process.platform === 'linux' 
+          ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--no-zygote', '--single-process', '--disable-gpu']
+          : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        autoClose: 0,
+        tokenStore: 'file',
       });
 
       this.status = 'connected';
       this.qrcode = null;
+      this.isInitializing = false;
 
       try {
         const hostDevice = await this.client.getHostDevice();
@@ -79,18 +104,16 @@ class WhatsAppService {
         this.phone = 'Conectado';
       }
 
-      // Salva no banco para persistência (Tenant 1 é o Master/Global)
       await db.query(
         'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ?, whatsapp_instance = ? WHERE id = 1',
         ['connected', this.phone, this.instanceName]
       );
 
       console.log(`✅ WhatsApp Global Conectado: ${this.phone}`);
-
-      // Setup listeners (opcional)
       this.setupListeners();
 
     } catch (err) {
+      this.isInitializing = false;
       console.error('❌ Erro ao inicializar WPPConnect:', err.message);
       this.status = 'disconnected';
       this.qrcode = null;

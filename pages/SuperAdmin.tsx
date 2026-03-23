@@ -252,17 +252,21 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const loadWppStatus = async () => {
     try {
       const res: any = await api.get('/whatsapp/status');
+      console.log('[WPP] Status Polling:', res); // Log de depuração
       setWppStatus(res);
-    } catch (e) { console.error('Error loading wpp status', e); }
+    } catch (e) { 
+      console.error('Error loading wpp status', e); 
+    }
   };
 
   useEffect(() => {
     let interval: any;
-    if (wppStatus.status === 'connecting') {
-      interval = setInterval(loadWppStatus, 5000);
+    if (tab === 'whatsapp' && wppStatus.status !== 'connected') {
+      loadWppStatus(); // Força uma carga inicial ao entrar na aba
+      interval = setInterval(loadWppStatus, 4000); // Polling mais rápido (4s)
     }
     return () => clearInterval(interval);
-  }, [wppStatus.status]);
+  }, [tab, wppStatus.status]);
 
   const handleWppConnect = async () => {
     setLoadingWpp(true);
