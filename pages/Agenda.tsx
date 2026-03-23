@@ -171,7 +171,7 @@ export const Agenda: React.FC = () => {
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [managerTab, setManagerTab] = useState<'atendimentos' | 'pagamentos' | 'pacote'>('atendimentos');
-  const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
+  const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '', comandaId: '' });
   const [comandaPayments, setComandaPayments] = useState<any[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [isNewComandaModalOpen, setIsNewComandaModalOpen] = useState(false);
@@ -180,6 +180,8 @@ export const Agenda: React.FC = () => {
   const [relatedApts, setRelatedApts] = useState<Appointment[]>([]);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState<(string | number)[]>([]);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [editingAptId, setEditingAptId] = useState<number | null>(null);
+  const [editAptValues, setEditAptValues] = useState<{ date: string; time: string }>({ date: '', time: '' });
 
   const [formData, setFormData] = useState<any>({
       type: 'consulta',
@@ -841,8 +843,7 @@ export const Agenda: React.FC = () => {
     }
 
     try {
-        await api.post(`/finance/payments`, {
-            comanda_id: comandaId,
+        await api.post(`/finance/comandas/${comandaId}/payments`, {
             amount: valueToAdd,
             payment_date: newPayment.date,
             payment_method: newPayment.method,
@@ -3115,11 +3116,32 @@ export const Agenda: React.FC = () => {
                   <FileText size={16} className="text-slate-500" />
                   <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recibo</span>
                 </button>
-                <button onClick={() => { setIsComandaManagerOpen(true); }}
-                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
-                  <DollarSign size={16} className="text-emerald-600" />
-                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Gestão</span>
-                </button>
+                {apt.comanda_id && (
+                  <button onClick={async () => { 
+                    try {
+                      // Usa o caminho correto /finance/comandas para bater na API certa
+                      const res = await api.get<any[]>(`/finance/comandas?id=${apt.comanda_id}`);
+                      const foundCmnd = Array.isArray(res) ? res[0] : (res as any).data?.[0];
+                      
+                      if (!foundCmnd) {
+                        pushToast('error', 'Comanda não encontrada no sistema.');
+                        return;
+                      }
+
+                      setPatientComandas(prev => {
+                        const filtered = prev.filter(c => String(c.id) !== String(apt.comanda_id));
+                        return [...filtered, foundCmnd];
+                      });
+                      setIsComandaManagerOpen(true); 
+                    } catch (e) {
+                      pushToast('error', 'Erro ao carregar dados financeiros.');
+                    }
+                  }}
+                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
+                    <DollarSign size={16} className="text-emerald-600" />
+                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Gestão</span>
+                  </button>
+                )}
                 {apt.comanda_id && (
                   <button onClick={() => {
                     const aptDate = new Date(apt.start);
@@ -3390,7 +3412,21 @@ export const Agenda: React.FC = () => {
       >
         {(() => {
           const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
-          if (!cmnd) return null;
+          
+          if (!cmnd) {
+            return (
+              <div className="py-20 text-center space-y-4">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                  <DollarSign size={24} className="text-slate-300" />
+                </div>
+                <div>
+                  <p className="text-slate-600 font-bold">Comanda não encontrada</p>
+                  <p className="text-slate-400 text-xs">Este atendimento pode não estar vinculado a um registro financeiro.</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setIsComandaManagerOpen(false)}>Fechar Janela</Button>
+              </div>
+            );
+          }
 
           // Pega os agendamentos desta comanda diretamente do state (cmnd.appointments pode estar vazio)
           const cmndAppointments = appointments
@@ -3489,26 +3525,107 @@ export const Agenda: React.FC = () => {
                           'no-show': 'bg-amber-50 text-amber-700 border-amber-200',
                           no_show: 'bg-amber-50 text-amber-700 border-amber-200',
                         };
+                        const isEditing = editingAptId === appointment.id;
+
+                        const handleStartEdit = () => {
+                           setEditAptValues({
+                             date: aptStart.toISOString().split('T')[0],
+                             time: aptStart.toTimeString().slice(0, 5)
+                           });
+                           setEditingAptId(appointment.id);
+                        };
+
+                        const handleSaveAptEdit = async (index: number) => {
+                           const newStart = new Date(`${editAptValues.date}T${editAptValues.time}:00`);
+                           
+                           // Validação Chronológica
+                           if (index > 0) {
+                              const prev = new Date(cmndAppointments[index-1].start);
+                              if (newStart <= prev) {
+                                pushToast('error', `Data inválida. Deve ser após ${prev.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`);
+                                return;
+                              }
+                           }
+                           if (index < cmndAppointments.length - 1) {
+                              const next = new Date(cmndAppointments[index+1].start);
+                              if (newStart >= next) {
+                                pushToast('error', `Data inválida. O próximo é em ${next.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`);
+                                return;
+                              }
+                           }
+
+                           try {
+                              await api.put(`/appointments/${appointment.id}`, { 
+                                ...appointment, 
+                                start_time: newStart.toISOString(),
+                                // Garantir que ids estão corretos para o backend
+                                professional_id: appointment.professional_id || (appointment as any).psychologist_id,
+                                duration_minutes: appointment.duration_minutes || 50
+                              });
+                              pushToast('success', 'Atendimento atualizado!');
+                              setEditingAptId(null);
+                              fetchData();
+                           } catch (e: any) {
+                              pushToast('error', e.message || 'Erro ao atualizar');
+                           }
+                        };
+
                         return (
                           <div
                             key={appointment.id}
                             className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 hover:bg-slate-50 transition-colors"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-1">
                               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 shrink-0">
                                 <CalendarDays size={16} />
                               </div>
-                              <div>
-                                <p className="text-sm font-bold text-slate-800">
-                                  {aptStart.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
-                                </p>
-                                <p className="text-xs text-slate-400">
-                                  {aptStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                  {appointment.recurrence_index ? ` · Sessão ${appointment.recurrence_index}/${cmnd.sessions_total || appointment.recurrence_count || '?'}` : ''}
-                                </p>
-                              </div>
+                              
+                              {isEditing ? (
+                                <div className="flex items-center gap-2 flex-1">
+                                  <div className="w-[130px]">
+                                    <DatePicker 
+                                      value={editAptValues.date}
+                                      onChange={(val) => setEditAptValues(prev => ({ ...prev, date: val }))}
+                                      className="h-8 text-xs font-bold"
+                                    />
+                                  </div>
+                                  <input 
+                                    type="time"
+                                    value={editAptValues.time}
+                                    onChange={e => setEditAptValues(prev => ({ ...prev, time: e.target.value }))}
+                                    className="h-8 w-20 rounded-lg border border-slate-200 px-2 text-xs font-bold outline-none focus:border-indigo-400"
+                                  />
+                                  <button onClick={() => handleSaveAptEdit(cmndAppointments.indexOf(appointment))} className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                                    <Check size={14} />
+                                  </button>
+                                  <button onClick={() => setEditingAptId(null)} className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-200 transition-colors">
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-sm font-bold text-slate-800">
+                                    {aptStart.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                  </p>
+                                  <p className="text-xs text-slate-400">
+                                    {aptStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                    {appointment.recurrence_index ? ` · Sessão ${appointment.recurrence_index}/${cmnd.sessions_total || appointment.recurrence_count || '?'}` : ''}
+                                  </p>
+                                </div>
+                              )}
                             </div>
+
                             <div className="flex items-center gap-2">
+                              {!isEditing && (
+                                <button 
+                                  onClick={handleStartEdit}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all mr-1"
+                                  title="Editar data/hora"
+                                >
+                                  <Edit3 size={13} />
+                                </button>
+                              )}
+
                               <select
                                 value={appointment.status || 'scheduled'}
                                 onChange={(e) => handleUpdateAppointmentStatus(appointment.id, e.target.value)}
@@ -3621,7 +3738,8 @@ export const Agenda: React.FC = () => {
                           value: String(getComandaTotal(cmnd) - getComandaPaid(cmnd)),
                           date: new Date().toISOString().slice(0, 10),
                           method: 'Pix',
-                          receiptCode: cmnd.receipt_code || ''
+                          receiptCode: cmnd.receipt_code || '',
+                          comandaId: String(cmnd.id)
                        });
                        setIsAddPaymentModalOpen(true);
                     }}

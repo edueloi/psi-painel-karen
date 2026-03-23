@@ -106,10 +106,14 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const updateCoords = () => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
+      const dropdownHeight = 380; // Altura aproximada do calendário
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const shouldOpenUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
       setCoords({
-        top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX,
-        width: 292
+        top: shouldOpenUp ? rect.top - dropdownHeight - 8 : rect.bottom + 8,
+        left: rect.left,
+        width: rect.width
       });
     }
   };

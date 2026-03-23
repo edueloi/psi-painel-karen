@@ -104,7 +104,7 @@ type PositionedEvent = NormalizedEvent & {
 
 const HEADER_HEIGHT = 68;
 const TIME_COL_WIDTH = 72;
-const COLLAPSE_HEIGHT = 8;
+const COLLAPSE_HEIGHT = 0; // Horários pulados agora são totalmente escondidos (0px)
 
 const typeMeta: Record<
   AgendaPlannerEventType,
@@ -212,15 +212,34 @@ const minutesToTop = (
   skippedHours: number[],
   collapseHeight: number
 ): number => {
-  let top = 0;
   const targetHour = Math.floor(totalMinutes / 60);
   const targetMin = totalMinutes % 60;
+  let top = 0;
   for (let h = startHour; h < targetHour; h++) {
     top += skippedHours.includes(h) ? collapseHeight : hourHeight;
   }
   const thisHourH = skippedHours.includes(targetHour) ? collapseHeight : hourHeight;
   top += (targetMin / 60) * thisHourH;
   return top;
+};
+
+const topToMinutes = (
+  y: number,
+  startHour: number,
+  hourHeight: number,
+  skippedHours: number[],
+  collapseHeight: number
+): number => {
+  let currentTop = 0;
+  for (let h = startHour; h < 24; h++) {
+    const hHeight = skippedHours.includes(h) ? collapseHeight : hourHeight;
+    if (hHeight > 0 && y < currentTop + hHeight) {
+      const minInHour = ((y - currentTop) / hHeight) * 60;
+      return h * 60 + minInHour;
+    }
+    currentTop += hHeight;
+  }
+  return 23 * 60 + 59;
 };
 
 const layoutDayEvents = (
@@ -428,9 +447,30 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
   ) => {
     const rect = element.getBoundingClientRect();
     const y = clamp(clientY - rect.top, 0, rect.height);
-    const totalMinutes = (y / hourHeight) * 60 + startHour * 60;
-    const snappedMinutes =
-      Math.round(totalMinutes / slotMinutes) * slotMinutes;
+    
+    // Converte a posição Y para minutos reais considerando as horas puladas
+    const realMinutes = topToMinutes(y, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT);
+    
+    // Snap para os intervalos (30 ou 60 min)
+    let snappedMinutes = Math.round(realMinutes / slotMinutes) * slotMinutes;
+    
+    // Se o horário resultante cair em uma hora escondida, pular para o próximo ou anterior visível
+    const resHour = Math.floor(snappedMinutes / 60);
+    if (skippedHours.includes(resHour)) {
+      // Se estamos na metade de cima da hora pulada, volta pro fim da hora anterior
+      // Se estamos na metade de baixo, vai pro início da próxima hora visível
+      const minInH = snappedMinutes % 60;
+      if (minInH < 30) {
+        snappedMinutes = (resHour) * 60 - slotMinutes;
+      } else {
+        snappedMinutes = (resHour + 1) * 60;
+      }
+      
+      // Re-valida se a nova hora também está escondida (recursivo simples)
+      while (skippedHours.includes(Math.floor(snappedMinutes / 60)) && snappedMinutes > 0 && snappedMinutes < 1440) {
+          snappedMinutes += slotMinutes;
+      }
+    }
 
     const clampedMinutes = clamp(
       snappedMinutes,
@@ -444,7 +484,8 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
     const slotDate = new Date(day);
     slotDate.setHours(slotHour, slotMinute, 0, 0);
 
-    const top = ((clampedMinutes - startHour * 60) / 60) * hourHeight;
+    // Calcula o TOP visual correto usando a mesma função de layout
+    const top = minutesToTop(clampedMinutes, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT);
 
     const timeStr = `${String(slotHour).padStart(2, '0')}:${String(slotMinute).padStart(2, '0')}`;
     const dayStr = slotDate.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -687,7 +728,8 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                             className="relative w-full border-b border-slate-100/90"
                             style={{ height: hourHeight }}
                           >
-                            <div className="absolute left-0 right-0 top-1/2 border-b border-dashed border-slate-100/80" />
+                            {/* Linha de meia hora (30 min) mais visível */}
+                            <div className="absolute left-0 right-0 top-1/2 border-b border-dashed border-slate-200/80" />
                           </div>
                         );
                       })}
@@ -777,15 +819,22 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                               }}
                             />
                             {/* linha + label do horário */}
+                            {/* Balão de horário premium no lado esquerdo */}
                             <div
-                              className="pointer-events-none absolute left-0 right-0 z-10"
+                              className="pointer-events-none absolute left-0 right-0 z-30"
                               style={{ top: hoveredSlot.top }}
                             >
-                              <div className="relative flex items-center">
-                                <div className="ml-2 rounded-full bg-primary-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                                  {hoveredSlot.label}
+                              <div className="relative flex items-center w-full">
+                                <div className="absolute -left-[75px] flex flex-col items-center bg-indigo-600 text-white px-2 py-1 rounded-lg shadow-xl shadow-indigo-200 animate-fadeIn min-w-[70px] border border-white/20">
+                                  <span className="text-[10px] font-black leading-none tabular-nums">
+                                    {hoveredSlot.label.split(' · ')[1]}
+                                  </span>
+                                  <span className="text-[7px] font-bold uppercase opacity-80 mt-1">
+                                    {hoveredSlot.label.split(' · ')[0]}
+                                  </span>
                                 </div>
-                                <div className="ml-2 h-[1.5px] flex-1 bg-primary-400/50" />
+                                <div className="h-[2px] w-full bg-indigo-500/50 shadow-[0_0_8px_rgba(99,102,241,0.2)]" />
+                                <div className="absolute -left-1 w-2 h-2 bg-indigo-600 rounded-full border-2 border-white shadow-sm" />
                               </div>
                             </div>
                           </>
