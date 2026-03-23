@@ -1562,14 +1562,26 @@ export const LivroCaixa: React.FC = () => {
                         setTxPatientComandas([]);
                         api.get<any[]>('/finance/comandas').then((all: any[]) => {
                           const open = (Array.isArray(all) ? all : [])
-                            .filter((c: any) => String(c.patient_id || c.patientId || '') === String(p.id) && c.status === 'open')
-                            .map((c: any) => ({
-                              id: String(c.id),
-                              description: c.description || `Comanda #${c.id}`,
-                              totalValue: Number(c.totalValue || c.total_liquid || c.total || 0),
-                              paidValue: Number(c.paidValue || c.paid_value || 0),
-                              status: c.status,
-                            }));
+                            .filter((c: any) => {
+                              const isPatient = String(c.patient_id || c.patientId || '') === String(p.id);
+                              const isOpen = c.status === 'open';
+                              const noPaid = Number(c.paidValue || c.paid_value || 0) === 0;
+                              return isPatient && isOpen && noPaid;
+                            })
+                            .map((c: any) => {
+                              const items: any[] = c.items || [];
+                              const serviceLabel = items.length > 0
+                                ? items.map((i: any) => i.serviceName || i.name || '').filter(Boolean).join(', ')
+                                : '';
+                              const descLabel = serviceLabel || c.description || `Comanda #${c.id}`;
+                              return {
+                                id: String(c.id),
+                                description: descLabel,
+                                totalValue: Number(c.totalValue || c.total_liquid || c.total || 0),
+                                paidValue: 0,
+                                status: c.status,
+                              };
+                            });
                           setTxPatientComandas(open);
                         }).catch(() => {});
                       }}
