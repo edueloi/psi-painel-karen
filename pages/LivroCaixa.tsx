@@ -37,6 +37,7 @@ interface Transaction {
   beneficiary_cpf?: string;
   patient_name?: string;
   observation?: string;
+  comanda_id?: string | number;
 }
 
 interface MonthSummary {
@@ -367,6 +368,10 @@ export const LivroCaixa: React.FC = () => {
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
   const patientRef = useRef<HTMLDivElement>(null);
 
+  // ── Comanda linking ───────────────────────────────────────────────────────────
+  const [txPatientComandas, setTxPatientComandas] = useState<Array<{id: string; description: string; totalValue: number; paidValue: number; status: string}>>([]);
+  const [txSelectedComandaId, setTxSelectedComandaId] = useState<string>('');
+
   // ── Services / Packages combobox ──────────────────────────────────────────────
   const [txServices, setTxServices] = useState<Array<{id: string; name: string; price: number; type: 'service' | 'package'}>>([]);
   const [txServiceQuery, setTxServiceQuery] = useState('');
@@ -689,6 +694,7 @@ export const LivroCaixa: React.FC = () => {
     setPatientQuery(''); setPatientDropdownOpen(false);
     setTxServiceQuery(''); setTxServiceDropdownOpen(false); setTxSelectedService(null);
     setTxBaseAmount(''); setTxDiscount(''); setTxDiscountType('fixed');
+    setTxPatientComandas([]); setTxSelectedComandaId('');
     setEditingTx(null);
   };
 
@@ -736,6 +742,7 @@ export const LivroCaixa: React.FC = () => {
         beneficiary_name: txPayerIsPatient ? null : txPatientName || null,
         beneficiary_cpf:  txPayerIsPatient ? null : txPatientCpf  || null,
         observation: txObservation || null, status: 'paid',
+        ...(txSelectedComandaId ? { comanda_id: txSelectedComandaId } : {}),
       };
       if (editingTx) {
         await api.put(`/finance/${editingTx.id}`, payload);
@@ -1546,7 +1553,26 @@ export const LivroCaixa: React.FC = () => {
               {patientDropdownOpen && patientQuery.length >= 1 && (
                 <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
                   {patients.filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery)).slice(0, 8).map(p => (
-                    <button key={p.id} type="button" onClick={() => { setTxPatientName(p.name); setTxPatientCpf(maskCpf(p.cpf.replace(/\D/g,''))); setPatientQuery(p.name); setPatientDropdownOpen(false); }}
+                    <button key={p.id} type="button" onClick={() => {
+                        setTxPatientName(p.name);
+                        setTxPatientCpf(maskCpf(p.cpf.replace(/\D/g,'')));
+                        setPatientQuery(p.name);
+                        setPatientDropdownOpen(false);
+                        setTxSelectedComandaId('');
+                        setTxPatientComandas([]);
+                        api.get<any[]>('/finance/comandas').then((all: any[]) => {
+                          const open = (Array.isArray(all) ? all : [])
+                            .filter((c: any) => String(c.patient_id || c.patientId || '') === String(p.id) && c.status === 'open')
+                            .map((c: any) => ({
+                              id: String(c.id),
+                              description: c.description || `Comanda #${c.id}`,
+                              totalValue: Number(c.totalValue || c.total_liquid || c.total || 0),
+                              paidValue: Number(c.paidValue || c.paid_value || 0),
+                              status: c.status,
+                            }));
+                          setTxPatientComandas(open);
+                        }).catch(() => {});
+                      }}
                       className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
                       <p className="text-sm font-bold text-slate-700">{p.name}</p>
                       {p.cpf && <p className="text-[10px] text-slate-400 font-bold">{maskCpf(p.cpf.replace(/\D/g,''))}</p>}
@@ -1581,6 +1607,51 @@ export const LivroCaixa: React.FC = () => {
             )}
           </div>
 
+          {/* Comanda linking — aparece quando há comandas abertas para o paciente */}
+          {txPatientComandas.length > 0 && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-2">
+              <label className="block text-[9px] font-black text-indigo-600 uppercase tracking-widest">
+                Vincular Comanda Aberta
+              </label>
+              <select
+                value={txSelectedComandaId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setTxSelectedComandaId(id);
+                  if (id) {
+                    const c = txPatientComandas.find(x => x.id === id);
+                    if (c) {
+                      const pending = Math.max(0, c.totalValue - c.paidValue);
+                      if (pending > 0) {
+                        const pendingStr = pending.toFixed(2).replace('.', ',');
+                        setTxBaseAmount(pendingStr);
+                        setTxAmount(pendingStr);
+                        setTxDiscount('');
+                      }
+                      if (!txDescription) setTxDescription(c.description);
+                    }
+                  }
+                }}
+                className="w-full p-3 rounded-xl border border-indigo-200 bg-white outline-none focus:border-indigo-400 text-sm font-bold text-slate-700 appearance-none"
+              >
+                <option value="">— Selecionar comanda —</option>
+                {txPatientComandas.map(c => {
+                  const pending = Math.max(0, c.totalValue - c.paidValue);
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.description} · Pendente: R$ {pending.toFixed(2).replace('.', ',')}
+                    </option>
+                  );
+                })}
+              </select>
+              {txSelectedComandaId && (
+                <p className="text-[10px] font-black text-indigo-500">
+                  Lançamento será vinculado a esta comanda para rastreio contábil.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Service / Package combobox (income) OR Category tags (expense) */}
           {txType === 'income' ? (
             <div ref={serviceRef} className="relative">
@@ -1598,9 +1669,9 @@ export const LivroCaixa: React.FC = () => {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"><X size={14} /></button>
                 )}
               </div>
-              {txServiceDropdownOpen && txServiceQuery.length >= 1 && (
+              {txServiceDropdownOpen && (
                 <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-52 overflow-y-auto">
-                  {txServices.filter(s => s.name.toLowerCase().includes(txServiceQuery.toLowerCase())).slice(0, 10).map(s => (
+                  {txServices.filter(s => !txServiceQuery || s.name.toLowerCase().includes(txServiceQuery.toLowerCase())).slice(0, 15).map(s => (
                     <button key={s.id} type="button" onClick={() => {
                         setTxSelectedService(s);
                         setTxServiceQuery(s.name);
