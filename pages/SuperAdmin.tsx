@@ -1026,7 +1026,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                       </div>
 
                       <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl p-6 bg-slate-50/30">
-                        {wppStatus.status === 'connecting' && wppStatus.qrcode ? (
+                        {(wppStatus.status === 'connecting' || wppStatus.qrcode) && wppStatus.qrcode ? (
                           <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100">
                             <img src={wppStatus.qrcode} alt="WhatsApp QR Code" className="w-64 h-64" />
                             <p className="text-[10px] text-center text-slate-400 mt-3 font-medium uppercase tracking-widest">Escaneie pelo WhatsApp</p>

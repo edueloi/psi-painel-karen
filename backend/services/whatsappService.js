@@ -73,7 +73,10 @@ class WhatsAppService {
             this.qrcode = null;
             this.isInitializing = false;
           }
-          if (['desloged', 'notLogged'].includes(statusSession)) {
+          if (statusSession === 'notLogged') {
+            this.status = 'connecting';
+          }
+          if (statusSession === 'desloged') {
             this.status = 'disconnected';
             this.phone = null;
             this.isInitializing = false;
