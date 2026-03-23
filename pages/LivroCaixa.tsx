@@ -354,9 +354,10 @@ export const LivroCaixa: React.FC = () => {
   const [txAmount, setTxAmount]           = useState(''); // formatted display: "1.250,00"
   const [txMethod, setTxMethod]           = useState('pix');
   const [txCategory, setTxCategory]       = useState('Geral');
-  const [txPayerName, setTxPayerName]         = useState('');
-  const [txPayerCpf, setTxPayerCpf]           = useState('');
-  const [txPatientCpf, setTxPatientCpf]       = useState('');
+  const [txPatientName, setTxPatientName]       = useState(''); // nome do paciente (da busca)
+  const [txPayerName, setTxPayerName]           = useState(''); // nome do pagador externo
+  const [txPayerCpf, setTxPayerCpf]             = useState('');
+  const [txPatientCpf, setTxPatientCpf]         = useState('');
   const [txPayerIsPatient, setTxPayerIsPatient] = useState(true);
   const [txObservation, setTxObservation] = useState('');
 
@@ -365,6 +366,16 @@ export const LivroCaixa: React.FC = () => {
   const [patientQuery, setPatientQuery] = useState('');
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
   const patientRef = useRef<HTMLDivElement>(null);
+
+  // ── Services / Packages combobox ──────────────────────────────────────────────
+  const [txServices, setTxServices] = useState<Array<{id: string; name: string; price: number; type: 'service' | 'package'}>>([]);
+  const [txServiceQuery, setTxServiceQuery] = useState('');
+  const [txServiceDropdownOpen, setTxServiceDropdownOpen] = useState(false);
+  const [txSelectedService, setTxSelectedService] = useState<{id: string; name: string; price: number; type: 'service' | 'package'} | null>(null);
+  const [txBaseAmount, setTxBaseAmount] = useState('');
+  const [txDiscount, setTxDiscount] = useState('');
+  const [txDiscountType, setTxDiscountType] = useState<'fixed' | 'percentage'>('fixed');
+  const serviceRef = useRef<HTMLDivElement>(null);
 
   // ── Close export menu on outside click ────────────────────────────────────────
   useEffect(() => {
@@ -388,17 +399,31 @@ export const LivroCaixa: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // ─── Fetch patients when modal opens ─────────────────────────────────────────
+  // ─── Fetch patients + services when modal opens ───────────────────────────────
   useEffect(() => {
-    if (!isNewTxOpen || patients.length > 0) return;
-    api.get<any[]>('/patients').then(data => {
-      const list = (Array.isArray(data) ? data : []).map((p: any) => ({
-        id: p.id,
-        name: p.name || p.full_name || '',
-        cpf: p.cpf || p.cpf_cnpj || '',
-      })).filter(p => p.name);
-      setPatients(list);
-    }).catch(() => {});
+    if (!isNewTxOpen) return;
+    if (patients.length === 0) {
+      api.get<any[]>('/patients').then(data => {
+        const list = (Array.isArray(data) ? data : []).map((p: any) => ({
+          id: p.id,
+          name: p.name || p.full_name || '',
+          cpf: p.cpf || p.cpf_cnpj || '',
+        })).filter((p: any) => p.name);
+        setPatients(list);
+      }).catch(() => {});
+    }
+    if (txServices.length === 0) {
+      Promise.all([
+        api.get<any[]>('/services').catch(() => []),
+        api.get<any[]>('/packages').catch(() => []),
+      ]).then(([srvs, pkgs]) => {
+        const items = [
+          ...(Array.isArray(srvs) ? srvs : []).map((s: any) => ({ id: `svc_${s.id}`, name: s.name, price: Number(s.price) || 0, type: 'service' as const })),
+          ...(Array.isArray(pkgs) ? pkgs : []).map((p: any) => ({ id: `pkg_${p.id}`, name: p.name, price: Number(p.totalPrice) || 0, type: 'package' as const })),
+        ];
+        setTxServices(items);
+      });
+    }
   }, [isNewTxOpen]);
 
   // ─── URL sync on mount ────────────────────────────────────────────────────────
@@ -660,8 +685,10 @@ export const LivroCaixa: React.FC = () => {
   const resetForm = () => {
     setTxType('income'); setTxDate(new Date().toISOString().split('T')[0]);
     setTxDescription(''); setTxAmount(''); setTxMethod('pix'); setTxCategory('Geral');
-    setTxPayerName(''); setTxPayerCpf(''); setTxPatientCpf(''); setTxPayerIsPatient(true); setTxObservation('');
+    setTxPatientName(''); setTxPayerName(''); setTxPayerCpf(''); setTxPatientCpf(''); setTxPayerIsPatient(true); setTxObservation('');
     setPatientQuery(''); setPatientDropdownOpen(false);
+    setTxServiceQuery(''); setTxServiceDropdownOpen(false); setTxSelectedService(null);
+    setTxBaseAmount(''); setTxDiscount(''); setTxDiscountType('fixed');
     setEditingTx(null);
   };
 
@@ -682,12 +709,14 @@ export const LivroCaixa: React.FC = () => {
     setTxAmount(amountToDisplay(tx.amount));
     setTxMethod(tx.payment_method || 'pix');
     setTxCategory(tx.category || 'Geral');
-    setTxPayerName(tx.payer_name || '');
-    setTxPayerCpf(tx.payer_cpf ? maskCpf(tx.payer_cpf.replace(/\D/g,'')) : '');
+    const hasExternalPayer = !!(tx.beneficiary_name);
+    setTxPatientName(tx.beneficiary_name || tx.payer_name || '');
+    setTxPayerName(hasExternalPayer ? tx.payer_name || '' : '');
+    setTxPayerCpf(hasExternalPayer ? maskCpf((tx.payer_cpf || '').replace(/\D/g,'')) : '');
     setTxPatientCpf(tx.beneficiary_cpf ? maskCpf(tx.beneficiary_cpf.replace(/\D/g,'')) : tx.payer_cpf ? maskCpf(tx.payer_cpf.replace(/\D/g,'')) : '');
-    setTxPayerIsPatient(true);
+    setTxPayerIsPatient(!hasExternalPayer);
     setTxObservation(tx.observation || '');
-    setPatientQuery(tx.payer_name || '');
+    setPatientQuery(tx.beneficiary_name || tx.payer_name || '');
     setPatientDropdownOpen(false);
     setIsNewTxOpen(true);
   };
@@ -702,10 +731,10 @@ export const LivroCaixa: React.FC = () => {
         type: txType, date: txDate,
         description: txDescription || (txType === 'income' ? 'Receita' : 'Despesa'),
         amount: parsedAmount, payment_method: txMethod, category: txCategory,
-        payer_name: txPayerIsPatient ? txPayerName || null : txPayerName || null,
-        payer_cpf:  txPayerIsPatient ? txPatientCpf || null : txPayerCpf || null,
-        beneficiary_name: txPayerIsPatient ? null : txPayerName || null,
-        beneficiary_cpf:  txPayerIsPatient ? null : txPatientCpf || null,
+        payer_name: txPayerIsPatient ? txPatientName || null : txPayerName || null,
+        payer_cpf:  txPayerIsPatient ? txPatientCpf  || null : txPayerCpf  || null,
+        beneficiary_name: txPayerIsPatient ? null : txPatientName || null,
+        beneficiary_cpf:  txPayerIsPatient ? null : txPatientCpf  || null,
         observation: txObservation || null, status: 'paid',
       };
       if (editingTx) {
@@ -837,8 +866,11 @@ export const LivroCaixa: React.FC = () => {
       header: 'Paciente / Pagador',
       sortKey: 'payer',
       render: (tx) => {
-        const name = tx.payer_name || tx.patient_name || '—';
-        const cpf  = tx.payer_cpf  || '';
+        const hasExternalPayer = !!(tx.beneficiary_name);
+        const payerName    = tx.payer_name || '—';
+        const payerCpf     = tx.payer_cpf  || '';
+        const patientName  = tx.beneficiary_name || tx.patient_name || tx.payer_name || '—';
+        const patientCpf   = tx.beneficiary_cpf  || tx.payer_cpf   || '';
         return (
           <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-1.5">
@@ -847,22 +879,24 @@ export const LivroCaixa: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight leading-none">
-                  Pagador{cpf ? ` · ${cpf.slice(0,11)}` : ''}
+                  Pagador{payerCpf ? ` · ${payerCpf.replace(/\D/g,'').slice(0,11)}` : ''}
                 </p>
-                <p className="text-xs font-bold text-slate-700 truncate">{name}</p>
+                <p className="text-xs font-bold text-slate-700 truncate">{payerName}</p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0">
-                <User size={9} className="text-slate-400" />
+            {hasExternalPayer && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0">
+                  <User size={9} className="text-slate-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight leading-none">
+                    Paciente{patientCpf ? ` · ${patientCpf.replace(/\D/g,'').slice(0,11)}` : ''}
+                  </p>
+                  <p className="text-xs font-bold text-slate-700 truncate">{patientName}</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight leading-none">
-                  Paciente{cpf ? ` · ${cpf.slice(0,11)}` : ''}
-                </p>
-                <p className="text-xs font-bold text-slate-700 truncate">{name}</p>
-              </div>
-            </div>
+            )}
           </div>
         );
       },
@@ -1608,7 +1642,7 @@ export const LivroCaixa: React.FC = () => {
                   onChange={(e) => {
                     setPatientQuery(e.target.value);
                     setPatientDropdownOpen(true);
-                    if (!e.target.value) { setTxPayerName(''); setTxPatientCpf(''); }
+                    if (!e.target.value) { setTxPatientName(''); setTxPatientCpf(''); }
                   }}
                   onFocus={() => setPatientDropdownOpen(true)}
                   placeholder="Buscar paciente..."
@@ -1617,7 +1651,7 @@ export const LivroCaixa: React.FC = () => {
                 {txPayerName && (
                   <button
                     type="button"
-                    onClick={() => { setPatientQuery(''); setTxPayerName(''); setTxPatientCpf(''); }}
+                    onClick={() => { setPatientQuery(''); setTxPatientName(''); setTxPatientCpf(''); }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"
                   >
                     <X size={14} />
@@ -1634,7 +1668,7 @@ export const LivroCaixa: React.FC = () => {
                         key={p.id}
                         type="button"
                         onClick={() => {
-                          setTxPayerName(p.name);
+                          setTxPatientName(p.name);
                           setTxPatientCpf(maskCpf(p.cpf.replace(/\D/g, '')));
                           setPatientQuery(p.name);
                           setPatientDropdownOpen(false);
