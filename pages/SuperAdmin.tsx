@@ -662,10 +662,12 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                 </span>
                                 <div className="flex gap-1">
                                   <StatusBadge active={u.active !== false} />
-                                  <button onClick={() => handleDeleteTeamMember(u.id, u.name)}
-                                    className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition ml-1">
-                                    <Trash2 size={12} />
-                                  </button>
+                                  {isAdmin && u.role !== 'super_admin' && (
+                                    <button onClick={() => handleDeleteTeamMember(u.id, u.name)}
+                                      className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition ml-1">
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>

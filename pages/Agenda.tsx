@@ -2498,65 +2498,89 @@ export const Agenda: React.FC = () => {
             </div>
         )}
       >
-          <div className="space-y-6 py-2">
-              <Select
-                label="Repetir frequência"
-                value={tempRecurrence.freq}
-                onChange={e => setTempRecurrence({...tempRecurrence, freq: e.target.value})}
-              >
-                  <option value="DAILY">Diariamente</option>
-                  <option value="WEEKLY">Semanalmente</option>
-                  <option value="MONTHLY">Mensalmente</option>
-                  <option value="YEARLY">Anualmente</option>
-              </Select>
+          <div className="space-y-6 py-4">
+              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-4">
+                <Select
+                  label="Frequência de repetição"
+                  value={tempRecurrence.freq}
+                  onChange={e => setTempRecurrence({...tempRecurrence, freq: e.target.value})}
+                  className="bg-white"
+                >
+                    <option value="DAILY">Diariamente</option>
+                    <option value="WEEKLY">Semanalmente</option>
+                    <option value="MONTHLY">Mensalmente</option>
+                    <option value="YEARLY">Anualmente</option>
+                </Select>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="A cada"
-                  type="number"
-                  value={tempRecurrence.interval}
-                  onChange={e => setTempRecurrence({...tempRecurrence, interval: parseInt(e.target.value) || 1})}
-                />
-                <div className="flex flex-col gap-1.5 w-full">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Unidade</label>
-                    <div className="flex items-center h-10 px-4 bg-slate-50 border border-slate-200/60 rounded-lg text-sm font-semibold text-slate-500">
-                        {tempRecurrence.freq === 'DAILY' ? 'Dia(s)' : tempRecurrence.freq === 'WEEKLY' ? 'Semana(s)' : tempRecurrence.freq === 'MONTHLY' ? 'Mês(es)' : 'Ano(s)'}
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">A cada</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                      value={tempRecurrence.interval || ''}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setTempRecurrence({...tempRecurrence, interval: val ? parseInt(val) : 1});
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 w-full">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Unidade</label>
+                      <div className="flex items-center h-10 px-4 bg-slate-100/50 border border-slate-200/40 rounded-xl text-xs font-bold text-slate-400 uppercase tracking-tight">
+                          {tempRecurrence.freq === 'DAILY' ? 'Dia(s)' : tempRecurrence.freq === 'WEEKLY' ? 'Semana(s)' : tempRecurrence.freq === 'MONTHLY' ? 'Mês(es)' : 'Ano(s)'}
+                      </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-3 pt-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Terminar em</label>
-                  <div className="flex gap-3">
+              <div className="space-y-3 px-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                    <Repeat size={12} /> Terminar em
+                  </label>
+                  <div className="flex gap-4">
                       <button
                           type="button"
                           onClick={() => setTempRecurrence({...tempRecurrence, endType: 'count'})}
-                          className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${tempRecurrence.endType === 'count' ? 'border-indigo-600 bg-indigo-50/30 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
+                          className={`flex-1 group py-4 px-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${tempRecurrence.endType === 'count' ? 'border-indigo-600 bg-indigo-50/50 ring-4 ring-indigo-500/10' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}
                       >
-                          <span className="text-[10px] font-bold uppercase">Por vezes</span>
-                          <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${tempRecurrence.endType === 'count' ? 'text-indigo-600' : 'text-slate-400'}`}>Por vezes</span>
+                          <div className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm transition-all ${tempRecurrence.endType === 'count' ? 'border-indigo-200' : 'border-slate-100 group-hover:border-slate-200'}`}>
                             <input
-                                className="w-10 bg-white border border-slate-200 rounded px-1 text-center font-bold text-slate-700 outline-none"
-                                value={tempRecurrence.endType === 'count' ? tempRecurrence.endValue : ''}
-                                onChange={e => setTempRecurrence({...tempRecurrence, endValue: parseInt(e.target.value) || 1, endType: 'count'})}
+                                type="text"
+                                inputMode="numeric"
+                                className="w-8 bg-transparent text-center font-black text-slate-700 outline-none text-sm"
+                                value={tempRecurrence.endType === 'count' ? (tempRecurrence.endValue || '') : ''}
+                                onChange={e => {
+                                  const val = e.target.value.replace(/\D/g, '');
+                                  setTempRecurrence({
+                                    ...tempRecurrence, 
+                                    endValue: val ? parseInt(val) : '' as any, 
+                                    endType: 'count'
+                                  });
+                                }}
                                 disabled={tempRecurrence.endType !== 'count'}
                             />
-                            <span className="text-[10px] font-medium opacity-60">vezes</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">vezes</span>
                           </div>
                       </button>
 
                       <button
                           type="button"
                           onClick={() => setTempRecurrence({...tempRecurrence, endType: 'until'})}
-                          className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${tempRecurrence.endType === 'until' ? 'border-indigo-600 bg-indigo-50/30 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
+                          className={`flex-1 group py-4 px-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${tempRecurrence.endType === 'until' ? 'border-indigo-600 bg-indigo-50/50 ring-4 ring-indigo-500/10' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}
                       >
-                          <span className="text-[10px] font-bold uppercase">Por Data</span>
-                          <DatePicker 
-                            value={tempRecurrence.endType === 'until' ? String(tempRecurrence.endValue) : ''}
-                            onChange={(val) => val && setTempRecurrence({...tempRecurrence, endValue: val, endType: 'until'})}
-                            disabled={tempRecurrence.endType !== 'until'}
-                            className="bg-transparent text-[10px] font-bold outline-none uppercase"
-                          />
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${tempRecurrence.endType === 'until' ? 'text-indigo-600' : 'text-slate-400'}`}>Por Data</span>
+                          <div className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm transition-all ${tempRecurrence.endType === 'until' ? 'border-indigo-200' : 'border-slate-100 group-hover:border-slate-200'}`}>
+                            <CalendarIcon size={12} className={tempRecurrence.endType === 'until' ? 'text-indigo-500' : 'text-slate-300'} />
+                            <DatePicker 
+                              value={tempRecurrence.endType === 'until' ? String(tempRecurrence.endValue) : ''}
+                              onChange={(val) => val && setTempRecurrence({...tempRecurrence, endValue: val, endType: 'until'})}
+                              disabled={tempRecurrence.endType !== 'until'}
+                              className="bg-transparent text-[11px] font-black outline-none text-slate-700 uppercase"
+                            />
+                          </div>
                       </button>
                   </div>
               </div>
