@@ -109,11 +109,16 @@ export const Combobox: React.FC<ComboboxProps> = ({
   // Atualiza posição do dropdown quando abre ou redimensiona
   const updateDropdownCoords = () => {
     if (!containerRef.current) return;
-    const rect = containerRef.current.querySelector('.input-shell')?.getBoundingClientRect();
-    if (rect) {
+    const shell = containerRef.current.querySelector('.input-shell');
+    if (shell) {
+      const rect = shell.getBoundingClientRect();
+      const dropdownHeight = size === 'sm' ? 260 : 300; // Altura aproximada
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const shouldOpenUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
       setDropdownCoords({
-        top: rect.bottom + window.scrollY + ui.dropdownTopOffset,
-        left: rect.left + window.scrollX,
+        top: shouldOpenUp ? rect.top - dropdownHeight - ui.dropdownTopOffset : rect.bottom + ui.dropdownTopOffset,
+        left: rect.left,
         width: rect.width
       });
     }
@@ -233,7 +238,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
     <div 
         ref={listRef}
         className={cx(
-            'fixed z-[300] overflow-hidden border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.2)] animate-[dropdownIn_0.2s_ease-out]',
+            'fixed z-[10000] overflow-hidden border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.2)] animate-[dropdownIn_0.2s_ease-out]',
             ui.dropdownRounded
         )}
         style={{ 
