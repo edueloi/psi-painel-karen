@@ -51,6 +51,7 @@ interface MonthSummary {
   income: number;
   expense: number;
   balance: number;
+  count: number;
   label: string;
 }
 
@@ -312,7 +313,7 @@ export const LivroCaixa: React.FC = () => {
   // ── Archive ───────────────────────────────────────────────────────────────────
   const [monthSummaries, setMonthSummaries] = useState<MonthSummary[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
-  const [deleteMonthConfirm, setDeleteMonthConfirm] = useState<{ month: number; year: number } | null>(null);
+  const [deleteMonthConfirm, setDeleteMonthConfirm] = useState<MonthSummary | null>(null);
 
   // ── Detail ────────────────────────────────────────────────────────────────────
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -501,6 +502,7 @@ export const LivroCaixa: React.FC = () => {
               results.push({
                 month, year: selectedYear,
                 income: sum.income, expense: sum.expense, balance: sum.balance,
+                count: sum.count || 0,
                 label: `${MONTH_NAMES[month - 1]} ${selectedYear}`,
               });
             }
@@ -1181,7 +1183,7 @@ export const LivroCaixa: React.FC = () => {
                   label: 'Excluir mês',
                   icon: <Trash2 size={13} />,
                   variant: 'danger',
-                  onClick: () => setDeleteMonthConfirm({ month: ms.month, year: ms.year }),
+                  onClick: () => setDeleteMonthConfirm(ms),
                 },
               ]}
               stats={[
@@ -1246,7 +1248,7 @@ export const LivroCaixa: React.FC = () => {
                     Abrir
                   </button>
                   <button
-                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteMonthConfirm({ month: ms.month, year: ms.year }); }}
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteMonthConfirm(ms); }}
                     className="p-1.5 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
                   >
                     <Trash2 size={14} />
@@ -2066,16 +2068,38 @@ export const LivroCaixa: React.FC = () => {
               onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
               className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2"
             >
-              <Trash2 size={14} /> Excluir
+              <Trash2 size={14} /> Excluir permanentemente
             </button>
           </>
         }
       >
-        <div className="flex items-start gap-3 py-2">
-          <AlertCircle size={20} className="text-rose-500 shrink-0 mt-0.5" />
-          <p className="text-sm font-bold text-slate-600">
-            Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.
-          </p>
+        <div className="flex flex-col gap-4 py-2">
+          <div className="flex items-start gap-4 p-4 rounded-2xl bg-rose-50 border border-rose-100">
+            <AlertCircle size={24} className="text-rose-500 shrink-0" />
+            <div>
+              <p className="text-sm font-black text-rose-700 uppercase tracking-wider mb-1">Atenção!</p>
+              <p className="text-sm font-bold text-rose-600 leading-snug">
+                Você está prestes a excluir um lançamento do sistema. Esta ação não poderá ser desfeita.
+              </p>
+            </div>
+          </div>
+
+          {deleteConfirmId && transactions.find(t => t.id === deleteConfirmId) && (
+            <div className="px-4 py-3 rounded-2xl border-2 border-slate-100 bg-slate-50/50">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Item sendo removido:</p>
+               <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-slate-700 truncate">{transactions.find(t => t.id === deleteConfirmId)?.description}</p>
+                    <p className="text-[10px] font-bold text-slate-400">{transactions.find(t => t.id === deleteConfirmId)?.category}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-black ${transactions.find(t => t.id === deleteConfirmId)?.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      {transactions.find(t => t.id === deleteConfirmId)?.type === 'income' ? '+' : '-'}{formatCurrency(transactions.find(t => t.id === deleteConfirmId)?.amount || 0)}
+                    </p>
+                  </div>
+               </div>
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -2100,23 +2124,48 @@ export const LivroCaixa: React.FC = () => {
               onClick={handleDeleteMonth}
               className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2"
             >
-              <Trash2 size={14} /> Excluir Tudo
+              <Trash2 size={14} /> Sim, excluir tudo
             </button>
           </>
         }
       >
-        <div className="flex items-start gap-3 py-2">
-          <AlertCircle size={20} className="text-rose-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-slate-600">
-              Isso vai excluir <span className="text-rose-600">todos os lançamentos</span> de{' '}
-              {deleteMonthConfirm
-                ? `${MONTH_NAMES[deleteMonthConfirm.month - 1]} ${deleteMonthConfirm.year}`
-                : ''}
-              .
-            </p>
-            <p className="text-xs text-slate-400 mt-1 font-bold">Esta ação não pode ser desfeita.</p>
+        <div className="flex flex-col gap-5 py-3">
+          <div className="p-4 rounded-3xl bg-rose-50 border border-rose-100 flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white text-rose-500 flex items-center justify-center shadow-sm shrink-0">
+               <AlertCircle size={24} />
+            </div>
+            <div>
+               <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 px-0.5">Operação Crítica</p>
+               <p className="text-sm font-bold text-rose-700 leading-snug">
+                  Você está prestes a apagar <span className="font-black underline">todos os registros</span> de {deleteMonthConfirm?.label}.
+               </p>
+            </div>
           </div>
+
+          {deleteMonthConfirm && (
+             <div className="grid grid-cols-2 gap-3 px-1">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Total de Registros</p>
+                   <p className="text-lg font-black text-slate-700 leading-none">{deleteMonthConfirm.count} linhas</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Saldo Movimentado</p>
+                   <p className="text-lg font-black text-slate-700 leading-none">{formatCurrency(deleteMonthConfirm.balance)}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 col-span-1">
+                   <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 leading-none">Entradas</p>
+                   <p className="text-base font-black text-emerald-600 leading-none">+{formatCurrency(deleteMonthConfirm.income)}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100 col-span-1">
+                   <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1 leading-none">Saídas</p>
+                   <p className="text-base font-black text-rose-600 leading-none">-{formatCurrency(deleteMonthConfirm.expense)}</p>
+                </div>
+             </div>
+          )}
+
+          <p className="text-xs font-medium text-slate-500 text-center px-4 leading-relaxed">
+            Esta ação é irreversível e irá afetar os relatórios anuais e o saldo acumulado do sistema. Tem certeza?
+          </p>
         </div>
       </Modal>
 

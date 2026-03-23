@@ -240,26 +240,32 @@ router.get('/summary', async (req, res) => {
     const y = year || now.getFullYear();
 
     const [income] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total
-       FROM financial_transactions
+      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
        WHERE tenant_id = ? AND type = 'income' AND MONTH(date) = ? AND YEAR(date) = ?`,
       [req.user.tenant_id, m, y]
     );
 
     const [expense] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total
-       FROM financial_transactions
+      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
        WHERE tenant_id = ? AND type = 'expense' AND MONTH(date) = ? AND YEAR(date) = ?`,
+      [req.user.tenant_id, m, y]
+    );
+
+    const [counts] = await db.query(
+      `SELECT COUNT(*) as total FROM financial_transactions 
+       WHERE tenant_id = ? AND MONTH(date) = ? AND YEAR(date) = ?`,
       [req.user.tenant_id, m, y]
     );
 
     const totalIncome = parseFloat(income[0].total);
     const totalExpense = parseFloat(expense[0].total);
+    const totalCount = counts[0].total;
 
     res.json({
       income: totalIncome,
       expense: totalExpense,
       balance: totalIncome - totalExpense,
+      count: totalCount,
       month: m,
       year: y,
     });
