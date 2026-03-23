@@ -535,6 +535,12 @@ router.delete('/:id', async (req, res) => {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
 
+    // Limpar ferramentas clínicas (não tem FK com cascade)
+    await db.query(
+      'DELETE FROM clinical_tools WHERE tenant_id = ? AND (patient_id = ? OR scope_key = ?)',
+      [req.user.tenant_id, req.params.id, String(req.params.id)]
+    );
+
     const [result] = await db.query(
       'DELETE FROM patients WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
@@ -542,8 +548,8 @@ router.delete('/:id', async (req, res) => {
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Paciente não encontrado' });
     res.status(204).send();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao deletar paciente' });
+    console.error('ERRO DELETE /patients settings/:id ->', err);
+    res.status(500).json({ error: 'Erro ao deletar paciente', details: err.message });
   }
 });
 

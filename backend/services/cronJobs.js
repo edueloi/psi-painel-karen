@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const db = require('../db');
 const { sendMail, templates } = require('./emailService');
+const wppService = require('./whatsappService');
 
 // Helper: formata data pt-BR
 function fmtDate(d) {
@@ -71,17 +72,46 @@ async function checkAppointmentReminders() {
     const [appointments] = await db.query(`
       SELECT a.*,
         p.name as patient_name, p.email as patient_email,
-        u.name as professional_name, u.email as professional_email,
-        u.email_preferences
+        u.name as professional_name, u.email as professional_email, u.phone as professional_phone,
+        u.email_preferences,
+        s.name as service_name,
+        c.sessions_total, c.sessions_used, c.description as package_name
       FROM appointments a
       LEFT JOIN patients p ON p.id = a.patient_id
       LEFT JOIN users u ON u.id = a.professional_id
+      LEFT JOIN services s ON s.id = a.service_id
+      LEFT JOIN comandas c ON c.id = a.comanda_id
       WHERE a.start_time >= ? AND a.start_time < ?
         AND a.status IN ('scheduled','confirmed')
         AND a.type = 'consulta'
     `, [fromStr, toStr]);
 
     for (const apt of appointments) {
+      // 1. WhatsApp Bot Global (Independente de preferência para ser um lembrete do sistema para todos)
+      if (apt.professional_phone && wppService.status === 'connected') {
+        const aptStart = new Date(apt.start_time);
+        // Regra: 60 minutos antes (janela de 5 min para evitar perda por delay)
+        const targetTime = new Date(now.getTime() + 60 * 60 * 1000);
+        const diff = Math.abs(aptStart - targetTime) / 60000;
+
+        if (diff <= 5) {
+          const timeStr = fmtTime(apt.start_time);
+          const serviceInfo = apt.service_name ? `\n🔹 *Serviço:* ${apt.service_name}` : '';
+          
+          let packageInfo = '';
+          if (apt.sessions_total > 1) {
+            const currentSession = (apt.sessions_used || 0) + 1;
+            packageInfo = `\n📦 *Pacote:* ${apt.package_name || 'Sessões'} (${currentSession}/${apt.sessions_total})`;
+          }
+
+          const message = `🔔 *PsiFlux: Lembrete de Sessão*\n\nOlá *${apt.professional_name}*, você tem um atendimento em breve:\n\n👤 *Paciente:* ${apt.patient_name}\n⏰ *Horário:* ${timeStr}${serviceInfo}${packageInfo}\n\nBom atendimento! 🚀`;
+          
+          await wppService.sendReminder(apt.professional_phone, message);
+          console.log(`[CRON-WPP] Lembrete enviado: ${apt.professional_name} às ${timeStr}`);
+        }
+      }
+
+      // 2. Lembretes por E-mail (Respeitam a preferência do profissional)
       const prefs = getPrefs(apt);
       if (!prefs.enabled) continue;
       if (!prefs.appointment_reminder_professional && !prefs.appointment_reminder_patient) continue;
@@ -90,11 +120,11 @@ async function checkAppointmentReminders() {
       const targetTime = new Date(now.getTime() + minutes * 60 * 1000);
       const aptStart   = new Date(apt.start_time);
       const diff = Math.abs(aptStart - targetTime) / 60000;
-      if (diff > 5) continue; // só dispara se estiver na janela certa
+      if (diff > 5) continue; 
 
       const label = minutes === 30 ? '30min' : '1h';
 
-      // Envia para o profissional
+      // Envia para o profissional (E-mail)
       if (prefs.appointment_reminder_professional && apt.professional_email) {
         const html = templates.appointmentReminder({
           patientName:  apt.patient_name || 'Paciente',
@@ -107,7 +137,7 @@ async function checkAppointmentReminders() {
         await sendMail(apt.professional_email, `⏰ Atendimento em ${label} — ${apt.patient_name}`, html);
       }
 
-      // Envia para o paciente (se tiver email e profissional habilitou)
+      // Envia para o paciente (E-mail)
       if (prefs.appointment_reminder_patient && apt.patient_email) {
         const patHtml = templates.appointmentReminder({
           patientName:  apt.patient_name || 'Você',
@@ -313,7 +343,7 @@ async function autoConfirmAppointments() {
 
 // ─── Inicializar todos os cron jobs ──────────────────────────────────────────
 function startCronJobs() {
-  // Jobs que NÃO dependem de email sempre rodam
+  cron.schedule('* * * * *', checkAppointmentReminders, { timezone: 'America/Sao_Paulo' });
   cron.schedule('0 8 * * *', checkBirthdays, { timezone: 'America/Sao_Paulo' });
   cron.schedule('*/30 * * * *', autoConfirmAppointments, { timezone: 'America/Sao_Paulo' });
   autoConfirmAppointments(); // roda uma vez na inicialização
@@ -321,15 +351,14 @@ function startCronJobs() {
   // Jobs de email só rodam se as variáveis de ambiente estiverem configuradas
   if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER) {
     console.warn('⚠️  Cron de emails desativado (EMAIL_HOST/EMAIL_USER não configurados)');
-    console.log('✅ Cron jobs de automação iniciados (sem email)');
+    console.log('✅ Cron jobs de automação e WhatsApp iniciados');
     return;
   }
 
-  cron.schedule('* * * * *', checkAppointmentReminders, { timezone: 'America/Sao_Paulo' });
   cron.schedule('0 7 * * 1', sendWeeklyReport, { timezone: 'America/Sao_Paulo' });
   cron.schedule('0 7 1 * *', sendMonthlyReport, { timezone: 'America/Sao_Paulo' });
 
-  console.log('✅ Cron jobs de email e automação iniciados');
+  console.log('✅ Cron jobs de email, automação e WhatsApp iniciados');
 }
 
 module.exports = { startCronJobs, checkAppointmentReminders, checkBirthdays, sendWeeklyReport, sendMonthlyReport, autoConfirmAppointments };

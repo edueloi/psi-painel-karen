@@ -106,6 +106,7 @@ export const Services: React.FC = () => {
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [editingPackage, setEditingPackage] = useState<Partial<ServicePackage> | null>(null);
   const [deleteId, setDeleteId] = useState<{ id: string; type: 'service' | 'package' } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // view / selection / pagination
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(preferences.services.viewMode);
@@ -223,19 +224,27 @@ export const Services: React.FC = () => {
   };
 
   const handleBulkDelete = async () => {
+    setIsProcessing(true);
     try {
       const endpoint = activeTab === 'services' ? '/services' : '/packages';
       await Promise.all([...selectedIds].map((id) => api.delete(`${endpoint}/${id}`)));
+      
       if (activeTab === 'services') {
         setServices((prev) => prev.filter((s) => !selectedIds.has(String(s.id))));
+        // Refresh packages too as they might have been affected by cascade delete
+        const pkgs = await api.get<ServicePackage[]>('/packages');
+        setPackages(pkgs || []);
       } else {
         setPackages((prev) => prev.filter((p) => !selectedIds.has(String(p.id))));
       }
+      
       setSelectedIds(new Set());
       setConfirmBulkDelete(false);
       pushToast('success', 'Excluídos com sucesso!');
     } catch {
       pushToast('error', 'Erro ao excluir itens.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -306,14 +315,19 @@ export const Services: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!deleteId) return;
+    setIsProcessing(true);
 
     try {
       if (deleteId.type === 'service') {
         await api.delete(`/services/${deleteId.id}`);
-        setServices((prev) => prev.filter((service) => service.id !== deleteId.id));
+        setServices((prev) => prev.filter((service) => String(service.id) !== String(deleteId.id)));
+        
+        // Refresh packages too as they might have been affected by cascade delete
+        const pkgs = await api.get<ServicePackage[]>('/packages');
+        setPackages(pkgs || []);
       } else {
         await api.delete(`/packages/${deleteId.id}`);
-        setPackages((prev) => prev.filter((pkg) => pkg.id !== deleteId.id));
+        setPackages((prev) => prev.filter((pkg) => String(pkg.id) !== String(deleteId.id)));
       }
 
       setDeleteId(null);
@@ -321,6 +335,8 @@ export const Services: React.FC = () => {
     } catch (err) {
       console.error('Erro ao deletar:', err);
       pushToast('error', 'Erro ao excluir item.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1150,14 +1166,26 @@ export const Services: React.FC = () => {
           <>
             {activeTab === 'services' ? (
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {currentItems.map((s) => renderServiceCard(s as Service))}
+                {isLoading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-[280px] animate-pulse rounded-[28px] bg-white border border-slate-200" />
+                  ))
+                ) : (
+                  currentItems.map((s) => renderServiceCard(s as Service))
+                )}
                 {!isLoading && filteredServices.length === 0 && (
                   <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">Nenhum serviço encontrado.</div>
                 )}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2">
-                {currentItems.map((p) => renderPackageCard(p as ServicePackage))}
+                {isLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-[320px] animate-pulse rounded-[28px] bg-white border border-slate-200" />
+                  ))
+                ) : (
+                  currentItems.map((p) => renderPackageCard(p as ServicePackage))
+                )}
                 {!isLoading && filteredPackages.length === 0 && (
                   <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">Nenhum pacote encontrado.</div>
                 )}
@@ -1180,6 +1208,7 @@ export const Services: React.FC = () => {
             {activeTab === 'services' ? (
               <GridTable<Service>
                 data={currentItems as Service[]}
+                isLoading={isLoading}
                 keyExtractor={(s) => s.id}
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
@@ -1246,6 +1275,7 @@ export const Services: React.FC = () => {
             ) : (
               <GridTable<ServicePackage>
                 data={currentItems as ServicePackage[]}
+                isLoading={isLoading}
                 keyExtractor={(p) => p.id}
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
@@ -1755,6 +1785,8 @@ export const Services: React.FC = () => {
             <Button
               variant="danger"
               onClick={confirmDelete}
+              isLoading={isProcessing}
+              disabled={isProcessing}
             >
               Confirmar exclusão
             </Button>
@@ -1780,8 +1812,8 @@ export const Services: React.FC = () => {
         maxWidth="md"
         footer={
           <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setConfirmBulkDelete(false)}>Cancelar</Button>
-            <Button variant="danger" onClick={handleBulkDelete}>
+            <Button variant="ghost" onClick={() => setConfirmBulkDelete(false)} disabled={isProcessing}>Cancelar</Button>
+            <Button variant="danger" onClick={handleBulkDelete} isLoading={isProcessing} disabled={isProcessing}>
               Confirmar exclusão de {selectedIds.size} item(ns)
             </Button>
           </div>

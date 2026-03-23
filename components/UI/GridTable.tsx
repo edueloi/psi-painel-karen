@@ -22,6 +22,7 @@ interface GridTableProps<T> {
   sortKey?: string;
   sortOrder?: 'asc' | 'desc';
   onSort?: (key: string) => void;
+  isLoading?: boolean;
 }
 
 function SortIndicator({ active, order }: { active: boolean; order: 'asc' | 'desc' }) {
@@ -47,6 +48,7 @@ export function GridTable<T>({
   sortKey,
   sortOrder = 'asc',
   onSort,
+  isLoading = false,
 }: GridTableProps<T>) {
   const isSelectable = !!selectedIds && !!onToggleSelect;
   const allSelected =
@@ -104,7 +106,16 @@ export function GridTable<T>({
           </thead>
 
           <tbody className="divide-y divide-slate-100">
-            {data.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  {isSelectable && <td className="px-4 py-8"><div className="h-4 w-4 bg-slate-100 rounded mx-auto" /></td>}
+                  {columns.map((_, j) => (
+                    <td key={j} className="px-4 py-8"><div className="h-4 bg-slate-100 rounded w-full" /></td>
+                  ))}
+                </tr>
+              ))
+            ) : data.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length + (isSelectable ? 1 : 0)}

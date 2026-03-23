@@ -75,13 +75,14 @@ const AVATAR_COLORS = ['#6366f1','#10b981','#3b82f6','#f59e0b','#ec4899','#8b5cf
 const avatarColor = (name: string) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 const initials = (name: string) => name?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?';
 
-type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans';
+type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'whatsapp';
 const NAV: { id: Tab; label: string; Icon: any }[] = [
   { id: 'dashboard',   label: 'Dashboard',  Icon: LayoutDashboard },
   { id: 'clients',     label: 'Parceiros',  Icon: Building2 },
   { id: 'team',        label: 'Equipe',     Icon: Users },
   { id: 'permissions', label: 'Permissões', Icon: Lock },
   { id: 'plans',       label: 'Planos',     Icon: Package },
+  { id: 'whatsapp',    label: 'WhatsApp Bot', Icon: Phone },
 ];
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -178,6 +179,12 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [mrrHistory, setMrrHistory]     = useState<any[]>([]);
   const [permProfiles, setPermProfiles] = useState<any[]>([]);
 
+  // WhatsApp state
+  const [wppStatus, setWppStatus] = useState<{ status: string; qrcode: string | null; phone: string | null }>({ status: 'disconnected', qrcode: null, phone: null });
+  const [loadingWpp, setLoadingWpp] = useState(false);
+
+  const canAccessWpp = user?.email === 'super@psiflux.com' || user?.email === 'admin@psiflux.com';
+
   // toasts
   const toastId = useRef(0);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
@@ -235,7 +242,47 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    if (canAccessWpp) {
+      loadWppStatus();
+    }
+  }, []);
+
+  const loadWppStatus = async () => {
+    try {
+      const res: any = await api.get('/whatsapp/status');
+      setWppStatus(res);
+    } catch (e) { console.error('Error loading wpp status', e); }
+  };
+
+  useEffect(() => {
+    let interval: any;
+    if (wppStatus.status === 'connecting') {
+      interval = setInterval(loadWppStatus, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [wppStatus.status]);
+
+  const handleWppConnect = async () => {
+    setLoadingWpp(true);
+    try {
+      const res: any = await api.post('/whatsapp/connect', {});
+      setWppStatus({ status: 'connecting', qrcode: res.qrcode, phone: null });
+      toast('Iniciando conexão... Escaneie o QR Code.');
+    } catch { toast('Erro ao conectar WhatsApp.', 'error'); }
+    finally { setLoadingWpp(false); }
+  };
+
+  const handleWppDisconnect = async () => {
+    setLoadingWpp(true);
+    try {
+      await api.post('/whatsapp/disconnect', {});
+      setWppStatus({ status: 'disconnected', qrcode: null, phone: null });
+      toast('WhatsApp desconectado.');
+    } catch { toast('Erro ao desconectar.', 'error'); }
+    finally { setLoadingWpp(false); }
+  };
 
   // ── handlers ──────────────────────────────────────────────────────────────
   const handleCreateTeamMember = async () => {
@@ -327,7 +374,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   }));
 
   const ticketMedio = useMemo(() => stats?.active_tenants > 0 ? (stats.mrr / stats.active_tenants) : 0, [stats]);
-  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos' };
+  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', whatsapp: 'WhatsApp Bot' };
+
+  const finalNav = NAV.filter(n => n.id !== 'whatsapp' || canAccessWpp);
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -356,7 +405,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition"><X size={16} /></button>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {NAV.map(({ id, label, Icon }) => (
+          {finalNav.map(({ id, label, Icon }) => (
             <button key={id} onClick={() => { setTab(id as Tab); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${tab === id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
               <Icon size={16} className={tab === id ? 'text-indigo-600' : 'text-slate-400'} />
@@ -849,6 +898,193 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ══ WHATSAPP BOT ══ */}
+              {tab === 'whatsapp' && canAccessWpp && (
+                <div className="max-w-4xl space-y-6">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center shadow-lg shadow-emerald-50">
+                          <Phone size={24} className="text-emerald-600" />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-bold text-slate-800">Status do WhatsApp Global</h2>
+                          <p className="text-xs text-slate-400">Instância Master para Notificações do Sistema</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {wppStatus.status === 'connected' ? (
+                          <span className="inline-flex items-center gap-1.5 text-emerald-700 text-xs font-bold bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-full">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            CONECTADO
+                          </span>
+                        ) : wppStatus.status === 'connecting' ? (
+                          <span className="inline-flex items-center gap-1.5 text-amber-700 text-xs font-bold bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-full">
+                            <Loader2 size={13} className="animate-spin text-amber-500" />
+                            AGUARDANDO...
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs font-bold bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full">
+                            <span className="w-2 h-2 rounded-full bg-slate-400" />
+                            DESCONECTADO
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-2">
+                            <Info size={14} className="text-indigo-500" /> Informações
+                          </h3>
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            Este bot é responsável por enviar lembretes de agendamento automáticos para os profissionais 60 minutos antes das sessões em todas as clínicas.
+                          </p>
+                        </div>
+
+                        {wppStatus.status === 'connected' && wppStatus.phone && (
+                          <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
+                            <p className="text-xs font-semibold text-emerald-700 mb-1 uppercase tracking-wider">Número Conectado</p>
+                            <p className="text-lg font-bold text-emerald-800">{wppStatus.phone}</p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-3">
+                          {wppStatus.status === 'disconnected' ? (
+                            <button
+                              onClick={handleWppConnect}
+                              disabled={loadingWpp}
+                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+                            >
+                              {loadingWpp ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                              Gerar Novo QR Code
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={handleWppDisconnect}
+                                disabled={loadingWpp}
+                                className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-xl transition border border-red-100 flex items-center justify-center gap-2"
+                              >
+                                {loadingWpp ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
+                                Desconectar Instância
+                              </button>
+
+                              {wppStatus.status === 'connected' && (
+                                <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-2">
+                                  <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest px-1">Teste de Envio</p>
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="(00) 00000-0000"
+                                      id="testPhone"
+                                      onChange={(e) => {
+                                        let v = e.target.value.replace(/\D/g, '');
+                                        if (v.length > 11) v = v.slice(0, 11);
+                                        if (v.length > 2) v = `(${v.slice(0, 2)}) ${v.slice(2)}`;
+                                        if (v.length > 9) v = `${v.slice(0, 10)}-${v.slice(10)}`;
+                                        e.target.value = v;
+                                      }}
+                                      className="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400"
+                                    />
+                                    <button
+                                      onClick={async () => {
+                                        const phone = (document.getElementById('testPhone') as HTMLInputElement).value;
+                                        if (!phone) return toast('Insira um número', 'info');
+                                        try {
+                                          await api.post('/whatsapp/test', { phone, message: '🚀 Teste de conexão PsiFlux: O bot está operando corretamente!' });
+                                          toast('Mensagem de teste enviada!');
+                                        } catch { toast('Erro ao enviar teste', 'error'); }
+                                      }}
+                                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm"
+                                    >
+                                      Testar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          
+                          {(wppStatus.status === 'connecting' || wppStatus.status === 'connected') && (
+                            <button
+                              onClick={loadWppStatus}
+                              className="w-full bg-white border border-slate-200 text-slate-600 font-bold py-2 rounded-xl text-xs hover:bg-slate-50 transition flex items-center justify-center gap-2"
+                            >
+                              <RefreshCw size={14} /> Atualizar Status
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl p-6 bg-slate-50/30">
+                        {wppStatus.status === 'connecting' && wppStatus.qrcode ? (
+                          <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100">
+                            <img src={wppStatus.qrcode} alt="WhatsApp QR Code" className="w-64 h-64" />
+                            <p className="text-[10px] text-center text-slate-400 mt-3 font-medium uppercase tracking-widest">Escaneie pelo WhatsApp</p>
+                          </div>
+                        ) : wppStatus.status === 'connected' ? (
+                          <div className="text-center">
+                            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-lg">
+                              <CheckCircle size={32} className="text-emerald-500" />
+                            </div>
+                            <p className="text-slate-700 font-bold">Bot em Operação</p>
+                            <p className="text-xs text-slate-400 mt-1">Pronto para enviar mensagens</p>
+                          </div>
+                        ) : (
+                          <div className="text-center opacity-40">
+                            <Phone size={48} className="text-slate-300 mx-auto mb-4" />
+                            <p className="text-sm font-semibold text-slate-400">Instância Desconectada</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                          <Calendar size={15} className="text-indigo-600" />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Antecedência</h4>
+                      </div>
+                      <p className="text-slate-400 text-[10px] mb-2 leading-relaxed">Tempo antes da sessão para o envio do lembrete.</p>
+                      <div className="bg-slate-50 rounded-lg py-2 text-center text-sm font-bold text-slate-700 border border-slate-100">
+                        60 Minutos
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
+                          <Users size={15} className="text-sky-600" />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Destinatários</h4>
+                      </div>
+                      <p className="text-slate-400 text-[10px] mb-2 leading-relaxed">Quem receberá as notificações automáticas.</p>
+                      <div className="bg-slate-50 rounded-lg py-2 text-center text-sm font-bold text-slate-700 border border-slate-200">
+                        Profissionais
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                          <Check size={15} className="text-emerald-600" />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Logs</h4>
+                      </div>
+                      <p className="text-slate-400 text-[10px] mb-2 leading-relaxed">Última checagem do sistema de notificações.</p>
+                      <div className="bg-slate-50 rounded-lg py-2 text-center text-sm font-bold text-slate-700 border border-slate-200">
+                        Ativa (Real-time)
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </>

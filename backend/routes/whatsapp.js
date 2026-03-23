@@ -2,63 +2,77 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { authorize } = require('../middleware/auth');
+const wppService = require('../services/whatsappService');
+
+// Restrição para Super Admins - Somente super@psiflux e admin@psiflux podem acessar as funções globais
+const isBotManager = (user) => user && (user.email === 'super@psiflux.com' || user.email === 'admin@psiflux.com');
 
 // Rotas de bot so para admins (ou super_admin)
 router.use(authorize('admin', 'super_admin'));
 
-// GET /whatsapp/status - Retorna o status do bot para o tenant
+// GET /whatsapp/status - Retorna o status do bot master para o Super Admin
 router.get('/status', async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      'SELECT whatsapp_instance as instance, whatsapp_status as status, whatsapp_phone as phone FROM tenants WHERE id = ?',
-      [req.user.tenant_id]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'Tenant não encontrado' });
-    res.json(rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar status do WhatsApp' });
+  if (!isBotManager(req.user)) {
+    return res.status(403).json({ error: 'Acesso negado — somente gestores globais' });
   }
+
+  res.json(wppService.getStatus());
 });
 
-// POST /whatsapp/connect - Inicia conexão ou gera QR Code (Mock p/ agora)
+// POST /whatsapp/connect - Inicia conexão ou gera QR Code (Real)
 router.post('/connect', async (req, res) => {
+  if (!isBotManager(req.user)) {
+    return res.status(403).json({ error: 'Acesso negado — somente gestores globais' });
+  }
+
   try {
-    const tenantId = req.user.tenant_id;
-    const [tenants] = await db.query('SELECT slug FROM tenants WHERE id = ?', [tenantId]);
-    const slug = tenants[0].slug;
+    // Inicia conexão de forma assíncrona — o status mudará conforme o processo avança
+    wppService.connect().catch(err => console.error('WPP Connect Error:', err.message));
 
-    // Se fosse real, chamaríamos a API externa de WPPConnect/Evolution aqui
-    // Ex: await axios.post(`${API_WPP}/instance/create`, { name: slug });
+    // Retorna status imediato (provavelmente connecting)
+    setTimeout(() => {
+        res.json({
+          success: true,
+          ...wppService.getStatus(),
+          message: 'Escaneie o QR Code para conectar'
+        });
+    }, 500); // pequeno delay para dar tempo do QR ser gerado se for rápido
 
-    await db.query(
-      'UPDATE tenants SET whatsapp_instance = ?, whatsapp_status = ? WHERE id = ?',
-      [slug, 'connecting', tenantId]
-    );
-
-    res.json({
-      success: true,
-      instance: slug,
-      qrcode: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=PSI_FLUX_BOT_WPP_CONNECT_' + slug, // Mock QR
-      message: 'Escaneie o QR Code para conectar'
-    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao iniciar conexão' });
   }
 });
 
-// POST /whatsapp/disconnect - Desconecta a instância
+// POST /whatsapp/disconnect - Desconecta a instância global
 router.post('/disconnect', async (req, res) => {
+  if (!isBotManager(req.user)) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+
   try {
-    await db.query(
-      'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?',
-      ['disconnected', null, req.user.tenant_id]
-    );
+    await wppService.disconnect();
     res.json({ success: true, message: 'Desconectado com sucesso' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao desconectar' });
+  }
+});
+
+// POST /whatsapp/test - Envia mensagem de teste
+router.post('/test', async (req, res) => {
+  if (!isBotManager(req.user)) return res.status(403).json({ error: 'Acesso negado' });
+  
+  const { phone, message } = req.body;
+  if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem são obrigatórios' });
+
+  try {
+    const success = await wppService.sendReminder(phone, message);
+    if (success) res.json({ success: true, message: 'Mensagem enviada com sucesso!' });
+    else res.status(500).json({ error: 'Falha ao enviar mensagem. Entre em contato com o suporte.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao enviar mensagem de teste' });
   }
 });
 

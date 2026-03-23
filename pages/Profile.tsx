@@ -376,7 +376,18 @@ export const Profile: React.FC = () => {
                       <ProfileInput label="E-mail Profissional" icon={<Mail size={16} />} value={user.email} onChange={v => setUser(p => ({ ...p, email: v }))} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <ProfileInput label="Telefone / WhatsApp" icon={<Phone size={16} />} value={user.phone} onChange={v => setUser(p => ({ ...p, phone: v }))} />
+                      <ProfileInput 
+                        label="Telefone / WhatsApp" 
+                        icon={<Phone size={16} />} 
+                        value={user.phone} 
+                        onChange={v => {
+                          let val = v.replace(/\D/g, '');
+                          if (val.length > 11) val = val.slice(0, 11);
+                          if (val.length > 2) val = `(${val.slice(0, 2)}) ${val.slice(2)}`;
+                          if (val.length > 9) val = `${val.slice(0, 10)}-${val.slice(10)}`;
+                          setUser(p => ({ ...p, phone: val }));
+                        }} 
+                      />
                       <ProfileInput label="Especialidade" icon={<Stethoscope size={16} />} value={user.specialty} onChange={v => setUser(p => ({ ...p, specialty: v }))} />
                     </div>
                     <div>
@@ -614,58 +625,71 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({ day, t, onToggle, onUpdate, o
   };
 
   return (
-    <div className={`p-4 rounded-3xl border transition-all ${
+    <div className={`p-4 rounded-[2rem] border transition-all ${
       day.active
-      ? 'bg-white border-slate-100 shadow-md shadow-slate-100'
+      ? 'bg-white border-slate-100 shadow-md shadow-slate-100/50'
       : 'bg-slate-50/50 border-transparent grayscale opacity-50'
     }`}>
       {/* Top row: day label + work hours + actions */}
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
-        {/* Day Label */}
-        <div className="flex items-center gap-3 min-w-[120px]">
-          <button
-            onClick={onToggle}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-              day.active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-200 text-slate-400'
-            }`}
-          >
-            <ChevronRight size={16} className={`${day.active ? 'rotate-90' : ''} transition-transform`} />
-          </button>
-          <span className="text-sm font-black text-slate-700 uppercase tracking-tighter">{t(`days.${day.dayKey}`)}</span>
-        </div>
-
-        {/* Work hours */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black text-slate-400 uppercase">Trabalho:</span>
-          <TimeInput value={day.start} onChange={v => onUpdate({ start: v })} disabled={!day.active} />
-          <span className="text-slate-300">/</span>
-          <TimeInput value={day.end} onChange={v => onUpdate({ end: v })} disabled={!day.active} />
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          {day.active && (
+      <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+        {/* Day Label & Work Entry Group */}
+        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+          {/* Day toggle & name */}
+          <div className="flex items-center gap-3 min-w-[140px]">
             <button
-              onClick={addBreak}
-              title="Adicionar intervalo"
-              className="flex items-center gap-1 text-[10px] font-black px-3 py-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all"
+              onClick={onToggle}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+                day.active 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                : 'bg-slate-200 text-slate-400'
+              }`}
             >
-              <Plus size={12} /> INTERVALO
+              <ChevronRight size={16} className={`${day.active ? 'rotate-90' : ''} transition-transform`} />
             </button>
-          )}
-          <button
-            onClick={onCopyToAll}
-            title="Repetir horário para todos os dias"
-            className="flex items-center gap-1 text-[10px] font-black px-3 py-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-all"
-          >
-            <Copy size={12} /> REPETIR
-          </button>
+            <span className="text-sm font-black text-slate-700 uppercase tracking-tighter truncate">{t(`days.${day.dayKey}`)}</span>
+          </div>
+
+          {/* Work hours */}
+          <div className="flex items-center gap-3">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Trabalho:</span>
+            <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-200/50 shadow-inner">
+              <TimeInput value={day.start} onChange={v => onUpdate({ start: v })} disabled={!day.active} />
+              <span className="text-slate-300 font-bold">/</span>
+              <TimeInput value={day.end} onChange={v => onUpdate({ end: v })} disabled={!day.active} />
+            </div>
+          </div>
+        </div>
+
+        {/* Spacer for desktop only */}
+        <div className="hidden lg:block flex-1" />
+
+        {/* Actions section */}
+        <div className="flex items-center gap-2 w-full lg:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-2">
+            {day.active && (
+              <button
+                onClick={addBreak}
+                title="Adicionar intervalo"
+                className="flex items-center gap-1.5 text-[10px] font-black px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all whitespace-nowrap active:scale-95"
+              >
+                <Plus size={12} strokeWidth={3} /> <span className="hidden sm:inline">INTERVALO</span><span className="sm:hidden">+ INT</span>
+              </button>
+            )}
+            <button
+              onClick={onCopyToAll}
+              title="Repetir para todos os dias"
+              className="flex items-center gap-1.5 text-[10px] font-black px-3 py-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-all whitespace-nowrap active:scale-95"
+            >
+              <Copy size={12} strokeWidth={3} /> <span className="hidden sm:inline">REPETIR</span><span className="sm:hidden">COPIAR</span>
+            </button>
+          </div>
+          
           <button
             onClick={onToggle}
-            className={`text-[10px] font-black px-4 py-2 rounded-xl border transition-all hidden md:block ${
-              day.active ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-white text-slate-400 border-slate-100'
+            className={`text-[10px] font-black px-4 py-2.5 rounded-xl border transition-all whitespace-nowrap active:scale-95 ${
+              day.active 
+              ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' 
+              : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
             }`}
           >
             {day.active ? 'DISPONÍVEL' : 'FECHADO'}
@@ -673,20 +697,28 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({ day, t, onToggle, onUpdate, o
         </div>
       </div>
 
-      {/* Breaks */}
+      {/* Breaks list */}
       {day.active && day.breaks.length > 0 && (
-        <div className="mt-3 pl-14 flex flex-col gap-2">
+        <div className="mt-4 lg:pl-[140px] flex flex-col gap-3 pt-4 lg:pt-0 border-t lg:border-none border-slate-50">
           {day.breaks.map((b, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase">Intervalo {day.breaks.length > 1 ? i + 1 : ''}:</span>
-              <TimeInput value={b.start} onChange={v => updateBreak(i, 'start', v)} disabled={!day.active} />
-              <span className="text-slate-300">/</span>
-              <TimeInput value={b.end} onChange={v => updateBreak(i, 'end', v)} disabled={!day.active} />
+            <div key={i} className="flex flex-wrap items-center gap-3 animate-slideDownFade">
+              <div className="flex items-center gap-2 min-w-[100px]">
+                <Clock size={12} className="text-slate-400" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {day.breaks.length > 1 ? `Break ${i + 1}` : 'Intervalo'} :
+                </span>
+              </div>
+              <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-200/50 shadow-inner">
+                <TimeInput value={b.start} onChange={v => updateBreak(i, 'start', v)} disabled={!day.active} />
+                <span className="text-slate-300 font-bold">/</span>
+                <TimeInput value={b.end} onChange={v => updateBreak(i, 'end', v)} disabled={!day.active} />
+              </div>
               <button
                 onClick={() => removeBreak(i)}
-                className="w-6 h-6 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition-all"
+                className="w-8 h-8 rounded-xl bg-red-50 text-red-500 hover:bg-red-600 hover:text-white flex items-center justify-center transition-all group lg:ml-2 active:scale-90"
+                title="Remover intervalo"
               >
-                <X size={12} />
+                <X size={14} strokeWidth={3} className="transition-transform group-hover:rotate-90" />
               </button>
             </div>
           ))}
@@ -703,7 +735,7 @@ function TimeInput({ value, onChange, disabled }: { value: string; onChange: (v:
       value={value} 
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
-      className={`h-10 bg-slate-50 border border-slate-200 rounded-xl px-2 text-xs font-black text-slate-700 focus:outline-none focus:border-indigo-400 transition-all ${
+      className={`h-9 bg-white border border-slate-200 rounded-xl px-3 text-[11px] font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all ${
         disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-slate-300'
       }`}
     />

@@ -38,6 +38,7 @@ const permissionProfilesRoutes = require('./routes/permission-profiles');
 const commissionsRoutes = require('./routes/commissions');
 const notificationsRoutes = require('./routes/notifications');
 const whatsappRoutes = require('./routes/whatsapp');
+const wppService = require('./services/whatsappService');
 const { startCronJobs } = require('./services/cronJobs');
 const { provisionFormsForAllTenants } = require('./services/provisionForms');
 const db = require('./db');
@@ -222,4 +223,12 @@ app.listen(PORT, () => {
   startCronJobs();
   ensureAlertSchema().catch(e => console.warn('⚠️  system_alerts schema:', e.message));
   provisionFormsForAllTenants().catch(e => console.warn('⚠️  provisionForms:', e.message));
+
+  // Recupera conexão do WhatsApp se estivesse ativa
+  db.query('SELECT whatsapp_status FROM tenants WHERE id = 1').then(([rows]) => {
+    if (rows.length && rows[0].whatsapp_status === 'connected') {
+      console.log('🔄 Recuperando conexão WhatsApp Global...');
+      wppService.connect().catch(e => console.error('Erro ao recuperar WhatsApp:', e.message));
+    }
+  }).catch(e => console.error('Erro ao checar status do WhatsApp:', e.message));
 });

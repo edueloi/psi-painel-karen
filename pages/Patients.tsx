@@ -58,6 +58,7 @@ export const Patients: React.FC = () => {
   const [summary, setSummary] = useState<PatientSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(preferences.patients.viewMode);
   
@@ -280,6 +281,7 @@ export const Patients: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!deleteId) return;
+    setIsProcessing(true);
     try {
       await api.delete(`/patients/${deleteId}`);
       await fetchPatients();
@@ -288,6 +290,7 @@ export const Patients: React.FC = () => {
       console.error('Erro ao excluir paciente:', err);
       pushToast('error', 'Erro ao excluir paciente.');
     } finally {
+      setIsProcessing(false);
       setDeleteId(null);
     }
   };
@@ -826,7 +829,7 @@ export const Patients: React.FC = () => {
         )}
 
         {/* Content */}
-        {isLoading ? (
+        { (isLoading || bulkDeleting || isProcessing) ? (
           <div className={viewMode === 'cards' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
             {[1, 2, 3, 4, 5, 6].map(i => (
               <div key={i} className={`bg-slate-100 rounded-2xl animate-pulse ${viewMode === 'cards' ? 'h-40' : 'h-16'}`} />
@@ -940,13 +943,15 @@ export const Patients: React.FC = () => {
                     <div className="flex items-center gap-1.5 ml-auto">
                         <button
                           onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }}
-                          className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all"
+                          disabled={isProcessing || bulkDeleting}
+                          className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all disabled:opacity-50"
                         >
                           <Edit2 size={13} />
                         </button>
                         <button
                           onClick={e => { e.stopPropagation(); setDeleteId(patient.id); }}
-                          className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                          disabled={isProcessing || bulkDeleting}
+                          className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -965,6 +970,7 @@ export const Patients: React.FC = () => {
             onToggleSelectAll={toggleSelectAll}
             onRowClick={(p) => navigate(`/pacientes/${p.id}`)}
             emptyMessage={t('patients.empty')}
+            isLoading={isLoading || bulkDeleting || isProcessing}
             columns={[
               {
                 header: 'Paciente',
@@ -1192,9 +1198,11 @@ export const Patients: React.FC = () => {
               </button>
               <button
                 onClick={confirmDelete}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
+                disabled={isProcessing}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
               >
-                Excluir
+                {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {isProcessing ? 'Excluindo...' : 'Excluir'}
               </button>
             </div>
           </div>
