@@ -167,6 +167,7 @@ export const Comandas: React.FC = () => {
   const [managerTab, setManagerTab] = useState<
     'atendimentos' | 'pagamentos' | 'pacote'
   >('atendimentos');
+  const [comandaLivroCaixaTx, setComandaLivroCaixaTx] = useState<any[]>([]);
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -388,6 +389,17 @@ export const Comandas: React.FC = () => {
     setCurrentPage(1);
     setSelectedIds(new Set());
   }, [searchTerm, statusFilter, closedDateFrom, closedDateTo, itemsPerPage]);
+
+  // Fetch livro caixa transactions linked to the open comanda
+  useEffect(() => {
+    if (!historyComanda) { setComandaLivroCaixaTx([]); return; }
+    api.get<any[]>('/finance', { comanda_id: String(historyComanda.id) }).then((all: any[]) => {
+      const linked = (Array.isArray(all) ? all : []).filter(
+        (tx: any) => String(tx.comanda_id) === String(historyComanda.id)
+      );
+      setComandaLivroCaixaTx(linked);
+    }).catch(() => setComandaLivroCaixaTx([]));
+  }, [historyComanda?.id]);
 
   const totalPages = Math.max(1, Math.ceil(filteredComandas.length / itemsPerPage));
   const currentComandas = useMemo(() => {
@@ -2105,8 +2117,26 @@ export const Comandas: React.FC = () => {
                 <span className="text-[11px] text-slate-400">#{payment.receipt_code || '---'}</span>
               </div>
             ))}
-            {(!(historyComanda as any).payments ||
-              (historyComanda as any).payments.length === 0) && (
+            {comandaLivroCaixaTx.map((tx: any) => (
+              <div key={`lc-${tx.id}`} className="flex items-center justify-between px-3 py-2.5 bg-indigo-50/50">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                    <Check size={13} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {formatCurrency(Number(tx.amount || 0))}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      {tx.date ? new Date(tx.date).toLocaleDateString('pt-BR') : '—'} · {tx.payment_method || '—'} · <span className="text-indigo-500 font-semibold">Livro Caixa</span>
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-indigo-400">Recebido</span>
+              </div>
+            ))}
+            {(!(historyComanda as any).payments || (historyComanda as any).payments.length === 0) &&
+              comandaLivroCaixaTx.length === 0 && (
               <div className="flex min-h-[120px] items-center justify-center text-xs text-slate-400">
                 Nenhum pagamento registrado.
               </div>

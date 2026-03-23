@@ -17,6 +17,7 @@ import { GridTable, Column } from '../components/UI/GridTable';
 import { AppCard } from '../components/UI/AppCard';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { FinancialHealth } from '@/components/Finance/FinancialHealth';
 import { AuraContabil } from '@/components/AI/AuraContabil';
 
@@ -291,6 +292,7 @@ const exportPDF = async (data: Transaction[], summary: { income: number; expense
 
 export const LivroCaixa: React.FC = () => {
   const { pushToast } = useToast();
+  const { preferences, updatePreference } = useUserPreferences();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── View ─────────────────────────────────────────────────────────────────────
@@ -316,6 +318,8 @@ export const LivroCaixa: React.FC = () => {
   const [flowFilter, setFlowFilter]     = useState<'all' | 'income' | 'expense'>('all');
   const [sortKey, setSortKey]           = useState<string>(() => localStorage.getItem('lc_sort_key') ?? 'date');
   const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>(() => (localStorage.getItem('lc_sort_order') as 'asc' | 'desc') ?? 'asc');
+  const [currentPage, setCurrentPage]   = useState(1);
+  const itemsPerPage = preferences.livroCaixa.itemsPerPage;
 
   const handleSort = (key: string) => {
     const next = key === sortKey && sortOrder === 'asc' ? 'desc' : 'asc';
@@ -562,6 +566,9 @@ export const LivroCaixa: React.FC = () => {
       }
       return 0;
     });
+
+  // Reset page on filter/search change
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, flowFilter, selectedMonth]);
 
   const monthLabel = selectedMonth
     ? `${MONTH_NAMES[selectedMonth.month - 1]}-${selectedMonth.year}`
@@ -1303,20 +1310,64 @@ export const LivroCaixa: React.FC = () => {
             <Loader2 className="animate-spin" size={48} />
             <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-30">Processando Fluxo...</span>
           </div>
-        ) : (
-          <GridTable<Transaction>
-            data={filtered}
-            columns={columns}
-            keyExtractor={(tx) => tx.id}
-            selectedIds={selectedTxIds}
-            onToggleSelect={handleToggleSelect}
-            onToggleSelectAll={handleToggleSelectAll}
-            emptyMessage="Nenhum lançamento encontrado para este período."
-            sortKey={sortKey}
-            sortOrder={sortOrder}
-            onSort={handleSort}
-          />
-        )}
+        ) : (() => {
+          const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+          const safePage   = Math.min(currentPage, totalPages);
+          const paginated  = filtered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+          return (
+            <>
+              <GridTable<Transaction>
+                data={paginated}
+                columns={columns}
+                keyExtractor={(tx) => tx.id}
+                selectedIds={selectedTxIds}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
+                emptyMessage="Nenhum lançamento encontrado para este período."
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              {filtered.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-white rounded-b-2xl">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Linhas por página:</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                        updatePreference('livroCaixa', { itemsPerPage: Number(e.target.value) });
+                        setCurrentPage(1);
+                      }}
+                      className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-600 bg-white focus:outline-none"
+                    >
+                      {[10, 15, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                    <span className="text-xs text-slate-400">{filtered.length} total</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-slate-500">Página {safePage} de {totalPages}</span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
+                        disabled={safePage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-40 transition-all"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
+                        disabled={safePage === totalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-40 transition-all"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
     );
   };
@@ -1651,7 +1702,7 @@ export const LivroCaixa: React.FC = () => {
                   const pending = Math.max(0, c.totalValue - c.paidValue);
                   return (
                     <option key={c.id} value={c.id}>
-                      {c.description} · Pendente: R$ {pending.toFixed(2).replace('.', ',')}
+                      #{c.id} · {c.description} · Pendente: R$ {pending.toFixed(2).replace('.', ',')}
                     </option>
                   );
                 })}

@@ -39,6 +39,9 @@ export interface UserPreferences {
     patientStatusFilter: 'all' | 'ativo' | 'inativo';
     itemsPerPage: number;
   };
+  livroCaixa: {
+    itemsPerPage: number;
+  };
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -79,6 +82,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     patientStatusFilter: 'all',
     itemsPerPage: 15,
   },
+  livroCaixa: {
+    itemsPerPage: 15,
+  },
 };
 
 function mergeWithDefaults(stored: any): UserPreferences {
@@ -95,6 +101,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     appearance:  { ...DEFAULT_PREFERENCES.appearance,  ...stored?.appearance },
     general:     { ...DEFAULT_PREFERENCES.general,     ...stored?.general },
     messages:    { ...DEFAULT_PREFERENCES.messages,    ...stored?.messages },
+    livroCaixa:  { ...DEFAULT_PREFERENCES.livroCaixa,  ...stored?.livroCaixa },
   };
 }
 
