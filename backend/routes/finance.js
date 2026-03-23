@@ -83,7 +83,10 @@ router.get('/comandas/:id/payments', async (req, res) => {
   try {
     await withSchema();
     const [rows] = await db.query(
-      `SELECT * FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ? ORDER BY payment_date DESC, created_at DESC`,
+      `SELECT id, amount, date as payment_date, payment_method, observation as notes 
+       FROM financial_transactions 
+       WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'
+       ORDER BY date DESC, created_at DESC`,
       [req.params.id, req.user.tenant_id]
     );
     res.json(rows);
@@ -113,12 +116,12 @@ router.post('/comandas/:id/payments', async (req, res) => {
       [req.user.tenant_id, req.params.id, parseFloat(amount), payDate, payMethod, receipt_code || null, notes || null]
     );
 
-    // Atualizar paid_value acumulado na comanda
+    // Atualizar paid_value acumulado na comanda lendo apenas de financial_transactions
     const [payments] = await db.query(
-      'SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?',
+      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
       [req.params.id, req.user.tenant_id]
     );
-    const totalPaid = parseFloat(payments[0].total);
+    const totalPaid = parseFloat(payments[0].total) + parseFloat(amount); // Somamos com o amount atual pois o INSERT no financial_transactions ocorre mais abaixo
 
     const [comanda] = await db.query(
       'SELECT total, patient_id, professional_id, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?',
@@ -163,31 +166,15 @@ router.delete('/comandas/:id/payments/:paymentId', async (req, res) => {
   try {
     await withSchema();
 
-    // Busca o pagamento antes de deletar para saber valor/data e remover o lançamento financeiro
-    const [pmtRows] = await db.query(
-      'SELECT amount, payment_date, payment_method FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?',
-      [req.params.paymentId, req.params.id, req.user.tenant_id]
-    );
-
+    // Como o pagamento agora reflete unicamente o lançamento principal, excluímos direto dele.
     await db.query(
-      'DELETE FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?',
+      `DELETE FROM financial_transactions WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
       [req.params.paymentId, req.params.id, req.user.tenant_id]
     );
 
-    // Remove o lançamento financeiro correspondente
-    if (pmtRows.length > 0) {
-      const { amount, payment_date, payment_method } = pmtRows[0];
-      await db.query(
-        `DELETE FROM financial_transactions
-         WHERE tenant_id = ? AND comanda_id = ? AND type = 'income' AND amount = ? AND date = ? AND payment_method = ?
-         LIMIT 1`,
-        [req.user.tenant_id, req.params.id, parseFloat(amount), payment_date, payment_method]
-      );
-    }
-
-    // Recalcular paid_value
+    // Recalcular paid_value com base na tabela financeira unificada
     const [payments] = await db.query(
-      'SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?',
+      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
       [req.params.id, req.user.tenant_id]
     );
     const totalPaid = parseFloat(payments[0].total);
@@ -218,9 +205,11 @@ router.get('/', async (req, res) => {
     const { start, end, type, category, comanda_id } = req.query;
 
     let query = `
-      SELECT t.*, p.name as patient_name
+      SELECT t.*, p.name as patient_name,
+             c.total as comanda_total, c.paid_value as comanda_paid_value, c.status as comanda_status
       FROM financial_transactions t
       LEFT JOIN patients p ON p.id = t.patient_id
+      LEFT JOIN comandas c ON c.id = t.comanda_id
       WHERE t.tenant_id = ?
     `;
     const params = [req.user.tenant_id];
@@ -315,12 +304,7 @@ router.post('/', async (req, res) => {
          WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
         [comanda_id, req.user.tenant_id]
       );
-      const [pmtSum] = await db.query(
-        `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments
-         WHERE comanda_id = ? AND tenant_id = ?`,
-        [comanda_id, req.user.tenant_id]
-      );
-      const totalPaid = parseFloat(txSum[0].total) + parseFloat(pmtSum[0].total);
+      const totalPaid = parseFloat(txSum[0].total);
       const [comandaRow] = await db.query(
         'SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?',
         [comanda_id, req.user.tenant_id]
@@ -351,8 +335,12 @@ router.put('/:id', async (req, res) => {
   try {
     const { 
       type, category, description, amount, date, payment_method, status,
-      payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation
+      payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation, comanda_id
     } = req.body;
+
+    const [existing] = await db.query('SELECT comanda_id FROM financial_transactions WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    const oldComandaId = existing[0]?.comanda_id;
+    const newComandaId = comanda_id !== undefined ? comanda_id : oldComandaId;
 
     await db.query(
       `UPDATE financial_transactions SET
@@ -367,14 +355,34 @@ router.put('/:id', async (req, res) => {
         beneficiary_name = COALESCE(?, beneficiary_name),
         payer_cpf = COALESCE(?, payer_cpf),
         beneficiary_cpf = COALESCE(?, beneficiary_cpf),
-        observation = COALESCE(?, observation)
+        observation = COALESCE(?, observation),
+        comanda_id = ?
        WHERE id = ? AND tenant_id = ?`,
       [
         type, category, description, amount, date, payment_method, status,
         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation,
+        newComandaId,
         req.params.id, req.user.tenant_id
       ]
     );
+
+    const updateComanda = async (cid) => {
+      if (!cid) return;
+      const [txSum] = await db.query(`SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`, [cid, req.user.tenant_id]);
+      const totalPaid = parseFloat(txSum[0].total);
+      
+      const [comandaRow] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?', [cid, req.user.tenant_id]);
+      if (comandaRow.length > 0) {
+        const comandaTotal = parseFloat(comandaRow[0].total || 0);
+        const sessionsTotal = parseInt(comandaRow[0].sessions_total || 1);
+        const sessionsUsed = parseInt(comandaRow[0].sessions_used || 0);
+        const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
+        await db.query('UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?', [totalPaid, newStatus, cid, req.user.tenant_id]);
+      }
+    };
+
+    if (oldComandaId && oldComandaId !== newComandaId) await updateComanda(oldComandaId);
+    if (newComandaId) await updateComanda(newComandaId);
 
     const [updated] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [req.params.id]);
     res.json(updated[0]);
@@ -404,11 +412,30 @@ router.delete('/month/:year/:month', async (req, res) => {
 // DELETE /finance/:id
 router.delete('/:id', async (req, res) => {
   try {
+    const [existing] = await db.query('SELECT comanda_id FROM financial_transactions WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    const comandaId = existing[0]?.comanda_id;
+
     const [result] = await db.query(
       'DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
     );
+
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Transação não encontrada' });
+
+    if (comandaId) {
+      const [txSum] = await db.query(`SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`, [comandaId, req.user.tenant_id]);
+      const totalPaid = parseFloat(txSum[0].total);
+      
+      const [comandaRow] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?', [comandaId, req.user.tenant_id]);
+      if (comandaRow.length > 0) {
+        const comandaTotal = parseFloat(comandaRow[0].total || 0);
+        const sessionsTotal = parseInt(comandaRow[0].sessions_total || 1);
+        const sessionsUsed = parseInt(comandaRow[0].sessions_used || 0);
+        const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
+        await db.query('UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?', [totalPaid, newStatus, comandaId, req.user.tenant_id]);
+      }
+    }
+
     res.status(204).send();
   } catch (err) {
     console.error(err);
