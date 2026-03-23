@@ -12,6 +12,7 @@ import { FinancialTransaction, Patient } from '../types';
 import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
 import { useToast } from '../contexts/ToastContext';
+import { FinancialHealth } from '../components/Finance/FinancialHealth';
 
 const PAYMENT_METHODS = [
   { id: 'pix', label: 'Pix', icon: <Smartphone size={16} />, color: 'bg-emerald-500' },
@@ -46,7 +47,7 @@ export const Finance: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
   const [isLoading, setIsLoading] = useState(false);
-  const [annualSeries, setAnnualSeries] = useState<{ label: string; income: number; expense: number }[]>([]);
+  const [yearMonths, setYearMonths] = useState<{ month: number; income: number; expense: number }[]>([]);
 
   // States para Modal de Lançamento
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,25 +76,36 @@ export const Finance: React.FC = () => {
         const month = currentDate.getMonth() + 1;
         const year = currentDate.getFullYear();
         
-        const [txs, sum, pts, annual] = await Promise.all([
+        const [txs, sum, pts] = await Promise.all([
             api.get<FinancialTransaction[]>('/finance', {
                 start: new Date(year, month - 1, 1).toISOString().split('T')[0],
                 end: new Date(year, month, 0).toISOString().split('T')[0]
             }),
             api.get<any>('/finance/summary', { month: month.toString(), year: year.toString() }),
             api.get<Patient[]>('/patients'),
-            api.get<any>('/finance/analytics/performance?period=year')
         ]);
 
         setTransactions(txs);
         setSummary(sum);
-        if (annual?.series) setAnnualSeries(annual.series);
         setPatients(pts);
+        fetchYearData(year);
     } catch (err) {
         console.error('Erro ao buscar dados financeiros:', err);
     } finally {
         setIsLoading(false);
     }
+  };
+
+  const fetchYearData = async (year: number) => {
+    const results = await Promise.all(
+      Array.from({ length: 12 }, (_, i) => i + 1).map(async (month) => {
+        try {
+          const sum = await api.get<any>('/finance/summary', { month: month.toString(), year: year.toString() });
+          return { month, income: Number(sum.income) || 0, expense: Number(sum.expense) || 0 };
+        } catch { return { month, income: 0, expense: 0 }; }
+      })
+    );
+    setYearMonths(results);
   };
 
   useEffect(() => {
@@ -218,23 +230,50 @@ export const Finance: React.FC = () => {
       };
   }, [transactions, summary]);
 
-  // Real annual chart data from API
+  const MONTH_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  // Annual chart data from real month-by-month fetches
   const yearData = useMemo(() => {
-    if (annualSeries.length > 0) {
-      return annualSeries.map(s => {
-        // label is 'YYYY-MM', convert to short month name
-        const [y, m] = s.label.split('-').map(Number);
-        const label = new Date(y, (m || 1) - 1, 1).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'short' });
-        return { label, revenue: Number(s.income) || 0, expense: Number(s.expense) || 0 };
-      });
+    const withData = yearMonths.filter(m => m.income > 0 || m.expense > 0);
+    if (withData.length > 0) {
+      return withData.map(m => ({
+        label: MONTH_SHORT[m.month - 1],
+        revenue: m.income,
+        expense: m.expense,
+      }));
     }
-    // Fallback: single bar for current month with real data
     return [{
-      label: currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'short' }),
+      label: MONTH_SHORT[currentDate.getMonth()],
       revenue: summary.income,
-      expense: summary.expense
+      expense: summary.expense,
     }];
-  }, [annualSeries, summary, currentDate, language]);
+  }, [yearMonths, summary, currentDate]);
+
+  // Category breakdown from current month's transactions
+  const categoryData = useMemo(() => {
+    const inc: Record<string, number> = {};
+    const exp: Record<string, number> = {};
+    transactions.forEach(tx => {
+      if (!tx.category) return;
+      if (tx.type === 'income') inc[tx.category] = (inc[tx.category] || 0) + tx.amount;
+      else exp[tx.category] = (exp[tx.category] || 0) + tx.amount;
+    });
+    return {
+      income: Object.entries(inc).sort(([,a],[,b]) => b - a).slice(0, 6),
+      expense: Object.entries(exp).sort(([,a],[,b]) => b - a).slice(0, 6),
+    };
+  }, [transactions]);
+
+  // Top payers from current month
+  const topPayers = useMemo(() => {
+    const map: Record<string, number> = {};
+    transactions.forEach(tx => {
+      if (tx.type !== 'income') return;
+      const name = tx.payer_name || tx.patient_name;
+      if (name) map[name] = (map[name] || 0) + tx.amount;
+    });
+    return Object.entries(map).sort(([,a],[,b]) => b - a).slice(0, 6);
+  }, [transactions]);
 
   const bestMonth = useMemo(() => {
     if (yearData.length === 0) return { label: '-', revenue: 0 };
@@ -280,68 +319,6 @@ export const Finance: React.FC = () => {
       return { grossIncome, deductibleExpenses, nonDeductibleExpenses, taxBase, tax, effectiveRate };
   }, [stats]);
 
-  const renderAIInsights = () => (
-      <div className="bg-white p-10 rounded-[3rem] border border-indigo-100 shadow-xl shadow-indigo-50/50 space-y-8 animate-slideUp">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-              <div>
-                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                      <Sparkles className="text-indigo-500" size={28} />
-                      Aurora Insights Financeiros
-                  </h2>
-                  <p className="text-slate-400 text-sm font-bold mt-1">Análise inteligente do seu faturamento e saúde financeira.</p>
-              </div>
-              <button 
-                onClick={() => fetchData()}
-                className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-              >
-                <ArrowUpRight size={20} />
-              </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-indigo-50/30 p-6 rounded-3xl border border-indigo-100/50">
-                  <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-md"><TrendingUp size={18}/></div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-900">Previsão de Faturamento</span>
-                  </div>
-                  <p className="text-2xl font-black text-slate-800">{formatCurrency(stats.revenue * 1.12)}</p>
-                  <p className="text-[10px] font-bold text-slate-400 mt-2 italic">Baseado no crescimento médio dos últimos 3 meses.</p>
-              </div>
-
-              <div className="bg-emerald-50/30 p-6 rounded-3xl border border-emerald-100/50">
-                  <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-md"><User size={18}/></div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-900">Impacto Mensal</span>
-                  </div>
-                  <p className="text-xl font-black text-slate-800">{formatCurrency(stats.revenue / (transactions.length || 1))} / ticket</p>
-                  <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-tighter">Ticket médio de atendimentos</p>
-              </div>
-
-              <div className="bg-rose-50/30 p-6 rounded-3xl border border-rose-100/50">
-                  <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-rose-500 text-white rounded-xl shadow-md"><ArrowDownRight size={18}/></div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-rose-900">Alerta de Despesas</span>
-                  </div>
-                  <p className="text-xl font-black text-slate-800">Saldo: {formatCurrency(stats.balance)}</p>
-                  <p className="text-[10px] font-bold text-slate-400 mt-2">DICA: Tente reduzir em 5% suas despesas administrativas.</p>
-              </div>
-          </div>
-
-          <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200/50 flex flex-col items-center justify-center text-center">
-              <div className="p-6 bg-white rounded-full shadow-xl mb-6 border border-slate-100 ring-8 ring-slate-100/50">
-                <Sparkles className="text-indigo-500 animate-pulse" size={40} />
-              </div>
-              <h4 className="text-lg font-black text-slate-800 mb-2">Pergunte à Aurora</h4>
-              <p className="text-slate-400 text-sm font-bold mb-8 max-w-md">"Aurora, qual foi meu lucro líquido real tirando as taxas de cartão?" ou "Quanto vou pagar de Carnê-Leão este mês?"</p>
-              <button 
-                onClick={() => (window as any).openAuroraChat && (window as any).openAuroraChat()}
-                className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-indigo-100 transition-all flex items-center gap-3"
-              >
-                CONVERSAR COM A INTELIGÊNCIA ARTIFICIAL
-              </button>
-          </div>
-      </div>
-  );
 
   const renderDashboard = () => (
     <div className="space-y-6 animate-fadeIn">
@@ -426,6 +403,120 @@ export const Finance: React.FC = () => {
                     )}
                 </div>
             </div>
+        </div>
+
+        {/* Category Breakdown + Top Payers */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Category breakdown */}
+          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <h3 className="font-black text-[10px] uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+              <Tag size={13} className="text-emerald-500" /> Receitas por Categoria
+            </h3>
+            {categoryData.income.length === 0 ? (
+              <p className="text-center py-8 text-slate-300 text-[10px] font-black uppercase tracking-widest">Sem dados no mês</p>
+            ) : (
+              <div className="space-y-3">
+                {categoryData.income.map(([cat, amount]) => {
+                  const pct = summary.income > 0 ? (amount / summary.income) * 100 : 0;
+                  return (
+                    <div key={cat}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-black text-slate-600 truncate max-w-[160px]">{cat}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-black text-slate-400">{pct.toFixed(0)}%</span>
+                          <span className="text-[11px] font-black text-emerald-600">{formatCurrency(amount)}</span>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {categoryData.expense.length > 0 && (
+              <>
+                <h3 className="font-black text-[10px] uppercase tracking-widest text-slate-400 mt-5 mb-4 flex items-center gap-2">
+                  <Tag size={13} className="text-rose-500" /> Despesas por Categoria
+                </h3>
+                <div className="space-y-3">
+                  {categoryData.expense.map(([cat, amount]) => {
+                    const pct = summary.expense > 0 ? (amount / summary.expense) * 100 : 0;
+                    return (
+                      <div key={cat}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-black text-slate-600 truncate max-w-[160px]">{cat}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black text-slate-400">{pct.toFixed(0)}%</span>
+                            <span className="text-[11px] font-black text-rose-500">{formatCurrency(amount)}</span>
+                          </div>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-rose-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Top Payers */}
+          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <h3 className="font-black text-[10px] uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+              <User size={13} className="text-indigo-500" /> Maiores Pagadores do Mês
+            </h3>
+            {topPayers.length === 0 ? (
+              <p className="text-center py-8 text-slate-300 text-[10px] font-black uppercase tracking-widest">Sem pagadores identificados</p>
+            ) : (
+              <div className="space-y-3">
+                {topPayers.map(([name, amount], idx) => {
+                  const pct = summary.income > 0 ? (amount / summary.income) * 100 : 0;
+                  const colors = ['bg-indigo-500','bg-emerald-500','bg-amber-500','bg-rose-400','bg-purple-500','bg-slate-500'];
+                  return (
+                    <div key={name} className="flex items-center gap-3">
+                      <div className={`w-7 h-7 rounded-xl ${colors[idx % colors.length]} flex items-center justify-center text-white text-[10px] font-black shrink-0`}>
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-black text-slate-700 truncate max-w-[140px]">{name}</span>
+                          <span className="text-[11px] font-black text-slate-800">{formatCurrency(amount)}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${colors[idx % colors.length]} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Ticket médio */}
+            {transactions.filter(t => t.type === 'income').length > 0 && (
+              <div className="mt-5 pt-4 border-t border-slate-50 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ticket Médio</p>
+                  <p className="text-lg font-black text-slate-800">
+                    {formatCurrency(summary.income / transactions.filter(t => t.type === 'income').length)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Atendimentos</p>
+                  <p className="text-lg font-black text-slate-800">{transactions.filter(t => t.type === 'income').length}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Pendentes</p>
+                  <p className="text-lg font-black text-amber-600">
+                    {formatCurrency(transactions.filter(t => t.type === 'income' && t.status === 'pending').reduce((s,t) => s + t.amount, 0))}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Comparison Insight Cards */}
@@ -695,7 +786,18 @@ export const Finance: React.FC = () => {
             <>
                 {activeTab === 'dashboard' && renderDashboard()}
                 {activeTab === 'daily' && renderDailyFlow()}
-                {activeTab === 'tax' && renderAIInsights()}
+                {activeTab === 'tax' && (
+                  <FinancialHealth
+                    monthSummaries={yearMonths.map(m => ({
+                      month: m.month,
+                      year: currentDate.getFullYear(),
+                      income: m.income,
+                      expense: m.expense,
+                      balance: m.income - m.expense,
+                    }))}
+                    selectedYear={currentDate.getFullYear()}
+                  />
+                )}
             </>
           )}
       </div>

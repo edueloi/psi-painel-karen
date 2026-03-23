@@ -240,6 +240,27 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
   const totalReserve = inss + ir + das + iss + ferias + decimo + council;
   const disponivel = base - totalReserve - avgExpense;
 
+  // ── Annual totals (from actual month data) ────────────────────────────────
+  const annualIncome  = monthSummaries.reduce((s, m) => s + Number(m.income), 0);
+  const annualExpense = monthSummaries.reduce((s, m) => s + Number(m.expense), 0);
+  const monthsWithData = monthSummaries.filter(m => Number(m.income) > 0 || Number(m.expense) > 0).length;
+
+  const annualInss = monthSummaries.reduce((s, m) => s + calcInss(Number(m.income), profile.workType), 0);
+  const annualIr   = monthSummaries.reduce((s, m) => {
+    const inc = Number(m.income);
+    return s + calcIr(inc, calcInss(inc, profile.workType), profile.dependentCount, profile.workType);
+  }, 0);
+  const annualDas  = monthSummaries.reduce((s, m) => s + calcDas(Number(m.income), profile.workType), 0);
+  const annualIss  = monthSummaries.reduce((s, m) => s + calcIss(Number(m.income), profile.issApplies, profile.issRate), 0);
+  const annualFerias  = annualIncome / 12;
+  const annualDecimo  = annualIncome / 12;
+  const annualTaxes   = annualInss + annualIr + annualDas + annualIss;
+  const annualReserves = annualFerias + annualDecimo + profOption.councilFee;
+  const annualTotalObligation = annualTaxes + annualReserves;
+
+  // Projection: extrapolate avg to full 12 months
+  const projectedIncome = monthsWithData > 0 ? (annualIncome / monthsWithData) * 12 : avgIncome * 12;
+
   const reserveItems = [
     ...(profile.workType === 'autonomo' ? [
       {
@@ -476,6 +497,67 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
           ))}
         </div>
       </div>
+
+      {/* Annual view */}
+      {monthsWithData > 0 && (
+        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+              📅 Visão anual — {selectedYear}
+            </p>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
+              {monthsWithData} {monthsWithData === 1 ? 'mês' : 'meses'} com dados
+            </span>
+          </div>
+
+          {/* Income / expense / projection */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-5">
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-1">Faturamento acumulado</p>
+              <p className="text-xl font-black text-slate-800">{formatCurrency(annualIncome)}</p>
+              <p className="text-[9px] text-slate-400 font-bold mt-1">Total recebido em {selectedYear}</p>
+            </div>
+            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-rose-600 mb-1">Despesas acumuladas</p>
+              <p className="text-xl font-black text-slate-800">{formatCurrency(annualExpense)}</p>
+              <p className="text-[9px] text-slate-400 font-bold mt-1">Total de custos no ano</p>
+            </div>
+            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 col-span-2 sm:col-span-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600 mb-1">Projeção para 12 meses</p>
+              <p className="text-xl font-black text-slate-800">{formatCurrency(projectedIncome)}</p>
+              <p className="text-[9px] text-slate-400 font-bold mt-1">Baseado na média dos {monthsWithData} meses</p>
+            </div>
+          </div>
+
+          {/* Annual tax/obligation breakdown */}
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Obrigações acumuladas no ano</p>
+          <div className="space-y-2">
+            {[
+              ...(profile.workType === 'autonomo' ? [
+                { label: 'INSS Autônomo (acumulado)', value: annualInss, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100' },
+                { label: 'IR / Carnê-Leão (acumulado)', value: annualIr, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-100' },
+              ] : []),
+              ...(profile.workType === 'pj_simples' ? [
+                { label: 'DAS – Simples Nacional (acumulado)', value: annualDas, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100' },
+              ] : []),
+              ...(profile.issApplies && profile.workType !== 'pj_simples' ? [
+                { label: `ISS ${profile.issRate}% (acumulado)`, value: annualIss, color: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-100' },
+              ] : []),
+              { label: 'Reserva de Férias (acumulada)', value: annualFerias, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+              { label: '13º Salário (acumulado)', value: annualDecimo, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+            ].map((row) => (
+              <div key={row.label} className={`flex items-center justify-between px-4 py-2.5 ${row.bg} border ${row.border} rounded-xl`}>
+                <span className={`text-[11px] font-bold ${row.color}`}>{row.label}</span>
+                <span className={`text-[13px] font-black ${row.color}`}>{formatCurrency(row.value)}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-900 rounded-xl mt-1">
+              <span className="text-[11px] font-black text-white/70 uppercase tracking-widest">Total de obrigações no ano</span>
+              <span className="text-[15px] font-black text-amber-400">{formatCurrency(annualTotalObligation)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Session fee suggestion */}
       {sessionSuggestion && profile.monthlySessionCount > 0 && (
