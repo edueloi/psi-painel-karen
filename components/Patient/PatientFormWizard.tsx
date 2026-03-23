@@ -44,6 +44,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     convenio: false,
     has_children: false,
     needs_reimbursement: false,
+    is_payer: true,
     ...initialData
   });
 
@@ -466,6 +467,67 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   Inativo
                 </button>
               </div>
+            </div>
+
+            <div className="space-y-4 pt-6 mt-6 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <User size={16} className="text-indigo-500" /> Responsável Financeiro
+                  </h4>
+                  <p className="text-[10px] text-slate-400 font-medium tracking-tight">O paciente é o próprio pagador?</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateField('is_payer', !formData.is_payer)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${formData.is_payer ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.is_payer ? 'translate-x-5' : 'translate-x-0'}`}
+                  />
+                </button>
+              </div>
+
+              {!formData.is_payer && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 animate-fadeIn">
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className={`text-xs font-bold uppercase tracking-wider ${!formData.payer_name ? 'text-rose-500' : 'text-slate-500'}`}>
+                      Nome do Pagador *
+                    </label>
+                    <input
+                      type="text"
+                      className={`w-full px-3 py-2 text-sm border rounded-lg outline-none transition-all ${!formData.payer_name ? 'border-rose-300 bg-rose-50/30' : 'border-slate-300 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400'}`}
+                      value={formData.payer_name || ''}
+                      onChange={e => updateField('payer_name', e.target.value)}
+                      placeholder="Nome completo do responsável"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={`text-xs font-bold uppercase tracking-wider ${!formData.payer_cpf ? 'text-rose-500' : 'text-slate-500'}`}>
+                      CPF do Pagador *
+                    </label>
+                    <input
+                      type="text"
+                      className={`w-full px-3 py-2 text-sm border rounded-lg outline-none transition-all ${!formData.payer_cpf ? 'border-rose-300 bg-rose-50/30' : 'border-slate-300 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400'}`}
+                      value={formData.payer_cpf || ''}
+                      onChange={e => updateField('payer_cpf', maskCpfCnpj(e.target.value))}
+                      placeholder="000.000.000-00"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Telefone do Pagador
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                      value={formData.payer_phone || ''}
+                      onChange={e => updateField('payer_phone', maskPhone(e.target.value))}
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );

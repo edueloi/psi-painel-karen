@@ -32,7 +32,7 @@ interface Transaction {
   amount: number;
   date: string;
   payment_method: string;
-  status: 'paid' | 'pending' | 'cancelled';
+  status: 'paid' | 'pending' | 'cancelled' | 'confirmed' | 'waiting' | 'overdue';
   payer_name?: string;
   payer_cpf?: string;
   beneficiary_name?: string;
@@ -89,6 +89,36 @@ const METHOD_LABEL: Record<string, string> = {
   transfer: 'TRANSFERÊNCIA',
   check:    'CHEQUE',
   courtesy: 'CORTESIA',
+};
+
+const STATUS_INFO: Record<string, { label: string; color: string; icon: any }> = {
+  paid:      { label: 'PAGO',      color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle2 },
+  pending:   { label: 'PENDENTE',  color: 'bg-amber-50 text-amber-700 border-amber-100',    icon: Clock },
+  waiting:   { label: 'AGUARDANDO',color: 'bg-indigo-50 text-indigo-700 border-indigo-100', icon: Clock },
+  confirmed: { label: 'CONFIRMADO',color: 'bg-blue-50 text-blue-700 border-blue-100',      icon: CheckCircle2 },
+  cancelled: { label: 'CANCELADO', color: 'bg-rose-50 text-rose-700 border-rose-100',      icon: X },
+  overdue:   { label: 'ATRASADO',  color: 'bg-rose-100 text-rose-800 border-rose-200 animate-pulse', icon: AlertCircle },
+};
+
+const STATUS_OPTIONS = [
+  { id: 'pending',   label: 'Pendente' },
+  { id: 'paid',      label: 'Pago' },
+  { id: 'confirmed', label: 'Confirmado' },
+  { id: 'waiting',   label: 'Aguardando' },
+  { id: 'cancelled', label: 'Cancelado' },
+];
+
+const getStatus = (tx: Transaction): Transaction['status'] => {
+  if (tx.status === 'cancelled' || tx.status === 'paid' || tx.status === 'confirmed') return tx.status;
+  
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const txDate = safeDate(tx.date);
+  
+  if (txDate && txDate < now) {
+    return 'overdue';
+  }
+  return tx.status || 'pending';
 };
 
 const formatCurrency = (v: number) =>
@@ -182,7 +212,7 @@ const exportCSV = (data: Transaction[], monthLabel: string) => {
     tx.amount.toFixed(2).replace('.',','),
     tx.type === 'income' ? 'Receita' : 'Despesa',
     METHOD_LABEL[tx.payment_method] || tx.payment_method || '',
-    tx.status === 'paid' ? 'Pago' : tx.status === 'pending' ? 'Pendente' : 'Cancelado',
+    STATUS_INFO[getStatus(tx)]?.label || tx.status,
   ]);
   const csv = [header, ...rows].map(r => r.map(c => `"${c}"`).join(';')).join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -204,7 +234,7 @@ const exportXLS = (data: Transaction[], monthLabel: string) => {
     tx.amount.toFixed(2).replace('.',','),
     tx.type === 'income' ? 'Receita' : 'Despesa',
     METHOD_LABEL[tx.payment_method] || tx.payment_method || '',
-    tx.status === 'paid' ? 'Pago' : tx.status === 'pending' ? 'Pendente' : 'Cancelado',
+    STATUS_INFO[getStatus(tx)]?.label || tx.status,
   ]);
   const tsv = [header, ...rows].map(r => r.join('\t')).join('\n');
   const blob = new Blob([tsv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
@@ -342,6 +372,8 @@ export const LivroCaixa: React.FC = () => {
   const [isExtraMode, setIsExtraMode]     = useState(false);
   const [editingTx, setEditingTx]         = useState<Transaction | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+  const [bulkDeleteStats, setBulkDeleteStats] = useState({ count: 0, income: 0, expense: 0, balance: 0 });
   const [exceedConfirmData, setExceedConfirmData] = useState<{ amount: number, base: number } | null>(null);
   const [isSaving, setIsSaving]           = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -372,6 +404,7 @@ export const LivroCaixa: React.FC = () => {
   const [txPatientCpf, setTxPatientCpf]         = useState('');
   const [txPayerIsPatient, setTxPayerIsPatient] = useState(true);
   const [txObservation, setTxObservation] = useState('');
+  const [txStatus, setTxStatus]           = useState<Transaction['status']>('paid');
 
   // ── Patients combobox ─────────────────────────────────────────────────────────
   const [patients, setPatients] = useState<Array<{id: number; name: string; cpf: string}>>([]);
@@ -457,6 +490,10 @@ export const LivroCaixa: React.FC = () => {
           id: p.id,
           name: p.name || p.full_name || '',
           cpf: p.cpf || p.cpf_cnpj || '',
+          is_payer: p.is_payer !== undefined ? !!p.is_payer : true,
+          payer_name: p.payer_name || '',
+          payer_cpf: p.payer_cpf || '',
+          payer_phone: p.payer_phone || '',
         })).filter((p: any) => p.name);
         setPatients(list);
       }).catch(() => {});
@@ -745,6 +782,7 @@ export const LivroCaixa: React.FC = () => {
     setTxPatientComandas([]); setTxSelectedComandaId('');
     setEditingTx(null);
     setIsExtraMode(false);
+    setTxStatus('paid');
   };
 
   const openNewTx = () => {
@@ -793,6 +831,7 @@ export const LivroCaixa: React.FC = () => {
     setTxPatientCpf(tx.beneficiary_cpf ? maskCpf(tx.beneficiary_cpf.replace(/\D/g,'')) : tx.payer_cpf ? maskCpf(tx.payer_cpf.replace(/\D/g,'')) : '');
     setTxPayerIsPatient(!hasExternalPayer);
     setTxObservation(tx.observation || '');
+    setTxStatus(tx.status || 'paid');
     setPatientQuery(tx.beneficiary_name || tx.payer_name || '');
     setPatientDropdownOpen(false);
     setIsNewTxOpen(true);
@@ -811,7 +850,7 @@ export const LivroCaixa: React.FC = () => {
         payer_cpf:  txPayerIsPatient ? txPatientCpf  || null : txPayerCpf  || null,
         beneficiary_name: txPayerIsPatient ? null : txPatientName || null,
         beneficiary_cpf:  txPayerIsPatient ? null : txPatientCpf  || null,
-        observation: txObservation || null, status: 'paid',
+        observation: txObservation || null, status: txStatus,
         comanda_id: txSelectedComandaId || undefined,
       };
       if (editingTx) {
@@ -879,8 +918,9 @@ export const LivroCaixa: React.FC = () => {
     );
   };
 
-  const handleBulkDelete = async () => {
+  const executeBulkDelete = async () => {
     if (!selectedTxIds.size) return;
+    setIsBulkDeleteConfirmOpen(false);
     setIsBulkProcessing(true);
     try {
       let ok = 0;
@@ -891,6 +931,27 @@ export const LivroCaixa: React.FC = () => {
       setSelectedTxIds(new Set());
       fetchDetail();
     } finally { setIsBulkProcessing(false); }
+  };
+
+  const handleBulkDelete = () => {
+    if (!selectedTxIds.size) return;
+    
+    // Calculate stats from selected items
+    const selectedTxs = transactions.filter(t => selectedTxIds.has(String(t.id)));
+    const stats = selectedTxs.reduce((acc, curr) => {
+      const amt = Number(curr.amount);
+      if (curr.type === 'income') {
+        acc.income += amt;
+        acc.balance += amt;
+      } else {
+        acc.expense += amt;
+        acc.balance -= amt;
+      }
+      return acc;
+    }, { count: selectedTxIds.size, income: 0, expense: 0, balance: 0 });
+
+    setBulkDeleteStats(stats);
+    setIsBulkDeleteConfirmOpen(true);
   };
 
   const handleBulkRepeat = async () => {
@@ -1004,12 +1065,20 @@ export const LivroCaixa: React.FC = () => {
           </p>
           
           <div className="flex flex-col items-end">
-            <div className="flex items-center justify-end gap-1 mt-0.5">
-              <span className={`h-1.5 w-1.5 rounded-full ${tx.status === 'paid' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-              <span className={`text-[9px] font-black uppercase tracking-widest ${tx.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {tx.status === 'paid' ? 'Pago' : tx.status === 'pending' ? 'Pendente' : 'Cancelado'}
-              </span>
-            </div>
+          {/* Status Badge */}
+          <div className="flex items-center justify-end mt-1">
+            {(() => {
+              const status = getStatus(tx);
+              const info = STATUS_INFO[status] || STATUS_INFO.pending;
+              const Icon = info.icon;
+              return (
+                <div title={info.label} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-widest ${info.color}`}>
+                  <Icon size={9} />
+                  {info.label}
+                </div>
+              );
+            })()}
+          </div>
 
             {tx.comanda_id && (
               <span className="text-[10px] font-bold text-slate-400 mt-1 leading-none italic">
@@ -1702,6 +1771,25 @@ export const LivroCaixa: React.FC = () => {
             </div>
           </div>
 
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Status do Lançamento</label>
+            <div className={`grid grid-cols-${STATUS_OPTIONS.length} gap-2 bg-slate-100 p-1.5 rounded-2xl`}>
+              {STATUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setTxStatus(opt.id as any)}
+                  className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    txStatus === opt.id
+                      ? (opt.id === 'cancelled' ? 'bg-rose-500 text-white shadow-sm' : opt.id === 'paid' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm')
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Patient Identification — MOVED UP */}
           {!isExtraMode && (
             <div className="border-2 border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-3">
@@ -1735,6 +1823,18 @@ export const LivroCaixa: React.FC = () => {
                     <button key={p.id} type="button" onClick={() => {
                         setTxPatientName(p.name);
                         setTxPatientCpf(maskCpf(p.cpf.replace(/\D/g,'')));
+                        
+                        // Auto-fill payer info if patient is not the payer
+                        if (!p.is_payer && p.payer_name) {
+                          setTxPayerIsPatient(false);
+                          setTxPayerName(p.payer_name);
+                          if (p.payer_cpf) setTxPayerCpf(maskCpf(p.payer_cpf.replace(/\D/g,'')));
+                        } else {
+                          setTxPayerIsPatient(true);
+                          setTxPayerName('');
+                          setTxPayerCpf('');
+                        }
+
                         setPatientQuery(p.name);
                         setPatientDropdownOpen(false);
                         setTxSelectedComandaId('');
@@ -2254,6 +2354,68 @@ export const LivroCaixa: React.FC = () => {
           )}
         </div>
       </ActionDrawer>
+
+      {/* ── Bulk Delete Confirm Modal ─────────────────────────────────────────── */}
+      <Modal
+        isOpen={isBulkDeleteConfirmOpen}
+        onClose={() => setIsBulkDeleteConfirmOpen(false)}
+        title="Excluir Selecionados"
+        maxWidth="sm"
+        footer={
+          <>
+            <button
+              onClick={() => setIsBulkDeleteConfirmOpen(false)}
+              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={executeBulkDelete}
+              disabled={isBulkProcessing}
+              className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+            >
+              <Trash2 size={14} /> Sim, excluir selecionados
+            </button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-5 py-3">
+          <div className="p-4 rounded-3xl bg-rose-50 border border-rose-100 flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white text-rose-500 flex items-center justify-center shadow-sm shrink-0">
+               <AlertCircle size={24} />
+            </div>
+            <div>
+               <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 px-0.5">Ação Irreversível</p>
+               <p className="text-sm font-bold text-rose-700 leading-snug">
+                  Você está prestes a excluir <span className="font-black">{bulkDeleteStats.count} lançamentos</span> selecionados no Livro Caixa.
+               </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 px-1">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Registros</p>
+                  <p className="text-lg font-black text-slate-700 leading-none">{bulkDeleteStats.count}</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Saldo em Risco</p>
+                  <p className="text-lg font-black text-slate-700 leading-none">{formatCurrency(bulkDeleteStats.balance)}</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100">
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 leading-none">Entradas</p>
+                  <p className="text-base font-black text-emerald-600 leading-none">+{formatCurrency(bulkDeleteStats.income)}</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100">
+                  <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1 leading-none">Saídas</p>
+                  <p className="text-base font-black text-rose-600 leading-none">-{formatCurrency(bulkDeleteStats.expense)}</p>
+              </div>
+          </div>
+
+          <p className="text-[11px] font-medium text-slate-500 text-center px-4 leading-relaxed">
+            Considere que a exclusão em massa afeta múltiplos registros de uma vez e não pode ser desfeita.
+          </p>
+        </div>
+      </Modal>
 
     </div>
   );

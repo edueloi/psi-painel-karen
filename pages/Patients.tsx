@@ -246,6 +246,10 @@ export const Patients: React.FC = () => {
         health_plan: data.convenio ? data.convenio_name || 'Sim' : null,
         responsible_professional_id: data.psychologist_id || null,
         diagnosis: (data as any).diagnosis || null,
+        is_payer: data.is_payer !== undefined ? data.is_payer : true,
+        payer_name: data.payer_name || null,
+        payer_cpf: data.payer_cpf || null,
+        payer_phone: data.payer_phone || null,
       };
 
       const savedPatient = data.id
@@ -669,7 +673,7 @@ export const Patients: React.FC = () => {
                 </button>
                 {exportMenuOpen && (
                   <div
-                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    className="absolute right-0 top-full z-[110] mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
                     onMouseLeave={() => setExportMenuOpen(false)}
                   >
                     <button
@@ -1121,7 +1125,7 @@ export const Patients: React.FC = () => {
 
       {/* Form Wizard Modal */}
       {isWizardOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="w-full max-w-xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white flex flex-col">
             <PatientFormWizard
               initialData={editingPatient || {}}
@@ -1134,7 +1138,7 @@ export const Patients: React.FC = () => {
 
       {/* Bulk Delete Confirm Modal */}
       {confirmBulkDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shrink-0">
@@ -1168,7 +1172,7 @@ export const Patients: React.FC = () => {
 
       {/* Delete Modal */}
       {deleteId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shrink-0">
@@ -1199,7 +1203,7 @@ export const Patients: React.FC = () => {
 
       {/* Patient Detail Modal */}
       {selectedPatient && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-primary-600 p-5">
@@ -1491,7 +1495,7 @@ export const Patients: React.FC = () => {
         ];
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col" style={{ maxHeight: '90vh' }}>
 
               {/* Header */}
@@ -1524,7 +1528,7 @@ export const Patients: React.FC = () => {
               <div className="overflow-y-auto flex-1 px-6 py-4">
                 <GridTable
                   data={importPreview}
-                  keyExtractor={(_, i) => String(importPreview.indexOf(_))}
+                  keyExtractor={(_) => String(importPreview.indexOf(_))}
                   columns={importColumns}
                   selectedIds={importSelectedIds}
                   onToggleSelect={(id) => { if (!importPreview[Number(id)]?.duplicate) toggleRow(id); }}

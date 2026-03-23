@@ -112,6 +112,11 @@ export interface Patient {
   spouse_name?: string;
   family_contact?: string;
   emergency_contact?: string;
+  // Pagador / Responsável Financeiro
+  is_payer?: boolean;
+  payer_name?: string;
+  payer_cpf?: string;
+  payer_phone?: string;
   notes?: string;
   diagnosis?: string;
   // Clínico/Financeiro
@@ -195,7 +200,7 @@ export interface VirtualRoom {
 export type PaymentType = 'pix' | 'credit' | 'debit' | 'cash' | 'transfer' | 'check' | 'courtesy';
 
 export type TransactionType = 'income' | 'expense';
-export type TransactionStatus = 'pending' | 'paid' | 'cancelled';
+export type TransactionStatus = 'pending' | 'paid' | 'confirmed' | 'waiting' | 'cancelled' | 'overdue';
 
 export interface FinancialTransaction {
   id: string;

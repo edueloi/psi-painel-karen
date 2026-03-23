@@ -17,6 +17,7 @@ async function ensureFinanceColumns() {
     "ALTER TABLE financial_transactions ADD COLUMN observation TEXT NULL",
     "ALTER TABLE financial_transactions ADD COLUMN receipt_status ENUM('pending','issued') DEFAULT 'pending'",
     "ALTER TABLE financial_transactions ADD COLUMN comanda_id INT NULL",
+    "ALTER TABLE financial_transactions MODIFY COLUMN status VARCHAR(50) DEFAULT 'paid'",
     `CREATE TABLE IF NOT EXISTS session_types (
       id VARCHAR(50) PRIMARY KEY,
       tenant_id INT NOT NULL,

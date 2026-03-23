@@ -306,7 +306,8 @@ router.post('/', async (req, res) => {
       spouse_name, family_contact, emergency_contact,
       address, city, state, zip_code, notes, status,
       responsible_professional_id, responsible_name,
-      responsible_phone, health_plan, diagnosis
+      responsible_phone, health_plan, diagnosis,
+      is_payer, payer_name, payer_cpf, payer_phone
     } = req.body;
 
     if (cpf) {
@@ -327,8 +328,9 @@ router.post('/', async (req, res) => {
         spouse_name, family_contact, emergency_contact,
         address, city, state, zip_code, notes, status,
         responsible_professional_id, responsible_name,
-        responsible_phone, health_plan, diagnosis
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        responsible_phone, health_plan, diagnosis,
+        is_payer, payer_name, payer_cpf, payer_phone
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, name, email || null, phone || null, phone2 || null,
         birth_date || null, cpf || null, rg || null, gender || null,
@@ -339,7 +341,9 @@ router.post('/', async (req, res) => {
         address || null, city || null, state || null, zip_code || null,
         notes || null, normalizeStatus(status),
         responsible_professional_id || null, responsible_name || null,
-        responsible_phone || null, health_plan || null, diagnosis || null
+        responsible_phone || null, health_plan || null, diagnosis || null,
+        is_payer === undefined ? 1 : (is_payer ? 1 : 0), 
+        payer_name || null, payer_cpf || null, payer_phone || null
       ]
     );
 
@@ -361,7 +365,8 @@ router.put('/:id', async (req, res) => {
       spouse_name, family_contact, emergency_contact,
       address, city, state, zip_code, notes, status,
       responsible_professional_id, responsible_name,
-      responsible_phone, health_plan, diagnosis
+      responsible_phone, health_plan, diagnosis,
+      is_payer, payer_name, payer_cpf, payer_phone
     } = req.body;
 
     const [existing] = await db.query(
@@ -407,7 +412,11 @@ router.put('/:id', async (req, res) => {
         responsible_name = COALESCE(?, responsible_name),
         responsible_phone = COALESCE(?, responsible_phone),
         health_plan = COALESCE(?, health_plan),
-        diagnosis = COALESCE(?, diagnosis)
+        diagnosis = COALESCE(?, diagnosis),
+        is_payer = COALESCE(?, is_payer),
+        payer_name = COALESCE(?, payer_name),
+        payer_cpf = COALESCE(?, payer_cpf),
+        payer_phone = COALESCE(?, payer_phone)
       WHERE id = ? AND tenant_id = ?`,
       [
         name ?? null, email ?? null, phone ?? null, phone2 ?? null, sanitizedBirthDate ?? null, cpf ?? null, rg ?? null, gender ?? null,
@@ -419,6 +428,8 @@ router.put('/:id', async (req, res) => {
         notes ?? null, status ? normalizeStatus(status) : null,
         responsible_professional_id ?? null, responsible_name ?? null,
         responsible_phone ?? null, health_plan ?? null, diagnosis ?? null,
+        is_payer !== undefined ? (is_payer ? 1 : 0) : null,
+        payer_name ?? null, payer_cpf ?? null, payer_phone ?? null,
         req.params.id, req.user.tenant_id
       ]
     );
