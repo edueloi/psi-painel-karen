@@ -996,33 +996,38 @@ export const LivroCaixa: React.FC = () => {
       header: 'Valor',
       sortKey: 'amount',
       render: (tx) => (
-        <div className="text-right">
+        <div className="text-right flex flex-col items-end">
           <p className={`text-base font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
-            {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+            {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.comanda_id && tx.comanda_paid_value !== undefined ? Number(tx.comanda_paid_value) : tx.amount)}
           </p>
-          <div className="flex items-center justify-end gap-1 mt-0.5">
-            <span className={`h-1.5 w-1.5 rounded-full ${tx.status === 'paid' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-            <span className={`text-[9px] font-black uppercase tracking-widest ${tx.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
-              {tx.status === 'paid' ? 'Pago' : tx.status === 'pending' ? 'Pendente' : 'Cancelado'}
-            </span>
+          
+          <div className="flex flex-col items-end">
+            <div className="flex items-center justify-end gap-1 mt-0.5">
+              <span className={`h-1.5 w-1.5 rounded-full ${tx.status === 'paid' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+              <span className={`text-[9px] font-black uppercase tracking-widest ${tx.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {tx.status === 'paid' ? 'Pago' : tx.status === 'pending' ? 'Pendente' : 'Cancelado'}
+              </span>
+            </div>
+
+            {tx.comanda_id && (
+              <span className="text-[10px] font-bold text-slate-400 mt-1 leading-none italic">
+                (Desta entrada: {formatCurrency(tx.amount)})
+              </span>
+            )}
           </div>
+
           {tx.comanda_id && tx.comanda_total !== undefined && tx.comanda_paid_value !== undefined && (
-            <div className="mt-1.5 flex justify-end">
+            <div className="mt-2.5 flex justify-end">
               {Number(tx.comanda_total) - Number(tx.comanda_paid_value) > 0 ? (
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-[8.5px] font-black tracking-widest text-slate-400 uppercase leading-none">
-                    Recebido R$ {Number(tx.comanda_paid_value).toFixed(2).replace('.', ',')}
-                  </span>
-                  <span className="text-[9.5px] font-black tracking-tight text-amber-500 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100 flex items-center gap-1 shadow-sm leading-none">
-                    Falta R$ {Math.max(0, Number(tx.comanda_total) - Number(tx.comanda_paid_value)).toFixed(2).replace('.', ',')}
-                  </span>
-                </div>
+                <span className="text-[9.5px] font-black tracking-tight text-amber-500 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100 flex items-center gap-1 shadow-sm leading-none">
+                  Falta R$ {Math.max(0, Number(tx.comanda_total) - Number(tx.comanda_paid_value)).toFixed(2).replace('.', ',')}
+                </span>
               ) : (
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-[8.5px] font-black tracking-widest text-slate-400 uppercase leading-none">
-                    Total R$ {Number(tx.comanda_total).toFixed(2).replace('.', ',')}
+                    Total Comanda: R$ {Number(tx.comanda_total).toFixed(2).replace('.', ',')}
                   </span>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1 leading-none">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-100 flex items-center gap-1 leading-none">
                     <CheckCircle2 size={10} /> Quitada
                   </span>
                 </div>
