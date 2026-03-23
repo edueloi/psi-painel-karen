@@ -775,7 +775,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       <div
                         key={day.toISOString()}
                         className={cx(
-                          'relative min-w-[128px] flex-1 border-r border-slate-200 transition',
+                          'relative min-w-[128px] flex-1 border-r border-slate-200 transition cursor-crosshair',
                           isSameDay(day, new Date()) ? 'bg-indigo-50/30' : isWeekend ? 'bg-slate-100' : 'bg-white'
                         )}
                         onMouseMove={(e) => {
@@ -819,22 +819,26 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                               }}
                             />
                             {/* linha + label do horário */}
-                            {/* Balão de horário premium no lado esquerdo */}
+                            {/* Balão de horário premium no lado esquerdo com SETA */}
                             <div
                               className="pointer-events-none absolute left-0 right-0 z-30"
                               style={{ top: hoveredSlot.top }}
                             >
                               <div className="relative flex items-center w-full">
-                                <div className="absolute -left-[75px] flex flex-col items-center bg-indigo-600 text-white px-2 py-1 rounded-lg shadow-xl shadow-indigo-200 animate-fadeIn min-w-[70px] border border-white/20">
-                                  <span className="text-[10px] font-black leading-none tabular-nums">
+                                <div className="absolute -left-[85px] flex flex-col items-center bg-indigo-600 text-white px-3 py-1.5 rounded-xl shadow-[0_20px_50px_rgba(99,102,241,0.3)] animate-bounceIn min-w-[80px] border border-white/30">
+                                  {/* Seta do balão */}
+                                  <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-2 bg-indigo-600 rotate-45 border-t border-r border-white/30"></div>
+                                  
+                                  <span className="text-[13px] font-black leading-none tabular-nums drop-shadow-sm">
                                     {hoveredSlot.label.split(' · ')[1]}
                                   </span>
-                                  <span className="text-[7px] font-bold uppercase opacity-80 mt-1">
+                                  <span className="text-[8px] font-black uppercase tracking-wider opacity-90 mt-1.5 flex items-center gap-1.5">
+                                    <div className="w-1 h-1 rounded-full bg-indigo-200 animate-pulse"></div>
                                     {hoveredSlot.label.split(' · ')[0]}
                                   </span>
                                 </div>
-                                <div className="h-[2px] w-full bg-indigo-500/50 shadow-[0_0_8px_rgba(99,102,241,0.2)]" />
-                                <div className="absolute -left-1 w-2 h-2 bg-indigo-600 rounded-full border-2 border-white shadow-sm" />
+                                <div className="h-[2px] w-full bg-indigo-600/60 shadow-[0_0_12px_rgba(99,102,241,0.4)]" />
+                                <div className="absolute -left-1 w-2.5 h-2.5 bg-indigo-600 rounded-full border-2 border-white shadow-md transition-transform scale-125" />
                               </div>
                             </div>
                           </>
