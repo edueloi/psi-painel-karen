@@ -644,6 +644,11 @@ export const LivroCaixa: React.FC = () => {
         const dateB = new Date(b.date).getTime();
         return (dateA - dateB) * dir;
       }
+      if (sortKey === 'due_date') {
+        const dateA = new Date(a.due_date || a.date).getTime();
+        const dateB = new Date(b.due_date || b.date).getTime();
+        return (dateA - dateB) * dir;
+      }
       if (sortKey === 'amount') {
         return (Number(a.amount) - Number(b.amount)) * dir;
       }
@@ -1000,6 +1005,29 @@ export const LivroCaixa: React.FC = () => {
       },
     },
     {
+      header: 'Vencimento',
+      sortKey: 'due_date',
+      render: (tx) => {
+        const d = safeDate(tx.due_date || tx.date);
+        const isActuallyDifferent = tx.due_date && tx.due_date.slice(0, 10) !== tx.date.slice(0, 10);
+        const status = getStatus(tx);
+        
+        return (
+          <div className="flex flex-col min-w-[70px]">
+            <span className={`text-[10px] font-black uppercase tracking-tight ${isActuallyDifferent ? 'text-amber-600' : 'text-slate-400'}`}>
+              {formatDate(tx.due_date || tx.date)}
+            </span>
+            {status === 'overdue' && (
+              <span className="text-[8px] font-black text-rose-500 uppercase animate-pulse">Atrasado</span>
+            )}
+            {isActuallyDifferent && status !== 'overdue' && (
+              <span className="text-[8px] font-black text-slate-300 uppercase">Programado</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       header: 'Descrição',
       render: (tx) => (
         <div className="min-w-0">
@@ -1016,11 +1044,6 @@ export const LivroCaixa: React.FC = () => {
             {tx.payment_method && (
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50 flex items-center gap-1">
                 <CreditCard size={9} /> {METHOD_LABEL[tx.payment_method] ?? tx.payment_method}
-              </span>
-            )}
-            {(tx.payer_name || tx.patient_name) && (
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50 flex items-center gap-1">
-                <User size={9} /> {tx.payer_name || tx.patient_name}
               </span>
             )}
           </div>
@@ -1046,14 +1069,7 @@ export const LivroCaixa: React.FC = () => {
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight leading-none">
                   Pagador{payerCpf ? ` · ${payerCpf.replace(/\D/g,'').slice(0,11)}` : ''}
                 </p>
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold text-slate-700 truncate">{payerName}</p>
-                  {tx.due_date && tx.due_date.slice(0,10) !== tx.date.slice(0,10) && (
-                    <span title="Data de Vencimento" className="px-1.5 py-0.5 bg-amber-50 text-[8px] font-black text-amber-600 rounded-md border border-amber-100 flex items-center gap-1">
-                      <Clock size={8} /> Venc. {formatDate(tx.due_date)}
-                    </span>
-                  )}
-                </div>
+                <p className="text-xs font-bold text-slate-700 truncate">{payerName}</p>
               </div>
             </div>
             {hasExternalPayer && (
