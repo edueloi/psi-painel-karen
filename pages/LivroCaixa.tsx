@@ -19,8 +19,8 @@ import { AppCard } from '../components/UI/AppCard';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
-import { FinancialHealth } from '@/components/Finance/FinancialHealth';
-import { AuraContabil } from '@/components/AI/AuraContabil';
+import { FinancialHealth } from '../components/Finance/FinancialHealth';
+import { AuraContabil } from '../components/AI/AuraContabil';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +31,7 @@ interface Transaction {
   description: string;
   amount: number;
   date: string;
+  due_date?: string;
   payment_method: string;
   status: 'paid' | 'pending' | 'cancelled' | 'confirmed' | 'waiting' | 'overdue';
   payer_name?: string;
@@ -113,9 +114,11 @@ const getStatus = (tx: Transaction): Transaction['status'] => {
   
   const now = new Date();
   now.setHours(0,0,0,0);
-  const txDate = safeDate(tx.date);
   
-  if (txDate && txDate < now) {
+  // Use due_date if available (for future payments), otherwise use competence date
+  const targetDate = safeDate(tx.due_date || tx.date);
+  
+  if (targetDate && targetDate < now) {
     return 'overdue';
   }
   return tx.status || 'pending';
@@ -202,9 +205,10 @@ const detectCategory = (text: string): string => {
 // ─── Export Helpers ───────────────────────────────────────────────────────────
 
 const exportCSV = (data: Transaction[], monthLabel: string) => {
-  const header = ['Data','Descrição','Categoria','Pagador','CPF','Valor','Tipo','Método','Status'];
+  const header = ['Data Conv.', 'Vencimento', 'Descrição', 'Categoria', 'Pagador', 'CPF', 'Valor', 'Tipo', 'Método', 'Status'];
   const rows = data.map(tx => [
     formatDate(tx.date),
+    formatDate(tx.due_date || tx.date),
     tx.description || '',
     tx.category || '',
     tx.payer_name || tx.patient_name || '',
@@ -224,9 +228,10 @@ const exportCSV = (data: Transaction[], monthLabel: string) => {
 
 const exportXLS = (data: Transaction[], monthLabel: string) => {
   // Simple TSV approach (opens in Excel)
-  const header = ['Data','Descrição','Categoria','Pagador','CPF','Valor','Tipo','Método','Status'];
+  const header = ['Data Conv.', 'Vencimento', 'Descrição', 'Categoria', 'Pagador', 'CPF', 'Valor', 'Tipo', 'Método', 'Status'];
   const rows = data.map(tx => [
     formatDate(tx.date),
+    formatDate(tx.due_date || tx.date),
     tx.description || '',
     tx.category || '',
     tx.payer_name || tx.patient_name || '',
@@ -405,6 +410,7 @@ export const LivroCaixa: React.FC = () => {
   const [txPayerIsPatient, setTxPayerIsPatient] = useState(true);
   const [txObservation, setTxObservation] = useState('');
   const [txStatus, setTxStatus]           = useState<Transaction['status']>('paid');
+  const [txDueDate, setTxDueDate]         = useState<string | null>(null);
 
   // ── Patients combobox ─────────────────────────────────────────────────────────
   const [patients, setPatients] = useState<Array<{id: number; name: string; cpf: string}>>([]);
@@ -634,7 +640,9 @@ export const LivroCaixa: React.FC = () => {
     .sort((a, b) => {
       const dir = sortOrder === 'asc' ? 1 : -1;
       if (sortKey === 'date') {
-        return (new Date(a.date).getTime() - new Date(b.date).getTime()) * dir;
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return (dateA - dateB) * dir;
       }
       if (sortKey === 'amount') {
         return (Number(a.amount) - Number(b.amount)) * dir;
@@ -783,6 +791,7 @@ export const LivroCaixa: React.FC = () => {
     setEditingTx(null);
     setIsExtraMode(false);
     setTxStatus('paid');
+    setTxDueDate(null);
   };
 
   const openNewTx = () => {
@@ -832,6 +841,7 @@ export const LivroCaixa: React.FC = () => {
     setTxPayerIsPatient(!hasExternalPayer);
     setTxObservation(tx.observation || '');
     setTxStatus(tx.status || 'paid');
+    setTxDueDate(tx.due_date ? tx.due_date.slice(0, 10) : null);
     setPatientQuery(tx.beneficiary_name || tx.payer_name || '');
     setPatientDropdownOpen(false);
     setIsNewTxOpen(true);
@@ -851,6 +861,7 @@ export const LivroCaixa: React.FC = () => {
         beneficiary_name: txPayerIsPatient ? null : txPatientName || null,
         beneficiary_cpf:  txPayerIsPatient ? null : txPatientCpf  || null,
         observation: txObservation || null, status: txStatus,
+        due_date: txDueDate || null,
         comanda_id: txSelectedComandaId || undefined,
       };
       if (editingTx) {
@@ -1035,7 +1046,14 @@ export const LivroCaixa: React.FC = () => {
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight leading-none">
                   Pagador{payerCpf ? ` · ${payerCpf.replace(/\D/g,'').slice(0,11)}` : ''}
                 </p>
-                <p className="text-xs font-bold text-slate-700 truncate">{payerName}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-bold text-slate-700 truncate">{payerName}</p>
+                  {tx.due_date && tx.due_date.slice(0,10) !== tx.date.slice(0,10) && (
+                    <span title="Data de Vencimento" className="px-1.5 py-0.5 bg-amber-50 text-[8px] font-black text-amber-600 rounded-md border border-amber-100 flex items-center gap-1">
+                      <Clock size={8} /> Venc. {formatDate(tx.due_date)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             {hasExternalPayer && (
@@ -1724,7 +1742,7 @@ export const LivroCaixa: React.FC = () => {
         onClose={() => { setIsNewTxOpen(false); resetForm(); }}
         title={editingTx ? 'Revisar Lançamento' : 'Novo Lançamento'}
         subtitle={txType === 'income' ? 'CREDITAR EM CAIXA' : 'DEBITAR EM CAIXA'}
-        maxWidth="xl"
+        maxWidth="2xl"
         footer={
           <>
             <button
@@ -1765,9 +1783,17 @@ export const LivroCaixa: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data Competência</label>
-              <DatePicker value={txDate} onChange={setTxDate} placeholder="Selecionar data" />
+            <div className={`grid grid-cols-${txStatus === 'pending' || txStatus === 'waiting' ? '2' : '1'} gap-4`}>
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data Lançamento</label>
+                <DatePicker value={txDate} onChange={setTxDate} placeholder="Selecionar data" />
+              </div>
+              {(txStatus === 'pending' || txStatus === 'waiting') && (
+                <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data de Vencimento</label>
+                  <DatePicker value={txDueDate} onChange={setTxDueDate} placeholder="Quando vence?" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -2114,7 +2140,7 @@ export const LivroCaixa: React.FC = () => {
         isOpen={exceedConfirmData !== null}
         onClose={() => setExceedConfirmData(null)}
         title="Lançamento Excedente"
-        maxWidth="md"
+        maxWidth="lg"
         footer={
           <>
             <button

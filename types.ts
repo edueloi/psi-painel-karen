@@ -209,6 +209,7 @@ export interface FinancialTransaction {
   description: string;
   amount: number;
   date: string;
+  due_date?: string;
   patient_id?: string;
   patient_name?: string;
   appointment_id?: string;

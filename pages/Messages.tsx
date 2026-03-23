@@ -713,8 +713,8 @@ export const Messages: React.FC = () => {
           MODAL CRIAR / EDITAR
       ══════════════════════════════════════════════════════════════ */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-[28px] shadow-2xl flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-scaleIn">
 
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 shrink-0">
@@ -846,8 +846,8 @@ export const Messages: React.FC = () => {
           MODAL ENVIO WHATSAPP
       ══════════════════════════════════════════════════════════════ */}
       {isSendModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-3xl rounded-[28px] shadow-2xl flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-scaleIn">
 
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 shrink-0">

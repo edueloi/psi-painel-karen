@@ -15,6 +15,7 @@ async function ensureFinanceColumns() {
     "ALTER TABLE financial_transactions ADD COLUMN beneficiary_name VARCHAR(255) NULL",
     "ALTER TABLE financial_transactions ADD COLUMN beneficiary_cpf VARCHAR(20) NULL",
     "ALTER TABLE financial_transactions ADD COLUMN observation TEXT NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN due_date DATE NULL",
     "ALTER TABLE financial_transactions ADD COLUMN receipt_status ENUM('pending','issued') DEFAULT 'pending'",
     "ALTER TABLE financial_transactions ADD COLUMN comanda_id INT NULL",
     "ALTER TABLE financial_transactions MODIFY COLUMN status VARCHAR(50) DEFAULT 'paid'",
