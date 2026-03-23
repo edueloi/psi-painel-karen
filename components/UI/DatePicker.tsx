@@ -157,7 +157,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const dropdown = isOpen ? createPortal(
     <div 
         ref={dropdownRef}
-        className="fixed z-[350] w-[292px] rounded-xl border border-slate-200 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.18)] animate-in fade-in zoom-in-95 duration-200"
+        className="fixed z-[10000] w-[292px] rounded-xl border border-slate-200 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.18)] animate-in fade-in zoom-in-95 duration-200"
         style={{ top: coords.top, left: coords.left }}
     >
         <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">

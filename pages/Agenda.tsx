@@ -3590,12 +3590,12 @@ export const Agenda: React.FC = () => {
                                     />
                                   </div>
                                   <div className="relative group">
-                                    <Clock size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                                    <Clock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
                                     <input
                                       type="time"
                                       value={editAptValues.time}
                                       onChange={e => setEditAptValues(prev => ({ ...prev, time: e.target.value }))}
-                                      className="h-8 w-[85px] rounded-lg border border-slate-200 pl-7 pr-2 text-[11px] font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-white"
+                                      className="h-8 w-[95px] rounded-lg border border-slate-200 pl-8 pr-2 text-[11px] font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-white"
                                     />
                                   </div>
                                   <div className="flex items-center gap-1 ml-auto">
