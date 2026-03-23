@@ -3,6 +3,7 @@ import { Patient, MaritalStatus, EducationLevel } from '../../types';
 import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, X, Loader2, Camera } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { API_BASE_URL } from '../../services/api';
+import { DatePicker } from '../UI/DatePicker';
 
 /* ─── Máscaras ─────────────────────────────────────────── */
 const maskPhone = (v: string) => {
@@ -201,11 +202,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.birthDate')}</label>
-              <input 
-                type="date" 
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none"
-                value={formData.birth_date ? formData.birth_date.split('T')[0] : ''} 
-                onChange={e => updateField('birth_date', e.target.value)}
+              <DatePicker
+                value={formData.birth_date ? formData.birth_date.split('T')[0] : ''}
+                onChange={val => updateField('birth_date', val)}
               />
             </div>
             <div className="md:col-span-2 space-y-2">

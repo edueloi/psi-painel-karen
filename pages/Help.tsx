@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { API_BASE_URL } from '../services/api';
 import { Button } from '../components/UI/Button';
+import { Modal } from '../components/UI/Modal';
+import { AlertCircle } from 'lucide-react';
 
 // ── FAQ Data ─────────────────────────────────────────────────────────────────
 const FAQ_CATEGORIES = [
@@ -194,6 +196,7 @@ export const Help: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('agenda');
   const [openFaq, setOpenFaq]               = useState<number | null>(null);
   const [activeTab, setActiveTab]           = useState<'faq' | 'guides' | 'contact'>('faq');
+  const [selectedGuide, setSelectedGuide]   = useState<any>(null);
 
   // Aurora chat state
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([{
@@ -406,6 +409,63 @@ export const Help: React.FC = () => {
                 {GUIDES.map((g, i) => (
                   <div
                     key={i}
+                    onClick={() => {
+                        const content: Record<string, any> = {
+                            'Primeiros Passos': {
+                                steps: [
+                                    { t: 'Cadastro da Clínica', d: 'Acesse Configurações e preencha os dados da sua clínica ou consultório para que apareçam nos documentos.' },
+                                    { t: 'Cadastre Profissionais', d: 'Adicione sua equipe em "Profissionais" para que cada um tenha sua própria agenda.' },
+                                    { t: 'Configure seus Serviços', d: 'Em "Serviços", defina o que você oferece, preços e durações padrão.' },
+                                    { t: 'Personalize sua Agenda', d: 'Defina seus horários de trabalho e intervalos em Configurações > Agenda.' },
+                                    { t: 'Faça seu Primeiro Agendamento', d: 'Vá na Agenda, clique em um horário e pronto! Seu sistema está rodando.' }
+                                ],
+                                color: 'indigo'
+                            },
+                            'Dominando a Agenda': {
+                                steps: [
+                                    { t: 'Bloqueios de Horário', d: 'Aprenda a reservar horários para almoço, reuniões ou férias clicando no slot e selecionando "Bloqueio".' },
+                                    { t: 'Recorrências Inteligentes', d: 'Agende sessões semanais com um clique e o sistema reserva os próximos meses automaticamente.' },
+                                    { t: 'Visualizações', d: 'Alterne entre visão de Dia, Semana ou Mês para ter o controle total da sua semana.' },
+                                    { t: 'Lembretes Automáticos', d: 'Configure lembretes de WhatsApp para reduzir faltas em até 40%.' }
+                                ],
+                                color: 'sky'
+                            },
+                            'Financeiro Avançado': {
+                                steps: [
+                                    { t: 'Gestão de Comandas', d: 'Toda sessão gera uma comanda. Resolva o pagamento e a evolução no mesmo lugar.' },
+                                    { t: 'Fluxo de Caixa', d: 'Acompanhe entradas e saídas e veja seu lucro real no Dashboard.' },
+                                    { t: 'Emissão de Notas', d: 'Configure o módulo fiscal para emitir notas automaticamente ao finalizar um pagamento.' },
+                                    { t: 'Relatórios Contábeis', d: 'Exporte tudo em Excel ou PDF no final do mês para seu contador.' }
+                                ],
+                                color: 'emerald'
+                            },
+                            'Salas Virtuais': {
+                                steps: [
+                                    { t: 'Criando uma Sala', d: 'Gere links únicos de atendimento online de forma instantânea ou via agendamento.' },
+                                    { t: 'Experiência do Paciente', d: 'O paciente não precisa baixar nada. Ele entra pelo navegador com segurança total.' },
+                                    { t: 'Recursos Integrados', d: 'Use o chat e o compartilhamento de tela para aplicações de psicoeducação.' }
+                                ],
+                                color: 'violet'
+                            },
+                            'Gestão de Equipe': {
+                                steps: [
+                                    { t: 'Níveis de Permissão', d: 'Defina quem pode ver o financeiro, quem só vê a agenda e quem tem acesso total.' },
+                                    { t: 'Agendas Compartilhadas', d: 'Visualize a agenda de todos os profissionais de forma unificada ou individual.' },
+                                    { t: 'Performance', d: 'Veja quais profissionais estão com a agenda cheia e quais precisam de mais captação.' }
+                                ],
+                                color: 'rose'
+                            },
+                            'Prontuário Digital': {
+                                steps: [
+                                    { t: 'Evoluções com Assinatura', d: 'Registre sessões com segurança ética. As evoluções são datadas e assinadas digitalmente.' },
+                                    { t: 'Histórico Unificado', d: 'Veja consultas, documentos, formulários e financeiro em uma linha do tempo única.' },
+                                    { t: 'DISC e Ferramentas', d: 'Aplique testes comportamentais e escalas clínicas diretamente pelo prontuário.' }
+                                ],
+                                color: 'indigo'
+                            }
+                        };
+                        setSelectedGuide({ ...g, steps: content[g.title]?.steps || [], themeColor: content[g.title]?.color || 'indigo' });
+                    }}
                     className="group bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-3">
@@ -615,7 +675,62 @@ export const Help: React.FC = () => {
           </div>
         </div>
 
-      </div>
+      {/* ── GUIDE MODAL ── */}
+      <Modal
+        isOpen={!!selectedGuide}
+        onClose={() => setSelectedGuide(null)}
+        title={selectedGuide?.title || ''}
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-6 py-2">
+            <div className={`p-4 rounded-2xl flex items-center gap-4 bg-${selectedGuide?.themeColor || 'indigo'}-50 border border-${selectedGuide?.themeColor || 'indigo'}-100`}>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-white shadow-sm text-${selectedGuide?.themeColor || 'indigo'}-600`}>
+                    {selectedGuide?.icon}
+                </div>
+                <div>
+                    <h3 className="font-bold text-slate-800">{selectedGuide?.title}</h3>
+                    <p className="text-xs text-slate-500">{selectedGuide?.desc}</p>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Zap size={14} className="text-amber-500" /> Passo a Passo
+                </h4>
+                
+                <div className="space-y-3">
+                    {selectedGuide?.steps?.map((step: any, idx: number) => (
+                        <div key={idx} className="flex gap-4 group">
+                            <div className="flex flex-col items-center">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${selectedGuide?.themeColor === 'indigo' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-100 border-slate-200 text-slate-500 group-hover:border-indigo-400'}`}>
+                                    {idx + 1}
+                                </div>
+                                {idx < selectedGuide?.steps.length - 1 && <div className="w-0.5 flex-1 bg-slate-100 my-1 group-hover:bg-indigo-100 transition-colors" />}
+                            </div>
+                            <div className="pb-4">
+                                <p className="text-sm font-bold text-slate-800 leading-tight mb-1">{step.t}</p>
+                                <p className="text-xs text-slate-500 leading-relaxed">{step.d}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-start gap-3 mt-4">
+                <AlertCircle size={16} className="text-indigo-500 mt-0.5" />
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Dica: Você também pode pedir para a <b>Aurora</b> te mostrar como realizar essas funções na prática. Basta perguntar a ela no chat ao lado!
+                </p>
+            </div>
+
+            <div className="pt-2">
+                <Button variant="primary" radius="xl" className="w-full h-11" onClick={() => setSelectedGuide(null)}>
+                    Entendi, obrigado!
+                </Button>
+            </div>
+        </div>
+      </Modal>
+    </div>
     </div>
   );
 };
