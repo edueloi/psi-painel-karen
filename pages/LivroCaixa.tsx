@@ -205,49 +205,178 @@ const detectCategory = (text: string): string => {
 // ─── Export Helpers ───────────────────────────────────────────────────────────
 
 const exportCSV = (data: Transaction[], monthLabel: string) => {
-  const header = ['Data Conv.', 'Vencimento', 'Descrição', 'Categoria', 'Pagador', 'CPF', 'Valor', 'Tipo', 'Método', 'Status'];
+  const header = ['DATA', 'VENCIMENTO', 'DESCRIÇÃO', 'CATEGORIA', 'TIPO', 'PAGADOR', 'CPF', 'MÉTODO', 'STATUS', 'VALOR'];
   const rows = data.map(tx => [
     formatDate(tx.date),
     formatDate(tx.due_date || tx.date),
     tx.description || '',
     tx.category || '',
+    tx.type === 'income' ? 'Receita' : 'Despesa',
     tx.payer_name || tx.patient_name || '',
     tx.payer_cpf || '',
-    tx.amount.toFixed(2).replace('.',','),
-    tx.type === 'income' ? 'Receita' : 'Despesa',
     METHOD_LABEL[tx.payment_method] || tx.payment_method || '',
     STATUS_INFO[getStatus(tx)]?.label || tx.status,
+    tx.amount.toFixed(2).replace('.', ','),
   ]);
-  const csv = [header, ...rows].map(r => r.map(c => `"${c}"`).join(';')).join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  
+  // Use semicolon as separator (standard for Brazilian CSV) and include UTF-8 BOM
+  const csvContent = [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+    .join('\n');
+    
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `livro-caixa-${monthLabel}.csv`; a.click();
+  a.href = url;
+  a.download = `livro-caixa-${monthLabel}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
 
-const exportXLS = (data: Transaction[], monthLabel: string) => {
-  // Simple TSV approach (opens in Excel)
-  const header = ['Data Conv.', 'Vencimento', 'Descrição', 'Categoria', 'Pagador', 'CPF', 'Valor', 'Tipo', 'Método', 'Status'];
-  const rows = data.map(tx => [
-    formatDate(tx.date),
-    formatDate(tx.due_date || tx.date),
-    tx.description || '',
-    tx.category || '',
-    tx.payer_name || tx.patient_name || '',
-    tx.payer_cpf || '',
-    tx.amount.toFixed(2).replace('.',','),
-    tx.type === 'income' ? 'Receita' : 'Despesa',
-    METHOD_LABEL[tx.payment_method] || tx.payment_method || '',
-    STATUS_INFO[getStatus(tx)]?.label || tx.status,
-  ]);
-  const tsv = [header, ...rows].map(r => r.join('\t')).join('\n');
-  const blob = new Blob([tsv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+const exportXLS = async (data: Transaction[], monthLabel: string, summary: { income: number; expense: number; balance: number }) => {
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'PsiFlux';
+  workbook.lastModifiedBy = 'PsiFlux';
+  workbook.created = new Date();
+  
+  // --- SHEET 1: RESUMO (SUMMARY) ---
+  const summarySheet = workbook.addWorksheet('Resumo Financeiro', {
+    views: [{ showGridLines: false }]
+  });
+
+  summarySheet.getCell('A1').value = `RESUMO FINANCEIRO — ${monthLabel.toUpperCase()}`;
+  summarySheet.getCell('A1').font = { name: 'Segoe UI', size: 18, bold: true, color: { argb: 'FF1E293B' } };
+  
+  summarySheet.mergeCells('A3:B3');
+  summarySheet.getCell('A3').value = 'MÉTRICAS GERAIS';
+  summarySheet.getCell('A3').font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF64748B' } };
+
+  // Summary Cards
+  const cards = [
+    { label: 'TOTAL DE ENTRADAS', value: summary.income, color: 'FF059669', bg: 'FFECFDF5' },
+    { label: 'TOTAL DE SAÍDAS',   value: summary.expense, color: 'FFDC2626', bg: 'FFFEF2F2' },
+    { label: 'SALDO FINAL',     value: summary.balance, color: 'FF4F46E5', bg: 'FFEFF6FF' },
+  ];
+
+  cards.forEach((card, i) => {
+    const r = 4 + (i * 3);
+    const cellValue = summarySheet.getCell(`A${r+1}`);
+    const cellLabel = summarySheet.getCell(`A${r}`);
+    
+    cellLabel.value = card.label;
+    cellLabel.font = { name: 'Segoe UI', size: 8, bold: true, color: { argb: 'FF64748B' } };
+    
+    cellValue.value = card.value;
+    cellValue.numFmt = '"R$ " #,##0.00';
+    cellValue.font = { name: 'Segoe UI', size: 16, bold: true, color: { argb: card.color } };
+    
+    // Fill background for card area
+    summarySheet.getCell(`A${r}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
+    summarySheet.getCell(`A${r+1}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
+    summarySheet.getCell(`B${r}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
+    summarySheet.getCell(`B${r+1}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
+  });
+
+  // Category Breakdown
+  summarySheet.getCell('D3').value = 'DISTRIBUIÇÃO POR CATEGORIA';
+  summarySheet.getCell('D3').font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF64748B' } };
+
+  const catTotals: Record<string, number> = {};
+  data.forEach(tx => {
+    const cat = tx.category || 'Outros';
+    catTotals[cat] = (catTotals[cat] || 0) + (tx.type === 'income' ? tx.amount : -tx.amount);
+  });
+
+  const catEntries = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+  catEntries.forEach(([cat, val], i) => {
+    const r = 4 + i;
+    summarySheet.getCell(`D${r}`).value = cat;
+    summarySheet.getCell(`E${r}`).value = val;
+    summarySheet.getCell(`E${r}`).numFmt = '"R$ " #,##0.00';
+    summarySheet.getCell(`E${r}`).font = { color: { argb: val >= 0 ? 'FF059669' : 'FFDC2626' } };
+  });
+
+  summarySheet.getColumn('A').width = 25;
+  summarySheet.getColumn('B').width = 15;
+  summarySheet.getColumn('D').width = 30;
+  summarySheet.getColumn('E').width = 20;
+
+  // --- SHEET 2: LANÇAMENTOS (TRANSACTIONS) ---
+  const dataSheet = workbook.addWorksheet('Lista de Lançamentos');
+  
+  dataSheet.columns = [
+    { header: 'DATA',       key: 'date',      width: 12 },
+    { header: 'VENCIMENTO', key: 'due_date',  width: 12 },
+    { header: 'DESCRIÇÃO',  key: 'desc',      width: 40 },
+    { header: 'CATEGORIA',  key: 'cat',       width: 20 },
+    { header: 'TIPO',       key: 'type',      width: 12 },
+    { header: 'PAGADOR',    key: 'payer',     width: 30 },
+    { header: 'CPF',        key: 'cpf',       width: 15 },
+    { header: 'MÉTODO',     key: 'method',    width: 15 },
+    { header: 'STATUS',     key: 'status',    width: 15 },
+    { header: 'VALOR',      key: 'amount',    width: 18 },
+  ];
+
+  // Header Styling
+  const headerRow = dataSheet.getRow(1);
+  headerRow.height = 30;
+  headerRow.eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = { bottom: { style: 'medium', color: { argb: 'FF3730A3' } } };
+  });
+
+  // Adding Data
+  data.forEach(tx => {
+    const status = getStatus(tx);
+    const row = dataSheet.addRow({
+      date: safeDate(tx.date),
+      due_date: safeDate(tx.due_date || tx.date),
+      desc: tx.description || '',
+      cat: tx.category || '',
+      type: tx.type === 'income' ? 'Receita' : 'Despesa',
+      payer: tx.payer_name || tx.patient_name || '',
+      cpf: tx.payer_cpf || '',
+      method: METHOD_LABEL[tx.payment_method] || tx.payment_method || '',
+      status: STATUS_INFO[status]?.label || tx.status,
+      amount: tx.amount,
+    });
+
+    // Formatting
+    row.getCell('date').numFmt = 'dd/mm/yyyy';
+    row.getCell('due_date').numFmt = 'dd/mm/yyyy';
+    row.getCell('amount').numFmt = '"R$ " #,##0.00';
+    
+    // Conditional Coloring for Amount
+    row.getCell('amount').font = { bold: true, color: { argb: tx.type === 'income' ? 'FF059669' : 'FFDC2626' } };
+    
+    // Status Coloring
+    if (status === 'paid' || status === 'confirmed') row.getCell('status').font = { color: { argb: 'FF059669' } };
+    else if (status === 'overdue' || status === 'cancelled') row.getCell('status').font = { color: { argb: 'FFDC2626' } };
+    else row.getCell('status').font = { color: { argb: 'FFD97706' } };
+  });
+
+  // Filters and Freezing
+  dataSheet.autoFilter = 'A1:J1';
+  dataSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  // Save File
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `livro-caixa-${monthLabel}.xls`; a.click();
+  a.href = url;
+  a.download = `livro-caixa-${monthLabel}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+
 
 const exportPDF = async (data: Transaction[], summary: { income: number; expense: number; balance: number }, monthLabel: string) => {
   const { jsPDF } = await import('jspdf');
@@ -1407,7 +1536,7 @@ export const LivroCaixa: React.FC = () => {
                 <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
                   {[
                     { label: 'CSV', action: () => { exportCSV(filtered, monthLabel); setShowExportMenu(false); } },
-                    { label: 'Excel (XLS)', action: () => { exportXLS(filtered, monthLabel); setShowExportMenu(false); } },
+                    { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, monthLabel, summary); setShowExportMenu(false); } },
                     { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
                   ].map(item => (
                     <button
