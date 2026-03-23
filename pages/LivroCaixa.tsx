@@ -313,6 +313,7 @@ export const LivroCaixa: React.FC = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [searchQuery, setSearchQuery]   = useState('');
   const [flowFilter, setFlowFilter]     = useState<'all' | 'income' | 'expense'>('all');
+  const [dateSort, setDateSort]         = useState<'asc' | 'desc'>('asc');
 
   // ── Modals ────────────────────────────────────────────────────────────────────
   const [isAuraContabilOpen, setIsAuraContabilOpen] = useState(false);
@@ -492,20 +493,26 @@ export const LivroCaixa: React.FC = () => {
     localStorage.setItem('livrocaixa_layout', next);
   };
 
-  const filtered = transactions.filter((tx) => {
-    if (flowFilter !== 'all' && tx.type !== flowFilter) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        tx.description?.toLowerCase().includes(q) ||
-        tx.payer_name?.toLowerCase().includes(q) ||
-        tx.patient_name?.toLowerCase().includes(q) ||
-        tx.payer_cpf?.includes(q) ||
-        tx.category?.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const filtered = transactions
+    .filter((tx) => {
+      if (flowFilter !== 'all' && tx.type !== flowFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          tx.description?.toLowerCase().includes(q) ||
+          tx.payer_name?.toLowerCase().includes(q) ||
+          tx.patient_name?.toLowerCase().includes(q) ||
+          tx.payer_cpf?.includes(q) ||
+          tx.category?.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      return dateSort === 'asc' ? da - db : db - da;
+    });
 
   const monthLabel = selectedMonth
     ? `${MONTH_NAMES[selectedMonth.month - 1]}-${selectedMonth.year}`
@@ -1191,6 +1198,13 @@ export const LivroCaixa: React.FC = () => {
               </button>
             ))}
           </div>
+          <button
+            onClick={() => setDateSort(s => s === 'asc' ? 'desc' : 'asc')}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border border-slate-100 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-all"
+          >
+            <Calendar size={12} />
+            Data {dateSort === 'asc' ? '↑' : '↓'}
+          </button>
         </div>
 
         {/* Bulk action bar */}
