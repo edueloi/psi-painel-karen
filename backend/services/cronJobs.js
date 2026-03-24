@@ -63,8 +63,12 @@ async function getActiveTenants() {
 async function checkAppointmentReminders() {
   try {
     const now = new Date();
+    const curHour = now.getHours();
+    let greeting = 'Bom dia';
+    if (curHour >= 12 && curHour < 18) greeting = 'Boa tarde';
+    else if (curHour >= 18 || curHour < 5) greeting = 'Boa noite';
 
-    // Identifica qual é o Tenant Master (Plataforma/Super Admin) para usar o Bot Master aos profissionais
+    // Identifica o Master Bot para notificações aos profissionais de toda a rede
     const [saRows] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
     const masterTenantId = saRows[0]?.tenant_id;
     let masterBotConnected = false;
@@ -72,23 +76,17 @@ async function checkAppointmentReminders() {
     if (masterTenantId) {
        const status = wppService.getStatus(masterTenantId);
        masterBotConnected = status.status === 'connected';
-       // Fallback para o BD caso o serviço ainda não tenha carregado em memória
-       if (!masterBotConnected) {
-          const [masterTenantRows] = await db.query(`SELECT whatsapp_status FROM tenants WHERE id = ?`, [masterTenantId]);
-          masterBotConnected = masterTenantRows[0]?.whatsapp_status === 'connected';
-       }
     }
 
-    // Busca atendimentos nas próximas 24h e 10 min (margem de segurança) usando o tempo do Banco de Dados
-    // Isso evita problemas de timezone entre o JS e o servidor MySQL
-     const [appointments] = await db.query(`
+    // Busca agendamentos próximos (24h e 1h)
+    const [appointments] = await db.query(`
        SELECT a.*,
-         p.name as patient_name, p.email as patient_email, p.phone as patient_phone,
-         u.name as professional_name, u.email as professional_email, u.phone as professional_phone,
+         p.name as patient_name, p.phone as patient_phone,
+         u.name as professional_name, u.phone as professional_phone, u.email as professional_email,
          u.email_preferences,
          s.name as service_name,
          c.sessions_total, c.sessions_used, c.description as package_name,
-         t.whatsapp_status, t.whatsapp_preferences
+         t.whatsapp_status, t.whatsapp_preferences, t.name as clinic_name
        FROM appointments a
        LEFT JOIN patients p ON p.id = a.patient_id
        LEFT JOIN users u ON u.id = a.professional_id
@@ -98,131 +96,89 @@ async function checkAppointmentReminders() {
        WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) 
          AND a.start_time < DATE_ADD(NOW(), INTERVAL 25 HOUR)
          AND a.status IN ('scheduled','confirmed')
-         AND a.type = 'consulta'
-     `);
+    `);
 
-    if (appointments.length === 0) {
-      // console.log('[CRON-REreminder] Nenhum agendamento futuro encontrado para processar.');
-      return;
-    }
+    if (appointments.length === 0) return;
 
     for (const apt of appointments) {
-      // Diferença em minutos entre o início da sessão e o momento atual
       const aptStart = new Date(apt.start_time);
       const diffMinutes = Math.round((aptStart.getTime() - now.getTime()) / 60000);
 
-      // Log discreto apenas quando algum critério de tempo for atingido (para debugar sem poluir muito o log)
-      if (diffMinutes >= 58 && diffMinutes <= 62) {
-         console.log(`[CRON-DEBUG] Agendamento ID ${apt.id} em ${diffMinutes} min. MasterBot:${masterBotConnected}`);
-      }
-
-      // --- WhatsApp Bot da Clinica (Tenant) ---
+      // --- 1. NOTIFICAÇÃO DO PACIENTE (Via WhatsApp PRÓPRIO da Clínica) ---
+      // Conforme solicitado: SÓ envia se a clínica tiver conectado o bot dela. O Master NÃO manda para pacientes.
       if (apt.whatsapp_status === 'connected') {
         const prefs = typeof apt.whatsapp_preferences === 'string' ? JSON.parse(apt.whatsapp_preferences || '{}') : (apt.whatsapp_preferences || {});
-        
-        let packageInfo = '';
-        if (apt.sessions_total > 1) {
-          const currentSession = (apt.sessions_used || 0) + 1;
-          packageInfo = `\n📦 *Pacote:* ${apt.package_name || 'Sessões'} (${currentSession}/${apt.sessions_total})`;
-        }
-        const serviceInfo = apt.service_name ? `\n🔹 *Serviço:* ${apt.service_name}` : '';
-        const timeStr = fmtTime(apt.start_time);
-        const dateStr = fmtDate(apt.start_time);
-
-        // Substitui {variaveis} no texto customizado
-        const buildMsg = (template, defaultMsg) => {
-          let msg = template || defaultMsg;
-          return msg.replace(/\{patient_name\}/g, apt.patient_name || 'Paciente')
-                    .replace(/\{professional_name\}/g, apt.professional_name || 'Profissional')
-                    .replace(/\{time\}/g, timeStr)
-                    .replace(/\{date\}/g, dateStr)
-                    .replace(/\{service\}/g, apt.service_name || 'Consulta')
-                    + serviceInfo + packageInfo;
-        };
-
         const targetPhone = apt.patient_phone;
 
-        if (targetPhone) {
-          // Lembrete: 60 minutos antes do atendimento (Para o paciente)
+        if (targetPhone && apt.type === 'consulta') {
+          const timeStr = fmtTime(apt.start_time);
+          const dateStr = fmtDate(apt.start_time);
+
+          const buildMsg = (template, defaultMsg) => {
+             let msg = template || defaultMsg;
+             return msg.replace(/\{patient_name\}/g, apt.patient_name || 'Paciente')
+                       .replace(/\{professional_name\}/g, apt.professional_name || 'Profissional')
+                       .replace(/\{time\}/g, timeStr)
+                       .replace(/\{date\}/g, dateStr);
+          };
+
           if (diffMinutes === 60 && prefs.reminder_1h_enabled !== false) {
-            const defaultMsg = `🔔 *Notificação de Atendimento*\n\nOlá, *{patient_name}*.\nLembramos que seu agendamento com {professional_name} é hoje às {time}.`;
-            const msg = buildMsg(prefs.reminder_1h_msg, defaultMsg);
+            const msg = buildMsg(prefs.reminder_1h_msg, `🔔 *Lembrete de Atendimento*\n\nOlá, *{patient_name}*.\nSua sessão com {professional_name} é hoje às {time}.`);
             await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
-            console.log(`[CRON-WPP Tenant ${apt.tenant_id}] 60m aviso para ${apt.patient_name}`);
           }
-
-          // Lembrete: 24 Horas antes do atendimento (Para o paciente)
           if (diffMinutes === 1440 && prefs.reminder_24h_enabled !== false) {
-            const defaultMsg = `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nSua consulta com {professional_name} está confirmada para amanhã ({date}) às {time}.`;
-            const msg = buildMsg(prefs.reminder_24h_msg, defaultMsg);
+            const msg = buildMsg(prefs.reminder_24h_msg, `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nConfirmamos sua consulta para amanhã ({date}) às {time}.`);
             await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
-            console.log(`[CRON-WPP Tenant ${apt.tenant_id}] 24h aviso para ${apt.patient_name}`);
           }
         }
       }
 
-      // 2. Lembretes do Profissional (Respeitam a preferência de cada um)
-      const profPrefs = getPrefs(apt);
-      if (!profPrefs.enabled) continue;
-      if (!profPrefs.appointment_reminder_professional && !profPrefs.appointment_reminder_patient) continue;
+      // --- 2. NOTIFICAÇÃO DO PROFISSIONAL / PARCEIRO (Via WhatsApp Bot MASTER) ---
+      // O Master Bot assiste os profissionais de todos os parceiros
+      if (masterBotConnected && apt.professional_phone) {
+        const profPrefs = getPrefs(apt);
+        // Respeita se o profissional quer receber lembretes (intervalo padrão do perfil dele)
+        const reminderMinutes = profPrefs.appointment_reminder_minutes || 60;
 
-      const minutes = profPrefs.appointment_reminder_minutes || 60;
-      if (diffMinutes !== minutes) {
-          // Continua para o paciente (E-mail) caso a regra do profissional seja diferente, 
-          // ou pula se não for o momento de avisar ninguém
-          if (diffMinutes !== 60 && diffMinutes !== 1440) continue; 
-      } 
+        if (diffMinutes === reminderMinutes) {
+          const timeStr = fmtTime(apt.start_time);
+          const label = reminderMinutes === 30 ? '30min' : '1h';
+          
+          let sessaoInfo = '';
+          if (apt.sessions_total > 1) {
+             sessaoInfo = `\n📊 *Sessão:* ${(apt.sessions_used || 0) + 1}/${apt.sessions_total}`;
+          }
 
-      const label = minutes === 30 ? '30min' : '1h';
+          const icon = apt.type === 'consulta' ? '🩺' : '📅';
+          const typeLabel = apt.type === 'consulta' ? 'Atendimento' : (apt.title || 'Evento');
 
-      // Lembrete para o Profissional
-      if (profPrefs.appointment_reminder_professional) {
-        // Envia para o profissional (E-mail)
-        if (apt.professional_email) {
-          const html = templates.appointmentReminder({
-            patientName:  apt.patient_name || 'Paciente',
-            date:         fmtDate(apt.start_time),
-            time:         fmtTime(apt.start_time),
-            type:         apt.type,
-            modality:     apt.modality,
-            professional: apt.professional_name,
-          });
-          await sendMail(apt.professional_email, `⏰ Atendimento em ${label} — ${apt.patient_name}`, html);
-        }
-
-        // NOVO: Envia para o profissional (WhatsApp do Bot Master da Empresa)
-        if (masterBotConnected && apt.professional_phone) {
-            const timeStr = fmtTime(apt.start_time);
-            const wppMsg = `⏰ *Atendimento em ${label}*\n\nOlá, *${apt.professional_name}*.\nVocê tem um paciente agendado em breve:\n\n👤 *Paciente:* ${apt.patient_name || 'Paciente'}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}`;
-            await wppService.sendReminder(masterTenantId, apt.professional_phone, wppMsg);
-            console.log(`[CRON-WPP MasterBot ${masterTenantId}] ${label} aviso para profissional ${apt.professional_name}`);
+          const wppMsg = `${icon} *${greeting}, ${apt.professional_name}!*\n\nPassando para lembrar do seu próximo ${typeLabel.toLowerCase()}:\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}${sessaoInfo}\n🏢 *Clínica:* ${apt.clinic_name || 'PsiFlux'}\n\nBom trabalho! 🚀`;
+          
+          await wppService.sendReminder(masterTenantId, apt.professional_phone, wppMsg);
+          console.log(`[CRON-MasterBot] Aviso ${label} enviado para Parceiro ${apt.professional_name} (${apt.clinic_name})`);
         }
       }
 
-      // Lembrete para o paciente (APENAS E-MAIL, pois o WhatsApp do paciente já tem sua rotina própria via painel de bot)
-      if (profPrefs.appointment_reminder_patient && apt.patient_email) {
-        const patHtml = templates.appointmentReminder({
-          patientName:  apt.patient_name || 'Você',
-          date:         fmtDate(apt.start_time),
-          time:         fmtTime(apt.start_time),
-          type:         apt.type,
-          modality:     apt.modality,
-          professional: apt.professional_name,
-        });
-        await sendMail(apt.patient_email, `⏰ Lembrete de consulta em ${label}`, patHtml);
+      // --- 3. NOTIFICAÇÃO E-MAIL (Fallback padrão) ---
+      const profPrefs = getPrefs(apt);
+      if (profPrefs.enabled && profPrefs.appointment_reminder_professional && apt.professional_email) {
+        const minutes = profPrefs.appointment_reminder_minutes || 60;
+        if (diffMinutes === minutes) {
+          const html = templates.appointmentReminder({
+             patientName: apt.patient_name, date: fmtDate(apt.start_time), time: fmtTime(apt.start_time),
+             type: apt.type, modality: apt.modality, professional: apt.professional_name
+          });
+          await sendMail(apt.professional_email, `⏰ Próximo atendimento: ${apt.patient_name}`, html);
+        }
       }
     }
   } catch (err) {
-    console.error('❌ Erro no job de lembrete de atendimento:', err.message);
+    console.error('❌ Erro no job de lembrete profissional:', err.message);
   }
 }
-
-// ─── JOB 2: Tarefas Diárias (Aniversários e Pagamentos) ───────────────────
-// Roda a cada minuto. Verifica horários personalizados de cada tenant.
-async function checkDailyTasks() {
+async function checkDailyTasks() {
   try {
     const now = new Date();
-    // Pega a hora atual no timezone BR (ex: "10:00")
     const currentHourStr = fmtTime(now); 
 
     const [tenants] = await db.query(`SELECT id, whatsapp_status, whatsapp_preferences FROM tenants WHERE active = 1`);
@@ -257,13 +213,13 @@ async function checkDailyTasks() {
           ).catch(() => {});
 
           for (const user of users) {
-            const uprefs = getPrefs(user);
-            if (uprefs.enabled && uprefs.birthday_reminder) {
-              await sendMail(user.email, `🎂 ${patients.length} aniversariante(s) hoje!`, html);
-            }
+             const uprefs = getPrefs(user);
+             if (uprefs.enabled && uprefs.birthday_reminder) {
+               await sendMail(user.email, `🎂 ${patients.length} aniversariante(s) hoje!`, html);
+             }
           }
 
-          // --- WHATSAPP BOT DO TENANT ---
+          // --- WHATSAPP (SÓ SE O BOT DA CLÍNICA ESTIVER CONECTADO) ---
           if (t.whatsapp_status === 'connected' && prefs.birthday_enabled !== false) {
             for (const p of patients) {
               const targetPhone = p.whatsapp || p.phone;
@@ -274,7 +230,7 @@ async function checkDailyTasks() {
               msg = msg.replace(/\{patient_name\}/g, p.name || p.full_name || 'Paciente');
 
               await wppService.sendReminder(t.id, targetPhone, msg);
-              console.log(`[CRON-WPP Tenant ${t.id}] Bday enviado para ${p.name || p.full_name}`);
+              console.log(`[CRON-WPP Tenant ${t.id}] Bday enviado para ${p.name}`);
             }
           }
         }
