@@ -11,57 +11,71 @@ async function migrate() {
     multipleStatements: true,
   });
 
-  console.log('🚀 Iniciando migração incremental (Clinical Records & Patient Edit Fix)...');
+  console.log('🚀 Iniciando migração incremental robusta (Clinical Records & Patient Edit Fix)...');
 
-  const statements = [
-    // Medical Records - Time and Metadata
-    "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS start_time TIME NULL",
-    "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS end_time TIME NULL",
-    "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Rascunho'",
-    "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS record_type VARCHAR(100) DEFAULT 'Evolucao'",
-    "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS title VARCHAR(255) NULL",
-    "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS tags JSON NULL",
-
-    // Uploads - Stability and Capacity
-    "ALTER TABLE uploads MODIFY COLUMN filename VARCHAR(255) NULL",
-    "ALTER TABLE uploads MODIFY COLUMN file_url LONGTEXT NULL",
-    "ALTER TABLE uploads MODIFY COLUMN url LONGTEXT NULL",
-    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS description TEXT NULL",
-    "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'uploaded'",
-
-    // Attachments - Capacity for Base64
-    "ALTER TABLE medical_record_attachments MODIFY COLUMN file_url LONGTEXT NULL",
-
-    // Alerts - UI State
-    "ALTER TABLE system_alerts ADD COLUMN IF NOT EXISTS is_dismissed BOOLEAN DEFAULT FALSE",
+  // Helper para adicionar coluna se não existir (MySQL < 8.0.19 fallback)
+  async function addColumnIfMissing(table, column, definition) {
+    const [cols] = await conn.query(
+      'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+      [process.env.DB_NAME || 'psiflux', table, column]
+    );
     
-    // Table medical_record_attachments if not exists
-    `CREATE TABLE IF NOT EXISTS medical_record_attachments (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      record_id INT NOT NULL,
-      file_name VARCHAR(255) NOT NULL,
-      file_url LONGTEXT,
-      file_type VARCHAR(50),
-      file_size INT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (record_id) REFERENCES medical_records(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
-  ];
-
-  for (const stmt of statements) {
-    try {
-      console.log(`   Executando: ${stmt}`);
-      await conn.query(stmt);
-    } catch (e) {
-      console.warn(`   ⚠️  Aviso ao executar "${stmt}": ${e.message}`);
+    if (cols.length === 0) {
+      console.log(`   Adicionando coluna [${column}] na tabela [${table}]...`);
+      await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+    } else {
+      console.log(`   ℹ️  Coluna [${column}] já existe na tabela [${table}].`);
     }
   }
 
-  console.log('✅ Migração incremental concluída!');
-  await conn.end();
+  try {
+    // 1. Garantir que as tabelas base existem primeiro
+    console.log('   Verificando tabelas base...');
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS medical_record_attachments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        record_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_url LONGTEXT,
+        file_type VARCHAR(50),
+        file_size INT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (record_id) REFERENCES medical_records(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    // 2. Adicionar colunas em medical_records
+    await addColumnIfMissing('medical_records', 'start_time', 'TIME NULL');
+    await addColumnIfMissing('medical_records', 'end_time', 'TIME NULL');
+    await addColumnIfMissing('medical_records', 'status', "VARCHAR(50) DEFAULT 'Rascunho'");
+    await addColumnIfMissing('medical_records', 'record_type', "VARCHAR(100) DEFAULT 'Evolucao'");
+    await addColumnIfMissing('medical_records', 'title', 'VARCHAR(255) NULL');
+    await addColumnIfMissing('medical_records', 'tags', 'JSON NULL');
+
+    // 3. Atualizar/Adicionar colunas em uploads
+    console.log('   Atualizando campos de capacidade na tabela uploads...');
+    await conn.query("ALTER TABLE uploads MODIFY COLUMN filename VARCHAR(255) NULL");
+    await conn.query("ALTER TABLE uploads MODIFY COLUMN file_url LONGTEXT NULL");
+    await conn.query("ALTER TABLE uploads MODIFY COLUMN url LONGTEXT NULL");
+    await addColumnIfMissing('uploads', 'description', 'TEXT NULL');
+    await addColumnIfMissing('uploads', 'status', "VARCHAR(20) DEFAULT 'uploaded'");
+
+    // 4. Garantir capacidade em medical_record_attachments
+    console.log('   Atualizando campos de capacidade na tabela medical_record_attachments...');
+    await conn.query("ALTER TABLE medical_record_attachments MODIFY COLUMN file_url LONGTEXT NULL");
+
+    // 5. Atualizar system_alerts
+    await addColumnIfMissing('system_alerts', 'is_dismissed', 'BOOLEAN DEFAULT FALSE');
+
+    console.log('✅ Migração incremental robusta concluída!');
+  } catch (err) {
+    console.error('❌ Erro durante a migração:', err.message);
+  } finally {
+    await conn.end();
+  }
 }
 
 migrate().catch(err => {
-  console.error('❌ Erro na migração:', err);
+  console.error('❌ Erro fatal na migração:', err);
   process.exit(1);
 });
