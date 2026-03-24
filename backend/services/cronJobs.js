@@ -81,25 +81,25 @@ async function checkAppointmentReminders() {
 
     // Busca atendimentos nas próximas 24h e 10 min (margem de segurança) usando o tempo do Banco de Dados
     // Isso evita problemas de timezone entre o JS e o servidor MySQL
-    const [appointments] = await db.query(`
-      SELECT a.*,
-        p.name as patient_name, p.email as patient_email, p.whatsapp as patient_whatsapp, p.phone as patient_phone,
-        u.name as professional_name, u.email as professional_email, u.phone as professional_phone,
-        u.email_preferences,
-        s.name as service_name,
-        c.sessions_total, c.sessions_used, c.description as package_name,
-        t.whatsapp_status, t.whatsapp_preferences
-      FROM appointments a
-      LEFT JOIN patients p ON p.id = a.patient_id
-      LEFT JOIN users u ON u.id = a.professional_id
-      LEFT JOIN services s ON s.id = a.service_id
-      LEFT JOIN comandas c ON c.id = a.comanda_id
-      LEFT JOIN tenants t ON t.id = a.tenant_id
-      WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) 
-        AND a.start_time < DATE_ADD(NOW(), INTERVAL 25 HOUR)
-        AND a.status IN ('scheduled','confirmed')
-        AND a.type = 'consulta'
-    `);
+     const [appointments] = await db.query(`
+       SELECT a.*,
+         p.name as patient_name, p.email as patient_email, p.phone as patient_phone,
+         u.name as professional_name, u.email as professional_email, u.phone as professional_phone,
+         u.email_preferences,
+         s.name as service_name,
+         c.sessions_total, c.sessions_used, c.description as package_name,
+         t.whatsapp_status, t.whatsapp_preferences
+       FROM appointments a
+       LEFT JOIN patients p ON p.id = a.patient_id
+       LEFT JOIN users u ON u.id = a.professional_id
+       LEFT JOIN services s ON s.id = a.service_id
+       LEFT JOIN comandas c ON c.id = a.comanda_id
+       LEFT JOIN tenants t ON t.id = a.tenant_id
+       WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) 
+         AND a.start_time < DATE_ADD(NOW(), INTERVAL 25 HOUR)
+         AND a.status IN ('scheduled','confirmed')
+         AND a.type = 'consulta'
+     `);
 
     if (appointments.length === 0) {
       // console.log('[CRON-REreminder] Nenhum agendamento futuro encontrado para processar.');
@@ -140,7 +140,7 @@ async function checkAppointmentReminders() {
                     + serviceInfo + packageInfo;
         };
 
-        const targetPhone = apt.patient_whatsapp || apt.patient_phone;
+        const targetPhone = apt.patient_phone;
 
         if (targetPhone) {
           // Lembrete: 60 minutos antes do atendimento (Para o paciente)

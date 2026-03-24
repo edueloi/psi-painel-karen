@@ -1,3 +1,4 @@
+const { checkPermission } = require('../middleware/auth');
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -72,7 +73,7 @@ async function withSchema() {
 }
 
 // GET /appointments/export-template
-router.get('/export-template', async (req, res) => {
+router.get('/export-template', checkPermission('create_appointment'), async (req, res) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Dados para Importar');
   
@@ -170,7 +171,7 @@ router.get('/export-template', async (req, res) => {
 });
 
 // GET /appointments/export
-router.get('/export', async (req, res) => {
+router.get('/export', checkPermission('view_agenda'), async (req, res) => {
   try {
     const query = `
       SELECT a.*, p.name as patient_name, u.name as professional_name, s.name as service_name
@@ -230,7 +231,7 @@ router.get('/export', async (req, res) => {
 });
 
 // POST /appointments/import
-router.post('/import', memoryUpload.single('file'), async (req, res) => {
+router.post('/import', checkPermission('create_appointment'), memoryUpload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
 
@@ -305,7 +306,7 @@ router.post('/import', memoryUpload.single('file'), async (req, res) => {
 });
 
 // GET /appointments
-router.get('/', async (req, res) => {
+router.get('/', checkPermission('view_agenda'), async (req, res) => {
   try {
     await withSchema();
     const { patient_id, professional_id, start, end, status } = req.query;
@@ -346,7 +347,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /appointments/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', checkPermission('view_agenda'), async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT a.*, p.name as patient_name, u.name as professional_name
@@ -365,7 +366,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /appointments
-router.post('/', async (req, res) => {
+router.post('/', checkPermission('create_appointment'), async (req, res) => {
   try {
     await withSchema();
     const { 
@@ -628,7 +629,7 @@ function normalizeStatus(s) {
 }
 
 // PUT /appointments/:id/status  (chamado por handleUpdateAppointmentStatus)
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', checkPermission('confirm_appointment'), async (req, res) => {
   try {
     await withSchema();
     const { status, notes } = req.body;
@@ -684,7 +685,7 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // PUT /appointments/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
   try {
     await withSchema();
     const {
@@ -805,7 +806,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /appointments/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', checkPermission('delete_appointment'), async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM appointments WHERE id = ? AND tenant_id = ?',

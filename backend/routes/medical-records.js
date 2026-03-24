@@ -1,9 +1,10 @@
+const { authMiddleware, checkPermission } = require('../middleware/auth');
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
 // GET /medical-records
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, checkPermission('view_medical_records'), async (req, res) => {
   try {
     const { patient_id } = req.query;
     let query = `
@@ -28,7 +29,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /medical-records/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', authMiddleware, checkPermission('view_medical_records'), async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT r.*, p.name as patient_name, u.name as professional_name
@@ -47,7 +48,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /medical-records
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, checkPermission('create_medical_record'), async (req, res) => {
   try {
     const { patient_id, appointment_id, content, type } = req.body;
     if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
@@ -74,7 +75,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /medical-records/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
   try {
     const { content, type } = req.body;
 
@@ -106,7 +107,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /medical-records/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM medical_records WHERE id = ? AND tenant_id = ?',

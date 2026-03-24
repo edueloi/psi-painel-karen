@@ -22,6 +22,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
 import { AuraContabil } from '../components/AI/AuraContabil';
+import { useAuth } from '../contexts/AuthContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -469,6 +470,7 @@ export const LivroCaixa: React.FC = () => {
   const { pushToast } = useToast();
   const { preferences, updatePreference } = useUserPreferences();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { hasPermission, isAdmin } = useAuth();
 
   // ── View ─────────────────────────────────────────────────────────────────────
   const [view, setView]               = useState<'archive' | 'detail'>('archive');
@@ -1282,25 +1284,29 @@ export const LivroCaixa: React.FC = () => {
               <Clock size={13} />
             </button>
           )}
-          <button
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); openEditTx(tx); }}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-amber-500 hover:bg-slate-50 transition-all"
-          >
-            <Edit3 size={13} />
-          </button>
-          <button
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleRepeat(tx.id); }}
-            title="Reprocessar para o próximo mês"
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-emerald-500 hover:bg-slate-50 transition-all"
-          >
-            <RefreshCw size={13} />
-          </button>
-          <button
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteConfirmId(tx.id); }}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-slate-50 transition-all"
-          >
-            <Trash2 size={13} />
-          </button>
+          {hasPermission('manage_payments') && (
+            <>
+              <button
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); openEditTx(tx); }}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-amber-500 hover:bg-slate-50 transition-all"
+              >
+                <Edit3 size={13} />
+              </button>
+              <button
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleRepeat(tx.id); }}
+                title="Reprocessar para o próximo mês"
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-emerald-500 hover:bg-slate-50 transition-all"
+              >
+                <RefreshCw size={13} />
+              </button>
+              <button
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteConfirmId(tx.id); }}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-slate-50 transition-all"
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
         </div>
       ),
     },
@@ -1545,19 +1551,23 @@ export const LivroCaixa: React.FC = () => {
               )}
             </div>
 
-            <button
-              onClick={() => setIsImportOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
-            >
-              <Upload size={14} /> Importar
-            </button>
+            {hasPermission('view_financial_reports') && (
+              <button
+                onClick={() => setIsImportOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
+              >
+                <Upload size={14} /> Importar
+              </button>
+            )}
 
-            <button
-              onClick={() => { handleOpenNewTxFromArchive(); }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
-            >
-              <Plus size={16} /> Novo
-            </button>
+            {hasPermission('manage_payments') && (
+              <button
+                onClick={() => { handleOpenNewTxFromArchive(); }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
+              >
+                <Plus size={16} /> Novo
+              </button>
+            )}
           </div>
         </div>
 
@@ -1641,22 +1651,26 @@ export const LivroCaixa: React.FC = () => {
               {selectedTxIds.size} selecionado(s)
             </span>
             <div className="flex-1" />
-            <button
-              onClick={handleBulkRepeat}
-              disabled={isBulkProcessing}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-emerald-500 transition-all disabled:opacity-50"
-            >
-              <RefreshCw size={13} />
-              Reprocessar selecionados
-            </button>
-            <button
-              onClick={handleBulkDelete}
-              disabled={isBulkProcessing}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-rose-500 transition-all disabled:opacity-50"
-            >
-              <Trash2 size={13} />
-              Excluir selecionados
-            </button>
+            {hasPermission('manage_payments') && (
+              <>
+                <button
+                  onClick={handleBulkRepeat}
+                  disabled={isBulkProcessing}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-emerald-500 transition-all disabled:opacity-50"
+                >
+                  <RefreshCw size={13} />
+                  Reprocessar selecionados
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={isBulkProcessing}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-rose-500 transition-all disabled:opacity-50"
+                >
+                  <Trash2 size={13} />
+                  Excluir selecionados
+                </button>
+              </>
+            )}
             <button
               onClick={() => setSelectedTxIds(new Set())}
               className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-all"

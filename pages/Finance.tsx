@@ -7,6 +7,7 @@ import {
   Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2, Sparkles
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { FinancialTransaction, Patient } from '../types';
 import { Modal } from '../components/UI/Modal';
@@ -39,6 +40,7 @@ const CATEGORIES_EXPENSE = [
 
 export const Finance: React.FC = () => {
   const { t, language } = useLanguage();
+  const { user, isAdmin, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'tax'>('dashboard');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'year'>('month');
@@ -573,9 +575,11 @@ export const Finance: React.FC = () => {
                  </div>
              </div>
              
-             <button className="h-11 px-5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all uppercase tracking-widest flex items-center gap-2">
-                 <Download size={14} /> {t('finance.export')}
-             </button>
+             {hasPermission('view_financial_reports') && (
+               <button className="h-11 px-5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all uppercase tracking-widest flex items-center gap-2">
+                   <Download size={14} /> {t('finance.export')}
+               </button>
+             )}
          </div>
 
          {/* Transactions List */}
@@ -641,25 +645,29 @@ export const Finance: React.FC = () => {
                             </div>
 
                             <div className="flex gap-2">
-                                <button 
-                                    onClick={() => handleRepeatTransaction(tx.id)}
-                                    title="Repetir para próximo mês"
-                                    className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-slate-100"
-                                >
-                                    <Calendar size={16} />
-                                </button>
-                                <button 
-                                    onClick={() => handleOpenModal(tx.type, tx)}
-                                    className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-slate-100"
-                                >
-                                    <Edit3 size={16} />
-                                </button>
-                                <button 
-                                    onClick={() => handleDeleteTransaction(tx.id)}
-                                    className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-rose-600 transition-all border border-slate-100"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                {hasPermission('manage_payments') && (
+                                  <>
+                                    <button 
+                                        onClick={() => handleRepeatTransaction(tx.id)}
+                                        title="Repetir para próximo mês"
+                                        className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-slate-100"
+                                    >
+                                        <Calendar size={16} />
+                                    </button>
+                                    <button 
+                                        onClick={() => handleOpenModal(tx.type, tx)}
+                                        className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-slate-100"
+                                    >
+                                        <Edit3 size={16} />
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDeleteTransaction(tx.id)}
+                                        className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-rose-600 transition-all border border-slate-100"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                  </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -681,24 +689,30 @@ export const Finance: React.FC = () => {
               <p className="text-slate-400 text-xs mt-1 font-bold">{t('finance.subtitle')}</p>
           </div>
           <div className="flex gap-2">
-              <button 
-                  onClick={() => handleOpenModal('income')} 
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
-              >
-                  <Plus size={16} /> {t('finance.addIncome')}
-              </button>
-              <button 
-                  onClick={() => handleOpenModal('expense')} 
-                  className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-rose-100 transition-all active:scale-95 tracking-widest"
-              >
-                  <Plus size={16} /> {t('finance.addExpense')}
-              </button>
-              <button
-                  onClick={() => setIsAuraOpen(true)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 tracking-widest"
-              >
-                  <Sparkles size={16} /> Aura Fiscal
-              </button>
+              {hasPermission('manage_payments') && (
+                <>
+                  <button 
+                      onClick={() => handleOpenModal('income')} 
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
+                  >
+                      <Plus size={16} /> {t('finance.addIncome')}
+                  </button>
+                  <button 
+                      onClick={() => handleOpenModal('expense')} 
+                      className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-rose-100 transition-all active:scale-95 tracking-widest"
+                  >
+                      <Plus size={16} /> {t('finance.addExpense')}
+                  </button>
+                </>
+              )}
+              {hasPermission('view_financial_reports') && (
+                <button
+                    onClick={() => setIsAuraOpen(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 tracking-widest"
+                >
+                    <Sparkles size={16} /> Aura Fiscal
+                </button>
+              )}
           </div>
       </div>
 

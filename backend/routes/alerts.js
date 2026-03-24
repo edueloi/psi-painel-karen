@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { authMiddleware, checkPermission } = require('../middleware/auth');
 
 async function ensureSchema() {
   await db.query(`
@@ -26,7 +27,7 @@ async function withSchema() {
 }
 
 // GET /alerts - Get all active (not dismissed) alerts for the tenant
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, checkPermission('view_boarding_notices'), async (req, res) => {
   try {
     try {
       await withSchema();
@@ -46,7 +47,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /alerts - Create a new alert
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, checkPermission('manage_boarding_notices'), async (req, res) => {
   try {
     const { title, message, type, link } = req.body;
     if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
@@ -71,7 +72,7 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH /alerts/:id/dismiss - Dismiss an alert
-router.patch('/:id/dismiss', async (req, res) => {
+router.patch('/:id/dismiss', authMiddleware, checkPermission('manage_boarding_notices'), async (req, res) => {
   try {
     try {
       const [result] = await db.query(
@@ -91,7 +92,7 @@ router.patch('/:id/dismiss', async (req, res) => {
 });
 
 // DELETE /alerts/dismiss-all - Dismiss all alerts for the tenant
-router.delete('/dismiss-all', async (req, res) => {
+router.delete('/dismiss-all', authMiddleware, checkPermission('manage_boarding_notices'), async (req, res) => {
   try {
     try {
       await db.query(

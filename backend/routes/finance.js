@@ -1,3 +1,4 @@
+const { authMiddleware, checkPermission } = require('../middleware/auth');
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -99,7 +100,7 @@ router.get('/comandas/:id/payments', async (req, res) => {
 });
 
 // POST /finance/comandas/:id/payments - Registrar novo pagamento
-router.post('/comandas/:id/payments', async (req, res) => {
+router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     await withSchema();
     const { amount, payment_date, payment_method, receipt_code, notes } = req.body;
@@ -164,7 +165,7 @@ router.post('/comandas/:id/payments', async (req, res) => {
 });
 
 // DELETE /finance/comandas/:id/payments/:paymentId - Remover pagamento
-router.delete('/comandas/:id/payments/:paymentId', async (req, res) => {
+router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     await withSchema();
 
@@ -201,7 +202,7 @@ router.delete('/comandas/:id/payments/:paymentId', async (req, res) => {
 });
 
 // GET /finance - Transações com filtros
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, checkPermission('view_financial_reports'), async (req, res) => {
   try {
     await withFinanceSchema();
     const { start, end, type, category, comanda_id } = req.query;
@@ -233,7 +234,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /finance/summary - Resumo financeiro
-router.get('/summary', async (req, res) => {
+router.get('/summary', authMiddleware, checkPermission('view_financial_reports'), async (req, res) => {
   try {
     const { month, year } = req.query;
 
@@ -287,7 +288,7 @@ router.get('/summary', async (req, res) => {
 });
 
 // POST /finance
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     await withFinanceSchema();
     const {
@@ -348,7 +349,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /finance/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     const { 
       type, category, description, amount, date, payment_method, status,
@@ -412,7 +413,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /finance/month/:year/:month - Deletar todos os lançamentos de um mês
-router.delete('/month/:year/:month', async (req, res) => {
+router.delete('/month/:year/:month', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     const { year, month } = req.params;
     const start = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -429,7 +430,7 @@ router.delete('/month/:year/:month', async (req, res) => {
 });
 
 // DELETE /finance/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     const [existing] = await db.query('SELECT comanda_id FROM financial_transactions WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
     const comandaId = existing[0]?.comanda_id;
@@ -463,7 +464,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // POST /finance/repeat/:id - Duplicar para o próximo mês
-router.post('/repeat/:id', async (req, res) => {
+router.post('/repeat/:id', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     const [rows] = await db.query(
       'SELECT * FROM financial_transactions WHERE id = ? AND tenant_id = ?',
@@ -784,7 +785,7 @@ router.post('/comandas/export-xlsx', async (req, res) => {
 });
 
 // POST /finance/comandas/import - Importação em lote via CSV
-router.post('/comandas/import', async (req, res) => {
+router.post('/comandas/import', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     await withSchema();
     const { rows } = req.body; // [{ description, client_name, date, sessions_used, sessions_total, total, paid }]

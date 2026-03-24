@@ -1,8 +1,8 @@
+const { checkPermission } = require('../middleware/auth');
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
-const { authorize } = require('../middleware/auth');
 
 // ── Auto-migrate users table ──────────────────────────────────────────────────
 async function ensureUsersColumns() {
@@ -34,7 +34,7 @@ router.get('/me', async (req, res) => {
 });
 
 // GET /users - Lista profissionais do tenant
-router.get('/', async (req, res) => {
+router.get('/', checkPermission('view_professionals'), async (req, res) => {
   try {
     const [users] = await db.query(
       "SELECT id, name, email, role, specialty, crp, cpf, phone, avatar_url, active, permissions, tenant_profile_id, created_at FROM users WHERE tenant_id = ? AND role != 'super_admin' ORDER BY name",
@@ -48,7 +48,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /users/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', checkPermission('view_professionals'), async (req, res) => {
   try {
     const [users] = await db.query(
       'SELECT id, name, email, role, specialty, crp, phone, avatar_url, active, permissions, tenant_profile_id, created_at FROM users WHERE id = ? AND tenant_id = ?',
@@ -63,7 +63,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /users - Criar usuário (admin+)
-router.post('/', authorize('admin', 'super_admin'), async (req, res) => {
+router.post('/', checkPermission('manage_professionals'), async (req, res) => {
   try {
     const { name, email, password, role, specialty, crp, cpf, phone, is_active, active } = req.body;
 
@@ -177,7 +177,7 @@ router.put('/:id/password', async (req, res) => {
 });
 
 // DELETE /users/:id
-router.delete('/:id', authorize('admin', 'super_admin'), async (req, res) => {
+router.delete('/:id', checkPermission('manage_professionals'), async (req, res) => {
   try {
     if (req.user.id == req.params.id) {
       return res.status(400).json({ error: 'Você não pode deletar sua própria conta' });

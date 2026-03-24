@@ -130,6 +130,8 @@ export interface Patient {
   responsible_professional_id?: string;
   photoUrl?: string;
   photo_url?: string;
+  phone_country?: string;
+  phone2_country?: string;
   active?: boolean;
   created_at?: string;
   updated_at?: string;

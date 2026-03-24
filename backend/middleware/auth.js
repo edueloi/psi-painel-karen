@@ -60,4 +60,51 @@ function authorize(...roles) {
   };
 }
 
-module.exports = { authMiddleware, authorize };
+/**
+ * Middleware de autorização por permissão granular
+ * Uso: checkPermission('view_patients')
+ */
+function checkPermission(permissionKey) {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
+
+    // Bypass para super_admin ou Administrador (root / dono)
+    if (req.user.role === 'super_admin' || req.user.role === 'Administrador' || req.user.role === 'admin') {
+      return next();
+    }
+
+    try {
+      const db = require('../db');
+      const [profiles] = await db.query(
+        'SELECT permissions FROM tenant_permission_profiles WHERE tenant_id = ? AND name = ? LIMIT 1',
+        [req.user.tenant_id, req.user.role]
+      );
+
+      if (profiles.length === 0) {
+        return res.status(403).json({ error: 'Perfil de acesso não encontrado' });
+      }
+
+      let permissions = {};
+      try {
+        permissions = typeof profiles[0].permissions === 'string' 
+          ? JSON.parse(profiles[0].permissions) 
+          : (profiles[0].permissions || {});
+      } catch (e) {
+        console.error('Erro ao parsear permissões:', e);
+      }
+
+      if (permissions[permissionKey] === true) {
+        return next();
+      }
+
+      res.status(403).json({ error: `Sem permissão para esta ação (${permissionKey})` });
+    } catch (err) {
+      console.error('Erro ao verificar permissão:', err);
+      res.status(500).json({ error: 'Erro interno ao validar permissão' });
+    }
+  };
+}
+
+module.exports = { authMiddleware, authorize, checkPermission };

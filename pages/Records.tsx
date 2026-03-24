@@ -10,6 +10,7 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
 type RecordAttachment = {
   id?: string;
@@ -60,6 +61,7 @@ const SectionCard: React.FC<{
 
 export const Records: React.FC = () => {
   const { t } = useLanguage();
+  const { hasPermission } = useAuth();
   const [searchParams] = useSearchParams();
   
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -601,7 +603,9 @@ export const Records: React.FC = () => {
                                   </div>
                               </div>
                           </div>
-                          <button onClick={handleNewRecord} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-extrabold text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95"><Plus size={16} /> {t('records.new')}</button>
+                          {hasPermission('create_medical_record') && (
+                              <button onClick={handleNewRecord} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-extrabold text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95"><Plus size={16} /> {t('records.new')}</button>
+                          )}
                       </div>
                       
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">

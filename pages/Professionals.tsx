@@ -32,7 +32,7 @@ const cx = (...classes: Array<string | false | null | undefined>) =>
 
 export const Professionals: React.FC = () => {
   const { t } = useLanguage();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<'team' | 'permissions' | 'commissions'>('team');
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -428,15 +428,17 @@ export const Professionals: React.FC = () => {
             </div>
           </div>
 
-          <Button
-            onClick={() => handleOpenModal()}
-            leftIcon={<UserPlus size={18} />}
-            variant="primary"
-            radius="xl"
-            className="shadow-lg shadow-indigo-200"
-          >
-            {t('professionals.new')}
-          </Button>
+          {hasPermission('manage_professionals') && (
+            <Button
+              onClick={() => handleOpenModal()}
+              leftIcon={<UserPlus size={18} />}
+              variant="primary"
+              radius="xl"
+              className="shadow-lg shadow-indigo-200"
+            >
+              {t('professionals.new')}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -484,8 +486,8 @@ export const Professionals: React.FC = () => {
               onChange={(val) => setActiveTab(val as any)}
               options={[
                 { value: 'team', label: t('professionals.team'), icon: <Users size={14}/> },
-                { value: 'permissions', label: t('professionals.permissions'), icon: <Key size={14}/> },
-                { value: 'commissions', label: 'Comissões', icon: <DollarSign size={14}/> }
+                ...(hasPermission('manage_professionals') ? [{ value: 'permissions', label: t('professionals.permissions'), icon: <Key size={14}/> }] : []),
+                ...(hasPermission('manage_commissions') ? [{ value: 'commissions', label: 'Comissões', icon: <DollarSign size={14}/> }] : [])
               ]}
             />
           </FilterLineSection>
@@ -544,7 +546,7 @@ export const Professionals: React.FC = () => {
                     </div>
                   </div>
                   
-                  {!isOwner && (
+                  {!isOwner && hasPermission('manage_professionals') && (
                     <div className="flex gap-1.5 p-1 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-100 shadow-sm">
                       <Button
                         variant="ghost"

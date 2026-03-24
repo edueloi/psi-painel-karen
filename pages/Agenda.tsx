@@ -12,6 +12,7 @@ import {
     AlignLeft, MessageSquare, Send, Stethoscope, Tag,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
@@ -119,6 +120,7 @@ const recurrenceOptions = [
 
 export const Agenda: React.FC = () => {
   const { t, language } = useLanguage();
+  const { user, isAdmin, hasPermission } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -1418,12 +1420,14 @@ export const Agenda: React.FC = () => {
               <p className="text-slate-400 text-xs mt-1 font-bold">{t('agenda.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
-              <button
-                  onClick={() => setIsImportModalOpen(true)}
-                  className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
-              >
-                  <Upload size={14} className="text-indigo-500" /> Importar
-              </button>
+              {hasPermission('create_appointment') && (
+                  <button
+                      onClick={() => setIsImportModalOpen(true)}
+                      className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
+                  >
+                      <Upload size={14} className="text-indigo-500" /> Importar
+                  </button>
+              )}
               <div className="relative">
                   <button
                       onClick={() => setExportMenuOpen((o: boolean) => !o)}
@@ -1445,12 +1449,14 @@ export const Agenda: React.FC = () => {
                       </div>
                   )}
               </div>
-              <button
-                  onClick={() => openNewModal()}
-                  className="bg-gradient-to-r from-indigo-600 to-primary-600 hover:from-indigo-700 hover:to-primary-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95"
-              >
-                  <Plus size={14} /> Novo Agendamento
-              </button>
+              {hasPermission('create_appointment') && (
+                  <button
+                      onClick={() => openNewModal()}
+                      className="bg-gradient-to-r from-indigo-600 to-primary-600 hover:from-indigo-700 hover:to-primary-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95"
+                  >
+                      <Plus size={14} /> Novo Agendamento
+                  </button>
+              )}
           </div>
       </div>
 
@@ -1626,9 +1632,11 @@ export const Agenda: React.FC = () => {
                                         </button>
                                     )}
                                 </div>
-                                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0 text-indigo-600 bg-white shadow-xl border border-indigo-50 p-1.5 rounded-lg z-10 shrink-0">
-                                    <Plus size={12} />
-                                </div>
+                                {hasPermission('create_appointment') && (
+                                    <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0 text-indigo-600 bg-white shadow-xl border border-indigo-50 p-1.5 rounded-lg z-10 shrink-0">
+                                        <Plus size={12} />
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -1692,7 +1700,7 @@ export const Agenda: React.FC = () => {
                     const apt = appointments.find(a => String(a.id) === String(event.id));
                     if (apt) openDetailModal(apt);
                 }}
-                onSlotClick={(date) => openNewModal(date)}
+                onSlotClick={hasPermission('create_appointment') ? (date) => openNewModal(date) : undefined}
                 showTasksPanel={false}
                 hideHeader
                 hideStats
@@ -3096,7 +3104,7 @@ export const Agenda: React.FC = () => {
                   </div>
                 )}
 
-                {detailQuickStatus && detailQuickStatus !== (apt.status || 'scheduled') && (
+                {hasPermission('confirm_appointment') && detailQuickStatus && detailQuickStatus !== (apt.status || 'scheduled') && (
                   <button
                     onClick={handleQuickSave}
                     className="mt-3 w-full py-2.5 rounded-xl text-[12px] font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98]"
@@ -3147,7 +3155,7 @@ export const Agenda: React.FC = () => {
                     <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Gestão</span>
                   </button>
                 )}
-                {apt.comanda_id && (
+                {hasPermission('edit_appointment') && apt.comanda_id && (
                   <button onClick={() => {
                     const aptDate = new Date(apt.start);
                     const dateStr = aptDate.toISOString().slice(0,10);
@@ -3166,16 +3174,20 @@ export const Agenda: React.FC = () => {
                     <span className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Editar Horário</span>
                   </button>
                 )}
-                <button onClick={() => { if (apt) openEditModal(apt); setIsDetailModalOpen(false); }}
-                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all">
-                  <Edit3 size={16} className="text-indigo-600" />
-                  <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Editar</span>
-                </button>
-                <button onClick={() => { if (apt) setSelectedDeleteIds([apt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); }}
-                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all">
-                  <Trash2 size={16} className="text-rose-500" />
-                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Deletar</span>
-                </button>
+                {hasPermission('edit_appointment') && (
+                  <button onClick={() => { if (apt) openEditModal(apt); setIsDetailModalOpen(false); }}
+                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all">
+                    <Edit3 size={16} className="text-indigo-600" />
+                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Editar</span>
+                  </button>
+                )}
+                {hasPermission('delete_appointment') && (
+                  <button onClick={() => { if (apt) setSelectedDeleteIds([apt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); }}
+                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all">
+                    <Trash2 size={16} className="text-rose-500" />
+                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Deletar</span>
+                  </button>
+                )}
               </div>
 
             </div>

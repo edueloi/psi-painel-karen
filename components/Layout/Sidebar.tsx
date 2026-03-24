@@ -16,7 +16,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) => {
   const location = useLocation();
   const { t } = useLanguage();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
   const { resolvedMode } = useTheme();
 
   const isDark = resolvedMode === 'dark';
@@ -45,9 +45,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
   const visibleSections = NAV_SECTIONS.map(section => ({
     ...section,
     items: section.items.filter(item => {
-      // O Bot só aparece para Admins
-      if (item.path === '/bot' && !isAdmin) return false;
-      return true;
+      // Se não houver permissão exigida, permite
+      if (!item.requiredPermission) return true;
+      // Caso contrário, checa se o usuário tem a permissão
+      return hasPermission(item.requiredPermission);
     })
   })).filter(section => {
     if (user?.role === 'super_admin') return false;

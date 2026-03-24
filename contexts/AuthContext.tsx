@@ -26,6 +26,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   isAdmin: boolean;
   isProfissional: boolean;
+  isInitializing: boolean;
   hasPermission: (key: string) => boolean;
   updateUser: (data: Partial<AuthUser>) => void;
 }
@@ -51,6 +52,7 @@ const decodeToken = (token: string | null): AuthUser | null => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('psi_token'));
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isInitializing, setIsInitializing] = useState(!!token);
 
   // Busca perfil completo do usuário
   const fetchUserProfile = async (decoded: AuthUser) => {
@@ -80,6 +82,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     } catch (e) {
       setUser(decoded); // fallback só com id/role
+    } finally {
+      // Garante que o loading dure pelo menos 3.5s para o usuário ver a animação de boas-vindas
+      setTimeout(() => {
+        setIsInitializing(false);
+      }, 3500);
     }
   };
 
@@ -103,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } else {
       setUser(null);
+      setIsInitializing(false);
     }
     // eslint-disable-next-line
   }, [token]);
@@ -110,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (newToken: string) => {
     localStorage.setItem('psi_token', newToken);
     setToken(newToken);
+    setIsInitializing(true);
     const decoded = decodeToken(newToken);
     if (decoded) fetchUserProfile(decoded);
   };
@@ -118,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('psi_token');
     setToken(null);
     setUser(null);
+    setIsInitializing(false);
   };
 
   return (
@@ -130,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isSuperAdmin: user?.role === 'super_admin',
       isAdmin: user?.role === 'admin',
       isProfissional: user?.role === 'profissional',
+      isInitializing,
       hasPermission,
       updateUser
     }}>

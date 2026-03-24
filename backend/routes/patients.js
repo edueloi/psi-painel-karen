@@ -37,6 +37,8 @@ async function ensurePatientColumns() {
     "ALTER TABLE patients ADD COLUMN payer_name VARCHAR(255) NULL",
     "ALTER TABLE patients ADD COLUMN payer_cpf VARCHAR(20) NULL",
     "ALTER TABLE patients ADD COLUMN payer_phone VARCHAR(20) NULL",
+    "ALTER TABLE patients ADD COLUMN phone_country VARCHAR(10) DEFAULT 'BR' AFTER phone",
+    "ALTER TABLE patients ADD COLUMN phone2_country VARCHAR(10) DEFAULT 'BR' AFTER phone2",
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { if (!e.message.includes('Duplicate column')) console.warn('Patients schema warning:', e.message); }
@@ -327,7 +329,8 @@ router.post('/', async (req, res) => {
       address, city, state, zip_code, notes, status,
       responsible_professional_id, responsible_name,
       responsible_phone, health_plan, diagnosis,
-      is_payer, payer_name, payer_cpf, payer_phone
+      is_payer, payer_name, payer_cpf, payer_phone,
+      phone_country, phone2_country
     } = req.body;
 
     if (cpf) {
@@ -349,8 +352,9 @@ router.post('/', async (req, res) => {
         address, city, state, zip_code, notes, status,
         responsible_professional_id, responsible_name,
         responsible_phone, health_plan, diagnosis,
-        is_payer, payer_name, payer_cpf, payer_phone
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        is_payer, payer_name, payer_cpf, payer_phone,
+        phone_country, phone2_country
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, name, email || null, phone || null, phone2 || null,
         birth_date || null, cpf || null, rg || null, gender || null,
@@ -363,7 +367,8 @@ router.post('/', async (req, res) => {
         responsible_professional_id || null, responsible_name || null,
         responsible_phone || null, health_plan || null, diagnosis || null,
         is_payer === undefined ? 1 : (is_payer ? 1 : 0), 
-        payer_name || null, payer_cpf || null, payer_phone || null
+        payer_name || null, payer_cpf || null, payer_phone || null,
+        phone_country || 'BR', phone2_country || 'BR'
       ]
     );
 
@@ -387,7 +392,8 @@ router.put('/:id', async (req, res) => {
       address, city, state, zip_code, notes, status,
       responsible_professional_id, responsible_name,
       responsible_phone, health_plan, diagnosis,
-      is_payer, payer_name, payer_cpf, payer_phone
+      is_payer, payer_name, payer_cpf, payer_phone,
+      phone_country, phone2_country
     } = req.body;
 
     const [existing] = await db.query(
@@ -437,7 +443,9 @@ router.put('/:id', async (req, res) => {
         is_payer = COALESCE(?, is_payer),
         payer_name = COALESCE(?, payer_name),
         payer_cpf = COALESCE(?, payer_cpf),
-        payer_phone = COALESCE(?, payer_phone)
+        payer_phone = COALESCE(?, payer_phone),
+        phone_country = COALESCE(?, phone_country),
+        phone2_country = COALESCE(?, phone2_country)
       WHERE id = ? AND tenant_id = ?`,
       [
         name ?? null, email ?? null, phone ?? null, phone2 ?? null, sanitizedBirthDate ?? null, cpf ?? null, rg ?? null, gender ?? null,
@@ -451,6 +459,7 @@ router.put('/:id', async (req, res) => {
         responsible_phone ?? null, health_plan ?? null, diagnosis ?? null,
         is_payer !== undefined ? (is_payer ? 1 : 0) : null,
         payer_name ?? null, payer_cpf ?? null, payer_phone ?? null,
+        phone_country ?? null, phone2_country ?? null,
         req.params.id, req.user.tenant_id
       ]
     );

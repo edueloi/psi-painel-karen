@@ -487,9 +487,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                         <div><p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Activity size={14} className="text-indigo-500" /> Evolução de Receita</p><p className="text-xs text-slate-400 mt-0.5">Últimos 6 meses</p></div>
                         <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">6 meses</span>
                       </div>
-                      <div className="h-48 min-h-0">
+                      <div className="h-48 w-full relative">
                         {mrrHistory.length > 0 ? (
-                          <ResponsiveContainer width="100%" height="100%">
+                          <ResponsiveContainer width="100%" height={192} debounce={100}>
                             <AreaChart data={mrrHistory} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                               <defs><linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} /><stop offset="95%" stopColor="#6366f1" stopOpacity={0} /></linearGradient></defs>
                               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -507,8 +507,8 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                       <p className="text-xs text-slate-400 mb-4">Clínicas por plano</p>
                       {stats.by_plan?.length > 0 ? (
                         <>
-                          <div className="h-36 min-h-0">
-                            <ResponsiveContainer width="100%" height="100%">
+                          <div className="h-36 w-full relative">
+                            <ResponsiveContainer width="100%" height={144} debounce={100}>
                               <PieChart><Pie data={stats.by_plan} dataKey="count" nameKey="plan_name" cx="50%" cy="50%" innerRadius={38} outerRadius={62} strokeWidth={2} stroke="#f8fafc">
                                 {stats.by_plan.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                               </Pie><Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12 }} /></PieChart>

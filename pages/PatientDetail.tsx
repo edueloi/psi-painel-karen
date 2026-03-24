@@ -7,6 +7,7 @@ import {
   ChevronRight, History, Activity, AlertTriangle, X
 } from 'lucide-react';
 import { api, getStaticUrl } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { Patient } from '../types';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
@@ -59,6 +60,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
 export const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
@@ -185,12 +187,14 @@ export const PatientDetail: React.FC = () => {
           >
             <History size={16} />
           </button>
-          <button
-            onClick={() => setIsWizardOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
-          >
-            <Edit2 size={13} /> Editar
-          </button>
+          {hasPermission('edit_patient') && (
+            <button
+              onClick={() => setIsWizardOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
+            >
+              <Edit2 size={13} /> Editar
+            </button>
+          )}
         </div>
 
         {/* Hero header */}
@@ -246,7 +250,13 @@ export const PatientDetail: React.FC = () => {
 
         {/* Tab bar */}
         <div className="bg-white border-b border-slate-100 px-4 flex gap-1 overflow-x-auto">
-          {TABS.map(tab => (
+          {TABS.filter(tab => {
+            if (tab.key === 'prontuario') return hasPermission('view_medical_records');
+            if (tab.key === 'ferramentas') return hasPermission('manage_clinical_tools');
+            if (tab.key === 'documentos') return hasPermission('manage_documents');
+            if (tab.key === 'formularios') return hasPermission('manage_forms');
+            return true;
+          }).map(tab => (
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}

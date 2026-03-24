@@ -5,11 +5,67 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { API_BASE_URL } from '../../services/api';
 import { DatePicker } from '../UI/DatePicker';
 
+/* ─── Países e DDI ────────────────────────────────────── */
+const COUNTRIES = [
+  { code: 'BR', ddi: '55', name: 'Brasil', flag: '🇧🇷', mask: '(00) 00000-0000' },
+  { code: 'PT', ddi: '351', name: 'Portugal', flag: '🇵🇹', mask: '000 000 000' },
+  { code: 'US', ddi: '1', name: 'EUA', flag: '🇺🇸', mask: '(000) 000-0000' },
+  { code: 'CA', ddi: '1', name: 'Canadá', flag: '🇨🇦', mask: '(000) 000-0000' },
+  { code: 'AR', ddi: '54', name: 'Argentina', flag: '🇦🇷', mask: '00 0000-0000' },
+  { code: 'CL', ddi: '56', name: 'Chile', flag: '🇨🇱', mask: '0 0000 0000' },
+  { code: 'CO', ddi: '57', name: 'Colômbia', flag: '🇨🇴', mask: '000 000 0000' },
+  { code: 'MX', ddi: '52', name: 'México', flag: '🇲🇽', mask: '00 0000 0000' },
+  { code: 'UY', ddi: '598', name: 'Uruguai', flag: '🇺🇾', mask: '0 000 0000' },
+  { code: 'PY', ddi: '595', name: 'Paraguai', flag: '🇵🇾', mask: '000 000 000' },
+  { code: 'PE', ddi: '51', name: 'Peru', flag: '🇵🇪', mask: '000 000 000' },
+  { code: 'BO', ddi: '591', name: 'Bolívia', flag: '🇧🇴', mask: '0 000 0000' },
+  { code: 'GB', ddi: '44', name: 'Reino Unido', flag: '🇬🇧', mask: '0000 000000' },
+  { code: 'DE', ddi: '49', name: 'Alemanha', flag: '🇩🇪', mask: '000 00000000' },
+  { code: 'ES', ddi: '34', name: 'Espanha', flag: '🇪🇸', mask: '000 000 000' },
+  { code: 'FR', ddi: '33', name: 'França', flag: '🇫🇷', mask: '0 00 00 00 00' },
+  { code: 'IT', ddi: '39', name: 'Itália', flag: '🇮🇹', mask: '000 000 0000' },
+  { code: 'CH', ddi: '41', name: 'Suíça', flag: '🇨🇭', mask: '00 000 00 00' },
+  { code: 'NL', ddi: '31', name: 'Países Baixos', flag: '🇳🇱', mask: '0 00 000000' },
+  { code: 'BE', ddi: '32', name: 'Bélgica', flag: '🇧🇪', mask: '000 00 00 00' },
+  { code: 'IE', ddi: '353', name: 'Irlanda', flag: '🇮🇪', mask: '00 000 0000' },
+  { code: 'IL', ddi: '972', name: 'Israel', flag: '🇮🇱', mask: '00-000-0000' },
+  { code: 'AE', ddi: '971', name: 'Emirados Árabes', flag: '🇦🇪', mask: '00 000 0000' },
+  { code: 'AU', ddi: '61', name: 'Austrália', flag: '🇦🇺', mask: '0 0000 0000' },
+  { code: 'JP', ddi: '81', name: 'Japão', flag: '🇯🇵', mask: '00 0000 0000' },
+  { code: 'CN', ddi: '86', name: 'China', flag: '🇨🇳', mask: '000 0000 0000' },
+  { code: 'OTHER', ddi: '', name: 'Outro', flag: '🌐', mask: '' },
+];
+
 /* ─── Máscaras ─────────────────────────────────────────── */
-const maskPhone = (v: string) => {
-  const d = v.replace(/\D/g, '').slice(0, 11);
-  if (d.length <= 10) return d.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
-  return d.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+/* ─── Máscaras ─────────────────────────────────────────── */
+const applyMask = (value: string, pattern: string) => {
+  if (!pattern) return value;
+  let result = '';
+  let vIdx = 0;
+  for (let i = 0; i < pattern.length && vIdx < value.length; i++) {
+    if (pattern[i] === '0') {
+      result += value[vIdx++];
+    } else {
+      result += pattern[i];
+    }
+  }
+  return result;
+};
+
+const maskPhone = (v: string, countryCode: string = 'BR') => {
+  const d = v.replace(/\D/g, '');
+  const country = COUNTRIES.find(c => c.code === countryCode);
+  
+  if (!country || !country.mask) return d.slice(0, 15);
+
+  // Caso especial Brasil (9 dígitos vs 8 dígitos)
+  if (countryCode === 'BR') {
+    const digits = d.slice(0, 11);
+    if (digits.length <= 10) return applyMask(digits, '(00) 0000-0000');
+    return applyMask(digits, '(00) 00000-0000');
+  }
+
+  return applyMask(d, country.mask);
 };
 
 const maskCpfCnpj = (v: string) => {
@@ -46,6 +102,8 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     has_children: false,
     needs_reimbursement: false,
     is_payer: true,
+    phone_country: 'BR',
+    phone2_country: 'BR',
     ...initialData
   });
 
@@ -161,7 +219,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 onChange={e => updateField('full_name', e.target.value)}
               />
             </div>
-            <div className="space-y-2">
+            
+            {/* Email - ocupando espaço total como solicitado */}
+            <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.email')}</label>
               <input 
                 type="email" 
@@ -170,26 +230,66 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 onChange={e => updateField('email', e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.phone')}</label>
-              <input
-                type="tel"
-                placeholder="(00) 00000-0000"
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none"
-                value={formData.whatsapp || ''}
-                onChange={e => updateField('whatsapp', maskPhone(e.target.value))}
-              />
+
+            {/* Telefones - País/DDI e Número */}
+            <div className="space-y-2 md:col-span-1">
+              <label className="text-xs font-semibold text-slate-600">
+                {t('wizard.phone')}
+                {formData.phone_country && formData.phone_country !== 'OTHER' && (
+                  <span className="ml-1 text-[10px] text-indigo-500 font-bold">
+                    (+{COUNTRIES.find(c => c.code === formData.phone_country)?.ddi})
+                  </span>
+                )}
+              </label>
+              <div className="flex gap-1.5">
+                <select 
+                  className="w-[85px] p-2 text-xs border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                  value={formData.phone_country || 'BR'}
+                  onChange={e => updateField('phone_country', e.target.value)}
+                >
+                  {COUNTRIES.map(c => (
+                    <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  placeholder={COUNTRIES.find(c => c.code === formData.phone_country)?.mask || 'Telefone'}
+                  className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none shadow-sm"
+                  value={formData.whatsapp || ''}
+                  onChange={e => updateField('whatsapp', maskPhone(e.target.value, formData.phone_country))}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">Telefone 2</label>
-              <input
-                type="tel"
-                placeholder="(00) 00000-0000"
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none"
-                value={formData.phone2 || ''}
-                onChange={e => updateField('phone2', maskPhone(e.target.value))}
-              />
+
+            <div className="space-y-2 md:col-span-1">
+              <label className="text-xs font-semibold text-slate-600">
+                Telefone 2
+                {formData.phone2_country && formData.phone2_country !== 'OTHER' && (
+                   <span className="ml-1 text-[10px] text-indigo-500 font-bold">
+                    (+{COUNTRIES.find(c => c.code === formData.phone2_country)?.ddi})
+                  </span>
+                )}
+              </label>
+              <div className="flex gap-1.5">
+                <select 
+                  className="w-[85px] p-2 text-xs border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                  value={formData.phone2_country || 'BR'}
+                  onChange={e => updateField('phone2_country', e.target.value)}
+                >
+                  {COUNTRIES.map(c => (
+                    <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  placeholder={COUNTRIES.find(c => c.code === formData.phone2_country)?.mask || 'Telefone'}
+                  className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none shadow-sm"
+                  value={formData.phone2 || ''}
+                  onChange={e => updateField('phone2', maskPhone(e.target.value, formData.phone2_country))}
+                />
+              </div>
             </div>
+
             <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.taxId')}</label>
               <input

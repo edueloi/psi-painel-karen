@@ -1,4 +1,5 @@
 import React from 'react';
+import logoUrl from './images/logo-psiflux.png';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Topbar } from './components/Layout/Topbar';
@@ -65,17 +66,18 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[] }> = ({ children, allowedRoles }) => {
-  const { isAuthenticated, user, isAdmin } = useAuth();
+const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[]; requiredPermission?: string }> = ({ children, allowedRoles, requiredPermission }) => {
+  const { isAuthenticated, user, isAdmin, hasPermission } = useAuth();
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  // Super admin não acessa rotas da clínica — vai para o painel próprio
   if (user?.role === 'super_admin') return <Navigate to="/painel-master" replace />;
 
-  // Se houver restricao de cargo:
-  // Permite se o usuario tiver o cargo na lista OU se ele for o admin da clinica
   if (allowedRoles && user && !allowedRoles.includes(user.role) && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (requiredPermission && !hasPermission(requiredPermission)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -104,7 +106,48 @@ const RedirectToSala: React.FC = () => {
 };
 
 const AppRoutes: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isInitializing } = useAuth();
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-white relative overflow-hidden transition-all duration-700">
+        <div className="absolute top-0 right-0 w-[50vh] h-[50vh] bg-indigo-50/50 rounded-full -translate-y-1/2 translate-x-1/2 blur-[80px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[50vh] h-[50vh] bg-violet-50/50 rounded-full translate-y-1/2 -translate-x-1/2 blur-[80px] pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="relative mb-12 transform-gpu hover:scale-105 transition-transform duration-700">
+            <div className="absolute -inset-10 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" />
+            <div className="w-28 h-28 bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(79,70,229,0.15)] flex items-center justify-center p-4 relative z-10 ring-1 ring-slate-100/50">
+               <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+            </div>
+            {/* Spinning ring decorative */}
+            <div className="absolute -inset-2 border border-indigo-200/50 rounded-[2.8rem] animate-[spin_8s_linear_infinite]" />
+          </div>
+
+          <div className="text-center space-y-4 animate-slideUpFade">
+            <h1 className="text-4xl font-display font-black tracking-tight flex items-baseline justify-center gap-0.5">
+              <span className="text-slate-900">Psi</span>
+              <span className="text-indigo-600">Flux</span>
+            </h1>
+            <div className="flex flex-col items-center gap-4">
+               <div className="flex items-center gap-2 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                  <p className="text-slate-500 font-black tracking-[0.1em] text-[10px] uppercase">
+                    Carregando seu consultório
+                  </p>
+               </div>
+               
+               <div className="flex gap-2.5">
+                  <div className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="w-2 h-2 rounded-full bg-indigo-200 animate-bounce"></div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -124,40 +167,40 @@ const AppRoutes: React.FC = () => {
       />
 
       {/* Rotas comuns da clinica */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/pacientes" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
-      <Route path="/pacientes/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
-      <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
-      <Route path="/salas-virtuais" element={<ProtectedRoute><VirtualRooms /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute requiredPermission="view_dashboard"><Dashboard /></ProtectedRoute>} />
+      <Route path="/pacientes" element={<ProtectedRoute requiredPermission="view_patients"><Patients /></ProtectedRoute>} />
+      <Route path="/pacientes/:id" element={<ProtectedRoute requiredPermission="view_patients"><PatientDetail /></ProtectedRoute>} />
+      <Route path="/agenda" element={<ProtectedRoute requiredPermission="view_agenda"><Agenda /></ProtectedRoute>} />
+      <Route path="/salas-virtuais" element={<ProtectedRoute requiredPermission="view_agenda"><VirtualRooms /></ProtectedRoute>} />
       <Route path="/sala/:id" element={<MeetingRoom />} />
-      <Route path="/bot" element={<ProtectedRoute allowedRoles={['admin']}><BotIntegration /></ProtectedRoute>} />
+      <Route path="/bot" element={<ProtectedRoute requiredPermission="manage_bot_integration"><BotIntegration /></ProtectedRoute>} />
 
       {/* Rotas clinicas avancadas */}
-      <Route path="/neurodesenvolvimento" element={<ProtectedRoute><PEI /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas" element={<ProtectedRoute><ClinicalTools /></ProtectedRoute>} />
-      <Route path="/prontuario" element={<ProtectedRoute><Records /></ProtectedRoute>} />
+      <Route path="/neurodesenvolvimento" element={<ProtectedRoute requiredPermission="neuro_access"><PEI /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><ClinicalTools /></ProtectedRoute>} />
+      <Route path="/prontuario" element={<ProtectedRoute requiredPermission="view_medical_records"><Records /></ProtectedRoute>} />
       <Route path="/estudos-de-caso" element={<ProtectedRoute><CaseStudies /></ProtectedRoute>} />
-      <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-      <Route path="/formularios" element={<ProtectedRoute><Forms /></ProtectedRoute>} />
+      <Route path="/documentos" element={<ProtectedRoute requiredPermission="manage_documents"><Documents /></ProtectedRoute>} />
+      <Route path="/formularios" element={<ProtectedRoute requiredPermission="manage_forms"><Forms /></ProtectedRoute>} />
       <Route path="/disc" element={<ProtectedRoute><Disc /></ProtectedRoute>} />
-      <Route path="/formularios/lista" element={<ProtectedRoute><FormsList /></ProtectedRoute>} />
-      <Route path="/formularios/metricas" element={<ProtectedRoute><FormsMetrics /></ProtectedRoute>} />
-      <Route path="/formularios/novo" element={<ProtectedRoute><FormEditor /></ProtectedRoute>} />
-      <Route path="/formularios/:id" element={<ProtectedRoute><FormEditor /></ProtectedRoute>} />
-      <Route path="/formularios/:id/respostas" element={<ProtectedRoute><FormResponses /></ProtectedRoute>} />
-      <Route path="/formularios/respostas" element={<ProtectedRoute><FormsResponsesAll /></ProtectedRoute>} />
+      <Route path="/formularios/lista" element={<ProtectedRoute requiredPermission="manage_forms"><FormsList /></ProtectedRoute>} />
+      <Route path="/formularios/metricas" element={<ProtectedRoute requiredPermission="manage_forms"><FormsMetrics /></ProtectedRoute>} />
+      <Route path="/formularios/novo" element={<ProtectedRoute requiredPermission="manage_forms"><FormEditor /></ProtectedRoute>} />
+      <Route path="/formularios/:id" element={<ProtectedRoute requiredPermission="manage_forms"><FormEditor /></ProtectedRoute>} />
+      <Route path="/formularios/:id/respostas" element={<ProtectedRoute requiredPermission="manage_forms"><FormResponses /></ProtectedRoute>} />
+      <Route path="/formularios/respostas" element={<ProtectedRoute requiredPermission="manage_forms"><FormsResponsesAll /></ProtectedRoute>} />
 
       {/* Rotas de gestao e financeiro */}
-      <Route path="/profissionais" element={<ProtectedRoute allowedRoles={['admin']}><Professionals /></ProtectedRoute>} />
-      <Route path="/permissoes" element={<ProtectedRoute allowedRoles={['admin']}><Permissions /></ProtectedRoute>} />
-      <Route path="/servicos" element={<ProtectedRoute allowedRoles={['admin']}><Services /></ProtectedRoute>} />
-      <Route path="/produtos" element={<ProtectedRoute allowedRoles={['admin']}><Products /></ProtectedRoute>} />
-      <Route path="/comandas" element={<ProtectedRoute allowedRoles={['admin']}><Comandas /></ProtectedRoute>} />
-      <Route path="/financeiro" element={<ProtectedRoute allowedRoles={['admin']}><Finance /></ProtectedRoute>} />
-      <Route path="/livro-caixa" element={<ProtectedRoute allowedRoles={['admin']}><LivroCaixa /></ProtectedRoute>} />
-      <Route path="/gerador-documentos" element={<ProtectedRoute allowedRoles={['admin']}><DocGenerator /></ProtectedRoute>} />
-      <Route path="/melhores-clientes" element={<ProtectedRoute allowedRoles={['admin']}><BestClients /></ProtectedRoute>} />
-      <Route path="/desempenho" element={<ProtectedRoute allowedRoles={['admin']}><Performance /></ProtectedRoute>} />
+      <Route path="/profissionais" element={<ProtectedRoute requiredPermission="manage_professionals"><Professionals /></ProtectedRoute>} />
+      <Route path="/permissoes" element={<ProtectedRoute requiredPermission="manage_professionals"><Permissions /></ProtectedRoute>} />
+      <Route path="/servicos" element={<ProtectedRoute requiredPermission="manage_services"><Services /></ProtectedRoute>} />
+      <Route path="/produtos" element={<ProtectedRoute requiredPermission="manage_products"><Products /></ProtectedRoute>} />
+      <Route path="/comandas" element={<ProtectedRoute requiredPermission="view_all_comandas"><Comandas /></ProtectedRoute>} />
+      <Route path="/financeiro" element={<ProtectedRoute requiredPermission="view_financial_reports"><Finance /></ProtectedRoute>} />
+      <Route path="/livro-caixa" element={<ProtectedRoute requiredPermission="view_financial_reports"><LivroCaixa /></ProtectedRoute>} />
+      <Route path="/gerador-documentos" element={<ProtectedRoute requiredPermission="manage_documents"><DocGenerator /></ProtectedRoute>} />
+      <Route path="/melhores-clientes" element={<ProtectedRoute requiredPermission="view_performance_reports"><BestClients /></ProtectedRoute>} />
+      <Route path="/desempenho" element={<ProtectedRoute requiredPermission="view_performance_reports"><Performance /></ProtectedRoute>} />
 
       {/* Rotas de sistema e perfil */}
       <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

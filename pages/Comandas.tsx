@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import {
   ShoppingBag,
   Search,
@@ -120,6 +121,7 @@ export const Comandas: React.FC = () => {
   const location = useLocation();
   const { preferences, updatePreference } = useUserPreferences();
   const { pushToast } = useToast();
+  const { hasPermission } = useAuth();
 
   const [activePatients, setActivePatients] = useState<Patient[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -1216,62 +1218,68 @@ export const Comandas: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              onClick={() => { setImportRows([]); setImportResult(null); setIsImportOpen(true); }}
-              leftIcon={<Upload size={16} />}
-              variant="outline"
-              radius="xl"
-            >
-              Importar
-            </Button>
-
-            {/* dropdown exportar */}
-            <div className="relative">
+            {hasPermission('manage_payments') && (
               <Button
-                onClick={() => setExportMenuOpen(o => !o)}
-                leftIcon={<Download size={16} />}
-                rightIcon={<ChevronDown size={14} />}
+                onClick={() => { setImportRows([]); setImportResult(null); setIsImportOpen(true); }}
+                leftIcon={<Upload size={16} />}
                 variant="outline"
                 radius="xl"
               >
-                Exportar
+                Importar
               </Button>
-              {exportMenuOpen && (
-                <div
-                  className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
-                  onMouseLeave={() => setExportMenuOpen(false)}
-                >
-                  <button
-                    onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <FileText size={14} className="text-emerald-500" /> Exportar CSV
-                  </button>
-                  <button
-                    onClick={() => { setExportMenuOpen(false); handleExportXLSX(); }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <FileText size={14} className="text-green-600" /> Exportar Excel
-                  </button>
-                  <button
-                    onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <FileText size={14} className="text-red-500" /> Exportar PDF
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
 
-            <Button
-              onClick={() => handleOpenModal()}
-              leftIcon={<Plus size={16} />}
-              variant="primary"
-              radius="xl"
-              className="shadow-lg shadow-primary-200"
-            >
-              Nova comanda
-            </Button>
+            {/* dropdown exportar */}
+            {hasPermission('view_financial_reports') && (
+              <div className="relative">
+                <Button
+                  onClick={() => setExportMenuOpen(o => !o)}
+                  leftIcon={<Download size={16} />}
+                  rightIcon={<ChevronDown size={14} />}
+                  variant="outline"
+                  radius="xl"
+                >
+                  Exportar
+                </Button>
+                {exportMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    onMouseLeave={() => setExportMenuOpen(false)}
+                  >
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                    </button>
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportXLSX(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-green-600" /> Exportar Excel
+                    </button>
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-red-500" /> Exportar PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {hasPermission('manage_payments') && (
+              <Button
+                onClick={() => handleOpenModal()}
+                leftIcon={<Plus size={16} />}
+                variant="primary"
+                radius="xl"
+                className="shadow-lg shadow-primary-200"
+              >
+                Nova comanda
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -1388,27 +1396,31 @@ export const Comandas: React.FC = () => {
                   </div>
 
                   <div className="flex gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenModal(comanda);
-                      }}
-                      className={iconButtonClass}
-                      title="Editar"
-                    >
-                      <Edit3 size={16} />
-                    </button>
+                    {hasPermission('manage_payments') && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenModal(comanda);
+                          }}
+                          className={iconButtonClass}
+                          title="Editar"
+                        >
+                          <Edit3 size={16} />
+                        </button>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteConfirmId(String(comanda.id));
-                      }}
-                      className={`${iconButtonClass} hover:bg-red-50 hover:text-red-600`}
-                      title="Excluir"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirmId(String(comanda.id));
+                          }}
+                          className={`${iconButtonClass} hover:bg-red-50 hover:text-red-600`}
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1539,15 +1551,19 @@ export const Comandas: React.FC = () => {
                   headerClassName: 'text-right',
                   render: (c: any) => (
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenModal(c)} title="Editar">
-                        <Edit3 size={14} />
-                      </Button>
+                      {hasPermission('manage_payments') && (
+                        <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenModal(c)} title="Editar">
+                          <Edit3 size={14} />
+                        </Button>
+                      )}
                       <Button variant="soft" size="xs" iconOnly onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }} title="Histórico">
                         <CheckCircle2 size={14} />
                       </Button>
-                      <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteConfirmId(String(c.id))} title="Excluir">
-                        <Trash2 size={14} />
-                      </Button>
+                      {hasPermission('manage_payments') && (
+                        <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteConfirmId(String(c.id))} title="Excluir">
+                          <Trash2 size={14} />
+                        </Button>
+                      )}
                     </div>
                   )
                 }
@@ -1991,13 +2007,15 @@ export const Comandas: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={handleGenerateReceipt}
-            title="Recibo"
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-          >
-            <FileText size={14} />
-          </button>
+          {hasPermission('manage_invoice_issuer') && (
+            <button
+              onClick={handleGenerateReceipt}
+              title="Recibo"
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            >
+              <FileText size={14} />
+            </button>
+          )}
           <button
             onClick={() => { setIsHistoryOpen(false); handleOpenModal(historyComanda); }}
             title="Editar"
@@ -2281,12 +2299,14 @@ export const Comandas: React.FC = () => {
             <strong>{formatCurrency(getComandaPending(historyComanda))}</strong>
           </div>
         </div>
-        <button
-          onClick={() => setIsAddPaymentModalOpen(true)}
-          className="mt-3 w-full rounded-lg bg-white py-1.5 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
-        >
-          + Novo pagamento
-        </button>
+        {hasPermission('process_payments') && (
+          <button
+            onClick={() => setIsAddPaymentModalOpen(true)}
+            className="mt-3 w-full rounded-lg bg-white py-1.5 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
+          >
+            + Novo pagamento
+          </button>
+        )}
       </div>
 
       {(historyComanda as any).items?.length > 0 && (

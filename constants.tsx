@@ -7,54 +7,54 @@ export const NAV_SECTIONS = [
   {
     title: 'nav.group.general',
     items: [
-      { label: 'nav.dashboard', path: '/dashboard', icon: <Activity size={20} /> },
-      { label: 'nav.agenda', path: '/agenda', icon: <Calendar size={20} /> },
-      { label: 'nav.meeting', path: '/salas-virtuais', icon: <Video size={20} /> },
+      { label: 'nav.dashboard', path: '/dashboard', icon: <Activity size={20} />, requiredPermission: 'view_dashboard' },
+      { label: 'nav.agenda', path: '/agenda', icon: <Calendar size={20} />, requiredPermission: 'view_agenda' },
+      { label: 'nav.meeting', path: '/salas-virtuais', icon: <Video size={20} />, requiredPermission: 'view_agenda' },
     ]
   },
   {
     title: 'nav.group.clinical',
     items: [
-      { label: 'nav.patients', path: '/pacientes', icon: <Users size={20} /> },
-      { label: 'nav.neuro', path: '/neurodesenvolvimento', icon: <BrainCircuit size={20} /> }, 
-      { label: 'nav.tools', path: '/caixa-ferramentas', icon: <Boxes size={20} /> },
-      { label: 'nav.records', path: '/prontuario', icon: <FileText size={20} /> },
-      { label: 'nav.cases', path: '/estudos-de-caso', icon: <BookOpen size={20} /> },
-      { label: 'nav.documents', path: '/documentos', icon: <FolderOpen size={20} /> },
-      { label: 'nav.forms', path: '/formularios', icon: <ClipboardList size={20} /> },
-      { label: 'nav.disc', path: '/disc', icon: <Radar size={20} /> },
+      { label: 'nav.patients', path: '/pacientes', icon: <Users size={20} />, requiredPermission: 'view_patients' },
+      { label: 'nav.neuro', path: '/neurodesenvolvimento', icon: <BrainCircuit size={20} />, requiredPermission: 'manage_clinical_tools' }, 
+      { label: 'nav.tools', path: '/caixa-ferramentas', icon: <Boxes size={20} />, requiredPermission: 'manage_clinical_tools' },
+      { label: 'nav.records', path: '/prontuario', icon: <FileText size={20} />, requiredPermission: 'view_medical_records' },
+      { label: 'nav.cases', path: '/estudos-de-caso', icon: <BookOpen size={20} />, requiredPermission: 'view_medical_records' },
+      { label: 'nav.documents', path: '/documentos', icon: <FolderOpen size={20} />, requiredPermission: 'manage_documents' },
+      { label: 'nav.forms', path: '/formularios', icon: <ClipboardList size={20} />, requiredPermission: 'manage_forms' },
+      { label: 'nav.disc', path: '/disc', icon: <Radar size={20} />, requiredPermission: 'manage_clinical_tools' },
     ]
   },
   {
     title: 'nav.group.management',
     items: [
-      { label: 'nav.professionals', path: '/profissionais', icon: <UserCheck size={20} /> },
-      { label: 'nav.services', path: '/servicos', icon: <Briefcase size={20} /> },
-      { label: 'nav.products', path: '/produtos', icon: <Package size={20} /> },
-      { label: 'nav.comandas', path: '/comandas', icon: <ShoppingBag size={20} /> },
+      { label: 'nav.professionals', path: '/profissionais', icon: <UserCheck size={20} />, requiredPermission: 'manage_professionals' },
+      { label: 'nav.services', path: '/servicos', icon: <Briefcase size={20} />, requiredPermission: 'manage_services' },
+      { label: 'nav.products', path: '/produtos', icon: <Package size={20} />, requiredPermission: 'manage_products' },
+      { label: 'nav.comandas', path: '/comandas', icon: <ShoppingBag size={20} />, requiredPermission: 'view_all_comandas' },
     ]
   },
   {
     title: 'nav.group.financial',
     items: [
-      { label: 'nav.livroCaixa', path: '/livro-caixa', icon: <BookOpen size={20} /> },
-      { label: 'nav.finance', path: '/financeiro', icon: <DollarSign size={20} /> },
-      { label: 'nav.docGen', path: '/gerador-documentos', icon: <Printer size={20} /> },
-      { label: 'nav.bestClients', path: '/melhores-clientes', icon: <Trophy size={20} /> },
-      { label: 'nav.performance', path: '/desempenho', icon: <BarChart2 size={20} /> },
+      { label: 'nav.livroCaixa', path: '/livro-caixa', icon: <BookOpen size={20} />, requiredPermission: 'view_financial_reports' },
+      { label: 'nav.finance', path: '/financeiro', icon: <DollarSign size={20} />, requiredPermission: 'view_financial_reports' },
+      { label: 'nav.docGen', path: '/gerador-documentos', icon: <Printer size={20} />, requiredPermission: 'manage_invoice_issuer' },
+      { label: 'nav.bestClients', path: '/melhores-clientes', icon: <Trophy size={20} />, requiredPermission: 'view_performance_reports' },
+      { label: 'nav.performance', path: '/desempenho', icon: <BarChart2 size={20} />, requiredPermission: 'view_performance_reports' },
     ]
   },
   {
     title: 'nav.group.communication',
     items: [
-      { label: 'nav.messages', path: '/mensagens', icon: <MessageCircle size={20} /> },
+      { label: 'nav.messages', path: '/mensagens', icon: <MessageCircle size={20} />, requiredPermission: 'access_messages' },
     ]
   },
   {
     title: 'nav.group.system',
     items: [
-      { label: 'nav.settings', path: '/configuracoes', icon: <Settings size={20} /> },
-      { label: 'WhatsApp', path: '/bot', icon: <Smartphone size={20} /> },
+      { label: 'nav.settings', path: '/configuracoes', icon: <Settings size={20} />, requiredPermission: 'manage_clinic_settings' },
+      { label: 'WhatsApp', path: '/bot', icon: <Smartphone size={20} />, requiredPermission: 'manage_bot_integration' },
     ]
   }
 ];

@@ -9,9 +9,10 @@ import {
 import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useToast } from '../contexts/ToastContext';
 import { GridTable, Column } from '../components/UI/GridTable';
@@ -41,8 +42,21 @@ const getAvatarColor = (name: string) => {
   return AVATAR_COLORS[idx];
 };
 
+const getFlag = (code?: string) => {
+  const custom: Record<string, string> = {
+    'BR': '🇧🇷', 'PT': '🇵🇹', 'US': '🇺🇸', 'CA': '🇨🇦', 'AR': '🇦🇷', 'CL': '🇨🇱', 'CO': '🇨🇴',
+    'MX': '🇲🇽', 'UY': '🇺🇾', 'PY': '🇵🇾', 'PE': '🇵🇪', 'BO': '🇧🇴', 'GB': '🇬🇧', 'DE': '🇩🇪',
+    'ES': '🇪🇸', 'FR': '🇫🇷', 'IT': '🇮🇹', 'CH': '🇨🇭', 'NL': '🇳🇱', 'BE': '🇧🇪', 'IE': '🇮🇪',
+    'IL': '🇮🇱', 'AE': '🇦🇪', 'AU': '🇦🇺', 'JP': '🇯🇵', 'CN': '🇨🇳'
+  };
+  return code ? (custom[code.toUpperCase()] || '🌐') : null;
+};
+
 export const Patients: React.FC = () => {
   const { t } = useLanguage();
+  const { user, isAdmin, hasPermission } = useAuth();
+  const { pushToast } = useToast();
+  const location = useLocation();
   const { preferences, updatePreference } = useUserPreferences();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -78,7 +92,6 @@ export const Patients: React.FC = () => {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importSelectedIds, setImportSelectedIds] = useState<Set<string>>(new Set());
-  const { pushToast } = useToast();
 
 
   const toggleSelect = (id: string) => {
@@ -659,58 +672,64 @@ export const Patients: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleExportTemplate}
-                title="Baixar Modelo de Importação"
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                <Download size={14} /> <span className="hidden sm:inline">Modelo</span>
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setExportMenuOpen(o => !o)}
-                  title="Exportar Pacientes"
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                  <Download size={14} /> <span className="hidden sm:inline">Exportar</span> <ChevronDown size={12} />
-                </button>
-                {exportMenuOpen && (
-                  <div
-                    className="absolute right-0 top-full z-[110] mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
-                    onMouseLeave={() => setExportMenuOpen(false)}
+              {hasPermission('view_performance_reports') && (
+                <>
+                  <button
+                    onClick={handleExportTemplate}
+                    title="Baixar Modelo de Importação"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
                   >
+                    <Download size={14} /> <span className="hidden sm:inline">Modelo</span>
+                  </button>
+                  <div className="relative">
                     <button
-                      onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      onClick={() => setExportMenuOpen(o => !o)}
+                      title="Exportar Pacientes"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
                     >
-                      <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                      <Download size={14} /> <span className="hidden sm:inline">Exportar</span> <ChevronDown size={12} />
                     </button>
-                    <button
-                      onClick={() => { setExportMenuOpen(false); handleExportPatients(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                      <FileText size={14} className="text-green-600" /> Exportar Excel
-                    </button>
-                    <button
-                      onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                      <FileText size={14} className="text-red-500" /> Exportar PDF
-                    </button>
+                    {exportMenuOpen && (
+                      <div
+                        className="absolute right-0 top-full z-[110] mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                        onMouseLeave={() => setExportMenuOpen(false)}
+                      >
+                        <button
+                          onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                        </button>
+                        <button
+                          onClick={() => { setExportMenuOpen(false); handleExportPatients(); }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <FileText size={14} className="text-green-600" /> Exportar Excel
+                        </button>
+                        <button
+                          onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <FileText size={14} className="text-red-500" /> Exportar PDF
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
-                {isLoadingPreview ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />}
-                <span className="hidden sm:inline">{isLoadingPreview ? 'Lendo...' : 'Importar'}</span>
-                <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
-              </label>
-              <button
-                onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-primary-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-primary-700 transition-all shadow-sm"
-              >
-                <Plus size={14} /> {t('patients.new')}
-              </button>
+                  <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
+                    {isLoadingPreview ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />}
+                    <span className="hidden sm:inline">{isLoadingPreview ? 'Lendo...' : 'Importar'}</span>
+                    <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
+                  </label>
+                </>
+              )}
+              {hasPermission('create_patient') && (
+                <button
+                  onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-primary-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-primary-700 transition-all shadow-sm"
+                >
+                  <Plus size={14} /> {t('patients.new')}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -811,12 +830,14 @@ export const Patients: React.FC = () => {
                 <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">
                   {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
                 </span>
-                <button
-                  onClick={() => setConfirmBulkDelete(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors shadow-sm"
-                >
-                  <Trash2 size={13} /> Excluir selecionados
-                </button>
+                {hasPermission('delete_patient') && (
+                  <button
+                    onClick={() => setConfirmBulkDelete(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors shadow-sm"
+                  >
+                    <Trash2 size={13} /> Excluir selecionados
+                  </button>
+                )}
                 <button
                   onClick={() => setSelectedIds(new Set())}
                   className="text-xs text-slate-400 hover:text-slate-600 transition-colors px-2"
@@ -894,7 +915,10 @@ export const Patients: React.FC = () => {
                       {(patient.whatsapp || patient.phone) && (
                         <div className="flex items-center gap-2 text-xs text-slate-600">
                           <Phone size={11} className="text-indigo-400 shrink-0" />
-                          <span className="truncate">{patient.whatsapp || patient.phone}</span>
+                          <span className="truncate flex items-center gap-1.5">
+                            {patient.phone_country && <span className="text-sm leading-none shrink-0" title={patient.phone_country}>{getFlag(patient.phone_country)}</span>}
+                            {patient.whatsapp || patient.phone}
+                          </span>
                         </div>
                       )}
                       {patient.email && (
@@ -928,33 +952,38 @@ export const Patients: React.FC = () => {
                     </button>
                     <button
                       onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }}
-                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 transition-all flex-1 justify-center whitespace-nowrap"
+                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 transition-all flex-1 justify-nowrap"
                     >
                       <History size={12} /> Histórico
                     </button>
-                    <button
-                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
-                      className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg border transition-all flex-1 justify-center whitespace-nowrap ${active ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}
-                      title={active ? 'Desativar' : 'Ativar'}
-                    >
-                      {active ? <CheckSquare size={12} /> : <Square size={12} />}
-                      {active ? 'Pausar' : 'Ativar'}
-                    </button>
+                    {hasPermission('edit_patient') && (
+                      <button
+                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
+                        className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg border transition-all flex-1 justify-center whitespace-nowrap ${active ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}
+                        title={active ? 'Desativar' : 'Ativar'}
+                      >
+                        {active ? 'Pausar' : 'Ativar'}
+                      </button>
+                    )}
                     <div className="flex items-center gap-1.5 ml-auto">
-                        <button
-                          onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }}
-                          disabled={isProcessing || bulkDeleting}
-                          className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all disabled:opacity-50"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); setDeleteId(patient.id); }}
-                          disabled={isProcessing || bulkDeleting}
-                          className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {hasPermission('edit_patient') && (
+                          <button
+                            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }}
+                            disabled={isProcessing || bulkDeleting}
+                            className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all disabled:opacity-50"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                        )}
+                        {hasPermission('delete_patient') && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setDeleteId(patient.id); }}
+                            disabled={isProcessing || bulkDeleting}
+                            className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -998,7 +1027,10 @@ export const Patients: React.FC = () => {
                 headerClassName: 'hidden md:table-cell',
                 render: (patient: Patient) => (
                   <>
-                    <div className="text-xs font-semibold text-slate-600">{patient.whatsapp || patient.phone || '—'}</div>
+                    <div className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      {patient.phone_country && <span className="text-sm leading-none shrink-0">{getFlag(patient.phone_country)}</span>}
+                      {patient.whatsapp || patient.phone || '—'}
+                    </div>
                     <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{patient.email || ''}</div>
                   </>
                 )
@@ -1026,7 +1058,8 @@ export const Patients: React.FC = () => {
                   return (
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border transition-all hover:ring-4 hover:ring-slate-50 ${
+                      disabled={!hasPermission('edit_patient')}
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border transition-all ${!hasPermission('edit_patient') ? 'opacity-50 cursor-not-allowed border-slate-200' : 'hover:ring-4 hover:ring-slate-50'} ${
                         active ? 'bg-emerald-50 text-emerald-700 border-emerald-100 px-2.5' : 'bg-slate-100 text-slate-500 border-slate-200 px-2.5'
                       }`}
                     >
@@ -1056,13 +1089,15 @@ export const Patients: React.FC = () => {
                     >
                       <History size={13} />
                     </button>
-                    <button
-                      onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
-                      className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 transition-all"
-                      title="Editar"
-                    >
-                      <Edit2 size={13} />
-                    </button>
+                    {hasPermission('edit_patient') && (
+                      <button
+                        onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
+                        className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 transition-all"
+                        title="Editar"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                    )}
                   </div>
                 )
               }
@@ -1261,8 +1296,16 @@ export const Patients: React.FC = () => {
                 </div>
                 <div className="space-y-0.5">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Telefone</div>
-                  <div className="text-xs font-bold text-slate-800">{selectedPatient.whatsapp || selectedPatient.phone || '—'}</div>
-                  {selectedPatient.phone2 && <div className="text-[10px] text-slate-400">{selectedPatient.phone2}</div>}
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    {selectedPatient.phone_country && <span className="text-base leading-none shrink-0" title={selectedPatient.phone_country}>{getFlag(selectedPatient.phone_country)}</span>}
+                    {selectedPatient.whatsapp || selectedPatient.phone || '—'}
+                  </div>
+                  {selectedPatient.phone2 && (
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5 italic">
+                      {selectedPatient.phone2_country && <span className="leading-none shrink-0" title={selectedPatient.phone2_country}>{getFlag(selectedPatient.phone2_country)}</span>}
+                      {selectedPatient.phone2}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-0.5">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Email</div>
@@ -1384,19 +1427,21 @@ export const Patients: React.FC = () => {
             {/* Footer actions */}
             <div className="p-4 border-t border-slate-100 bg-slate-50/60">
               <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => navigate(`/agenda?patient_id=${selectedPatient.id}`)}
-                  className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
-                >
-                  <Calendar size={12} /> Agenda
-                </button>
+                {hasPermission('view_agenda') && (
+                  <button
+                    onClick={() => navigate(`/agenda?patient_id=${selectedPatient.id}`)}
+                    className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
+                  >
+                    <Calendar size={12} /> Agenda
+                  </button>
+                )}
                 {[
-                  { label: 'Prontuário', path: `/prontuario?patient_id=${selectedPatient.id}` },
-                  { label: 'Neuro', path: `/neurodesenvolvimento?patient_id=${selectedPatient.id}` },
-                  { label: 'Formulários', path: `/formularios/lista?patient_id=${selectedPatient.id}` },
-                  { label: 'Documentos', path: `/documentos?patient_id=${selectedPatient.id}` },
-                  { label: 'Ferramentas', path: `/caixa-ferramentas?patient_id=${selectedPatient.id}` },
-                ].map(btn => (
+                  { label: 'Prontuário', path: `/prontuario?patient_id=${selectedPatient.id}`, perm: 'view_medical_records' },
+                  { label: 'Neuro', path: `/neurodesenvolvimento?patient_id=${selectedPatient.id}`, perm: 'neuro_access' },
+                  { label: 'Formulários', path: `/formularios/lista?patient_id=${selectedPatient.id}`, perm: 'fill_forms' },
+                  { label: 'Documentos', path: `/documentos?patient_id=${selectedPatient.id}`, perm: 'manage_documents' },
+                  { label: 'Ferramentas', path: `/caixa-ferramentas?patient_id=${selectedPatient.id}`, perm: 'view_medical_records' },
+                ].map(btn => hasPermission(btn.perm as any) && (
                   <button
                     key={btn.label}
                     onClick={() => navigate(btn.path)}
@@ -1406,12 +1451,14 @@ export const Patients: React.FC = () => {
                   </button>
                 ))}
                 <div className="flex-1" />
-                <button
-                  onClick={() => { setEditingPatient(selectedPatient); setSelectedPatient(null); setIsWizardOpen(true); }}
-                  className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all flex items-center gap-1.5"
-                >
-                  <Edit2 size={12} /> Editar
-                </button>
+                {hasPermission('edit_patient') && (
+                  <button
+                    onClick={() => { setEditingPatient(selectedPatient); setSelectedPatient(null); setIsWizardOpen(true); }}
+                    className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all flex items-center gap-1.5"
+                  >
+                    <Edit2 size={12} /> Editar
+                  </button>
+                )}
               </div>
             </div>
           </div>
