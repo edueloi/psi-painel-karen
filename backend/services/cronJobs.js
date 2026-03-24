@@ -112,7 +112,7 @@ async function checkAppointmentReminders() {
 
       // --- 1. NOTIFICAÇÃO DO PACIENTE (Via WhatsApp PRÓPRIO da Clínica) ---
       // Conforme solicitado: SÓ envia se a clínica tiver conectado o bot dela. O Master NÃO manda para pacientes.
-      if (apt.whatsapp_status === 'connected') {
+      if (apt.whatsapp_status === 'connected' && apt.tenant_id != masterTenantId) {
         const prefs = typeof apt.whatsapp_preferences === 'string' ? JSON.parse(apt.whatsapp_preferences || '{}') : (apt.whatsapp_preferences || {});
         const targetPhone = apt.patient_phone;
 
@@ -189,6 +189,8 @@ async function checkAppointmentReminders() {
     const currentHourStr = fmtTime(now); 
 
     const [tenants] = await db.query(`SELECT id, whatsapp_status, whatsapp_preferences FROM tenants WHERE active = 1`);
+    const [saRows] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
+    const masterTenantId = saRows[0]?.tenant_id;
     
     const today = new Date();
     const month = today.getMonth() + 1;
@@ -226,8 +228,8 @@ async function checkAppointmentReminders() {
              }
           }
 
-          // --- WHATSAPP (SÓ SE O BOT DA CLÍNICA ESTIVER CONECTADO) ---
-          if (t.whatsapp_status === 'connected' && prefs.birthday_enabled !== false) {
+          // --- WHATSAPP (SÓ SE O BOT DA CLÍNICA ESTIVER CONECTADO - O MASTER NÃO MANDA PARA PACIENTES) ---
+          if (t.whatsapp_status === 'connected' && t.id != masterTenantId && prefs.birthday_enabled !== false) {
             for (const p of patients) {
               const targetPhone = p.whatsapp || p.phone;
               if (!targetPhone) continue;
@@ -245,7 +247,7 @@ async function checkAppointmentReminders() {
 
       // 2. PAGAMENTOS VENCENDO HOJE
       if (currentHourStr === payTime) {
-        if (t.whatsapp_status === 'connected' && prefs.payment_enabled !== false) {
+        if (t.whatsapp_status === 'connected' && t.id != masterTenantId && prefs.payment_enabled !== false) {
           const [payments] = await db.query(`
             SELECT f.id, f.amount, p.name as patient_name, p.whatsapp, p.phone
             FROM financial_transactions f

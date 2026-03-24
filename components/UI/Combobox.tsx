@@ -302,9 +302,11 @@ export const Combobox: React.FC<ComboboxProps> = ({
 
   return (
     <div ref={containerRef} className={cx('w-full', className)}>
-      <label className="mb-2 block text-[12px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-        {label}
-      </label>
+      {label && (
+        <label className="mb-2 block text-[12px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+          {label}
+        </label>
+      )}
 
       <div className="relative">
         <div

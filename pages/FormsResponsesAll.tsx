@@ -338,47 +338,60 @@ export const FormsResponsesAll: React.FC = () => {
         )}
       </FilterLine>
 
-      {/* Category Horizontal Pills */}
-      <div className="relative group/scroll px-12 -mx-12 text-left">
-        <button
-          onClick={() => categoryScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-white rounded-full shadow-2xl border-2 border-slate-100 flex items-center justify-center text-slate-900 hover:text-indigo-600 hover:scale-110 active:scale-95 transition-all hidden sm:flex"
-        >
-          <ChevronLeft size={24} strokeWidth={3} />
-        </button>
-
-        <div 
-          ref={categoryScrollRef}
-          className="overflow-x-auto no-scrollbar pb-2 mx-0 px-12 text-left scroll-smooth"
-        >
-          <div className="flex gap-3 min-w-max pb-2 text-left">
-            {allAvailableCategories.map(cat => {
-              const isActive = selectedCategory === cat;
-              const Icon = getAreaIcon(cat);
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`flex items-center gap-3 px-6 py-3 rounded-2xl border-2 transition-all group shrink-0 ${
-                    isActive 
-                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100 -translate-y-1 scale-105 z-10' 
-                    : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200 hover:text-indigo-600 font-bold'
-                  }`}
-                >
-                  <Icon size={16} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'} />
-                  <span className="text-[11px] font-black uppercase tracking-widest">{cat}</span>
-                </button>
-              );
-            })}
+      {/* Category Horizontal Pills - Redesigned */}
+      <div className="relative w-full">
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-2">
+             <div className="w-1.5 h-5 bg-indigo-500 rounded-full" />
+             <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Filtrar por Especialidade</h3>
           </div>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{allAvailableCategories.length} categorias</span>
         </div>
 
-        <button
-          onClick={() => categoryScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-white rounded-full shadow-2xl border-2 border-slate-100 flex items-center justify-center text-slate-900 hover:text-indigo-600 hover:scale-110 active:scale-95 transition-all hidden sm:flex"
-        >
-          <ChevronRight size={24} strokeWidth={3} />
-        </button>
+        <div className="relative group/scroll flex items-center gap-2">
+            <button
+              onClick={() => categoryScrollRef.current?.scrollBy({ left: -250, behavior: 'smooth' })}
+              className="shrink-0 w-10 h-10 bg-white rounded-full shadow-md border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all z-10"
+              title="Anterior"
+            >
+              <ChevronLeft size={20} strokeWidth={3} />
+            </button>
+
+            <div className="relative flex-1 overflow-hidden">
+              <div 
+                ref={categoryScrollRef}
+                className="flex overflow-x-auto no-scrollbar py-2 scroll-smooth snap-x gap-2.5"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {allAvailableCategories.map(cat => {
+                  const isActive = selectedCategory === cat;
+                  const Icon = getAreaIcon(cat);
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full border transition-all shrink-0 snap-start ${
+                        isActive 
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50/30'
+                      }`}
+                    >
+                      <Icon size={14} strokeWidth={3} className={isActive ? 'text-white' : 'text-slate-400'} />
+                      <span className="text-[11px] font-bold tracking-tight whitespace-nowrap">{cat}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              onClick={() => categoryScrollRef.current?.scrollBy({ left: 250, behavior: 'smooth' })}
+              className="shrink-0 w-10 h-10 bg-white rounded-full shadow-md border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all z-10"
+              title="Próximo"
+            >
+              <ChevronRight size={20} strokeWidth={3} />
+            </button>
+        </div>
       </div>
 
       {isLoading ? (

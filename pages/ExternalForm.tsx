@@ -12,6 +12,22 @@ function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 }
 
+function maskPhone(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  const pattern = d.length <= 10 ? '(00) 0000-0000' : '(00) 00000-0000';
+  
+  let result = '';
+  let vIdx = 0;
+  for (let i = 0; i < pattern.length && vIdx < d.length; i++) {
+    if (pattern[i] === '0') {
+      result += d[vIdx++];
+    } else {
+      result += pattern[i];
+    }
+  }
+  return result;
+}
+
 /* ─── sub-components ──────────────────────────────────────────────────────── */
 function LoadingScreen() {
   return (
@@ -396,7 +412,7 @@ export const ExternalForm: React.FC = () => {
                         required
                         placeholder="(00) 00000-0000"
                         value={identification.phone}
-                        onChange={e => setIdentification(p => ({ ...p, phone: e.target.value }))}
+                        onChange={e => setIdentification(p => ({ ...p, phone: maskPhone(e.target.value) }))}
                         className="w-full pl-11 pr-4 py-3 text-sm font-bold text-slate-700 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
                       />
                     </div>

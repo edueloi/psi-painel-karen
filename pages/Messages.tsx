@@ -134,12 +134,12 @@ export const Messages: React.FC = () => {
 
   // Modal envio WhatsApp
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
-  const [patients, setPatients]             = useState<any[]>([]);
-  const [isPatientsLoading, setIsPatientsLoading] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-  // patientStatusFilter persisted in preferences
-  const patientStatusFilter = preferences.messages.patientStatusFilter;
-  const setPatientStatusFilter = (v: 'all' | 'ativo' | 'inativo') => updatePreference('messages', { patientStatusFilter: v });
+  const [recipients, setRecipients]         = useState<any[]>([]);
+  const [isRecipientsLoading, setIsRecipientsLoading] = useState(false);
+  const [selectedRecipientId, setSelectedRecipientId] = useState<string>('');
+  // recipientStatusFilter persisted in preferences
+  const recipientStatusFilter = preferences.messages.recipientStatusFilter;
+  const setRecipientStatusFilter = (v: 'all' | 'ativo' | 'inativo') => updatePreference('messages', { recipientStatusFilter: v });
   const [sendTemplate, setSendTemplate]     = useState<MessageTemplate | null>(null);
   const [sendMeta, setSendMeta]             = useState({
     appointmentDate: new Date().toISOString().split('T')[0],
@@ -219,20 +219,21 @@ export const Messages: React.FC = () => {
     filteredTemplates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
   [filteredTemplates, currentPage, itemsPerPage]);
 
-  const filteredPatients = useMemo(() => {
-    return patients.filter(p => {
-      if (patientStatusFilter === 'ativo')   return p.active === 1 || p.active === true || p.is_active === 1;
-      if (patientStatusFilter === 'inativo') return p.active === 0 || p.active === false || p.is_active === 0;
+  const filteredRecipients = useMemo(() => {
+    return recipients.filter(p => {
+      const active = p.is_active ?? p.active ?? true;
+      if (recipientStatusFilter === 'ativo')   return active === 1 || active === true;
+      if (recipientStatusFilter === 'inativo') return active === 0 || active === false;
       return true;
     });
-  }, [patients, patientStatusFilter]);
+  }, [recipients, recipientStatusFilter]);
 
-  const patientOptions = useMemo(() =>
-    filteredPatients.map(p => ({
+  const recipientOptions = useMemo(() =>
+    filteredRecipients.map(p => ({
       id: String(p.id),
-      label: p.full_name || p.name || 'Sem nome',
+      label: p.name || p.full_name || 'Sem nome',
     })),
-  [filteredPatients]);
+  [filteredRecipients]);
 
   // ── Contagens por categoria ────────────────────────────────────────────────
   const catCounts = useMemo(() => {
@@ -349,8 +350,8 @@ export const Messages: React.FC = () => {
   // ── Handlers Envio ────────────────────────────────────────────────────────────
   const normalizePhone = (v?: string) => (v || '').replace(/\D/g, '');
 
-  const fillTemplate = (content: string, patient: any) => {
-    const fullName     = patient?.full_name || patient?.name || '';
+  const fillTemplate = (content: string, recipient: any) => {
+    const fullName     = recipient?.name || recipient?.full_name || '';
     const primeiroNome = fullName.split(' ')[0] || fullName;
     const data: Record<string, string> = {
       saudacao:          getSaudacao(),
@@ -359,7 +360,7 @@ export const Messages: React.FC = () => {
       data_agendamento:  sendMeta.appointmentDate,
       horario:           sendMeta.appointmentTime,
       servico:           sendMeta.service,
-      nome_profissional: '',
+      nome_profissional: fullName,
       valor_total:       sendMeta.total,
       nome_clinica:      sendMeta.clinic,
     };
@@ -371,41 +372,41 @@ export const Messages: React.FC = () => {
   };
 
   const previewMessage = useMemo(() => {
-    if (!sendTemplate || !selectedPatientId) return '';
-    const patient = patients.find(p => String(p.id) === selectedPatientId);
-    return patient ? fillTemplate(sendTemplate.content, patient) : '';
-  }, [sendTemplate, selectedPatientId, sendMeta, patients]);
+    if (!sendTemplate || !selectedRecipientId) return '';
+    const recipient = recipients.find(p => String(p.id) === selectedRecipientId);
+    return recipient ? fillTemplate(sendTemplate.content, recipient) : '';
+  }, [sendTemplate, selectedRecipientId, sendMeta, recipients]);
 
   const handleOpenSendModal = async (template: MessageTemplate) => {
     setSendTemplate(template);
-    setSelectedPatientId('');
+    setSelectedRecipientId('');
     setIsSendModalOpen(true);
-    if (patients.length === 0) {
-      setIsPatientsLoading(true);
+    if (recipients.length === 0) {
+      setIsRecipientsLoading(true);
       try {
-        const rows = await api.get<any[]>('/patients');
-        setPatients(rows || []);
+        const rows = await api.get<any[]>('/users');
+        setRecipients(rows || []);
       } catch (err: any) {
-        pushToast('error', err.message || 'Erro ao carregar pacientes');
+        pushToast('error', 'Equipe', err.message || 'Erro ao carregar profissionais');
       } finally {
-        setIsPatientsLoading(false);
+        setIsRecipientsLoading(false);
       }
     }
   };
 
   const handleSendWhatsApp = () => {
     if (!sendTemplate) return;
-    if (!selectedPatientId) {
-      pushToast('error', 'Selecione um paciente.');
+    if (!selectedRecipientId) {
+      pushToast('error', 'Selecione um destinatário.');
       return;
     }
-    const patient = patients.find(p => String(p.id) === selectedPatientId);
-    if (!patient) return;
-    const phone = normalizePhone(patient.whatsapp || patient.phone || patient.celular);
-    if (!phone) { pushToast('error', `Sem telefone: ${patient.full_name || patient.name}`); return; }
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(fillTemplate(sendTemplate.content, patient))}`;
+    const recipient = recipients.find(p => String(p.id) === selectedRecipientId);
+    if (!recipient) return;
+    const phone = normalizePhone(recipient.phone || recipient.whatsapp);
+    if (!phone) { pushToast('error', 'Telefone Ausente', `Sem telefone cadastrado para: ${recipient.name}`); return; }
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(fillTemplate(sendTemplate.content, recipient))}`;
     window.open(url, '_blank');
-    pushToast('success', 'WhatsApp aberto!');
+    pushToast('success', 'Agenda', 'WhatsApp aberto com sucesso!');
     setIsSendModalOpen(false);
   };
 
@@ -868,21 +869,21 @@ export const Messages: React.FC = () => {
             <div className="px-8 py-6 space-y-6 overflow-y-auto">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                {/* Paciente — Combobox + filtro status */}
+                {/* Destinatário (Equipe) — Combobox + filtro status */}
                 <div className="space-y-3">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Users size={12} /> Paciente
+                    <Users size={12} /> Profissional / Parceiro
                   </label>
+                  <p className="text-[10px] text-slate-400 font-medium leading-none mb-1">Selecione um membro da equipe para enviar</p>
 
-                  {/* Filtro ativo/inativo/todos */}
                   <div className="flex gap-1.5">
                     {(['all', 'ativo', 'inativo'] as const).map(opt => (
                       <button
                         key={opt}
-                        onClick={() => setPatientStatusFilter(opt)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-                          patientStatusFilter === opt
-                            ? 'bg-indigo-600 text-white border-indigo-600'
+                        onClick={() => setRecipientStatusFilter(opt)}
+                        className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                          recipientStatusFilter === opt
+                            ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-100'
                             : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                         }`}
                       >
@@ -891,32 +892,32 @@ export const Messages: React.FC = () => {
                     ))}
                   </div>
 
-                  {isPatientsLoading ? (
-                    <div className="flex items-center gap-2 py-3 text-slate-400 text-sm">
-                      <Loader2 size={16} className="animate-spin" /> Carregando pacientes...
+                  {isRecipientsLoading ? (
+                    <div className="flex items-center gap-2 py-3 text-slate-400 text-sm italic">
+                      <Loader2 size={16} className="animate-spin" /> Carregando equipe...
                     </div>
                   ) : (
                     <Combobox
-                      label="Selecionar paciente"
-                      options={patientOptions}
-                      value={selectedPatientId}
-                      onChange={(id) => setSelectedPatientId(String(id))}
-                      placeholder="Buscar paciente..."
+                      label="Selecionar parceiro"
+                      options={recipientOptions}
+                      value={selectedRecipientId}
+                      onChange={(id) => setSelectedRecipientId(String(id))}
+                      placeholder="Buscar por nome..."
                       showSelectedBadge
                       showResultCount
                     />
                   )}
 
-                  {selectedPatientId && (() => {
-                    const p = patients.find(x => String(x.id) === selectedPatientId);
-                    if (!p) return null;
-                    const phone = p.whatsapp || p.phone || p.celular || '';
+                  {selectedRecipientId && (() => {
+                    const r = recipients.find(x => String(x.id) === selectedRecipientId);
+                    if (!r) return null;
+                    const phoneSize = normalizePhone(r.phone || r.whatsapp).length;
                     return (
-                      <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 text-sm space-y-0.5">
-                        <p className="font-semibold text-slate-700">{p.full_name || p.name}</p>
-                        <p className="text-xs text-slate-400">{phone || p.email || 'Sem contato'}</p>
-                        {!phone && (
-                          <p className="text-xs text-rose-500 font-semibold mt-1">⚠ Sem telefone — não será possível enviar</p>
+                      <div className="bg-slate-50 rounded-2xl border border-slate-200 px-4 py-3 text-sm space-y-0.5 animate-fadeIn">
+                        <p className="font-black text-slate-700 uppercase text-[11px]">{r.name || r.full_name}</p>
+                        <p className="text-xs text-slate-400 font-medium">{r.phone || r.whatsapp || r.email || 'Sem contato'}</p>
+                        {phoneSize < 8 && (
+                          <p className="text-[10px] text-rose-500 font-black uppercase mt-1">⚠ Sem telefone válido no cadastro</p>
                         )}
                       </div>
                     );
@@ -964,7 +965,7 @@ export const Messages: React.FC = () => {
                     </label>
                     <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed min-h-[80px]">
                       {previewMessage || (
-                        <span className="text-slate-400 italic">Selecione um paciente para visualizar.</span>
+                        <span className="text-slate-400 italic font-medium text-xs">Selecione um destinatário para visualizar a mensagem.</span>
                       )}
                     </div>
                   </div>
@@ -980,7 +981,7 @@ export const Messages: React.FC = () => {
                 radius="xl"
                 leftIcon={<Send size={15} />}
                 onClick={handleSendWhatsApp}
-                disabled={!selectedPatientId}
+                disabled={!selectedRecipientId}
                 className="shadow-lg shadow-emerald-100"
               >
                 Enviar via WhatsApp

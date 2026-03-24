@@ -7,7 +7,7 @@ import {
   FileText, FileImage, FileSpreadsheet, File, Download, Trash2,
   Plus, CloudUpload, X, FolderOpen, HardDrive, Clock,
   Edit3, Check, Settings,
-  Film, Music,
+  Film, Music, FileCode, AlignLeft, Presentation,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
@@ -23,6 +23,8 @@ import {
   FilterLineViewToggle,
 } from '../components/UI/FilterLine';
 import { DatePicker } from '../components/UI/DatePicker';
+import { Combobox } from '../components/UI/Combobox';
+import { Settings2 } from 'lucide-react';
 
 export const Documents: React.FC = () => {
   const { t, language } = useLanguage();
@@ -105,10 +107,10 @@ export const Documents: React.FC = () => {
     try {
       await api.delete(`/uploads/${deleteConfirmId}`);
       setDocuments(prev => prev.filter(d => String(d.id) !== String(deleteConfirmId)));
-      pushToast({ type: 'success', message: 'Arquivo excluído com sucesso!' });
+      pushToast('success', 'Digital Library', 'Arquivo excluído com sucesso!');
     } catch (err: any) {
       console.error('Erro ao excluir documento:', err);
-      pushToast({ type: 'error', message: err?.message || 'Falha ao excluir arquivo.' });
+      pushToast('error', 'Erro', err?.message || 'Falha ao excluir arquivo.');
     } finally {
       setDeleteConfirmId(null);
     }
@@ -194,25 +196,49 @@ export const Documents: React.FC = () => {
   }, [categories]);
 
   const getFileIcon = (type: string, size: number = 24) => {
-    switch(type) {
+    const t = type.toLowerCase();
+    switch(t) {
       case 'pdf': return <FileText className="text-rose-500" size={size} />;
-      case 'doc': return <FileText className="text-indigo-500" size={size} />;
-      case 'sheet': return <FileSpreadsheet className="text-emerald-500" size={size} />;
-      case 'image': return <FileImage className="text-purple-500" size={size} />;
+      case 'doc':
+      case 'docx': return <FileText className="text-indigo-500" size={size} />;
+      case 'sheet':
+      case 'xls':
+      case 'xlsx':
+      case 'csv': return <FileSpreadsheet className="text-emerald-500" size={size} />;
+      case 'image':
+      case 'png':
+      case 'jpg':
+      case 'jpeg': return <FileImage className="text-purple-500" size={size} />;
       case 'video': return <Film className="text-pink-500" size={size} />;
       case 'audio': return <Music className="text-amber-500" size={size} />;
+      case 'ppt':
+      case 'pptx': return <Presentation className="text-orange-500" size={size} />;
+      case 'txt': return <AlignLeft className="text-slate-500" size={size} />;
+      case 'xml': return <FileCode className="text-cyan-500" size={size} />;
       default: return <File className="text-slate-400" size={size} />;
     }
   };
 
   const getFileBg = (type: string) => {
-    switch(type) {
+    const t = type.toLowerCase();
+    switch(t) {
       case 'pdf': return 'bg-rose-50 border-rose-100';
-      case 'doc': return 'bg-indigo-50 border-indigo-100';
-      case 'sheet': return 'bg-emerald-50 border-emerald-100';
-      case 'image': return 'bg-purple-50 border-purple-100';
+      case 'doc':
+      case 'docx': return 'bg-indigo-50 border-indigo-100';
+      case 'sheet':
+      case 'xls':
+      case 'xlsx':
+      case 'csv': return 'bg-emerald-50 border-emerald-100';
+      case 'image':
+      case 'png':
+      case 'jpg':
+      case 'jpeg': return 'bg-purple-50 border-purple-100';
       case 'video': return 'bg-pink-50 border-pink-100';
       case 'audio': return 'bg-amber-50 border-amber-100';
+      case 'ppt':
+      case 'pptx': return 'bg-orange-50 border-orange-100';
+      case 'txt': return 'bg-slate-50 border-slate-200';
+      case 'xml': return 'bg-cyan-50 border-cyan-100';
       default: return 'bg-slate-50 border-slate-100';
     }
   };
@@ -280,6 +306,30 @@ export const Documents: React.FC = () => {
               placeholder={t('documents.search') || 'Buscar arquivo...'}
             />
           </FilterLineItem>
+
+          <FilterLineItem className="min-w-[160px]">
+             <Combobox
+                label=""
+                options={categories.map(c => ({ id: c, label: c }))}
+                value={activeCategory}
+                onChange={(val) => setActiveCategory(val)}
+                placeholder="Categoria"
+                icon={<FolderOpen size={14} />}
+                showSelectedBadge={false}
+                showResultCount={false}
+             />
+          </FilterLineItem>
+
+          <button 
+             onClick={() => setIsCategoryModalOpen(true)} 
+             className="shrink-0 p-2.5 bg-white text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 hover:border-indigo-200 shadow-sm"
+             title="Configurar categorias"
+          >
+             <Settings2 size={18}/>
+          </button>
+
+          <div className="h-8 w-px bg-slate-100 hidden xl:block mx-1" />
+
           <FilterLineItem>
             <DatePicker
               value={filterDateFrom || ''}
@@ -297,31 +347,6 @@ export const Documents: React.FC = () => {
         </FilterLineSection>
 
         <FilterLineSection align="right">
-          <FilterLineItem>
-            <div className="flex bg-slate-100 p-1 rounded-2xl overflow-x-auto no-scrollbar gap-0.5 relative group/cats">
-              {mainCategories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
-                >
-                  {cat}
-                </button>
-              ))}
-              <div className="relative">
-                <button 
-                  onClick={() => setIsCategoryModalOpen(true)} 
-                  className={`px-2 py-1.5 transition-all ${isCategoryModalOpen ? 'text-indigo-600' : 'text-slate-400 hover:text-indigo-600'}`}
-                  title="Configurar categorias"
-                >
-                  <Settings size={14}/>
-                </button>
-                {otherCategories.includes(activeCategory) && (
-                  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full border border-white"></span>
-                )}
-              </div>
-            </div>
-          </FilterLineItem>
           <FilterLineItem>
             <FilterLineViewToggle
               value={viewMode}
@@ -487,11 +512,11 @@ export const Documents: React.FC = () => {
                   await api.request('/uploads', { method: 'POST', body: formData });
                   setIsModalOpen(false);
                   setUploadData({ title: '', category: 'Geral', file: null });
-                  pushToast({ type: 'success', message: 'Arquivo enviado com sucesso!' });
+                  pushToast('success', 'Biblioteca Digital', 'Arquivo enviado com sucesso!');
                   fetchDocuments();
                 } catch (e: any) {
                   console.error(e);
-                  pushToast({ type: 'error', message: e?.message || 'Erro ao enviar arquivo. Tente novamente.' });
+                  pushToast('error', 'Erro no Upload', e?.message || 'Erro ao enviar arquivo. Tente novamente.');
                 } finally {
                   setIsSaving(false);
                 }
@@ -524,7 +549,13 @@ export const Documents: React.FC = () => {
             </select>
           </div>
           <div>
-            <input type="file" id="file-upload" className="hidden" onChange={e => { const f = e.target.files?.[0]; if(f) setUploadData({...uploadData, file: f, title: uploadData.title || f.name}); }} />
+            <input 
+              type="file" 
+              id="file-upload" 
+              className="hidden" 
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.txt,.ppt,.pptx,.xml"
+              onChange={e => { const f = e.target.files?.[0]; if(f) setUploadData({...uploadData, file: f, title: uploadData.title || f.name}); }} 
+            />
             <label
               htmlFor="file-upload"
               className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-indigo-50/30 hover:border-indigo-200 ${uploadData.file ? 'bg-indigo-50 border-indigo-400' : 'bg-slate-50 border-slate-200'}`}
@@ -545,46 +576,79 @@ export const Documents: React.FC = () => {
       <Modal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-        title={t('documents.categories') || 'Categorias'}
+        title={t('documents.categories') || 'Gerenciar Categorias'}
         maxWidth="sm"
         footer={
           <div className="flex w-full justify-end">
-            <Button variant="ghost" size="sm" onClick={() => setIsCategoryModalOpen(false)}>Fechar</Button>
+            <Button 
+               variant="primary" 
+               radius="xl"
+               size="sm" 
+               onClick={() => setIsCategoryModalOpen(false)}
+            >
+               Concluir
+            </Button>
           </div>
         }
       >
-        <div className="space-y-4">
-          <div className="flex gap-2">
+        <div className="space-y-6">
+          <div className="flex gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 items-center">
             <input
               type="text"
-              placeholder={t('documents.new_category') || 'Nova categoria...'}
-              className="flex-1 p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none font-bold text-slate-700 text-sm focus:border-indigo-400 focus:bg-white transition-all"
+              placeholder={t('documents.new_category') || 'Ex: Documentos Legais...'}
+              className="flex-1 bg-transparent p-1 outline-none font-bold text-slate-700 text-xs placeholder:text-slate-400"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
             />
-            <Button variant="primary" size="sm" onClick={handleAddCategory}><Plus size={16}/></Button>
+            <Button 
+                variant="primary" 
+                size="sm" 
+                radius="lg"
+                onClick={handleAddCategory}
+                className="w-10 h-10 p-0"
+            >
+                <Plus size={18} strokeWidth={3} />
+            </Button>
           </div>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
+          
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 mb-2">Categorias Ativas</div>
             {categories.map((cat, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
+              <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 group hover:border-indigo-100 transition-all shadow-sm">
                 {editingCategoryIndex === idx ? (
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                       <Check size={16} />
+                    </div>
                     <input
                       type="text"
                       autoFocus
-                      className="flex-1 p-1 bg-white border-b-2 border-indigo-400 outline-none text-sm font-black text-indigo-600"
+                      className="flex-1 bg-transparent outline-none text-sm font-black text-indigo-600"
                       value={editingCategoryName}
                       onChange={(e) => setEditingCategoryName(e.target.value)}
                     />
-                    <button onClick={() => handleEditCategory(idx)} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg"><Check size={14} /></button>
-                    <button onClick={() => setEditingCategoryIndex(null)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><X size={14} /></button>
+                    <div className="flex items-center gap-1.5">
+                        <button onClick={() => handleEditCategory(idx)} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl" title="Salvar"><Check size={16} strokeWidth={3}/></button>
+                        <button onClick={() => setEditingCategoryIndex(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl" title="Cancelar"><X size={16} strokeWidth={3}/></button>
+                    </div>
                   </div>
                 ) : (
                   <>
-                    <span className={`text-xs font-black uppercase tracking-wider ${cat === 'Todos' ? 'text-slate-300 italic' : 'text-slate-600'}`}>{cat}</span>
+                    <div className="flex items-center gap-3">
+                       <div className={`p-2 rounded-lg ${cat === 'Todos' ? 'bg-slate-50 text-slate-300' : 'bg-indigo-50 text-indigo-500'}`}>
+                          <FolderOpen size={16} />
+                       </div>
+                       <span className={`text-xs font-black uppercase tracking-wider ${cat === 'Todos' ? 'text-slate-300' : 'text-slate-700'}`}>{cat}</span>
+                    </div>
                     {cat !== 'Todos' && (
-                      <button onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }} className="p-1.5 text-indigo-400 hover:bg-white hover:shadow-sm rounded-lg transition-all opacity-0 group-hover:opacity-100"><Edit3 size={14} /></button>
+                      <button 
+                        onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }} 
+                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                        title="Renomear"
+                      >
+                         <Edit3 size={16} />
+                      </button>
                     )}
                   </>
                 )}

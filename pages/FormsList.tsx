@@ -360,27 +360,31 @@ export const FormsList: React.FC = () => {
         </FilterLineSection>
       </FilterLine>
 
-      {/* Areas Horizontal Scroll Improved */}
+      {/* Areas Horizontal Scroll Redesigned */}
       <div className="relative w-full">
-        <div className="flex items-center gap-2 mb-4">
-           <Filter size={16} className="text-slate-400" />
-           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filtrar por Especialidade ou Área</h3>
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-2">
+             <div className="w-1.5 h-5 bg-indigo-500 rounded-full" />
+             <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Filtrar por Especialidade</h3>
+          </div>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{allAvailableCategories.length} categorias</span>
         </div>
         
-        <div className="relative group/scroll flex items-center">
+        <div className="relative group/scroll flex items-center gap-2">
             <button
-              onClick={() => categoryScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
-              className="shrink-0 w-10 h-10 bg-white rounded-full shadow-lg border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-all z-10"
+              onClick={() => categoryScrollRef.current?.scrollBy({ left: -250, behavior: 'smooth' })}
+              className="shrink-0 w-10 h-10 bg-white rounded-full shadow-md border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all z-10"
               title="Anterior"
             >
               <ChevronLeft size={20} strokeWidth={3} />
             </button>
 
-            <div 
-              ref={categoryScrollRef}
-              className="flex-1 overflow-x-auto no-scrollbar mx-2 scroll-smooth snap-x"
-            >
-              <div className="flex gap-3 py-2 min-w-max">
+            <div className="relative flex-1 overflow-hidden">
+              <div 
+                ref={categoryScrollRef}
+                className="flex overflow-x-auto no-scrollbar py-2 scroll-smooth snap-x gap-2.5"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
                 {allAvailableCategories.map(cat => {
                   const isActive = activeCategory === cat;
                   const icon = getCategoryIcon(cat);
@@ -389,35 +393,35 @@ export const FormsList: React.FC = () => {
                     <button
                       key={cat}
                       onClick={() => setActiveCategory(cat)}
-                      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 transition-all shrink-0 ${
+                      className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full border transition-all shrink-0 snap-start ${
                         isActive 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100 scale-105' 
-                        : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-100 hover:bg-slate-50'
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50/30'
                       }`}
                     >
-                      <div className={`p-1.5 rounded-lg transition-colors ${
-                        isActive ? 'bg-indigo-500 text-white' : 'bg-slate-50 text-slate-400'
+                      <div className={`flex-shrink-0 transition-colors ${
+                        isActive ? 'text-white' : 'text-slate-400'
                       }`}>
-                        {React.cloneElement(icon as React.ReactElement, { size: 14 })}
+                        {React.cloneElement(icon as React.ReactElement, { size: 14, strokeWidth: 3 })}
                       </div>
-                      <span className="text-xs font-bold tracking-tight">{cat}</span>
+                      <span className="text-[11px] font-bold tracking-tight whitespace-nowrap">{cat}</span>
                     </button>
                   );
                 })}
 
                 <button
                    onClick={() => setIsCategoryModalOpen(true)}
-                   className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/10 text-slate-400 hover:border-indigo-300 hover:bg-slate-50 hover:text-indigo-600 transition-all shrink-0"
+                   className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-dashed border-slate-300 bg-slate-50/50 text-slate-400 hover:border-indigo-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shrink-0 snap-start"
                 >
-                   <PlusCircle size={14} />
-                   <span className="text-xs font-bold tracking-tight">Nova</span>
+                   <PlusCircle size={14} strokeWidth={3} />
+                   <span className="text-[11px] font-bold tracking-tight">Nova</span>
                 </button>
               </div>
             </div>
 
             <button
-              onClick={() => categoryScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
-              className="shrink-0 w-10 h-10 bg-white rounded-full shadow-lg border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-all z-10"
+              onClick={() => categoryScrollRef.current?.scrollBy({ left: 250, behavior: 'smooth' })}
+              className="shrink-0 w-10 h-10 bg-white rounded-full shadow-md border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all z-10"
               title="Próximo"
             >
               <ChevronRight size={20} strokeWidth={3} />
