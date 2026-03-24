@@ -84,12 +84,18 @@ router.post('/test', async (req, res) => {
   if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem são obrigatórios' });
 
   try {
-    const success = await wppService.sendReminder(tenantId, phone, message);
-    if (success) res.json({ success: true, message: 'Mensagem enviada com sucesso!' });
-    else res.status(500).json({ error: 'Falha ao enviar mensagem. Entre em contato com o suporte.' });
+    const result = await wppService.sendReminder(tenantId, phone, message);
+    if (result === true) {
+      res.json({ success: true, message: 'Mensagem enviada com sucesso!' });
+    } else {
+      // Se result não for true, pode ser o objeto de erro ou false
+      res.status(500).json({ 
+        error: typeof result === 'string' ? result : 'O bot não conseguiu entregar a mensagem. Verifique se o aparelho ainda está conectado e se o número existe.' 
+      });
+    }
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao enviar mensagem de teste' });
+    res.status(500).json({ error: 'Erro interno: ' + err.message });
   }
 });
 

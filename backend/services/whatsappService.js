@@ -161,23 +161,28 @@ class WhatsAppManager {
   async sendReminder(tenantId, to, text) {
     const data = this.getTenantData(tenantId);
     if (data.status !== 'connected' || !data.client) {
-      console.warn(`⚠️ Tentativa de envio s/ WhatsApp conectado para Tenant ${tenantId}. Status:`, data.status);
-      return false;
+      const msg = `⚠️ Tentativa de envio para Tenant ${tenantId} paralisada: Bot ${data.status || 'desconectado'}.`;
+      console.warn(msg);
+      return msg;
     }
 
     try {
       let clean = to.replace(/\D/g, '');
+      
+      // Formatação para Brasil (DDI 55)
       if (clean.length === 10 || clean.length === 11) {
         clean = '55' + clean;
       }
+      
+      // WhatsApp ID
       const formattedTo = clean.includes('@c.us') ? clean : `${clean}@c.us`;
       
       console.log(`📤 Enviando via WhatsApp (Tenant ${tenantId}) para: ${formattedTo}...`);
       await data.client.sendText(formattedTo, text);
       return true;
     } catch (err) {
-      console.error(`❌ Erro Real ao enviar para ${to} (Tenant ${tenantId}):`, err.message);
-      return false;
+      console.error(`❌ Erro WPPTenant ${tenantId} -> ${to}:`, err.message);
+      return `Erro ao enviar via WhatsApp: ${err.message}`;
     }
   }
 
