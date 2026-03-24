@@ -27,7 +27,8 @@ router.post('/connect', async (req, res) => {
 
   try {
     // Inicia conexão de forma assíncrona — o status mudará conforme o processo avança
-    wppService.connect().catch(err => console.error('WPP Connect Error:', err.message));
+    // forceNew = true: apaga a sessão antiga e gera um novo QR code limpo
+    wppService.connect(true).catch(err => console.error('WPP Connect Error:', err.message));
 
     // Retorna status imediato (provavelmente connecting)
     setTimeout(() => {

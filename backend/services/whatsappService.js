@@ -27,7 +27,7 @@ class WhatsAppService {
     };
   }
 
-  async connect() {
+  async connect(forceNew = false) {
     console.log('🚀 Recebida solicitação de conexão WhatsApp Global...');
 
     if (this.status === 'connected') return;
@@ -39,11 +39,13 @@ class WhatsAppService {
       this.client = null;
     }
 
-    // LIMPEZA CRÍTICA: Se não está conectado, apaga a pasta da sessão para forçar QR Code novo
-    const sessionFolder = path.join(this.tokensPath, this.instanceName);
-    if (fs.existsSync(sessionFolder)) {
-      console.log('[WPP] Removendo arquivos de sessão antigos...');
-      try { fs.rmSync(sessionFolder, { recursive: true, force: true }); } catch(e) {}
+    if (forceNew) {
+      // LIMPEZA CRÍTICA: Se forçado, apaga a pasta da sessão para forçar QR Code novo
+      const sessionFolder = path.join(this.tokensPath, this.instanceName);
+      if (fs.existsSync(sessionFolder)) {
+        console.log('[WPP] Removendo arquivos de sessão antigos...');
+        try { fs.rmSync(sessionFolder, { recursive: true, force: true }); } catch(e) {}
+      }
     }
     
     this.status = 'connecting';
