@@ -14,7 +14,9 @@ import {
   Plus,
   Search,
   Trash2,
+  Pencil
 } from 'lucide-react';
+
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -135,6 +137,8 @@ export const CaseStudies: React.FC = () => {
   // New Item States
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardDesc, setNewBoardDesc] = useState('');
+  const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
+
   const [newCardPatientId, setNewCardPatientId] = useState('');
   const [newCardPatientName, setNewCardPatientName] = useState('');
   const [newCardDesc, setNewCardDesc] = useState('');
@@ -362,20 +366,39 @@ export const CaseStudies: React.FC = () => {
   const handleAddBoard = async () => {
       if (!newBoardTitle.trim()) return;
       try {
-          const data = await api.post<{ id: number }>('/case-studies/boards', {
-              title: newBoardTitle.trim(),
-              description: newBoardDesc.trim() || null
-          });
-          const boardId = String(data.id);
+          if (editingBoardId) {
+              await api.put(`/case-studies/boards/${editingBoardId}`, {
+                  title: newBoardTitle.trim(),
+                  description: newBoardDesc.trim() || null
+              });
+              pushToast('success', 'Quadro atualizado com sucesso!');
+          } else {
+              const data = await api.post<{ id: number }>('/case-studies/boards', {
+                  title: newBoardTitle.trim(),
+                  description: newBoardDesc.trim() || null
+              });
+              const boardId = String(data.id);
+              setActiveBoardId(boardId);
+              pushToast('success', 'Quadro criado com sucesso!');
+          }
 
           await loadBoards();
-          setActiveBoardId(boardId);
           setIsBoardModalOpen(false);
           setNewBoardTitle('');
           setNewBoardDesc('');
+          setEditingBoardId(null);
       } catch (e) {
           console.error(e);
+          pushToast('error', 'Erro ao salvar quadro.');
       }
+  };
+
+  const openEditBoard = (e: React.MouseEvent, board: CaseBoard) => {
+      e.stopPropagation();
+      setEditingBoardId(board.id);
+      setNewBoardTitle(board.title);
+      setNewBoardDesc(board.description || '');
+      setIsBoardModalOpen(true);
   };
 
   const handleDeleteBoard = (e: React.MouseEvent, id: string) => {
@@ -715,12 +738,21 @@ export const CaseStudies: React.FC = () => {
                                       <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-black text-lg">
                                           {board.title.charAt(0).toUpperCase()}
                                       </div>
-                                      <button
-                                        onClick={(e) => handleDeleteBoard(e, board.id)}
-                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                      >
-                                          <Trash2 size={15} />
-                                      </button>
+                                      <div className="flex items-center gap-1">
+                                          <button
+                                            onClick={(e) => openEditBoard(e, board)}
+                                            className="p-1.5 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
+                                          >
+                                              <Pencil size={14} />
+                                          </button>
+                                          <button
+                                            onClick={(e) => handleDeleteBoard(e, board.id)}
+                                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                          >
+                                              <Trash2 size={15} />
+                                          </button>
+                                      </div>
+
                                   </div>
                                   <h3 className="font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors truncate">{board.title}</h3>
                                   <p className="text-xs text-slate-400 mb-4 line-clamp-2 min-h-[2.5rem]">{board.description || 'Sem descrição'}</p>
@@ -785,12 +817,21 @@ export const CaseStudies: React.FC = () => {
                         header: '',
                         className: 'text-right',
                         render: (board) => (
-                          <button
-                            onClick={(e: React.MouseEvent) => handleDeleteBoard(e, board.id)}
-                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={(e: React.MouseEvent) => openEditBoard(e, board)}
+                              className="p-1.5 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={(e: React.MouseEvent) => handleDeleteBoard(e, board.id)}
+                              className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+
                         ),
                       },
                     ]}
@@ -924,16 +965,17 @@ export const CaseStudies: React.FC = () => {
       {/* --- MODAL: NEW BOARD --- */}
       <Modal
         isOpen={isBoardModalOpen}
-        onClose={() => setIsBoardModalOpen(false)}
-        title={t('cases.newBoard')}
-        subtitle="Estruture trilhas de acompanhamento clínico."
+        onClose={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardDesc(''); }}
+        title={editingBoardId ? 'Editar Quadro' : t('cases.newBoard')}
+        subtitle={editingBoardId ? 'Altere o nome e objetivo desta trilha.' : "Estruture trilhas de acompanhamento clínico."}
         maxWidth="md"
         footer={
           <div className="flex w-full items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setIsBoardModalOpen(false)}>{t('cases.cancel')}</Button>
-            <Button variant="primary" size="sm" onClick={handleAddBoard}>{t('cases.create')}</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardDesc(''); }}>{t('cases.cancel')}</Button>
+            <Button variant="primary" size="sm" onClick={handleAddBoard}>{editingBoardId ? 'Salvar Alterações' : t('cases.create')}</Button>
           </div>
         }
+
       >
         <div className="space-y-4">
           <Input
