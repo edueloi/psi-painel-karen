@@ -100,6 +100,7 @@ export const Records: React.FC = () => {
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
+  const [activeStyles, setActiveStyles] = useState<Record<string, boolean>>({});
 
   const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -160,13 +161,25 @@ export const Records: React.FC = () => {
   };
 
   const updateSection = (key: 'demand' | 'procedures' | 'analysis' | 'free', value: string) => {
-    setEditorSections(prev => ({ ...prev, [key]: value }));
+    // Only update state, don't let React re-inject innerHTML via dangerouslySetInnerHTML during typing
+    editorSections[key] = value;
   };
 
   const storeSelection = () => {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
     selectionRef.current = sel.getRangeAt(0);
+
+    // Update active styles for the toolbar
+    const styles: Record<string, boolean> = {
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      underline: document.queryCommandState('underline'),
+      h2: String(document.queryCommandValue('formatBlock')).toLowerCase() === 'h2',
+      unorderedList: document.queryCommandState('insertUnorderedList'),
+      orderedList: document.queryCommandState('insertOrderedList'),
+    };
+    setActiveStyles(styles);
   };
 
   const restoreSelection = () => {
@@ -181,6 +194,7 @@ export const Records: React.FC = () => {
     editorActiveRef.current.focus();
     restoreSelection();
     document.execCommand(command, false, value);
+    storeSelection(); // Refresh icons after action
   };
 
   const handleInsertLink = () => {
@@ -477,6 +491,18 @@ export const Records: React.FC = () => {
       }
   };
 
+  const handleDeleteRecord = async (id: string | number) => {
+    if (!window.confirm('Deseja realmente excluir este registro permanentemente? Esta ação não pode ser desfeita.')) return;
+    try {
+        await api.delete(`/medical-records/${id}`);
+        pushToast('success', 'Registro excluído com sucesso.');
+        if (selectedPatientId) fetchRecords(selectedPatientId);
+        setIsEditorOpen(false);
+    } catch (e: any) {
+        pushToast('error', e.message || 'Erro ao excluir registro');
+    }
+  };
+
   const handleSaveRecord = async () => {
       if (!selectedPatient) return;
       try {
@@ -501,6 +527,7 @@ export const Records: React.FC = () => {
           }
           await fetchRecords(selectedPatient.id);
           setIsEditorOpen(false);
+          pushToast('success', 'Prontuário salvo com sucesso!');
       } catch (e: any) {
           pushToast('error', e.message || 'Erro ao salvar prontuario');
       }
@@ -724,7 +751,7 @@ export const Records: React.FC = () => {
           </div>
 
       {isEditorOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
               <div className="bg-white w-full h-full md:h-[92vh] md:w-[92vw] md:max-w-5xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
                   <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-white shrink-0">
                       <div className="flex items-center gap-3">
@@ -795,22 +822,29 @@ export const Records: React.FC = () => {
                           <div className="flex flex-wrap items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl shadow-sm sticky top-0 z-10">
                               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mr-2">Estilos</div>
                               {[
-                                { cmd: 'bold', label: 'B', cls: 'font-black' },
-                                { cmd: 'italic', label: 'I', cls: 'italic' },
-                                { cmd: 'underline', label: 'U', cls: 'underline' },
-                                { cmd: 'formatBlock', val: 'H2', label: 'H2', cls: 'font-black' },
-                                { cmd: 'insertUnorderedList', label: '• List', cls: '' },
-                                { cmd: 'insertOrderedList', label: '1. List', cls: '' },
-                              ].map(btn => (
-                                <button
-                                    key={btn.cmd + (btn.val || '')}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => execCommand(btn.cmd, btn.val)}
-                                    className={`px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all border border-slate-100 ${btn.cls}`}
-                                >
-                                    {btn.label}
-                                </button>
-                              ))}
+                                { cmd: 'bold', label: 'B', cls: 'font-black', key: 'bold' },
+                                { cmd: 'italic', label: 'I', cls: 'italic', key: 'italic' },
+                                { cmd: 'underline', label: 'U', cls: 'underline', key: 'underline' },
+                                { cmd: 'formatBlock', val: 'H2', label: 'H2', cls: 'font-black', key: 'h2' },
+                                { cmd: 'insertUnorderedList', label: '• List', cls: '', key: 'unorderedList' },
+                                { cmd: 'insertOrderedList', label: '1. List', cls: '', key: 'orderedList' },
+                              ].map(btn => {
+                                const isActive = activeStyles[btn.key];
+                                return (
+                                  <button
+                                      key={btn.cmd + (btn.val || '')}
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => execCommand(btn.cmd, btn.val)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                                          isActive 
+                                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 scale-105' 
+                                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-100'
+                                      } ${btn.cls}`}
+                                  >
+                                      {btn.label}
+                                  </button>
+                                );
+                              })}
                               <div className="w-[1px] h-6 bg-slate-200 mx-1" />
                               <button
                                 onMouseDown={(e) => e.preventDefault()}
@@ -839,7 +873,7 @@ export const Records: React.FC = () => {
                                             className="min-h-[220px] p-6 rounded-3xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-8 focus:ring-indigo-100 transition-all shadow-sm focus:border-indigo-300 custom-record-editor"
                                             contentEditable
                                             suppressContentEditableWarning
-                                            onFocus={(e) => { editorActiveRef.current = e.currentTarget; }}
+                                            onFocus={(e) => { editorActiveRef.current = e.currentTarget; storeSelection(); }}
                                             onMouseUp={storeSelection}
                                             onKeyUp={storeSelection}
                                             onInput={(e) => updateSection(key as any, (e.currentTarget as HTMLDivElement).innerHTML)}
@@ -909,6 +943,14 @@ export const Records: React.FC = () => {
                         O registro será salvo com a data atual.
                       </div>
                       <div className="flex items-center gap-3">
+                          {editorMode === 'edit' && currentRecord.id && (
+                              <button 
+                                onClick={() => handleDeleteRecord(currentRecord.id!)} 
+                                className="px-5 py-2.5 rounded-xl border border-rose-100 text-rose-500 font-extrabold text-[11px] uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2 mr-4"
+                              >
+                                <Trash2 size={16} /> Excluir Registro
+                              </button>
+                          )}
                           <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
                           <button onClick={handleSaveRecord} className="px-8 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
                             <Save size={16} /> {t('common.save')}
@@ -920,8 +962,8 @@ export const Records: React.FC = () => {
       )}
 
       {linkModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-[0_20px_70px_-10px_rgba(0,0,0,0.3)] border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-slate-100 font-bold text-slate-800">Inserir link</div>
             <div className="p-4 space-y-3">
               <div>

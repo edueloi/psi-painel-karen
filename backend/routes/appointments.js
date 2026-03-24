@@ -164,10 +164,15 @@ router.get('/export-template', checkPermission('create_appointment'), async (req
     console.warn('Erro ao carregar referências para o template:', err.message);
   }
 
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename=modelo_importacao_agenda.xlsx');
-  await workbook.xlsx.write(res);
-  res.end();
+  try {
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=modelo_importacao_agenda.xlsx');
+    res.send(buffer);
+  } catch (err) {
+    console.error('Erro ao gerar buffer do Excel:', err);
+    res.status(500).json({ error: 'Erro ao gerar arquivo do template' });
+  }
 });
 
 // GET /appointments/export
@@ -205,8 +210,20 @@ router.get('/export', checkPermission('view_agenda'), async (req, res) => {
     });
 
     appointments.forEach(a => {
+      let dateStr = '';
+      try {
+        if (a.start_time) {
+          const d = new Date(a.start_time);
+          if (!isNaN(d.getTime())) {
+            dateStr = d.toLocaleString('pt-BR');
+          }
+        }
+      } catch (e) {
+        dateStr = String(a.start_time || '');
+      }
+
       worksheet.addRow({
-        date: new Date(a.start_time).toLocaleString('pt-BR'),
+        date: dateStr,
         title: a.title,
         patient: a.patient_name,
         professional: a.professional_name,
@@ -220,12 +237,12 @@ router.get('/export', checkPermission('view_agenda'), async (req, res) => {
 
     worksheet.autoFilter = 'A1:I1';
 
+    const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=agenda_exportada.xlsx');
-    await workbook.xlsx.write(res);
-    res.end();
+    res.send(buffer);
   } catch (err) {
-    console.error(err);
+    console.error('Erro ao exportar agenda:', err);
     res.status(500).json({ error: 'Erro ao exportar agenda' });
   }
 });
@@ -272,6 +289,14 @@ router.post('/import', checkPermission('create_appointment'), memoryUpload.singl
 
         const end = new Date(start.getTime() + duration * 60000);
 
+        const rawPId = findValue(row, 'ID Paciente', 'paciente_id', 'patient_id');
+        const rawProfId = findValue(row, 'ID Profissional', 'profissional_id', 'professional_id');
+        const rawSId = findValue(row, 'ID Serviço', 'service_id');
+
+        const pId = parseInt(rawPId);
+        const profId = parseInt(rawProfId);
+        const sId = parseInt(rawSId);
+
         const [result] = await db.query(
           `INSERT INTO appointments (
             tenant_id, patient_id, professional_id, service_id, title,
@@ -279,9 +304,9 @@ router.post('/import', checkPermission('create_appointment'), memoryUpload.singl
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.user.tenant_id,
-            parseInt(findValue(row, 'ID Paciente', 'paciente_id', 'patient_id')) || null,
-            parseInt(findValue(row, 'ID Profissional', 'profissional_id', 'professional_id')) || null,
-            parseInt(findValue(row, 'ID Serviço', 'service_id')) || null,
+            isNaN(pId) ? null : pId,
+            isNaN(profId) ? null : profId,
+            isNaN(sId) ? null : sId,
             title,
             start.toISOString().slice(0, 19).replace('T', ' '),
             end.toISOString().slice(0, 19).replace('T', ' '),

@@ -756,7 +756,7 @@ const SchemaPanel: React.FC<{ t: (k: string) => string; scopeKey: string }> = ({
     setError(null);
     try {
       await api.post(`/clinical-tools/${scopeKey}/schema/snapshot`, {
-        activeSchemas,
+        active_schemas: activeSchemas,
         modes,
       });
       setSavedPulse(true);

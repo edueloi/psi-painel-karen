@@ -50,12 +50,14 @@ router.get('/:id', authMiddleware, checkPermission('view_medical_records'), asyn
 // POST /medical-records
 router.post('/', authMiddleware, checkPermission('create_medical_record'), async (req, res) => {
   try {
-    const { patient_id, appointment_id, content, type } = req.body;
+    const { patient_id, appointment_id, content, record_type, title, status, tags } = req.body;
     if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
 
+    const tagsStr = tags ? JSON.stringify(tags) : null;
+
     const [result] = await db.query(
-      'INSERT INTO medical_records (tenant_id, patient_id, professional_id, appointment_id, content, type) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.user.tenant_id, patient_id, req.user.id, appointment_id || null, content || null, type || 'session']
+      'INSERT INTO medical_records (tenant_id, patient_id, professional_id, appointment_id, content, type, record_type, title, status, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.tenant_id, patient_id, req.user.id, appointment_id || null, content || null, record_type || 'Evolucao', record_type || 'Evolucao', title || null, status || 'Rascunho', tagsStr]
     );
 
     const [record] = await db.query(
@@ -77,7 +79,7 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
 // PUT /medical-records/:id
 router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
   try {
-    const { content, type } = req.body;
+    const { content, record_type, title, status, tags } = req.body;
 
     const [existing] = await db.query(
       'SELECT id FROM medical_records WHERE id = ? AND tenant_id = ?',
@@ -85,9 +87,18 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
 
+    const tagsStr = tags ? JSON.stringify(tags) : null;
+
     await db.query(
-      'UPDATE medical_records SET content = COALESCE(?, content), type = COALESCE(?, type) WHERE id = ?',
-      [content, type, req.params.id]
+      `UPDATE medical_records 
+       SET content = COALESCE(?, content), 
+           type = COALESCE(?, type),
+           record_type = COALESCE(?, record_type),
+           title = COALESCE(?, title),
+           status = COALESCE(?, status),
+           tags = COALESCE(?, tags)
+       WHERE id = ?`,
+      [content, record_type, record_type, title, status, tagsStr, req.params.id]
     );
 
     const [updated] = await db.query(

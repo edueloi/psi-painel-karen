@@ -131,10 +131,8 @@ export const Agenda: React.FC = () => {
   const [packages, setPackages] = useState<any[]>([]);
   const [view, setView] = useState<'day' | 'week' | 'month'>('week');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isProcessingImport, setIsProcessingImport] = useState(false);
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [filterPatientId, setFilterPatientId] = useState<string | null>(null);
   const [filterProfessionalId, setFilterProfessionalId] = useState<string | null>(null);
@@ -624,9 +622,9 @@ export const Agenda: React.FC = () => {
       a.download = `agenda_exportada_${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       pushToast('success', 'Agenda exportada com sucesso.');
-    } catch (err) {
-      console.error(err);
-      pushToast('error', 'Erro ao exportar agenda.');
+    } catch (err: any) {
+      console.error('Erro ao exportar Excel:', err);
+      pushToast('error', `Erro ao exportar agenda: ${err.message || 'Erro de conexão'}`);
     }
   };
 
@@ -793,29 +791,12 @@ export const Agenda: React.FC = () => {
 
       pdf.save(`agenda_${new Date().toISOString().slice(0, 10)}.pdf`);
       pushToast('success', 'PDF exportado com sucesso!');
-    } catch (err) {
-      console.error(err);
-      pushToast('error', 'Erro ao gerar PDF.');
+    } catch (err: any) {
+      console.error('Erro ao gerar PDF:', err);
+      pushToast('error', `Erro ao gerar PDF: ${err.message || 'Erro desconhecido'}`);
     }
   };
 
-  const downloadTemplate = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/appointments/export-template`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
-      });
-      if (!response.ok) throw new Error('Erro ao baixar modelo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'modelo_importacao_agenda.xlsx';
-      a.click();
-    } catch (err) {
-      console.error(err);
-      pushToast('error', 'Erro ao baixar modelo.');
-    }
-  };
 
   const fetchComandaPayments = async (comandaId: string | number) => {
     if (!comandaId) return;
@@ -1036,30 +1017,6 @@ export const Agenda: React.FC = () => {
 
   };
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsProcessingImport(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const result = await api.request<any>('/appointments/import', {
-        method: 'POST',
-        body: formData
-      });
-      fetchData();
-      pushToast('success', result.message || 'Dados importados com sucesso.');
-      setIsImportModalOpen(false);
-    } catch (err) {
-      console.error(err);
-      pushToast('error', 'Erro ao importar dados. Verifique o formato do arquivo.');
-    } finally {
-      setIsProcessingImport(false);
-      e.target.value = '';
-    }
-  };
 
   const getRangeLabel = () => {
     if (view === 'month') return currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' });
@@ -1420,14 +1377,6 @@ export const Agenda: React.FC = () => {
               <p className="text-slate-400 text-xs mt-1 font-bold">{t('agenda.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
-              {hasPermission('create_appointment') && (
-                  <button
-                      onClick={() => setIsImportModalOpen(true)}
-                      className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
-                  >
-                      <Upload size={14} className="text-indigo-500" /> Importar
-                  </button>
-              )}
               <div className="relative">
                   <button
                       onClick={() => setExportMenuOpen((o: boolean) => !o)}
@@ -2181,88 +2130,6 @@ export const Agenda: React.FC = () => {
                 </div>
               )}
           </div>
-      </Modal>
-
-      {/* IMPORT MODAL */}
-      <Modal
-        isOpen={isImportModalOpen}
-        onClose={() => !isProcessingImport && setIsImportModalOpen(false)}
-        title="Importar Agenda"
-        subtitle="Siga o modelo para importar seus agendamentos via excel/csv"
-        maxWidth="max-w-xl"
-      >
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 flex flex-col items-center text-center group hover:border-indigo-200 transition-all">
-              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm mb-4 border border-indigo-50 group-hover:scale-110 transition-transform">
-                <FileDown size={28} />
-              </div>
-              <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-2">1. Baixe o Modelo</h4>
-              <p className="text-[10px] font-bold text-slate-400 mb-5 leading-relaxed">
-                Baixe nossa planilha modelo para preencher com seus dados corretamente.
-              </p>
-              <button
-                onClick={downloadTemplate}
-                className="w-full py-3 bg-white hover:bg-slate-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-indigo-100 transition-all flex items-center justify-center gap-2 shadow-sm"
-              >
-                <Download size={14} /> Download Modelo
-              </button>
-            </div>
-
-            <div className="bg-indigo-600 p-5 rounded-[2rem] border border-indigo-500 flex flex-col items-center text-center shadow-lg shadow-indigo-200">
-              <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-white mb-4 backdrop-blur-md">
-                <Info size={28} />
-              </div>
-              <h4 className="text-xs font-black text-white uppercase tracking-widest mb-2 text-shadow-sm">Dica Importante</h4>
-              <p className="text-[10px] font-bold text-indigo-100 mb-5 leading-relaxed">
-                Preencha os IDs de pacientes e profissionais conforme listados no seu painel.
-              </p>
-              <div className="w-full py-3 bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl border border-white/20 backdrop-blur-md">
-                Formato: .XLSX / .CSV
-              </div>
-            </div>
-          </div>
-
-          <div className="relative group">
-            <input
-              type="file"
-              accept=".xlsx, .xls, .csv"
-              onChange={handleImport}
-              disabled={isProcessingImport}
-              className="absolute inset-0 opacity-0 cursor-pointer z-10"
-              id="file-upload"
-            />
-            <div className={`p-10 border-2 border-dashed rounded-[2.5rem] flex flex-col items-center justify-center transition-all ${isProcessingImport ? 'bg-slate-50 border-slate-200' : 'bg-slate-50 hover:bg-white hover:border-indigo-300 border-slate-200'}`}>
-              {isProcessingImport ? (
-                <>
-                  <Loader2 size={32} className="text-indigo-500 animate-spin mb-4" />
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Importando registros...</p>
-                </>
-              ) : (
-                <>
-                  <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-primary-600 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-indigo-200 mb-4 group-hover:scale-110 transition-transform">
-                    <FileUp size={32} />
-                  </div>
-                  <p className="text-xs font-black text-slate-700 uppercase tracking-widest">2. Selecione seu Arquivo</p>
-                  <p className="text-[10px] font-bold text-slate-400 mt-2">Clique aqui ou arraste seu arquivo CSV</p>
-
-                  <div className="mt-6 flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-slate-100 shadow-sm">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aguardando arquivo</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex justify-center border-t border-slate-50 pt-6">
-            <button
-              onClick={() => setIsImportModalOpen(false)}
-              className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-colors flex items-center gap-2"
-            >
-              <X size={14}/> Cancelar e Sair
-            </button>
-          </div>
-        </div>
       </Modal>
 
       {/* DELETE CONFIRM */}

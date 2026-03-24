@@ -14,6 +14,7 @@ import { useToast } from '../contexts/ToastContext';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { GridTable } from '../components/UI/GridTable';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import {
   FilterLine,
   FilterLineSection,
@@ -27,10 +28,11 @@ export const Documents: React.FC = () => {
   const { t, language } = useLanguage();
   const { pushToast } = useToast();
   const [searchParams] = useSearchParams();
+  const { preferences, updatePreference } = useUserPreferences();
   const [categories, setCategories] = useState<string[]>(DOCUMENT_CATEGORIES);
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(preferences.documents?.viewMode || 'grid');
   const [sortBy, setSortBy] = useState<'recent' | 'name' | 'size'>('recent');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -177,6 +179,20 @@ export const Documents: React.FC = () => {
     };
   }, [documents]);
 
+  const handleViewModeToggle = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    updatePreference('documents', { viewMode: mode });
+  };
+
+  // Limit visible categories for cleaner UI (Top 4)
+  const mainCategories = useMemo(() => {
+    return categories.slice(0, 4); 
+  }, [categories]);
+
+  const otherCategories = useMemo(() => {
+    return categories.slice(4);
+  }, [categories]);
+
   const getFileIcon = (type: string, size: number = 24) => {
     switch(type) {
       case 'pdf': return <FileText className="text-rose-500" size={size} />;
@@ -282,8 +298,8 @@ export const Documents: React.FC = () => {
 
         <FilterLineSection align="right">
           <FilterLineItem>
-            <div className="flex bg-slate-100 p-1 rounded-2xl overflow-x-auto no-scrollbar gap-0.5">
-              {categories.map(cat => (
+            <div className="flex bg-slate-100 p-1 rounded-2xl overflow-x-auto no-scrollbar gap-0.5 relative group/cats">
+              {mainCategories.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
@@ -292,13 +308,24 @@ export const Documents: React.FC = () => {
                   {cat}
                 </button>
               ))}
-              <button onClick={() => setIsCategoryModalOpen(true)} className="px-2 py-1.5 text-slate-400 hover:text-indigo-600 transition-all"><Settings size={14}/></button>
+              <div className="relative">
+                <button 
+                  onClick={() => setIsCategoryModalOpen(true)} 
+                  className={`px-2 py-1.5 transition-all ${isCategoryModalOpen ? 'text-indigo-600' : 'text-slate-400 hover:text-indigo-600'}`}
+                  title="Configurar categorias"
+                >
+                  <Settings size={14}/>
+                </button>
+                {otherCategories.includes(activeCategory) && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full border border-white"></span>
+                )}
+              </div>
             </div>
           </FilterLineItem>
           <FilterLineItem>
             <FilterLineViewToggle
               value={viewMode}
-              onChange={setViewMode}
+              onChange={handleViewModeToggle as any}
               gridValue="grid"
               listValue="list"
             />

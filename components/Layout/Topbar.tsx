@@ -48,25 +48,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
         >
           <Menu size={22} />
         </button>
-
-        {/* Global Search */}
-        <div className="hidden md:flex items-center relative w-full max-w-sm group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
-          <input
-            type="text"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                 navigate(`/pacientes?search=${encodeURIComponent(e.currentTarget.value.trim())}`);
-                 e.currentTarget.value = '';
-              }
-            }}
-            placeholder={t('topbar.search')}
-            className="w-full h-10 pl-11 pr-10 rounded-full bg-slate-50 border border-slate-200/60 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/8 outline-none text-sm text-slate-700 placeholder:text-slate-400 transition-all"
-          />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-focus-within:flex items-center">
-             <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5">ENTER</span>
-          </div>
-        </div>
       </div>
 
       {/* Right Area: Actions & Profile */}
