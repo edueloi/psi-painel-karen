@@ -104,6 +104,9 @@ class WhatsAppManager {
           }
         },
         mkdirFolder: this.tokensPath,
+        puppeteerOptions: {
+          userDataDir: path.join(this.tokensPath, data.instanceName),
+        },
         headless: true,
         devtools: false,
         useChrome: false,
@@ -118,7 +121,8 @@ class WhatsAppManager {
           '--no-zygote',
           '--disable-gpu',
           '--disable-extensions',
-          '--disable-features=site-per-process'
+          '--disable-features=site-per-process',
+          '--single-process'
         ],
         autoClose: 0,
         tokenStore: 'file',
