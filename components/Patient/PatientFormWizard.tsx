@@ -96,15 +96,36 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>(initialData.photo_url || (initialData as any).photoUrl || '');
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [formData, setFormData] = useState<Partial<Patient>>({
-    status: 'ativo',
-    convenio: false,
-    has_children: false,
-    needs_reimbursement: false,
-    is_payer: true,
-    phone_country: 'BR',
-    phone2_country: 'BR',
-    ...initialData
+  const [formData, setFormData] = useState<Partial<Patient>>(() => {
+    const base = {
+      status: 'ativo',
+      convenio: false,
+      has_children: false,
+      needs_reimbursement: false,
+      is_payer: true,
+      phone_country: 'BR',
+      phone2_country: 'BR',
+      ...initialData
+    };
+
+    // Normalização de campos para o Wizard
+    return {
+      ...base,
+      full_name: initialData.full_name || (initialData as any).name || '',
+      whatsapp: initialData.whatsapp || (initialData as any).phone || '',
+      cpf_cnpj: initialData.cpf_cnpj || (initialData as any).cpf || '',
+      address_zip: initialData.zip_code || (initialData as any).address_zip || '',
+      // Se não houver street mas houver address, usa address como street
+      street: initialData.street || initialData.address || '',
+      status: (initialData.status === 'active' || initialData.status === 'ativo') ? 'ativo' : 'inativo',
+      
+      // Novos campos para garantir preenchimento completo do modal de editar
+      convenio: initialData.convenio ?? !!(initialData.convenio_name || initialData.health_plan),
+      convenio_name: initialData.convenio_name || initialData.health_plan || '',
+      has_children: !!(initialData.has_children || initialData.children_count || initialData.minor_children_count),
+      is_payer: initialData.is_payer ?? true,
+      needs_reimbursement: initialData.needs_reimbursement ?? (initialData as any).needsReimbursement ?? false,
+    };
   });
 
   const fetchCep = async (cep: string) => {

@@ -147,6 +147,9 @@ export const Records: React.FC = () => {
   const [activeStyles, setActiveStyles] = useState<Record<string, boolean>>({});
   const appointmentIdParam = searchParams.get('appointment_id');
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<string | number | null>(null);
+
   const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
   const recordTypeLabel: Record<string, string> = {
@@ -485,11 +488,13 @@ export const Records: React.FC = () => {
       const request = await api.post<{ id: number }>('/uploads/request', {
           file_name: file.name,
           file_type: file.type || null,
-          file_size: file.size || null
+          file_size: file.size || null,
+          patient_id: selectedPatientId || null
       });
       await api.put(`/uploads/${request.id}/confirm`, {
           file_url: dataUrl,
-          status: 'uploaded'
+          status: 'uploaded',
+          patient_id: selectedPatientId || null
       });
       appendAttachment({
           file_name: file.name,
@@ -559,13 +564,20 @@ export const Records: React.FC = () => {
       }
   };
 
-  const handleDeleteRecord = async (id: string | number) => {
-    if (!window.confirm('Deseja realmente excluir este registro permanentemente? Esta ação não pode ser desfeita.')) return;
+  const handleDeleteRecord = (id: string | number) => {
+    setRecordToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteRecord = async () => {
+    if (!recordToDelete) return;
     try {
-        await api.delete(`/medical-records/${id}`);
+        await api.delete(`/medical-records/${recordToDelete}`);
         pushToast('success', 'Registro excluído com sucesso.');
         if (selectedPatientId) fetchRecords(selectedPatientId);
         setIsEditorOpen(false);
+        setIsDeleteModalOpen(false);
+        setRecordToDelete(null);
     } catch (e: any) {
         pushToast('error', e.message || 'Erro ao excluir registro');
     }
@@ -1253,6 +1265,29 @@ export const Records: React.FC = () => {
             value={linkText}
             onChange={(e) => setLinkText(e.target.value)}
           />
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Confirmar Exclusão"
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(false)}>Cancelar</Button>
+            <Button variant="danger" size="sm" onClick={confirmDeleteRecord}>Excluir Permanentemente</Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col items-center text-center p-4">
+          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
+            <Trash2 size={32} />
+          </div>
+          <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">Excluir Registro?</h3>
+          <p className="text-[13px] text-slate-500 font-semibold leading-relaxed">
+            Deseja realmente excluir este registro permanentemente? Esta ação não pode ser desfeita e todos os dados serão perdidos.
+          </p>
         </div>
       </Modal>
 

@@ -12,6 +12,8 @@ import { Patient } from '../types';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
 import { DatePicker } from '../components/UI/DatePicker';
+import { Modal } from '../components/UI/Modal';
+import { useToast } from '../contexts/ToastContext';
 
 const AVATAR_COLORS = [
   'from-primary-500 to-purple-600',
@@ -61,6 +63,7 @@ export const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
+  const { pushToast } = useToast();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,12 +141,74 @@ export const PatientDetail: React.FC = () => {
     }
   };
 
-  const handlePatientSaved = async (updated: Patient) => {
-    setPatient(updated);
-    setIsWizardOpen(false);
-    // Refresh
-    const fresh = await safeGet<Patient>(`/patients/${id}`);
-    if (fresh) setPatient(fresh);
+  const handlePatientSaved = async (data: Partial<Patient>, files: { file: File; label: string }[], photoFile?: File | null) => {
+    try {
+      const payload = {
+        name: data.full_name,
+        email: data.email || null,
+        phone: data.whatsapp || data.phone || null,
+        phone2: data.phone2 || null,
+        birth_date: data.birth_date || null,
+        cpf: data.cpf_cnpj || data.cpf || null,
+        rg: data.rg || null,
+        gender: data.gender || null,
+        marital_status: data.marital_status || null,
+        education: data.education || null,
+        profession: data.profession || null,
+        nationality: data.nationality || null,
+        naturality: (data as any).naturality || null,
+        has_children: data.has_children ? 1 : 0,
+        children_count: data.children_count || 0,
+        minor_children_count: data.minor_children_count || 0,
+        spouse_name: data.spouse_name || null,
+        family_contact: data.family_contact || null,
+        emergency_contact: data.emergency_contact || null,
+        address: data.street
+          ? `${data.street}${data.house_number ? ', ' + data.house_number : ''}${data.neighborhood ? ' - ' + data.neighborhood : ''}`
+          : null,
+        city: data.city || null,
+        state: data.state || null,
+        zip_code: data.address_zip || null,
+        notes: data.notes || null,
+        status: data.status || 'ativo',
+        health_plan: data.convenio ? data.convenio_name || 'Sim' : null,
+        diagnosis: (data as any).diagnosis || null,
+        is_payer: data.is_payer !== undefined ? data.is_payer : true,
+        payer_name: data.payer_name || null,
+        payer_cpf: data.payer_cpf || null,
+        payer_phone: data.payer_phone || null,
+      };
+
+      if (!data.id) return;
+
+      await api.put(`/patients/${data.id}`, payload);
+
+      if (files.length) {
+        for (const doc of files) {
+          const fd = new FormData();
+          fd.append('file', doc.file);
+          fd.append('title', doc.label.trim() || doc.file.name);
+          fd.append('category', 'Paciente');
+          fd.append('patient_id', String(data.id));
+          await api.request('/uploads', { method: 'POST', body: fd });
+        }
+      }
+
+      if (photoFile) {
+        const fd = new FormData();
+        fd.append('photo', photoFile);
+        await api.request(`/patients/${data.id}/photo`, { method: 'POST', body: fd });
+      }
+
+      setIsWizardOpen(false);
+      pushToast('success', 'Paciente atualizado com sucesso!');
+      
+      const fresh = await safeGet<Patient>(`/patients/${id}`);
+      if (fresh) setPatient(fresh);
+    } catch (err) {
+      console.error('Erro ao salvar paciente:', err);
+      pushToast('error', 'Erro ao salvar paciente.');
+    }
   };
 
   if (loading) {
@@ -288,13 +353,17 @@ export const PatientDetail: React.FC = () => {
         {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
       </div>
 
-      {/* Edit wizard */}
+      {/* Edit wizard modal */}
       {isWizardOpen && (
-        <PatientFormWizard
-          patient={patient}
-          onClose={() => setIsWizardOpen(false)}
-          onSave={handlePatientSaved as any}
-        />
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white flex flex-col">
+            <PatientFormWizard
+              initialData={patient || {}}
+              onCancel={() => setIsWizardOpen(false)}
+              onSave={handlePatientSaved}
+            />
+          </div>
+        </div>
       )}
 
       {/* History drawer */}

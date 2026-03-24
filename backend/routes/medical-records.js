@@ -40,7 +40,17 @@ router.get('/:id', authMiddleware, checkPermission('view_medical_records'), asyn
       [req.params.id, req.user.tenant_id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
-    res.json(rows[0]);
+    
+    const record = rows[0];
+    
+    // Buscar anexos
+    const [attachments] = await db.query(
+      'SELECT id, file_name, file_url, file_type, file_size FROM medical_record_attachments WHERE record_id = ?',
+      [record.id]
+    );
+    
+    record.attachments = attachments;
+    res.json(record);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar prontuário' });
@@ -50,7 +60,7 @@ router.get('/:id', authMiddleware, checkPermission('view_medical_records'), asyn
 // POST /medical-records
 router.post('/', authMiddleware, checkPermission('create_medical_record'), async (req, res) => {
   try {
-    const { patient_id, appointment_id, content, record_type, title, status, tags, start_time, end_time } = req.body;
+    const { patient_id, appointment_id, content, record_type, title, status, tags, start_time, end_time, attachments } = req.body;
     if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
 
     const tagsStr = tags ? JSON.stringify(tags) : null;
@@ -60,13 +70,25 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
       [req.user.tenant_id, patient_id, req.user.id, appointment_id || null, content || null, record_type || 'Evolucao', record_type || 'Evolucao', title || null, status || 'Rascunho', tagsStr, start_time || null, end_time || null]
     );
 
+    const recordId = result.insertId;
+
+    // Salvar anexos
+    if (attachments && Array.isArray(attachments)) {
+      for (const att of attachments) {
+        await db.query(
+          'INSERT INTO medical_record_attachments (record_id, file_name, file_url, file_type, file_size) VALUES (?, ?, ?, ?, ?)',
+          [recordId, att.file_name, att.file_url, att.file_type || null, att.file_size || null]
+        );
+      }
+    }
+
     const [record] = await db.query(
       `SELECT r.*, p.name as patient_name, u.name as professional_name
        FROM medical_records r
        LEFT JOIN patients p ON p.id = r.patient_id
        LEFT JOIN users u ON u.id = r.professional_id
        WHERE r.id = ?`,
-      [result.insertId]
+      [recordId]
     );
 
     res.status(201).json(record[0]);
@@ -79,7 +101,7 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
 // PUT /medical-records/:id
 router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
   try {
-    const { content, record_type, title, status, tags, start_time, end_time } = req.body;
+    const { content, record_type, title, status, tags, start_time, end_time, attachments } = req.body;
 
     const [existing] = await db.query(
       'SELECT id FROM medical_records WHERE id = ? AND tenant_id = ?',
@@ -103,6 +125,19 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
       [content, record_type, record_type, title, status, tagsStr, start_time || null, end_time || null, req.params.id]
     );
 
+    // Sincronizar anexos
+    if (attachments && Array.isArray(attachments)) {
+        // Para simplificar, deletamos e reinserimos (ou tratamos como novo se não tiver ID)
+        // Se quisermos ser mais precisos, compararíamos IDs
+        await db.query('DELETE FROM medical_record_attachments WHERE record_id = ?', [req.params.id]);
+        for (const att of attachments) {
+            await db.query(
+                'INSERT INTO medical_record_attachments (record_id, file_name, file_url, file_type, file_size) VALUES (?, ?, ?, ?, ?)',
+                [req.params.id, att.file_name, att.file_url, att.file_type || null, att.file_size || null]
+            );
+        }
+    }
+
     const [updated] = await db.query(
       `SELECT r.*, p.name as patient_name, u.name as professional_name
        FROM medical_records r
@@ -122,6 +157,9 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
 // DELETE /medical-records/:id
 router.delete('/:id', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
   try {
+    // Deletar anexos primeiro
+    await db.query('DELETE FROM medical_record_attachments WHERE record_id = ?', [req.params.id]);
+
     const [result] = await db.query(
       'DELETE FROM medical_records WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]

@@ -33,7 +33,8 @@ const fs = require('fs');
       { name: 'url', def: 'VARCHAR(500) NULL' },
       { name: 'mime_type', def: 'VARCHAR(100) NULL' },
       { name: 'size', def: 'INT NULL' },
-      { name: 'status', def: "VARCHAR(20) DEFAULT 'uploaded'" }
+      { name: 'status', def: "VARCHAR(20) DEFAULT 'uploaded'" },
+      { name: 'description', def: 'TEXT NULL' }
     ];
     for (const col of cols) {
       await db.query(`ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`).catch(() => {});
@@ -68,6 +69,31 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB limit
 });
 
+// Helper para formatar categoria e descrição baseado no paciente
+async function getPatientFileInfo(tenant_id, patient_id) {
+  if (!patient_id) return { category: 'Geral', description: null };
+  try {
+    const [rows] = await db.query(
+      'SELECT name, full_name, cpf, cpf_cnpj FROM patients WHERE id = ? AND tenant_id = ?',
+      [patient_id, tenant_id]
+    );
+    if (rows.length === 0) return { category: 'Geral', description: null };
+    const p = rows[0];
+    const fullName = p.full_name || p.name || 'Paciente';
+    const cpf = p.cpf || p.cpf_cnpj || null;
+    
+    // Formata Nome: Primeiro_Ultimo (ex: Luan_Santos)
+    const parts = fullName.split(' ').filter(Boolean);
+    let formattedName = parts[0];
+    if (parts.length > 1) formattedName += '_' + parts[parts.length - 1];
+    
+    return { category: formattedName, description: cpf };
+  } catch (err) {
+    console.error('Erro ao buscar info do paciente para upload:', err);
+    return { category: 'Geral', description: null };
+  }
+}
+
 // POST /uploads - Upload direto de arquivo
 router.post('/', (req, res, next) => {
   upload.single('file')(req, res, (err) => {
@@ -86,12 +112,13 @@ router.post('/', (req, res, next) => {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
 
-    const { patient_id, category, title } = req.body;
+    const { patient_id, category: reqCategory, title } = req.body;
+    const { category, description } = await getPatientFileInfo(req.user.tenant_id, patient_id);
     const file_url = `/uploads-static/${req.file.filename}`;
 
     const [result] = await db.query(
-      `INSERT INTO uploads (tenant_id, patient_id, uploaded_by, professional_id, filename, original_name, file_name, url, file_url, mime_type, file_type, size, file_size, category, title)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO uploads (tenant_id, patient_id, uploaded_by, professional_id, filename, original_name, file_name, url, file_url, mime_type, file_type, size, file_size, category, title, description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id,
         patient_id || null,
@@ -106,8 +133,9 @@ router.post('/', (req, res, next) => {
         req.file.mimetype,
         req.file.size,
         req.file.size,
-        category || 'Geral',
-        title || req.file.originalname
+        reqCategory || category,
+        title || req.file.originalname,
+        description
       ]
     );
 
@@ -134,11 +162,13 @@ router.post('/request', async (req, res) => {
 router.put('/:id/confirm', async (req, res) => {
     try {
         const { file_url, status, patient_id } = req.body;
+        const { category, description } = await getPatientFileInfo(req.user.tenant_id, patient_id);
+        
         // Se receber um DataURL aqui, salva no banco (fallback)
         await db.query(
-            `INSERT INTO uploads (tenant_id, patient_id, professional_id, file_name, file_url, file_type, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.tenant_id, patient_id || null, req.user.id, 'Novo Arquivo', file_url, 'data-url', status || 'uploaded']
+            `INSERT INTO uploads (tenant_id, patient_id, professional_id, file_name, file_url, file_type, status, category, description)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.user.tenant_id, patient_id || null, req.user.id, 'Novo Arquivo', file_url, 'data-url', status || 'uploaded', category, description]
         );
         res.json({ success: true });
     } catch (e) {
