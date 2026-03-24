@@ -8,6 +8,7 @@ const fs = require('fs');
 // Garante que a tabela uploads existe e todas as colunas necessárias existem
 (async () => {
   try {
+    // Tabela base
     await db.query(`
       CREATE TABLE IF NOT EXISTS uploads (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -18,17 +19,21 @@ const fs = require('fs');
         file_url VARCHAR(500),
         file_type VARCHAR(100),
         file_size INT,
-        category VARCHAR(100),
+        category VARCHAR(100) DEFAULT 'Geral',
         title VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
-    // Garante colunas adicionais que podem não existir em produção
+
+    // Garante colunas de compatibilidade que o código usa no INSERT
     const cols = [
-      { name: 'professional_id', def: 'INT NULL' },
-      { name: 'file_size', def: 'INT NULL' },
-      { name: 'category', def: "VARCHAR(100) DEFAULT 'Geral'" },
-      { name: 'title', def: 'VARCHAR(255) NULL' },
+      { name: 'uploaded_by', def: 'INT NULL' },
+      { name: 'filename', def: 'VARCHAR(255) NULL' },
+      { name: 'original_name', def: 'VARCHAR(255) NULL' },
+      { name: 'url', def: 'VARCHAR(500) NULL' },
+      { name: 'mime_type', def: 'VARCHAR(100) NULL' },
+      { name: 'size', def: 'INT NULL' },
+      { name: 'status', def: "VARCHAR(20) DEFAULT 'uploaded'" }
     ];
     for (const col of cols) {
       await db.query(`ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`).catch(() => {});
@@ -174,14 +179,34 @@ router.get('/', async (req, res) => {
 // DELETE /uploads/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const [result] = await db.query(
+    // 1. Busca o arquivo para saber o nome físico no disco antes de deletar do banco
+    const [rows] = await db.query(
+      'SELECT filename FROM uploads WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+
+    if (rows.length === 0) return res.status(404).json({ error: 'Arquivo não encontrado' });
+
+    const filename = rows[0].filename;
+
+    // 2. Deleta do banco de dados
+    await db.query(
       'DELETE FROM uploads WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Arquivo não encontrado' });
+
+    // 3. Tenta deletar o arquivo físico (se existir)
+    if (filename) {
+      const filePath = path.join(UPLOAD_DIR, filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`[FileDelete] Arquivo físico ${filename} removido.`);
+      }
+    }
+
     res.status(204).send();
   } catch (err) {
-    console.error(err);
+    console.error('Erro ao deletar documento:', err);
     res.status(500).json({ error: 'Erro ao deletar arquivo' });
   }
 });

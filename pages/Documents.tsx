@@ -102,10 +102,11 @@ export const Documents: React.FC = () => {
     if (!deleteConfirmId) return;
     try {
       await api.delete(`/uploads/${deleteConfirmId}`);
-      setDocuments(prev => prev.filter(d => d.id !== deleteConfirmId));
-    } catch (err) {
+      setDocuments(prev => prev.filter(d => String(d.id) !== String(deleteConfirmId)));
+      pushToast({ type: 'success', message: 'Arquivo excluído com sucesso!' });
+    } catch (err: any) {
       console.error('Erro ao excluir documento:', err);
-      setDocuments(prev => prev.filter(d => d.id !== deleteConfirmId));
+      pushToast({ type: 'error', message: err?.message || 'Falha ao excluir arquivo.' });
     } finally {
       setDeleteConfirmId(null);
     }
@@ -200,7 +201,7 @@ export const Documents: React.FC = () => {
     }
   };
 
-  const deleteTarget = documents.find(d => d.id === deleteConfirmId);
+  const deleteTarget = documents.find(d => String(d.id) === String(deleteConfirmId));
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans pb-24">
@@ -310,7 +311,8 @@ export const Documents: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {visibleDocs.map(doc => (
                 <div key={doc.id} className="group bg-white rounded-[2.5rem] p-6 border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/20 rounded-bl-[2.5rem] -mr-6 -mt-6 opacity-0 group-hover:opacity-100 transition-all"></div>
+                    {/* Decorative Background - Pointer events none to avoid blocking clicks */}
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/20 rounded-bl-[2.5rem] -mr-6 -mt-6 opacity-0 group-hover:opacity-100 transition-all pointer-events-none"></div>
 
                     <div className="flex justify-between items-start mb-6">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border shadow-sm transition-all group-hover:scale-110 ${getFileBg(doc.type)}`}>

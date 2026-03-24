@@ -42,20 +42,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
     ? 'border border-red-500/20 text-red-300 bg-red-500/10 hover:bg-red-500/20'
     : 'border border-red-100 text-red-600 bg-red-50 hover:bg-red-100';
 
-  const visibleSections = NAV_SECTIONS.map(section => ({
-    ...section,
-    items: section.items.filter(item => {
-      // Se não houver permissão exigida, permite
-      if (!item.requiredPermission) return true;
-      // Caso contrário, checa se o usuário tem a permissão
-      return hasPermission(item.requiredPermission);
-    })
-  })).filter(section => {
-    if (user?.role === 'super_admin') return false;
-    const isRestrictedGroup = section.title === 'nav.group.management' || section.title === 'nav.group.financial';
-    if (isRestrictedGroup && !isAdmin) return false;
-    return section.items.length > 0;
-  });
+  // Memoize visible sections to avoid re-calculating on every render
+  // and handle potential missing hasPermission during initialization
+  const visibleSections = React.useMemo(() => {
+    return NAV_SECTIONS.map(section => ({
+      ...section,
+      items: section.items.filter(item => {
+        // Se não houver permissão exigida, permite
+        if (!item.requiredPermission) return true;
+        // Caso contrário, checa se o usuário tem a permissão (fallback para false se undefined)
+        return typeof hasPermission === 'function' ? hasPermission(item.requiredPermission) : true;
+      })
+    })).filter(section => {
+      if (user?.role === 'super_admin') return false;
+      const isRestrictedGroup = section.title === 'nav.group.management' || section.title === 'nav.group.financial';
+      if (isRestrictedGroup && !isAdmin) return false;
+      return section.items.length > 0;
+    });
+  }, [user, isAdmin, hasPermission]);
 
   return (
     <>
