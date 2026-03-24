@@ -4,6 +4,7 @@ type FieldSize = 'sm' | 'md' | 'lg';
 
 interface BaseFieldProps {
   label: string;
+  hideLabel?: boolean;
   error?: string;
   hint?: string;
   required?: boolean;
@@ -53,40 +54,44 @@ const getFieldShellClasses = (hasError?: boolean, disabled?: boolean) =>
   cx(
     'relative flex w-full items-center rounded-xl border bg-white transition-all duration-200',
     hasError
-      ? 'border-red-300 ring-4 ring-red-500/10'
-      : 'border-slate-300 hover:border-slate-400 focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-500/10',
+      ? 'border-red-300 ring-[3px] ring-red-500/10'
+      : 'border-slate-200 hover:border-slate-300 focus-within:border-indigo-400 focus-within:ring-[3px] focus-within:ring-indigo-500/5',
     disabled && 'cursor-not-allowed bg-slate-50 opacity-70'
   );
 
 const FieldMeta: React.FC<{
   label: string;
+  hideLabel?: boolean;
   required?: boolean;
   error?: string;
   hint?: string;
   labelClassName?: string;
-}> = ({ label, required, error, hint, labelClassName }) => (
-  <>
-    <label
-      className={cx(
-        'mb-1.5 block text-[12px] font-medium text-slate-600',
-        labelClassName
-      )}
-    >
-      {label}
-      {required && <span className="ml-1 text-red-500">*</span>}
-    </label>
+}> = ({ label, hideLabel, required, error, hint, labelClassName }) => {
+  if (hideLabel) return null;
+  return (
+    <>
+      <label
+        className={cx(
+          'mb-1.5 block text-[12px] font-bold text-slate-500 uppercase tracking-widest',
+          labelClassName
+        )}
+      >
+        {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </label>
 
-    {(error || hint) && (
-      <div className="mt-1 min-h-[16px]">
-        {error ? (
-          <span className="text-[11px] font-medium text-red-500">{error}</span>
-        ) : hint ? (
-          <span className="text-[11px] text-slate-400">{hint}</span>
-        ) : null}
-      </div>
-    )}
-  </>
-);
+      {(error || hint) && (
+        <div className="mt-1 min-h-[16px]">
+          {error ? (
+            <span className="text-[11px] font-medium text-red-500">{error}</span>
+          ) : hint ? (
+            <span className="text-[11px] text-slate-400">{hint}</span>
+          ) : null}
+        </div>
+      )}
+    </>
+  );
+};
 
 export const Input: React.FC<InputProps> = ({
   label,
@@ -102,6 +107,7 @@ export const Input: React.FC<InputProps> = ({
   containerClassName = '',
   labelClassName = '',
   disabled,
+  hideLabel,
   ...props
 }) => {
   const sizeStyle = sizeMap[size];
@@ -171,6 +177,7 @@ export const Select: React.FC<SelectProps> = ({
   containerClassName = '',
   labelClassName = '',
   disabled,
+  hideLabel,
   children,
   ...props
 }) => {
@@ -249,6 +256,7 @@ export const TextArea: React.FC<TextAreaProps> = ({
   containerClassName = '',
   labelClassName = '',
   disabled,
+  hideLabel,
   rows = 4,
   ...props
 }) => {
@@ -268,8 +276,8 @@ export const TextArea: React.FC<TextAreaProps> = ({
         className={cx(
           'relative rounded-xl border bg-white transition-all duration-200',
           error
-            ? 'border-red-300 ring-4 ring-red-500/10'
-            : 'border-slate-300 hover:border-slate-400 focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-500/10',
+            ? 'border-red-300 ring-[3px] ring-red-500/10'
+            : 'border-slate-200 hover:border-slate-300 focus-within:border-indigo-400 focus-within:ring-[3px] focus-within:ring-indigo-500/5',
           disabled && 'cursor-not-allowed bg-slate-50 opacity-70'
         )}
       >

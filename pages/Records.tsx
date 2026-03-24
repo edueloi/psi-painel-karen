@@ -11,6 +11,16 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { Modal } from '../components/UI/Modal';
+import { Button } from '../components/UI/Button';
+import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
+import { 
+  FilterLine, 
+  FilterLineSection, 
+  FilterLineItem, 
+  FilterLineSearch,
+  FilterLineViewToggle
+} from '../components/UI/FilterLine';
 
 type RecordAttachment = {
   id?: string;
@@ -20,44 +30,64 @@ type RecordAttachment = {
   file_size?: number | null;
 };
 
-const SectionCard: React.FC<{
-    title: string;
-    subtitle?: string;
-    icon?: React.ReactNode;
-    right?: React.ReactNode;
-    children: React.ReactNode;
-    className?: string;
-  }> = ({ title, subtitle, icon, right, children, className }) => (
-    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden ${className}`}>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {icon}
-            <h3 className="font-extrabold text-slate-900">{title}</h3>
-          </div>
-          {subtitle && <p className="text-xs font-bold text-slate-400 mt-0.5">{subtitle}</p>}
-        </div>
-        {right}
+const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
+  const v = (status || '').toLowerCase();
+  const isFinal = v === 'finalizado' || v === 'final';
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide border transition-all ${
+        isFinal 
+        ? 'bg-indigo-50 text-indigo-700 border-indigo-100 shadow-sm' 
+        : 'bg-amber-50 text-amber-700 border-amber-100'
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${isFinal ? 'bg-indigo-600 animate-pulse' : 'bg-amber-500'}`} />
+      {status}
+    </span>
+  );
+};
+
+const EditorSection: React.FC<{
+  initialContent: string;
+  onInput: (html: string) => void;
+  label: string;
+  onFocus: (el: HTMLDivElement) => void;
+  onSelectionChange: () => void;
+  isActive: boolean;
+}> = React.memo(({ initialContent, onInput, label, onFocus, onSelectionChange, isActive }) => {
+  const editorRef = React.useRef<HTMLDivElement>(null);
+  
+  // Use layout effect to set initial content only once when the component mounts
+  // Since we use a unique key per record, this re-mounts correctly on record change.
+  React.useLayoutEffect(() => {
+    if (editorRef.current && initialContent !== editorRef.current.innerHTML) {
+      editorRef.current.innerHTML = initialContent;
+    }
+  }, []);
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2 ml-1">
+        <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${isActive ? 'bg-indigo-500 animate-pulse' : 'bg-slate-200'}`} />
+        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">{label}</label>
       </div>
-      <div className="p-5">{children}</div>
+      <div
+        ref={editorRef}
+        className="min-h-[160px] p-6 rounded-[24px] border border-slate-200 bg-white text-[15px] leading-relaxed outline-none focus:ring-[4px] focus:ring-indigo-500/5 transition-all shadow-sm focus:border-indigo-300 custom-record-editor prose prose-slate max-w-none"
+        contentEditable
+        suppressContentEditableWarning
+        onFocus={(e) => onFocus(e.currentTarget)}
+        onMouseUp={onSelectionChange}
+        onKeyUp={onSelectionChange}
+        onInput={(e) => onInput((e.currentTarget as HTMLDivElement).innerHTML)}
+      />
     </div>
   );
-
-  const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
-    const v = (status || '').toLowerCase();
-    const isFinal = v === 'finalizado' || v === 'final';
-    return (
-      <span
-        className={[
-          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide border',
-          isFinal ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100',
-        ].join(' ')}
-      >
-        <span className={['h-1.5 w-1.5 rounded-full', isFinal ? 'bg-indigo-600' : 'bg-amber-500'].join(' ')} />
-        {status}
-      </span>
-    );
-  };
+}, (prev, next) => {
+  // Only re-render if label, isActive or the record identity (handled by key) changes.
+  // We explicitly IGNORE initialContent changes after mounting to avoid resets.
+  return prev.label === next.label && prev.isActive === next.isActive;
+});
 
 export const Records: React.FC = () => {
   const { t } = useLanguage();
@@ -161,7 +191,7 @@ export const Records: React.FC = () => {
   };
 
   const updateSection = (key: 'demand' | 'procedures' | 'analysis' | 'free', value: string) => {
-    // Only update state, don't let React re-inject innerHTML via dangerouslySetInnerHTML during typing
+    // Modify ref instead of state to prevent re-renders during typing
     editorSections[key] = value;
   };
 
@@ -192,7 +222,12 @@ export const Records: React.FC = () => {
   const execCommand = (command: string, value?: string) => {
     if (!editorActiveRef.current) return;
     editorActiveRef.current.focus();
-    restoreSelection();
+    
+    // Always call restoreSelection if we have one
+    if (selectionRef.current) {
+        restoreSelection();
+    }
+    
     document.execCommand(command, false, value);
     storeSelection(); // Refresh icons after action
   };
@@ -535,6 +570,16 @@ export const Records: React.FC = () => {
 
   return (
     <div className="h-[calc(100vh-6rem)] flex flex-col md:flex-row bg-white rounded-[24px] border border-slate-200 shadow-xl overflow-hidden animate-fadeIn">
+      <style>{`
+        .custom-record-editor b, .custom-record-editor strong { font-weight: 900 !important; }
+        .custom-record-editor i, .custom-record-editor em { font-style: italic !important; }
+        .custom-record-editor u { text-decoration: underline !important; }
+        .custom-record-editor h2 { font-size: 1.5rem !important; font-weight: 900 !important; margin-top: 1.25rem !important; margin-bottom: 0.75rem !important; color: #1e293b !important; }
+        .custom-record-editor ul { list-style-type: disc !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
+        .custom-record-editor ol { list-style-type: decimal !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
+        .custom-record-editor li { margin-bottom: 0.5rem !important; }
+        .custom-record-editor a { color: #4f46e5 !important; text-decoration: underline !important; font-weight: 600 !important; }
+      `}</style>
       
       <div className={`w-full md:w-80 lg:w-96 bg-slate-50 border-r border-slate-200 flex flex-col transition-all ${isMobileListVisible ? 'flex' : 'hidden md:flex'}`}>
           <div className="p-5 border-b border-slate-200 bg-white sticky top-0 z-10">
@@ -544,16 +589,11 @@ export const Records: React.FC = () => {
                 </div>
                 <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest">{t('records.title')}</h2>
               </div>
-              <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-indigo-500 transition-colors" />
-                  <input 
-                    type="text" 
-                    placeholder={t('records.search')} 
-                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-100 outline-none transition-all" 
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)} 
-                  />
-              </div>
+              <FilterLineSearch 
+                placeholder={t('records.search')}
+                value={searchTerm}
+                onChange={setSearchTerm}
+              />
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
@@ -572,10 +612,10 @@ export const Records: React.FC = () => {
                         {(patient.full_name || '?').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`font-extrabold text-sm truncate ${isSelected ? 'text-white' : 'text-slate-800'}`}>
+                        <p className={`font-bold text-sm truncate ${isSelected ? 'text-white' : 'text-slate-700'}`}>
                             {patient.full_name}
                         </p>
-                        <p className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>
+                        <p className={`text-[9px] font-black uppercase tracking-widest mt-1 opacity-70 ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
                             {patient.status}
                         </p>
                       </div>
@@ -631,102 +671,132 @@ export const Records: React.FC = () => {
                               </div>
                           </div>
                           {hasPermission('create_medical_record') && (
-                              <button onClick={handleNewRecord} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-extrabold text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95"><Plus size={16} /> {t('records.new')}</button>
+                              <Button 
+                                onClick={handleNewRecord} 
+                                variant="primary"
+                                icon={<Plus size={16} />}
+                              >
+                                {t('records.new')}
+                              </Button>
                           )}
                       </div>
                       
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                          <div className="flex flex-wrap items-center gap-4">
-                              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-4 py-2 rounded-xl">
-                                <FileText size={14} className="text-indigo-500" /> 
-                                <span className="text-xs font-extrabold text-slate-700 uppercase tracking-widest">{recordStats.total} {t('nav.records')}</span>
-                              </div>
-                              {recordStats.lastDate && (
-                                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    Atualizado em {new Date(recordStats.lastDate).toLocaleDateString()}
-                                  </div>
-                              )}
-                          </div>
-                          <div className="flex flex-col sm:flex-row gap-3">
-                              <div className="relative">
-                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                                  <input
-                                    type="text"
-                                    placeholder="Buscar no histórico..."
-                                    className="w-full sm:w-64 pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all outline-none"
-                                    value={recordSearch}
-                                    onChange={e => setRecordSearch(e.target.value)}
-                                  />
-                              </div>
-                              <div className="relative">
-                                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                                  <select
-                                    className="w-full sm:w-48 pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all outline-none appearance-none cursor-pointer"
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'draft' | 'final')}
-                                  >
-                                      <option value="all">TODOS OS STATUS</option>
-                                      <option value="draft">RASCUNHOS</option>
-                                      <option value="final">FINALIZADOS</option>
-                                  </select>
-                              </div>
-                          </div>
-                      </div>
+                      <FilterLine>
+                        <FilterLineSection>
+                          <FilterLineItem>
+                            <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-4 py-2 rounded-xl">
+                              <FileText size={14} className="text-indigo-500" /> 
+                              <span className="text-xs font-extrabold text-slate-700 uppercase tracking-widest">{recordStats.total} {t('nav.records')}</span>
+                            </div>
+                          </FilterLineItem>
+                          {recordStats.lastDate && (
+                              <FilterLineItem>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                  Atualizado em {new Date(recordStats.lastDate).toLocaleDateString()}
+                                </span>
+                              </FilterLineItem>
+                          )}
+                        </FilterLineSection>
+                        
+                        <FilterLineSection>
+                           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                              <FilterLineSearch
+                                placeholder="Buscar no histórico..."
+                                value={recordSearch}
+                                onChange={setRecordSearch}
+                              />
+                              <Select
+                                containerClassName="sm:w-48"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'draft' | 'final')}
+                                hideLabel
+                              >
+                                  <option value="all">TODOS OS STATUS</option>
+                                  <option value="draft">RASCUNHOS</option>
+                                  <option value="final">FINALIZADOS</option>
+                              </Select>
+                           </div>
+                        </FilterLineSection>
+                      </FilterLine>
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 md:p-10 custom-scrollbar">
                       <div className="max-w-4xl mx-auto relative space-y-6 md:space-y-10 pl-4 md:pl-10 before:absolute before:left-[17px] md:before:left-[35px] before:top-2 before:h-full before:w-0.5 before:bg-slate-200/40 before:rounded-full">
                           {filteredRecords.map((record) => (
-                              <div key={record.id} className="relative group animate-[slideUpFade_0.3s_source-out]">
-                                  <div className={`absolute -left-[23px] md:-left-[47px] top-5 md:top-6 w-4 md:h-5 md:w-5 h-4 rounded-full border-[3px] md:border-[4px] border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${record.status === 'Finalizado' ? 'bg-indigo-600' : 'bg-amber-400'}`}></div>
+                              <div 
+                                key={record.id} 
+                                className="relative group/record"
+                              >
+                                  {/* Timeline Indicator */}
+                                  <div className={`absolute -left-[23px] md:-left-[47px] top-6 w-4 h-4 rounded-full border-4 border-white shadow-sm z-10 transition-all group-hover/record:scale-125 ${record.status === 'Finalizado' || record.status === 'Final' ? 'bg-indigo-500' : 'bg-amber-400'}`} />
                                   
-                                  <div
-                                    className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 md:p-6 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all cursor-pointer group/card"
+                                  <div 
+                                    className="bg-white rounded-[32px] border border-slate-200 p-6 md:p-8 shadow-sm transition-all hover:shadow-xl hover:shadow-indigo-500/5 group/card cursor-pointer"
                                     onClick={() => handleOpenRecord(record.id)}
                                   >
-                                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4">
-                                          <div className="min-w-0">
-                                              <h3 className="font-extrabold text-slate-900 text-sm md:text-base group-hover/card:text-indigo-600 transition-colors truncate">{record.title}</h3>
-                                              <div className="flex items-center gap-2 mt-1">
-                                                <Calendar size={12} className="text-slate-400" />
-                                                <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(record.date).toLocaleString()}</span>
+                                      <div className="flex flex-col gap-6">
+                                          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                                              <div className="space-y-1 min-w-0">
+                                                  <div className="flex items-center gap-3 flex-wrap">
+                                                      <h3 className="text-lg font-black text-slate-900 leading-tight group-hover/card:text-indigo-600 transition-colors truncate">{record.title}</h3>
+                                                      <StatusBadge status={record.status} />
+                                                  </div>
+                                                  <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex-wrap">
+                                                      <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100/50">
+                                                        <Calendar size={12} className="text-indigo-400" />
+                                                        {new Date(record.date).toLocaleDateString()}
+                                                      </div>
+                                                      <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100/50">
+                                                        <Tag size={12} className="text-indigo-400" />
+                                                        {recordTypeLabel[record.type] || record.type}
+                                                      </div>
+                                                  </div>
                                               </div>
-                                          </div>
-                                          <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                              <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-slate-50 border border-slate-100 text-slate-500 text-[9px] md:text-[10px] font-extrabold uppercase tracking-widest">{recordTypeLabel[record.type] || record.type}</span>
-                                              
-                                              <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleRecordStatus(record);
-                                                }}
-                                                disabled={isChangingStatus === record.id}
-                                                className="group/status"
-                                              >
-                                                  <StatusBadge status={record.status} />
-                                                  {record.status === 'Rascunho' && (
-                                                      <span className="hidden group-hover/status:flex absolute top-0 right-0 bg-indigo-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-in fade-in duration-200">Finalizar?</span>
-                                                  )}
-                                              </button>
-                                          </div>
-                                      </div>
-                                      
-                                      <div className="prose prose-sm max-w-none text-slate-600 mb-4 md:mb-5 line-clamp-2 md:line-clamp-3 leading-relaxed font-medium text-xs md:text-sm">
-                                        {record.preview ? record.preview.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : 'Sem conteúdo...'}
-                                      </div>
-                                      
-                                      <div className="flex items-center justify-between border-t border-slate-50 pt-4">
-                                          <div className="flex flex-wrap gap-2">
-                                              {record.tags && record.tags.length > 0 ? (
-                                                record.tags.map(tag => (
-                                                    <span key={tag} className="text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-500 px-2.5 py-1 rounded-lg border border-indigo-100/50">#{tag}</span>
-                                                ))
-                                              ) : (
-                                                <span className="text-[10px] font-bold text-slate-300 italic uppercase tracking-widest">Sem tags</span>
+                                              {hasPermission('edit_medical_record') && (
+                                                  <Button 
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenRecord(record.id); }}
+                                                    icon={<ChevronRight size={16} />}
+                                                  >
+                                                    Detalhes
+                                                  </Button>
                                               )}
                                           </div>
-                                          <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0">
-                                            Acessar Detalhes <ChevronRight size={14} />
+
+                                          <div className="relative">
+                                              <div className="prose prose-slate max-w-none text-slate-600 text-sm leading-relaxed line-clamp-3 font-medium">
+                                                  <div dangerouslySetInnerHTML={{ __html: record.content }} />
+                                              </div>
+                                              <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white to-transparent" />
                                           </div>
+
+                                          {record.tags && record.tags.length > 0 && (
+                                              <div className="flex flex-wrap gap-2">
+                                                  {record.tags.map(tag => (
+                                                      <span key={tag} className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase tracking-widest rounded-lg border border-indigo-100/50">
+                                                          {tag}
+                                                      </span>
+                                                  ))}
+                                              </div>
+                                          )}
+
+                                          {record.attachments && record.attachments.length > 0 && (
+                                              <div className="flex flex-wrap gap-3 pt-3 border-t border-slate-50">
+                                                  {record.attachments.map((att, idx) => (
+                                                      <a
+                                                          key={`${att.file_url}-${idx}`}
+                                                          href={att.file_url}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          onClick={(e) => e.stopPropagation()}
+                                                          className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-100 rounded-xl transition-all group/att"
+                                                      >
+                                                          <Paperclip size={12} className="text-slate-400 group-hover/att:text-indigo-500" />
+                                                          <span className="text-[10px] font-bold text-slate-600 group-hover/att:text-indigo-700 truncate max-w-[150px]">{att.file_name}</span>
+                                                      </a>
+                                                  ))}
+                                              </div>
+                                          )}
                                       </div>
                                   </div>
                               </div>
@@ -750,260 +820,236 @@ export const Records: React.FC = () => {
               )}
           </div>
 
-      {isEditorOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
-              <div className="bg-white w-full h-full md:h-[92vh] md:w-[92vw] md:max-w-5xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-                  <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-white shrink-0">
-                      <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                              <FileText size={16} />
-                          </div>
-                          <h3 className="text-base font-bold text-slate-800">{editorMode === 'new' ? t('records.editor.new') : t('records.editor.edit')}</h3>
-                      </div>
-                      <button onClick={() => setIsEditorOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><X size={18}/></button>
-                  </div>
-                  
-                  {/* Row de Inputs */}
-                  <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50 flex flex-wrap gap-4 shrink-0">
-                      <div className="flex-1 min-w-[200px]">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Título do Registro</label>
-                          <input
-                            type="text"
-                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-slate-700 transition-all"
-                            value={currentRecord.title || ''}
-                            onChange={e => setCurrentRecord({ ...currentRecord, title: e.target.value })}
-                            placeholder="Ex: Sessão de acompanhamento"
-                          />
-                      </div>
-                      <div className="w-full md:w-48">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Documento</label>
-                          <select
-                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-slate-700 transition-all appearance-none cursor-pointer"
-                            value={currentRecord.type || 'Evolucao'}
-                            onChange={e => setCurrentRecord({ ...currentRecord, type: e.target.value })}
-                          >
-                              <option value="Evolucao">Evolução</option>
-                              <option value="Anamnese">Anamnese</option>
-                              <option value="Avaliacao">Avaliação</option>
-                              <option value="Encaminhamento">Encaminhamento</option>
-                              <option value="Plano">Plano Terapêutico</option>
-                              <option value="Relatorio">Relatório</option>
-                          </select>
-                      </div>
-                      <div className="w-full md:w-36">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status</label>
-                          <select
-                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-slate-700 transition-all appearance-none cursor-pointer"
-                            value={currentRecord.status || 'Rascunho'}
-                            onChange={e => setCurrentRecord({ ...currentRecord, status: e.target.value })}
-                          >
-                              <option value="Rascunho">Rascunho</option>
-                              <option value="Finalizado">Finalizado</option>
-                          </select>
-                      </div>
-                      <div className="flex-1 min-w-[200px]">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Tags (separadas por vírgula)</label>
-                          <div className="relative">
-                              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
-                              <input
-                                type="text"
-                                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-slate-700 transition-all"
-                                value={tagInput}
-                                onChange={e => setTagInput(e.target.value)}
-                                placeholder="Ansiedade, TCC, Emocional"
-                              />
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* Área do Editor com Toolbar */}
-                  <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 space-y-8 custom-scrollbar">
-                      <div className="max-w-4xl mx-auto space-y-8">
-                          <div className="flex flex-wrap items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl shadow-sm sticky top-0 z-10">
-                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mr-2">Estilos</div>
-                              {[
-                                { cmd: 'bold', label: 'B', cls: 'font-black', key: 'bold' },
-                                { cmd: 'italic', label: 'I', cls: 'italic', key: 'italic' },
-                                { cmd: 'underline', label: 'U', cls: 'underline', key: 'underline' },
-                                { cmd: 'formatBlock', val: 'H2', label: 'H2', cls: 'font-black', key: 'h2' },
-                                { cmd: 'insertUnorderedList', label: '• List', cls: '', key: 'unorderedList' },
-                                { cmd: 'insertOrderedList', label: '1. List', cls: '', key: 'orderedList' },
-                              ].map(btn => {
-                                const isActive = activeStyles[btn.key];
-                                return (
-                                  <button
-                                      key={btn.cmd + (btn.val || '')}
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      onClick={() => execCommand(btn.cmd, btn.val)}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                                          isActive 
-                                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 scale-105' 
-                                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-100'
-                                      } ${btn.cls}`}
-                                  >
-                                      {btn.label}
-                                  </button>
-                                );
-                              })}
-                              <div className="w-[1px] h-6 bg-slate-200 mx-1" />
-                              <button
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={handleInsertLink}
-                                className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold transition-all border border-indigo-100/50 flex items-center gap-1.5"
-                              >
-                                <Link size={13} /> Link
-                              </button>
-                          </div>
-
-                          <div className="grid grid-cols-1 gap-8">
-                            {getVisibleSections(currentRecord.type).map(key => {
-                                const labels: Record<string, string> = {
-                                    demand: 'Descrição da Demanda',
-                                    procedures: 'Procedimentos e Intervenções',
-                                    analysis: 'Análise e Conclusão',
-                                    free: 'Texto Complementar'
-                                };
-                                return (
-                                    <div key={key}>
-                                        <div className="flex items-center gap-2 mb-2 ml-1">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest">{labels[key]}</label>
-                                        </div>
-                                        <div
-                                            className="min-h-[220px] p-6 rounded-3xl border border-slate-200 bg-white text-sm leading-relaxed outline-none focus:ring-8 focus:ring-indigo-100 transition-all shadow-sm focus:border-indigo-300 custom-record-editor"
-                                            contentEditable
-                                            suppressContentEditableWarning
-                                            onFocus={(e) => { editorActiveRef.current = e.currentTarget; storeSelection(); }}
-                                            onMouseUp={storeSelection}
-                                            onKeyUp={storeSelection}
-                                            onInput={(e) => updateSection(key as any, (e.currentTarget as HTMLDivElement).innerHTML)}
-                                            dangerouslySetInnerHTML={{ __html: editorSections[key as keyof typeof editorSections] }}
-                                        />
-                                    </div>
-                                );
-                            })}
-                          </div>
-
-                          {/* Seção de Anexos */}
-                          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-2 text-[11px] font-black text-slate-800 uppercase tracking-widest">
-                                    <Paperclip size={16} className="text-indigo-600" /> 
-                                    Arquivos Anexos
-                                </div>
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60 transition-all active:scale-95 shadow-lg shadow-slate-200"
-                                    disabled={isUploading}
-                                >
-                                    {isUploading ? 'Enviando...' : 'Adicionar Arquivo'}
-                                </button>
-                                <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFileSelect} />
-                            </div>
-
-                            {uploadError && <div className="text-xs font-bold text-red-600 mb-4 bg-red-50 p-3 rounded-xl border border-red-100">{uploadError}</div>}
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {(currentRecord.attachments || []).map((att, idx) => (
-                                    <div key={`${att.file_url}-${idx}`} className="flex items-center justify-between gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-4 group/att">
-                                        <div className="min-w-0 flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                                                <FileText size={18} className="text-slate-400" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="font-extrabold text-slate-800 text-xs truncate">{att.file_name}</div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{att.file_type || 'ARQUIVO'} {att.file_size ? `· ${Math.round(att.file_size/1024)} KB` : ''}</div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => handleRemoveAttachment(idx)}
-                                            className="p-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))}
-                                {(currentRecord.attachments || []).length === 0 && (
-                                    <div className="sm:col-span-2 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl">
-                                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center mb-2">
-                                            <Paperclip size={18} className="text-slate-300" />
-                                        </div>
-                                        <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Nenhum anexo encontrado</div>
-                                    </div>
-                                )}
-                            </div>
-                          </div>
-                      </div>
-                  </div>
-                  
-                  {/* Rodapé do Editor */}
-                  <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic flex items-center gap-2">
-                        <Info size={14} className="text-amber-400" />
-                        O registro será salvo com a data atual.
-                      </div>
-                      <div className="flex items-center gap-3">
-                          {editorMode === 'edit' && currentRecord.id && (
-                              <button 
-                                onClick={() => handleDeleteRecord(currentRecord.id!)} 
-                                className="px-5 py-2.5 rounded-xl border border-rose-100 text-rose-500 font-extrabold text-[11px] uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2 mr-4"
-                              >
-                                <Trash2 size={16} /> Excluir Registro
-                              </button>
-                          )}
-                          <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
-                          <button onClick={handleSaveRecord} className="px-8 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
-                            <Save size={16} /> {t('common.save')}
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {linkModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-[0_20px_70px_-10px_rgba(0,0,0,0.3)] border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-slate-100 font-bold text-slate-800">Inserir link</div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">URL</label>
-                <input
-                  type="text"
-                  className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500"
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                  placeholder="https://"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Texto (opcional)</label>
-                <input
-                  type="text"
-                  className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500"
-                  value={linkText}
-                  onChange={(e) => setLinkText(e.target.value)}
-                  placeholder="Clique aqui"
-                />
-              </div>
+      <Modal
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        title={editorMode === 'new' ? t('records.editor.new') : t('records.editor.edit')}
+        subtitle={selectedPatient?.full_name || ''}
+        maxWidth="5xl"
+        fullHeight
+        padding="none"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <div className="hidden sm:flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+              <Info size={14} className="text-amber-400" />
+              O registro será salvo com a data atual.
             </div>
-            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
-              <button
-                onClick={() => setLinkModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-slate-500 font-bold"
-              >
+            <div className="flex items-center gap-3 ml-auto">
+              {editorMode === 'edit' && currentRecord.id && (
+                <Button
+                  variant="softDanger"
+                  size="sm"
+                  onClick={() => handleDeleteRecord(currentRecord.id!)}
+                  icon={<Trash2 size={14} />}
+                >
+                  Excluir
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => setIsEditorOpen(false)}>
                 Cancelar
-              </button>
-              <button
-                onClick={confirmInsertLink}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold"
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveRecord}
+                icon={<Save size={14} />}
               >
-                Inserir
-              </button>
+                {t('common.save')}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="flex flex-col h-full bg-slate-50/30">
+          {/* Row de Inputs */}
+          <div className="px-6 py-5 border-b border-slate-200 bg-white grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
+            <Input
+              label="Título do Registro"
+              value={currentRecord.title || ''}
+              onChange={e => setCurrentRecord({ ...currentRecord, title: e.target.value })}
+              placeholder="Ex: Sessão de acompanhamento"
+              required
+            />
+            <Select
+              label="Documento"
+              value={currentRecord.type || 'Evolucao'}
+              onChange={e => setCurrentRecord({ ...currentRecord, type: e.target.value })}
+            >
+              <option value="Evolucao">Evolução</option>
+              <option value="Anamnese">Anamnese</option>
+              <option value="Avaliacao">Avaliação</option>
+              <option value="Encaminhamento">Encaminhamento</option>
+              <option value="Plano">Plano Terapêutico</option>
+              <option value="Relatorio">Relatório</option>
+            </Select>
+            <Select
+              label="Status"
+              value={currentRecord.status || 'Rascunho'}
+              onChange={e => setCurrentRecord({ ...currentRecord, status: e.target.value })}
+            >
+              <option value="Rascunho">Rascunho</option>
+              <option value="Finalizado">Finalizado</option>
+            </Select>
+            <div className="md:col-span-3">
+              <Input
+                label="Tags (separadas por vírgula)"
+                icon={<Tag size={14} />}
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                placeholder="Ansiedade, TCC, Emocional"
+              />
+            </div>
+          </div>
+
+          {/* Área do Editor com Toolbar */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+            <div className="max-w-4xl mx-auto space-y-8 pb-10">
+              <div className="flex flex-wrap items-center gap-2 p-2 bg-white border border-slate-200 rounded-2xl shadow-sm sticky top-0 z-20">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mr-2 border-r border-slate-100 hidden sm:block">Toolbar</div>
+                {[
+                  { cmd: 'bold', label: 'B', cls: 'font-black', key: 'bold' },
+                  { cmd: 'italic', label: 'I', cls: 'italic', key: 'italic' },
+                  { cmd: 'underline', label: 'U', cls: 'underline', key: 'underline' },
+                  { cmd: 'formatBlock', val: 'H2', label: 'H2', cls: 'font-black', key: 'h2' },
+                  { cmd: 'insertUnorderedList', label: '• List', cls: '', key: 'unorderedList' },
+                  { cmd: 'insertOrderedList', label: '1. List', cls: '', key: 'orderedList' },
+                ].map(btn => {
+                  const isActive = activeStyles[btn.key];
+                  return (
+                    <button
+                      key={btn.cmd + (btn.val || '')}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => execCommand(btn.cmd, btn.val)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border shadow-sm ${
+                        isActive
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100 scale-105 ring-4 ring-indigo-50'
+                          : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+                      } ${btn.cls}`}
+                    >
+                      {btn.label}
+                    </button>
+                  );
+                })}
+                <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleInsertLink}
+                  icon={<Link size={13} />}
+                >
+                  Link
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-8">
+                {getVisibleSections(currentRecord.type).map(key => {
+                  const labels: Record<string, string> = {
+                    demand: 'Descrição da Demanda',
+                    procedures: 'Procedimentos e Intervenções',
+                    analysis: 'Análise e Conclusão',
+                    free: 'Texto Complementar'
+                  };
+                  return (
+                    <EditorSection
+                      key={`${key}-${currentRecord.id || 'new'}`}
+                      label={labels[key]}
+                      initialContent={editorSections[key as keyof typeof editorSections]}
+                      onInput={(html) => updateSection(key as any, html)}
+                      onFocus={(el) => { editorActiveRef.current = el; storeSelection(); }}
+                      onSelectionChange={storeSelection}
+                      isActive={editorActiveRef.current?.parentElement?.contains(document.activeElement) || false}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Seção de Anexos */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2 text-[11px] font-black text-slate-800 uppercase tracking-widest">
+                    <Paperclip size={16} className="text-indigo-600" />
+                    Arquivos Anexos
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    isLoading={isUploading}
+                    loadingText="Enviando..."
+                    icon={<Plus size={14} />}
+                  >
+                    Adicionar Arquivo
+                  </Button>
+                  <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFileSelect} />
+                </div>
+
+                {uploadError && <div className="text-xs font-bold text-red-600 mb-4 bg-red-50 p-3 rounded-xl border border-red-100">{uploadError}</div>}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {(currentRecord.attachments || []).map((att, idx) => (
+                    <div key={`${att.file_url}-${idx}`} className="flex items-center justify-between gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-4 group/att hover:bg-slate-50 transition-colors">
+                      <div className="min-w-0 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                          <FileText size={18} className="text-slate-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-extrabold text-slate-800 text-xs truncate">{att.file_name}</div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{att.file_type || 'ARQUIVO'} {att.file_size ? `· ${Math.round(att.file_size / 1024)} KB` : ''}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveAttachment(idx)}
+                        className="p-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  {(currentRecord.attachments || []).length === 0 && (
+                    <div className="sm:col-span-2 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mb-2 shadow-sm">
+                        <Paperclip size={18} className="text-slate-300" />
+                      </div>
+                      <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Nenhum anexo encontrado</div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </Modal>
+
+      <Modal
+        isOpen={linkModalOpen}
+        onClose={() => setLinkModalOpen(false)}
+        title="Inserir Link"
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setLinkModalOpen(false)}>Cancelar</Button>
+            <Button variant="primary" size="sm" onClick={confirmInsertLink}>Inserir</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="URL"
+            placeholder="https://"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            required
+          />
+          <Input
+            label="Texto (opcional)"
+            placeholder="Clique aqui"
+            value={linkText}
+            onChange={(e) => setLinkText(e.target.value)}
+          />
+        </div>
+      </Modal>
+
     </div>
   );
 };
