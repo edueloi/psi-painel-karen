@@ -54,6 +54,7 @@ export const NAV_SECTIONS = [
     title: 'nav.group.system',
     items: [
       { label: 'nav.settings', path: '/configuracoes', icon: <Settings size={20} /> },
+      { label: 'WhatsApp', path: '/bot', icon: <Smartphone size={20} /> },
     ]
   }
 ];
