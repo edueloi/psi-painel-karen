@@ -7,6 +7,13 @@ class WhatsAppManager {
   constructor() {
     this.instances = new Map(); // tenant_id -> { client, status, qrcode, phone, initializing, instanceName }
     this.tokensPath = path.join(__dirname, '../tokens'); 
+    
+    // Garante que a pasta de tokens existee
+    if (!fs.existsSync(this.tokensPath)) {
+      try { fs.mkdirSync(this.tokensPath, { recursive: true }); } catch (e) {
+         console.error('❌ Erro ao criar pasta de tokens:', e.message);
+      }
+    }
   }
 
   // Ensures we have an entry for the tenant
@@ -37,7 +44,10 @@ class WhatsAppManager {
     console.log(`🚀 Recebida solicitação de conexão WhatsApp para Tenant ${tenantId}...`);
     const data = this.getTenantData(tenantId);
 
-    if (data.status === 'connected') return;
+    if (data.status === 'connected') {
+      console.log(`[WPP] Tenant ${tenantId} já está conectado.`);
+      return;
+    }
 
     if (data.client) {
       console.log(`[WPP] Encerrando instância anterior do Tenant ${tenantId}...`);
@@ -59,10 +69,13 @@ class WhatsAppManager {
   }
 
   async createClient(tenantId, data) {
-    if (data.initializing) return;
+    if (data.initializing) {
+      console.log(`[WPP] Inicialização já em curso para Tenant ${tenantId}. Ignorando duplicata.`);
+      return;
+    }
     data.initializing = true;
     
-    console.log(`🚀 Iniciando conexão WhatsApp Tenant ${tenantId}...`);
+    console.log(`🚀 [Passo 1/3] Iniciando WPPConnect para Tenant ${tenantId}...`);
     data.status = 'connecting';
 
     try {
@@ -71,10 +84,10 @@ class WhatsAppManager {
         catchQR: (base64Qr, asciiQR, attempts) => {
           data.qrcode = base64Qr;
           data.status = 'connecting';
-          console.log(`[WPP Tenant ${tenantId}] QR Code recebido (Tentativa ${attempts})`);
+          if (attempts === 1) console.log(`🚀 [Passo 2/3] QR Code pronto para Tenant ${tenantId}!`);
         },
         statusFind: (statusSession) => {
-          console.log(`[WPP Tenant ${tenantId}] Status: ${statusSession}`);
+          console.log(`[WPP Tenant ${tenantId}] Status da Sessão: ${statusSession}`);
           if (['isLogged', 'qrReadSuccess', 'chatsAvailable'].includes(statusSession)) {
             data.status = 'connected';
             data.qrcode = null;
@@ -96,13 +109,22 @@ class WhatsAppManager {
         useChrome: false,
         debug: false,
         logQR: false,
-        browserArgs: process.platform === 'linux' 
-          ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--no-zygote', '--single-process', '--disable-gpu']
-          : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        browserArgs: [
+          '--no-sandbox', 
+          '--disable-setuid-sandbox', 
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu',
+          '--disable-extensions',
+          '--disable-features=site-per-process'
+        ],
         autoClose: 0,
         tokenStore: 'file',
       });
 
+      console.log(`🚀 [Passo 3/3] Cliente WPP instanciado com sucesso para Tenant ${tenantId}`);
       data.status = 'connected';
       data.qrcode = null;
       data.initializing = false;
