@@ -63,24 +63,25 @@ async function checkAppointmentReminders() {
   try {
     const now = new Date();
 
-    // Busca atendimentos nas próximas 25–95 min (cobre 30 e 60 min com margem)
-    const from = new Date(now.getTime() + 25 * 60 * 1000);
-    const to   = new Date(now.getTime() + 95 * 60 * 1000);
-    const fromStr = from.toISOString().slice(0, 19).replace('T', ' ');
+    // Busca atendimentos nas próximas 24h e 5 min (para pegar 1h e 24h cravados)
+    const fromStr = now.toISOString().slice(0, 19).replace('T', ' ');
+    const to   = new Date(now.getTime() + 24 * 60 * 60 * 1000 + 5 * 60 * 1000);
     const toStr   = to.toISOString().slice(0, 19).replace('T', ' ');
 
     const [appointments] = await db.query(`
       SELECT a.*,
-        p.name as patient_name, p.email as patient_email,
+        p.name as patient_name, p.email as patient_email, p.whatsapp as patient_whatsapp, p.phone as patient_phone,
         u.name as professional_name, u.email as professional_email, u.phone as professional_phone,
         u.email_preferences,
         s.name as service_name,
-        c.sessions_total, c.sessions_used, c.description as package_name
+        c.sessions_total, c.sessions_used, c.description as package_name,
+        t.whatsapp_status, t.whatsapp_preferences
       FROM appointments a
       LEFT JOIN patients p ON p.id = a.patient_id
       LEFT JOIN users u ON u.id = a.professional_id
       LEFT JOIN services s ON s.id = a.service_id
       LEFT JOIN comandas c ON c.id = a.comanda_id
+      LEFT JOIN tenants t ON t.id = a.tenant_id
       WHERE a.start_time >= ? AND a.start_time < ?
         AND a.status IN ('scheduled','confirmed')
         AND a.type = 'consulta'
@@ -90,23 +91,48 @@ async function checkAppointmentReminders() {
       const aptStart = new Date(apt.start_time);
       const diffMinutes = Math.round((aptStart.getTime() - now.getTime()) / 60000);
 
-      // 1. WhatsApp Bot Global (Independente de preferência para ser um lembrete do sistema para todos)
-      if (apt.professional_phone && wppService.status === 'connected') {
-        // Regra: 60 minutos antes (Math.round garante apenas uma execução por agendamento)
-        if (diffMinutes === 60) {
-          const timeStr = fmtTime(apt.start_time);
-          const serviceInfo = apt.service_name ? `\n🔹 *Serviço:* ${apt.service_name}` : '';
-          
-          let packageInfo = '';
-          if (apt.sessions_total > 1) {
-            const currentSession = (apt.sessions_used || 0) + 1;
-            packageInfo = `\n📦 *Pacote:* ${apt.package_name || 'Sessões'} (${currentSession}/${apt.sessions_total})`;
+      // --- WhatsApp Bot da Clinica (Tenant) ---
+      if (apt.whatsapp_status === 'connected') {
+        const prefs = typeof apt.whatsapp_preferences === 'string' ? JSON.parse(apt.whatsapp_preferences || '{}') : (apt.whatsapp_preferences || {});
+        
+        let packageInfo = '';
+        if (apt.sessions_total > 1) {
+          const currentSession = (apt.sessions_used || 0) + 1;
+          packageInfo = `\n📦 *Pacote:* ${apt.package_name || 'Sessões'} (${currentSession}/${apt.sessions_total})`;
+        }
+        const serviceInfo = apt.service_name ? `\n🔹 *Serviço:* ${apt.service_name}` : '';
+        const timeStr = fmtTime(apt.start_time);
+        const dateStr = fmtDate(apt.start_time);
+
+        // Substitui {variaveis} no texto customizado
+        const buildMsg = (template, defaultMsg) => {
+          let msg = template || defaultMsg;
+          return msg.replace(/\{patient_name\}/g, apt.patient_name || 'Paciente')
+                    .replace(/\{professional_name\}/g, apt.professional_name || 'Profissional')
+                    .replace(/\{time\}/g, timeStr)
+                    .replace(/\{date\}/g, dateStr)
+                    .replace(/\{service\}/g, apt.service_name || 'Consulta')
+                    + serviceInfo + packageInfo;
+        };
+
+        const targetPhone = apt.patient_whatsapp || apt.patient_phone;
+
+        if (targetPhone) {
+          // Lembrete: 60 minutos antes do atendimento (Para o paciente)
+          if (diffMinutes === 60 && prefs.reminder_1h_enabled !== false) {
+            const defaultMsg = `🔔 *Notificação de Atendimento*\n\nOlá, *{patient_name}*.\nLembramos que seu agendamento com {professional_name} é hoje às {time}.`;
+            const msg = buildMsg(prefs.reminder_1h_msg, defaultMsg);
+            await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
+            console.log(`[CRON-WPP Tenant ${apt.tenant_id}] 60m aviso para ${apt.patient_name}`);
           }
 
-          const message = `🔔 *PsiFlux: Notificação de Atendimento*\n\nOlá, *${apt.professional_name}*.\nInformamos que há um agendamento confirmado para os próximos 60 minutos:\n\n👤 *Paciente:* ${apt.patient_name}\n⏰ *Horário:* ${timeStr}${serviceInfo}${packageInfo}\n\nDesejamos um excelente atendimento!\n\nAtenciosamente,\n*Equipe PsiFlux* 🛡️`;
-          
-          await wppService.sendReminder(apt.professional_phone, message);
-          console.log(`[CRON-WPP] Lembrete enviado: ${apt.professional_name} às ${timeStr}`);
+          // Lembrete: 24 Horas antes do atendimento (Para o paciente)
+          if (diffMinutes === 1440 && prefs.reminder_24h_enabled !== false) {
+            const defaultMsg = `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nSua consulta com {professional_name} está confirmada para amanhã ({date}) às {time}.`;
+            const msg = buildMsg(prefs.reminder_24h_msg, defaultMsg);
+            await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
+            console.log(`[CRON-WPP Tenant ${apt.tenant_id}] 24h aviso para ${apt.patient_name}`);
+          }
         }
       }
 
@@ -151,47 +177,96 @@ async function checkAppointmentReminders() {
   }
 }
 
-// ─── JOB 2: Aniversariantes do dia (diário, 8h) ───────────────────────────
-async function checkBirthdays() {
+// ─── JOB 2: Tarefas Diárias (Aniversários e Pagamentos) ───────────────────
+// Roda a cada minuto. Verifica horários personalizados de cada tenant.
+async function checkDailyTasks() {
   try {
-    const tenants = await getActiveTenants();
+    const now = new Date();
+    // Pega a hora atual no timezone BR (ex: "10:00")
+    const currentHourStr = fmtTime(now); 
+
+    const [tenants] = await db.query(`SELECT id, whatsapp_status, whatsapp_preferences FROM tenants WHERE active = 1`);
+    
     const today = new Date();
     const month = today.getMonth() + 1;
     const day   = today.getDate();
+    const todayStr = now.toISOString().slice(0, 10);
 
-    for (const tenantId of tenants) {
-      const [patients] = await db.query(`
-        SELECT id, name, full_name, birth_date, whatsapp, phone
-        FROM patients
-        WHERE tenant_id = ? AND MONTH(birth_date) = ? AND DAY(birth_date) = ? AND status = 'ativo'
-      `, [tenantId, month, day]);
+    for (const t of tenants) {
+      const prefs = typeof t.whatsapp_preferences === 'string' ? JSON.parse(t.whatsapp_preferences || '{}') : (t.whatsapp_preferences || {});
+      const bdayTime = prefs.birthday_time || "10:00";
+      const payTime = prefs.payment_time || "10:00";
 
-      if (patients.length === 0) continue;
+      // 1. ANIVERSARIANTES
+      if (currentHourStr === bdayTime) {
+        const [patients] = await db.query(`
+          SELECT id, name, full_name, birth_date, whatsapp, phone
+          FROM patients
+          WHERE tenant_id = ? AND MONTH(birth_date) = ? AND DAY(birth_date) = ? AND status = 'ativo'
+        `, [t.id, month, day]);
 
-      const users = await getTenantUsers(tenantId);
-      const html  = templates.birthdayReminder(patients);
-      const names = patients.map(p => p.name || p.full_name).filter(Boolean).join(', ');
+        if (patients.length > 0) {
+          // --- ALERTA SISTEMA E E-MAIL ---
+          const users = await getTenantUsers(t.id);
+          const html  = templates.birthdayReminder(patients);
+          const names = patients.map(p => p.name || p.full_name).filter(Boolean).join(', ');
 
-      // Cria alerta no sistema para o tenant (independente de preferência de email)
-      await db.query(
-        'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
-        [
-          tenantId,
-          `🎂 ${patients.length} aniversariante(s) hoje`,
-          `Paciente(s) fazendo aniversário hoje: ${names}.`,
-          'info',
-          '/prontuarios'
-        ]
-      ).catch(() => {});
+          await db.query(
+            'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
+            [t.id, `🎂 ${patients.length} aniversariante(s) hoje`, `Paciente(s) fazendo aniversário hoje: ${names}.`, 'info', '/prontuarios']
+          ).catch(() => {});
 
-      for (const user of users) {
-        const prefs = getPrefs(user);
-        if (!prefs.enabled || !prefs.birthday_reminder) continue;
-        await sendMail(user.email, `🎂 ${patients.length} aniversariante(s) hoje!`, html);
+          for (const user of users) {
+            const uprefs = getPrefs(user);
+            if (uprefs.enabled && uprefs.birthday_reminder) {
+              await sendMail(user.email, `🎂 ${patients.length} aniversariante(s) hoje!`, html);
+            }
+          }
+
+          // --- WHATSAPP BOT DO TENANT ---
+          if (t.whatsapp_status === 'connected' && prefs.birthday_enabled !== false) {
+            for (const p of patients) {
+              const targetPhone = p.whatsapp || p.phone;
+              if (!targetPhone) continue;
+              
+              const defaultMsg = `🎂 *Feliz Aniversário!*\n\nOlá, *{patient_name}*!\nA equipe deseja a você um excelente dia repleto de alegrias e muita paz!`;
+              let msg = prefs.birthday_msg || defaultMsg;
+              msg = msg.replace(/\{patient_name\}/g, p.name || p.full_name || 'Paciente');
+
+              await wppService.sendReminder(t.id, targetPhone, msg);
+              console.log(`[CRON-WPP Tenant ${t.id}] Bday enviado para ${p.name || p.full_name}`);
+            }
+          }
+        }
+      }
+
+      // 2. PAGAMENTOS VENCENDO HOJE
+      if (currentHourStr === payTime) {
+        if (t.whatsapp_status === 'connected' && prefs.payment_enabled !== false) {
+          const [payments] = await db.query(`
+            SELECT f.id, f.amount, p.name as patient_name, p.whatsapp, p.phone
+            FROM financial_transactions f
+            JOIN patients p ON p.id = f.patient_id
+            WHERE f.tenant_id = ? AND f.due_date = ? AND f.status = 'pending' AND f.type = 'income'
+          `, [t.id, todayStr]);
+
+          for (const pay of payments) {
+            const targetPhone = pay.whatsapp || pay.phone;
+            if (!targetPhone) continue;
+
+            const defaultMsg = `💰 *Lembrete de Pagamento*\n\nOlá, *{patient_name}*.\nLembramos que o vencimento da sua parcela no valor de R$ {amount} é hoje. Qualquer dúvida, estamos à disposição.`;
+            let msg = prefs.payment_msg || defaultMsg;
+            msg = msg.replace(/\{patient_name\}/g, pay.patient_name || 'Paciente')
+                     .replace(/\{amount\}/g, Number(pay.amount).toFixed(2).replace('.', ','));
+
+            await wppService.sendReminder(t.id, targetPhone, msg);
+            console.log(`[CRON-WPP Tenant ${t.id}] Pgto enviado para ${pay.patient_name}`);
+          }
+        }
       }
     }
   } catch (err) {
-    console.error('❌ Erro no job de aniversariantes:', err.message);
+    console.error('❌ Erro no job de Tarefas Diárias:', err.message);
   }
 }
 
@@ -340,7 +415,7 @@ async function autoConfirmAppointments() {
 // ─── Inicializar todos os cron jobs ──────────────────────────────────────────
 function startCronJobs() {
   cron.schedule('* * * * *', checkAppointmentReminders, { timezone: 'America/Sao_Paulo' });
-  cron.schedule('0 8 * * *', checkBirthdays, { timezone: 'America/Sao_Paulo' });
+  cron.schedule('* * * * *', checkDailyTasks, { timezone: 'America/Sao_Paulo' });
   cron.schedule('*/30 * * * *', autoConfirmAppointments, { timezone: 'America/Sao_Paulo' });
   autoConfirmAppointments(); // roda uma vez na inicialização
 
@@ -357,4 +432,4 @@ function startCronJobs() {
   console.log('✅ Cron jobs de email, automação e WhatsApp iniciados');
 }
 
-module.exports = { startCronJobs, checkAppointmentReminders, checkBirthdays, sendWeeklyReport, sendMonthlyReport, autoConfirmAppointments };
+module.exports = { startCronJobs, checkAppointmentReminders, checkDailyTasks, sendWeeklyReport, sendMonthlyReport, autoConfirmAppointments };

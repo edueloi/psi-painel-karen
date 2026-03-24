@@ -224,11 +224,7 @@ app.listen(PORT, () => {
   ensureAlertSchema().catch(e => console.warn('⚠️  system_alerts schema:', e.message));
   provisionFormsForAllTenants().catch(e => console.warn('⚠️  provisionForms:', e.message));
 
-  // Recupera conexão do WhatsApp se estivesse ativa
-  db.query('SELECT whatsapp_status FROM tenants WHERE id = 1').then(([rows]) => {
-    if (rows.length && rows[0].whatsapp_status === 'connected') {
-      console.log('🔄 Recuperando conexão WhatsApp Global...');
-      wppService.connect().catch(e => console.error('Erro ao recuperar WhatsApp:', e.message));
-    }
-  }).catch(e => console.error('Erro ao checar status do WhatsApp:', e.message));
-});
+  // Recupera conexões do WhatsApp de todos os tenants ativos
+  console.log('🔄 Verificando sessões do WhatsApp para recuperar...');
+  wppService.recoverActiveSessions();
+}); // Fecha o bloco do app.listen

@@ -56,6 +56,12 @@ async function patch() {
         { name: 'service_id', type: 'INT', after: 'patient_id' },
         { name: 'financial_transaction_id', type: 'INT', after: 'service_id' }
       ]
+    },
+    {
+      table: 'tenants',
+      columns: [
+        { name: 'whatsapp_preferences', type: 'JSON', after: 'whatsapp_phone' }
+      ]
     }
   ];
 

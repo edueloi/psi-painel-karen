@@ -581,8 +581,8 @@ router.post('/', async (req, res) => {
 
         const tenantId = prof.tenant_id || apt.tenant_id;
         const startDate = new Date(apt.start_time);
-        const dateStr = startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const timeStr = startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' });
+        const timeStr = startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 
         // Cria alert no sistema (sempre, independente de email)
         await db.query(

@@ -3,85 +3,91 @@ const db = require('../db');
 const path = require('path');
 const fs = require('fs');
 
-/**
- * WhatsAppService - Serviço Global para o Bot do Super Admin
- * Gerencia a conexão com o WPPConnect para envio de lembretes do sistema.
- */
-class WhatsAppService {
+class WhatsAppManager {
   constructor() {
-    this.client = null;
-    this.status = 'disconnected';
-    this.qrcode = null;
-    this.instanceName = 'psiflux-system-bot';
-    this.phone = null;
-    this.isInitializing = false;
-    // Movemos a pasta de tokens para 'backend/tokens' para centralizar
+    this.instances = new Map(); // tenant_id -> { client, status, qrcode, phone, initializing, instanceName }
     this.tokensPath = path.join(__dirname, '../tokens'); 
   }
 
-  getStatus() {
+  // Ensures we have an entry for the tenant
+  getTenantData(tenantId) {
+    if (!this.instances.has(tenantId)) {
+      this.instances.set(tenantId, {
+        client: null,
+        status: 'disconnected',
+        qrcode: null,
+        phone: null,
+        initializing: false,
+        instanceName: `psiflux-bot-tenant-${tenantId}`
+      });
+    }
+    return this.instances.get(tenantId);
+  }
+
+  getStatus(tenantId) {
+    const data = this.getTenantData(tenantId);
     return {
-      status: this.status,
-      qrcode: this.qrcode,
-      phone: this.phone,
+      status: data.status,
+      qrcode: data.qrcode,
+      phone: data.phone,
     };
   }
 
-  async connect(forceNew = false) {
-    console.log('🚀 Recebida solicitação de conexão WhatsApp Global...');
+  async connect(tenantId, forceNew = false) {
+    console.log(`🚀 Recebida solicitação de conexão WhatsApp para Tenant ${tenantId}...`);
+    const data = this.getTenantData(tenantId);
 
-    if (this.status === 'connected') return;
+    if (data.status === 'connected') return;
 
-    // Se já estiver tentando, vamos encerrar a instância anterior se possível
-    if (this.client) {
-      console.log('[WPP] Encerrando instância anterior...');
-      try { await this.client.close(); } catch(e) {}
-      this.client = null;
+    if (data.client) {
+      console.log(`[WPP] Encerrando instância anterior do Tenant ${tenantId}...`);
+      try { await data.client.close(); } catch(e) {}
+      data.client = null;
     }
 
     if (forceNew) {
-      // LIMPEZA CRÍTICA: Se forçado, apaga a pasta da sessão para forçar QR Code novo
-      const sessionFolder = path.join(this.tokensPath, this.instanceName);
+      const sessionFolder = path.join(this.tokensPath, data.instanceName);
       if (fs.existsSync(sessionFolder)) {
-        console.log('[WPP] Removendo arquivos de sessão antigos...');
+        console.log(`[WPP] Removendo arquivos de sessão antigos do Tenant ${tenantId}...`);
         try { fs.rmSync(sessionFolder, { recursive: true, force: true }); } catch(e) {}
       }
     }
     
-    this.status = 'connecting';
-    this.qrcode = null;
-    this.createClient();
+    data.status = 'connecting';
+    data.qrcode = null;
+    this.createClient(tenantId, data);
   }
-  async createClient() {
-    if (this.isInitializing) return;
-    this.isInitializing = true;
+
+  async createClient(tenantId, data) {
+    if (data.initializing) return;
+    data.initializing = true;
     
-    console.log('🚀 Iniciando conexão WhatsApp Global...');
-    this.status = 'connecting';
+    console.log(`🚀 Iniciando conexão WhatsApp Tenant ${tenantId}...`);
+    data.status = 'connecting';
 
     try {
-      this.client = await wppconnect.create({
-        session: this.instanceName,
+      data.client = await wppconnect.create({
+        session: data.instanceName,
         catchQR: (base64Qr, asciiQR, attempts) => {
-          this.qrcode = base64Qr;
-          this.status = 'connecting';
-          console.log(`[WPP] QR Code recebido (Tentativa ${attempts})`);
-          if (base64Qr) console.log(`[WPP] QR Base64 (início): ${base64Qr.substring(0, 50)}...`);
+          data.qrcode = base64Qr;
+          data.status = 'connecting';
+          console.log(`[WPP Tenant ${tenantId}] QR Code recebido (Tentativa ${attempts})`);
         },
         statusFind: (statusSession) => {
-          console.log(`[WPP] Status da Sessão: ${statusSession}`);
+          console.log(`[WPP Tenant ${tenantId}] Status: ${statusSession}`);
           if (['isLogged', 'qrReadSuccess', 'chatsAvailable'].includes(statusSession)) {
-            this.status = 'connected';
-            this.qrcode = null;
-            this.isInitializing = false;
+            data.status = 'connected';
+            data.qrcode = null;
+            data.initializing = false;
           }
           if (statusSession === 'notLogged') {
-            this.status = 'connecting';
+            data.status = 'connecting';
           }
           if (statusSession === 'desloged') {
-            this.status = 'disconnected';
-            this.phone = null;
-            this.isInitializing = false;
+            data.status = 'disconnected';
+            data.phone = null;
+            data.initializing = false;
+            db.query('UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?', ['disconnected', null, tenantId]).catch(()=>{});
           }
         },
         mkdirFolder: this.tokensPath,
@@ -97,93 +103,97 @@ class WhatsAppService {
         tokenStore: 'file',
       });
 
-      this.status = 'connected';
-      this.qrcode = null;
-      this.isInitializing = false;
+      data.status = 'connected';
+      data.qrcode = null;
+      data.initializing = false;
 
       try {
-        const hostDevice = await this.client.getHostDevice();
-        this.phone = hostDevice?.wid?.user || hostDevice?.wid?._serialized?.split('@')[0] || 'Conectado';
+        const hostDevice = await data.client.getHostDevice();
+        data.phone = hostDevice?.wid?.user || hostDevice?.wid?._serialized?.split('@')[0] || 'Conectado';
       } catch (e) {
-        console.warn('⚠️ Não foi possível obter o número do bot imediatamente:', e.message);
-        this.phone = 'Conectado';
+        console.warn(`⚠️ Não foi possível obter o número do bot Tenant ${tenantId}:`, e.message);
+        data.phone = 'Conectado';
       }
 
       await db.query(
-        'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ?, whatsapp_instance = ? WHERE id = 1',
-        ['connected', this.phone, this.instanceName]
+        'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ?, whatsapp_instance = ? WHERE id = ?',
+        ['connected', data.phone, data.instanceName, tenantId]
       );
 
-      console.log(`✅ WhatsApp Global Conectado: ${this.phone}`);
-      this.setupListeners();
+      console.log(`✅ WhatsApp Tenant ${tenantId} Conectado: ${data.phone}`);
+      
+      // Ping pong setup
+      data.client.onMessage((message) => {
+        if (message.body === 'ping') {
+          data.client.sendText(message.from, 'pong');
+        }
+      });
 
     } catch (err) {
-      this.isInitializing = false;
-      console.error('❌ Erro ao inicializar WPPConnect:', err.message);
-      this.status = 'disconnected';
-      this.qrcode = null;
-      throw err;
+      data.initializing = false;
+      console.error(`❌ Erro ao inicializar WPPConnect Tenant ${tenantId}:`, err.message);
+      data.status = 'disconnected';
+      data.qrcode = null;
     }
   }
 
-  async disconnect() {
-    if (this.client) {
+  async disconnect(tenantId) {
+    const data = this.getTenantData(tenantId);
+    if (data.client) {
       try {
-        await this.client.logout();
-        await this.client.close();
+        await data.client.logout();
+        await data.client.close();
       } catch (e) {
         console.error('Erro ao fechar cliente WPP:', e.message);
       }
     }
-    this.client = null;
-    this.status = 'disconnected';
-    this.qrcode = null;
-    this.phone = null;
+    data.client = null;
+    data.status = 'disconnected';
+    data.qrcode = null;
+    data.phone = null;
 
     await db.query(
-      'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = 1',
-      ['disconnected', null]
+      'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?',
+      ['disconnected', null, tenantId]
     );
   }
 
-  setupListeners() {
-    if (!this.client) return;
-    
-    // Podemos ouvir mensagens aqui se precisarmos de comandos
-    this.client.onMessage((message) => {
-      if (message.body === 'ping') {
-        this.client.sendText(message.from, 'pong');
-      }
-    });
-  }
-
-  async sendReminder(to, text) {
-    if (this.status !== 'connected' || !this.client) {
-      console.warn('⚠️ Tentativa de envio s/ WhatsApp conectado. Status:', this.status);
+  async sendReminder(tenantId, to, text) {
+    const data = this.getTenantData(tenantId);
+    if (data.status !== 'connected' || !data.client) {
+      console.warn(`⚠️ Tentativa de envio s/ WhatsApp conectado para Tenant ${tenantId}. Status:`, data.status);
       return false;
     }
 
     try {
-      // Formata número (ex: 5515999998888@c.us)
       let clean = to.replace(/\D/g, '');
-      
-      // Se tiver 10 ou 11 dígitos, provavelmente é Brasil sem o código do país prefixado
       if (clean.length === 10 || clean.length === 11) {
         clean = '55' + clean;
       }
-      
       const formattedTo = clean.includes('@c.us') ? clean : `${clean}@c.us`;
       
-      console.log(`📤 Enviando via WhatsApp para: ${formattedTo}...`);
-      await this.client.sendText(formattedTo, text);
+      console.log(`📤 Enviando via WhatsApp (Tenant ${tenantId}) para: ${formattedTo}...`);
+      await data.client.sendText(formattedTo, text);
       return true;
     } catch (err) {
-      console.error(`❌ Erro Real ao enviar para ${to}:`, err.message);
+      console.error(`❌ Erro Real ao enviar para ${to} (Tenant ${tenantId}):`, err.message);
       return false;
+    }
+  }
+
+  async recoverActiveSessions() {
+    try {
+      const [rows] = await db.query("SELECT id FROM tenants WHERE whatsapp_status = 'connected'");
+      for (const row of rows) {
+        console.log(`🔄 Recuperando conexão WhatsApp do Tenant ${row.id}...`);
+        this.connect(row.id, false).catch(e => console.error(e));
+      }
+    } catch(e) {
+      console.error('Erro ao recuperar sessoes', e);
     }
   }
 }
 
 // Singleton
-const service = new WhatsAppService();
+const service = new WhatsAppManager();
 module.exports = service;
