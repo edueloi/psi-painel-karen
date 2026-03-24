@@ -12,11 +12,11 @@ const fs = require('fs');
     await db.query(`
       CREATE TABLE IF NOT EXISTS uploads (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        tenant_id INT NOT NULL,
+        tenant_id INT NULL,
         patient_id INT,
         professional_id INT,
         file_name VARCHAR(255) NOT NULL,
-        file_url VARCHAR(500),
+        file_url LONGTEXT,
         file_type VARCHAR(100),
         file_size INT,
         category VARCHAR(100) DEFAULT 'Geral',
@@ -39,6 +39,9 @@ const fs = require('fs');
     for (const col of cols) {
       await db.query(`ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`).catch(() => {});
     }
+    await db.query(`ALTER TABLE uploads MODIFY COLUMN tenant_id INT NULL`).catch(() => {});
+    await db.query(`ALTER TABLE uploads MODIFY COLUMN file_url LONGTEXT NULL`).catch(() => {});
+    await db.query(`ALTER TABLE uploads MODIFY COLUMN url LONGTEXT NULL`).catch(() => {});
   } catch (err) {
     console.error('Erro ao configurar tabela uploads:', err.message);
   }
@@ -113,14 +116,14 @@ router.post('/', (req, res, next) => {
     }
 
     const { patient_id, category: reqCategory, title } = req.body;
-    const { category, description } = await getPatientFileInfo(req.user.tenant_id, patient_id);
+    const info = req.user.tenant_id ? await getPatientFileInfo(req.user.tenant_id, patient_id) : { category: 'Perfil-Master', description: 'Master Admin' };
     const file_url = `/uploads-static/${req.file.filename}`;
 
     const [result] = await db.query(
       `INSERT INTO uploads (tenant_id, patient_id, uploaded_by, professional_id, filename, original_name, file_name, url, file_url, mime_type, file_type, size, file_size, category, title, description)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.user.tenant_id,
+        req.user.tenant_id || null,
         patient_id || null,
         req.user.id,
         req.user.id,
@@ -133,9 +136,9 @@ router.post('/', (req, res, next) => {
         req.file.mimetype,
         req.file.size,
         req.file.size,
-        reqCategory || category,
+        reqCategory || info.category,
         title || req.file.originalname,
-        description
+        info.description
       ]
     );
 
@@ -143,7 +146,8 @@ router.post('/', (req, res, next) => {
       id: result.insertId,
       file_name: req.file.originalname,
       file_url: file_url,
-      category: category || 'Geral',
+      url: file_url,
+      category: reqCategory || info.category,
       title: title || req.file.originalname,
       date: new Date()
     });

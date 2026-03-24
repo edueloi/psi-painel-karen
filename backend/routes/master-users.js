@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
     await ensureProfileColumn();
     const [users] = await db.query(
       `SELECT u.id, u.name, u.email, u.role, u.phone, u.active, u.created_at,
-              u.permission_profile_id,
+              u.permission_profile_id, u.cargo, u.departamento, u.avatar_url,
               p.name AS profile_name, p.role AS profile_role
        FROM users u
        LEFT JOIN master_permission_profiles p ON p.id = u.permission_profile_id
@@ -44,7 +44,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     await ensureProfileColumn();
-    const { name, email, password, phone, permission_profile_id } = req.body;
+    const { name, email, password, phone, permission_profile_id, cargo, departamento, avatar_url } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
@@ -53,13 +53,13 @@ router.post('/', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await db.query(
-      "INSERT INTO users (tenant_id, name, email, password, role, phone, permission_profile_id) VALUES (NULL, ?, ?, ?, 'super_admin', ?, ?)",
-      [name, email, hashedPassword, phone || null, permission_profile_id || null]
+      "INSERT INTO users (tenant_id, name, email, password, role, phone, permission_profile_id, cargo, departamento, avatar_url) VALUES (NULL, ?, ?, ?, 'super_admin', ?, ?, ?, ?, ?)",
+      [name, email, hashedPassword, phone || null, permission_profile_id || null, cargo || null, departamento || null, avatar_url || null]
     );
 
     const [newUser] = await db.query(
       `SELECT u.id, u.name, u.email, u.role, u.phone, u.active, u.created_at,
-              u.permission_profile_id,
+              u.permission_profile_id, u.cargo, u.departamento, u.avatar_url,
               p.name AS profile_name, p.role AS profile_role
        FROM users u
        LEFT JOIN master_permission_profiles p ON p.id = u.permission_profile_id
@@ -77,18 +77,28 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /master-users/:id/profile — atualiza perfil de permissão
-router.put('/:id/profile', async (req, res) => {
+// PUT /master-users/:id
+router.put('/:id', async (req, res) => {
   try {
-    const { permission_profile_id } = req.body;
-    await db.query(
-      'UPDATE users SET permission_profile_id = ? WHERE id = ? AND role = ?',
-      [permission_profile_id || null, req.params.id, 'super_admin']
-    );
+    const { name, email, phone, cargo, departamento, avatar_url, permission_profile_id, password } = req.body;
+    
+    let query = 'UPDATE users SET name = ?, email = ?, phone = ?, cargo = ?, departamento = ?, avatar_url = ?, permission_profile_id = ?';
+    let params = [name, email, phone || null, cargo || null, departamento || null, avatar_url || null, permission_profile_id || null];
+
+    if (password) {
+      const hashed = await bcrypt.hash(password, 10);
+      query += ', password = ?';
+      params.push(hashed);
+    }
+
+    query += " WHERE id = ? AND role = 'super_admin'";
+    params.push(req.params.id);
+
+    await db.query(query, params);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao atualizar perfil' });
+    res.status(500).json({ error: 'Erro ao atualizar usuário master' });
   }
 });
 

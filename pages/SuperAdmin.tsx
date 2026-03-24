@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { api } from '../services/api';
+import { api, getStaticUrl } from '../services/api';
 import {
   LayoutDashboard, Users, LogOut, Plus, Trash2, ShieldCheck, ShieldOff,
-  X, Building2, User, Loader2, CheckCircle, Edit2, Save,
+  X, Building2, User, Loader2, CheckCircle, Edit2, Save, Camera,
   TrendingUp, Package, ToggleLeft, ToggleRight, Key, AlertCircle,
   Eye, EyeOff, ChevronRight, ArrowUpRight, Clock, Star,
   DollarSign, Activity, BarChart3, Shield, Lock, Phone, Mail,
   Calendar, Check, AlertTriangle, Info, Copy, RefreshCw, Link,
-  Globe, UserCheck, BarChart2, Menu, Unlock
+  Globe, UserCheck, BarChart2, Menu, Unlock, Briefcase
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -28,19 +28,19 @@ const FEATURES_OPTIONS = [
   { key: 'prontuario',           label: 'Prontuário' },
   { key: 'formularios',          label: 'Formulários' },
   { key: 'salas_virtuais',       label: 'Salas Virtuais', premium: true },
-  { key: 'pei',                  label: 'PEI / Neurodesenvolvimento' },
+  { key: 'pei',                  label: 'PEI / Neurodesenvolvimento', premium: true },
   { key: 'ferramentas_clinicas', label: 'Ferramentas Clínicas' },
   { key: 'estudos_de_caso',      label: 'Estudos de Caso' },
   { key: 'financeiro',           label: 'Financeiro', premium: true },
-  { key: 'documentos',           label: 'Gerador de Documentos' },
-  { key: 'relatorios',           label: 'Relatórios Avançados' },
+  { key: 'documentos',           label: 'Gerador de Documentos', premium: true },
+  { key: 'relatorios',           label: 'Relatórios Avançados', premium: true },
   { key: 'profissionais',        label: 'Gestão de Profissionais' },
   { key: 'servicos',             label: 'Gestão de Serviços' },
   { key: 'produtos',             label: 'Gestão de Produtos' },
   { key: 'comandas',             label: 'Gestão de Comandas' },
   { key: 'mensagens',            label: 'Mensagens Internas' },
-  { key: 'api_acesso',           label: 'Acesso à API' },
-  { key: 'suporte_prioritario',  label: 'Suporte Prioritário' },
+  { key: 'api_acesso',           label: 'Acesso à API', premium: true },
+  { key: 'suporte_prioritario',  label: 'Suporte Prioritário', premium: true },
   { key: 'whatsapp_bot',         label: 'WhatsApp Bot', premium: true },
   { key: 'aurora_ai',            label: 'Aurora AI', premium: true },
 ];
@@ -222,9 +222,33 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   // team modal
   const [teamModal, setTeamModal]   = useState(false);
-  const [teamForm, setTeamForm]     = useState({ name: '', email: '', password: '', phone: '', permission_profile_id: '' });
+  const [editTeam, setEditTeam]     = useState<any>(null);
+  const [teamForm, setTeamForm]     = useState({ 
+    name: '', email: '', password: '', phone: '', 
+    permission_profile_id: '', cargo: '', departamento: '', avatar_url: '' 
+  });
   const [showTeamPass, setShowTeamPass] = useState(false);
-  const openTeamModal = () => { setError(''); setTeamForm({ name: '', email: '', password: '', phone: '', permission_profile_id: '' }); setTeamModal(true); };
+  const openTeamModal = () => { 
+    setError(''); 
+    setEditTeam(null);
+    setTeamForm({ name: '', email: '', password: '', phone: '', permission_profile_id: '', cargo: '', departamento: '', avatar_url: '' }); 
+    setTeamModal(true); 
+  };
+  const openEditTeamMember = (u: any) => {
+    setError('');
+    setEditTeam(u);
+    setTeamForm({
+      name: u.name,
+      email: u.email,
+      password: '',
+      phone: u.phone || '',
+      permission_profile_id: String(u.permission_profile_id || ''),
+      cargo: u.cargo || '',
+      departamento: u.departamento || '',
+      avatar_url: u.avatar_url || ''
+    });
+    setTeamModal(true);
+  };
 
   // client modal
   const [clientModal, setClientModal] = useState(false);
@@ -259,13 +283,16 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   // permission profile modal
   const [permModal, setPermModal]   = useState(false);
   const [editPerm, setEditPerm]     = useState<any>(null);
-  const [permForm, setPermForm]     = useState({ name: '', description: '', role_type: 'visualizador', permissions: [] as string[] });
-  const openNewPerm  = () => { setError(''); setEditPerm(null); setPermForm({ name: '', description: '', role_type: 'visualizador', permissions: [] }); setPermModal(true); };
-  const openEditPerm = (p: any) => { setError(''); setEditPerm(p); setPermForm({ name: p.name, description: p.description || '', role_type: p.role_type, permissions: p.permissions || [] }); setPermModal(true); };
+  const [permForm, setPermForm]     = useState({ name: '', description: '', role: 'visualizador', permissions: [] as string[] });
+  const openNewPerm  = () => { setError(''); setEditPerm(null); setPermForm({ name: '', description: '', role: 'visualizador', permissions: [] }); setPermModal(true); };
+  const openEditPerm = (p: any) => { setError(''); setEditPerm(p); setPermForm({ name: p.name, description: p.description || '', role: p.role, permissions: p.permissions || [] }); setPermModal(true); };
 
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
   const [copied, setCopied] = useState<number | null>(null);
+
+  const teamFileRef = useRef<HTMLInputElement>(null);
+  const [uploadingTeamPhoto, setUploadingTeamPhoto] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -330,11 +357,23 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   };
 
   // ── handlers ──────────────────────────────────────────────────────────────
-  const handleCreateTeamMember = async () => {
+  const handleSaveTeamMember = async () => {
     setError('');
-    if (!teamForm.name || !teamForm.email || !teamForm.password) { setError('Nome, email e senha são obrigatórios.'); return; }
+    if (!teamForm.name || !teamForm.email || (!editTeam && !teamForm.password)) { 
+      setError('Nome, email e senha são obrigatórios.'); return; 
+    }
     setSaving(true);
-    try { await api.post('/master-users', teamForm); setTeamModal(false); toast(`${teamForm.name} adicionado à equipe!`); load(); }
+    try { 
+      if (editTeam) {
+        await api.put(`/master-users/${editTeam.id}`, teamForm);
+        toast(`${teamForm.name} atualizado!`);
+      } else {
+        await api.post('/master-users', teamForm); 
+        toast(`${teamForm.name} adicionado à equipe!`); 
+      }
+      setTeamModal(false); 
+      load(); 
+    }
     catch (e: any) { setError(e.message); } finally { setSaving(false); }
   };
 
@@ -371,9 +410,26 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     catch { toast('Erro ao alterar status.', 'error'); }
   };
 
-  const handleDeleteClient = (t: any) =>
-    doConfirm({ message: `Deletar "${t.company_name}"?`, detail: 'Todos os dados serão removidos. Ação irreversível.', danger: true,
-      onConfirm: async () => { try { await api.delete(`/tenants/${t.id}`); toast(`"${t.company_name}" deletada.`); load(); } catch { toast('Erro ao deletar.', 'error'); } } });
+  const handleDeleteClient = (t: any) => {
+    if (user?.email !== 'super@psiflux.com') {
+      toast('Apenas o Administrador Raiz (super@psiflux.com) pode excluir clínicas.', 'error');
+      return;
+    }
+    doConfirm({ 
+      message: `Deletar "${t.company_name}"?`, 
+      detail: 'Todos os dados desta clínica serão removidos permanentemente. Esta ação é irreversível.', 
+      danger: true,
+      onConfirm: async () => { 
+        try { 
+          await api.delete(`/tenants/${t.id}`); 
+          toast(`"${t.company_name}" deletada com sucesso.`); 
+          load(); 
+        } catch (e) { 
+          toast('Erro ao deletar clínica.', 'error'); 
+        } 
+      } 
+    });
+  };
 
   const openNewPlan  = () => { setError(''); setEditPlan(null); setPlanForm({ name: '', description: '', price: '', max_users: '10', features: [] }); setPlanModal(true); };
   const openEditPlan = (p: any) => { setError(''); setEditPlan(p); setPlanForm({ name: p.name, description: p.description || '', price: String(p.price), max_users: String(p.max_users), features: p.features || [] }); setPlanModal(true); };
@@ -759,6 +815,14 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                 >
                                   {t.status === 'blocked' ? <><Unlock size={13} /> Desbloquear Financeiro</> : <><Lock size={13} /> Bloquear Acesso</>}
                                 </button>
+                                {user?.email === 'super@psiflux.com' && t.id !== 1 && (
+                                  <button 
+                                    onClick={() => handleDeleteClient(t)}
+                                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-white border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 transition-all border mt-1"
+                                  >
+                                    <Trash2 size={13} /> Excluir Clínica
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -825,43 +889,54 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                   <ShieldCheck size={10} /> Super Admin
                                 </span>
                                 <div className="flex gap-1">
-                                  <StatusBadge active={u.active !== false} />
-                                  {isAdmin && u.role !== 'super_admin' && (
-                                    <button onClick={() => handleDeleteTeamMember(u.id, u.name)}
-                                      className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition ml-1">
-                                      <Trash2 size={12} />
+                                    <button onClick={() => openEditTeamMember(u)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition">
+                                      <Edit2 size={12} />
                                     </button>
-                                  )}
-                                </div>
+                                    <StatusBadge active={u.active !== false} />
+                                    {isAdmin && u.id !== user?.id && u.email !== 'super@psiflux.com' && (
+                                      <button onClick={() => handleDeleteTeamMember(u.id, u.name)}
+                                        className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition ml-1">
+                                        <Trash2 size={12} />
+                                      </button>
+                                    )}
+                                  </div>
                               </div>
                             </div>
 
                             {/* Corpo com avatar sobreposto */}
                             <div className="px-5 pb-5 -mt-8">
-                              <div className="w-16 h-16 rounded-2xl border-4 border-white shadow-lg flex items-center justify-center text-white font-bold text-xl mb-3"
-                                style={{ background: color }}>
-                                {initials(u.name)}
+                              <div className="w-16 h-16 rounded-2xl border-4 border-white shadow-lg flex items-center justify-center text-white font-bold text-xl mb-3 overflow-hidden bg-slate-200"
+                                style={{ background: u.avatar_url ? 'white' : color }}>
+                                {u.avatar_url ? (
+                                  <img src={getStaticUrl(u.avatar_url)} alt={u.name} className="w-full h-full object-cover" />
+                                ) : initials(u.name)}
                               </div>
 
                               <h3 className="font-bold text-slate-800 text-base leading-tight">{u.name}</h3>
                               <p className="text-xs text-slate-400 mb-4 mt-0.5">Equipe Master · PsiFlux</p>
 
                               <div className="space-y-2">
-                                <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                                  <Mail size={12} className="text-slate-400 flex-shrink-0" />
-                                  <span className="text-xs text-slate-600 truncate">{u.email}</span>
-                                </div>
-                                {u.phone && (
+                                  {u.cargo && (
+                                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5">
+                                      <Briefcase size={12} className="text-slate-400" />
+                                      <span className="text-xs font-bold text-slate-700">{u.cargo}</span>
+                                    </div>
+                                  )}
+                                  {u.departamento && (
+                                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5">
+                                      <Users size={12} className="text-slate-400" />
+                                      <span className="text-xs font-semibold text-slate-500">{u.departamento}</span>
+                                    </div>
+                                  )}
                                   <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                                    <Phone size={12} className="text-slate-400 flex-shrink-0" />
-                                    <span className="text-xs text-slate-600">{u.phone}</span>
+                                    <Mail size={12} className="text-slate-400" />
+                                    <span className="text-[11px] text-slate-500 truncate">{u.email}</span>
                                   </div>
-                                )}
-                                <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                                  <Calendar size={12} className="text-slate-400 flex-shrink-0" />
-                                  <span className="text-xs text-slate-500">Desde {fmtDate(u.created_at)}</span>
+                                  <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+                                    <Calendar size={12} className="text-slate-400" />
+                                    <span className="text-[11px] text-slate-500">Membro desde {new Date(u.created_at).toLocaleDateString()}</span>
+                                  </div>
                                 </div>
-                              </div>
                             </div>
                           </div>
                         );
@@ -1279,32 +1354,95 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
         </Modal>
       )}
 
-      {/* ══ MODAL NOVO INTEGRANTE ══ */}
+      {/* ══ MODAL INTEGRANTE ══ */}
       {teamModal && (
-        <Modal title="Novo Integrante" sub="Acesso master ao painel de super admin" onClose={() => { setTeamModal(false); setError(''); }} error={error}>
-          <div>{lbl('Nome Completo *')}<input className={inp} placeholder="Nome completo" value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-3">
+        <Modal 
+          title={editTeam ? "Editar Integrante" : "Novo Integrante"} 
+          sub={editTeam ? `ID: ${editTeam.id} — ${editTeam.name}` : "Acesso master ao painel de super admin"} 
+          onClose={() => { setTeamModal(false); setError(''); }} 
+          error={error}
+          wide
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">{lbl('Nome Completo *')}<input className={inp} placeholder="Nome completo" value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} /></div>
+            
             <div>{lbl('E-mail *')}<input type="email" className={inp} placeholder="usuario@psiflux.com" value={teamForm.email} onChange={e => setTeamForm({ ...teamForm, email: e.target.value })} /></div>
             <div>{lbl('Telefone')}<input className={inp} placeholder="(11) 99999-9999" value={teamForm.phone} onChange={e => setTeamForm({ ...teamForm, phone: mkP(e.target.value) })} /></div>
-          </div>
-          <div>{lbl('Senha *')}<div className="relative"><input type={showTeamPass ? 'text' : 'password'} className={inp + ' pr-10'} placeholder="Mínimo 6 caracteres" value={teamForm.password} onChange={e => setTeamForm({ ...teamForm, password: e.target.value })} /><button type="button" onClick={() => setShowTeamPass(!showTeamPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showTeamPass ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></div>
-          <div>
-            {lbl('Perfil de Permissão')}
-            <select className={sel} value={teamForm.permission_profile_id} onChange={e => setTeamForm({ ...teamForm, permission_profile_id: e.target.value })}>
-              <option value="">Acesso total (Super Admin)</option>
-              {permProfiles.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            {teamForm.permission_profile_id ? (
-              <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><Shield size={11} /> As permissões serão limitadas ao perfil selecionado.</p>
-            ) : (
-              <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><ShieldCheck size={11} /> Sem restrições — acesso completo ao painel master.</p>
+
+            {teamForm.email !== 'super@psiflux.com' && (
+              <>
+                <div>{lbl('Cargo / Profissão')}<input className={inp} placeholder="Ex: Gestor Comercial" value={teamForm.cargo} onChange={e => setTeamForm({ ...teamForm, cargo: e.target.value })} /></div>
+                <div>{lbl('Departamento')}<input className={inp} placeholder="Ex: Suporte" value={teamForm.departamento} onChange={e => setTeamForm({ ...teamForm, departamento: e.target.value })} /></div>
+              </>
             )}
+
+            <div className="md:col-span-2">
+              {lbl('Foto do Perfil')}
+              <div className="flex items-center gap-4 mt-1.5 p-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden">
+                  {teamForm.avatar_url ? (
+                    <img src={getStaticUrl(teamForm.avatar_url)} className="w-full h-full object-cover" />
+                  ) : <User size={24} className="text-slate-300" />}
+                </div>
+                <div className="flex-1">
+                  <input type="file" className="hidden" ref={teamFileRef} accept="image/*" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploadingTeamPhoto(true);
+                    try {
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      fd.append('category', 'Perfil-Master');
+                      const res: any = await api.post('/uploads', fd);
+                      setTeamForm({ ...teamForm, avatar_url: res.file_url });
+                      toast('Foto carregada!');
+                    } catch { toast('Erro ao carregar foto.', 'error'); }
+                    finally { setUploadingTeamPhoto(false); }
+                  }} />
+                  <button type="button" onClick={() => teamFileRef.current?.click()} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5 mb-1">
+                    {uploadingTeamPhoto ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
+                    {teamForm.avatar_url ? 'Alterar Foto' : 'Carregar Foto'}
+                  </button>
+                  <p className="text-[10px] text-slate-400">JPG, PNG ou WEBP. Máximo 2MB.</p>
+                </div>
+                {teamForm.avatar_url && (
+                   <button type="button" onClick={() => setTeamForm({ ...teamForm, avatar_url: '' })} className="p-2 text-slate-400 hover:text-red-500 transition">
+                      <Trash2 size={14} />
+                   </button>
+                )}
+              </div>
+            </div>
+
+            <div className="md:col-span-2 border-t border-slate-100 pt-4">
+              {lbl('Senha' + (editTeam ? ' (deixe em branco para não alterar)' : ' *'))}
+              <div className="relative">
+                <input type={showTeamPass ? 'text' : 'password'} className={inp + ' pr-10'} placeholder="Mínimo 6 caracteres" value={teamForm.password} onChange={e => setTeamForm({ ...teamForm, password: e.target.value })} />
+                <button type="button" onClick={() => setShowTeamPass(!showTeamPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showTeamPass ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              {lbl('Perfil de Permissão')}
+              <select className={sel} value={teamForm.permission_profile_id} onChange={e => setTeamForm({ ...teamForm, permission_profile_id: e.target.value })}>
+                <option value="">Acesso total (Super Admin)</option>
+                {permProfiles.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {teamForm.permission_profile_id ? (
+                <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><Shield size={11} /> As permissões serão limitadas ao perfil selecionado.</p>
+              ) : (
+                <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><ShieldCheck size={11} /> Sem restrições — acesso completo ao painel master.</p>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3 pt-1">
+          
+          <div className="flex gap-3 pt-6 border-t border-slate-100 mt-4">
             <button onClick={() => { setTeamModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleCreateTeamMember} disabled={saving} className={btnP}>{saving ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} Finalizar Cadastro</button>
+            <button onClick={handleSaveTeamMember} disabled={saving} className={btnP}>
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 
+              {editTeam ? 'Salvar Alterações' : 'Criar Integrante'}
+            </button>
           </div>
         </Modal>
       )}
@@ -1319,9 +1457,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               <div className="grid grid-cols-3 gap-2 mt-1">
                 {ROLE_TYPES.map(r => {
                   const rc = ROLE_COLOR[r.value] || ROLE_COLOR['visualizador'];
-                  const active = permForm.role_type === r.value;
+                  const active = permForm.role === r.value;
                   return (
-                    <button key={r.value} type="button" onClick={() => setPermForm({ ...permForm, role_type: r.value })}
+                    <button key={r.value} type="button" onClick={() => setPermForm({ ...permForm, role: r.value })}
                       className={`py-2 px-3 rounded-lg text-xs font-semibold border transition ${active ? `${rc.light} ${rc.text} ${rc.border}` : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                       {r.label}
                     </button>

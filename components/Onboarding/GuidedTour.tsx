@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { X, ChevronRight, ChevronLeft, CheckCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface TourStep {
   title: string;
@@ -7,9 +8,10 @@ interface TourStep {
   target?: string;        // CSS selector do elemento a destacar
   position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
   emoji?: string;
+  requiredFeature?: string;
 }
 
-const STEPS: TourStep[] = [
+const ALL_STEPS: TourStep[] = [
   {
     title: 'Sua clínica começa aqui!',
     description: 'O PsiFlux foi projetado para ser intuitivo. Vamos dar uma volta rápida pelos principais recursos para você se sentir em casa.',
@@ -22,6 +24,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="agenda"]',
     position: 'right',
     emoji: '📅',
+    requiredFeature: 'agenda',
   },
   {
     title: 'Pacientes',
@@ -29,6 +32,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="pacientes"]',
     position: 'right',
     emoji: '👥',
+    requiredFeature: 'pacientes',
   },
   {
     title: 'Prontuários',
@@ -36,6 +40,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="prontuarios"]',
     position: 'right',
     emoji: '📋',
+    requiredFeature: 'prontuario',
   },
   {
     title: 'Comandas',
@@ -43,6 +48,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="comandas"]',
     position: 'right',
     emoji: '🧾',
+    requiredFeature: 'comandas',
   },
   {
     title: 'Financeiro',
@@ -50,6 +56,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="financeiro"]',
     position: 'right',
     emoji: '💰',
+    requiredFeature: 'financeiro',
   },
   {
     title: 'Serviços & Pacotes',
@@ -57,6 +64,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="servicos"]',
     position: 'right',
     emoji: '🛠️',
+    requiredFeature: 'servicos',
   },
   {
     title: 'Formulários & DISC',
@@ -64,6 +72,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="formularios"]',
     position: 'right',
     emoji: '📊',
+    requiredFeature: 'formularios',
   },
   {
     title: 'Aurora — Sua IA',
@@ -71,10 +80,11 @@ const STEPS: TourStep[] = [
     target: '[data-tour="aurora"]',
     position: 'top',
     emoji: '✨',
+    requiredFeature: 'aurora_ai',
   },
   {
     title: 'Tudo pronto!',
-    description: 'Você conhece os principais recursos do PsiFlux. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda) ou converse com a Aurora a qualquer momento. Bom trabalho! 🎉',
+    description: 'Você conhece os principais recursos do PsiFlux. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda). Bom trabalho! 🎉',
     position: 'center',
     emoji: '🎉',
   },
@@ -85,10 +95,27 @@ interface GuidedTourProps {
 }
 
 export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [highlight, setHighlight] = useState<DOMRect | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const highlightedElRef = useRef<HTMLElement | null>(null);
+
+  // Filtra os passos baseado no plano do usuário
+  const STEPS = useMemo(() => {
+    const filtered = ALL_STEPS.filter(s => {
+      if (!s.requiredFeature) return true;
+      return user?.plan_features?.includes(s.requiredFeature);
+    });
+
+    // Ajusta o texto final se não houver Aurora
+    const last = filtered[filtered.length - 1];
+    if (last && last.title === 'Tudo pronto!' && user?.plan_features?.includes('aurora_ai')) {
+      last.description = 'Você conhece os principais recursos do PsiFlux. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda) ou converse com a Aurora a qualquer momento. Bom trabalho! 🎉';
+    }
+
+    return filtered;
+  }, [user]);
 
   const current = STEPS[step];
   const isFirst = step === 0;
@@ -105,7 +132,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
   // Find and highlight target element
   useEffect(() => {
     clearHighlightEl();
-    if (!current.target) { setHighlight(null); return; }
+    if (!current?.target) { setHighlight(null); return; }
     const tryFind = (retries = 0) => {
       const el = document.querySelector(current.target!) as HTMLElement | null;
       if (el) {
@@ -126,7 +153,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
     };
     tryFind();
     return () => clearHighlightEl();
-  }, [step]);
+  }, [step, current]);
 
   const goNext = () => {
     if (isLast) { clearHighlightEl(); onFinish(); return; }
@@ -141,7 +168,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
   const getTooltipStyle = (): React.CSSProperties => {
     const isMobile = window.innerWidth < 640;
 
-    if (!highlight || current.position === 'center') {
+    if (!highlight || current?.position === 'center') {
       return { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10001 };
     }
 
@@ -161,7 +188,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
     const pad = 16;
     const tw = 340;
     const th = 220;
-    const pos = current.position || 'right';
+    const pos = current?.position || 'right';
 
     if (pos === 'right') {
       return {
@@ -199,6 +226,8 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
       width: tw,
     };
   };
+
+  if (!current) return null;
 
   return (
     <>

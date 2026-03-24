@@ -84,7 +84,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   return (
     <MainLayout>
       {children}
-      <AuroraAssistant />
+      {user?.plan_features?.includes('aurora_ai') && <AuroraAssistant />}
       {user && <OnboardingController userId={user.id} userName={user.name || ''} />}
     </MainLayout>
   );
