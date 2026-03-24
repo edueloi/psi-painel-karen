@@ -6,14 +6,14 @@ const wppService = require('./whatsappService');
 // Helper: formata data pt-BR
 function fmtDate(d) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' });
 }
 function fmtTime(d) {
   if (!d) return '';
-  return new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 }
 function fmtMonth(d) {
-  return new Date(d).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  return new Date(d).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' });
 }
 function fmtWeek(start, end) {
   return `${fmtDate(start)} a ${fmtDate(end)}`;
@@ -87,14 +87,13 @@ async function checkAppointmentReminders() {
     `, [fromStr, toStr]);
 
     for (const apt of appointments) {
+      const aptStart = new Date(apt.start_time);
+      const diffMinutes = Math.round((aptStart.getTime() - now.getTime()) / 60000);
+
       // 1. WhatsApp Bot Global (Independente de preferência para ser um lembrete do sistema para todos)
       if (apt.professional_phone && wppService.status === 'connected') {
-        const aptStart = new Date(apt.start_time);
-        // Regra: 60 minutos antes (janela de 5 min para evitar perda por delay)
-        const targetTime = new Date(now.getTime() + 60 * 60 * 1000);
-        const diff = Math.abs(aptStart - targetTime) / 60000;
-
-        if (diff <= 5) {
+        // Regra: 60 minutos antes (Math.round garante apenas uma execução por agendamento)
+        if (diffMinutes === 60) {
           const timeStr = fmtTime(apt.start_time);
           const serviceInfo = apt.service_name ? `\n🔹 *Serviço:* ${apt.service_name}` : '';
           
@@ -117,10 +116,7 @@ async function checkAppointmentReminders() {
       if (!prefs.appointment_reminder_professional && !prefs.appointment_reminder_patient) continue;
 
       const minutes = prefs.appointment_reminder_minutes || 60;
-      const targetTime = new Date(now.getTime() + minutes * 60 * 1000);
-      const aptStart   = new Date(apt.start_time);
-      const diff = Math.abs(aptStart - targetTime) / 60000;
-      if (diff > 5) continue; 
+      if (diffMinutes !== minutes) continue; 
 
       const label = minutes === 30 ? '30min' : '1h';
 
