@@ -40,6 +40,7 @@ import { Settings } from './pages/Settings';
 import { Privacy } from './pages/Privacy';
 import { Help } from './pages/Help';
 import { Messages } from './pages/Messages';
+import { PublicProfile } from './pages/PublicProfile';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -155,6 +156,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/login" element={<Login onLogin={() => {}} />} />
       <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/f/:hash" element={<ExternalForm />} />
+      <Route path="/p/:slug" element={<PublicProfile />} />
 
       {/* Rotas de Super Admin */}
       <Route

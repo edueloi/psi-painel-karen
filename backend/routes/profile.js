@@ -24,6 +24,10 @@ const ensureColumns = async () => {
     "ALTER TABLE users ADD COLUMN ui_preferences JSON NULL",
     "ALTER TABLE users ADD COLUMN forms_archived JSON NULL",
     "ALTER TABLE users ADD COLUMN forms_favorites JSON NULL",
+    "ALTER TABLE users ADD COLUMN public_slug VARCHAR(255) NULL UNIQUE",
+    "ALTER TABLE users ADD COLUMN social_links JSON NULL",
+    "ALTER TABLE users ADD COLUMN public_profile_enabled BOOLEAN DEFAULT FALSE",
+    "ALTER TABLE users ADD COLUMN profile_theme JSON NULL",
   ];
   for (const sql of extras) {
     try { 
@@ -45,7 +49,7 @@ router.get('/me', async (req, res) => {
               u.avatar_url, u.bio, u.company_name, u.address, u.clinic_logo_url, u.cover_url, 
               u.schedule, u.active, u.permissions as user_permissions,
               u.ui_preferences, u.forms_archived, u.forms_favorites,
-              u.two_factor_enabled,
+              u.two_factor_enabled, u.public_slug, u.social_links, u.public_profile_enabled, u.profile_theme,
               p.permissions as profile_permissions, p.slug as profile_slug,
               pl.features as plan_features
        FROM users u 
@@ -57,18 +61,14 @@ router.get('/me', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
     const u = rows[0];
-    if (u.schedule && typeof u.schedule === 'string') {
-      try { u.schedule = JSON.parse(u.schedule); } catch { u.schedule = null; }
-    }
-    if (u.ui_preferences && typeof u.ui_preferences === 'string') {
-      try { u.ui_preferences = JSON.parse(u.ui_preferences); } catch { u.ui_preferences = null; }
-    }
-    if (u.forms_archived && typeof u.forms_archived === 'string') {
-      try { u.forms_archived = JSON.parse(u.forms_archived); } catch { u.forms_archived = []; }
-    }
-    if (u.forms_favorites && typeof u.forms_favorites === 'string') {
-      try { u.forms_favorites = JSON.parse(u.forms_favorites); } catch { u.forms_favorites = []; }
-    }
+    
+    // Parse JSON fields
+    const jsonFields = ['schedule', 'ui_preferences', 'forms_archived', 'forms_favorites', 'social_links', 'profile_theme'];
+    jsonFields.forEach(f => {
+      if (u[f] && typeof u[f] === 'string') {
+        try { u[f] = JSON.parse(u[f]); } catch { u[f] = f.includes('forms') ? [] : null; }
+      }
+    });
 
     let userPerms = typeof u.user_permissions === 'string' ? JSON.parse(u.user_permissions) : u.user_permissions || {};
     let profPerms = typeof u.profile_permissions === 'string' ? JSON.parse(u.profile_permissions) : u.profile_permissions || {};
@@ -102,7 +102,12 @@ router.get('/me', async (req, res) => {
 // PUT /profile/me
 router.put('/me', async (req, res) => {
   try {
-    const { name, email, phone, crp, specialty, company_name, address, bio, avatar_url, clinic_logo_url, cover_url, schedule } = req.body;
+    const { 
+      name, email, phone, crp, specialty, company_name, address, bio, 
+      avatar_url, clinic_logo_url, cover_url, schedule,
+      public_slug, social_links, public_profile_enabled, profile_theme
+    } = req.body;
+
     await db.query(
       `UPDATE users SET
         name = COALESCE(?, name),
@@ -116,23 +121,45 @@ router.put('/me', async (req, res) => {
         avatar_url = COALESCE(?, avatar_url),
         clinic_logo_url = ?,
         cover_url = ?,
-        schedule = ?
+        schedule = ?,
+        public_slug = ?,
+        social_links = ?,
+        public_profile_enabled = ?,
+        profile_theme = ?
        WHERE id = ?`,
-      [name, email, phone, crp, specialty, company_name || null, address || null, bio || null,
-       avatar_url, clinic_logo_url || null, cover_url || null,
-       schedule ? JSON.stringify(schedule) : null,
-       req.user.id]
+      [
+        name, email, phone, crp, specialty, company_name || null, address || null, bio || null,
+        avatar_url, clinic_logo_url || null, cover_url || null,
+        schedule ? JSON.stringify(schedule) : null,
+        public_slug || null,
+        social_links ? JSON.stringify(social_links) : null,
+        public_profile_enabled || false,
+        profile_theme ? JSON.stringify(profile_theme) : null,
+        req.user.id
+      ]
     );
+
     const [rows] = await db.query(
-      'SELECT id, name, email, role, phone, crp, specialty, avatar_url, bio, company_name, address, clinic_logo_url, cover_url, schedule FROM users WHERE id = ?',
+      `SELECT id, name, email, role, phone, crp, specialty, avatar_url, bio, 
+              company_name, address, clinic_logo_url, cover_url, schedule,
+              public_slug, social_links, public_profile_enabled, profile_theme
+       FROM users WHERE id = ?`,
       [req.user.id]
     );
     const u = rows[0];
-    if (u.schedule && typeof u.schedule === 'string') {
-      try { u.schedule = JSON.parse(u.schedule); } catch { u.schedule = null; }
-    }
+
+    const jsonFields = ['schedule', 'social_links', 'profile_theme'];
+    jsonFields.forEach(f => {
+      if (u[f] && typeof u[f] === 'string') {
+        try { u[f] = JSON.parse(u[f]); } catch { u[f] = null; }
+      }
+    });
+
     res.json(u);
   } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Este link personalizado já está em uso.' });
+    }
     console.error(err);
     res.status(500).json({ error: 'Erro ao salvar perfil' });
   }

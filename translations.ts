@@ -195,9 +195,10 @@ export const translations = {
     'patients.status.inactive': 'Inativo',
 
     // common.*
-    'common.save': 'Salvar',
-    'common.edit': 'Editar',
     'common.delete': 'Excluir',
+    'common.confirmDelete': 'Tem certeza que deseja excluir este item?',
+    'common.save': 'Salvar',
+    'common.search': 'Buscar...',
     'common.create': 'Criar',
     'common.clear': 'Limpar',
 
@@ -300,6 +301,7 @@ export const translations = {
     'pei.maintenance': 'Manutenção',
     'pei.generalization': 'Generalização',
     'pei.completed': 'Concluída',
+    'pei.pending': 'Pendente',
     'pei.goal.area': 'Área',
     'pei.goal.title': 'Título da Meta',
     'pei.goal.desc': 'Descrição da Meta',
@@ -319,8 +321,22 @@ export const translations = {
     'pei.sensory.visual': 'Visual',
     'pei.sensory.tactile': 'Tátil',
     'pei.sensory.vestibular': 'Vestibular',
+    'pei.sensory.proprioceptive': 'Proprioceptivo',
     'pei.sensory.oral': 'Oral',
     'pei.sensory.social': 'Social',
+
+    'pei.goal.area.communication': 'Comunicação',
+    'pei.goal.area.social': 'Socioemocional',
+    'pei.goal.area.motor': 'Psicomotricidade',
+    'pei.goal.area.autonomia': 'Autonomia/Vida Diária',
+    'pei.goal.area.cognitive': 'Cognitivo/Atenção',
+    'pei.goal.area.academic': 'Acadêmico/Escolar',
+
+    'pei.abc.intensity': 'Intensidade',
+    'pei.abc.duration': 'Duração',
+    'pei.abc.intensity.low': 'Baixa',
+    'pei.abc.intensity.medium': 'Média',
+    'pei.abc.intensity.high': 'Alta',
 
     // Financeiro
     'finance.title': 'Gestão Financeira',

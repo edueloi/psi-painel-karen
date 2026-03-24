@@ -69,6 +69,10 @@ export const Profile: React.FC = () => {
     avatarUrl: '',
     clinicLogoUrl: '',
     coverUrl: '',
+    public_slug: '',
+    public_profile_enabled: false,
+    social_links: [] as { platform: string; url: string }[],
+    profile_theme: { primaryColor: '#4F46E5', layout: 'modern' },
   });
 
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
@@ -80,7 +84,7 @@ export const Profile: React.FC = () => {
   };
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic' | 'external'>('info');
 
   const [schedule, setSchedule] = useState<ScheduleDay[]>([
     { dayKey: 'monday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
@@ -110,6 +114,10 @@ export const Profile: React.FC = () => {
             avatarUrl: data.avatar_url || data.avatarUrl || '',
             clinicLogoUrl: data.clinic_logo_url || data.clinicLogoUrl || '',
             coverUrl: data.cover_url || data.coverUrl || '',
+            public_slug: data.public_slug || '',
+            public_profile_enabled: !!data.public_profile_enabled,
+            social_links: data.social_links || [],
+            profile_theme: data.profile_theme || { primaryColor: '#4F46E5', layout: 'modern' },
           });
         }
 
@@ -224,6 +232,10 @@ export const Profile: React.FC = () => {
         clinic_logo_url: user.clinicLogoUrl,
         cover_url: user.coverUrl,
         schedule,
+        public_slug: user.public_slug,
+        public_profile_enabled: user.public_profile_enabled,
+        social_links: user.social_links,
+        profile_theme: user.profile_theme,
       });
 
       setSaveStatus('saved');
@@ -234,9 +246,10 @@ export const Profile: React.FC = () => {
         avatarUrl: user.avatarUrl
       });
       setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (err) {
+    } catch (err: any) {
       setSaveStatus('idle');
-      pushToast('error', 'Não foi possível salvar os dados. Tente novamente mais tarde.');
+      const msg = err.response?.data?.error || 'Não foi possível salvar os dados. Tente novamente mais tarde.';
+      pushToast('error', msg);
     }
   };
 
@@ -343,6 +356,7 @@ export const Profile: React.FC = () => {
                 { id: 'info', label: 'Dados Pessoais', icon: <User size={16} /> },
                 { id: 'schedule', label: 'Minha Agenda', icon: <Calendar size={16} /> },
                 { id: 'clinic', label: 'Dados da Clínica', icon: <Building2 size={16} /> },
+                { id: 'external', label: 'Página Externa', icon: <Globe size={16} /> },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -425,6 +439,189 @@ export const Profile: React.FC = () => {
               </Card>
             )}
 
+            {activeTab === 'external' && (
+              <div className="space-y-6">
+                <Card 
+                  title="Sua Vitrine Digital" 
+                  icon={<Globe className="text-pink-500" />}
+                  subtitle="Crie uma página profissional pública para usar na sua bio do Instagram ou anúncios."
+                >
+                  <div className="space-y-8">
+                    {/* Ativação */}
+                    <div className="flex items-center justify-between p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                      <div>
+                        <h4 className="text-sm font-black text-slate-800">Status da Página</h4>
+                        <p className="text-[10px] font-bold text-slate-400">Ative para que seu perfil seja visível publicamente.</p>
+                      </div>
+                      <button
+                        onClick={() => setUser(p => ({ ...p, public_profile_enabled: !p.public_profile_enabled }))}
+                        className={`w-14 h-8 rounded-full relative transition-all duration-300 ${user.public_profile_enabled ? 'bg-emerald-500 shadow-lg shadow-emerald-100' : 'bg-slate-200'}`}
+                      >
+                        <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${user.public_profile_enabled ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+
+                    {/* Slug / Link */}
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Seu Link Personalizado</label>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 flex items-center h-14 bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden group focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-400 transition-all">
+                          <span className="pl-4 pr-1 text-slate-400 text-xs font-bold whitespace-nowrap">psiflux.com.br/p/</span>
+                          <input
+                            type="text"
+                            value={user.public_slug}
+                            onChange={e => setUser(p => ({ ...p, public_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') }))}
+                            className="flex-1 h-full bg-transparent border-none outline-none text-sm font-black text-indigo-600 placeholder:text-slate-300"
+                            placeholder="seu-nome"
+                          />
+                        </div>
+                        {user.public_slug && (
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(`https://psiflux.com.br/p/${user.public_slug}`);
+                              pushToast('success', 'Link copiado!');
+                            }}
+                            className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-all"
+                            title="Copiar link"
+                          >
+                            <Copy size={20} />
+                          </button>
+                        )}
+                        <a 
+                          href={`/p/${user.public_slug}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="p-4 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all"
+                          title="Visualizar"
+                        >
+                          <ExternalLink size={20} />
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Social Links */}
+                    <div className="space-y-4 pt-4 border-t border-slate-50">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Links de Redes Sociais</label>
+                        <button 
+                          onClick={() => setUser(p => ({ ...p, social_links: [...p.social_links, { platform: 'Instagram', url: '' }] }))}
+                          className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 hover:text-indigo-700 transition-all"
+                        >
+                          <Plus size={14} /> ADICIONAR LINK
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {user.social_links.map((link, idx) => (
+                          <div key={idx} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-[1.5rem] group hover:border-indigo-200 transition-all shadow-sm">
+                            <select
+                              value={link.platform}
+                              onChange={e => {
+                                const newLinks = [...user.social_links];
+                                newLinks[idx].platform = e.target.value;
+                                setUser(p => ({ ...p, social_links: newLinks }));
+                              }}
+                              className="h-10 bg-slate-50 border-none rounded-xl text-[10px] font-black text-slate-600 focus:ring-0"
+                            >
+                              {['Instagram', 'WhatsApp', 'LinkedIn', 'Facebook', 'TikTok', 'YouTube', 'Site', 'Threads'].map(p => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="text"
+                              value={link.url}
+                              onChange={e => {
+                                const newLinks = [...user.social_links];
+                                newLinks[idx].url = e.target.value;
+                                setUser(p => ({ ...p, social_links: newLinks }));
+                              }}
+                              className="flex-1 h-10 bg-transparent border-none outline-none text-xs font-bold text-slate-700 placeholder:text-slate-300"
+                              placeholder="URL ou @usuário"
+                            />
+                            <button
+                              onClick={() => setUser(p => ({ ...p, social_links: p.social_links.filter((_, i) => i !== idx) }))}
+                              className="p-2 text-slate-300 hover:text-red-500 transition-all"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      {user.social_links.length === 0 && (
+                        <div className="text-center py-8 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                          <p className="text-[10px] font-black text-slate-400">NENHUM LINK ADICIONADO</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tema */}
+                    <div className="pt-6 border-t border-slate-100">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1 mb-6">Personalização do Tema</label>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                           <div className="flex items-center gap-2">
+                             <div className="w-1.5 h-4 rounded-full bg-indigo-500"></div>
+                             <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Cor Principal</p>
+                           </div>
+                           <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                             <input 
+                              type="color" 
+                              value={user.profile_theme.primaryColor}
+                              onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, primaryColor: e.target.value } }))}
+                              className="w-12 h-12 rounded-xl cursor-pointer border-none bg-transparent"
+                             />
+                             <div className="flex flex-col">
+                               <span className="text-xs font-black text-slate-700 uppercase tracking-tighter">{user.profile_theme.primaryColor}</span>
+                               <span className="text-[9px] font-bold text-slate-400 uppercase">Clique para alterar</span>
+                             </div>
+                           </div>
+                        </div>
+
+                        <div className="space-y-4">
+                           <div className="flex items-center gap-2">
+                             <div className="w-1.5 h-4 rounded-full bg-indigo-500"></div>
+                             <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Layout da Página</p>
+                           </div>
+                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                             {[
+                               { id: 'modern', label: 'Moderno', color: 'bg-indigo-500' },
+                               { id: 'dark', label: 'Dark', color: 'bg-slate-900' },
+                               { id: 'glass', label: 'Glass', color: 'bg-gradient-to-br from-indigo-400 to-pink-400' },
+                               { id: 'brutal', label: 'Brutal', color: 'bg-yellow-400 border-2 border-black' },
+                               { id: 'soft', label: 'Soft', color: 'bg-purple-100' },
+                               { id: 'classic', label: 'Classic', color: 'bg-slate-50 border border-slate-200' },
+                               { id: 'minimal', label: 'Minimal', color: 'bg-white border border-slate-100' },
+                             ].map(l => (
+                               <button
+                                 key={l.id}
+                                 onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, layout: l.id } }))}
+                                 className={`group relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                                   user.profile_theme.layout === l.id 
+                                   ? 'border-indigo-600 bg-indigo-50/50' 
+                                   : 'border-slate-100 bg-white hover:border-slate-200'
+                                 }`}
+                               >
+                                 <div className={`w-full h-12 rounded-xl ${l.color} shadow-sm transition-transform group-hover:scale-105`} />
+                                 <span className={`text-[10px] font-black uppercase tracking-tight ${user.profile_theme.layout === l.id ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                   {l.label}
+                                 </span>
+                                 {user.profile_theme.layout === l.id && (
+                                   <div className="absolute -top-2 -right-2 w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center border-2 border-white">
+                                     <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                   </div>
+                                 )}
+                               </button>
+                             ))}
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+            
             {activeTab === 'clinic' && (
               <Card title="Identidade da Clínica" icon={<Building2 className="text-violet-500" />}>
                 <div className="space-y-8">

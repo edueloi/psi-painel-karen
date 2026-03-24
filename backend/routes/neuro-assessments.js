@@ -106,15 +106,16 @@ router.get('/:id/results', async (req, res) => {
     const scopeKey = `neuro_${req.params.id}_${patient_id}`;
 
     const [rows] = await db.query(
-      'SELECT data, created_at, updated_at FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
+      'SELECT data, created_at, updated_at FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ? ORDER BY created_at DESC',
       [scopeKey, 'neuro/assessment', req.user.tenant_id]
     );
 
-    if (rows.length === 0) return res.json(null);
+    const formattedRows = rows.map(r => {
+      try { return { ...r, data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data }; }
+      catch { return r; }
+    });
 
-    const result = rows[0];
-    try { result.data = JSON.parse(result.data); } catch {}
-    res.json(result);
+    res.json(formattedRows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar resultados' });
@@ -131,22 +132,11 @@ router.post('/:id/results', async (req, res) => {
     const fullType = 'neuro/assessment';
     const dataStr = JSON.stringify(data || {});
 
-    const [existing] = await db.query(
-      'SELECT id FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
-      [scopeKey, fullType, req.user.tenant_id]
+    // Sempre inserimos um novo registro para manter o histórico
+    await db.query(
+      'INSERT INTO clinical_tools (tenant_id, patient_id, professional_id, scope_key, tool_type, data) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.tenant_id, patient_id, req.user.id, scopeKey, fullType, dataStr]
     );
-
-    if (existing.length > 0) {
-      await db.query(
-        'UPDATE clinical_tools SET data = ?, updated_at = NOW() WHERE id = ?',
-        [dataStr, existing[0].id]
-      );
-    } else {
-      await db.query(
-        'INSERT INTO clinical_tools (tenant_id, patient_id, professional_id, scope_key, tool_type, data) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.user.tenant_id, patient_id, req.user.id, scopeKey, fullType, dataStr]
-      );
-    }
 
     res.json({ ok: true, assessment_id: req.params.id, patient_id });
   } catch (err) {

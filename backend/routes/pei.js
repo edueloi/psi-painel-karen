@@ -62,6 +62,9 @@ router.get('/:id', async (req, res) => {
     const [abc] = await db.query('SELECT * FROM pei_abc WHERE pei_id = ? ORDER BY date DESC', [pei.id]);
     pei.abc = abc;
 
+    const [sensory] = await db.query('SELECT * FROM pei_sensory WHERE pei_id = ?', [pei.id]);
+    pei.sensory = sensory[0] || null;
+
     res.json(pei);
   } catch (err) {
     console.error(err);
@@ -110,7 +113,7 @@ router.post('/:id/goals', async (req, res) => {
 // PUT /pei/:id/goals/:goalId - Atualizar meta
 router.put('/:id/goals/:goalId', async (req, res) => {
   try {
-    const { title, description, status, target_date, area } = req.body;
+    const { title, description, status, target_date, area, current_value, target_value } = req.body;
 
     await db.query(
       `UPDATE pei_goals SET
@@ -118,9 +121,11 @@ router.put('/:id/goals/:goalId', async (req, res) => {
         description = COALESCE(?, description),
         status = COALESCE(?, status),
         target_date = COALESCE(?, target_date),
-        area = COALESCE(?, area)
+        area = COALESCE(?, area),
+        current_value = COALESCE(?, current_value),
+        target_value = COALESCE(?, target_value)
        WHERE id = ? AND pei_id = ?`,
-      [title, description, status, target_date, area, req.params.goalId, req.params.id]
+      [title, description, status, target_date, area, current_value, target_value, req.params.goalId, req.params.id]
     );
 
     const [goal] = await db.query('SELECT * FROM pei_goals WHERE id = ?', [req.params.goalId]);
@@ -131,14 +136,25 @@ router.put('/:id/goals/:goalId', async (req, res) => {
   }
 });
 
+// DELETE /pei/:id/goals/:goalId - Excluir meta
+router.delete('/:id/goals/:goalId', async (req, res) => {
+  try {
+    await db.query('DELETE FROM pei_goals WHERE id = ? AND pei_id = ?', [req.params.goalId, req.params.id]);
+    res.json({ message: 'Meta excluída com sucesso' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao excluir meta' });
+  }
+});
+
 // POST /pei/:id/goals/:goalId/history - Registrar evolução
 router.post('/:id/goals/:goalId/history', async (req, res) => {
   try {
-    const { date, result, notes } = req.body;
+    const { date, result, notes, value } = req.body;
 
     const [hist] = await db.query(
       'INSERT INTO pei_goal_history (goal_id, date, result, notes, created_by) VALUES (?, ?, ?, ?, ?)',
-      [req.params.goalId, date || new Date(), result || null, notes || null, req.user.id]
+      [req.params.goalId, date || new Date(), result || value || null, notes || null, req.user.id]
     );
 
     const [entry] = await db.query('SELECT * FROM pei_goal_history WHERE id = ?', [hist.insertId]);
@@ -152,11 +168,11 @@ router.post('/:id/goals/:goalId/history', async (req, res) => {
 // POST /pei/:id/abc - Registrar análise ABC
 router.post('/:id/abc', async (req, res) => {
   try {
-    const { antecedent, behavior, consequence, date } = req.body;
+    const { antecedent, behavior, consequence, date, intensity, duration } = req.body;
 
     const [result] = await db.query(
-      'INSERT INTO pei_abc (pei_id, antecedent, behavior, consequence, date) VALUES (?, ?, ?, ?, ?)',
-      [req.params.id, antecedent || null, behavior || null, consequence || null, date || new Date()]
+      'INSERT INTO pei_abc (pei_id, antecedent, behavior, consequence, date, intensity, duration) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [req.params.id, antecedent || null, behavior || null, consequence || null, date || new Date(), intensity || null, duration || null]
     );
 
     const [entry] = await db.query('SELECT * FROM pei_abc WHERE id = ?', [result.insertId]);
@@ -164,6 +180,74 @@ router.post('/:id/abc', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar análise ABC' });
+  }
+});
+
+// POST /pei/:id/sensory - Salvar perfil sensorial
+router.post('/:id/sensory', async (req, res) => {
+  try {
+    const { auditory, visual, tactile, vestibular, oral, social, proprioceptive } = req.body;
+
+    // Verificar se já existe (usando pei_sensory ou pei.sensory_profile se for coluna, mas migrate.js sugere que não tem tabela dedicada ainda, vou checar)
+    // Na verdade vou criar uma tabela pei_sensory se não existir no patch.
+    const [existing] = await db.query('SELECT id FROM pei_sensory WHERE pei_id = ?', [req.params.id]);
+
+    if (existing.length > 0) {
+      await db.query(
+        `UPDATE pei_sensory SET
+          auditory = ?, visual = ?, tactile = ?, vestibular = ?,
+          oral = ?, social = ?, proprioceptive = ?, last_assessment_date = NOW()
+         WHERE pei_id = ?`,
+        [auditory, visual, tactile, vestibular, oral, social, proprioceptive, req.params.id]
+      );
+    } else {
+      await db.query(
+        `INSERT INTO pei_sensory (pei_id, auditory, visual, tactile, vestibular, oral, social, proprioceptive, last_assessment_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [req.params.id, auditory, visual, tactile, vestibular, oral, social, proprioceptive]
+      );
+    }
+
+    res.json({ message: 'Perfil sensorial salvo com sucesso' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar perfil sensorial' });
+  }
+});
+
+// PUT /pei/:id/abc/:abcId - Atualizar análise ABC
+router.put('/:id/abc/:abcId', async (req, res) => {
+  try {
+    const { antecedent, behavior, consequence, date, intensity, duration } = req.body;
+
+    await db.query(
+      `UPDATE pei_abc SET
+        antecedent = COALESCE(?, antecedent),
+        behavior = COALESCE(?, behavior),
+        consequence = COALESCE(?, consequence),
+        date = COALESCE(?, date),
+        intensity = COALESCE(?, intensity),
+        duration = COALESCE(?, duration)
+       WHERE id = ? AND pei_id = ?`,
+      [antecedent, behavior, consequence, date, intensity, duration, req.params.abcId, req.params.id]
+    );
+
+    const [entry] = await db.query('SELECT * FROM pei_abc WHERE id = ?', [req.params.abcId]);
+    res.json(entry[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar análise ABC' });
+  }
+});
+
+// DELETE /pei/:id/abc/:abcId - Excluir análise ABC
+router.delete('/:id/abc/:abcId', async (req, res) => {
+  try {
+    await db.query('DELETE FROM pei_abc WHERE id = ? AND pei_id = ?', [req.params.abcId, req.params.id]);
+    res.json({ message: 'Registro ABC excluído com sucesso' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao excluir registro ABC' });
   }
 });
 
