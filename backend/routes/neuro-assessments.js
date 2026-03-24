@@ -106,7 +106,7 @@ router.get('/:id/results', async (req, res) => {
     const scopeKey = `neuro_${req.params.id}_${patient_id}`;
 
     const [rows] = await db.query(
-      'SELECT data, created_at, updated_at FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ? ORDER BY created_at DESC',
+      'SELECT id, data, created_at, updated_at FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ? ORDER BY created_at DESC',
       [scopeKey, 'neuro/assessment', req.user.tenant_id]
     );
 
@@ -142,6 +142,39 @@ router.post('/:id/results', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao salvar resultado' });
+  }
+});
+
+// PUT /neuro-assessments/results/:resultId - Atualizar resultado
+router.put('/results/:resultId', async (req, res) => {
+  try {
+    const { data } = req.body;
+    const dataStr = JSON.stringify(data || {});
+
+    await db.query(
+      'UPDATE clinical_tools SET data = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?',
+      [dataStr, req.params.resultId, req.user.tenant_id]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar resultado' });
+  }
+});
+
+// DELETE /neuro-assessments/results/:resultId - Deletar resultado
+router.delete('/results/:resultId', async (req, res) => {
+  try {
+    await db.query(
+      'DELETE FROM clinical_tools WHERE id = ? AND tenant_id = ?',
+      [req.params.resultId, req.user.tenant_id]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao deletar resultado' });
   }
 });
 

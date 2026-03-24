@@ -793,6 +793,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
     const [results, setResults] = useState<any[]>([]);
     const [resultsLoading, setResultsLoading] = useState(false);
     const [latestResults, setLatestResults] = useState<Record<string, any>>({});
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     const loadLatestResults = async (items: NeuroAssessment[]) => {
         const resultsMap: Record<string, any> = {};
@@ -845,8 +846,25 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
         setActive(item);
         setError(null);
         setDynamicValues({});
+        setEditingId(null);
         setResults([]);
         await loadResults(String(item.id));
+    };
+
+    const handleDeleteResult = async (resId: string) => {
+        if (!confirm('Tem certeza que deseja excluir este registro histórico?')) return;
+        setLoading(true);
+        try {
+            await api.delete(`/neuro-assessments/results/${resId}`);
+            toastSuccess(t('common.delete') || 'Excluído', 'Registro removido com sucesso.');
+            if (active) await loadResults(String(active.id));
+            await loadAssessments();
+        } catch (e) {
+            console.error(e);
+            toastError(t('common.error') || 'Erro', 'Não foi possível excluir o registro.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSaveResult = async () => {
@@ -855,13 +873,23 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
         setLoading(true);
         setError(null);
         try {
-            await api.post(`/neuro-assessments/${active.id}/results`, {
-                patient_id: patientId,
-                data: dynamicValues
-            });
-            toastSuccess(t('common.save') || 'Salvo', 'Resultado registrado com sucesso.');
+            if (editingId) {
+                await api.put(`/neuro-assessments/results/${editingId}`, {
+                    data: dynamicValues
+                });
+                toastSuccess(t('common.save') || 'Salvo', 'Resultado atualizado com sucesso.');
+            } else {
+                await api.post(`/neuro-assessments/${active.id}/results`, {
+                    patient_id: patientId,
+                    data: dynamicValues
+                });
+                toastSuccess(t('common.save') || 'Salvo', 'Resultado registrado com sucesso.');
+            }
+            
+            setEditingId(null);
+            setDynamicValues({});
             await loadResults(String(active.id));
-            await loadAssessments(); // Recarregar para atualizar o card
+            await loadAssessments(); 
             setActive(null);
         } catch (e) {
             console.error(e);
@@ -963,7 +991,9 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                 footer={(
                     <div className="flex justify-end gap-3 w-full">
                         <Button variant="ghost" onClick={() => setActive(null)}>{t('common.cancel')}</Button>
-                        <Button onClick={handleSaveResult} isLoading={loading}>{t('common.save')}</Button>
+                        <Button onClick={handleSaveResult} isLoading={loading}>
+                            {editingId ? 'Atualizar' : (t('common.save') || 'Salvar')}
+                        </Button>
                     </div>
                 )}
             >
@@ -1026,12 +1056,30 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                         ) : (
                             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                                 {results.map(r => (
-                                    <div key={r.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                                    <div key={r.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm relative group/item">
                                         <div className="flex justify-between items-center mb-3">
-                                            <span className="text-[10px] font-bold text-indigo-400 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/50">
-                                                {new Date(r.created_at || r.createdAt || Date.now()).toLocaleDateString()}
-                                            </span>
-                                            <span className="text-[10px] text-slate-300 italic">{new Date(r.created_at || r.createdAt || Date.now()).toLocaleTimeString()}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-indigo-400 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/50">
+                                                    {new Date(r.created_at || r.createdAt || Date.now()).toLocaleDateString()}
+                                                </span>
+                                                <span className="text-[10px] text-slate-300 italic">{new Date(r.created_at || r.createdAt || Date.now()).toLocaleTimeString()}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => { setEditingId(String(r.id)); setDynamicValues(r.data || {}); }}
+                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                    title={t('common.edit')}
+                                                >
+                                                    <Edit2 size={12} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteResult(String(r.id))}
+                                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                    title={t('common.delete')}
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             {r.data && Object.entries(r.data).map(([key, val]) => (
