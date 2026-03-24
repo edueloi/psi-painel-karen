@@ -232,7 +232,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             </div>
 
             {/* Telefones - País/DDI e Número */}
-            <div className="space-y-2 md:col-span-1">
+            <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-semibold text-slate-600">
                 {t('wizard.phone')}
                 {formData.phone_country && formData.phone_country !== 'OTHER' && (
@@ -261,7 +261,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               </div>
             </div>
 
-            <div className="space-y-2 md:col-span-1">
+            <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-semibold text-slate-600">
                 Telefone 2
                 {formData.phone2_country && formData.phone2_country !== 'OTHER' && (

@@ -69,6 +69,21 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // ---- TENANT PERMISSION PROFILES ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS tenant_permission_profiles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      permissions JSON NULL,
+      is_default TINYINT(1) DEFAULT 0,
+      slug VARCHAR(50) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_tenant (tenant_id),
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // ---- USERS ----
   await conn.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -84,10 +99,17 @@ async function migrate() {
       avatar_url VARCHAR(500),
       active BOOLEAN DEFAULT true,
       permission_profile_id INT NULL,
+      tenant_profile_id INT NULL,
+      permissions JSON NULL,
+      company_name VARCHAR(255) NULL,
+      address VARCHAR(500) NULL,
+      clinic_logo_url VARCHAR(500) NULL,
+      schedule JSON NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY unique_email_tenant (email, tenant_id),
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-      FOREIGN KEY (permission_profile_id) REFERENCES master_permission_profiles(id) ON DELETE SET NULL
+      FOREIGN KEY (permission_profile_id) REFERENCES master_permission_profiles(id) ON DELETE SET NULL,
+      FOREIGN KEY (tenant_profile_id) REFERENCES tenant_permission_profiles(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -99,7 +121,9 @@ async function migrate() {
       name VARCHAR(255) NOT NULL,
       email VARCHAR(255),
       phone VARCHAR(50),
+      phone_country VARCHAR(10) DEFAULT 'BR',
       phone2 VARCHAR(50),
+      phone2_country VARCHAR(10) DEFAULT 'BR',
       birth_date DATE,
       cpf VARCHAR(20),
       rg VARCHAR(30),
@@ -599,7 +623,15 @@ async function migrate() {
     "ALTER TABLE forms ADD COLUMN is_global BOOLEAN DEFAULT false",
     "ALTER TABLE form_responses ADD COLUMN score INT DEFAULT 0",
     "ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN DEFAULT false",
-    "ALTER TABLE users ADD COLUMN two_factor_secret VARCHAR(255) NULL"
+    "ALTER TABLE users ADD COLUMN two_factor_secret VARCHAR(255) NULL",
+    "ALTER TABLE users ADD COLUMN tenant_profile_id INT NULL",
+    "ALTER TABLE users ADD COLUMN permissions JSON NULL",
+    "ALTER TABLE users ADD COLUMN company_name VARCHAR(255) NULL",
+    "ALTER TABLE users ADD COLUMN address VARCHAR(500) NULL",
+    "ALTER TABLE users ADD COLUMN clinic_logo_url VARCHAR(500) NULL",
+    "ALTER TABLE users ADD COLUMN schedule JSON NULL",
+    "ALTER TABLE patients ADD COLUMN phone_country VARCHAR(10) DEFAULT 'BR'",
+    "ALTER TABLE patients ADD COLUMN phone2_country VARCHAR(10) DEFAULT 'BR'"
   ];
 
   // ---- USER SESSIONS ----
