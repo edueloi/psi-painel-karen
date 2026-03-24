@@ -35,8 +35,9 @@ function getPrefs(user) {
   try {
     const raw = user.email_preferences;
     const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
-    return { ...DEFAULT_PREFS, ...parsed };
-  } catch { return DEFAULT_PREFS; }
+    // Padrão: enabled: true se não existir nada salvo (para novos profissionais)
+    return { ...DEFAULT_PREFS, enabled: true, ...parsed };
+  } catch { return { ...DEFAULT_PREFS, enabled: true }; }
 }
 
 // Busca usuários ativos com email de um tenant (com preferências)
@@ -69,15 +70,17 @@ async function checkAppointmentReminders() {
     let masterBotConnected = false;
 
     if (masterTenantId) {
-       const [masterTenantRows] = await db.query(`SELECT whatsapp_status FROM tenants WHERE id = ?`, [masterTenantId]);
-       masterBotConnected = masterTenantRows[0]?.whatsapp_status === 'connected';
+       const status = wppService.getStatus(masterTenantId);
+       masterBotConnected = status.status === 'connected';
+       // Fallback para o BD caso o serviço ainda não tenha carregado em memória
+       if (!masterBotConnected) {
+          const [masterTenantRows] = await db.query(`SELECT whatsapp_status FROM tenants WHERE id = ?`, [masterTenantId]);
+          masterBotConnected = masterTenantRows[0]?.whatsapp_status === 'connected';
+       }
     }
 
-    // Busca atendimentos nas próximas 24h e 5 min (para pegar 1h e 24h cravados)
-    const fromStr = now.toISOString().slice(0, 19).replace('T', ' ');
-    const to   = new Date(now.getTime() + 24 * 60 * 60 * 1000 + 5 * 60 * 1000);
-    const toStr   = to.toISOString().slice(0, 19).replace('T', ' ');
-
+    // Busca atendimentos nas próximas 24h e 10 min (margem de segurança) usando o tempo do Banco de Dados
+    // Isso evita problemas de timezone entre o JS e o servidor MySQL
     const [appointments] = await db.query(`
       SELECT a.*,
         p.name as patient_name, p.email as patient_email, p.whatsapp as patient_whatsapp, p.phone as patient_phone,
@@ -92,14 +95,26 @@ async function checkAppointmentReminders() {
       LEFT JOIN services s ON s.id = a.service_id
       LEFT JOIN comandas c ON c.id = a.comanda_id
       LEFT JOIN tenants t ON t.id = a.tenant_id
-      WHERE a.start_time >= ? AND a.start_time < ?
+      WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) 
+        AND a.start_time < DATE_ADD(NOW(), INTERVAL 25 HOUR)
         AND a.status IN ('scheduled','confirmed')
         AND a.type = 'consulta'
-    `, [fromStr, toStr]);
+    `);
+
+    if (appointments.length === 0) {
+      // console.log('[CRON-REreminder] Nenhum agendamento futuro encontrado para processar.');
+      return;
+    }
 
     for (const apt of appointments) {
+      // Diferença em minutos entre o início da sessão e o momento atual
       const aptStart = new Date(apt.start_time);
       const diffMinutes = Math.round((aptStart.getTime() - now.getTime()) / 60000);
+
+      // Log discreto apenas quando algum critério de tempo for atingido (para debugar sem poluir muito o log)
+      if (diffMinutes >= 58 && diffMinutes <= 62) {
+         console.log(`[CRON-DEBUG] Agendamento ID ${apt.id} em ${diffMinutes} min. MasterBot:${masterBotConnected}`);
+      }
 
       // --- WhatsApp Bot da Clinica (Tenant) ---
       if (apt.whatsapp_status === 'connected') {
@@ -152,7 +167,11 @@ async function checkAppointmentReminders() {
       if (!profPrefs.appointment_reminder_professional && !profPrefs.appointment_reminder_patient) continue;
 
       const minutes = profPrefs.appointment_reminder_minutes || 60;
-      if (diffMinutes !== minutes) continue; 
+      if (diffMinutes !== minutes) {
+          // Continua para o paciente (E-mail) caso a regra do profissional seja diferente, 
+          // ou pula se não for o momento de avisar ninguém
+          if (diffMinutes !== 60 && diffMinutes !== 1440) continue; 
+      } 
 
       const label = minutes === 30 ? '30min' : '1h';
 
