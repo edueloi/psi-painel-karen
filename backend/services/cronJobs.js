@@ -63,6 +63,16 @@ async function checkAppointmentReminders() {
   try {
     const now = new Date();
 
+    // Identifica qual é o Tenant Master (Plataforma/Super Admin) para usar o Bot Master aos profissionais
+    const [saRows] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
+    const masterTenantId = saRows[0]?.tenant_id;
+    let masterBotConnected = false;
+
+    if (masterTenantId) {
+       const [masterTenantRows] = await db.query(`SELECT whatsapp_status FROM tenants WHERE id = ?`, [masterTenantId]);
+       masterBotConnected = masterTenantRows[0]?.whatsapp_status === 'connected';
+    }
+
     // Busca atendimentos nas próximas 24h e 5 min (para pegar 1h e 24h cravados)
     const fromStr = now.toISOString().slice(0, 19).replace('T', ' ');
     const to   = new Date(now.getTime() + 24 * 60 * 60 * 1000 + 5 * 60 * 1000);
@@ -136,31 +146,42 @@ async function checkAppointmentReminders() {
         }
       }
 
-      // 2. Lembretes por E-mail (Respeitam a preferência do profissional)
-      const prefs = getPrefs(apt);
-      if (!prefs.enabled) continue;
-      if (!prefs.appointment_reminder_professional && !prefs.appointment_reminder_patient) continue;
+      // 2. Lembretes do Profissional (Respeitam a preferência de cada um)
+      const profPrefs = getPrefs(apt);
+      if (!profPrefs.enabled) continue;
+      if (!profPrefs.appointment_reminder_professional && !profPrefs.appointment_reminder_patient) continue;
 
-      const minutes = prefs.appointment_reminder_minutes || 60;
+      const minutes = profPrefs.appointment_reminder_minutes || 60;
       if (diffMinutes !== minutes) continue; 
 
       const label = minutes === 30 ? '30min' : '1h';
 
-      // Envia para o profissional (E-mail)
-      if (prefs.appointment_reminder_professional && apt.professional_email) {
-        const html = templates.appointmentReminder({
-          patientName:  apt.patient_name || 'Paciente',
-          date:         fmtDate(apt.start_time),
-          time:         fmtTime(apt.start_time),
-          type:         apt.type,
-          modality:     apt.modality,
-          professional: apt.professional_name,
-        });
-        await sendMail(apt.professional_email, `⏰ Atendimento em ${label} — ${apt.patient_name}`, html);
+      // Lembrete para o Profissional
+      if (profPrefs.appointment_reminder_professional) {
+        // Envia para o profissional (E-mail)
+        if (apt.professional_email) {
+          const html = templates.appointmentReminder({
+            patientName:  apt.patient_name || 'Paciente',
+            date:         fmtDate(apt.start_time),
+            time:         fmtTime(apt.start_time),
+            type:         apt.type,
+            modality:     apt.modality,
+            professional: apt.professional_name,
+          });
+          await sendMail(apt.professional_email, `⏰ Atendimento em ${label} — ${apt.patient_name}`, html);
+        }
+
+        // NOVO: Envia para o profissional (WhatsApp do Bot Master da Empresa)
+        if (masterBotConnected && apt.professional_phone) {
+            const timeStr = fmtTime(apt.start_time);
+            const wppMsg = `⏰ *Atendimento em ${label}*\n\nOlá, *${apt.professional_name}*.\nVocê tem um paciente agendado em breve:\n\n👤 *Paciente:* ${apt.patient_name || 'Paciente'}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}`;
+            await wppService.sendReminder(masterTenantId, apt.professional_phone, wppMsg);
+            console.log(`[CRON-WPP MasterBot ${masterTenantId}] ${label} aviso para profissional ${apt.professional_name}`);
+        }
       }
 
-      // Envia para o paciente (E-mail)
-      if (prefs.appointment_reminder_patient && apt.patient_email) {
+      // Lembrete para o paciente (APENAS E-MAIL, pois o WhatsApp do paciente já tem sua rotina própria via painel de bot)
+      if (profPrefs.appointment_reminder_patient && apt.patient_email) {
         const patHtml = templates.appointmentReminder({
           patientName:  apt.patient_name || 'Você',
           date:         fmtDate(apt.start_time),
