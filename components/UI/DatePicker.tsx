@@ -12,7 +12,7 @@ interface DatePickerProps {
   max?: string;
 }
 
-const weekDays = ['Do', 'Se', 'Te', 'Qu', 'Qu', 'Se', 'Sa'];
+const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const monthNames = [
   'Janeiro',
   'Fevereiro',
@@ -182,6 +182,49 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       }
   };
 
+  const getEaster = (year: number) => {
+      const f = Math.floor;
+      const G = year % 19;
+      const C = f(year / 100);
+      const H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30;
+      const I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11));
+      const J = (year + f(year / 4) + I + 2 - C + f(C / 4)) % 7;
+      const L = I - J;
+      const month = 3 + f((L + 40) / 44);
+      const day = L + 28 - 31 * f(month / 4);
+      return new Date(year, month - 1, day);
+  };
+
+  const holidays = useMemo(() => {
+      const year = viewDate.getFullYear();
+      const fixed = [
+          { month: 0, day: 1, name: 'Confraternização Universal' },
+          { month: 3, day: 21, name: 'Tiradentes' },
+          { month: 4, day: 1, name: 'Dia do Trabalhador' },
+          { month: 8, day: 7, name: 'Independência do Brasil' },
+          { month: 9, day: 12, name: 'Nossa Sra. Aparecida' },
+          { month: 10, day: 2, name: 'Finados' },
+          { month: 10, day: 15, name: 'Proclamação da República' },
+          { month: 11, day: 25, name: 'Natal' },
+      ].map(h => ({ date: new Date(year, h.month, h.day), name: h.name }));
+
+      const easter = getEaster(year);
+      const addDays = (d: Date, days: number) => {
+          const res = new Date(d);
+          res.setDate(res.getDate() + days);
+          return res;
+      };
+
+      const movable = [
+          { date: addDays(easter, -47), name: 'Carnaval' },
+          { date: addDays(easter, -2), name: 'Paixão de Cristo' },
+          { date: easter, name: 'Páscoa' },
+          { date: addDays(easter, 60), name: 'Corpus Christi' },
+      ];
+
+      return [...fixed, ...movable];
+  }, [viewDate.getFullYear()]);
+
   const yearRangeStart = Math.floor(viewDate.getFullYear() / 12) * 12;
 
   const dropdown = isOpen ? createPortal(
@@ -227,7 +270,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                     {weekDays.map((day, index) => (
                         <div
                         key={`${day}-${index}`}
-                        className="flex h-9 items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-400"
+                        className={`flex h-9 items-center justify-center text-[10px] font-black uppercase tracking-widest ${index === 0 ? 'text-rose-500' : index === 6 ? 'text-indigo-500' : 'text-slate-400'}`}
                         >
                         {day}
                         </div>
@@ -240,22 +283,28 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                         const isSelected = isSameDay(date, selectedDate);
                         const isToday = isSameDay(date, today);
                         const disabledDate = isDateDisabled(date, min, max);
+                        const holiday = holidays.find(h => isSameDay(h.date, date));
 
                         return (
                         <button
                             key={`${date.toISOString()}-${index}`}
                             type="button"
+                            title={holiday ? holiday.name : undefined}
                             disabled={disabledDate}
                             onClick={() => handleSelectDate(date)}
                             className={`
-                            flex h-9 items-center justify-center rounded-lg text-sm transition font-medium
+                            flex h-9 items-center justify-center rounded-lg text-sm transition font-medium relative group
                             ${!isCurrentMonth ? 'text-slate-300' : 'text-slate-700'}
+                            ${holiday && !isSelected && !disabledDate ? 'text-rose-600 bg-rose-50/50 hover:bg-rose-100' : 'hover:bg-slate-100'}
                             ${isToday && !isSelected ? 'font-black text-indigo-600 bg-indigo-50 border border-indigo-100' : ''}
-                            ${isSelected ? 'bg-slate-900 font-bold text-white shadow-md' : 'hover:bg-slate-100'}
+                            ${isSelected ? 'bg-slate-900 font-bold text-white shadow-md hover:bg-slate-800' : ''}
                             ${disabledDate ? 'cursor-not-allowed opacity-40 hover:bg-transparent' : ''}
                             `}
                         >
                             {date.getDate()}
+                            {holiday && !isSelected && !disabledDate && (
+                                <span className="absolute bottom-[4px] w-1 h-1 rounded-full bg-rose-500"></span>
+                            )}
                         </button>
                         );
                     })}

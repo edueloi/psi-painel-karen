@@ -141,19 +141,38 @@ export const BotIntegration: React.FC = () => {
     fetchStatus();
   }, []);
 
-  const fetchStatus = async () => {
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (status === 'connecting') {
+      interval = setInterval(() => {
+        fetchStatus(false);
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [status]);
+
+  const fetchStatus = async (showLoading = true) => {
     try {
-      setIsLoading(true);
-      const data = await api.get<{ status: any, phone: string | null, preferences: any }>('/whatsapp/status');
+      if (showLoading) setIsLoading(true);
+      const data = await api.get<{ status: any, phone: string | null, preferences: any, qrcode?: string }>('/whatsapp/status');
       setStatus(data.status || 'disconnected');
       setPhone(data.phone);
+      
+      // Se a API retornar o QR Code no status, atualiza a tela
+      if (data.qrcode) {
+          setQrCode(data.qrcode);
+      } else if (data.status !== 'connecting') {
+          // Limpa o QR Code se já conectou ou falhou
+          setQrCode(null);
+      }
+
       if (data.preferences && Object.keys(data.preferences).length > 0) {
         setPrefs(prev => ({ ...prev, ...data.preferences }));
       }
     } catch (err) {
       console.error('Erro ao buscar status:', err);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
@@ -281,12 +300,14 @@ export const BotIntegration: React.FC = () => {
                                     </div>
                                   )}
                                   
-                                  {(status === 'disconnected' || isActionLoading) && (
+                                  {(status === 'disconnected' || isActionLoading || (status === 'connecting' && !qrCode)) && (
                                     <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center backdrop-blur-sm p-4 transition-opacity">
-                                        {isActionLoading ? (
+                                        {(isActionLoading || (status === 'connecting' && !qrCode)) ? (
                                             <div className="flex flex-col items-center">
                                                 <Loader2 className="animate-spin text-emerald-600 mb-3" size={32} />
-                                                <span className="text-sm font-bold text-emerald-700 animate-pulse">Gerando...</span>
+                                                <span className="text-sm font-bold text-emerald-700 animate-pulse text-center">
+                                                    {isActionLoading ? 'Iniciando...' : 'Gerando código...'}
+                                                </span>
                                             </div>
                                         ) : (
                                             <button 
