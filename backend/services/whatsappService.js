@@ -113,6 +113,7 @@ class WhatsAppManager {
         debug: false,
         logQR: false,
         browserArgs: [
+          `--user-data-dir=${path.join(this.tokensPath, data.instanceName)}`,
           '--no-sandbox', 
           '--disable-setuid-sandbox', 
           '--disable-dev-shm-usage',
