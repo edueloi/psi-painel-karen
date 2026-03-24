@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { api } from '../services/api';
 import {
-  LayoutDashboard, Users, LogOut, Plus, Trash2, ShieldCheck,
+  LayoutDashboard, Users, LogOut, Plus, Trash2, ShieldCheck, ShieldOff,
   X, Building2, User, Loader2, CheckCircle, Edit2, Save,
   TrendingUp, Package, ToggleLeft, ToggleRight, Key, AlertCircle,
-  Eye, EyeOff, ChevronRight, ArrowUpRight,
+  Eye, EyeOff, ChevronRight, ArrowUpRight, Clock, Star,
   DollarSign, Activity, BarChart3, Shield, Lock, Phone, Mail,
   Calendar, Check, AlertTriangle, Info, Copy, RefreshCw, Link,
-  Globe, UserCheck, BarChart2, Star, Menu
+  Globe, UserCheck, BarChart2, Menu, Unlock
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -25,7 +25,6 @@ const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR', { mo
 // ── constants ─────────────────────────────────────────────────────────────────
 const FEATURES_OPTIONS = [
   { key: 'agenda',               label: 'Agenda' },
-  { key: 'pacientes',            label: 'Pacientes' },
   { key: 'prontuario',           label: 'Prontuário' },
   { key: 'formularios',          label: 'Formulários' },
   { key: 'salas_virtuais',       label: 'Salas Virtuais', premium: true },
@@ -167,10 +166,26 @@ const sel = inp + ' cursor-pointer';
 const lbl = (t: string) => <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{t}</label>;
 const btnP = 'flex-1 py-2.5 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-2';
 const btnS = 'flex-1 py-2.5 font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition text-sm';
+const mkP = (v: string) => v.replace(/\D/g, "").replace(/^(\d{2})(\d)/g, "($1) $2").replace(/(\d)(\d{4})$/, "$1-$2").substring(0, 15);
+const mkC = (v: string) => {
+  v = v.replace(/\D/g, "");
+  if (v.length <= 11) return v.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2").substring(0, 14);
+  return v.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2").substring(0, 18);
+};
 
-const StatusBadge = ({ active }: { active: boolean }) => active
-  ? <span className="inline-flex items-center gap-1.5 text-emerald-700 text-xs font-bold bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />ATIVO</span>
-  : <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs font-bold bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" />INATIVO</span>;
+const StatusBadge = ({ active, status, expires_at }: { active: boolean; status?: string; expires_at?: string }) => {
+  if (status === 'blocked') return <span className="inline-flex items-center gap-1.5 text-red-700 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><Lock size={10} />Bloqueado</span>;
+  
+  if (expires_at) {
+    const days = Math.ceil((new Date(expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    if (days < 0) return <span className="inline-flex items-center gap-1.5 text-red-600 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><AlertCircle size={10} />Vencido</span>;
+    if (days <= 5) return <span className="inline-flex items-center gap-1.5 text-amber-600 text-[10px] font-bold bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full uppercase"><Clock size={10} />Vence em {days}d</span>;
+  }
+
+  return active
+    ? <span className="inline-flex items-center gap-1.5 text-emerald-700 text-[10px] font-bold bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full uppercase"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Ativo</span>
+    : <span className="inline-flex items-center gap-1.5 text-slate-500 text-[10px] font-bold bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full uppercase"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" />Inativo</span>;
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
@@ -213,14 +228,33 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   // client modal
   const [clientModal, setClientModal] = useState(false);
+  const [editClient, setEditClient]   = useState<any>(null);
   const [showPass, setShowPass]       = useState(false);
-  const [clientForm, setClientForm]   = useState({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '' });
-  const openClientModal = () => { setError(''); setClientModal(true); };
+  const [clientForm, setClientForm]   = useState({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active' });
+  const openClientModal = () => { setError(''); setEditClient(null); setClientForm({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active' }); setClientModal(true); };
+  const openEditClient = (t: any) => {
+    setError('');
+    setEditClient(t);
+    setClientForm({
+      company_name: t.company_name,
+      cnpj_cpf: t.cnpj_cpf || '',
+      phone: t.phone || '',
+      admin_name: t.admin_name || '',
+      admin_email: t.admin_email || '',
+      password: '',
+      plan_id: String(t.plan_id || ''),
+      expires_at: t.expires_at ? t.expires_at.split('T')[0] : '',
+      status: t.status || 'active'
+    });
+    setClientModal(true);
+  };
+
+  const [clientFilter, setClientFilter] = useState<'all' | 'active' | 'expiring' | 'expired' | 'blocked'>('all');
 
   // plan modal
   const [planModal, setPlanModal]   = useState(false);
   const [editPlan, setEditPlan]     = useState<any>(null);
-  const [planForm, setPlanForm]     = useState({ name: '', description: '', price: '', max_users: '5', max_patients: '100', features: [] as string[] });
+  const [planForm, setPlanForm]     = useState({ name: '', description: '', price: '', max_users: '10', features: [] as string[] });
 
   // permission profile modal
   const [permModal, setPermModal]   = useState(false);
@@ -308,28 +342,41 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     doConfirm({ message: `Remover ${name}?`, detail: 'O acesso master será revogado permanentemente.', danger: true,
       onConfirm: async () => { try { await api.delete(`/master-users/${id}`); toast(`${name} removido.`); load(); } catch { toast('Erro ao remover.', 'error'); } } });
 
-  const handleCreateClient = async () => {
+  const handleSaveClient = async () => {
     setError('');
-    if (!clientForm.company_name || !clientForm.admin_email || !clientForm.password) { setError('Preencha nome da clínica, email e senha.'); return; }
+    if (!clientForm.company_name || !clientForm.admin_email || (!editClient && !clientForm.password)) { 
+      setError('Clínica, email e senha são obrigatórios.'); return; 
+    }
     setSaving(true);
     try {
-      await api.post('/tenants', { ...clientForm, plan_id: clientForm.plan_id || undefined });
-      setClientModal(false); setClientForm({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '' });
-      toast(`Clínica "${clientForm.company_name}" criada!`); load();
+      const payload = { ...clientForm, plan_id: clientForm.plan_id || undefined };
+      if (editClient) {
+        await api.put(`/tenants/${editClient.id}`, payload);
+        toast(`Clínica "${clientForm.company_name}" atualizada!`);
+      } else {
+        await api.post('/tenants', payload);
+        toast(`Clínica "${clientForm.company_name}" criada!`);
+      }
+      setClientModal(false); load();
     } catch (e: any) { setError(e.message); } finally { setSaving(false); }
   };
 
   const handleToggleClient = async (t: any) => {
-    try { await api.put(`/tenants/${t.id}`, { active: !t.active }); toast(t.active ? 'Clínica desativada.' : 'Clínica ativada!', 'info'); load(); }
+    try { await api.put(`/tenants/${t.id}`, { active: !t.active }); toast(t.active ? 'Clínica desativada (Suspensão).' : 'Clínica reativada!', 'info'); load(); }
     catch { toast('Erro ao atualizar.', 'error'); }
+  };
+
+  const handleUpdateTenantStatus = async (t: any, newStatus: string) => {
+    try { await api.put(`/tenants/${t.id}`, { status: newStatus }); toast(`Status alterado para ${newStatus === 'active' ? 'Regular' : 'Bloqueado'}.`); load(); }
+    catch { toast('Erro ao alterar status.', 'error'); }
   };
 
   const handleDeleteClient = (t: any) =>
     doConfirm({ message: `Deletar "${t.company_name}"?`, detail: 'Todos os dados serão removidos. Ação irreversível.', danger: true,
       onConfirm: async () => { try { await api.delete(`/tenants/${t.id}`); toast(`"${t.company_name}" deletada.`); load(); } catch { toast('Erro ao deletar.', 'error'); } } });
 
-  const openNewPlan  = () => { setError(''); setEditPlan(null); setPlanForm({ name: '', description: '', price: '', max_users: '5', max_patients: '100', features: [] }); setPlanModal(true); };
-  const openEditPlan = (p: any) => { setError(''); setEditPlan(p); setPlanForm({ name: p.name, description: p.description || '', price: String(p.price), max_users: String(p.max_users), max_patients: String(p.max_patients), features: p.features || [] }); setPlanModal(true); };
+  const openNewPlan  = () => { setError(''); setEditPlan(null); setPlanForm({ name: '', description: '', price: '', max_users: '10', features: [] }); setPlanModal(true); };
+  const openEditPlan = (p: any) => { setError(''); setEditPlan(p); setPlanForm({ name: p.name, description: p.description || '', price: String(p.price), max_users: String(p.max_users), features: p.features || [] }); setPlanModal(true); };
   
   const handleDeletePlan = (p: any) =>
     doConfirm({ message: `Remover plano "${p.name}"?`, detail: 'Esta ação removerá o plano. Se existirem clínicas usando este plano, ele será apenas desativado para novas adesões.', danger: true,
@@ -341,7 +388,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     setSaving(true);
     try {
       const pClean = typeof planForm.price === 'string' ? planForm.price.replace(/\./g, '').replace(',', '.') : planForm.price;
-      const payload = { ...planForm, price: parseFloat(String(pClean)), max_users: parseInt(planForm.max_users), max_patients: 999999 };
+      const payload = { ...planForm, price: parseFloat(String(pClean)), max_users: parseInt(planForm.max_users) };
       if (editPlan) await api.put(`/plans/${editPlan.id}`, payload); else await api.post('/plans', payload);
       setPlanModal(false); toast(editPlan ? 'Plano atualizado!' : 'Plano criado!'); load();
     } catch (e: any) { setError(e.message); } finally { setSaving(false); }
@@ -575,90 +622,142 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
               {/* ══ PARCEIROS — CARDS ══ */}
               {tab === 'clients' && (
-                <div className="max-w-7xl space-y-5">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-4 flex-wrap">
+                <div className="max-w-7xl space-y-6">
+                  {/* Top Summary & Filters */}
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
                       {[
-                        { label: 'Total',  value: tenants.length,                            Icon: Building2,  bg: 'bg-indigo-50',  text: 'text-indigo-600' },
-                        { label: 'Ativas', value: tenants.filter(t => t.active).length,      Icon: CheckCircle,bg: 'bg-emerald-50', text: 'text-emerald-600' },
-                        { label: 'MRR',    value: fmt(stats?.mrr || 0),                      Icon: DollarSign, bg: 'bg-amber-50',   text: 'text-amber-600' },
-                      ].map(s => (
-                        <div key={s.label} className={`flex items-center gap-2.5 ${s.bg} rounded-xl px-4 py-2.5`}>
-                          <s.Icon size={15} className={s.text} />
-                          <div><p className="text-[10px] text-slate-500 leading-none">{s.label}</p><p className={`text-sm font-bold ${s.text} leading-tight`}>{s.value}</p></div>
-                        </div>
+                        { id: 'all',      label: 'Tudo',        count: tenants.filter(t => t.id !== 1).length, icon: <LayoutDashboard size={13} /> },
+                        { id: 'active',   label: 'Ativos',      count: tenants.filter(t => t.id !== 1 && t.status === 'active' && t.active).length, icon: <CheckCircle size={13} />, color: 'text-emerald-600' },
+                        { id: 'expiring', label: 'Vencendo',    count: tenants.filter(t => {
+                          if (t.id === 1 || !t.expires_at) return false;
+                          const d = Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5);
+                          return d >= 0 && d <= 5 && t.status !== 'blocked';
+                        }).length, icon: <Clock size={13} />, color: 'text-amber-600' },
+                        { id: 'expired',  label: 'Vencidos',    count: tenants.filter(t => t.id !== 1 && t.expires_at && new Date(t.expires_at) < new Date() && t.status !== 'blocked').length, icon: <AlertTriangle size={13} />, color: 'text-red-500' },
+                        { id: 'blocked',  label: 'Bloqueados',  count: tenants.filter(t => t.id !== 1 && t.status === 'blocked').length, icon: <Lock size={13} />, color: 'text-slate-600' },
+                      ].map(f => (
+                        <button key={f.id} onClick={() => setClientFilter(f.id as any)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap ${clientFilter === f.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100' : 'bg-white border-slate-200 text-slate-500'}`}>
+                          {f.icon}
+                          <span>{f.label}</span>
+                          <span className={`${clientFilter === f.id ? 'bg-white/20' : 'bg-slate-100'} px-2 py-0.5 rounded-md ml-1`}>{f.count}</span>
+                        </button>
                       ))}
                     </div>
                   </div>
 
                   {tenants.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-xl p-16 text-center shadow-sm">
-                      <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Building2 size={24} className="text-slate-400" /></div>
-                      <p className="text-slate-500 font-semibold">Nenhuma clínica cadastrada</p>
-                      <button onClick={openClientModal} className="mt-5 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition"><Plus size={15} /> Nova Clínica</button>
+                    <div className="bg-white border border-slate-200 rounded-3xl p-20 text-center shadow-sm">
+                      <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-300"><Building2 size={36} /></div>
+                      <h3 className="text-xl font-bold text-slate-800">Nenhuma clínica ainda</h3>
+                      <p className="text-slate-400 mt-2 mb-8 max-w-xs mx-auto">Comece adicionando seu primeiro parceiro clínico na plataforma.</p>
+                      <button onClick={openClientModal} className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-7 py-3 rounded-2xl text-sm font-bold transition shadow-lg shadow-indigo-100"><Plus size={18} /> Nova Clínica</button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {tenants.map((t, i) => {
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {tenants.filter(t => {
+                        if (t.id === 1) return false;
+                        if (clientFilter === 'active') return t.status === 'active' && t.active;
+                        if (clientFilter === 'blocked') return t.status === 'blocked';
+                        if (clientFilter === 'expired') return t.expires_at && new Date(t.expires_at) < new Date();
+                        if (clientFilter === 'expiring') {
+                          if (!t.expires_at) return false;
+                          const d = Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5);
+                          return d >= 0 && d <= 5;
+                        }
+                        return true;
+                      }).map((t, i) => {
                         const planColor = CHART_COLORS[i % CHART_COLORS.length];
                         const userPct = t.max_users ? Math.round((t.user_count || 0) / t.max_users * 100) : 0;
+                        const daysLeft = t.expires_at ? Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5) : null;
+                        
                         return (
-                          <div key={t.id} className={`bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow ${!t.active ? 'opacity-60' : ''}`}>
-                            {/* Barra de cor do plano */}
-                            <div className="h-1.5" style={{ background: t.active ? planColor : '#cbd5e1' }} />
-                            <div className="p-5">
-                              {/* Header da clínica */}
-                              <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0"
-                                    style={{ background: avatarColor(t.company_name) }}>
+                          <div key={t.id} className={`group bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col ${!t.active ? 'opacity-70' : ''}`}>
+                            <div className="h-2" style={{ background: t.active ? planColor : '#e2e8f0' }} />
+                            
+                            <div className="p-7 flex-1 flex flex-col">
+                              {/* Top */}
+                              <div className="flex items-start justify-between mb-6">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg"
+                                    style={{ background: `linear-gradient(135deg, ${avatarColor(t.company_name)}, ${avatarColor(t.company_name)}cc)` }}>
                                     {initials(t.company_name)}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-bold text-slate-800 text-sm leading-tight truncate">{t.company_name}</p>
-                                    {t.cnpj_cpf && <p className="text-[10px] text-slate-400 font-mono mt-0.5">{t.cnpj_cpf}</p>}
+                                    <h4 className="font-bold text-slate-800 text-base leading-tight truncate max-w-[140px]">{t.company_name}</h4>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-1.5">
+                                      <Calendar size={10} /> Desde {new Date(t.created_at).toLocaleDateString()}
+                                    </p>
                                   </div>
                                 </div>
-                                <StatusBadge active={t.active} />
+                                <StatusBadge active={t.active} status={t.status} expires_at={t.expires_at} />
                               </div>
 
-                              {/* Plano */}
-                              {t.plan_name && (
-                                <div className="mb-3">
-                                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
-                                    style={{ background: planColor + '15', color: planColor }}>
-                                    <Star size={10} /> {t.plan_name} · {fmt(t.plan_price || 0)}/mês
-                                  </span>
+                              {/* Subscription Info */}
+                              <div className="bg-slate-50 border border-slate-100 rounded-3xl px-5 py-4 mb-6">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assinatura</span>
+                                  {daysLeft !== null && daysLeft <= 10 && (
+                                    <span className={`text-[10px] font-bold ${daysLeft < 0 ? 'text-red-500' : 'text-amber-500'}`}>
+                                      {daysLeft < 0 ? 'Expirada' : `Vence em ${daysLeft}d`}
+                                    </span>
+                                  )}
                                 </div>
-                              )}
-
-                              {/* Admin */}
-                              <div className="space-y-1.5 mb-4">
-                                {t.admin_name && <div className="flex items-center gap-2 text-xs text-slate-500"><User size={11} className="text-slate-400 flex-shrink-0" /><span className="truncate">{t.admin_name}</span></div>}
-                                {t.admin_email && <div className="flex items-center gap-2 text-xs text-slate-500"><Mail size={11} className="text-slate-400 flex-shrink-0" /><span className="truncate">{t.admin_email}</span></div>}
-                                {t.phone && <div className="flex items-center gap-2 text-xs text-slate-500"><Phone size={11} className="text-slate-400 flex-shrink-0" /><span>{t.phone}</span></div>}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-slate-400 border border-slate-200">
+                                      <Star size={14} className={t.plan_name ? 'text-indigo-500' : ''} />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-bold text-slate-800 truncate">{t.plan_name || 'Sem Plano'}</p>
+                                      <p className="text-[10px] text-slate-500 font-semibold">{fmt(t.plan_price || 0)}/mês</p>
+                                    </div>
+                                  </div>
+                                  {t.expires_at && (
+                                    <div className="text-right">
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase leading-none">Vencimento</p>
+                                      <p className="text-xs font-bold text-slate-800 mt-1">{new Date(t.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
 
-                              {/* Usuários progress */}
-                              {t.max_users && (
-                                <div className="mb-4">
-                                  <div className="flex items-center justify-between text-xs mb-1">
-                                    <span className="text-slate-400">Usuários</span>
-                                    <span className="font-semibold text-slate-600">{t.user_count || 0}/{t.max_users}</span>
+                              {/* Usage */}
+                              <div className="space-y-4 mb-6">
+                                <div>
+                                  <div className="flex items-center justify-between text-[11px] mb-2 font-bold uppercase tracking-wider">
+                                    <span className="text-slate-400 flex items-center gap-1.5"><Users size={12} /> Usuários</span>
+                                    <span className="text-slate-700">{t.user_count || 0}/{t.max_users}</span>
                                   </div>
-                                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(userPct, 100)}%`, background: userPct > 90 ? '#ef4444' : planColor }} />
+                                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-500" 
+                                      style={{ width: `${Math.min(userPct, 100)}%`, background: userPct > 90 ? '#ef4444' : planColor }} />
                                   </div>
                                 </div>
-                              )}
+                                <div className="flex items-center gap-4 text-[11px] text-slate-500">
+                                  <div className="flex items-center gap-1.5 truncate"><Mail size={12} className="text-slate-300" /> {t.admin_email}</div>
+                                </div>
+                              </div>
 
-                              {/* Actions */}
-                              <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-                                <button
-                                  onClick={() => handleToggleClient(t)}
+                              <div className="mt-auto flex flex-col gap-2 pt-5 border-t border-slate-100">
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => openEditClient(t)}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all border border-indigo-100">
+                                    <Edit2 size={13} /> Editar / Plano
+                                  </button>
+                                  <button onClick={() => handleToggleClient(t)} disabled={!isAdmin || t.id === 1}
+                                    title={t.active ? "Suspender Acesso" : "Ativar Acesso"}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border ${t.active ? 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50' : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'}`}>
+                                    {t.active ? <><ShieldOff size={13} /> Suspender</> : <><ShieldCheck size={13} /> Reativar</>}
+                                  </button>
+                                </div>
+                                <button 
+                                  onClick={() => handleUpdateTenantStatus(t, t.status === 'blocked' ? 'active' : 'blocked')}
                                   disabled={!isAdmin || t.id === 1}
-                                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition ${(!isAdmin || t.id === 1) ? 'opacity-50 cursor-not-allowed bg-slate-50 text-slate-400' : (t.active ? 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-600' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100')}`}>
-                                  {t.active ? <><ToggleLeft size={13} /> Desativar</> : <><ToggleRight size={13} /> Ativar</>}
+                                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border ${t.status === 'blocked' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100' : 'bg-white border-red-200 text-red-500 hover:bg-red-50'}`}
+                                >
+                                  {t.status === 'blocked' ? <><Unlock size={13} /> Desbloquear Financeiro</> : <><Lock size={13} /> Bloquear Acesso</>}
                                 </button>
                               </div>
                             </div>
@@ -901,15 +1000,21 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                             </div>
                             <p className="text-3xl font-bold text-slate-800 mb-1">{fmt(p.price)}<span className="text-sm font-normal text-slate-400">/mês</span></p>
                             <div className="flex gap-3 text-xs text-slate-400 mb-4 mt-1.5 pb-4 border-b border-slate-100">
-                              <span className="flex items-center gap-1"><Users size={10} />{p.max_users === 999 ? '∞' : p.max_users} usuários</span>
-                              <span className="flex items-center gap-1"><User size={10} />{p.max_patients >= 99999 ? '∞' : p.max_patients} pacientes</span>
+                              <span className="flex items-center gap-1"><Users size={10} />{p.max_users === 999 ? '∞' : p.max_users} usuários registrados</span>
                             </div>
                             <div className="space-y-1.5">
-                              {(p.features || []).slice(0, 5).map((f: string) => {
-                                const opt = FEATURES_OPTIONS.find(o => o.key === f);
-                                return <div key={f} className="flex items-center gap-2 text-xs text-slate-500"><CheckCircle size={11} className="text-emerald-500 flex-shrink-0" />{opt?.label || f}</div>;
-                              })}
-                              {(p.features || []).length > 5 && <p className="text-xs text-indigo-500 font-medium">+{p.features.length - 5} funcionalidades</p>}
+                              {(() => {
+                                const activeFeatures = (p.features || []).filter((fk: string) => fk !== 'pacientes');
+                                return (
+                                  <>
+                                    {activeFeatures.slice(0, 5).map((f: string) => {
+                                      const opt = FEATURES_OPTIONS.find(o => o.key === f);
+                                      return <div key={f} className="flex items-center gap-2 text-xs text-slate-500"><CheckCircle size={11} className="text-emerald-500 flex-shrink-0" />{opt?.label || f}</div>;
+                                    })}
+                                    {activeFeatures.length > 5 && <p className="text-xs text-indigo-500 font-medium">+{activeFeatures.length - 5} funcionalidades</p>}
+                                  </>
+                                );
+                              })()}
                             </div>
                             {!p.active && <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-3 pt-3 border-t border-slate-100">Inativo</p>}
                           </div>
@@ -1111,26 +1216,65 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
         </div>
       </main>
 
-      {/* ══ MODAL NOVA CLÍNICA ══ */}
+      {/* ══ MODAL EDITAR / NOVA CLÍNICA ══ */}
       {clientModal && (
-        <Modal title="Nova Clínica / Parceiro" sub="Crie o acesso para uma nova clínica" onClose={() => { setClientModal(false); setError(''); }} wide error={error}>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">{lbl('Nome da Clínica *')}<input className={inp} placeholder="Ex: Clínica Vida Plena" value={clientForm.company_name} onChange={e => setClientForm({ ...clientForm, company_name: e.target.value })} /></div>
-            <div>{lbl('CNPJ / CPF')}<input className={inp} placeholder="00.000.000/0000-00" value={clientForm.cnpj_cpf} onChange={e => setClientForm({ ...clientForm, cnpj_cpf: e.target.value })} /></div>
-            <div>{lbl('Telefone')}<input className={inp} placeholder="(11) 99999-9999" value={clientForm.phone} onChange={e => setClientForm({ ...clientForm, phone: e.target.value })} /></div>
-          </div>
-          <div className="border-t border-slate-100 pt-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Admin da Clínica</p>
-            <div className="space-y-3">
-              <div>{lbl('Nome')}<input className={inp} placeholder="Nome completo" value={clientForm.admin_name} onChange={e => setClientForm({ ...clientForm, admin_name: e.target.value })} /></div>
-              <div>{lbl('E-mail *')}<input type="email" className={inp} placeholder="admin@clinica.com" value={clientForm.admin_email} onChange={e => setClientForm({ ...clientForm, admin_email: e.target.value })} /></div>
-              <div>{lbl('Senha *')}<div className="relative"><input type={showPass ? 'text' : 'password'} className={inp + ' pr-10'} placeholder="Mínimo 6 caracteres" value={clientForm.password} onChange={e => setClientForm({ ...clientForm, password: e.target.value })} /><button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showPass ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></div>
+        <Modal 
+          title={editClient ? "Editar Clínica" : "Nova Clínica"} 
+          sub={editClient ? `ID: ${editClient.id} — ${editClient.company_name}` : "Crie o acesso para uma nova clínica"} 
+          onClose={() => { setClientModal(false); setError(''); }} 
+          wide 
+          error={error}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="col-span-1 md:col-span-2">{lbl('Nome da Clínica *')}<input className={inp} placeholder="Ex: Clínica Vida Plena" value={clientForm.company_name} onChange={e => setClientForm({ ...clientForm, company_name: e.target.value })} /></div>
+            
+            <div>{lbl('CNPJ / CPF')}<input className={inp} placeholder="00.000.000/0000-00" value={clientForm.cnpj_cpf} onChange={e => setClientForm({ ...clientForm, cnpj_cpf: mkC(e.target.value) })} /></div>
+            <div>{lbl('Telefone')}<input className={inp} placeholder="(11) 99999-9999" value={clientForm.phone} onChange={e => setClientForm({ ...clientForm, phone: mkP(e.target.value) })} /></div>
+            
+            <div className="md:col-span-2 border-t border-slate-100 pt-4 mt-2">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Acesso Administrativo</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>{lbl('Nome do Admin')}<input className={inp} placeholder="Nome completo" value={clientForm.admin_name} onChange={e => setClientForm({ ...clientForm, admin_name: e.target.value })} /></div>
+                <div>{lbl('E-mail do Admin *')}<input type="email" className={inp} placeholder="admin@clinica.com" value={clientForm.admin_email} onChange={e => setClientForm({ ...clientForm, admin_email: e.target.value })} /></div>
+                
+                {!editClient && (
+                  <div className="md:col-span-2">{lbl('Senha *')}<div className="relative"><input type={showPass ? 'text' : 'password'} className={inp + ' pr-10'} placeholder="Mínimo 6 caracteres" value={clientForm.password} onChange={e => setClientForm({ ...clientForm, password: e.target.value })} /><button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showPass ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></div>
+                )}
+              </div>
+            </div>
+
+            <div className="md:col-span-2 border-t border-slate-100 pt-4 mt-2">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Assinatura e Status</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-bold">
+                <div>
+                  {lbl('Plano')}
+                  <select className={sel} value={clientForm.plan_id} onChange={e => setClientForm({ ...clientForm, plan_id: e.target.value })}>
+                    <option value="">Sem plano</option>
+                    {plans.map(p => <option key={p.id} value={p.id}>{p.name} — {fmt(p.price)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  {lbl('Vencimento')}
+                  <input type="date" className={inp} value={clientForm.expires_at} onChange={e => setClientForm({ ...clientForm, expires_at: e.target.value })} />
+                </div>
+                <div>
+                  {lbl('Status de Cobrança')}
+                  <select className={sel} value={clientForm.status} onChange={e => setClientForm({ ...clientForm, status: e.target.value })}>
+                    <option value="active">Regular (Ativo)</option>
+                    <option value="expired">Atrasado (Vencido)</option>
+                    <option value="blocked">Bloqueado</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
-          <div>{lbl('Plano')}<select className={sel} value={clientForm.plan_id} onChange={e => setClientForm({ ...clientForm, plan_id: e.target.value })}><option value="">Sem plano</option>{plans.filter(p => p.active).map(p => <option key={p.id} value={p.id}>{p.name} — {fmt(p.price)}/mês</option>)}</select></div>
-          <div className="flex gap-3 pt-1">
+
+          <div className="flex gap-3 pt-6 border-t border-slate-100 mt-4">
             <button onClick={() => { setClientModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleCreateClient} disabled={saving} className={btnP}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Key size={14} />} Criar Acesso</button>
+            <button onClick={handleSaveClient} disabled={saving} className={btnP}>
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 
+              {editClient ? 'Salvar Alterações' : 'Criar Clínica'}
+            </button>
           </div>
         </Modal>
       )}
@@ -1141,17 +1285,16 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
           <div>{lbl('Nome Completo *')}<input className={inp} placeholder="Nome completo" value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div>{lbl('E-mail *')}<input type="email" className={inp} placeholder="usuario@psiflux.com" value={teamForm.email} onChange={e => setTeamForm({ ...teamForm, email: e.target.value })} /></div>
-            <div>{lbl('Telefone')}<input className={inp} placeholder="(11) 99999-9999" value={teamForm.phone} onChange={e => setTeamForm({ ...teamForm, phone: e.target.value })} /></div>
+            <div>{lbl('Telefone')}<input className={inp} placeholder="(11) 99999-9999" value={teamForm.phone} onChange={e => setTeamForm({ ...teamForm, phone: mkP(e.target.value) })} /></div>
           </div>
           <div>{lbl('Senha *')}<div className="relative"><input type={showTeamPass ? 'text' : 'password'} className={inp + ' pr-10'} placeholder="Mínimo 6 caracteres" value={teamForm.password} onChange={e => setTeamForm({ ...teamForm, password: e.target.value })} /><button type="button" onClick={() => setShowTeamPass(!showTeamPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showTeamPass ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></div>
           <div>
             {lbl('Perfil de Permissão')}
             <select className={sel} value={teamForm.permission_profile_id} onChange={e => setTeamForm({ ...teamForm, permission_profile_id: e.target.value })}>
               <option value="">Acesso total (Super Admin)</option>
-              {permProfiles.filter(p => p.active).map(p => {
-                const rc = ROLE_COLOR[p.role] || ROLE_COLOR['visualizador'];
-                return <option key={p.id} value={p.id}>{p.name} — {ROLE_TYPES.find(r => r.value === p.role)?.label || p.role}</option>;
-              })}
+              {permProfiles.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
             </select>
             {teamForm.permission_profile_id ? (
               <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><Shield size={11} /> As permissões serão limitadas ao perfil selecionado.</p>
@@ -1175,7 +1318,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
             <div className="col-span-2">{lbl('Tipo de Acesso')}
               <div className="grid grid-cols-3 gap-2 mt-1">
                 {ROLE_TYPES.map(r => {
-                  const rc = ROLE_COLOR[r.value];
+                  const rc = ROLE_COLOR[r.value] || ROLE_COLOR['visualizador'];
                   const active = permForm.role_type === r.value;
                   return (
                     <button key={r.value} type="button" onClick={() => setPermForm({ ...permForm, role_type: r.value })}

@@ -97,6 +97,11 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const [viewDate, setViewDate] = useState<Date>(selectedDate || new Date());
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const [mode, setMode] = useState<'day' | 'month' | 'year'>('day');
+  const [inputValue, setInputValue] = useState(value ? formatDisplayDate(value) : '');
+
+  useEffect(() => {
+    setInputValue(value ? formatDisplayDate(value) : '');
+  }, [value]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -160,6 +165,33 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     if (isDateDisabled(date, min, max)) return;
     onChange(formatISODate(date));
     setIsOpen(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v.length > 8) v = v.substring(0, 8);
+    
+    if (v.length > 4) {
+      v = `${v.substring(0, 2)}/${v.substring(2, 4)}/${v.substring(4)}`;
+    } else if (v.length > 2) {
+      v = `${v.substring(0, 2)}/${v.substring(2)}`;
+    }
+    
+    setInputValue(v);
+
+    if (v.length === 10) {
+      const [d, m, y] = v.split('/').map(Number);
+      const date = new Date(y, m - 1, d);
+      if (!isNaN(date.getTime()) && date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d) {
+        const iso = formatISODate(date);
+        if (!isDateDisabled(date, min, max)) {
+          onChange(iso);
+          setViewDate(date);
+        }
+      }
+    } else if (v.length === 0) {
+      onChange(null);
+    }
   };
 
   const handlePrev = () => {
@@ -385,25 +417,35 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => !disabled && setIsOpen((prev) => !prev)}
-        className={`
-          flex h-10 w-full items-center justify-between gap-3
-          rounded-xl border border-slate-300 bg-white px-3
-          text-sm text-slate-700 shadow-sm transition-all
-          hover:border-slate-400 hover:bg-slate-50
-          focus:outline-none focus:ring-4 focus:ring-indigo-500/10
-          disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400
-        `}
-      >
-        <span className={value ? 'text-slate-700 font-bold' : 'text-slate-400'}>
-          {value ? formatDisplayDate(value) : placeholder}
-        </span>
-
-        <CalendarDays size={16} className="text-slate-400" />
-      </button>
+      <div className="relative group">
+        <input
+          type="text"
+          disabled={disabled}
+          placeholder={placeholder}
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={() => {
+            if (inputValue.length > 0 && inputValue.length < 10) {
+              setInputValue(value ? formatDisplayDate(value) : '');
+            }
+          }}
+          onClick={() => !disabled && setIsOpen(true)}
+          className={`
+            flex h-10 w-full items-center justify-between gap-3
+            rounded-xl border border-slate-300 bg-white px-3 pr-10
+            text-sm text-slate-700 shadow-sm transition-all
+            placeholder:text-slate-400
+            hover:border-slate-400 hover:bg-slate-50
+            focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400
+            disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400
+            ${value ? 'font-bold' : ''}
+          `}
+        />
+        <CalendarDays 
+          size={16} 
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-indigo-500 transition-colors" 
+        />
+      </div>
 
       {dropdown}
     </div>

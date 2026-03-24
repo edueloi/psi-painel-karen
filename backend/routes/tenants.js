@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
     const [tenants] = await db.query(`
       SELECT
         t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone,
-        t.active, t.created_at,
+        t.active, t.created_at, t.expires_at, t.status, t.last_billing_at,
         p.id as plan_id, p.name as plan_name, p.price as plan_price,
         p.max_users, p.max_patients,
         COUNT(DISTINCT u.id) as user_count,
@@ -42,6 +42,7 @@ router.get('/', async (req, res) => {
       FROM tenants t
       LEFT JOIN plans p ON p.id = t.plan_id
       LEFT JOIN users u ON u.tenant_id = t.id AND u.role != 'super_admin'
+      WHERE t.id != 1
       GROUP BY t.id
       ORDER BY t.created_at DESC
     `);
@@ -61,7 +62,7 @@ router.get('/mrr-history', async (req, res) => {
         SUM(p.price) as mrr
       FROM tenants t
       JOIN plans p ON p.id = t.plan_id
-      WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+      WHERE t.id != 1 AND t.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
       GROUP BY DATE_FORMAT(t.created_at, '%Y-%m')
       ORDER BY month ASC
     `);
@@ -96,20 +97,21 @@ router.get('/stats', async (req, res) => {
       FROM tenants t
       LEFT JOIN users u ON u.tenant_id = t.id AND u.role != 'super_admin'
       LEFT JOIN patients pt ON pt.tenant_id = t.id
+      WHERE t.id != 1
     `);
 
     const [[revenue]] = await db.query(`
       SELECT COALESCE(SUM(p.price), 0) as mrr
       FROM tenants t
       JOIN plans p ON p.id = t.plan_id
-      WHERE t.active = true
+      WHERE t.id != 1 AND t.active = true
     `);
 
     const [byPlan] = await db.query(`
       SELECT p.name as plan_name, COUNT(t.id) as count, p.price
       FROM tenants t
       JOIN plans p ON p.id = t.plan_id
-      WHERE t.active = true
+      WHERE t.id != 1 AND t.active = true
       GROUP BY p.id
     `);
 
@@ -168,7 +170,7 @@ router.post('/', async (req, res) => {
     if (existing.length > 0) slug = `${slug}-${Date.now()}`;
 
     const [tenantResult] = await db.query(
-      'INSERT INTO tenants (name, slug, cnpj_cpf, phone, plan_id) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO tenants (name, slug, cnpj_cpf, phone, plan_id, expires_at) VALUES (?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY))',
       [company_name, slug, cnpj_cpf || null, phone || null, plan_id || null]
     );
 
@@ -204,25 +206,39 @@ router.post('/', async (req, res) => {
 // PUT /tenants/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { company_name, cnpj_cpf, phone, plan_id, active } = req.body;
+    const { company_name, cnpj_cpf, phone, plan_id, active, admin_email, admin_name, expires_at, status } = req.body;
 
+    // Update tenant basic data
     await db.query(
       `UPDATE tenants SET
         name = COALESCE(?, name),
         cnpj_cpf = COALESCE(?, cnpj_cpf),
         phone = COALESCE(?, phone),
         plan_id = COALESCE(?, plan_id),
-        active = COALESCE(?, active)
+        active = COALESCE(?, active),
+        expires_at = COALESCE(?, expires_at),
+        status = COALESCE(?, status)
        WHERE id = ?`,
-      [company_name, cnpj_cpf, phone, plan_id, active !== undefined ? active : undefined, req.params.id]
+      [company_name, cnpj_cpf, phone, plan_id, active !== undefined ? active : undefined, expires_at, status, req.params.id]
     );
 
+    // Update admin user if provided
+    if (admin_email || admin_name) {
+      await db.query(
+        'UPDATE users SET email = COALESCE(?, email), name = COALESCE(?, name) WHERE tenant_id = ? AND role = "admin"',
+        [admin_email, admin_name, req.params.id]
+      );
+    }
+
     const [updated] = await db.query(`
-      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active,
-             p.name as plan_name, p.price as plan_price
+      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active, t.expires_at, t.status,
+             p.name as plan_name, p.price as plan_price,
+             MAX(u.name) as admin_name, MAX(u.email) as admin_email
       FROM tenants t
       LEFT JOIN plans p ON p.id = t.plan_id
+      LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'admin'
       WHERE t.id = ?
+      GROUP BY t.id
     `, [req.params.id]);
 
     res.json(updated[0]);

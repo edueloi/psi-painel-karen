@@ -36,8 +36,13 @@ const COUNTRIES = [
   { code: 'OTHER', ddi: '', name: 'Outro', flag: '🌐', mask: '' },
 ];
 
-/* ─── Máscaras ─────────────────────────────────────────── */
-/* ─── Máscaras ─────────────────────────────────────────── */
+const mkP = (v: string) => v.replace(/\D/g, "").replace(/^(\d{2})(\d)/g, "($1) $2").replace(/(\d)(\d{4})$/, "$1-$2").substring(0, 15);
+const mkC = (v: string) => {
+  v = v.replace(/\D/g, "");
+  if (v.length <= 11) return v.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2").substring(0, 14);
+  return v.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2").substring(0, 18);
+};
+
 const applyMask = (value: string, pattern: string) => {
   if (!pattern) return value;
   let result = '';
@@ -54,26 +59,14 @@ const applyMask = (value: string, pattern: string) => {
 
 const maskPhone = (v: string, countryCode: string = 'BR') => {
   const d = v.replace(/\D/g, '');
-  const country = COUNTRIES.find(c => c.code === countryCode);
+  if (countryCode === 'BR') return mkP(d);
   
+  const country = COUNTRIES.find(c => c.code === countryCode);
   if (!country || !country.mask) return d.slice(0, 15);
-
-  // Caso especial Brasil (9 dígitos vs 8 dígitos)
-  if (countryCode === 'BR') {
-    const digits = d.slice(0, 11);
-    if (digits.length <= 10) return applyMask(digits, '(00) 0000-0000');
-    return applyMask(digits, '(00) 00000-0000');
-  }
-
   return applyMask(d, country.mask);
 };
 
-const maskCpfCnpj = (v: string) => {
-  const d = v.replace(/\D/g, '').slice(0, 14);
-  if (d.length <= 11)
-    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4').replace(/[.-]$/, '').replace(/\.$/, '');
-  return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5').replace(/[-/.]$/, '');
-};
+const maskCpfCnpj = (v: string) => mkC(v);
 
 const maskCep = (v: string) => {
   const d = v.replace(/\D/g, '').slice(0, 8);
