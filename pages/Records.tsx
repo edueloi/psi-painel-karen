@@ -205,7 +205,9 @@ export const Records: React.FC = () => {
       bold: document.queryCommandState('bold'),
       italic: document.queryCommandState('italic'),
       underline: document.queryCommandState('underline'),
+      h1: String(document.queryCommandValue('formatBlock')).toLowerCase() === 'h1',
       h2: String(document.queryCommandValue('formatBlock')).toLowerCase() === 'h2',
+      h3: String(document.queryCommandValue('formatBlock')).toLowerCase() === 'h3',
       unorderedList: document.queryCommandState('insertUnorderedList'),
       orderedList: document.queryCommandState('insertOrderedList'),
     };
@@ -574,7 +576,9 @@ export const Records: React.FC = () => {
         .custom-record-editor b, .custom-record-editor strong { font-weight: 900 !important; }
         .custom-record-editor i, .custom-record-editor em { font-style: italic !important; }
         .custom-record-editor u { text-decoration: underline !important; }
+        .custom-record-editor h1 { font-size: 1.875rem !important; font-weight: 900 !important; margin-top: 1.5rem !important; margin-bottom: 1rem !important; color: #1e293b !important; }
         .custom-record-editor h2 { font-size: 1.5rem !important; font-weight: 900 !important; margin-top: 1.25rem !important; margin-bottom: 0.75rem !important; color: #1e293b !important; }
+        .custom-record-editor h3 { font-size: 1.25rem !important; font-weight: 800 !important; margin-top: 1rem !important; margin-bottom: 0.5rem !important; color: #334155 !important; }
         .custom-record-editor ul { list-style-type: disc !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
         .custom-record-editor ol { list-style-type: decimal !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
         .custom-record-editor li { margin-bottom: 0.5rem !important; }
@@ -910,9 +914,11 @@ export const Records: React.FC = () => {
                   { cmd: 'bold', label: 'B', cls: 'font-black', key: 'bold' },
                   { cmd: 'italic', label: 'I', cls: 'italic', key: 'italic' },
                   { cmd: 'underline', label: 'U', cls: 'underline', key: 'underline' },
+                  { cmd: 'formatBlock', val: 'H1', label: 'H1', cls: 'font-black', key: 'h1' },
                   { cmd: 'formatBlock', val: 'H2', label: 'H2', cls: 'font-black', key: 'h2' },
-                  { cmd: 'insertUnorderedList', label: '• List', cls: '', key: 'unorderedList' },
-                  { cmd: 'insertOrderedList', label: '1. List', cls: '', key: 'orderedList' },
+                  { cmd: 'formatBlock', val: 'H3', label: 'H3', cls: 'font-black', key: 'h3' },
+                  { cmd: 'insertUnorderedList', label: '• Lista', cls: '', key: 'unorderedList' },
+                  { cmd: 'insertOrderedList', label: '1. Lista', cls: '', key: 'orderedList' },
                 ].map(btn => {
                   const isActive = activeStyles[btn.key];
                   return (
@@ -920,10 +926,10 @@ export const Records: React.FC = () => {
                       key={btn.cmd + (btn.val || '')}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => execCommand(btn.cmd, btn.val)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border shadow-sm ${
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border shadow-sm ${
                         isActive
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100 scale-105 ring-4 ring-indigo-50'
-                          : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+                          : 'bg-white hover:bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'
                       } ${btn.cls}`}
                     >
                       {btn.label}
@@ -931,6 +937,28 @@ export const Records: React.FC = () => {
                   );
                 })}
                 <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+                <div className="flex items-center gap-1.5 px-2 border-r border-slate-100">
+                   <button 
+                    title="Cor do Texto"
+                    onClick={() => {
+                        const color = window.prompt('Cor (Ex: red, #333, blue):', 'red');
+                        if (color) execCommand('foreColor', color);
+                    }}
+                    className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-500 transition-colors"
+                   >
+                     <div className="w-4 h-4 rounded-full border border-slate-200" style={{ background: 'linear-gradient(to right, red, blue, green)' }} />
+                   </button>
+                   <button 
+                    title="Marcador"
+                    onClick={() => {
+                        const color = window.prompt('Cor do Marcador (Ex: yellow, lime):', 'yellow');
+                        if (color) execCommand('hiliteColor', color);
+                    }}
+                    className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-500 transition-colors"
+                   >
+                     <Activity size={16} className="text-amber-500" />
+                   </button>
+                </div>
                 <Button
                   variant="ghost"
                   size="xs"

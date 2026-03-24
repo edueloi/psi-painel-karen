@@ -163,6 +163,8 @@ export const Agenda: React.FC = () => {
       endType: 'count' as 'count' | 'until',
       endValue: 1 as number | string
   });
+  const [isEndTimeModalOpen, setIsEndTimeModalOpen] = useState(false);
+  const [tempEndTime, setTempEndTime] = useState('');
   const [patientComandas, setPatientComandas] = useState<any[]>([]);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailQuickStatus, setDetailQuickStatus] = useState<string | null>(null);
@@ -1982,22 +1984,38 @@ export const Agenda: React.FC = () => {
                       )}
 
                       {/* END TIME PREVIEW */}
-                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200 shadow-sm">
-                          <div className="p-2 bg-white rounded-lg text-indigo-500 border border-slate-100 shadow-sm">
-                              <Clock size={16}/>
+                      <div className="flex items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200 shadow-sm transition-all hover:bg-slate-100/50">
+                          <div className="flex items-center gap-3">
+                              <div className="p-2 bg-white rounded-lg text-indigo-500 border border-slate-100 shadow-sm shrink-0">
+                                  <Clock size={16}/>
+                              </div>
+                              <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1">Término Previsto</p>
+                                  <p className="text-sm font-black text-indigo-700 tabular-nums">
+                                      {(() => {
+                                          try {
+                                              const start = new Date(formData.appointment_date);
+                                              const end = new Date(start.getTime() + formData.duration_minutes * 60000);
+                                              return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + 'h';
+                                          } catch { return '--:--'; }
+                                      })()}
+                                  </p>
+                              </div>
                           </div>
-                          <div>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1">Término Previsto</p>
-                              <p className="text-sm font-black text-indigo-700 tabular-nums">
-                                  {(() => {
-                                      try {
-                                          const start = new Date(formData.appointment_date);
-                                          const end = new Date(start.getTime() + formData.duration_minutes * 60000);
-                                          return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + 'h';
-                                      } catch { return '--:--'; }
-                                  })()}
-                              </p>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                                try {
+                                    const start = new Date(formData.appointment_date);
+                                    const end = new Date(start.getTime() + formData.duration_minutes * 60000);
+                                    setTempEndTime(end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                                    setIsEndTimeModalOpen(true);
+                                } catch { setTempEndTime(''); }
+                            }}
+                            className="shrink-0 px-3 py-1.5 bg-white hover:bg-slate-50 text-indigo-600 border border-indigo-200 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-xs"
+                          >
+                            Alterar
+                          </button>
                       </div>
 
                       <div className="grid grid-cols-1 gap-4">
@@ -2346,6 +2364,59 @@ export const Agenda: React.FC = () => {
               {tempDateTime.time}
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* END TIME MODAL — Altera a duração via horário de término */}
+      <Modal
+        isOpen={isEndTimeModalOpen}
+        onClose={() => setIsEndTimeModalOpen(false)}
+        title="Alterar Término"
+        subtitle="O sistema calculará a nova duração automaticamente"
+        maxWidth="max-w-sm"
+        footer={(
+          <div className="flex justify-end gap-2 w-full">
+            <Button variant="ghost" onClick={() => setIsEndTimeModalOpen(false)} className="text-xs font-semibold h-10 px-6">Cancelar</Button>
+            <Button
+              variant="primary"
+              className="!bg-indigo-600 hover:!bg-indigo-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
+              onClick={() => {
+                try {
+                    const start = new Date(formData.appointment_date);
+                    const [h, m] = tempEndTime.split(':').map(Number);
+                    const end = new Date(start);
+                    end.setHours(h, m, 0, 0);
+                    
+                    // Se o término for antes do início, assume que é no dia seguinte? 
+                    // Mas geralmente para consultas é no mesmo dia.
+                    let diffMs = end.getTime() - start.getTime();
+                    if (diffMs < 0) {
+                        // Se o término for menor que o início, tratamos como erro ou dia seguinte?
+                        // Melhor avisar ou apenas limitar a 15min.
+                        diffMs = 15 * 60000;
+                    }
+                    const newDuration = Math.round(diffMs / 60000);
+                    setFormData(prev => ({ ...prev, duration_minutes: newDuration }));
+                    setIsEndTimeModalOpen(false);
+                } catch (e) { console.error(e); }
+              }}
+            >
+              Confirmar
+            </Button>
+          </div>
+        )}
+      >
+        <div className="space-y-4 py-2">
+          <Input
+            label="Horário de Término"
+            type="time"
+            icon={<Clock size={16} className="text-slate-400" />}
+            value={tempEndTime}
+            onChange={e => setTempEndTime(e.target.value)}
+          />
+          <p className="text-[10px] text-slate-400 font-medium px-1">
+             Selecione o horário exato em que a sessão deve terminar. A duração total será ajustada.
+          </p>
         </div>
       </Modal>
 
