@@ -46,9 +46,12 @@ router.get('/me', async (req, res) => {
               u.schedule, u.active, u.permissions as user_permissions,
               u.ui_preferences, u.forms_archived, u.forms_favorites,
               u.two_factor_enabled,
-              p.permissions as profile_permissions, p.slug as profile_slug
+              p.permissions as profile_permissions, p.slug as profile_slug,
+              pl.features as plan_features
        FROM users u 
        LEFT JOIN tenant_permission_profiles p ON u.tenant_profile_id = p.id
+       LEFT JOIN tenants t ON u.tenant_id = t.id
+       LEFT JOIN plans pl ON t.plan_id = pl.id
        WHERE u.id = ?`,
       [req.user.id]
     );
@@ -74,6 +77,13 @@ router.get('/me', async (req, res) => {
         u.permissions = { _full_access: true }; 
     } else {
         u.permissions = { ...profPerms, ...userPerms };
+    }
+
+    // Processar features do plano
+    try {
+      u.plan_features = typeof u.plan_features === 'string' ? JSON.parse(u.plan_features) : u.plan_features || [];
+    } catch {
+      u.plan_features = [];
     }
 
     delete u.user_permissions;

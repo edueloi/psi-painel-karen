@@ -14,8 +14,11 @@ import {
   LayoutGrid,
   Rows,
   Search,
-  Info
+  Info,
+  Sparkles,
+  Smartphone
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
 type AccessLevel = 'total' | 'edit' | 'own' | 'view' | 'limited' | 'none';
@@ -30,7 +33,9 @@ const MODULES = [
   { key: 'documents', label: 'Documentos', icon: <FolderOpen size={16} /> },
   { key: 'messages', label: 'Mensagens', icon: <MessageCircle size={16} /> },
   { key: 'finance', label: 'Financeiro', icon: <DollarSign size={16} /> },
-  { key: 'settings', label: 'Configuracoes', icon: <Settings size={16} /> }
+  { key: 'settings', label: 'Configuracoes', icon: <Settings size={16} /> },
+  { key: 'aurora', label: 'Aurora AI', icon: <Sparkles size={16} />, requiredFeature: 'aurora_ai' },
+  { key: 'bot', label: 'WhatsApp Bot', icon: <Smartphone size={16} />, requiredFeature: 'whatsapp_bot' }
 ];
 
 const ROLES = [
@@ -110,15 +115,23 @@ const accessStyles: Record<AccessLevel, string> = {
 
 export const Permissions: React.FC = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [view, setView] = useState<'cards' | 'matrix'>('cards');
   const [query, setQuery] = useState('');
   const [activeRole, setActiveRole] = useState('admin');
 
   const filteredModules = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return MODULES;
-    return MODULES.filter(m => m.label.toLowerCase().includes(q));
-  }, [query]);
+    
+    // Primeiro filtra pelo plano
+    const available = MODULES.filter((m: any) => {
+      if (!m.requiredFeature) return true;
+      return user?.plan_features?.includes(m.requiredFeature);
+    });
+
+    if (!q) return available;
+    return available.filter(m => m.label.toLowerCase().includes(q));
+  }, [query, user?.plan_features]);
 
   const summary = useMemo(() => {
     const totals = ROLES.map(role => {

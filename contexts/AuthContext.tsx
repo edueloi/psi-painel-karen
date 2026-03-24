@@ -14,6 +14,7 @@ interface AuthUser {
   crp?: string;
   shareToken?: string;
   permissions?: Record<string, boolean>;
+  plan_features?: string[];
   uiPreferences?: Record<string, any>;
 }
 
@@ -78,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         crp: data.crp,
         shareToken: (data as any).share_token,
         permissions: data.permissions || {},
+        plan_features: (data as any).plan_features || [],
         uiPreferences: (data as any).ui_preferences || {},
       });
     } catch (e) {

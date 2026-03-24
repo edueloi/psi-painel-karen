@@ -90,11 +90,21 @@ router.put('/:id', authorize('super_admin'), async (req, res) => {
 // DELETE /plans/:id
 router.delete('/:id', authorize('super_admin'), async (req, res) => {
   try {
-    await db.query('UPDATE plans SET active = false WHERE id = ?', [req.params.id]);
+    // 1. Verificar se existem clínicas usando este plano
+    const [tenants] = await db.query('SELECT id FROM tenants WHERE plan_id = ?', [req.params.id]);
+    
+    if (tenants.length > 0) {
+      // Se houver clínicas, apenas desativa para manter integridade histórica
+      await db.query('UPDATE plans SET active = false WHERE id = ?', [req.params.id]);
+      return res.status(200).json({ message: 'Plano desativado (existem clínicas vinculadas).' });
+    }
+
+    // 2. Se não houver vínculos, deleta permanentemente
+    await db.query('DELETE FROM plans WHERE id = ?', [req.params.id]);
     res.status(204).send();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao desativar plano' });
+    res.status(500).json({ error: 'Erro ao remover plano do sistema' });
   }
 });
 

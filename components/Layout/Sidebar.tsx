@@ -47,10 +47,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
   const visibleSections = React.useMemo(() => {
     return NAV_SECTIONS.map(section => ({
       ...section,
-      items: section.items.filter(item => {
-        // Se não houver permissão exigida, permite
+      items: section.items.filter((item: any) => {
+        // 1. Bloqueio por Plano (Prioridade Máxima)
+        if (item.requiredFeature && !user?.plan_features?.includes(item.requiredFeature)) {
+          return false;
+        }
+        // 2. Bloqueio por Permissão Individual
         if (!item.requiredPermission) return true;
-        // Caso contrário, checa se o usuário tem a permissão (fallback para false se undefined)
         return typeof hasPermission === 'function' ? hasPermission(item.requiredPermission) : true;
       })
     })).filter(section => {

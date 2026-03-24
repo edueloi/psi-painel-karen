@@ -1,60 +1,61 @@
 
 
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource, PEI, Assessment } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, ShieldAlert, Key, Radar } from 'lucide-react';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, ShieldAlert, Key, Radar, Sparkles } from 'lucide-react';
 
 export const NAV_SECTIONS = [
   {
     title: 'nav.group.general',
     items: [
       { label: 'nav.dashboard', path: '/dashboard', icon: <Activity size={20} />, requiredPermission: 'view_dashboard' },
-      { label: 'nav.agenda', path: '/agenda', icon: <Calendar size={20} />, requiredPermission: 'view_agenda' },
-      { label: 'nav.meeting', path: '/salas-virtuais', icon: <Video size={20} />, requiredPermission: 'view_agenda' },
+      { label: 'nav.agenda', path: '/agenda', icon: <Calendar size={20} />, requiredPermission: 'view_agenda', requiredFeature: 'agenda' },
+      { label: 'nav.meeting', path: '/salas-virtuais', icon: <Video size={20} />, requiredPermission: 'view_agenda', requiredFeature: 'salas_virtuais' },
     ]
   },
   {
     title: 'nav.group.clinical',
     items: [
-      { label: 'nav.patients', path: '/pacientes', icon: <Users size={20} />, requiredPermission: 'view_patients' },
-      { label: 'nav.neuro', path: '/neurodesenvolvimento', icon: <BrainCircuit size={20} />, requiredPermission: 'manage_clinical_tools' }, 
-      { label: 'nav.tools', path: '/caixa-ferramentas', icon: <Boxes size={20} />, requiredPermission: 'manage_clinical_tools' },
-      { label: 'nav.records', path: '/prontuario', icon: <FileText size={20} />, requiredPermission: 'view_medical_records' },
-      { label: 'nav.cases', path: '/estudos-de-caso', icon: <BookOpen size={20} />, requiredPermission: 'view_medical_records' },
-      { label: 'nav.documents', path: '/documentos', icon: <FolderOpen size={20} />, requiredPermission: 'manage_documents' },
-      { label: 'nav.forms', path: '/formularios', icon: <ClipboardList size={20} />, requiredPermission: 'manage_forms' },
-      { label: 'nav.disc', path: '/disc', icon: <Radar size={20} />, requiredPermission: 'manage_clinical_tools' },
+      { label: 'nav.patients', path: '/pacientes', icon: <Users size={20} />, requiredPermission: 'view_patients', requiredFeature: 'pacientes' },
+      { label: 'nav.neuro', path: '/neurodesenvolvimento', icon: <BrainCircuit size={20} />, requiredPermission: 'manage_clinical_tools', requiredFeature: 'pei' }, 
+      { label: 'nav.tools', path: '/caixa-ferramentas', icon: <Boxes size={20} />, requiredPermission: 'manage_clinical_tools', requiredFeature: 'ferramentas_clinicas' },
+      { label: 'nav.records', path: '/prontuario', icon: <FileText size={20} />, requiredPermission: 'view_medical_records', requiredFeature: 'prontuario' },
+      { label: 'nav.cases', path: '/estudos-de-caso', icon: <BookOpen size={20} />, requiredPermission: 'view_medical_records', requiredFeature: 'estudos_de_caso' },
+      { label: 'nav.documents', path: '/documentos', icon: <FolderOpen size={20} />, requiredPermission: 'manage_documents', requiredFeature: 'documentos' },
+      { label: 'nav.forms', path: '/formularios', icon: <ClipboardList size={20} />, requiredPermission: 'manage_forms', requiredFeature: 'formularios' },
+      { label: 'nav.disc', path: '/disc', icon: <Radar size={20} />, requiredPermission: 'manage_clinical_tools', requiredFeature: 'ferramentas_clinicas' },
     ]
   },
   {
     title: 'nav.group.management',
     items: [
-      { label: 'nav.professionals', path: '/profissionais', icon: <UserCheck size={20} />, requiredPermission: 'manage_professionals' },
-      { label: 'nav.services', path: '/servicos', icon: <Briefcase size={20} />, requiredPermission: 'manage_services' },
-      { label: 'nav.products', path: '/produtos', icon: <Package size={20} />, requiredPermission: 'manage_products' },
-      { label: 'nav.comandas', path: '/comandas', icon: <ShoppingBag size={20} />, requiredPermission: 'view_all_comandas' },
+      { label: 'nav.professionals', path: '/profissionais', icon: <UserCheck size={20} />, requiredPermission: 'manage_professionals', requiredFeature: 'profissionais' },
+      { label: 'nav.services', path: '/servicos', icon: <Briefcase size={20} />, requiredPermission: 'manage_services', requiredFeature: 'servicos' },
+      { label: 'nav.products', path: '/produtos', icon: <Package size={20} />, requiredPermission: 'manage_products', requiredFeature: 'produtos' },
+      { label: 'nav.comandas', path: '/comandas', icon: <ShoppingBag size={20} />, requiredPermission: 'view_all_comandas', requiredFeature: 'comandas' },
     ]
   },
   {
     title: 'nav.group.financial',
     items: [
-      { label: 'nav.livroCaixa', path: '/livro-caixa', icon: <BookOpen size={20} />, requiredPermission: 'view_financial_reports' },
-      { label: 'nav.finance', path: '/financeiro', icon: <DollarSign size={20} />, requiredPermission: 'view_financial_reports' },
-      { label: 'nav.docGen', path: '/gerador-documentos', icon: <Printer size={20} />, requiredPermission: 'manage_invoice_issuer' },
-      { label: 'nav.bestClients', path: '/melhores-clientes', icon: <Trophy size={20} />, requiredPermission: 'view_performance_reports' },
-      { label: 'nav.performance', path: '/desempenho', icon: <BarChart2 size={20} />, requiredPermission: 'view_performance_reports' },
+      { label: 'nav.livroCaixa', path: '/livro-caixa', icon: <BookOpen size={20} />, requiredPermission: 'view_financial_reports', requiredFeature: 'financeiro' },
+      { label: 'nav.finance', path: '/financeiro', icon: <DollarSign size={20} />, requiredPermission: 'view_financial_reports', requiredFeature: 'financeiro' },
+      { label: 'nav.docGen', path: '/gerador-documentos', icon: <Printer size={20} />, requiredPermission: 'manage_invoice_issuer', requiredFeature: 'documentos' },
+      { label: 'nav.bestClients', path: '/melhores-clientes', icon: <Trophy size={20} />, requiredPermission: 'view_performance_reports', requiredFeature: 'relatorios' },
+      { label: 'nav.performance', path: '/desempenho', icon: <BarChart2 size={20} />, requiredPermission: 'view_performance_reports', requiredFeature: 'relatorios' },
     ]
   },
   {
     title: 'nav.group.communication',
     items: [
-      { label: 'nav.messages', path: '/mensagens', icon: <MessageCircle size={20} />, requiredPermission: 'access_messages' },
+      { label: 'nav.messages', path: '/mensagens', icon: <MessageCircle size={20} />, requiredPermission: 'access_messages', requiredFeature: 'mensagens' },
+      { label: 'Aurora AI', path: '/aurora', icon: <Sparkles size={20} />, requiredFeature: 'aurora_ai' },
     ]
   },
   {
     title: 'nav.group.system',
     items: [
       { label: 'nav.settings', path: '/configuracoes', icon: <Settings size={20} />, requiredPermission: 'manage_clinic_settings' },
-      { label: 'WhatsApp', path: '/bot', icon: <Smartphone size={20} />, requiredPermission: 'manage_bot_integration' },
+      { label: 'WhatsApp', path: '/bot', icon: <Smartphone size={20} />, requiredPermission: 'manage_bot_integration', requiredFeature: 'whatsapp_bot' },
     ]
   }
 ];

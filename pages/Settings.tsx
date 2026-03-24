@@ -88,7 +88,7 @@ const SectionHeader = ({ icon, title, desc }: { icon: React.ReactNode; title: st
 // ─── Component ───────────────────────────────────────────────────────────────
 export const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('aparencia');
   const { mode: selectedMode, setMode, primaryColor: selectedColor, setPrimaryColor: setSelectedColor } = useTheme();
@@ -159,7 +159,7 @@ export const Settings: React.FC = () => {
     { id: 'aparencia',    label: 'Aparência',      icon: <Palette size={18} />,      desc: 'Cores e modo visual' },
     { id: 'geral',        label: 'Geral',           icon: <SettingsIcon size={18} />, desc: 'Idioma e preferências' },
     ...(hasPermission('manage_clinic_settings') ? [{ id: 'notificacoes', label: 'Notificações', icon: <Bell size={18} />, desc: 'Emails automáticos' }] : []),
-    ...(hasPermission('manage_professionals') ? [{ id: 'equipe', label: 'Equipe', icon: <Users size={18} />, desc: 'Profissionais da clínica' }] : []),
+    ...(hasPermission('manage_professionals') && (user?.plan_features?.includes('profissionais')) ? [{ id: 'equipe', label: 'Equipe', icon: <Users size={18} />, desc: 'Profissionais da clínica' }] : []),
     ...(hasPermission('manage_bot_integration') || hasPermission('manage_clinical_tools') || hasPermission('manage_clinic_settings') ? [{ id: 'integracoes', label: 'Integrações', icon: <Plug size={18} />, desc: 'Módulos e conexões' }] : []),
   ];
 

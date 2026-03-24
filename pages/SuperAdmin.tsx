@@ -28,15 +28,22 @@ const FEATURES_OPTIONS = [
   { key: 'pacientes',            label: 'Pacientes' },
   { key: 'prontuario',           label: 'Prontuário' },
   { key: 'formularios',          label: 'Formulários' },
-  { key: 'salas_virtuais',       label: 'Salas Virtuais' },
+  { key: 'salas_virtuais',       label: 'Salas Virtuais', premium: true },
   { key: 'pei',                  label: 'PEI / Neurodesenvolvimento' },
   { key: 'ferramentas_clinicas', label: 'Ferramentas Clínicas' },
   { key: 'estudos_de_caso',      label: 'Estudos de Caso' },
-  { key: 'financeiro',           label: 'Financeiro' },
+  { key: 'financeiro',           label: 'Financeiro', premium: true },
   { key: 'documentos',           label: 'Gerador de Documentos' },
   { key: 'relatorios',           label: 'Relatórios Avançados' },
+  { key: 'profissionais',        label: 'Gestão de Profissionais' },
+  { key: 'servicos',             label: 'Gestão de Serviços' },
+  { key: 'produtos',             label: 'Gestão de Produtos' },
+  { key: 'comandas',             label: 'Gestão de Comandas' },
+  { key: 'mensagens',            label: 'Mensagens Internas' },
   { key: 'api_acesso',           label: 'Acesso à API' },
   { key: 'suporte_prioritario',  label: 'Suporte Prioritário' },
+  { key: 'whatsapp_bot',         label: 'WhatsApp Bot', premium: true },
+  { key: 'aurora_ai',            label: 'Aurora AI', premium: true },
 ];
 
 const MASTER_PERMISSIONS_OPTIONS = [
@@ -323,13 +330,18 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const openNewPlan  = () => { setError(''); setEditPlan(null); setPlanForm({ name: '', description: '', price: '', max_users: '5', max_patients: '100', features: [] }); setPlanModal(true); };
   const openEditPlan = (p: any) => { setError(''); setEditPlan(p); setPlanForm({ name: p.name, description: p.description || '', price: String(p.price), max_users: String(p.max_users), max_patients: String(p.max_patients), features: p.features || [] }); setPlanModal(true); };
+  
+  const handleDeletePlan = (p: any) =>
+    doConfirm({ message: `Remover plano "${p.name}"?`, detail: 'Esta ação removerá o plano. Se existirem clínicas usando este plano, ele será apenas desativado para novas adesões.', danger: true,
+      onConfirm: async () => { try { await api.delete(`/plans/${p.id}`); toast(`Plano "${p.name}" removido.`); load(); } catch { toast('Erro ao remover plano.', 'error'); } } });
 
   const handleSavePlan = async () => {
     setError('');
     if (!planForm.name || !planForm.price) { setError('Nome e preço são obrigatórios.'); return; }
     setSaving(true);
     try {
-      const payload = { ...planForm, price: parseFloat(planForm.price), max_users: parseInt(planForm.max_users), max_patients: parseInt(planForm.max_patients) };
+      const pClean = typeof planForm.price === 'string' ? planForm.price.replace(/\./g, '').replace(',', '.') : planForm.price;
+      const payload = { ...planForm, price: parseFloat(String(pClean)), max_users: parseInt(planForm.max_users), max_patients: 999999 };
       if (editPlan) await api.put(`/plans/${editPlan.id}`, payload); else await api.post('/plans', payload);
       setPlanModal(false); toast(editPlan ? 'Plano atualizado!' : 'Plano criado!'); load();
     } catch (e: any) { setError(e.message); } finally { setSaving(false); }
@@ -882,7 +894,10 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                 <h3 className="font-bold text-slate-800 text-base">{p.name}</h3>
                                 {p.description && <p className="text-slate-400 text-xs mt-0.5">{p.description}</p>}
                               </div>
-                              <button onClick={() => openEditPlan(p)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"><Edit2 size={13} /></button>
+                              <div className="flex gap-1.5">
+                                <button onClick={() => openEditPlan(p)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"><Edit2 size={13} /></button>
+                                <button onClick={() => handleDeletePlan(p)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition"><Trash2 size={13} /></button>
+                              </div>
                             </div>
                             <p className="text-3xl font-bold text-slate-800 mb-1">{fmt(p.price)}<span className="text-sm font-normal text-slate-400">/mês</span></p>
                             <div className="flex gap-3 text-xs text-slate-400 mb-4 mt-1.5 pb-4 border-b border-slate-100">
@@ -1208,9 +1223,21 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">{lbl('Nome *')}<input className={inp} placeholder="Ex: Pro" value={planForm.name} onChange={e => setPlanForm({ ...planForm, name: e.target.value })} /></div>
             <div className="col-span-2">{lbl('Descrição')}<input className={inp} placeholder="Breve descrição" value={planForm.description} onChange={e => setPlanForm({ ...planForm, description: e.target.value })} /></div>
-            <div>{lbl('Preço R$ *')}<input type="number" className={inp} placeholder="149.90" value={planForm.price} onChange={e => setPlanForm({ ...planForm, price: e.target.value })} /></div>
+            <div>
+              {lbl('Preço R$ *')}
+              <input 
+                className={inp} 
+                placeholder="R$ 0,00" 
+                value={planForm.price} 
+                onChange={e => {
+                  let v = e.target.value.replace(/\D/g, '');
+                  if (!v) return setPlanForm({ ...planForm, price: '' });
+                  const n = (parseInt(v) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                  setPlanForm({ ...planForm, price: n });
+                }} 
+              />
+            </div>
             <div>{lbl('Usuários')}<input type="number" className={inp} placeholder="10" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} /></div>
-            <div className="col-span-2">{lbl('Pacientes')}<input type="number" className={inp} placeholder="500" value={planForm.max_patients} onChange={e => setPlanForm({ ...planForm, max_patients: e.target.value })} /></div>
           </div>
           <div>{lbl('Funcionalidades')}
             <div className="grid grid-cols-2 gap-1.5 mt-1">
@@ -1222,7 +1249,8 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     <div className={`w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0 border transition ${active ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
                       {active && <Check size={9} className="text-white" />}
                     </div>
-                    {opt.label}
+                    <span>{opt.label}</span>
+                    {opt.premium && <span className="ml-auto text-[8px] font-bold bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm border border-amber-200/50">Premium</span>}
                   </label>
                 );
               })}
