@@ -2,10 +2,11 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ClinicalRecord, Patient } from '../types';
 import { api } from '../services/api';
 import { 
-  Search, Plus, User, 
+  Search, Plus, User, Users,
   X, ArrowLeft, Loader2, Tag, Filter, FileText, Paperclip, Trash2,
   Calendar, ChevronRight, Link, Info, Save, Clock, Video, Activity, Package, Briefcase, UserCheck, Repeat, CheckCircle2, Layers,
-  AlertCircle
+  AlignLeft, AlignCenter, AlignRight, Highlighter,
+  AlertCircle, FileDown
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
@@ -89,6 +90,17 @@ const EditorSection: React.FC<{
   return prev.label === next.label && prev.isActive === next.isActive;
 });
 
+const PRESET_COLORS = [
+    // Standar
+    '#000000', '#4b5563', '#9ca3af', '#ffffff',
+    // Clinical / Professional
+    '#4f46e5', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6',
+    // Soft / Pastel
+    '#e0e7ff', '#dbeafe', '#d1fae5', '#fef3c7', '#fee2e2', '#fce7f3', '#f3e8ff', '#f1f5f9',
+    // Clinical Dark
+    '#312e81', '#1e3a8a', '#064e3b', '#78350f', '#7f1d1d', '#701a75', '#4c1d95', '#1e293b'
+];
+
 export const Records: React.FC = () => {
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
@@ -100,13 +112,15 @@ export const Records: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [recordSearch, setRecordSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'final'>('all');
+  const [activeTab, setActiveTab] = useState<'history' | 'reports' | 'analysis'>('history');
   const [records, setRecords] = useState<ClinicalRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'new' | 'edit' | 'view'>('new');
+  const [activeColorMenu, setActiveColorMenu] = useState<'text' | 'highlight' | null>(null);
   const [currentRecord, setCurrentRecord] = useState<Partial<ClinicalRecord> & { attachments?: RecordAttachment[] }>({});
-  const [editorSections, setEditorSections] = useState({
+  const editorSectionsRef = useRef({
     demand: '',
     procedures: '',
     analysis: '',
@@ -131,6 +145,7 @@ export const Records: React.FC = () => {
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
   const [activeStyles, setActiveStyles] = useState<Record<string, boolean>>({});
+  const appointmentIdParam = searchParams.get('appointment_id');
 
   const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -190,10 +205,9 @@ export const Records: React.FC = () => {
     }
   };
 
-  const updateSection = (key: 'demand' | 'procedures' | 'analysis' | 'free', value: string) => {
-    // Modify ref instead of state to prevent re-renders during typing
-    editorSections[key] = value;
-  };
+  const updateSection = React.useCallback((key: 'demand' | 'procedures' | 'analysis' | 'free', value: string) => {
+    editorSectionsRef.current[key] = value;
+  }, []);
 
   const storeSelection = () => {
     const sel = window.getSelection();
@@ -222,7 +236,17 @@ export const Records: React.FC = () => {
   };
 
   const execCommand = (command: string, value?: string) => {
-    if (!editorActiveRef.current) return;
+    // If no section focused, default to first section
+    if (!editorActiveRef.current) {
+        const sections = document.querySelectorAll('.custom-record-editor');
+        if (sections.length > 0) {
+            (sections[0] as HTMLDivElement).focus();
+            editorActiveRef.current = sections[0] as HTMLDivElement;
+        } else {
+            return;
+        }
+    }
+    
     editorActiveRef.current.focus();
     
     // Always call restoreSelection if we have one
@@ -293,6 +317,8 @@ export const Records: React.FC = () => {
         type: r.record_type,
         status: r.status,
         title: r.title,
+        startTime: r.start_time || '',
+        endTime: r.end_time || '',
         preview: stripHtml(String(r.content || '')).slice(0, 120),
         tags: (() => {
           if (!r.tags) return [];
@@ -362,11 +388,14 @@ export const Records: React.FC = () => {
           date: new Date().toISOString(),
           type: 'Evolucao',
           status: 'Rascunho',
+          appointment_id: appointmentIdParam ? Number(appointmentIdParam) : undefined,
           title: `Sessão - ${new Date().toLocaleDateString()}`,
+          startTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          endTime: '',
           tags: [],
           attachments: []
       });
-      setEditorSections({ demand: '', procedures: '', analysis: '', free: '' });
+      editorSectionsRef.current = { demand: '', procedures: '', analysis: '', free: '' };
       setTagInput('');
       setAttachmentName('');
       setAttachmentUrl('');
@@ -406,10 +435,12 @@ export const Records: React.FC = () => {
               type: data.record_type,
               status: data.status,
               title: data.title,
+              startTime: data.start_time || '',
+              endTime: data.end_time || '',
               tags,
               attachments
           });
-          setEditorSections(parseRecordContent(String(data.content || '')));
+          editorSectionsRef.current = parseRecordContent(String(data.content || ''));
           setTagInput(tags.join(', '));
           setAttachmentName('');
           setAttachmentUrl('');
@@ -549,10 +580,13 @@ export const Records: React.FC = () => {
               .filter(Boolean);
           const payload = {
               patient_id: selectedPatient.id,
+              appointment_id: currentRecord.appointment_id || (appointmentIdParam ? Number(appointmentIdParam) : null),
               record_type: currentRecord.type || 'Evolucao',
               status: currentRecord.status || 'Rascunho',
               title: currentRecord.title || `Sessão - ${new Date().toLocaleDateString()}`,
-              content: buildRecordHtml(editorSections),
+              start_time: currentRecord.startTime || null,
+              end_time: currentRecord.endTime || null,
+              content: buildRecordHtml(editorSectionsRef.current),
               tags,
               attachments: currentRecord.attachments || []
           };
@@ -571,7 +605,7 @@ export const Records: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-6rem)] flex flex-col md:flex-row bg-white rounded-[24px] border border-slate-200 shadow-xl overflow-hidden animate-fadeIn">
+    <div className="h-[calc(100vh-6rem)] flex flex-col bg-slate-50 overflow-hidden animate-fadeIn">
       <style>{`
         .custom-record-editor b, .custom-record-editor strong { font-weight: 900 !important; }
         .custom-record-editor i, .custom-record-editor em { font-style: italic !important; }
@@ -584,89 +618,120 @@ export const Records: React.FC = () => {
         .custom-record-editor li { margin-bottom: 0.5rem !important; }
         .custom-record-editor a { color: #4f46e5 !important; text-decoration: underline !important; font-weight: 600 !important; }
       `}</style>
-      
-      <div className={`w-full md:w-80 lg:w-96 bg-slate-50 border-r border-slate-200 flex flex-col transition-all ${isMobileListVisible ? 'flex' : 'hidden md:flex'}`}>
-          <div className="p-5 border-b border-slate-200 bg-white sticky top-0 z-10">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100">
-                    <User size={16} className="text-white" /> 
-                </div>
-                <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest">{t('records.title')}</h2>
-              </div>
-              <FilterLineSearch 
-                placeholder={t('records.search')}
-                value={searchTerm}
-                onChange={setSearchTerm}
-              />
-          </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
-              {isLoading ? (
-                  <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-indigo-400" /></div>
-              ) : filteredPatients.map(patient => {
-                  const pid = String(patient.id);
-                  const isSelected = selectedPatientId === pid;
-                  return (
-                  <button 
-                    key={pid} 
-                    onClick={() => handlePatientSelect(pid)} 
-                    className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group ${isSelected ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 ring-2 ring-indigo-50' : 'hover:bg-white hover:shadow-sm text-slate-600 hover:border-slate-300 border border-transparent'}`}
-                  >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 shadow-sm transition-transform group-hover:scale-105 ${isSelected ? 'bg-white/20 text-white' : 'bg-white text-slate-500 border border-slate-100'}`}>
-                        {(patient.full_name || '?').charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-bold text-sm truncate ${isSelected ? 'text-white' : 'text-slate-700'}`}>
-                            {patient.full_name}
-                        </p>
-                        <p className={`text-[9px] font-black uppercase tracking-widest mt-1 opacity-70 ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
-                            {patient.status}
-                        </p>
-                      </div>
-                  </button>
-              )})}
+      {/* HEADER SECTION - Estilo Caixa de Ferramentas */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30">
+          <div className="flex items-center gap-4">
+              <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
+                  <FileText size={20} />
+              </div>
+              <div>
+                  <h1 className="text-xl font-black text-slate-800 tracking-tight leading-none uppercase">{t('records.title')}</h1>
+                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Gestão de Evoluções e Documentos Clínicos</p>
+              </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 bg-slate-100/50 p-1 rounded-2xl border border-slate-200">
+              <button 
+                onClick={() => setActiveTab('history')}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'history' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200 ring-4 ring-indigo-50/10' : 'text-slate-500 hover:bg-white/50'}`}
+              >
+                  Histórico Clínico
+              </button>
+              <button 
+                onClick={() => setActiveTab('reports')}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'reports' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200 ring-4 ring-indigo-50/10' : 'text-slate-500 hover:bg-white/50'}`}
+              >
+                  Relatórios
+              </button>
+              <button 
+                onClick={() => setActiveTab('analysis')}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'analysis' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200 ring-4 ring-indigo-50/10' : 'text-slate-500 hover:bg-white/50'}`}
+              >
+                  Análise de Dados
+              </button>
           </div>
       </div>
 
-      <div className={`flex-1 flex flex-col bg-slate-50/30 relative ${!isMobileListVisible ? 'flex' : 'hidden md:flex'}`}>
+      {activeTab === 'history' ? (
+        <div className="flex-1 flex overflow-hidden">
+        {/* SIDEBAR - PACIENTES */}
+        <div className={`w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 flex flex-col transition-all z-20 ${isMobileListVisible ? 'flex' : 'hidden md:flex'}`}>
+            <div className="p-4 bg-slate-50/50 border-b border-slate-200">
+                <div className="flex items-center gap-2 mb-3 px-1">
+                    <Users size={14} className="text-slate-400" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Listagem de Pacientes</span>
+                </div>
+                <FilterLineSearch 
+                    placeholder={t('records.search')}
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                />
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1 bg-white">
+                {isLoading ? (
+                    <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-indigo-400" /></div>
+                ) : filteredPatients.map(patient => {
+                    const pid = String(patient.id);
+                    const isSelected = selectedPatientId === pid;
+                    return (
+                    <button 
+                        key={pid} 
+                        onClick={() => handlePatientSelect(pid)} 
+                        className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group ${isSelected ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 active:scale-95' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-transparent hover:border-slate-100'}`}
+                    >
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-sm transition-all ${isSelected ? 'bg-white/20 text-white rotate-6' : 'bg-slate-100 text-slate-500 border border-slate-200 group-hover:rotate-6 group-hover:bg-indigo-50 group-hover:text-indigo-600'}`}>
+                            {(patient.full_name || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className={`font-black text-[11px] truncate uppercase tracking-tighter ${isSelected ? 'text-white' : 'text-slate-700'}`}>
+                                {patient.full_name}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <span className={`w-1.5 h-1.5 rounded-full ${patient.status === 'ativo' ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                                <p className={`text-[8px] font-black uppercase tracking-[0.15em] opacity-80 ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                    {patient.status}
+                                </p>
+                            </div>
+                        </div>
+                        {isSelected && <ChevronRight size={14} className="text-white/40" />}
+                    </button>
+                )})}
+            </div>
+        </div>
+
+        {/* MAIN CONTENT */}
+        <div className={`flex-1 flex flex-col bg-slate-50 relative ${!isMobileListVisible ? 'flex' : 'hidden md:flex'}`}>
           {selectedPatient ? (
               <>
-                  <div className="bg-white border-b border-slate-200 p-6 z-10 flex flex-col gap-6">
+                  <div className="bg-white border-b border-slate-200 p-5 flex flex-col gap-5 shadow-sm">
                       <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-5">
+                          <div className="flex items-center gap-4">
                               <button onClick={() => setIsMobileListVisible(true)} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"><ArrowLeft size={20} /></button>
-                              <div className="flex items-center gap-4">
-                                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-xl font-black text-indigo-600 border border-indigo-100 shadow-sm transition-transform hover:scale-105">
+                              
+                              <div className="p-1 bg-slate-100 rounded-3xl flex items-center gap-4 pr-6 border border-slate-200 shadow-inner group/pinfo transition-all hover:bg-slate-200/50">
+                                  <div className="w-12 h-12 rounded-[22px] bg-white flex items-center justify-center text-lg font-black text-indigo-600 border border-slate-200 shadow-sm transform -rotate-3 group-hover/pinfo:rotate-0 transition-all">
                                     {(selectedPatient.full_name || '?').charAt(0).toUpperCase()}
                                   </div>
                                   <div>
-                                    <h2 className="text-xl font-extrabold text-slate-900 leading-none">{selectedPatient.full_name}</h2>
-                                    <div className="flex items-center gap-2 mt-2 relative">
+                                    <h2 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate max-w-[200px]">{selectedPatient.full_name}</h2>
+                                    <div className="flex items-center gap-2 mt-0.5 relative">
                                         <button 
                                             onClick={() => setIsPatientStatusOpen(!isPatientStatusOpen)}
-                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all hover:ring-4 hover:ring-slate-100 ${selectedPatient.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
+                                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${selectedPatient.status === 'ativo' || selectedPatient.status === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
                                         >
-                                            <span className={`w-1.5 h-1.5 rounded-full ${selectedPatient.status === 'ativo' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                            <span className={`w-1 h-1 rounded-full ${selectedPatient.status === 'ativo' || selectedPatient.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                                             {selectedPatient.status}
-                                            < ChevronRight size={10} className={`ml-1 transition-transform ${isPatientStatusOpen ? 'rotate-90' : ''}`} />
                                         </button>
-
+                                        
                                         {isPatientStatusOpen && (
-                                            <div className="absolute top-full left-0 mt-2 w-44 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-[60] animate-in fade-in zoom-in duration-200">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3 py-2">Mudar Status</div>
-                                                <button 
-                                                    onClick={() => handlePatientStatusChange('active')}
-                                                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 transition-all text-left"
-                                                >
-                                                    <span className="text-[11px] font-bold">Ativo</span>
-                                                    {selectedPatient.status === 'ativo' && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                            <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-[60] animate-fadeIn">
+                                                <button onClick={() => handlePatientStatusChange('active')} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-slate-800 transition-all text-left group">
+                                                    <span className="text-[10px] font-black uppercase">Ativar Paciente</span>
+                                                    <CheckCircle2 size={12} className="text-emerald-500 opacity-0 group-hover:opacity-100" />
                                                 </button>
-                                                <button 
-                                                    onClick={() => handlePatientStatusChange('inactive')}
-                                                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-600 transition-all text-left"
-                                                >
-                                                    <span className="text-[11px] font-bold">Inativo</span>
-                                                    {selectedPatient.status === 'inativo' && <CheckCircle2 size={14} className="text-slate-400" />}
+                                                <button onClick={() => handlePatientStatusChange('inactive')} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-rose-50 text-slate-600 transition-all text-left">
+                                                    <span className="text-[10px] font-black uppercase">Desativar</span>
                                                 </button>
                                             </div>
                                         )}
@@ -674,54 +739,56 @@ export const Records: React.FC = () => {
                                   </div>
                               </div>
                           </div>
-                          {hasPermission('create_medical_record') && (
-                              <Button 
-                                onClick={handleNewRecord} 
-                                variant="primary"
-                                icon={<Plus size={16} />}
-                              >
-                                {t('records.new')}
-                              </Button>
-                          )}
+                          
+                          <div className="flex items-center gap-2">
+                             {hasPermission('create_medical_record') && (
+                                  <Button 
+                                    onClick={handleNewRecord} 
+                                    variant="primary"
+                                    className="!rounded-2xl !bg-indigo-600 !shadow-lg !shadow-indigo-100 !px-6 !h-12 !text-[11px] !font-black !uppercase !tracking-[0.15em] hover:scale-105 active:scale-95 transition-all"
+                                    icon={<Plus size={18} />}
+                                  >
+                                    Novo Atendimento
+                                  </Button>
+                             )}
+                          </div>
                       </div>
                       
-                      <FilterLine>
-                        <FilterLineSection>
-                          <FilterLineItem>
-                            <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-4 py-2 rounded-xl">
-                              <FileText size={14} className="text-indigo-500" /> 
-                              <span className="text-xs font-extrabold text-slate-700 uppercase tracking-widest">{recordStats.total} {t('nav.records')}</span>
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
+                         <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
+                            <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100/50 px-3 py-2 rounded-xl shrink-0">
+                              <div className="p-1 bg-white rounded-lg text-indigo-500 shadow-xs border border-indigo-100"><FileText size={12} /></div>
+                              <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">{recordStats.total} Registros</span>
                             </div>
-                          </FilterLineItem>
-                          {recordStats.lastDate && (
-                              <FilterLineItem>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                  Atualizado em {new Date(recordStats.lastDate).toLocaleDateString()}
-                                </span>
-                              </FilterLineItem>
-                          )}
-                        </FilterLineSection>
-                        
-                        <FilterLineSection>
-                           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                              <FilterLineSearch
-                                placeholder="Buscar no histórico..."
-                                value={recordSearch}
-                                onChange={setRecordSearch}
-                              />
-                              <Select
-                                containerClassName="sm:w-48"
+                            
+                            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/60 px-3 py-2 rounded-xl shrink-0">
+                              <div className="p-1 bg-white rounded-lg text-slate-400 shadow-xs border border-slate-100"><Calendar size={12} /></div>
+                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Último: {recordStats.lastDate ? new Date(recordStats.lastDate).toLocaleDateString() : '--'}</span>
+                            </div>
+                         </div>
+                         
+                         <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <div className="relative flex-1 sm:w-64 group/search">
+                               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-indigo-500 transition-colors"><Search size={14}/></div>
+                               <input 
+                                 type="text"
+                                 placeholder="Filtrar histórico..."
+                                 value={recordSearch}
+                                 onChange={e => setRecordSearch(e.target.value)}
+                                 className="w-full h-10 pl-9 pr-4 bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 placeholder:text-slate-400 focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all outline-none"
+                               />
+                            </div>
+                            <select 
                                 value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'draft' | 'final')}
-                                hideLabel
-                              >
-                                  <option value="all">TODOS OS STATUS</option>
-                                  <option value="draft">RASCUNHOS</option>
-                                  <option value="final">FINALIZADOS</option>
-                              </Select>
-                           </div>
-                        </FilterLineSection>
-                      </FilterLine>
+                                onChange={e => setStatusFilter(e.target.value as any)}
+                                className="h-10 px-4 bg-slate-100 border border-slate-200 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest outline-none focus:bg-white focus:border-indigo-400 transition-all cursor-pointer"
+                            >
+                                <option value="all">TODOS</option>
+                                <option value="draft">RASCUNHOS</option>
+                                <option value="final">FINALIZADOS</option>
+                            </select>
+                         </div>
+                      </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 md:p-10 custom-scrollbar">
                       <div className="max-w-4xl mx-auto relative space-y-6 md:space-y-10 pl-4 md:pl-10 before:absolute before:left-[17px] md:before:left-[35px] before:top-2 before:h-full before:w-0.5 before:bg-slate-200/40 before:rounded-full">
@@ -822,7 +889,55 @@ export const Records: React.FC = () => {
                       <p className="text-[12px] font-bold max-w-xs text-slate-400 mt-2 uppercase tracking-wide">{t('records.selectDesc')}</p>
                   </div>
               )}
-          </div>
+        </div>
+      </div>
+      ) : activeTab === 'reports' ? (
+        <div className="flex-1 overflow-y-auto p-10 bg-slate-50 animate-fadeIn custom-scrollbar">
+            <div className="max-w-4xl mx-auto">
+                <div className="flex items-center gap-3 mb-8">
+                    <div className="p-2 bg-indigo-100/50 rounded-xl text-indigo-600"><FileDown size={18} /></div>
+                    <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">Central de Relatórios Clínicos</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all group cursor-pointer">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-6 group-hover:scale-110 transition-transform">
+                            <FileDown size={24} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-2">Relatório Evolutivo</h3>
+                        <p className="text-xs text-slate-500 leading-relaxed mb-6">Gere um documento consolidado com todas as evoluções do paciente em um período específico.</p>
+                        <Button variant="ghost" className="!text-indigo-600 !font-black !text-[10px] !uppercase !tracking-widest !px-0">Configurar Relatório &rarr;</Button>
+                    </div>
+                    <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all group cursor-pointer">
+                        <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-110 transition-transform">
+                            <Activity size={24} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-2">Sumário Clínico</h3>
+                        <p className="text-xs text-slate-500 leading-relaxed mb-6">Documento resumido contendo queixa principal, diagnóstico e plano terapêutico atual.</p>
+                        <Button variant="ghost" className="!text-emerald-600 !font-black !text-[10px] !uppercase !tracking-widest !px-0">Gerar Sumário &rarr;</Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center p-10 bg-slate-50 animate-fadeIn">
+            <div className="bg-white p-12 rounded-[40px] border border-slate-200 shadow-xl shadow-slate-200/50 text-center max-w-lg">
+                <div className="w-20 h-20 bg-indigo-600 rounded-[30px] flex items-center justify-center text-white mx-auto mb-8 shadow-lg shadow-indigo-100 animate-pulse">
+                    <Layers size={32} />
+                </div>
+                <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">Análise em Processamento</h2>
+                <p className="text-[13px] text-slate-500 leading-relaxed font-semibold">
+                    Estamos preparando o motor de análise estatística para este paciente. Em breve você terá acesso a gráficos de evolução e métricas de engajamento baseadas nos prontuários.
+                </p>
+                <div className="mt-10 flex flex-col gap-3">
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 w-[65%] rounded-full shadow-[0_0_10px_rgba(79,70,229,0.5)]"></div>
+                    </div>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Otimizando banco de dados clínico...</span>
+                </div>
+            </div>
+        </div>
+      )}
 
       <Modal
         isOpen={isEditorOpen}
@@ -894,7 +1009,21 @@ export const Records: React.FC = () => {
               <option value="Rascunho">Rascunho</option>
               <option value="Finalizado">Finalizado</option>
             </Select>
-            <div className="md:col-span-3">
+            <Input
+              label="Início"
+              type="time"
+              icon={<Clock size={14} />}
+              value={currentRecord.startTime || ''}
+              onChange={e => setCurrentRecord({ ...currentRecord, startTime: e.target.value })}
+            />
+            <Input
+              label="Término"
+              type="time"
+              icon={<Clock size={14} />}
+              value={currentRecord.endTime || ''}
+              onChange={e => setCurrentRecord({ ...currentRecord, endTime: e.target.value })}
+            />
+            <div className="md:col-span-1">
               <Input
                 label="Tags (separadas por vírgula)"
                 icon={<Tag size={14} />}
@@ -937,27 +1066,76 @@ export const Records: React.FC = () => {
                   );
                 })}
                 <div className="w-[1px] h-6 bg-slate-200 mx-1" />
-                <div className="flex items-center gap-1.5 px-2 border-r border-slate-100">
-                   <button 
-                    title="Cor do Texto"
-                    onClick={() => {
-                        const color = window.prompt('Cor (Ex: red, #333, blue):', 'red');
-                        if (color) execCommand('foreColor', color);
-                    }}
-                    className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-500 transition-colors"
-                   >
-                     <div className="w-4 h-4 rounded-full border border-slate-200" style={{ background: 'linear-gradient(to right, red, blue, green)' }} />
-                   </button>
-                   <button 
-                    title="Marcador"
-                    onClick={() => {
-                        const color = window.prompt('Cor do Marcador (Ex: yellow, lime):', 'yellow');
-                        if (color) execCommand('hiliteColor', color);
-                    }}
-                    className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-500 transition-colors"
-                   >
-                     <Activity size={16} className="text-amber-500" />
-                   </button>
+                <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                  <button 
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => execCommand('justifyLeft')} 
+                    className="p-1.5 hover:bg-white rounded-lg text-slate-500 transition-all hover:shadow-sm"
+                  >
+                    <AlignLeft size={14} />
+                  </button>
+                  <button 
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => execCommand('justifyCenter')} 
+                    className="p-1.5 hover:bg-white rounded-lg text-slate-500 transition-all hover:shadow-sm"
+                  >
+                    <AlignCenter size={14} />
+                  </button>
+                  <button 
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => execCommand('justifyRight')} 
+                    className="p-1.5 hover:bg-white rounded-lg text-slate-500 transition-all hover:shadow-sm"
+                  >
+                    <AlignRight size={14} />
+                  </button>
+                </div>
+                <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+                <div className="flex items-center gap-1.5 px-2 border-r border-slate-100 relative">
+                   <div className="relative">
+                       <button 
+                        title="Cor do Texto"
+                        onClick={() => setActiveColorMenu(activeColorMenu === 'text' ? null : 'text')}
+                        className={`p-1.5 hover:bg-slate-50 rounded-lg text-slate-500 transition-colors border ${activeColorMenu === 'text' ? 'bg-slate-100 border-slate-200 shadow-inner' : 'border-transparent'}`}
+                       >
+                         <div className="w-4 h-4 rounded-full border border-slate-200 shadow-sm" style={{ background: 'linear-gradient(to right, #4f46e5, #ef4444, #f59e0b)' }} />
+                       </button>
+
+                       {activeColorMenu === 'text' && (
+                           <div className="absolute top-full left-0 mt-2 p-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[60] w-[200px] grid grid-cols-5 gap-1.5 animate-fadeIn">
+                               {PRESET_COLORS.map(color => (
+                                   <button 
+                                    key={color}
+                                    style={{ backgroundColor: color }}
+                                    onClick={() => { execCommand('foreColor', color); setActiveColorMenu(null); }}
+                                    className="w-7 h-7 rounded-lg border border-slate-100 hover:scale-110 transition-transform shadow-sm"
+                                   />
+                               ))}
+                           </div>
+                       )}
+                   </div>
+
+                   <div className="relative">
+                       <button 
+                        title="Marcador"
+                        onClick={() => setActiveColorMenu(activeColorMenu === 'highlight' ? null : 'highlight')}
+                        className={`p-1.5 hover:bg-slate-50 rounded-lg text-slate-500 transition-colors border ${activeColorMenu === 'highlight' ? 'bg-slate-100 border-slate-200 shadow-inner' : 'border-transparent'}`}
+                       >
+                         <Highlighter size={16} className="text-amber-500" />
+                       </button>
+
+                       {activeColorMenu === 'highlight' && (
+                           <div className="absolute top-full left-0 mt-2 p-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[60] w-[200px] grid grid-cols-5 gap-1.5 animate-fadeIn">
+                               {PRESET_COLORS.map(color => (
+                                   <button 
+                                    key={color}
+                                    style={{ backgroundColor: color }}
+                                    onClick={() => { execCommand('hiliteColor', color); setActiveColorMenu(null); }}
+                                    className="w-7 h-7 rounded-lg border border-slate-100 hover:scale-110 transition-transform shadow-sm"
+                                   />
+                               ))}
+                           </div>
+                       )}
+                   </div>
                 </div>
                 <Button
                   variant="ghost"
@@ -982,7 +1160,7 @@ export const Records: React.FC = () => {
                     <EditorSection
                       key={`${key}-${currentRecord.id || 'new'}`}
                       label={labels[key]}
-                      initialContent={editorSections[key as keyof typeof editorSections]}
+                      initialContent={editorSectionsRef.current[key as keyof typeof editorSectionsRef.current]}
                       onInput={(html) => updateSection(key as any, html)}
                       onFocus={(el) => { editorActiveRef.current = el; storeSelection(); }}
                       onSelectionChange={storeSelection}

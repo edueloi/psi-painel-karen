@@ -50,14 +50,14 @@ router.get('/:id', authMiddleware, checkPermission('view_medical_records'), asyn
 // POST /medical-records
 router.post('/', authMiddleware, checkPermission('create_medical_record'), async (req, res) => {
   try {
-    const { patient_id, appointment_id, content, record_type, title, status, tags } = req.body;
+    const { patient_id, appointment_id, content, record_type, title, status, tags, start_time, end_time } = req.body;
     if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
 
     const tagsStr = tags ? JSON.stringify(tags) : null;
 
     const [result] = await db.query(
-      'INSERT INTO medical_records (tenant_id, patient_id, professional_id, appointment_id, content, type, record_type, title, status, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.tenant_id, patient_id, req.user.id, appointment_id || null, content || null, record_type || 'Evolucao', record_type || 'Evolucao', title || null, status || 'Rascunho', tagsStr]
+      'INSERT INTO medical_records (tenant_id, patient_id, professional_id, appointment_id, content, type, record_type, title, status, tags, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.tenant_id, patient_id, req.user.id, appointment_id || null, content || null, record_type || 'Evolucao', record_type || 'Evolucao', title || null, status || 'Rascunho', tagsStr, start_time || null, end_time || null]
     );
 
     const [record] = await db.query(
@@ -79,7 +79,7 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
 // PUT /medical-records/:id
 router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
   try {
-    const { content, record_type, title, status, tags } = req.body;
+    const { content, record_type, title, status, tags, start_time, end_time } = req.body;
 
     const [existing] = await db.query(
       'SELECT id FROM medical_records WHERE id = ? AND tenant_id = ?',
@@ -96,9 +96,11 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
            record_type = COALESCE(?, record_type),
            title = COALESCE(?, title),
            status = COALESCE(?, status),
-           tags = COALESCE(?, tags)
+           tags = COALESCE(?, tags),
+           start_time = ?,
+           end_time = ?
        WHERE id = ?`,
-      [content, record_type, record_type, title, status, tagsStr, req.params.id]
+      [content, record_type, record_type, title, status, tagsStr, start_time || null, end_time || null, req.params.id]
     );
 
     const [updated] = await db.query(

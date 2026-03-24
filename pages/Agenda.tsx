@@ -3062,6 +3062,13 @@ export const Agenda: React.FC = () => {
                     <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">WhatsApp</span>
                   </button>
                 )}
+                <button 
+                   onClick={() => navigate(`/records?patient_id=${apt.patient_id}&appointment_id=${apt.id}`)}
+                   className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all"
+                >
+                  <Stethoscope size={16} className="text-indigo-600" />
+                  <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Prontuário</span>
+                </button>
                 <button onClick={handleGenerateReceipt}
                   className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all">
                   <FileText size={16} className="text-slate-500" />

@@ -301,11 +301,15 @@ export interface ClinicalRecord {
   patientId: string;
   patientName: string;
   date: string;
-  type: 'Evolução' | 'Anamnese' | 'Avaliação' | 'Encaminhamento';
-  status: 'Rascunho' | 'Finalizado';
+  startTime?: string;
+  endTime?: string;
+  type: string;
+  status: 'Rascunho' | 'Finalizado' | string;
   title: string;
   preview: string;
   tags: string[];
+  content: string;
+  attachments?: any[];
 }
 
 export interface MessageTemplate {

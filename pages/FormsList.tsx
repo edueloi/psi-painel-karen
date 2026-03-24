@@ -573,11 +573,17 @@ export const FormsList: React.FC = () => {
         onClose={() => setIsCategoryModalOpen(false)}
         title="Gerenciar Categorias"
         maxWidth="md"
-        primaryAction={{
-          label: 'Concluir',
-          onClick: () => setIsCategoryModalOpen(false),
-          variant: 'primary'
-        }}
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+             <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsCategoryModalOpen(false)}
+             >
+                Concluir
+             </Button>
+          </div>
+        }
       >
         <div className="space-y-8 p-1 text-left">
           <p className="text-sm text-slate-500 text-left">
@@ -639,15 +645,24 @@ export const FormsList: React.FC = () => {
         onClose={() => setIsDeleteModalOpen(false)}
         title="Excluir Formulário"
         maxWidth="sm"
-        primaryAction={{
-          label: 'Excluir Definitivamente',
-          onClick: handleDeleteForm,
-          variant: 'danger'
-        }}
-        secondaryAction={{
-          label: 'Cancelar',
-          onClick: () => setIsDeleteModalOpen(false)
-        }}
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsDeleteModalOpen(false)}
+            >
+                Cancelar
+            </Button>
+            <Button 
+                variant="danger" 
+                size="sm" 
+                onClick={handleDeleteForm}
+            >
+                Excluir Definitivamente
+            </Button>
+          </div>
+        }
       >
         <div className="space-y-4 p-1 text-left">
           <div className="flex items-center gap-4 p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100">
