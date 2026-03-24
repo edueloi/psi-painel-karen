@@ -63,10 +63,16 @@ async function getActiveTenants() {
 async function checkAppointmentReminders() {
   try {
     const now = new Date();
-    const curHour = now.getHours();
-    let greeting = 'Bom dia';
-    if (curHour >= 12 && curHour < 18) greeting = 'Boa tarde';
-    else if (curHour >= 18 || curHour < 5) greeting = 'Boa noite';
+    // Pega a hora exata em São Paulo
+    const curHour = parseInt(now.toLocaleString('pt-BR', { 
+        hour: 'numeric', 
+        hour12: false, 
+        timeZone: 'America/Sao_Paulo' 
+    }));
+
+    let greeting = 'Boa noite'; 
+    if (curHour >= 5 && curHour < 12) greeting = 'Bom dia';
+    else if (curHour >= 12 && curHour < 18) greeting = 'Boa tarde';
 
     // Identifica o Master Bot para notificações aos profissionais de toda a rede
     const [saRows] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
@@ -152,7 +158,7 @@ async function checkAppointmentReminders() {
           const icon = apt.type === 'consulta' ? '🩺' : '📅';
           const typeLabel = apt.type === 'consulta' ? 'Atendimento' : (apt.title || 'Evento');
 
-          const wppMsg = `${icon} *${greeting}, ${apt.professional_name}!*\n\nPassando para lembrar do seu próximo ${typeLabel.toLowerCase()}:\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}${sessaoInfo}\n🏢 *Clínica:* ${apt.clinic_name || 'PsiFlux'}\n\nBom trabalho! 🚀`;
+          const wppMsg = `${icon} *${greeting}, ${apt.professional_name}!*\n\nPassando para lembrar do seu próximo ${typeLabel.toLowerCase()}:\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}${sessaoInfo}\n🏢 *Clínica:* ${apt.clinic_name || 'PsiFlux'}\n\nBom trabalho! 🚀\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
           
           await wppService.sendReminder(masterTenantId, apt.professional_phone, wppMsg);
           console.log(`[CRON-MasterBot] Aviso ${label} enviado para Parceiro ${apt.professional_name} (${apt.clinic_name})`);
