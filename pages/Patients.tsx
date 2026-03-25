@@ -16,6 +16,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useToast } from '../contexts/ToastContext';
 import { GridTable, Column } from '../components/UI/GridTable';
+import { PageHeader } from '../components/UI/PageHeader';
 
 interface PatientSummary {
   appointmentsCount: number | null;
@@ -658,26 +659,20 @@ export const Patients: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Page Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-5">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-primary-600 rounded-xl flex items-center justify-center shadow-sm">
-                <Users size={20} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">{t('patients.title')}</h1>
-                <p className="text-xs text-slate-500 mt-0.5">{t('patients.subtitle')}</p>
-              </div>
-            </div>
+      <div className="max-w-[1600px] mx-auto px-6 pt-6 mb-6">
+        <PageHeader
+          icon={<Users />}
+          title={t('patients.title')}
+          subtitle={t('patients.subtitle')}
+          containerClassName="mb-0"
+          actions={
             <div className="flex items-center gap-2">
               {hasPermission('view_performance_reports') && (
                 <>
                   <button
                     onClick={handleExportTemplate}
                     title="Baixar Modelo de Importação"
-                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm uppercase tracking-tighter"
                   >
                     <Download size={14} /> <span className="hidden sm:inline">Modelo</span>
                   </button>
@@ -685,7 +680,7 @@ export const Patients: React.FC = () => {
                     <button
                       onClick={() => setExportMenuOpen(o => !o)}
                       title="Exportar Pacientes"
-                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm uppercase tracking-tighter"
                     >
                       <Download size={14} /> <span className="hidden sm:inline">Exportar</span> <ChevronDown size={12} />
                     </button>
@@ -715,7 +710,7 @@ export const Patients: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
+                  <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer uppercase tracking-tighter">
                     {isLoadingPreview ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />}
                     <span className="hidden sm:inline">{isLoadingPreview ? 'Lendo...' : 'Importar'}</span>
                     <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
@@ -725,17 +720,17 @@ export const Patients: React.FC = () => {
               {hasPermission('create_patient') && (
                 <button
                   onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-primary-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-primary-700 transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-primary-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-primary-700 transition-all shadow-sm uppercase tracking-tighter"
                 >
                   <Plus size={14} /> {t('patients.new')}
                 </button>
               )}
             </div>
-          </div>
-        </div>
+          }
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-[1600px] mx-auto px-6 py-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {[

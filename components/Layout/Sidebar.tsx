@@ -67,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
   return (
     <>
       <div className={`fixed inset-0 bg-slate-900/60 z-40 lg:hidden backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
-      <aside className={`fixed top-0 left-0 z-50 h-full w-[280px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:shadow-lg ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed top-0 left-0 z-50 h-full w-[250px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:shadow-lg ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className={`h-[88px] flex items-center px-6 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
           <div className="flex items-center gap-3.5 group cursor-pointer">
             <div className={`relative h-14 w-14 rounded-2xl overflow-hidden shadow-lg flex-shrink-0 ${logoRing}`}>
@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                       };
                       return (
                         <Link
-                          key={item.path}
+                          key={item.label}
                           to={item.path}
                           onClick={() => window.innerWidth < 1024 && onClose()}
                           data-tour={tourMap[item.path]}

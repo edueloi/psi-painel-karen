@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, Eye, Key, Smartphone, LogOut, AlertTriangle, FileText, CheckCircle2, ChevronRight, Laptop, Monitor, Tablet, Globe, AlertCircle, Trash2, Clock, Download } from 'lucide-react';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
+import { PageHeader } from '../components/UI/PageHeader';
 
 export const Privacy: React.FC = () => {
+  const navigate = useNavigate();
   const { pushToast } = useToast();
   const [isPublic, setIsPublic] = useState(true);
   const [twoFactor, setTwoFactor] = useState(false);
@@ -287,14 +290,15 @@ export const Privacy: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-20 animate-[fadeIn_0.5s_ease-out]">
-      <div className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center p-4 bg-emerald-50 text-emerald-600 rounded-full mb-4 shadow-sm">
-            <Shield size={32} />
-        </div>
-        <h1 className="text-3xl font-display font-bold text-slate-800">Privacidade e Segurança</h1>
-        <p className="text-slate-500 max-w-lg mx-auto mt-2">Gerencie como seus dados são vistos e proteja sua conta com padrões bancários de segurança.</p>
-      </div>
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 animate-fadeIn font-sans space-y-6">
+      <PageHeader
+        icon={<Shield />}
+        title="Privacidade e Segurança"
+        subtitle="Gerencie como seus dados são vistos e proteja sua conta com padrões bancários de segurança."
+        containerClassName="mb-0"
+        showBackButton
+        onBackClick={() => navigate('/')}
+      />
 
       <div className="space-y-6">
           
@@ -486,7 +490,7 @@ export const Privacy: React.FC = () => {
                             >
                                 <LogOut size={14} className="rotate-270" /> Importar / Restaurar
                             </button>
-                            <button className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-widest hover:border-slate-400 transition-all" onClick={() => setIsTermsModalOpen(true)}>
+                            <button className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-widest hover:border-slate-400 transition-all" onClick={() => navigate('/termos')}>
                                 Termos e Condições
                             </button>
                         </div>

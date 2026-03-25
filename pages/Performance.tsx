@@ -7,6 +7,7 @@ import {
   ChevronRight, CalendarDays
 } from 'lucide-react';
 import { api } from '../services/api';
+import { PageHeader } from '../components/UI/PageHeader';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -85,42 +86,33 @@ export const Performance: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Page Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-5">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm">
-                <BarChart2 size={24} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">Performance e Analytics</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Indicadores estratégicos para gestão da sua clínica</p>
-              </div>
+      <div className="max-w-[1600px] mx-auto px-6 pt-6">
+        <PageHeader
+          icon={<BarChart2 />}
+          title="Performance e Analytics"
+          subtitle="Indicadores estratégicos para gestão da sua clínica"
+          containerClassName="mb-0"
+          actions={
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
+                {[
+                    { id: 'week', label: 'Semana' },
+                    { id: 'month', label: 'Mês' },
+                    { id: 'year', label: 'Ano' }
+                ].map(p => (
+                    <button 
+                        key={p.id}
+                        onClick={() => setPeriod(p.id)}
+                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${period === p.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                    >
+                        {p.label}
+                    </button>
+                ))}
             </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
-                  {[
-                      { id: 'week', label: 'Semana' },
-                      { id: 'month', label: 'Mês' },
-                      { id: 'year', label: 'Ano' }
-                  ].map(p => (
-                      <button 
-                          key={p.id}
-                          onClick={() => setPeriod(p.id)}
-                          className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${period === p.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
-                      >
-                          {p.label}
-                      </button>
-                  ))}
-              </div>
-            </div>
-          </div>
-        </div>
+          }
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
+      <div className="max-w-[1600px] mx-auto p-6 space-y-8">
 
       {/* KPI CARDS */}
       <div className="grid grid-cols-4 gap-3 sm:gap-4">

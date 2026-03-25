@@ -6,6 +6,8 @@ import {
   Calculator, AlertCircle, Trash2, Loader2,
   Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2, Sparkles
 } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { PageHeader } from '../components/UI/PageHeader';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
@@ -40,6 +42,7 @@ const CATEGORIES_EXPENSE = [
 
 export const Finance: React.FC = () => {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const { user, isAdmin, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'tax'>('dashboard');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -678,43 +681,43 @@ export const Finance: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24">
-      {/* HEADER & TOP CONTROLS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><DollarSign size={20}/></div>
-                  {t('finance.title')}
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">{t('finance.subtitle')}</p>
-          </div>
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
+      <PageHeader
+        icon={<DollarSign />}
+        title={t('finance.title')}
+        subtitle={t('finance.subtitle')}
+        containerClassName="mb-0"
+        showBackButton
+        onBackClick={() => navigate('/')}
+        actions={
           <div className="flex gap-2">
-              {hasPermission('manage_payments') && (
-                <>
-                  <button 
-                      onClick={() => handleOpenModal('income')} 
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
-                  >
-                      <Plus size={16} /> {t('finance.addIncome')}
-                  </button>
-                  <button 
-                      onClick={() => handleOpenModal('expense')} 
-                      className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-rose-100 transition-all active:scale-95 tracking-widest"
-                  >
-                      <Plus size={16} /> {t('finance.addExpense')}
-                  </button>
-                </>
-              )}
-              {hasPermission('view_financial_reports') && (
-                <button
-                    onClick={() => setIsAuraOpen(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 tracking-widest"
+            {hasPermission('manage_payments') && (
+              <>
+                <button 
+                    onClick={() => handleOpenModal('income')} 
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
                 >
-                    <Sparkles size={16} /> Aura Fiscal
+                    <Plus size={16} /> {t('finance.addIncome')}
                 </button>
-              )}
+                <button 
+                    onClick={() => handleOpenModal('expense')} 
+                    className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-rose-100 transition-all active:scale-95 tracking-widest"
+                >
+                    <Plus size={16} /> {t('finance.addExpense')}
+                </button>
+              </>
+            )}
+            {hasPermission('view_financial_reports') && (
+              <button
+                  onClick={() => setIsAuraOpen(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 tracking-widest"
+              >
+                  <Sparkles size={16} /> Aura Fiscal
+              </button>
+            )}
           </div>
-      </div>
+        }
+      />
 
       {/* STATS BAR (KPIs Restyled) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

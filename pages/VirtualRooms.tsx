@@ -10,6 +10,8 @@ import { VirtualRoom, Patient, User } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { PageHeader } from '../components/UI/PageHeader';
+import { Button } from '../components/UI/Button';
 
 export const VirtualRooms: React.FC = () => {
   const { t } = useLanguage();
@@ -211,50 +213,34 @@ export const VirtualRooms: React.FC = () => {
   return (
     <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20 px-4 sm:px-6 lg:px-0">
 
-      
-      {/* --- HERO SECTION --- */}
-      <div className="relative overflow-hidden rounded-[28px] p-8 bg-slate-950 shadow-2xl shadow-indigo-900/30 border border-slate-800 text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 opacity-95"></div>
-        <div className="absolute -right-24 -top-24 w-96 h-96 bg-indigo-500/20 rounded-full blur-[110px] pointer-events-none"></div>
-        <div className="absolute -left-20 bottom-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none"></div>
-        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.35),transparent_60%)]"></div>
-        
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-            <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-indigo-200 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
-                    <Video size={14} />
-                    <span>{t('rooms.badge')}</span>
-                </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">{t('rooms.title')}</h1>
-                <p className="text-indigo-100 text-lg leading-relaxed max-w-xl">
-                    {t('rooms.subtitle')}
-                </p>
-                <div className="mt-6 flex flex-wrap items-center gap-3 text-xs font-bold text-indigo-100/80">
-                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{t('rooms.feature.e2e')}</span>
-                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{t('rooms.feature.noApp')}</span>
-                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">{t('rooms.feature.link')}</span>
-                </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={handleInstantMeeting}
-                disabled={isCreatingInstant}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-70 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-indigo-900/30 flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0"
-              >
-                {isCreatingInstant ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} fill="currentColor" />}
-                Sala Instantânea
-              </button>
-              <button
-                onClick={() => openCreateModal()}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
-              >
-                <Plus size={16} />
-                Agendar Sala
-              </button>
-            </div>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Video />}
+        title={t('rooms.title')}
+        subtitle={t('rooms.subtitle')}
+        showBackButton
+        onBackClick={() => navigate('/')}
+        actions={
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={handleInstantMeeting}
+              isLoading={isCreatingInstant}
+              variant="primary"
+              leftIcon={<Play size={18} fill="currentColor" />}
+              className="rounded-2xl px-6 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+            >
+              Sala Instantânea
+            </Button>
+            <Button
+              onClick={() => openCreateModal()}
+              variant="soft"
+              leftIcon={<Plus size={16} />}
+              className="rounded-2xl px-6 transition-all"
+            >
+              Agendar Sala
+            </Button>
+          </div>
+        }
+      />
 
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">

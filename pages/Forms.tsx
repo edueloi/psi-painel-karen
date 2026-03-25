@@ -20,6 +20,7 @@ import {
   ExternalLink,
   ArrowLeft,
 } from 'lucide-react';
+import { PageHeader } from '../components/UI/PageHeader';
 
 export const Forms: React.FC = () => {
   const navigate = useNavigate();
@@ -115,46 +116,37 @@ export const Forms: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-6 pb-10">
-      {/* Header compacto */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-indigo-600"
-            title="Voltar para o Dashboard"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
-            <FilePlus2 size={18} />
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 space-y-6">
+      <PageHeader
+        icon={<FilePlus2 />}
+        title="Formulários Clínicos"
+        subtitle="Central de formulários e questionários"
+        showBackButton
+        onBackClick={() => navigate('/caixa-ferramentas')}
+        containerClassName="mb-0"
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => navigate('/formularios/lista')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors uppercase tracking-tighter"
+            >
+              <ListChecks size={14} /> Ver lista
+            </button>
+            <button
+              onClick={() => navigate('/formularios/metricas')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors uppercase tracking-tighter"
+            >
+              <BarChart3 size={14} /> Métricas
+            </button>
+            <button
+              onClick={() => navigate('/formularios/novo')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors uppercase tracking-tighter"
+            >
+              <PlusCircle size={14} /> Criar formulário
+            </button>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-800">Formulários Clínicos</h1>
-            <p className="text-xs text-slate-400">Central de formulários e questionários</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => navigate('/formularios/lista')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors"
-          >
-            <ListChecks size={14} /> Ver lista
-          </button>
-          <button
-            onClick={() => navigate('/formularios/metricas')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors"
-          >
-            <BarChart3 size={14} /> Métricas
-          </button>
-          <button
-            onClick={() => navigate('/formularios/novo')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors"
-          >
-            <PlusCircle size={14} /> Criar formulário
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

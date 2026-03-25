@@ -43,6 +43,8 @@ const FEATURES_OPTIONS = [
   { key: 'suporte_prioritario',  label: 'Suporte Prioritário', premium: true },
   { key: 'whatsapp_bot',         label: 'WhatsApp Bot', premium: true },
   { key: 'aurora_ai',            label: 'Aurora AI', premium: true },
+  { key: 'abordagens_clinicas',  label: 'Abordagens (ACT, DBT, EMDR, etc)' },
+  { key: 'neuro_avalicao',       label: 'Neuropsicologia & Avaliação' },
 ];
 
 const MASTER_PERMISSIONS_OPTIONS = [

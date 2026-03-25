@@ -43,6 +43,10 @@ export interface UserPreferences {
   livroCaixa: {
     itemsPerPage: number;
   };
+  clinicalTools: {
+    orderedIds: string[];
+    hiddenIds: string[];
+  };
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -87,6 +91,10 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   livroCaixa: {
     itemsPerPage: 15,
   },
+  clinicalTools: {
+    orderedIds: [],
+    hiddenIds: [],
+  },
 };
 
 function mergeWithDefaults(stored: any): UserPreferences {
@@ -104,6 +112,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     general:     { ...DEFAULT_PREFERENCES.general,     ...stored?.general },
     messages:    { ...DEFAULT_PREFERENCES.messages,    ...stored?.messages },
     livroCaixa:  { ...DEFAULT_PREFERENCES.livroCaixa,  ...stored?.livroCaixa },
+    clinicalTools: { ...DEFAULT_PREFERENCES.clinicalTools, ...stored?.clinicalTools },
   };
 }
 

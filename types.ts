@@ -25,6 +25,75 @@ export interface Tenant {
   status: 'active' | 'expired' | 'pending';
 }
 
+// Clinical Tools (TCC, Schema, Psycho)
+export interface RPDRecord {
+  id: string;
+  date: string;
+  situation: string;
+  thought: string;
+  emotion: string;
+  intensity: number;
+}
+
+export interface CopingCard {
+  id: string;
+  front: string;
+  back: string;
+  createdAt: string;
+}
+
+export interface SocraticQuestioning {
+  id: string;
+  question: string;
+  answer: string;
+  createdAt: string;
+}
+
+export interface SchemaMode {
+  id: string;
+  name: string;
+  group: 'child' | 'parent' | 'coping' | 'healthy';
+  active: boolean;
+  intensity: number;
+}
+
+export interface ImageryRescripting {
+  id: string;
+  originalScene: string;
+  rescriptedScene: string;
+  emotionBefore: number;
+  emotionAfter: number;
+  createdAt: string;
+}
+
+export interface DreamRecord {
+  id: string;
+  title: string;
+  manifest: string;
+  latent: string;
+  createdAt: string;
+}
+
+export interface CounterTransference {
+  id: string;
+  feeling: string;
+  observation: string;
+  createdAt: string;
+}
+
+export interface PhenomenonRecord {
+  id: string;
+  experience: string;
+  perception: string;
+  createdAt: string;
+}
+
+export interface ActualizationGoal {
+  id: string;
+  goal: string;
+  status: 'pending' | 'achieved';
+  createdAt: string;
+}
 export interface GlobalResource {
   id: string;
   title: string;

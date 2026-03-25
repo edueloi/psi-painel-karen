@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   BookOpen, Plus, ArrowLeft, Search,
   TrendingUp, TrendingDown, Wallet, ChevronLeft, ChevronRight,
@@ -10,6 +10,7 @@ import {
   Sparkles,
   Edit2
 } from 'lucide-react';
+import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { Input, Select, TextArea } from '../components/UI/Input';
@@ -470,6 +471,7 @@ export const LivroCaixa: React.FC = () => {
   const { pushToast } = useToast();
   const { preferences, updatePreference } = useUserPreferences();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { hasPermission, isAdmin } = useAuth();
 
   // ── View ─────────────────────────────────────────────────────────────────────
@@ -1315,73 +1317,69 @@ export const LivroCaixa: React.FC = () => {
   // ─── Render Archive ───────────────────────────────────────────────────────────
 
   const renderArchive = () => (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-            <div className="p-2 bg-slate-100 rounded-xl text-slate-600 border border-slate-200">
-              <BookOpen size={20} />
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
+      <PageHeader
+        icon={<BookOpen />}
+        title="Arquivo Financeiro"
+        subtitle="GESTÃO DE PERÍODOS CONSOLIDADOS"
+        containerClassName="mb-0"
+        actions={
+          <div className="flex items-center gap-2">
+            {/* Year selector */}
+            <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-10">
+              <button
+                onClick={() => setSelectedYear(y => y - 1)}
+                className="p-1 hover:bg-white/10 rounded-lg transition-all"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="mx-2">{selectedYear}</span>
+              <button
+                onClick={() => setSelectedYear(y => y + 1)}
+                className="p-1 hover:bg-white/10 rounded-lg transition-all"
+              >
+                <ChevronRight size={14} />
+              </button>
             </div>
-            Arquivo Financeiro
-          </h1>
-          <p className="text-slate-400 text-xs mt-1 font-bold">GESTÃO DE PERÍODOS CONSOLIDADOS</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Year selector */}
-          <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2.5 font-black text-[10px] uppercase tracking-widest">
+
+            {/* Grid/List toggle */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 h-10">
+              <button
+                onClick={() => { if (archiveLayout !== 'grid') toggleArchiveLayout(); }}
+                title="Visualização em grade"
+                className={`p-2 rounded-lg transition-all ${archiveLayout === 'grid' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <LayoutGrid size={14} />
+              </button>
+              <button
+                onClick={() => { if (archiveLayout !== 'list') toggleArchiveLayout(); }}
+                title="Visualização em lista"
+                className={`p-2 rounded-lg transition-all ${archiveLayout === 'list' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <List size={14} />
+              </button>
+            </div>
+
             <button
-              onClick={() => setSelectedYear(y => y - 1)}
-              className="p-1 hover:bg-white/10 rounded-lg transition-all"
+              onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}
+              className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
             >
-              <ChevronLeft size={14} />
+              <Upload size={14} /> Importar
             </button>
-            <span className="mx-2">{selectedYear}</span>
+
             <button
-              onClick={() => setSelectedYear(y => y + 1)}
-              className="p-1 hover:bg-white/10 rounded-lg transition-all"
+              onClick={() => {
+                const now = new Date();
+                openDetail(now.getMonth() + 1, now.getFullYear());
+                setTimeout(() => openNewTx(), 80);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-10 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
             >
-              <ChevronRight size={14} />
+              <Plus size={16} /> Novo Lançamento
             </button>
           </div>
-
-          {/* Grid/List toggle */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
-            <button
-              onClick={() => { if (archiveLayout !== 'grid') toggleArchiveLayout(); }}
-              title="Visualização em grade"
-              className={`p-2 rounded-lg transition-all ${archiveLayout === 'grid' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              <LayoutGrid size={14} />
-            </button>
-            <button
-              onClick={() => { if (archiveLayout !== 'list') toggleArchiveLayout(); }}
-              title="Visualização em lista"
-              className={`p-2 rounded-lg transition-all ${archiveLayout === 'list' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              <List size={14} />
-            </button>
-          </div>
-
-          <button
-            onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
-          >
-            <Upload size={14} /> Importar
-          </button>
-
-          <button
-            onClick={() => {
-              const now = new Date();
-              openDetail(now.getMonth() + 1, now.getFullYear());
-              setTimeout(() => openNewTx(), 80);
-            }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
-          >
-            <Plus size={16} /> Novo Lançamento
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Month Cards */}
       {isLoadingArchive ? (
@@ -1502,74 +1500,63 @@ export const LivroCaixa: React.FC = () => {
       : '';
 
     return (
-      <div className="space-y-6 animate-fadeIn font-sans pb-24">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => goToArchive()}
-              className="p-2.5 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-800 transition-all shadow-sm"
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                <div className="p-2 bg-slate-100 rounded-xl text-slate-600 border border-slate-200">
-                  <BookOpen size={20} />
-                </div>
-                Livro Caixa
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold uppercase tracking-widest">{displayMonth}</p>
-            </div>
-          </div>
+      <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
+        <PageHeader
+            icon={<BookOpen />}
+            title="Livro Caixa"
+            subtitle={displayMonth}
+            containerClassName="mb-0"
+            showBackButton
+            onBackClick={() => goToArchive()}
+            actions={
+                <div className="flex items-center gap-2">
+                    {/* Export dropdown */}
+                    <div className="relative" ref={exportRef}>
+                      <button
+                        onClick={() => setShowExportMenu(v => !v)}
+                        className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
+                      >
+                        <Download size={14} /> Exportar
+                      </button>
+                      {showExportMenu && (
+                        <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+                          {[
+                            { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
+                            { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
+                            { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
+                          ].map(item => (
+                            <button
+                              key={item.label}
+                              onClick={item.action}
+                              className="w-full text-left px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-colors"
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-          <div className="flex items-center gap-2">
-            {/* Export dropdown */}
-            <div className="relative" ref={exportRef}>
-              <button
-                onClick={() => setShowExportMenu(v => !v)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
-              >
-                <Download size={14} /> Exportar
-              </button>
-              {showExportMenu && (
-                <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-                  {[
-                    { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
-                    { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
-                    { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
-                  ].map(item => (
-                    <button
-                      key={item.label}
-                      onClick={item.action}
-                      className="w-full text-left px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-colors"
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                    {hasPermission('view_financial_reports') && (
+                      <button
+                        onClick={() => setIsImportOpen(true)}
+                        className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
+                      >
+                        <Upload size={14} /> Importar
+                      </button>
+                    )}
 
-            {hasPermission('view_financial_reports') && (
-              <button
-                onClick={() => setIsImportOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
-              >
-                <Upload size={14} /> Importar
-              </button>
-            )}
-
-            {hasPermission('manage_payments') && (
-              <button
-                onClick={() => { handleOpenNewTxFromArchive(); }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
-              >
-                <Plus size={16} /> Novo
-              </button>
-            )}
-          </div>
-        </div>
+                    {hasPermission('manage_payments') && (
+                      <button
+                        onClick={() => { handleOpenNewTxFromArchive(); }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-10 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
+                      >
+                        <Plus size={16} /> Novo
+                      </button>
+                    )}
+                  </div>
+            }
+        />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

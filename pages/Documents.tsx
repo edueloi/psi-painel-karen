@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MOCK_DOCUMENTS, DOCUMENT_CATEGORIES } from '../constants';
 import { api, getStaticUrl } from '../services/api';
 import { Document } from '../types';
@@ -24,9 +24,11 @@ import {
 } from '../components/UI/FilterLine';
 import { DatePicker } from '../components/UI/DatePicker';
 import { Combobox } from '../components/UI/Combobox';
+import { PageHeader } from '../components/UI/PageHeader';
 import { Settings2 } from 'lucide-react';
 
 export const Documents: React.FC = () => {
+  const navigate = useNavigate();
   const { t, language } = useLanguage();
   const { pushToast } = useToast();
   const [searchParams] = useSearchParams();
@@ -246,21 +248,20 @@ export const Documents: React.FC = () => {
   const deleteTarget = documents.find(d => String(d.id) === String(deleteConfirmId));
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24">
-
-      {/* HEADER HERO */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100 shadow-sm"><FolderOpen size={20}/></div>
-                  {t('documents.title') || 'Biblioteca Digital'}
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">{t('documents.subtitle') || 'Gestão centralizada de arquivos e modelos'}</p>
-          </div>
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 space-y-6">
+      <PageHeader
+        icon={<FolderOpen />}
+        title={t('documents.title') || 'Biblioteca Digital'}
+        subtitle={t('documents.subtitle') || 'Gestão centralizada de arquivos e modelos'}
+        containerClassName="mb-0"
+        showBackButton
+        onBackClick={() => navigate('/')}
+        actions={
           <Button variant="primary" size="sm" onClick={() => setIsModalOpen(true)}>
               <Plus size={16} /> {t('documents.new_file')}
           </Button>
-      </div>
+        }
+      />
 
       {/* STATS BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

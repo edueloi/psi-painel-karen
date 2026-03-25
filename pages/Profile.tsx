@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useToast } from '../contexts/ToastContext';
+import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
 import { api, getStaticUrl } from '../services/api';
+import { PageHeader } from '../components/UI/PageHeader';
 import {
   Mail,
   Phone,
@@ -50,6 +53,7 @@ type ScheduleDay = {
 
 export const Profile: React.FC = () => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { updateUser } = useAuth();
 
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -307,7 +311,16 @@ export const Profile: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24">
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 animate-fadeIn font-sans space-y-6">
+      <PageHeader
+        icon={<User />}
+        title="Meu Perfil"
+        subtitle="Gerencie suas informações pessoais, profissionais e configurações de conta."
+        showBackButton
+        onBackClick={() => navigate('/')}
+        containerClassName="mb-12"
+      />
+
       {/* Header Section */}
       <div className="relative">
         {/* Cover Photo */}
@@ -333,8 +346,10 @@ export const Profile: React.FC = () => {
           </div>
         </div>
 
+
+
         {/* Profile Info Overlay Card */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 -mt-32 relative z-10">
+        <div className="mx-auto -mt-32 relative z-10 px-6">
           <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.06)] border border-white/50">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6 sm:gap-8">
               {/* Avatar */}
@@ -429,7 +444,7 @@ export const Profile: React.FC = () => {
       </div>
 
       {/* Content Section */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-8">
+      <div className="mx-auto mt-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Main Content Area */}
@@ -1048,7 +1063,12 @@ export const Profile: React.FC = () => {
                     <h4 className="font-black text-sm uppercase tracking-wider text-indigo-100">Segurança</h4>
                  </div>
                  <p className="text-xs font-bold leading-relaxed mb-6">Sua conta está protegida com criptografia de ponta a ponta. Se precisar alterar sua senha, use o botão abaixo.</p>
-                 <button className="w-full py-3 bg-white text-indigo-600 rounded-2xl text-xs font-black shadow-lg hover:bg-slate-50 transition-colors">ALTERAR SENHA</button>
+                 <button 
+                   onClick={() => navigate('/privacidade')}
+                   className="w-full py-3 bg-white text-indigo-600 rounded-2xl text-xs font-black shadow-lg hover:bg-slate-50 transition-colors"
+                 >
+                   ALTERAR SENHA
+                 </button>
                </div>
             </div>
 
@@ -1074,7 +1094,10 @@ export const Profile: React.FC = () => {
                    <p className="text-[10px] text-slate-400 font-bold">Precisa de ajuda?</p>
                  </div>
               </div>
-              <button className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl text-xs font-black transition-all">
+              <button 
+                onClick={() => navigate('/ajuda')}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl text-xs font-black transition-all"
+              >
                 Abrir Central de Ajuda <ExternalLink size={14} />
               </button>
             </div>

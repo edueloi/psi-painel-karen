@@ -11,12 +11,14 @@ const maskCpf = (v: string) => {
   const d = v.replace(/\D/g, '').slice(0, 11);
   return d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4').replace(/[.-]$/, '').replace(/\.$/, '');
 };
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   UserCheck, Plus, Edit3, Trash2, Shield, 
   Briefcase, CheckCircle, X, DollarSign, Users, Lock, Key, 
   Loader2, Phone, Mail, ShieldAlert, UserPlus, Power, Eye, EyeOff, ChevronRight, AlertCircle,
   Layout, Settings, FileText, Smartphone, Tablet, Calendar, Check
 } from 'lucide-react';
+import { PageHeader } from '../components/UI/PageHeader';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,6 +34,7 @@ const cx = (...classes: Array<string | false | null | undefined>) =>
 
 export const Professionals: React.FC = () => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { user: currentUser, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<'team' | 'permissions' | 'commissions'>('team');
   const [professionals, setProfessionals] = useState<any[]>([]);
@@ -97,7 +100,7 @@ export const Professionals: React.FC = () => {
         { key: 'view_medical_records', label: 'Ver Prontuário / Evoluções', description: 'Ler e ter acesso ao histórico clínico e registros' },
         { key: 'create_medical_record', label: 'Evoluir', description: 'Anotar novas sessões e registrar andamento' },
         { key: 'edit_medical_record', label: 'Editar Prontuário', description: 'Corrigir e assinar registros antigos' },
-        { key: 'manage_clinical_tools', label: 'Testes e Avaliações', description: 'Acesso a Inventários, Escalas e PEI' },
+        { key: 'manage_clinical_tools', label: 'Ferramentas Clínicas', description: 'Acesso a ACT, DBT, EMDR, Sistêmica e Avaliações' },
       ]
     },
     {
@@ -414,35 +417,30 @@ export const Professionals: React.FC = () => {
   }, [professionals]);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      {/* HEADER */}
-      <header className="border-b border-slate-200 bg-white shadow-sm z-40 relative">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-100">
-              <Users size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">{t('professionals.title')}</h1>
-              <p className="text-xs text-slate-400 font-medium">{t('professionals.subtitle')}</p>
-            </div>
-          </div>
-
-          {hasPermission('manage_professionals') && (
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-8 animate-fadeIn font-sans">
+      <PageHeader
+        icon={<Users />}
+        title={t('professionals.title')}
+        subtitle={t('professionals.subtitle')}
+        showBackButton
+        onBackClick={() => navigate('/')}
+        containerClassName="mb-0"
+        actions={
+          hasPermission('manage_professionals') && (
             <Button
               onClick={() => handleOpenModal()}
               leftIcon={<UserPlus size={18} />}
               variant="primary"
               radius="xl"
-              className="shadow-lg shadow-indigo-200"
+              className="shadow-lg shadow-indigo-200 uppercase tracking-tighter text-xs font-black"
             >
               {t('professionals.new')}
             </Button>
-          )}
-        </div>
-      </header>
+          )
+        }
+      />
 
-      <main className="mx-auto max-w-[1500px] px-6 py-8 space-y-8">
+
         {/* STATS BAR */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
@@ -940,8 +938,7 @@ export const Professionals: React.FC = () => {
             </div>
           </div>
         ) : null}
-      </main>
-
+      
       {/* --- MODAL DE USUÁRIO --- */}
       <Modal
         isOpen={isModalOpen}

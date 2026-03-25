@@ -15,6 +15,7 @@ import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { DatePicker } from '../components/UI/DatePicker';
+import { PageHeader } from '../components/UI/PageHeader';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface DiscResult {
@@ -451,29 +452,25 @@ export default function Disc() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
-            <Brain size={26} className="text-white" />
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 space-y-6">
+      <PageHeader
+        icon={<Brain />}
+        title="DISC"
+        subtitle="Análise Comportamental — Metodologia Marston"
+        iconGradient="from-indigo-600 to-violet-600"
+        containerClassName="mb-0"
+        actions={
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="ghost" size="sm" radius="xl" leftIcon={<BookOpen size={15} />} onClick={() => setManualOpen(true)}>
+              Manual de Uso
+            </Button>
+            <Button variant="outline" size="sm" radius="xl" leftIcon={<Share2 size={15} />}
+              onClick={() => { setSharePatientId(selectedPatientId); setShareOpen(true); }}>
+              Compartilhar DISC
+            </Button>
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 leading-none">DISC</h1>
-            <p className="text-sm text-slate-400 font-medium mt-0.5">Análise Comportamental — Metodologia Marston</p>
-          </div>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="ghost" size="sm" radius="xl" leftIcon={<BookOpen size={15} />} onClick={() => setManualOpen(true)}>
-            Manual de Uso
-          </Button>
-          <Button variant="outline" size="sm" radius="xl" leftIcon={<Share2 size={15} />}
-            onClick={() => { setSharePatientId(selectedPatientId); setShareOpen(true); }}>
-            Compartilhar DISC
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filters */}
       <div className="bg-white border border-slate-100 rounded-3xl p-4 shadow-sm space-y-3">

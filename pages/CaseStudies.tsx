@@ -1,6 +1,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   BookOpen,
@@ -16,9 +16,11 @@ import {
   Trash2,
   Pencil
 } from 'lucide-react';
+import { PageHeader } from '../components/UI/PageHeader';
 
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { api } from '../services/api';
 import { Patient } from '../types';
@@ -108,8 +110,10 @@ const EMPTY_BOARDS: CaseBoard[] = [];
 export const CaseStudies: React.FC = () => {
   const { t } = useLanguage();
   const { pushToast } = useToast();
+  const { user: currentUser, hasPermission } = useAuth();
   const { preferences, updatePreference } = useUserPreferences();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // View State
   const [currentView, setCurrentView] = useState<'grid' | 'list'>(preferences.caseStudies.viewMode);
@@ -632,18 +636,16 @@ export const CaseStudies: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20 h-[calc(100vh-6rem)] flex flex-col px-4 sm:px-6 lg:px-0">
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans h-calc-h-6rem flex flex-col">
       {!activeBoardId ? (
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-            <div>
-                <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                    <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><BookOpen size={20} /></div>
-                    {t('cases.boards')}
-                </h1>
-                <p className="text-slate-400 text-xs mt-1 font-bold">
-                    {boardStats.boardCount} quadros · {boardStats.columnCount} colunas · {boardStats.cardCount} casos
-                </p>
-            </div>
+        <PageHeader
+          icon={<BookOpen />}
+          title={t('cases.boards')}
+          subtitle={`${boardStats.boardCount} quadros · ${boardStats.columnCount} colunas · ${boardStats.cardCount} casos`}
+          showBackButton
+          onBackClick={() => navigate('/caixa-ferramentas')}
+          containerClassName="mb-0"
+          actions={
             <Button
                 variant="primary"
                 leftIcon={<Plus size={16} />}
@@ -651,43 +653,43 @@ export const CaseStudies: React.FC = () => {
             >
                 {t('cases.newBoard')}
             </Button>
-        </div>
+          }
+        />
       ) : (
-        <div className="flex items-center justify-between px-2 shrink-0">
-            <div className="flex items-center gap-4">
-                <button onClick={() => setActiveBoardId(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
-                    <ArrowLeft size={24} />
-                </button>
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800">{activeBoard?.title}</h2>
-                    <p className="text-sm text-slate-500">{activeBoard?.description}</p>
-                </div>
-            </div>
-            <div className="flex items-center gap-3">
-               <div className="hidden md:flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
-                   <Search size={16} className="text-slate-400" />
-                   <input
-                     value={cardSearch}
-                     onChange={(e) => setCardSearch(e.target.value)}
-                     className="w-48 bg-transparent text-sm outline-none text-slate-600 placeholder:text-slate-400"
-                     placeholder="Buscar por paciente ou tag"
-                   />
-               </div>
-               {history.length > 0 && (
-                   <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-xs text-slate-500 animate-[fadeIn_0.5s_ease-out]">
-                       <History size={12} />
-                       <span className="font-bold">{history[0].time}:</span>
-                       <span className="truncate max-w-[200px]">{history[0].msg}</span>
-                   </div>
-               )}
-               <button
-                 onClick={handleAddColumn}
-                 className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm"
-               >
-                   <Plus size={16} /> {t('cases.addColumn')}
-               </button>
-            </div>
-        </div>
+        <PageHeader
+            icon={<BookOpen />}
+            title={activeBoard?.title || ''}
+            subtitle={activeBoard?.description || ''}
+            containerClassName="mb-0"
+            showBackButton
+            onBackClick={() => setActiveBoardId(null)}
+            actions={
+              <div className="flex items-center gap-3">
+                 <div className="hidden md:flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
+                     <Search size={16} className="text-slate-400" />
+                     <input
+                       value={cardSearch}
+                       onChange={(e) => setCardSearch(e.target.value)}
+                       className="w-48 bg-transparent text-sm outline-none text-slate-600 placeholder:text-slate-400 font-bold"
+                       placeholder="Buscar caso ou tag..."
+                     />
+                 </div>
+                 {history.length > 0 && (
+                     <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-xs text-slate-500 animate-[fadeIn_0.5s_ease-out]">
+                         <History size={12} />
+                         <span className="font-bold">{history[0].time}:</span>
+                         <span className="truncate max-w-[200px]">{history[0].msg}</span>
+                     </div>
+                 )}
+                 <button
+                   onClick={handleAddColumn}
+                   className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm active:scale-95"
+                 >
+                     <Plus size={16} /> {t('cases.addColumn')}
+                 </button>
+              </div>
+            }
+        />
       )}
 
       {!activeBoardId ? (

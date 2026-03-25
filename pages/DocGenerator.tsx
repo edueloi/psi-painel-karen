@@ -28,6 +28,8 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
+import { PageHeader } from '../components/UI/PageHeader';
+import { RichTextEditor } from '../components/UI/RichTextEditor';
 import { title } from 'process';
 
 type DocCategory = {
@@ -497,46 +499,41 @@ export const DocGenerator: React.FC = () => {
           </div>
         ))}
       </div>
-      {/* Page Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-5 mb-8 rounded-3xl shadow-sm">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm">
-                <FileText size={20} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">Emissor de Documentos</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Laudos, atestados e prontuários profissionais inteligentes.</p>
-              </div>
-            </div>
-            
+      <div className="max-w-[1600px] mx-auto px-6 pt-6 mb-6">
+        <PageHeader
+          icon={<FileText />}
+          title="Emissor de Documentos"
+          subtitle="Laudos, atestados e prontuários profissionais inteligentes."
+          containerClassName="mb-0"
+          actions={
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setIsConfirmSeedModalOpen(true)}
                 disabled={isSeeding}
-                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg hover:bg-emerald-100 transition-all border border-emerald-100/50 shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg hover:bg-emerald-100 transition-all border border-emerald-100/50 shadow-sm uppercase tracking-tighter"
               >
                 <Sparkles size={14} /> {isSeeding ? 'IMPORTANDO...' : 'IMPORTAR PADRÕES'}
               </button>
               <button 
                 onClick={() => setIsCategoryModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm uppercase tracking-tighter"
               >
                 <Settings size={14} /> CATEGORIAS
               </button>
               <button
                 onClick={() => openTemplateModal()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-violet-700 transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-violet-700 transition-all shadow-sm uppercase tracking-tighter"
               >
                 <Plus size={14} /> NOVO TEMPLATE
               </button>
             </div>
-        </div>
+          }
+        />
       </div>
 
-      <div className="max-w-4xl mx-auto space-y-8 pb-20">
+      <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
         {/* Left Panel: Configuration */}
-        <div className="space-y-8">
+        <div className="space-y-4">
            {/* Section 1: Template Selection */}
            <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
@@ -946,47 +943,13 @@ export const DocGenerator: React.FC = () => {
               </Select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select 
-                label="Categoria" 
-                value={templateCategoryId} 
-                onChange={e => setTemplateCategoryId(e.target.value)}
-              >
-                <option value="">Sem categoria</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-              
-              <div className="space-y-2">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Inserir Variáveis</p>
-                <div className="flex flex-wrap gap-1.5 px-1">
-                  {[
-                    { label: 'Nome', tag: '{{patient_name}}' },
-                    { label: 'CPF', tag: '{{patient_cpf}}' },
-                    { label: 'Data', tag: '{{date}}' },
-                    { label: 'Hora Início', tag: '{{time_start}}' },
-                    { label: 'Hora Fim', tag: '{{time_end}}' },
-                    { label: 'Valor', tag: '{{amount}}' },
-                    { label: 'Cidade', tag: '{{city}}' },
-                  ].map(v => (
-                    <button 
-                      key={v.tag}
-                      onClick={() => setTemplateBody(prev => prev + ' ' + v.tag)}
-                      className="px-2 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-lg text-[9px] font-black hover:bg-slate-100 transition-colors uppercase tracking-widest"
-                    >
-                      {v.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Corpo do Template (Tags Dinâmicas)</label>
-              <textarea 
+              <RichTextEditor
                 value={templateBody}
-                onChange={e => setTemplateBody(e.target.value)}
-                className="w-full h-64 p-5 rounded-3xl border border-slate-200 bg-slate-50 text-slate-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none text-[13px] leading-relaxed font-serif"
-                placeholder="Digite o texto do documento aqui..."
+                onChange={setTemplateBody}
+                placeholder="Escreva o texto do documento aqui, use as variáveis no menu acima..."
+                minHeight="400px"
               />
             </div>
 

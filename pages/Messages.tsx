@@ -11,6 +11,7 @@ import { GridTable } from '../components/UI/GridTable';
 import { Combobox } from '../components/UI/Combobox';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { PageHeader } from '../components/UI/PageHeader';
 
 // ── Variáveis disponíveis ─────────────────────────────────────────────────────
 const AVAILABLE_VARIABLES = [
@@ -429,31 +430,28 @@ export const Messages: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
 
-      {/* ── HEADER ── */}
-      <header className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-[1400px] mx-auto flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100">
-              <MessageCircle size={22} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">Mensagens Pré-definidas</h1>
-              <p className="text-xs text-slate-400 font-medium">Modelos inteligentes com variáveis dinâmicas</p>
-            </div>
-          </div>
-          <Button
-            variant="primary"
-            radius="xl"
-            leftIcon={<Plus size={16} />}
-            onClick={() => handleOpenModal()}
-            className="shadow-lg shadow-indigo-100"
-          >
-            Nova Mensagem
-          </Button>
-        </div>
-      </header>
+      <div className="max-w-[1600px] mx-auto px-6 pt-6">
+        <PageHeader
+          icon={<MessageCircle />}
+          title="Mensagens Pré-definidas"
+          subtitle="Modelos inteligentes com variáveis dinâmicas"
+          iconGradient="from-sky-500 to-indigo-600"
+          containerClassName="mb-0"
+          actions={
+            <Button
+              variant="primary"
+              radius="xl"
+              leftIcon={<Plus size={16} />}
+              onClick={() => handleOpenModal()}
+              className="shadow-lg shadow-indigo-100"
+            >
+              Nova Mensagem
+            </Button>
+          }
+        />
+      </div>
 
-      <main className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-[1600px] mx-auto px-6 py-8 space-y-6">
 
         {/* ── SEARCH + CATEGORY TABS ── */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">

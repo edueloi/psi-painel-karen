@@ -9,6 +9,7 @@ import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
 import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle, FilterLineDateRange } from '../components/UI/FilterLine';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { GridTable } from '../components/UI/GridTable';
+import { PageHeader } from '../components/UI/PageHeader';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -1205,86 +1206,82 @@ export const Comandas: React.FC = () => {
     <div className="min-h-screen bg-slate-50">
 
 
-      <header className="border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg shadow-primary-200">
-              <ShoppingBag size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">Gestão de Comandas</h1>
-              <p className="text-xs text-slate-400">Controle financeiro, pacotes e sessões</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {hasPermission('manage_payments') && (
-              <Button
-                onClick={() => { setImportRows([]); setImportResult(null); setIsImportOpen(true); }}
-                leftIcon={<Upload size={16} />}
-                variant="outline"
-                radius="xl"
-              >
-                Importar
-              </Button>
-            )}
-
-            {/* dropdown exportar */}
-            {hasPermission('view_financial_reports') && (
-              <div className="relative">
+      <div className="mx-auto max-w-[1600px] px-6 pt-6 mb-6">
+        <PageHeader
+          icon={<ShoppingBag />}
+          title="Gestão de Comandas"
+          subtitle="Controle financeiro, pacotes e sessões"
+          containerClassName="mb-0"
+          actions={
+            <div className="flex items-center gap-2">
+              {hasPermission('manage_payments') && (
                 <Button
-                  onClick={() => setExportMenuOpen(o => !o)}
-                  leftIcon={<Download size={16} />}
-                  rightIcon={<ChevronDown size={14} />}
+                  onClick={() => { setImportRows([]); setImportResult(null); setIsImportOpen(true); }}
+                  leftIcon={<Upload size={16} />}
                   variant="outline"
                   radius="xl"
                 >
-                  Exportar
+                  Importar
                 </Button>
-                {exportMenuOpen && (
-                  <div
-                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
-                    onMouseLeave={() => setExportMenuOpen(false)}
+              )}
+
+              {/* dropdown exportar */}
+              {hasPermission('view_financial_reports') && (
+                <div className="relative">
+                  <Button
+                    onClick={() => setExportMenuOpen(o => !o)}
+                    leftIcon={<Download size={16} />}
+                    rightIcon={<ChevronDown size={14} />}
+                    variant="outline"
+                    radius="xl"
                   >
-                    <button
-                      onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    Exportar
+                  </Button>
+                  {exportMenuOpen && (
+                    <div
+                      className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                      onMouseLeave={() => setExportMenuOpen(false)}
                     >
-                      <FileText size={14} className="text-emerald-500" /> Exportar CSV
-                    </button>
-                    <button
-                      onClick={() => { setExportMenuOpen(false); handleExportXLSX(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                      <FileText size={14} className="text-green-600" /> Exportar Excel
-                    </button>
-                    <button
-                      onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                      <FileText size={14} className="text-red-500" /> Exportar PDF
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                      <button
+                        onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                      </button>
+                      <button
+                        onClick={() => { setExportMenuOpen(false); handleExportXLSX(); }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <FileText size={14} className="text-green-600" /> Exportar Excel
+                      </button>
+                      <button
+                        onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <FileText size={14} className="text-red-500" /> Exportar PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {hasPermission('manage_payments') && (
-              <Button
-                onClick={() => handleOpenModal()}
-                leftIcon={<Plus size={16} />}
-                variant="primary"
-                radius="xl"
-                className="shadow-lg shadow-primary-200"
-              >
-                Nova comanda
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
+              {hasPermission('manage_payments') && (
+                <Button
+                  onClick={() => handleOpenModal()}
+                  leftIcon={<Plus size={16} />}
+                  variant="primary"
+                  radius="xl"
+                  className="shadow-lg shadow-primary-200"
+                >
+                  Nova comanda
+                </Button>
+              )}
+            </div>
+          }
+        />
+      </div>
 
-      <main className="mx-auto max-w-[1500px] px-6 py-6">
+      <main className="mx-auto max-w-[1600px] px-6 py-6">
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-3">

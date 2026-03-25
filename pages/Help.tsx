@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   HelpCircle, MessageCircle, FileText, ChevronDown, CheckCircle, Mail,
   Search, Sparkles, Send, Bot, Calendar, Users, DollarSign, Video,
@@ -8,6 +9,7 @@ import {
 import { API_BASE_URL } from '../services/api';
 import { Button } from '../components/UI/Button';
 import { Modal } from '../components/UI/Modal';
+import { PageHeader } from '../components/UI/PageHeader';
 
 // ── FAQ Data ─────────────────────────────────────────────────────────────────
 const FAQ_CATEGORIES = [
@@ -178,6 +180,7 @@ const AURORA_SUGGESTIONS = [
 ];
 
 export const Help: React.FC = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm]         = useState('');
   const [activeCategory, setActiveCategory] = useState('agenda');
   const [openFaq, setOpenFaq]               = useState<number | null>(null);
@@ -246,32 +249,23 @@ export const Help: React.FC = () => {
   }, [searchTerm, activeCategory, activeGroup]);
 
   return (
-    <div className="max-w-[1300px] mx-auto pb-20 animate-[fadeIn_0.4s_ease-out]">
-      <div className="relative rounded-[32px] overflow-hidden mb-10 bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 shadow-2xl shadow-indigo-900/30">
-        <div className="absolute -right-16 -top-16 w-72 h-72 bg-violet-500 rounded-full blur-[120px] opacity-40" />
-        <div className="absolute left-0 bottom-0 w-56 h-56 bg-sky-500 rounded-full blur-[100px] opacity-25" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10" />
-
-        <div className="relative z-10 px-8 py-14 text-center text-white">
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-bold mb-5 backdrop-blur-sm">
-            <LifeBuoy size={13} /> Central de Ajuda & Suporte
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-            Como podemos<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-violet-300">te ajudar hoje?</span>
-          </h1>
-          <p className="text-indigo-200 text-lg max-w-xl mx-auto mb-8">
-            Encontre respostas nas perguntas frequentes, guias detalhados ou converse diretamente com a Aurora.
-          </p>
-
-          <div className="max-w-lg mx-auto relative">
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 animate-fadeIn font-sans space-y-8">
+      <PageHeader
+        icon={<HelpCircle />}
+        title="Central de Ajuda & Suporte"
+        subtitle="Encontre respostas nas perguntas frequentes, guias detalhados ou converse diretamente com a Aurora."
+        containerClassName="mb-0"
+        showBackButton
+        onBackClick={() => navigate('/')}
+        actions={
+          <div className="flex-1 max-w-lg relative">
             <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={e => { setSearchTerm(e.target.value); setActiveTab('faq'); }}
               placeholder="Buscar nas perguntas frequentes..."
-              className="w-full py-4 pl-12 pr-5 rounded-2xl text-slate-800 text-sm focus:outline-none shadow-xl focus:ring-4 focus:ring-indigo-300/30"
+              className="w-full py-4 pl-12 pr-5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-300/30 transition-all"
             />
             {searchTerm && (
               <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -279,14 +273,8 @@ export const Help: React.FC = () => {
               </button>
             )}
           </div>
-
-          <div className="flex justify-center gap-8 mt-8 text-sm text-indigo-200">
-            <span className="flex items-center gap-1.5"><BookOpen size={13} /> 20+ Artigos</span>
-            <span className="flex items-center gap-1.5"><Clock size={13} /> Resposta em &lt;2h</span>
-            <span className="flex items-center gap-1.5"><Star size={13} /> Suporte 5★</span>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-6">

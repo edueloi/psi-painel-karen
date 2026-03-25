@@ -20,6 +20,7 @@ import { Button } from '../components/UI/Button';
 import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
 import { DatePicker } from '../components/UI/DatePicker';
 import { AgendaPlanner, WorkScheduleDay } from '../components/UI/AgendaPlanner';
+import { PageHeader } from '../components/UI/PageHeader';
 
 type ComandaTab = 'avulsa' | 'pacote';
 type ViewMode = 'kanban' | 'list';
@@ -1367,50 +1368,46 @@ export const Agenda: React.FC = () => {
 
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24">
-
-
-      {/* HEADER HERO */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100 shadow-sm"><CalendarIcon size={20}/></div>
-                  {t('agenda.title')}
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">{t('agenda.subtitle')}</p>
-          </div>
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
+      <PageHeader
+        icon={<CalendarIcon />}
+        title={t('agenda.title')}
+        subtitle={t('agenda.subtitle')}
+        containerClassName="mb-0"
+        actions={
           <div className="flex items-center gap-2">
-              <div className="relative">
-                  <button
-                      onClick={() => setExportMenuOpen((o: boolean) => !o)}
-                      className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm"
-                  >
-                      <Download size={14} className="text-emerald-500" /> Exportar <ChevronDown size={12} />
+            <div className="relative">
+              <button
+                onClick={() => setExportMenuOpen((o: boolean) => !o)}
+                className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm uppercase tracking-tighter"
+              >
+                <Download size={14} className="text-emerald-500" /> Exportar <ChevronDown size={12} />
+              </button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg" onMouseLeave={() => setExportMenuOpen(false)}>
+                  <button onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    <FileText size={14} className="text-emerald-500" /> Exportar CSV
                   </button>
-                  {exportMenuOpen && (
-                      <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg" onMouseLeave={() => setExportMenuOpen(false)}>
-                          <button onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              <FileText size={14} className="text-emerald-500" /> Exportar CSV
-                          </button>
-                          <button onClick={() => { setExportMenuOpen(false); handleExport(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              <FileText size={14} className="text-green-600" /> Exportar Excel
-                          </button>
-                          <button onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              <FileText size={14} className="text-red-500" /> Exportar PDF
-                          </button>
-                      </div>
-                  )}
-              </div>
-              {hasPermission('create_appointment') && (
-                  <button
-                      onClick={() => openNewModal()}
-                      className="bg-gradient-to-r from-indigo-600 to-primary-600 hover:from-indigo-700 hover:to-primary-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95"
-                  >
-                      <Plus size={14} /> Novo Agendamento
+                  <button onClick={() => { setExportMenuOpen(false); handleExport(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    <FileText size={14} className="text-green-600" /> Exportar Excel
                   </button>
+                  <button onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    <FileText size={14} className="text-red-500" /> Exportar PDF
+                  </button>
+                </div>
               )}
+            </div>
+            {hasPermission('create_appointment') && (
+              <button
+                onClick={() => openNewModal()}
+                className="bg-gradient-to-r from-indigo-600 to-primary-600 hover:from-indigo-700 hover:to-primary-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95 uppercase tracking-tighter"
+              >
+                <Plus size={14} /> Novo Agendamento
+              </button>
+            )}
           </div>
-      </div>
+        }
+      />
 
       {/* STATS BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -11,8 +11,9 @@ import {
   Trash2, Edit2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
+import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { FilterLine, FilterLineSearch, FilterLineSection } from '../components/UI/FilterLine';
@@ -1129,12 +1130,21 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
 };
 
 export const PEI: React.FC = () => {
-  const { t } = useLanguage();
+    const navigate = useNavigate();
+    const { t } = useLanguage();
   const { success, error: toastError } = useToast();
   const [searchParams] = useSearchParams();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'goals' | 'abc' | 'sensory' | 'assessments'>('goals');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'abc' || tab === 'sensory' || tab === 'assessments' || tab === 'goals') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   const [peis, setPeis] = useState<PEIType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [peiMissing, setPeiMissing] = useState(false);
@@ -1399,15 +1409,14 @@ export const PEI: React.FC = () => {
   return (
     <div className="space-y-6 sm:space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-16 sm:pb-20 px-4 sm:px-6 lg:px-0">
       
-      <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
-        <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 shrink-0">
-          <BrainCircuit size={20} />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold text-slate-800 leading-tight">{t('pei.title')}</h1>
-          <p className="text-xs text-slate-500">{t('pei.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<BrainCircuit />}
+        title={t('pei.title')}
+        subtitle={t('pei.subtitle')}
+        containerClassName="mb-0"
+        showBackButton
+        onBackClick={() => navigate('/caixa-ferramentas')}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
           

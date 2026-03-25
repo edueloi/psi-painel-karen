@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy, TrendingUp, Users, Calendar, Filter, Star, Medal, Crown, ArrowUpRight, DollarSign, Loader2, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
+import { PageHeader } from '../components/UI/PageHeader';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -115,17 +116,14 @@ export const BestClients: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24 px-4 max-w-7xl mx-auto">
-      
-      {/* HEADER & TOP CONTROLS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-amber-50 rounded-xl text-amber-600 border border-amber-100"><Trophy size={20}/></div>
-                  Melhores Clientes
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">Ranking de pacientes por faturamento e recorrência</p>
-          </div>
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 space-y-6">
+      <PageHeader
+        icon={<Trophy />}
+        title="Melhores Clientes"
+        subtitle="Ranking de pacientes por faturamento e recorrência"
+        iconGradient="from-amber-600 to-amber-100"
+        containerClassName="mb-0 text-amber-600"
+        actions={
           <div className="flex gap-2">
               <button 
                 onClick={() => setMetric(metric === 'revenue' ? 'appointments' : 'revenue')}
@@ -135,7 +133,8 @@ export const BestClients: React.FC = () => {
                 ALTERNAR MÉTRICA
               </button>
           </div>
-      </div>
+        }
+      />
 
       {/* STATS BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

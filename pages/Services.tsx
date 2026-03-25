@@ -40,6 +40,7 @@ import {
   FilterLineSegmented,
 } from '../components/UI/FilterLine';
 import { Button } from '../components/UI/Button';
+import { PageHeader } from '../components/UI/PageHeader';
 import { StatusAlert } from '../components/UI/StatusAlert';
 import { useToast } from '../contexts/ToastContext';
 import { GridTable } from '../components/UI/GridTable';
@@ -969,107 +970,103 @@ export const Services: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-violet-600 text-white shadow-lg shadow-primary-200">
-              <Briefcase size={20} />
-            </div>
-
-            <div>
-              <h1 className="text-lg font-semibold text-slate-900">
-                {t('services.title')}
-              </h1>
-              <p className="text-sm text-slate-500">{t('services.management')}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<Download size={14} />}
-              onClick={handleExportTemplate}
-              title="Baixar modelo"
-            >
-              Modelo
-            </Button>
-
-            <div className="relative">
+      <div className="mx-auto max-w-[1600px] px-6 pt-6 mb-6">
+        <PageHeader
+          icon={<Briefcase />}
+          title={t('services.title')}
+          subtitle={t('services.management')}
+          containerClassName="mb-0"
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
+                radius="xl"
                 leftIcon={<Download size={14} />}
-                rightIcon={<ChevronDown size={12} />}
-                onClick={() => setExportMenuOpen(o => !o)}
-                title={activeTab === 'services' ? 'Exportar serviços' : 'Exportar pacotes'}
+                onClick={handleExportTemplate}
+                title="Baixar modelo"
               >
-                Exportar
+                Modelo
               </Button>
-              {exportMenuOpen && (
-                <div
-                  className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
-                  onMouseLeave={() => setExportMenuOpen(false)}
-                >
-                  <button
-                    onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <FileText size={14} className="text-emerald-500" /> Exportar CSV
-                  </button>
-                  <button
-                    onClick={() => { setExportMenuOpen(false); handleExportData(); }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <FileText size={14} className="text-green-600" /> Exportar Excel
-                  </button>
-                  <button
-                    onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <FileText size={14} className="text-red-500" /> Exportar PDF
-                  </button>
-                </div>
-              )}
-            </div>
 
-            <label>
-              <input
-                type="file"
-                className="hidden"
-                accept=".xlsx, .xls, .csv"
-                onChange={handleImportFile}
-              />
-              <span>
+              <div className="relative">
                 <Button
                   variant="outline"
                   size="sm"
-                  leftIcon={<FileUp size={14} />}
-                  as={undefined as any}
+                  radius="xl"
+                  leftIcon={<Download size={14} />}
+                  rightIcon={<ChevronDown size={12} />}
+                  onClick={() => setExportMenuOpen(o => !o)}
+                  title={activeTab === 'services' ? 'Exportar serviços' : 'Exportar pacotes'}
                 >
-                  Importar
+                  Exportar
                 </Button>
-              </span>
-            </label>
+                {exportMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    onMouseLeave={() => setExportMenuOpen(false)}
+                  >
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                    </button>
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportData(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-green-600" /> Exportar Excel
+                    </button>
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-red-500" /> Exportar PDF
+                    </button>
+                  </div>
+                )}
+              </div>
 
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<Plus size={14} />}
-              onClick={() =>
-                activeTab === 'services'
-                  ? handleOpenServiceModal()
-                  : handleOpenPackageModal()
-              }
-            >
-              {activeTab === 'services' ? t('services.newService') : t('services.newPackage')}
-            </Button>
-          </div>
-        </div>
-      </header>
+              <label>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleImportFile}
+                />
+                <span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    radius="xl"
+                    leftIcon={<FileUp size={14} />}
+                    as={undefined as any}
+                  >
+                    Importar
+                  </Button>
+                </span>
+              </label>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
+              <Button
+                variant="primary"
+                size="sm"
+                radius="xl"
+                leftIcon={<Plus size={14} />}
+                onClick={() =>
+                  activeTab === 'services'
+                    ? handleOpenServiceModal()
+                    : handleOpenPackageModal()
+                }
+              >
+                {activeTab === 'services' ? t('services.newService') : t('services.newPackage')}
+              </Button>
+            </div>
+          }
+        />
+      </div>
+
+      <main className="mx-auto max-w-[1600px] space-y-6 px-6 py-6">
         {/* Stats */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">

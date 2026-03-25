@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { MOCK_PRODUCTS } from '../constants';
 import { Product } from '../types';
@@ -12,9 +13,11 @@ import {
   CreditCard
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { PageHeader } from '../components/UI/PageHeader';
 
 export const Products: React.FC = () => {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', { 
@@ -396,24 +399,23 @@ export const Products: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans pb-24">
-      
-      {/* HEADER & TOP CONTROLS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-              <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100"><Package size={20}/></div>
-                  {t('products.title')}
-              </h1>
-              <p className="text-slate-400 text-xs mt-1 font-bold">{t('products.management')}</p>
-          </div>
+    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
+      <PageHeader
+        icon={<Package />}
+        title={t('products.title')}
+        subtitle={t('products.management')}
+        showBackButton
+        onBackClick={() => navigate('/')}
+        containerClassName="mb-0"
+        actions={
           <button 
               onClick={() => handleOpenModal()} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 uppercase tracking-tighter"
           >
               <Plus size={18} /> {t('products.new')}
           </button>
-      </div>
+        }
+      />
 
       {/* STATS BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

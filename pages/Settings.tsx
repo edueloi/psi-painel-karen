@@ -9,6 +9,7 @@ import {
   Phone, Briefcase
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
+import { PageHeader } from '../components/UI/PageHeader';
 import { Select } from '../components/UI/Input';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -164,19 +165,19 @@ export const Settings: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto pb-20 px-4 font-sans">
+    <div className="max-w-[1600px] mx-auto pb-20 px-4 font-sans">
 
-      {/* Header */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{t('settings.title')}</h1>
-          <p className="text-slate-500 mt-1 text-sm">{t('settings.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 font-semibold rounded-xl text-sm w-fit">
-          <ShieldCheck size={16} />
-          {t('settings.secure')}
-        </div>
-      </div>
+      <PageHeader
+        icon={<SettingsIcon />}
+        title={t('settings.title')}
+        subtitle={t('settings.subtitle')}
+        actions={
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 font-semibold rounded-xl text-sm w-fit">
+            <ShieldCheck size={16} />
+            {t('settings.secure')}
+          </div>
+        }
+      />
 
       <div className="flex flex-col lg:flex-row gap-6">
 
