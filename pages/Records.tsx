@@ -450,7 +450,12 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         if (dateTo) params.date_to = dateTo;
 
         const data = await api.get<MedicalRecord[]>('/medical-records', params);
-        setGlobalRecords((data || []).map(r => ({ ...r, id: String(r.id), tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [] })));
+        setGlobalRecords((data || []).map(r => ({ 
+            ...r, 
+            id: String(r.id), 
+            patient_id: String(r.patient_id),
+            tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [] 
+        })));
     } catch (err) { console.error('Error fetching global records', err); }
   };
 
@@ -464,7 +469,12 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       if (dateTo) params.date_to = dateTo;
 
       const data = await api.get<MedicalRecord[]>(`/medical-records`, params);
-      setRecords((data || []).map(r => ({ ...r, id: String(r.id), tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [] })));
+      setRecords((data || []).map(r => ({ 
+        ...r, 
+        id: String(r.id), 
+        patient_id: String(r.patient_id),
+        tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [] 
+      })));
     } catch (e: any) {
       pushToast('error', e?.message || 'Erro ao buscar prontuários');
     } finally {
@@ -479,7 +489,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     (p.cpf || '').includes(search)
   ), [patients, search]);
 
-  const patientRecords = useMemo(() => records.filter(r => r.patient_id === selectedPatientId).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [records, selectedPatientId]);
+  const patientRecords = useMemo(() => records.filter(r => String(r.patient_id) === String(selectedPatientId)).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [records, selectedPatientId]);
 
   const analysisData = useMemo(() => {
     if (!patientRecords.length) return null;
