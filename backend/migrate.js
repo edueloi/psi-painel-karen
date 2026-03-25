@@ -300,6 +300,25 @@ async function migrate() {
       behavior TEXT,
       consequence TEXT,
       date DATE,
+      intensity VARCHAR(100),
+      duration VARCHAR(100),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (pei_id) REFERENCES pei(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS pei_sensory (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      pei_id INT NOT NULL,
+      auditory TEXT,
+      visual TEXT,
+      tactile TEXT,
+      vestibular TEXT,
+      oral TEXT,
+      social TEXT,
+      proprioceptive TEXT,
+      last_assessment_date DATETIME,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (pei_id) REFERENCES pei(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -631,7 +650,11 @@ async function migrate() {
     "ALTER TABLE users ADD COLUMN clinic_logo_url VARCHAR(500) NULL",
     "ALTER TABLE users ADD COLUMN schedule JSON NULL",
     "ALTER TABLE patients ADD COLUMN phone_country VARCHAR(10) DEFAULT 'BR'",
-    "ALTER TABLE patients ADD COLUMN phone2_country VARCHAR(10) DEFAULT 'BR'"
+    "ALTER TABLE patients ADD COLUMN phone2_country VARCHAR(10) DEFAULT 'BR'",
+    "ALTER TABLE pei_goals ADD COLUMN current_value INT DEFAULT 0",
+    "ALTER TABLE pei_goals ADD COLUMN target_value INT DEFAULT 100",
+    "ALTER TABLE pei_abc ADD COLUMN intensity VARCHAR(100)",
+    "ALTER TABLE pei_abc ADD COLUMN duration VARCHAR(100)"
   ];
 
   // ---- USER SESSIONS ----
