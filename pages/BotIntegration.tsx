@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Smartphone, CheckCircle, AlertCircle, Clock, Calendar, DollarSign, Gift, User, FileText, Bell, Loader2, Save } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { api } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 
 // Componente de Rich Text fake para gerenciar variáveis como Badges coloridos e un-quebráveis
 const BadgeEditor = ({ value, onChange, variables }: { value: string, onChange: (v: string) => void, variables: {key: string, label: string}[] }) => {
@@ -101,6 +102,7 @@ const BadgeEditor = ({ value, onChange, variables }: { value: string, onChange: 
 
 export const BotIntegration: React.FC = () => {
   const { t } = useLanguage();
+  const { success, error: pushError } = useToast();
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [phone, setPhone] = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -208,9 +210,9 @@ export const BotIntegration: React.FC = () => {
     try {
       setIsActionLoading(true);
       await api.post('/whatsapp/preferences', prefs);
-      alert('Configurações salvas com sucesso!');
+      success('Configurações Salvas', 'As preferências do bot foram atualizadas com sucesso.');
     } catch (err) {
-      alert('Erro ao salvar as configurações.');
+      pushError('Erro ao Salvar', 'Não foi possível salvar as configurações do bot.');
     } finally {
       setIsActionLoading(false);
     }
