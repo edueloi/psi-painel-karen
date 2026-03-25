@@ -14,12 +14,16 @@ import {
   Palette,
   Layout,
   ClipboardList,
-  Star
+  Star,
+  Users
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { PageHeader } from '../../components/UI/PageHeader';
 import { Button } from '../../components/UI/Button';
+import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
+import { Patient } from '../../types';
+import { api } from '../../services/api';
 
 interface PlaySession {
   id: string | number;
@@ -32,8 +36,13 @@ interface PlaySession {
 export const PlayTherapyPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const patientId = searchParams.get('patientId');
+  const initialPatientId = searchParams.get('patientId') || searchParams.get('patient_id');
   const { success, error, info } = useToast();
+  
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(initialPatientId);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
   
   const [sessions, setSessions] = useState<PlaySession[]>([]);
   const [newSession, setNewSession] = useState<Partial<PlaySession>>({
@@ -44,27 +53,54 @@ export const PlayTherapyPage: React.FC = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Simulação de carregamento (backend já suporta via clinical-tools genérico)
+  // Carregar lista de pacientes
+  useEffect(() => {
+    const fetchPatients = async () => {
+      setIsLoadingPatients(true);
+      try {
+        const raw = await api.get<any[]>('/patients');
+        setPatients((raw || []).map((p: any) => ({
+          ...p,
+          full_name: p.name || p.full_name || '',
+          status: p.status === 'active' ? 'ativo' : p.status === 'inactive' ? 'inativo' : (p.status || ''),
+        })));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoadingPatients(false);
+      }
+    };
+    fetchPatients();
+  }, []);
+
+  // Carregar dados do paciente selecionado
   useEffect(() => {
     const loadData = async () => {
-      if (!patientId) return;
+      if (!selectedPatientId) {
+        setSessions([]);
+        return;
+      }
       try {
-        const response = await fetch(`/api/clinical-tools/${patientId}/play-therapy`, {
+        const response = await fetch(`/api/clinical-tools/${selectedPatientId}/play-therapy`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) setSessions(data);
+          else setSessions([]);
+        } else {
+          setSessions([]);
         }
       } catch (err) {
         console.error('Erro ao carregar sessões:', err);
+        setSessions([]);
       }
     };
     loadData();
-  }, [patientId]);
+  }, [selectedPatientId]);
 
   const handleSave = async () => {
-    if (!patientId) {
+    if (!selectedPatientId) {
       info('Atenção', 'Selecione um paciente para salvar os dados.');
       return;
     }
@@ -72,13 +108,16 @@ export const PlayTherapyPage: React.FC = () => {
     setIsSaving(true);
     try {
       const updatedSessions = [...sessions, { ...newSession, id: Date.now() } as PlaySession];
-      const response = await fetch(`/api/clinical-tools/${patientId}/play-therapy`, {
+      const response = await fetch(`/api/clinical-tools/${selectedPatientId}/play-therapy`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}` 
         },
-        body: JSON.stringify(updatedSessions)
+        body: JSON.stringify({
+          patient_id: selectedPatientId,
+          data: updatedSessions
+        })
       });
 
       if (response.ok) {
@@ -101,15 +140,19 @@ export const PlayTherapyPage: React.FC = () => {
   };
 
   const deleteSession = async (id: string | number) => {
+    if (!selectedPatientId) return;
     const updated = sessions.filter(s => s.id !== id);
     try {
-      await fetch(`/api/clinical-tools/${patientId}/play-therapy`, {
+      await fetch(`/api/clinical-tools/${selectedPatientId}/play-therapy`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}` 
         },
-        body: JSON.stringify(updated)
+        body: JSON.stringify({
+          patient_id: selectedPatientId,
+          data: updated
+        })
       });
       setSessions(updated);
       success('Excluído', 'Sessão removida do histórico.');
@@ -122,155 +165,180 @@ export const PlayTherapyPage: React.FC = () => {
     <div className="space-y-8 animate-fadeIn">
       <PageHeader
         title="Ludoterapia & Clínica Infantil"
-        subtitle="Manejo clínico através do brincar e do lúdico."
+        subtitle={selectedPatientId ? `Paciente: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}` : "Manejo clínico através do brincar e do lúdico."}
         icon={<Baby className="text-rose-500" />}
         showBackButton
         onBackClick={() => navigate('/caixa-ferramentas')}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Nova Sessão */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm space-y-6">
-            <h3 className="flex items-center gap-3 text-lg font-black text-slate-900 uppercase tracking-tight">
-               <Gamepad2 className="text-rose-500" size={20} /> Novo Registro Lúdico
-            </h3>
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
+        {/* Lado Esquerdo - Seleção de Paciente */}
+        <div className="space-y-6">
+          <ClinicalSidebar 
+            patients={patients}
+            selectedPatientId={selectedPatientId ? String(selectedPatientId) : null}
+            onSelectPatient={(id) => setSelectedPatientId(id)}
+            patientSearch={patientSearch}
+            setPatientSearch={setPatientSearch}
+            isLoading={isLoadingPatients}
+            t={(k) => k}
+          />
+        </div>
 
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data do Atendimento</label>
-                <input 
-                  type="date"
-                  value={newSession.date}
-                  onChange={e => setNewSession({...newSession, date: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all"
-                />
-              </div>
+        {/* Lado Direito - Conteúdo */}
+        {!selectedPatientId ? (
+          <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-20 text-center space-y-4">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
+              <Users size={32} />
+            </div>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-loose">Selecione um paciente para iniciar o registro lúdico.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            {/* Nova Sessão */}
+            <div className="xl:col-span-1 space-y-6">
+              <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm space-y-6">
+                <h3 className="flex items-center gap-3 text-lg font-black text-slate-900 uppercase tracking-tight">
+                   <Gamepad2 className="text-rose-500" size={20} /> Novo Registro Lúdico
+                </h3>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Temas Emergentes</label>
-                <input 
-                  placeholder="Ex: Agressividade, Cuidado, Separação..."
-                  value={newSession.themes}
-                  onChange={e => setNewSession({...newSession, themes: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all"
-                />
-              </div>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data do Atendimento</label>
+                    <input 
+                      type="date"
+                      value={newSession.date}
+                      onChange={e => setNewSession({...newSession, date: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all"
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Brinquedos/Recursos Utilizados</label>
-                <textarea 
-                  placeholder="Liste os itens usados na sessão..."
-                  rows={3}
-                  value={newSession.toysUsed?.join(', ')}
-                  onChange={e => setNewSession({...newSession, toysUsed: e.target.value.split(',').map(s => s.trim())})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all resize-none"
-                />
-              </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Temas Emergentes</label>
+                    <input 
+                      placeholder="Ex: Agressividade, Cuidado, Separação..."
+                      value={newSession.themes}
+                      onChange={e => setNewSession({...newSession, themes: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all"
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observações do Brincar</label>
-                <textarea 
-                  placeholder="Como a criança se expressou no setting?"
-                  rows={5}
-                  value={newSession.observations}
-                  onChange={e => setNewSession({...newSession, observations: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all resize-none"
-                />
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Brinquedos/Recursos Utilizados</label>
+                    <textarea 
+                      placeholder="Liste os itens usados na sessão..."
+                      rows={3}
+                      value={newSession.toysUsed?.join(', ')}
+                      onChange={e => setNewSession({...newSession, toysUsed: e.target.value.split(',').map(s => s.trim())})}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observações do Brincar</label>
+                    <textarea 
+                      placeholder="Como a criança se expressou no setting?"
+                      rows={5}
+                      value={newSession.observations}
+                      onChange={e => setNewSession({...newSession, observations: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all resize-none"
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  fullWidth
+                  onClick={handleSave}
+                  isLoading={isSaving}
+                  className="bg-rose-500 hover:bg-rose-600 text-white rounded-2xl py-6 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-rose-200"
+                >
+                  Salvar Registro <Save size={16} className="ml-2" />
+                </Button>
               </div>
             </div>
 
-            <Button 
-              fullWidth
-              onClick={handleSave}
-              isLoading={isSaving}
-              className="bg-rose-500 hover:bg-rose-600 text-white rounded-2xl py-6 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-rose-200"
-            >
-              Salvar Registro <Save size={16} className="ml-2" />
-            </Button>
+            {/* Histórico e Métricas */}
+            <div className="xl:col-span-2 space-y-8">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sessões Realizadas</p>
+                     <h2 className="text-3xl font-black text-slate-900">{sessions.length}</h2>
+                  </div>
+                  <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Temas Identificados</p>
+                     <h2 className="text-3xl font-black text-rose-500">{Array.from(new Set(sessions.flatMap(s => s.themes.split(',')))).filter((t: string) => t.trim()).length}</h2>
+                  </div>
+                  <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conserto do Vínculo</p>
+                     <div className="flex justify-center gap-1.5 pt-2">
+                        {[1,2,3,4,5].map(i => <Star key={i} size={14} className={i <= 4 ? "text-amber-400 fill-amber-400" : "text-slate-200"} />)}
+                     </div>
+                  </div>
+               </div>
+
+               <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
+                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Crônica das Sessões</h3>
+                     <div className="p-2 bg-rose-50 rounded-xl text-rose-500">
+                        <History size={18} />
+                     </div>
+                  </div>
+
+                  <div className="divide-y divide-slate-50">
+                     {sessions.length === 0 ? (
+                        <div className="p-12 text-center space-y-4">
+                           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
+                              <ClipboardList size={32} />
+                           </div>
+                           <p className="text-xs font-bold text-slate-400">Nenhum registro encontrado para este paciente.</p>
+                        </div>
+                     ) : (
+                        sessions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(session => (
+                           <div key={session.id} className="p-8 hover:bg-slate-50 transition-colors group">
+                              <div className="flex items-start justify-between gap-4">
+                                 <div className="space-y-4 flex-1">
+                                    <div className="flex items-center gap-3">
+                                       <span className="text-[11px] font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-lg uppercase">
+                                          {new Date(session.date).toLocaleDateString('pt-BR')}
+                                       </span>
+                                       <div className="flex flex-wrap gap-2">
+                                          {(session.themes || '').split(',').map(t => (
+                                             <span key={t} className="text-[8px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md uppercase tracking-tighter">
+                                                #{t.trim()}
+                                             </span>
+                                          ))}
+                                       </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                       <div className="space-y-2">
+                                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Brinquedos & Recursos</p>
+                                          <p className="text-xs font-bold text-slate-600 leading-relaxed italic border-l-2 border-slate-200 pl-4">
+                                             {(session.toysUsed || []).join(', ') || 'Nenhum especificado'}
+                                          </p>
+                                       </div>
+                                       <div className="space-y-2">
+                                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Observação Clínica</p>
+                                          <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                                             {session.observations}
+                                          </p>
+                                       </div>
+                                    </div>
+                                 </div>
+                                 <button 
+                                    onClick={() => deleteSession(session.id)}
+                                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                 >
+                                    <Trash2 size={16} />
+                                 </button>
+                              </div>
+                           </div>
+                        ))
+                     )}
+                  </div>
+               </div>
+            </div>
           </div>
-        </div>
-
-        {/* Histórico e Métricas */}
-        <div className="lg:col-span-2 space-y-8">
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sessões Realizadas</p>
-                 <h2 className="text-3xl font-black text-slate-900">{sessions.length}</h2>
-              </div>
-              <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Temas Identificados</p>
-                 <h2 className="text-3xl font-black text-rose-500">{Array.from(new Set(sessions.flatMap(s => s.themes.split(',')))).filter((t: string) => t.trim()).length}</h2>
-              </div>
-              <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conserto do Vínculo</p>
-                 <div className="flex justify-center gap-1.5 pt-2">
-                    {[1,2,3,4,5].map(i => <Star key={i} size={14} className={i <= 4 ? "text-amber-400 fill-amber-400" : "text-slate-200"} />)}
-                 </div>
-              </div>
-           </div>
-
-           <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-              <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Crônica das Sessões</h3>
-                 <div className="p-2 bg-rose-50 rounded-xl text-rose-500">
-                    <History size={18} />
-                 </div>
-              </div>
-
-              <div className="divide-y divide-slate-50">
-                 {sessions.length === 0 ? (
-                    <div className="p-12 text-center space-y-4">
-                       <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
-                          <ClipboardList size={32} />
-                       </div>
-                       <p className="text-xs font-bold text-slate-400">Nenhum registro encontrado para este paciente.</p>
-                    </div>
-                 ) : (
-                    sessions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(session => (
-                       <div key={session.id} className="p-8 hover:bg-slate-50 transition-colors group">
-                          <div className="flex items-start justify-between gap-4">
-                             <div className="space-y-4 flex-1">
-                                <div className="flex items-center gap-3">
-                                   <span className="text-[11px] font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-lg uppercase">
-                                      {new Date(session.date).toLocaleDateString('pt-BR')}
-                                   </span>
-                                   <div className="flex flex-wrap gap-2">
-                                      {session.themes.split(',').map(t => (
-                                         <span key={t} className="text-[8px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md uppercase tracking-tighter">
-                                            #{t.trim()}
-                                         </span>
-                                      ))}
-                                   </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                   <div className="space-y-2">
-                                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Brinquedos & Recursos</p>
-                                      <p className="text-xs font-bold text-slate-600 leading-relaxed italic border-l-2 border-slate-200 pl-4">
-                                         {session.toysUsed.join(', ') || 'Nenhum especificado'}
-                                      </p>
-                                   </div>
-                                   <div className="space-y-2">
-                                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Observação Clínica</p>
-                                      <p className="text-xs font-bold text-slate-600 leading-relaxed">
-                                         {session.observations}
-                                      </p>
-                                   </div>
-                                </div>
-                             </div>
-                             <button 
-                                onClick={() => deleteSession(session.id)}
-                                className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                             >
-                                <Trash2 size={16} />
-                             </button>
-                          </div>
-                       </div>
-                    ))
-                 )}
-              </div>
-           </div>
-        </div>
+        )}
       </div>
     </div>
   );
