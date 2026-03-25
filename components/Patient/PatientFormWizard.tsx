@@ -101,18 +101,35 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       ...initialData
     };
 
-    // Normalização de campos para o Wizard
+    // Parse address combinado (ex: "Rua X, 220 - Chácara Y") em campos separados
+    let parsedStreet = initialData.street || '';
+    let parsedNumber = (initialData as any).house_number || '';
+    let parsedNeighborhood = (initialData as any).neighborhood || '';
+
+    if (!parsedStreet && !parsedNumber && !parsedNeighborhood && initialData.address) {
+      const addr = initialData.address;
+      const dashIdx = addr.indexOf(' - ');
+      let streetAndNumber = dashIdx >= 0 ? addr.substring(0, dashIdx).trim() : addr.trim();
+      parsedNeighborhood = dashIdx >= 0 ? addr.substring(dashIdx + 3).trim() : '';
+      const commaMatch = streetAndNumber.match(/^(.+),\s*(\d+\w*)$/);
+      if (commaMatch) {
+        parsedStreet = commaMatch[1].trim();
+        parsedNumber = commaMatch[2].trim();
+      } else {
+        parsedStreet = streetAndNumber;
+      }
+    }
+
     return {
       ...base,
       full_name: initialData.full_name || (initialData as any).name || '',
       whatsapp: initialData.whatsapp || (initialData as any).phone || '',
       cpf_cnpj: initialData.cpf_cnpj || (initialData as any).cpf || '',
       address_zip: initialData.zip_code || (initialData as any).address_zip || '',
-      // Se não houver street mas houver address, usa address como street
-      street: initialData.street || initialData.address || '',
+      street: parsedStreet,
+      house_number: parsedNumber,
+      neighborhood: parsedNeighborhood,
       status: (initialData.status === 'active' || initialData.status === 'ativo') ? 'ativo' : 'inativo',
-      
-      // Novos campos para garantir preenchimento completo do modal de editar
       convenio: initialData.convenio ?? !!(initialData.convenio_name || initialData.health_plan),
       convenio_name: initialData.convenio_name || initialData.health_plan || '',
       has_children: !!(initialData.has_children || initialData.children_count || initialData.minor_children_count),
@@ -120,6 +137,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       needs_reimbursement: initialData.needs_reimbursement ?? (initialData as any).needsReimbursement ?? false,
     };
   });
+
 
   const fetchCep = async (cep: string) => {
     const digits = cep.replace(/\D/g, '');

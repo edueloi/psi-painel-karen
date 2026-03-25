@@ -238,7 +238,21 @@ async function migrate() {
       professional_id INT NOT NULL,
       appointment_id INT,
       content LONGTEXT,
+      restricted_content LONGTEXT NULL,
+      draft_content LONGTEXT NULL,
+      ai_organized_content LONGTEXT NULL,
       type VARCHAR(100) DEFAULT 'session',
+      record_type VARCHAR(100) DEFAULT 'Evolucao',
+      title VARCHAR(255),
+      status VARCHAR(50) DEFAULT 'Rascunho',
+      ai_status VARCHAR(50) DEFAULT 'pending',
+      tags JSON NULL,
+      start_time TIME NULL,
+      end_time TIME NULL,
+      appointment_type VARCHAR(50) DEFAULT 'individual',
+      version_count INT DEFAULT 1,
+      approved_by INT NULL,
+      approved_at TIMESTAMP NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
@@ -770,6 +784,118 @@ async function migrate() {
     console.log('   Admin:      admin@psiflux.com / admin123');
     console.log('   SuperAdmin: super@psiflux.com / super123');
   }
+
+  // ---- MEDICAL RECORDS — colunas novas (IA, restrito, aprovação, versões) ----
+  const mrCols = [
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS draft_content LONGTEXT NULL`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS ai_organized_content LONGTEXT NULL`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS restricted_content LONGTEXT NULL`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS ai_status VARCHAR(50) DEFAULT 'pending'`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS appointment_type VARCHAR(50) DEFAULT 'individual'`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS approved_by INT NULL`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP NULL`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS version_count INT DEFAULT 1`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS tags JSON NULL`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`,
+    `ALTER TABLE medical_records MODIFY COLUMN status VARCHAR(50) DEFAULT 'Rascunho'`,
+  ];
+  for (const sql of mrCols) {
+    try { await conn.query(sql); } catch (e) { if (!e.message.includes('Duplicate column')) console.warn('MR col:', e.message); }
+  }
+
+  // ---- MEDICAL RECORD VERSIONS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS medical_record_versions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      record_id INT NOT NULL,
+      version_number INT DEFAULT 1,
+      content LONGTEXT,
+      status VARCHAR(50),
+      created_by INT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_mrv_record (record_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- MEDICAL RECORD AUDIT ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS medical_record_audit (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      record_id INT NOT NULL,
+      user_id INT NOT NULL,
+      tenant_id INT NOT NULL,
+      action ENUM('created','updated','viewed','approved','deleted','ai_organized','restricted_accessed','exported') NOT NULL,
+      detail JSON NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_mra_record (record_id),
+      INDEX idx_mra_tenant (tenant_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- MEDICAL RECORD ATTACHMENTS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS medical_record_attachments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      record_id INT NOT NULL,
+      file_name VARCHAR(255),
+      file_url VARCHAR(500),
+      file_type VARCHAR(100),
+      file_size INT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_mrat_record (record_id),
+      FOREIGN KEY (record_id) REFERENCES medical_records(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- CLINICAL TOOLS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS clinical_tools (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      patient_id INT DEFAULT 0,
+      professional_id INT,
+      scope_key VARCHAR(100) NOT NULL,
+      tool_type VARCHAR(100) NOT NULL,
+      data LONGTEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_ct_scope_type_tenant (tenant_id, scope_key, tool_type),
+      INDEX idx_ct_tenant (tenant_id),
+      INDEX idx_ct_scope (scope_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- VAULT FOLDERS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS vault_folders (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      user_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      is_locked BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_vf_tenant (tenant_id),
+      INDEX idx_vf_user (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- VAULT DOCUMENTS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS vault_documents (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      user_id INT NOT NULL,
+      folder_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      content LONGTEXT,
+      is_locked BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_vd_tenant (tenant_id),
+      INDEX idx_vd_folder (folder_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   console.log('✅ Migração concluída com sucesso!');
   await conn.end();

@@ -1107,4 +1107,25 @@ router.post('/save-analysis', async (req, res) => {
   }
 });
 
+router.post('/complete', async (req, res) => {
+  try {
+    const { system, prompt, max_tokens, temperature } = req.body;
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: system || 'Voce e uma assistente clinica para psicologos altamente capacitada.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: temperature || 0.7,
+      max_tokens: max_tokens || 2000
+    });
+
+    res.json({ text: response.choices[0].message.content });
+  } catch (err) {
+    console.error('Erro no /complete da Aurora:', err);
+    res.status(500).json({ error: 'Erro ao gerar completude da IA' });
+  }
+});
+
 module.exports = router;
