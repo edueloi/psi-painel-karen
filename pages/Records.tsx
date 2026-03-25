@@ -13,8 +13,11 @@ import {
   History, BookOpen, Filter
 } from 'lucide-react';
 import { DatePicker } from '../components/UI/DatePicker';
+import { RichTextEditor } from '../components/UI/RichTextEditor';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { jsPDF } from 'jspdf';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { saveAs } from 'file-saver';
 
 /* ── Types ─────────────────────────────────────────── */
 interface Patient { id: string; full_name: string; birth_date?: string; cpf?: string; phone?: string; email?: string; status?: string; }
@@ -83,13 +86,71 @@ const PasswordModal: React.FC<{ title: string; onConfirm: (p: string) => Promise
 };
 
 /* ═══════════════════════════════════════════════════════════════
+   EXPORT MODAL (PDF / WORD)
+   Suporta os modos exigidos pelo CFP
+═══════════════════════════════════════════════════════════════ */
+type ExportMode = 'standard' | 'full' | 'no_restricted' | 'restricted_only';
+
+const ExportModal: React.FC<{
+  patient: any;
+  records: MedicalRecord[];
+  onExport: (mode: ExportMode, format: 'pdf' | 'word') => void;
+  onClose: () => void;
+}> = ({ patient, records, onExport, onClose }) => {
+  const [mode, setMode] = useState<ExportMode>('standard');
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-md">
+      <div className="bg-white rounded-[32px] shadow-2xl p-8 w-full max-w-md mx-4 space-y-6 animate-zoomIn">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm"><Download size={28}/></div>
+          <div>
+            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Exportar Documentação</h3>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{patient?.full_name}</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Selecione o Conteúdo</p>
+          {[
+            { id: 'standard', title: 'Resumo Clínico Padrão', desc: 'Informações essenciais para continuidade do cuidado.' },
+            { id: 'full', title: 'Prontuário Completo', desc: 'Todo o histórico clínico e evoluções (sem campo restrito).' },
+            { id: 'no_restricted', title: 'Versão Compartilhada', desc: 'Apenas os campos públicos/compartilhados.' },
+            { id: 'restricted_only', title: 'Anotações Restritas', desc: 'Apenas o campo restrito (uso interno autorizado).' },
+          ].map(opt => (
+            <button key={opt.id} onClick={() => setMode(opt.id as ExportMode)}
+              className={`w-full p-4 rounded-2xl border text-left transition-all ${mode === opt.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-indigo-200'}`}>
+              <div className="font-black text-sm mb-0.5">{opt.title}</div>
+              <div className={`text-[10px] font-medium leading-tight ${mode === opt.id ? 'text-indigo-100' : 'text-slate-400'}`}>{opt.desc}</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <button onClick={() => onExport(mode, 'pdf')} className="h-14 bg-slate-800 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-slate-700 shadow-xl shadow-slate-200">
+            <FileText size={16}/> Gerar PDF
+          </button>
+          <button onClick={() => onExport(mode, 'word')} className="h-14 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 shadow-xl shadow-indigo-200">
+            <Download size={16}/> Gerar Word
+          </button>
+        </div>
+        
+        <button onClick={onClose} className="w-full h-10 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600">Fechar</button>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
    RECORD EDITOR (modal completo: rascunho → IA → revisão → aprovação)
+   Suporta os modos exigidos pelo CFP
 ═══════════════════════════════════════════════════════════════ */
 const RecordEditor: React.FC<{
   record: Partial<MedicalRecord> | null; mode: 'new' | 'edit';
   patients: Patient[]; selectedPatientId: string | null;
   onSave: () => void; onClose: () => void;
-}> = ({ record, mode, patients, selectedPatientId, onSave, onClose }) => {
+  onExport: () => void;
+}> = ({ record, mode, patients, selectedPatientId, onSave, onClose, onExport }) => {
   const { pushToast } = useToast();
   const [step, setStep] = useState<'draft' | 'ai_result' | 'approve'>(
     record?.ai_organized_content ? 'ai_result' : 'draft'
@@ -205,14 +266,17 @@ const RecordEditor: React.FC<{
   ];
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-slate-50 overflow-hidden animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 overflow-hidden animate-fadeIn">
       {/* Header */}
       <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"><ArrowLeft size={16}/></button>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition" title="Cancelar e Sair"><ArrowLeft size={16}/></button>
           <div>
             <h2 className="font-black text-slate-800 uppercase tracking-tight text-sm">{mode === 'new' ? 'Nova Evolução' : 'Editar Registro'}</h2>
-            <p className="text-[11px] text-slate-400 font-medium">{title}</p>
+            <div className="flex items-center gap-2">
+                <p className="text-[11px] text-slate-400 font-medium">{title}</p>
+                <button onClick={onClose} className="text-[9px] font-black text-rose-500 uppercase hover:underline">Cancelar</button>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -290,9 +354,12 @@ const RecordEditor: React.FC<{
                   <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Rascunho Bruto da Sessão</h3>
                   <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded-lg font-bold">Escreva livremente — a IA vai organizar</span>
                 </div>
-                <textarea className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 text-sm leading-relaxed resize-none outline-none focus:bg-white focus:border-indigo-300 transition font-medium min-h-[280px]"
+                <RichTextEditor
+                  value={draft}
+                  onChange={setDraft}
                   placeholder="Escreva tudo o que aconteceu na sessão de forma livre. A paciente relatou... Trabalhamos com... Realizei a intervenção... A resposta foi..."
-                  value={draft} onChange={e => setDraft(e.target.value)} />
+                  minHeight="300px"
+                />
                 <button onClick={organizeWithAI} disabled={aiLoading || !draft.trim()}
                   className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-wider text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
                   {aiLoading ? <Loader2 size={20} className="animate-spin"/> : <Sparkles size={20}/>}
@@ -349,8 +416,14 @@ const RecordEditor: React.FC<{
               </div>
 
               <div className="flex gap-3 pt-2">
+                <button onClick={onClose} className="h-11 px-6 rounded-xl border border-slate-200 text-slate-400 font-black text-xs uppercase hover:bg-slate-50">
+                  Cancelar
+                </button>
                 <button onClick={() => setStep('draft')} className="h-11 px-6 rounded-xl border border-slate-200 text-slate-600 font-black text-xs uppercase flex items-center gap-2 hover:bg-slate-50">
                   <RotateCcw size={14}/> Editar Rascunho
+                </button>
+                <button onClick={() => onExport()} className="h-9 px-4 rounded-xl border border-slate-200 text-slate-600 font-black text-xs uppercase flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                  <Download size={14}/> Exportar Histórico
                 </button>
                 <button onClick={() => save('Revisado')} disabled={saving} className="flex-1 h-11 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase hover:bg-indigo-700 transition flex items-center justify-center gap-2">
                   {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salvar como Revisado
@@ -402,6 +475,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restrictedModal, setRestrictedModal] = useState<{recordId: string; content?: string} | null>(null);
   const [showPwModal, setShowPwModal] = useState<{ type: string; recordId: string } | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => { 
     fetchAll(); 
@@ -524,6 +598,75 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     } catch (e) { pushToast('error', 'Erro ao carregar registro'); }
   };
 
+  const finishExport = async (mode: ExportMode, format: 'pdf' | 'word') => {
+    if (!selectedPatient) return;
+    setIsLoading(true);
+    try {
+        const title = `Prontuário Clínico — ${selectedPatient.full_name}`;
+        const header = `Clínica PsiFlux — Sistema de Prontuário Informatizado`;
+        const profInfo = `Profissional Responsável: ${(patients as any).professional_name || 'Profissional'} | CRP: ${(patients as any).professional_crp || 'Não informado'}`;
+        const patientInfo = `Paciente: ${selectedPatient.full_name} | Documento: ${selectedPatient.cpf || 'Não informado'} | Nascimento: ${selectedPatient.birth_date || 'Não informado'}`;
+
+        const chunks: any[] = [];
+        patientRecords.forEach(r => {
+            const dateStr = `Data: ${fmtDate(r.created_at)} — Hora: ${r.start_time || '--:--'} às ${r.end_time || '--:--'}`;
+            const typeStr = `Tipo: ${TYPE_LABELS[r.record_type] || r.record_type} | Status: ${r.status}`;
+            
+            chunks.push(`--------------------------------------------------------------------------------\n${dateStr}\n${typeStr}\n--------------------------------------------------------------------------------\n`);
+            
+            if (mode !== 'restricted_only') {
+                chunks.push(`RESUMO CLÍNICO:\n${strip(r.content || '')}\n`);
+            }
+            
+            if (r.restricted_content && (mode === 'full' || mode === 'restricted_only')) {
+                chunks.push(`RESTRITO (PSICÓLOGA):\n${r.restricted_content}\n`);
+            }
+            chunks.push(`\n`);
+        });
+
+        const fullText = `${header}\n${profInfo}\n\n${patientInfo}\n\n${chunks.join('\n')}`;
+
+        if (format === 'pdf') {
+            const doc = new jsPDF();
+            doc.setFontSize(8); doc.setTextColor(150); doc.text(header, 20, 15);
+            doc.setFontSize(14); doc.setTextColor(0); doc.text(title, 20, 25);
+            doc.setFontSize(9); doc.setTextColor(100); doc.text(profInfo, 20, 32);
+            doc.text(patientInfo, 20, 37);
+            doc.setDrawColor(230); doc.line(20, 42, 190, 42);
+            
+            doc.setFontSize(10); doc.setTextColor(60);
+            const lines = doc.splitTextToSize(chunks.join('\n'), 170);
+            let y = 50;
+            lines.forEach((line: string) => {
+                if (y > 275) { doc.addPage(); y = 20; }
+                doc.text(line, 20, y); y += 5;
+            });
+            doc.save(`${selectedPatient.full_name.replace(/\s/g, '_')}_Prontuario.pdf`);
+        } else {
+            const doc = new Document({
+                sections: [{
+                    children: [
+                        new Paragraph({ text: header, heading: HeadingLevel.HEADING_3 }),
+                        new Paragraph({ text: title, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
+                        new Paragraph({ text: profInfo, spacing: { after: 200 } }),
+                        new Paragraph({ text: patientInfo, spacing: { after: 400 } }),
+                        ...chunks.map(c => new Paragraph({ text: c, spacing: { after: 200 } }))
+                    ],
+                }],
+            });
+            const blob = await Packer.toBlob(doc);
+            saveAs(blob, `${selectedPatient.full_name.replace(/\s/g, '_')}_Prontuario.docx`);
+        }
+        
+        pushToast('success', 'Documento gerado e baixado!');
+        setShowExportModal(false);
+    } catch (err: any) {
+        pushToast('error', 'Erro na exportação: ' + err.message);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   const deleteRecord = async () => {
     if (!deleteId) return;
     try {
@@ -571,6 +714,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         patients={patients} selectedPatientId={selectedPatientId}
         onSave={() => selectedPatientId && fetchRecords(selectedPatientId)}
         onClose={() => setEditorOpen(false)}
+        onExport={() => setShowExportModal(true)}
       />
     );
   }
@@ -927,6 +1071,16 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             <p className="text-[10px] text-slate-400 font-medium">Este conteúdo é de uso exclusivo e não entra em exportações padrão.</p>
           </div>
         </div>
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <ExportModal
+            patient={selectedPatient}
+            records={patientRecords}
+            onExport={finishExport}
+            onClose={() => setShowExportModal(false)}
+        />
       )}
     </div>
   );
