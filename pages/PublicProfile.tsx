@@ -204,11 +204,7 @@ export const PublicProfile: React.FC = () => {
     return Array.isArray(parsed) ? parsed.filter(d => d.active) : [];
   }, [data?.schedule]);
 
-  if (loading) return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-    </div>
-  );
+  if (loading) return null;
 
   if (error || !data) return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 font-sans">
@@ -274,7 +270,7 @@ export const PublicProfile: React.FC = () => {
                </div>
 
                <p className={`text-xl lg:text-2xl font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0 opacity-80 ${themeColors.text} animate-[slideUpFade_0.7s_ease-out_0.3s_both]`}>
-                 Olá, sou <span className="font-black">{data.name}</span>. Ajudo pessoas a reencontrarem seu equilíbrio emocional e clareza mental através de uma escuta humana e científica.
+                 Olá, sou <span className="font-black">{data.profile_theme?.public_name || data.name}</span>. Ajudo pessoas a reencontrarem seu equilíbrio emocional e clareza mental através de uma escuta humana e científica.
                </p>
 
                <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4 animate-[slideUpFade_0.7s_ease-out_0.4s_both]">

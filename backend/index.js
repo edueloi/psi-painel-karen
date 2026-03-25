@@ -203,6 +203,84 @@ app.get('/f/:hash', async (req, res) => {
   }
 });
 
+// ---- Rota pública /p/:slug — OG meta tags para o perfil público ----
+app.get('/p/:slug', async (req, res) => {
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+  const distIndexPath = path.join(__dirname, '../dist/index.html');
+
+  try {
+    const [users] = await db.query(
+      `SELECT name, specialty, bio, avatar_url, public_slug, company_name, profile_theme
+       FROM users 
+       WHERE public_slug = ? AND public_profile_enabled = true`,
+      [req.params.slug]
+    );
+
+    if (users.length === 0 || !fs.existsSync(distIndexPath)) {
+      return res.sendFile(distIndexPath);
+    }
+
+    const u = users[0];
+    const profileUrl = `${FRONTEND_URL}/p/${u.public_slug}`;
+    
+    let theme = {};
+    try { theme = typeof u.profile_theme === 'string' ? JSON.parse(u.profile_theme) : u.profile_theme || {}; } catch(e) {}
+
+    const name = theme.public_name || u.name || 'Profissional de Saúde';
+    const specialty = u.specialty || '';
+    const clinic = u.company_name || 'PsiFlux';
+    
+    const ogTitle = `${name}${specialty ? ` — ${specialty}` : ''}`;
+    const ogDesc = u.bio 
+      ? u.bio.substring(0, 160) 
+      : `Conheça o perfil profissional de ${name}. Atendimento humanizado e especializado em ${specialty || 'saúde mental'}.`;
+
+    const toPublicUrl = (url) => {
+      if (!url) return null;
+      if (url.startsWith('http')) return url;
+      if (url.startsWith('/uploads-static/')) return `${FRONTEND_URL}/api${url}`;
+      return `${FRONTEND_URL}${url}`;
+    };
+
+    const imageUrl = toPublicUrl(u.avatar_url);
+
+    const ogTags = `
+    <title>${ogTitle}</title>
+    <meta name="description" content="${ogDesc}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${profileUrl}" />
+    <meta property="og:title" content="${ogTitle}" />
+    <meta property="og:description" content="${ogDesc}" />
+    ${imageUrl ? `<meta property="og:image" content="${imageUrl}" />
+    <meta property="og:image:width" content="600" />
+    <meta property="og:image:height" content="600" />` : ''}
+    <meta property="og:site_name" content="${clinic}" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${ogTitle}" />
+    <meta name="twitter:description" content="${ogDesc}" />
+    ${imageUrl ? `<meta name="twitter:image" content="${imageUrl}" />` : ''}`;
+
+    let html = fs.readFileSync(distIndexPath, 'utf8');
+    html = html.replace(/<title>.*?<\/title>/is, '');
+    html = html.replace(/<meta\s+[^>]*name=["']description["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*property=["']og:[^"']*["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*name=["']twitter:[^"']*["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*property=["']twitter:[^"']*["'][^>]*>/gi, '');
+    html = html.replace('<head>', `<head>${ogTags}`);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    return res.send(html);
+  } catch (err) {
+    console.error('OG /p/:slug error:', err);
+    if (fs.existsSync(distIndexPath)) {
+      return res.sendFile(distIndexPath);
+    }
+    return res.status(500).send('Erro ao carregar perfil.');
+  }
+});
+
 // Aceita deploys com e sem prefixo /api no proxy reverso.
 mountApiRoutes('/api');
 mountApiRoutes('');

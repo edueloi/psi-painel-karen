@@ -86,6 +86,7 @@ export const Profile: React.FC = () => {
       show_map: true,
       show_trajectory: true,
       show_specialties: true,
+      public_name: '',
       prop_1_title: '', prop_1_desc: '',
       prop_2_title: '', prop_2_desc: '',
       prop_3_title: '', prop_3_desc: '',
@@ -153,6 +154,7 @@ export const Profile: React.FC = () => {
               show_map: data.profile_theme?.show_map !== false,
               show_trajectory: data.profile_theme?.show_trajectory !== false,
               show_specialties: data.profile_theme?.show_specialties !== false,
+              public_name: data.profile_theme?.public_name || '',
               prop_1_title: data.profile_theme?.prop_1_title || '',
               prop_1_desc: data.profile_theme?.prop_1_desc || '',
               prop_2_title: data.profile_theme?.prop_2_title || '',
@@ -617,6 +619,17 @@ export const Profile: React.FC = () => {
                       <div className="flex items-center gap-2 mb-6">
                         <div className="w-1.5 h-6 rounded-full bg-indigo-500"></div>
                         <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Conteúdo Estratégico do Site</h4>
+                      </div>
+
+                      <div className="space-y-2 mb-6">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Seu Nome na Página Pública</label>
+                         <input 
+                           type="text"
+                           value={user.profile_theme.public_name || ''}
+                           onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, public_name: e.target.value } }))}
+                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
+                           placeholder="Ex: Dr. Eduardo Eloi"
+                         />
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

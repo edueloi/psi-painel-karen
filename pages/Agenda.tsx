@@ -325,6 +325,7 @@ export const Agenda: React.FC = () => {
       completed: { label: 'Realizado', chip: 'bg-indigo-50/60 text-indigo-700 border-indigo-100/60', dot: 'bg-indigo-500' },
       cancelled: { label: 'Cancelado', chip: 'bg-rose-50/60 text-rose-700 border-rose-100/60', dot: 'bg-rose-500' },
       'no-show': { label: 'Faltou', chip: 'bg-amber-50/60 text-amber-700 border-amber-100/60', dot: 'bg-amber-500' },
+      rescheduled: { label: 'Reagendado', chip: 'bg-violet-50/60 text-violet-700 border-violet-100/60', dot: 'bg-violet-500' },
   } as const;
 
   const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -2909,11 +2910,11 @@ export const Agenda: React.FC = () => {
         const pkg = packages.find(p => String(p.id) === String(apt.package_id));
         const cmnd = patientComandas.find(c => String(c.id) === String(apt.comanda_id));
         const currentStatus = detailQuickStatus ?? (apt.status || 'scheduled');
-        const needsNotes = currentStatus === 'no-show' || currentStatus === 'cancelled';
+        const needsNotes = currentStatus === 'no-show' || currentStatus === 'cancelled' || currentStatus === 'rescheduled';
         const initials = (apt.patient_name || apt.title || 'P').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
         const statusColor: Record<string, string> = {
           scheduled: '#6366f1', confirmed: '#10b981', completed: '#059669',
-          'no-show': '#f59e0b', cancelled: '#ef4444',
+          'no-show': '#f59e0b', cancelled: '#ef4444', rescheduled: '#8b5cf6',
         };
         const accentColor = statusColor[currentStatus] || '#6366f1';
 
@@ -2922,26 +2923,49 @@ export const Agenda: React.FC = () => {
           { key: 'confirmed', label: 'Confirmado', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', active: 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100' },
           { key: 'completed', label: 'Realizado', color: 'bg-green-50 text-green-700 border-green-200', active: 'bg-green-600 text-white border-green-600 shadow-lg shadow-green-100' },
           { key: 'no-show', label: 'Faltou', color: 'bg-amber-50 text-amber-700 border-amber-200', active: 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100' },
+          { key: 'rescheduled', label: 'Reagendado', color: 'bg-violet-50 text-violet-700 border-violet-200', active: 'bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-100' },
           { key: 'cancelled', label: 'Cancelado', color: 'bg-rose-50 text-rose-700 border-rose-200', active: 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-100' },
         ];
 
         const handleQuickSave = async () => {
           if (needsNotes && !detailQuickNotes.trim()) {
-            pushToast('error', `Informe o motivo ${currentStatus === 'no-show' ? 'da falta' : 'do cancelamento'}.`);
+            pushToast('error', `Informe o motivo ${currentStatus === 'no-show' ? 'da falta' : currentStatus === 'rescheduled' ? 'do reagendamento' : 'do cancelamento'}.`);
             return;
           }
+          if (currentStatus === 'rescheduled' && (!detailRescheduleDateTime.date || !detailRescheduleDateTime.time)) {
+            pushToast('error', 'Informe a nova data e horário.');
+            return;
+          }
+
           try {
-            await api.put(`/appointments/${apt.id}/status`, { status: currentStatus, notes: detailQuickNotes || undefined });
-            pushToast('success', 'Status atualizado!');
+            if (currentStatus === 'rescheduled') {
+              const newDateTime = `${detailRescheduleDateTime.date}T${detailRescheduleDateTime.time}:00`;
+              const payload = {
+                patient_id: apt.patient_id,
+                professional_id: apt.professional_id || (apt as any).psychologist_id,
+                service_id: apt.service_id,
+                status: 'rescheduled',
+                notes: detailQuickNotes || apt.notes,
+                start_time: new Date(newDateTime).toISOString(),
+                duration_minutes: apt.duration_minutes || 50,
+                modality: apt.modality,
+                type: apt.type,
+                comanda_id: apt.comanda_id
+              };
+              await api.put(`/appointments/${apt.id}`, payload);
+            } else {
+              await api.put(`/appointments/${apt.id}/status`, { status: currentStatus, notes: detailQuickNotes || undefined });
+            }
+            pushToast('success', 'Atualizado com sucesso!');
             fetchData();
             setDetailQuickStatus(null);
             setDetailQuickNotes('');
             setIsDetailModalOpen(false);
-          } catch { pushToast('error', 'Erro ao atualizar status.'); }
+          } catch { pushToast('error', 'Erro ao atualizar agendamento.'); }
         };
 
         return (
-          <Modal isOpen={isDetailModalOpen} onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} title="" maxWidth="max-w-lg" hideCloseButton>
+          <Modal isOpen={isDetailModalOpen} onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} title="" maxWidth="max-w-[655px]" hideCloseButton>
             <div className="pb-2 -mt-2">
 
               {/* ── HERO HEADER ── */}
@@ -3017,7 +3041,18 @@ export const Agenda: React.FC = () => {
                   {quickStatuses.map(s => (
                     <button
                       key={s.key}
-                      onClick={() => { setDetailQuickStatus(s.key === currentStatus && !detailQuickStatus ? null : s.key); setDetailQuickNotes(''); }}
+                      onClick={() => { 
+                        const isActive = s.key === currentStatus && !detailQuickStatus;
+                        setDetailQuickStatus(isActive ? null : s.key); 
+                        setDetailQuickNotes('');
+                        if (s.key === 'rescheduled' && !isActive) {
+                          const aptDate = new Date(apt.start);
+                          setDetailRescheduleDateTime({
+                            date: aptDate.toISOString().slice(0, 10),
+                            time: aptDate.toTimeString().slice(0, 5)
+                          });
+                        }
+                      }}
                       className={cx('text-[11px] font-black px-3 py-1.5 rounded-xl border transition-all', currentStatus === s.key ? s.active : s.color)}
                     >
                       {s.label}
@@ -3025,19 +3060,48 @@ export const Agenda: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Notes required when faltou/cancelado */}
+                {/* Reschedule specific fields */}
+                {detailQuickStatus === 'rescheduled' && (
+                  <div className="mt-4 grid grid-cols-2 gap-3 animate-fadeIn">
+                    <div>
+                      <label className="text-[10px] font-black text-violet-500 uppercase tracking-widest block mb-1.5 ml-1">Nova Data</label>
+                      <DatePicker
+                        value={detailRescheduleDateTime.date}
+                        onChange={val => setDetailRescheduleDateTime(prev => ({ ...prev, date: val }))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-violet-500 uppercase tracking-widest block mb-1.5 ml-1">Novo Horário</label>
+                      <div className="relative">
+                        <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" />
+                        <input
+                          type="time"
+                          value={detailRescheduleDateTime.time}
+                          onChange={e => setDetailRescheduleDateTime(prev => ({ ...prev, time: e.target.value }))}
+                          className="w-full rounded-xl border border-violet-200 pl-9 pr-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 transition-colors bg-violet-50/20"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes required when faltou/cancelado/reagendado */}
                 {detailQuickStatus && needsNotes && (
                   <div className="mt-3">
-                    <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 block">
-                      {currentStatus === 'no-show' ? 'Motivo da Falta *' : 'Motivo do Cancelamento *'}
+                    <label className={cx('text-[10px] font-black uppercase tracking-widest mb-1.5 block', currentStatus === 'rescheduled' ? 'text-violet-500' : 'text-rose-500')}>
+                      {currentStatus === 'no-show' ? 'Motivo da Falta *' : currentStatus === 'rescheduled' ? 'Observação / Motivo do Reagendamento *' : 'Motivo do Cancelamento *'}
                     </label>
                     <textarea
                       value={detailQuickNotes}
                       onChange={e => setDetailQuickNotes(e.target.value)}
-                      placeholder={currentStatus === 'no-show' ? 'Descreva o motivo da falta...' : 'Descreva o motivo do cancelamento...'}
+                      placeholder={currentStatus === 'no-show' ? 'Descreva o motivo da falta...' : currentStatus === 'rescheduled' ? 'Ex: Paciente solicitou por motivos de trabalho...' : 'Descreva o motivo do cancelamento...'}
                       rows={2}
                       className={cx('w-full rounded-xl border px-3 py-2 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none transition-colors',
-                        detailQuickNotes.trim() ? 'border-rose-300 focus:border-rose-500' : 'border-rose-400 focus:border-rose-600 bg-rose-50/30')}
+                        currentStatus === 'rescheduled' 
+                          ? (detailQuickNotes.trim() ? 'border-violet-300 focus:border-violet-500' : 'border-violet-400 focus:border-violet-600 bg-violet-50/30')
+                          : (detailQuickNotes.trim() ? 'border-rose-300 focus:border-rose-500' : 'border-rose-400 focus:border-rose-600 bg-rose-50/30')
+                      )}
                     />
                   </div>
                 )}
