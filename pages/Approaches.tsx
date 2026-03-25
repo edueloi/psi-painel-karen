@@ -349,7 +349,7 @@ export const Approaches: React.FC = () => {
   );
 
   return (
-    <div className="mx-auto max-w-[1700px] px-6 pt-6 pb-24 animate-fadeIn font-sans space-y-12">
+    <div className="mx-auto max-w-[1600px] px-4 md:px-6 pt-6 pb-24 animate-fadeIn space-y-8 md:space-y-12">
       <PageHeader
         icon={<Layers className="text-indigo-600" />}
         title="Dossiê Clânico de Epistemologia"
@@ -359,26 +359,26 @@ export const Approaches: React.FC = () => {
         containerClassName="mb-0"
         actions={
           <div className="flex items-center gap-4 flex-wrap">
-            <div className="relative group">
+            <div className="relative group hidden sm:block">
                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={16} />
                <input 
                   type="text"
                   placeholder="Pesquisar abordagem..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-bold w-64 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
+                  className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-[11px] font-bold w-48 lg:w-64 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
                />
             </div>
-            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
                 <button 
                     onClick={() => setActiveTab('cards')}
-                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'cards' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'cards' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                     <LayoutGrid size={14} /> Painéis
                 </button>
                 <button 
                     onClick={() => setActiveTab('manual')}
-                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'manual' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'manual' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                     <BookOpen size={14} /> Manual
                 </button>
@@ -388,162 +388,155 @@ export const Approaches: React.FC = () => {
       />
 
       {activeTab === 'cards' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {filteredApproaches.map((app) => (
                 <div 
                     key={app.id}
-                    className="group relative bg-white/80 backdrop-blur-xl rounded-[48px] border border-white shadow-xl hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] hover:-translate-y-3 transition-all duration-700 overflow-hidden flex flex-col h-[520px]"
+                    className="group relative bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 transition-all duration-500 flex flex-col overflow-hidden min-h-[480px]"
                 >
-                     {/* Background Glow */}
-                     <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[100px] opacity-[0.03] group-hover:opacity-10 transition-opacity bg-indigo-600`} />
-                     
-                     {/* Header Decoration */}
-                     <div className={`absolute top-0 left-0 w-full h-2 bg-gradient-to-r ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')} opacity-20`} />
+                     {/* Status & Badge */}
+                     <div className="absolute top-6 right-6 flex flex-col items-end gap-1.5 z-20">
+                         <div className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1 shadow-sm`}>
+                            <CheckCircle2 size={10} /> Integrado
+                         </div>
+                         <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest opacity-30">v.3.1</span>
+                     </div>
 
-                     <div className="p-8 space-y-8 flex-1 flex flex-col">
-                         {/* Icon & Status */}
-                         <div className="flex items-start justify-between">
-                            <div className={`w-20 h-20 rounded-[28px] flex items-center justify-center shadow-2xl ring-4 ring-white group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')} text-white`}>
-                                {React.cloneElement(app.icon as React.ReactElement, { size: 40 })}
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                                 <div className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1.5 animate-pulse`}>
-                                    <CheckCircle2 size={12} /> Integrado
-                                 </div>
-                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-50">V.3.1</span>
-                            </div>
+                     <div className="p-8 pb-4 flex-1 flex flex-col">
+                         {/* Icon Box */}
+                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg mb-8 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')} text-white`}>
+                            {React.cloneElement(app.icon as React.ReactElement, { size: 28 })}
                          </div>
     
-                         {/* Content */}
+                         {/* Text Content */}
                          <div className="space-y-4 flex-1">
-                            <div className="space-y-1">
-                                <h2 className="text-2xl font-black text-slate-900 tracking-tighter leading-tight uppercase group-hover:text-indigo-600 transition-colors">{app.title}</h2>
-                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest py-1 px-3 bg-slate-50 rounded-lg inline-block border border-slate-100">{app.subtitle}</p>
+                            <div className="space-y-1.5">
+                                <h2 className="text-lg lg:text-xl font-black text-slate-900 tracking-tight leading-[1.1] uppercase group-hover:text-indigo-600 transition-colors">{app.title}</h2>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{app.subtitle}</p>
                             </div>
                             
-                            <div className="relative">
-                                <Quote className="absolute -left-2 -top-2 w-4 h-4 text-slate-100" />
-                                <p className="text-sm text-slate-600 font-medium leading-[1.6] pl-3 italic line-clamp-3">
-                                    {app.description}
-                                </p>
-                            </div>
+                            <p className="text-xs text-slate-500 font-bold leading-relaxed pr-2 line-clamp-3">
+                                {app.description}
+                            </p>
 
-                            <div className="flex flex-wrap gap-2 pt-2">
-                                 {app.features.map(f => (
-                                     <span key={f} className="bg-white text-slate-600 px-3 py-1.5 rounded-2xl text-[10px] font-black border border-slate-100 shadow-sm tracking-tight group-hover:border-indigo-100 group-hover:bg-indigo-50/50 transition-all uppercase">#{f}</span>
+                            <div className="flex flex-wrap gap-1.5 pt-2">
+                                 {app.features.slice(0, 3).map(f => (
+                                     <span key={f} className="bg-slate-50 text-[8px] font-black text-slate-400 uppercase tracking-tight px-2.5 py-1.5 rounded-xl border border-slate-100 group-hover:bg-white transition-colors">#{f}</span>
                                  ))}
                             </div>
                          </div>
 
-                         {/* Epistemology Card */}
-                         <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 group-hover:bg-white group-hover:border-indigo-50 transition-all duration-500">
-                             <div className="flex items-center gap-4">
-                                <div className="p-2.5 bg-white rounded-xl shadow-sm text-slate-400">
-                                    <History size={18} />
+                         {/* Epistemology Info */}
+                         <div className="mt-8 p-5 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white group-hover:border-indigo-100 transition-colors">
+                             <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white rounded-lg shadow-sm border border-slate-100 text-indigo-600">
+                                    <History size={14} />
                                 </div>
                                 <div className="space-y-0.5 min-w-0">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Origem Teórica</span>
-                                    <p className="text-[11px] font-bold text-slate-800 truncate">{app.origin}</p>
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Origem</span>
+                                    <p className="text-[10px] font-bold text-slate-900 truncate uppercase">{app.origin.split('(')[0]}</p>
                                 </div>
                              </div>
                          </div>
                      </div>
  
-                     {/* Footer Actions */}
-                     <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between group-hover:bg-indigo-600 group-hover:border-indigo-600 transition-all duration-500">
+                     {/* Integrated Bottom Action Footer */}
+                     <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between group-hover:bg-indigo-600 transition-all duration-500">
                          <Link 
                             to={app.path}
-                            className={`flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all text-slate-400 group-hover:text-white`}
+                            className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white transition-colors`}
                          >
-                            Acessar Painel <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
+                            Acessar Painel <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                          </Link>
                          <button 
                             onClick={() => info(app.title, app.curiosity)}
-                            className="w-12 h-12 rounded-[20px] bg-white text-slate-300 hover:scale-110 active:scale-95 shadow-sm group-hover:shadow-xl transition-all flex items-center justify-center hover:text-indigo-600"
+                            className="w-10 h-10 rounded-xl bg-white text-slate-300 hover:text-indigo-600 hover:scale-105 transition-all flex items-center justify-center shadow-sm"
                             title="Ver curiosidade"
                          >
-                            <Lightbulb size={24} />
+                            <Lightbulb size={20} />
                          </button>
                      </div>
                 </div>
             ))}
         </div>
       ) : (
-        <div className="max-w-6xl mx-auto space-y-16 animate-slideUpFade px-4">
-            <div className="text-center relative py-12">
-                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-indigo-100 rounded-full blur-[60px] opacity-50" />
-                 <h2 className="text-5xl font-black text-slate-950 tracking-tighter uppercase mb-6 relative">Manual de Epistemologia Clínica</h2>
-                 <p className="text-slate-500 max-w-2xl mx-auto text-lg font-medium leading-relaxed">O guia definitivo sobre as bases teóricas que alimentam o motor clínico da nossa plataforma inteligente.</p>
+        <div className="max-w-6xl mx-auto space-y-12 animate-slideUpFade px-4">
+            <div className="text-center relative py-6">
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-indigo-100 rounded-full blur-[60px] opacity-30" />
+                 <h2 className="text-3xl md:text-4xl font-black text-slate-950 tracking-tighter uppercase mb-4 relative">Manual de Epistemologia Clínica</h2>
+                 <p className="text-slate-500 max-w-xl mx-auto text-sm font-medium leading-relaxed">O guia definitivo sobre as bases teóricas que alimentam o motor clínico da nossa plataforma inteligente.</p>
             </div>
 
             {filteredApproaches.map((app) => (
-                <div key={app.id} className="relative group bg-white border border-slate-100 rounded-[64px] p-10 md:p-16 shadow-2xl hover:shadow-[0_50px_100px_rgba(0,0,0,0.08)] transition-all duration-1000 overflow-hidden">
-                    <div className="absolute top-0 right-0 p-20 opacity-[0.02] scale-150 rotate-12 group-hover:opacity-5 transition-opacity">
+                <div key={app.id} className="relative group bg-white border border-slate-100 rounded-[3rem] p-8 md:p-12 shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-700 overflow-hidden">
+                    {/* Watermark Icon */}
+                    <div className="absolute -top-12 -right-12 p-12 opacity-[0.02] scale-150 rotate-12 group-hover:opacity-5 transition-opacity">
                         {app.icon}
                     </div>
                     
-                    <div className="flex flex-col lg:flex-row gap-16 relative z-10">
-                        <div className="lg:w-2/5 space-y-10">
-                             <div className={`w-32 h-32 rounded-[48px] flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-1000 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')}`}>
-                                {React.cloneElement(app.icon as React.ReactElement, { size: 64 })}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-16 relative z-10">
+                        {/* Information Section */}
+                        <div className="lg:col-span-5 space-y-8 flex flex-col items-center lg:items-start text-center lg:text-left">
+                             <div className={`w-20 h-20 rounded-[28px] flex items-center justify-center text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-transform duration-700 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')}`}>
+                                {React.cloneElement(app.icon as React.ReactElement, { size: 40 })}
                              </div>
                              
-                             <div className="space-y-6">
-                                <h3 className="text-6xl font-black text-slate-950 tracking-tighter uppercase leading-[0.85]">{app.title}</h3>
-                                <div className="flex items-center gap-4">
-                                    <span className={`px-6 py-2.5 rounded-2xl text-[12px] font-black uppercase tracking-widest bg-slate-950 text-white shadow-xl`}>{app.subtitle}</span>
+                             <div className="space-y-4">
+                                <h3 className="text-3xl md:text-4xl font-black text-slate-950 tracking-tight uppercase leading-none">{app.title}</h3>
+                                <div className="flex items-center gap-3 justify-center lg:justify-start">
+                                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-950 text-white shadow-lg`}>{app.subtitle}</span>
                                 </div>
-                                <p className="text-lg text-slate-500 font-medium leading-relaxed italic border-l-8 border-indigo-100 pl-8 transition-all group-hover:border-indigo-600">
+                                <p className="text-sm md:text-base text-slate-500 font-medium leading-relaxed border-l-4 md:border-l-8 border-indigo-50 pl-6 transition-all group-hover:border-indigo-600 italic">
                                     "{app.description}"
                                 </p>
                              </div>
 
-                             <div className="pt-8 flex flex-col gap-4">
-                                <Link to={app.path} className="flex items-center justify-center gap-4 w-full py-7 bg-indigo-600 text-white rounded-[32px] font-black text-[13px] uppercase tracking-[0.2em] shadow-2xl shadow-indigo-200 hover:bg-slate-950 transition-all hover:scale-[1.02] active:scale-95">
-                                    Configurar Clínica <ArrowRight size={20} />
+                             <div className="pt-4 flex flex-col gap-3 w-full max-w-md">
+                                <Link to={app.path} className="flex items-center justify-center gap-3 w-full py-5 bg-indigo-600 shadow-lg shadow-indigo-600/20 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-950 transition-all hover:scale-[1.02]">
+                                    Configurar Clínica <ArrowRight size={16} />
                                 </Link>
-                                <p className="text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">Ajusta o comportamento da Aurora AI automaticamente</p>
+                                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Ajusta o motor Aurora AI automaticamente</p>
                              </div>
                         </div>
 
-                        <div className="flex-1 space-y-12">
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                <section className="space-y-10">
-                                    <div className="space-y-4">
-                                        <h4 className="flex items-center gap-4 text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-100 pb-4">
-                                            <div className="p-2 bg-amber-50 rounded-lg text-amber-500"><History size={18}/></div> História & Origem
+                        {/* Details Section */}
+                        <div className="lg:col-span-7 space-y-8">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                                <section className="space-y-8">
+                                    <div className="space-y-3">
+                                        <h4 className="flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3">
+                                            <History size={14} className="text-amber-500" /> História & Origem
                                         </h4>
-                                        <p className="text-base text-slate-500 leading-relaxed font-bold">{app.origin}</p>
+                                        <p className="text-sm text-slate-600 leading-relaxed font-bold">{app.origin}</p>
                                     </div>
 
-                                    <div className="p-10 bg-indigo-50/50 rounded-[48px] border border-indigo-100 shadow-inner relative overflow-hidden group/box">
-                                        <div className="absolute top-0 right-0 p-10 opacity-5 group-hover/box:scale-110 transition-transform"><Target size={80}/></div>
-                                        <h4 className="flex items-center gap-3 text-xs font-black text-indigo-900 uppercase tracking-widest mb-6">
-                                            Casos de Indicação Ouro
+                                    <div className="p-8 bg-indigo-50/50 rounded-[2.5rem] border border-indigo-100/50 group/box">
+                                        <h4 className="flex items-center gap-2 text-[10px] font-black text-indigo-900 uppercase tracking-widest mb-4">
+                                            <Target size={14} className="text-indigo-600" /> Indicações Ouro
                                         </h4>
-                                        <p className="text-base text-indigo-900/70 font-black leading-relaxed italic">{app.whenToUse}</p>
+                                        <p className="text-xs md:text-sm text-indigo-900/70 font-black leading-relaxed italic">{app.whenToUse}</p>
                                     </div>
                                 </section>
 
-                                <section className="space-y-10">
-                                    <div className="space-y-4">
-                                        <h4 className="flex items-center gap-4 text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-100 pb-4">
-                                            <div className="p-2 bg-indigo-50 rounded-lg text-indigo-500"><Lightbulb size={18}/></div> Você sabia?
+                                <section className="space-y-8">
+                                    <div className="space-y-3">
+                                        <h4 className="flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3">
+                                            <Lightbulb size={14} className="text-indigo-500" /> Curiosidade
                                         </h4>
-                                        <div className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-xl relative group-hover:shadow-2xl transition-all duration-700">
-                                            <p className="text-base font-black leading-relaxed italic text-slate-800">"{app.curiosity}"</p>
+                                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-md group-hover:shadow-lg transition-all duration-500">
+                                            <p className="text-xs md:text-sm font-black leading-relaxed italic text-slate-700">"{app.curiosity}"</p>
                                         </div>
                                     </div>
 
-                                    <div className="p-10 bg-slate-950 rounded-[48px] text-white shadow-2xl relative overflow-hidden group/box">
-                                        <div className="absolute bottom-0 right-0 p-10 opacity-10 group-hover/box:rotate-12 transition-transform"><Sparkles size={80}/></div>
-                                        <h4 className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest opacity-40 mb-6">
-                                            Como a IA interpreta
+                                    <div className="p-8 bg-slate-950 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group/box">
+                                        <div className="absolute -bottom-4 -right-4 opacity-10 group-hover/box:rotate-12 transition-transform"><Sparkles size={64}/></div>
+                                        <h4 className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest opacity-40 mb-4">
+                                            Interpretação da IA
                                         </h4>
-                                        <p className="text-sm font-bold leading-relaxed mb-8 italic">"{app.howItWorks}"</p>
+                                        <p className="text-[11px] font-bold leading-relaxed mb-6 italic opacity-80">"{app.howItWorks}"</p>
                                         <div className="flex flex-wrap gap-2">
                                             {app.features.map(f => (
-                                                <span key={f} className="px-4 py-2 bg-white/10 rounded-xl text-[9px] font-black border border-white/10 uppercase tracking-widest hover:bg-indigo-500 transition-colors cursor-default">{f}</span>
+                                                <span key={f} className="px-3 py-1.5 bg-white/10 rounded-xl text-[8px] font-black border border-white/5 uppercase tracking-widest hover:bg-indigo-600 transition-colors cursor-default">{f}</span>
                                             ))}
                                         </div>
                                     </div>

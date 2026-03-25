@@ -320,43 +320,44 @@ export const ClinicalTools: React.FC = () => {
   const toolsForCustomizer = currentOrder.map(id => tools.find(t => t.id === id)!).filter(Boolean);
 
   return (
-    <div className="mx-auto max-w-[1700px] px-6 pt-6 pb-24 animate-fadeIn font-sans space-y-12">
+    <div className="mx-auto max-w-[1600px] px-4 md:px-6 pt-6 pb-24 animate-fadeIn space-y-8 md:space-y-12">
       <PageHeader
         icon={<Boxes className="text-indigo-600" />}
         title="Caixa de Ferramentas Clínica"
         subtitle="Protocolos e recursos avançados sincronizados com o histórico do seu paciente."
         showBackButton
         onBackClick={() => navigate('/')}
+        containerClassName="mb-0"
         actions={
           <div className="flex items-center gap-4 flex-wrap">
-              <div className="relative group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={18} />
+              <div className="relative group hidden sm:block">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={16} />
                   <input 
                       type="text"
                       placeholder="Pesquisar módulo..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-12 pr-6 py-3 bg-white border border-slate-200 rounded-[20px] text-sm font-bold w-full md:w-80 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
+                      className="pl-12 pr-6 py-2.5 bg-white border border-slate-200 rounded-2xl text-[11px] font-bold w-48 lg:w-80 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
                   />
               </div>
               <button 
                 onClick={() => setIsCustomizerOpen(true)}
-                className="p-3.5 bg-white border border-slate-200 rounded-[20px] text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm hover:shadow-xl"
+                className="w-10 h-10 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm hover:scale-105 flex items-center justify-center"
                 title="Personalizar layout"
               >
-                  <SlidersHorizontal size={22} />
+                  <SlidersHorizontal size={20} />
               </button>
           </div>
         }
       />
 
       {/* FILTERS */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-6 scrollbar-hide">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map(cat => (
             <button
                 key={cat}
                 onClick={() => setFilter(cat)}
-                className={`px-8 py-4 rounded-[24px] text-[11px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${filter === cat ? 'bg-slate-950 text-white border-slate-950 shadow-2xl scale-105' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
+                className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${filter === cat ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
             >
                 {categoryLabels[cat]}
             </button>
@@ -365,55 +366,58 @@ export const ClinicalTools: React.FC = () => {
 
       {/* TOOLS GRID - 4 cards on laptop (lg), 3 huge cards on larger (2xl) */}
       {displayedTools.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {displayedTools.map((tool) => (
                 <div 
                     key={tool.id}
                     onClick={() => navigate(tool.path)}
-                    className="group relative bg-white/70 backdrop-blur-xl rounded-[56px] p-10 border border-white shadow-xl hover:shadow-[0_80px_160px_rgba(0,0,0,0.1)] hover:-translate-y-4 transition-all duration-700 cursor-pointer overflow-hidden flex flex-col h-[380px] group/card"
+                    className="group relative bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 transition-all duration-500 cursor-pointer flex flex-col overflow-hidden min-h-[380px]"
                 >
-                    {/* Watermark */}
-                    <div className="absolute -right-12 -bottom-12 opacity-[0.03] group-hover:opacity-[0.08] transition-all duration-1000 rotate-12 scale-[3]">
-                        {tool.icon}
-                    </div>
+                    {/* Background Accent */}
+                    <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-[80px] opacity-[0.03] group-hover:opacity-10 transition-opacity bg-indigo-600`} />
 
-                    <div className="flex items-start justify-between mb-8 relative z-10">
-                        <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center shadow-2xl ring-4 ring-white group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 bg-gradient-to-br ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} text-white`}>
-                            {React.cloneElement(tool.icon as React.ReactElement, { size: 40 })}
+                    <div className="p-8 pb-4 flex-1 flex flex-col">
+                        <div className="flex items-start justify-between mb-8">
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 bg-gradient-to-br ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} text-white`}>
+                                {React.cloneElement(tool.icon as React.ReactElement, { size: 28 })}
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100/50">
+                                    <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                                    <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">PRO</span>
+                                 </div>
+                                 <div className="flex items-center gap-1 opacity-20 group-hover:opacity-40 transition-opacity">
+                                    <Lock size={9} className="text-slate-400" />
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Safe</span>
+                                 </div>
+                            </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                             <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-100 shadow-sm">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest leading-none">Ativo PRO</span>
-                             </div>
-                             <div className="flex items-center gap-1 group-hover:scale-110 transition-transform">
-                                <Lock size={12} className="text-slate-300" />
-                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Protegido</span>
-                             </div>
+    
+                        <div className="space-y-3 flex-1">
+                            <section className="space-y-1">
+                                <h3 className="text-lg lg:text-xl font-black text-slate-900 tracking-tight leading-[1.1] uppercase group-hover:text-indigo-600 transition-colors">{tool.title}</h3>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{categoryLabels[tool.category]}</p>
+                            </section>
+                            <p className="text-[11px] text-slate-500 font-bold leading-relaxed pr-2 line-clamp-3">"{tool.description}"</p>
                         </div>
-                    </div>
-
-                    <div className="space-y-4 flex-1 relative z-10">
-                        <section className="space-y-1">
-                            <h3 className="text-2xl font-black text-slate-900 tracking-tighter leading-none uppercase group-hover:text-indigo-600 transition-colors">{tool.title}</h3>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{categoryLabels[tool.category]}</p>
-                        </section>
-                        <p className="text-sm text-slate-500 font-bold leading-relaxed italic line-clamp-2">"{tool.description}"</p>
-                    </div>
-
-                    <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between relative z-10">
-                        <div className="flex flex-wrap gap-2">
+    
+                        <div className="mt-8 flex flex-wrap gap-1.5 pt-2">
                             {tool.tags.slice(0, 3).map(tag => (
-                                <span key={tag} className="px-3 py-1.5 bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-xl border border-slate-100 group-hover:border-indigo-100 group-hover:bg-indigo-50/50 group-hover:text-indigo-500 transition-all">#{tag}</span>
+                                <span key={tag} className="px-2.5 py-1.5 bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-tight rounded-xl border border-slate-100 transition-colors group-hover:bg-white group-hover:border-indigo-100 group-hover:text-indigo-500">#{tag}</span>
                             ))}
                         </div>
-                        <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center bg-slate-950 text-white shadow-2xl group-hover:bg-indigo-600 transition-all group-hover:scale-110 active:scale-95`}>
-                            <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                    </div>
+
+                    {/* Integrated Bottom Action Footer */}
+                    <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between group-hover:bg-indigo-600 transition-all duration-500">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white transition-colors">Executar Módulo</span>
+                        <div className="w-8 h-8 rounded-lg bg-white/0 flex items-center justify-center text-slate-300 group-hover:text-white transition-all">
+                            <ArrowRight size={18} className="group-hover:translate-x-1" />
                         </div>
                     </div>
 
-                    {/* Left Border Glow */}
-                    <div className={`absolute top-10 bottom-10 left-0 w-1.5 rounded-r-full transition-all bg-gradient-to-b ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} opacity-20 group-hover:opacity-100 group-hover:w-2`}></div>
+                    {/* Discreet Side Marker */}
+                    <div className={`absolute top-12 bottom-12 left-0 w-1 transition-all bg-gradient-to-b ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} opacity-10 group-hover:opacity-100 group-hover:w-1.5`}></div>
                 </div>
             ))}
         </div>
