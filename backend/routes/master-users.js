@@ -8,16 +8,39 @@ const { authorize } = require('../middleware/auth');
 router.use(authorize('super_admin'));
 
 async function ensureProfileColumn() {
-  // Adiciona coluna de perfil se não existir
-  try {
-    await db.query('ALTER TABLE users ADD COLUMN permission_profile_id INT NULL');
-  } catch (err) {
-    if (err.code !== 'ER_DUP_FIELDNAME') throw err;
-  }
+  // Adiciona colunas se não existirem
+  const addColumn = async (col, type) => {
+    try {
+      await db.query(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+  };
+
+  await addColumn('permission_profile_id', 'INT NULL');
+  await addColumn('cargo', 'VARCHAR(100) NULL');
+  await addColumn('departamento', 'VARCHAR(100) NULL');
+  await addColumn('avatar_url', 'VARCHAR(255) NULL');
+
   // Permite tenant_id NULL para usuários super_admin (sem tenant)
   try {
     await db.query('ALTER TABLE users MODIFY COLUMN tenant_id INT NULL');
   } catch (err) { /* ignora se já for NULL */ }
+
+  // Garante tabela de perfis para o JOIN não quebrar
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS master_permission_profiles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      role ENUM('super_admin','vendedor','suporte','visualizador','financeiro') NOT NULL DEFAULT 'suporte',
+      description TEXT,
+      permissions JSON NOT NULL DEFAULT ('{}'),
+      access_token VARCHAR(64) UNIQUE NOT NULL,
+      active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 // GET /master-users

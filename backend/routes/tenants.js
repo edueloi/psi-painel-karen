@@ -25,11 +25,32 @@ async function createDefaultFormsForTenant(tenantId, adminUserId) {
   }
 }
 
+async function ensureTenantSchema() {
+  try {
+    const [cols] = await db.query('DESCRIBE tenants');
+    const hasCol = (name) => cols.find(c => c.Field === name);
+
+    if (!hasCol('expires_at')) {
+      await db.query('ALTER TABLE tenants ADD COLUMN expires_at DATETIME AFTER phone');
+      await db.query('UPDATE tenants SET expires_at = DATE_ADD(created_at, INTERVAL 30 DAY) WHERE expires_at IS NULL');
+    }
+    if (!hasCol('status')) {
+      await db.query("ALTER TABLE tenants ADD COLUMN status ENUM('active', 'blocked', 'expired') DEFAULT 'active' AFTER expires_at");
+    }
+    if (!hasCol('last_billing_at')) {
+      await db.query('ALTER TABLE tenants ADD COLUMN last_billing_at DATETIME AFTER status');
+    }
+  } catch (err) {
+    console.error('Error ensuring tenant schema:', err.message);
+  }
+}
+
 router.use(authorize('super_admin'));
 
 // GET /tenants
 router.get('/', async (req, res) => {
   try {
+    await ensureTenantSchema();
     const [tenants] = await db.query(`
       SELECT
         t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone,
