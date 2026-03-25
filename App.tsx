@@ -43,6 +43,9 @@ import { IntegrativaPage } from './pages/clinical-tools/Integrativa';
 import { FAPPage } from './pages/clinical-tools/FAP';
 import { MindfulnessPage } from './pages/clinical-tools/Mindfulness';
 import { PositivePsychologyPage } from './pages/clinical-tools/PositivePsychology';
+import { PlayTherapyPage } from './pages/clinical-tools/PlayTherapy';
+import { CoupleTherapyPage } from './pages/clinical-tools/CoupleTherapy';
+import { ParentingGuidancePage } from './pages/clinical-tools/ParentingGuidance';
 import { Records } from './pages/Records';
 import { CaseStudies } from './pages/CaseStudies';
 import { Documents } from './pages/Documents';
@@ -214,6 +217,9 @@ const AppRoutes: React.FC = () => {
       <Route path="/caixa-ferramentas/fap" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><FAPPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/mindfulness" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><MindfulnessPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/positiva" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><PositivePsychologyPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/infantil" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><PlayTherapyPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/casal" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><CoupleTherapyPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/pais" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><ParentingGuidancePage /></ProtectedRoute>} />
       <Route path="/prontuario" element={<ProtectedRoute requiredPermission="view_medical_records"><Records /></ProtectedRoute>} />
       <Route path="/analises" element={<ProtectedRoute requiredPermission="view_medical_records"><Records defaultTab="analysis" /></ProtectedRoute>} />
       <Route path="/estudos-de-caso" element={<ProtectedRoute><CaseStudies /></ProtectedRoute>} />
