@@ -12,7 +12,7 @@ import { PageHeader } from '../components/UI/PageHeader';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
-import { GripVertical, Eye, EyeOff } from 'lucide-react';
+import { GripVertical, Eye, EyeOff, HeartHandshake, Star } from 'lucide-react';
 
 interface Tool {
   id: string;
@@ -165,6 +165,36 @@ const tools: Tool[] = [
     path: '/caixa-ferramentas/comportamental',
     color: 'slate',
     tags: ['Reforço', 'Ambiente', 'Aprendizagem']
+  },
+  {
+    id: 'fap',
+    title: 'FAP - Analítica Funcional',
+    category: 'clinical',
+    description: 'Trabalho focado na relação terapêutica e mapeamento de CRBs ao vivo.',
+    icon: <HeartHandshake />,
+    path: '/caixa-ferramentas/fap',
+    color: 'emerald',
+    tags: ['CRB', 'Relação Terapêutica', 'Contexto']
+  },
+  {
+    id: 'mindfulness',
+    title: 'Mindfulness',
+    category: 'clinical',
+    description: 'Mapeamento de práticas focadas no presente e atenção plena.',
+    icon: <Sun />,
+    path: '/caixa-ferramentas/mindfulness',
+    color: 'emerald',
+    tags: ['Atenção Plena', 'Presente', 'Aceitação']
+  },
+  {
+    id: 'positiva',
+    title: 'Psicologia Positiva',
+    category: 'clinical',
+    description: 'Identificação de forças, virtudes e intervenções focadas no bem-estar.',
+    icon: <Star />,
+    path: '/caixa-ferramentas/positiva',
+    color: 'amber',
+    tags: ['Flow', 'Forças', 'Bem-estar']
   }
 ];
 

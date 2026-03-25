@@ -7,8 +7,7 @@ import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { 
   Target, Plus, Trash2, Edit3, Save, RotateCcw, 
-  HelpCircle, Sparkles, CheckCircle2, ArrowRight, 
-  ChevronRight, X, Loader2, Compass, Zap, Heart
+  ChevronRight, X, Loader2, Compass, Zap, Heart, LayoutGrid, ArrowRight, CheckCircle2
 } from 'lucide-react';
 
 export const ACTPage: React.FC = () => {
@@ -23,9 +22,9 @@ export const ACTPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // ACT Specific State
   const [values, setValues] = useState<any[]>([]);
   const [defusions, setDefusions] = useState<any[]>([]);
+  const [matrix, setMatrix] = useState({ bottom_left: '', bottom_right: '', top_left: '', top_right: '' });
 
   const [newValue, setNewValue] = useState({ area: '', value: '', action: '' });
   const [newDefusion, setNewDefusion] = useState({ thought: '', technique: '', outcome: '' });
@@ -53,6 +52,7 @@ export const ACTPage: React.FC = () => {
       const data = await api.get<any>(`/clinical-tools/${patientId}/act`);
       setValues(Array.isArray(data?.values) ? data.values : []);
       setDefusions(Array.isArray(data?.defusions) ? data.defusions : []);
+      setMatrix(data?.matrix || { bottom_left: '', bottom_right: '', top_left: '', top_right: '' });
     } catch (e) {
       console.error(e);
     } finally {
@@ -92,9 +92,22 @@ export const ACTPage: React.FC = () => {
     setSaving(true);
     try {
       const updatedDefusions = [...defusions, { id: Date.now().toString(), ...newDefusion, createdAt: new Date().toISOString() }];
-      await api.put(`/clinical-tools/${selectedPatientId}/act`, { values, defusions: updatedDefusions });
+      await api.put(`/clinical-tools/${selectedPatientId}/act`, { values, defusions: updatedDefusions, matrix });
       setDefusions(updatedDefusions);
       setNewDefusion({ thought: '', technique: '', outcome: '' });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveMatrix = async (newMatrix: any) => {
+    if (!selectedPatientId) return;
+    setSaving(true);
+    try {
+      await api.put(`/clinical-tools/${selectedPatientId}/act`, { values, defusions, matrix: newMatrix });
+      setMatrix(newMatrix);
     } catch (e) {
       console.error(e);
     } finally {
@@ -123,6 +136,12 @@ export const ACTPage: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'defusion' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-2"><Zap size={14}/> Desfusão</div>
+              </button>
+              <button 
+                onClick={() => setActiveSub('matrix')}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'matrix' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                <div className="flex items-center gap-2"><LayoutGrid size={14}/> Matriz ACT</div>
               </button>
           </div>
         )}
@@ -265,6 +284,51 @@ export const ACTPage: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              )}
+
+              {activeSub === 'matrix' && (
+                <div className="space-y-6 animate-slideUpFade">
+                    <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                                <LayoutGrid className="text-indigo-600" /> Matriz ACT
+                            </h3>
+                            <button onClick={() => handleSaveMatrix(matrix)} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 transition flex items-center gap-2">
+                               {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Salvar Matriz
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 relative">
+                            {/* Lines */}
+                            <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-200 -translate-y-1/2 hidden md:block" />
+                            <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-200 -translate-x-1/2 hidden md:block" />
+
+                            <div className="bg-rose-50/50 p-6 rounded-3xl border border-rose-100 space-y-3 z-10 hover:bg-white hover:shadow-xl transition-all h-full">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-rose-500 bg-rose-100 px-3 py-1 rounded-full">Expe. Evitação (Externo)</span>
+                                <h4 className="font-bold text-slate-800 text-sm">O que você faz para fugir/evitar o mal-estar?</h4>
+                                <textarea value={matrix.top_left} onChange={e => setMatrix({...matrix, top_left: e.target.value})} className="w-full h-32 p-4 rounded-xl bg-white border border-rose-100 text-sm outline-none focus:border-rose-400 resize-none" placeholder="Comportamentos de fuga, distrações..." />
+                            </div>
+
+                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 space-y-3 z-10 hover:bg-white hover:shadow-xl transition-all h-full">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-100 px-3 py-1 rounded-full">Ação Comprometida (Externo)</span>
+                                <h4 className="font-bold text-slate-800 text-sm">O que você faz para se mover rumo aos valores?</h4>
+                                <textarea value={matrix.top_right} onChange={e => setMatrix({...matrix, top_right: e.target.value})} className="w-full h-32 p-4 rounded-xl bg-white border border-emerald-100 text-sm outline-none focus:border-emerald-400 resize-none" placeholder="Ações que te movem em direção a quem você quer ser..." />
+                            </div>
+
+                            <div className="bg-amber-50/50 p-6 rounded-3xl border border-amber-100 space-y-3 z-10 hover:bg-white hover:shadow-xl transition-all h-full">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 bg-amber-100 px-3 py-1 rounded-full">Dor / Barreiras (Interno)</span>
+                                <h4 className="font-bold text-slate-800 text-sm">Quais pensamentos e emoções te afastam?</h4>
+                                <textarea value={matrix.bottom_left} onChange={e => setMatrix({...matrix, bottom_left: e.target.value})} className="w-full h-32 p-4 rounded-xl bg-white border border-amber-100 text-sm outline-none focus:border-amber-400 resize-none" placeholder="Medos, ansiedade, pensamentos negativos..." />
+                            </div>
+
+                            <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 space-y-3 z-10 hover:bg-white hover:shadow-xl transition-all h-full">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 bg-blue-100 px-3 py-1 rounded-full">Valores (Interno)</span>
+                                <h4 className="font-bold text-slate-800 text-sm">O que é realmente importante? Quem quer ser?</h4>
+                                <textarea value={matrix.bottom_right} onChange={e => setMatrix({...matrix, bottom_right: e.target.value})} className="w-full h-32 p-4 rounded-xl bg-white border border-blue-100 text-sm outline-none focus:border-blue-400 resize-none" placeholder="Seus valores base, propósitos..." />
                             </div>
                         </div>
                     </div>

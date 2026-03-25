@@ -40,6 +40,9 @@ import { SistemicaPage } from './pages/clinical-tools/Sistemica';
 import { JunguianaPage } from './pages/clinical-tools/Junguiana';
 import { ComportamentalPage } from './pages/clinical-tools/Comportamental';
 import { IntegrativaPage } from './pages/clinical-tools/Integrativa';
+import { FAPPage } from './pages/clinical-tools/FAP';
+import { MindfulnessPage } from './pages/clinical-tools/Mindfulness';
+import { PositivePsychologyPage } from './pages/clinical-tools/PositivePsychology';
 import { Records } from './pages/Records';
 import { CaseStudies } from './pages/CaseStudies';
 import { Documents } from './pages/Documents';
@@ -208,6 +211,9 @@ const AppRoutes: React.FC = () => {
       <Route path="/caixa-ferramentas/junguiana" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><JunguianaPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/comportamental" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><ComportamentalPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/integrativa" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><IntegrativaPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/fap" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><FAPPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/mindfulness" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><MindfulnessPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/positiva" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><PositivePsychologyPage /></ProtectedRoute>} />
       <Route path="/prontuario" element={<ProtectedRoute requiredPermission="view_medical_records"><Records /></ProtectedRoute>} />
       <Route path="/analises" element={<ProtectedRoute requiredPermission="view_medical_records"><Records defaultTab="analysis" /></ProtectedRoute>} />
       <Route path="/estudos-de-caso" element={<ProtectedRoute><CaseStudies /></ProtectedRoute>} />

@@ -9,14 +9,14 @@ import {
   Activity, Plus, Trash2, Edit3, Save, RotateCcw, 
   HelpCircle, Sparkles, CheckCircle2, ArrowRight, 
   ChevronRight, X, Loader2, Smile, Zap, Heart, Shield,
-  Layers, Filter
+  Layers, Filter, GitMerge
 } from 'lucide-react';
 
 export const DBTPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'diary' | 'skills' | 'behavior'>('diary');
+  const [activeSub, setActiveSub] = useState<'diary' | 'skills' | 'chain'>('diary');
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -27,9 +27,11 @@ export const DBTPage: React.FC = () => {
   // DBT Specific State
   const [diaryCards, setDiaryCards] = useState<any[]>([]);
   const [skills, setSkills] = useState<any[]>([]);
+  const [chains, setChains] = useState<any[]>([]);
 
   const [newDiary, setNewDiary] = useState({ date: new Date().toISOString().split('T')[0], mood: 5, urges: '', actions: '' });
   const [newSkill, setNewSkill] = useState({ area: 'Mindfulness', skill: '', implementation: '' });
+  const [newChain, setNewChain] = useState({ vulnerability: '', trigger: '', thought: '', feeling: '', behavior: '', consequence: '', solution: '' });
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -55,6 +57,7 @@ export const DBTPage: React.FC = () => {
       const data = resp?.data || {};
       setDiaryCards(Array.isArray(data?.diaryCards) ? data.diaryCards : []);
       setSkills(Array.isArray(data?.skills) ? data.skills : []);
+      setChains(Array.isArray(data?.chains) ? data.chains : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -94,9 +97,24 @@ export const DBTPage: React.FC = () => {
     setSaving(true);
     try {
       const updatedSkills = [...skills, { id: Date.now().toString(), ...newSkill }];
-      await api.put(`/clinical-tools/${selectedPatientId}/dbt/data`, { data: { diaryCards, skills: updatedSkills } });
+      await api.put(`/clinical-tools/${selectedPatientId}/dbt/data`, { data: { diaryCards, skills: updatedSkills, chains } });
       setSkills(updatedSkills);
       setNewSkill({ area: 'Mindfulness', skill: '', implementation: '' });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveChain = async () => {
+    if (!selectedPatientId || !newChain.behavior || !newChain.trigger) return;
+    setSaving(true);
+    try {
+      const updatedChains = [...chains, { id: Date.now().toString(), ...newChain, created_at: new Date().toISOString() }];
+      await api.put(`/clinical-tools/${selectedPatientId}/dbt/data`, { data: { diaryCards, skills, chains: updatedChains } });
+      setChains(updatedChains);
+      setNewChain({ vulnerability: '', trigger: '', thought: '', feeling: '', behavior: '', consequence: '', solution: '' });
     } catch (e) {
       console.error(e);
     } finally {
@@ -125,6 +143,12 @@ export const DBTPage: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'skills' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-2"><Filter size={14}/> Skills</div>
+              </button>
+              <button 
+                onClick={() => setActiveSub('chain')}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'chain' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                <div className="flex items-center gap-2"><GitMerge size={14}/> Análise em Cadeia</div>
               </button>
           </div>
         )}
@@ -225,6 +249,79 @@ export const DBTPage: React.FC = () => {
                                 ))}
                             </div>
                         </div>
+                    </div>
+                </div>
+              )}
+
+              {activeSub === 'chain' && (
+                <div className="space-y-6 animate-slideUpFade">
+                    <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                                <GitMerge className="text-rose-500" /> Análise Funcional em Cadeia
+                            </h3>
+                            <button onClick={handleSaveChain} className="bg-rose-600 text-white px-6 py-2 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-rose-700 transition flex items-center gap-2">
+                               {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Registrar Cadeia
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest bg-rose-50 px-2 py-1 rounded inline-block">1. Fatores Vulnerabilidade</label>
+                                <textarea className="w-full h-24 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs outline-none focus:border-rose-300 resize-none font-medium" value={newChain.vulnerability} onChange={e => setNewChain({...newChain, vulnerability: e.target.value})} placeholder="Fome, sono, doença..." />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest bg-rose-50 px-2 py-1 rounded inline-block">2. Evento Desencadeante</label>
+                                <textarea className="w-full h-24 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs outline-none focus:border-rose-300 resize-none font-medium" value={newChain.trigger} onChange={e => setNewChain({...newChain, trigger: e.target.value})} placeholder="O que aconteceu antes?" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest bg-rose-50 px-2 py-1 rounded inline-block">3. Links (Pensamentos/Afetos)</label>
+                                <textarea className="w-full h-24 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs outline-none focus:border-rose-300 resize-none font-medium" value={newChain.thought} onChange={e => setNewChain({...newChain, thought: e.target.value})} placeholder="O que pensou/sentiu?" />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest bg-rose-100 px-2 py-1 rounded inline-block">4. Comportamento Problema</label>
+                                <textarea className="w-full h-24 p-3 rounded-xl bg-rose-50/50 border border-rose-200 text-xs outline-none focus:border-rose-400 resize-none font-bold text-rose-900" value={newChain.behavior} onChange={e => setNewChain({...newChain, behavior: e.target.value})} placeholder="Ação exata..." />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded inline-block">5. Consequências</label>
+                                <textarea className="w-full h-24 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs outline-none focus:border-indigo-300 resize-none font-medium" value={newChain.consequence} onChange={e => setNewChain({...newChain, consequence: e.target.value})} placeholder="Curto/Longo prazo?" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-100 px-2 py-1 rounded inline-block">6. Resoluções / Habilidades</label>
+                                <textarea className="w-full h-24 p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 text-xs outline-none focus:border-emerald-400 resize-none font-bold text-emerald-900" value={newChain.solution} onChange={e => setNewChain({...newChain, solution: e.target.value})} placeholder="Como quebrar a corrente?" />
+                            </div>
+                        </div>
+
+                        {chains.length > 0 && (
+                            <div className="space-y-4 pt-6 border-t border-slate-100">
+                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Análises Anteriores</h4>
+                                <div className="space-y-3">
+                                    {chains.map(c => (
+                                        <div key={c.id} className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex items-start gap-4 flex-col md:flex-row relative group">
+                                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={async () => {
+                                                    const next = chains.filter(it => it.id !== c.id);
+                                                    await api.put(`/clinical-tools/${selectedPatientId}/dbt/data`, { data: { diaryCards, skills, chains: next } });
+                                                    setChains(next);
+                                                }} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                                            </div>
+                                            <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                                                <GitMerge size={18} />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-[10px] font-black bg-rose-50 text-rose-500 px-2 py-0.5 rounded uppercase tracking-widest">{new Date(c.created_at || Date.now()).toLocaleDateString()}</span>
+                                                    <h4 className="font-bold text-slate-800 text-sm">Comportamento: {c.behavior}</h4>
+                                                </div>
+                                                <p className="text-xs font-medium text-slate-500"><span className="font-bold text-slate-700">Gatilho:</span> {c.trigger}</p>
+                                                <p className="text-xs font-medium text-emerald-600 mt-1"><span className="font-bold text-emerald-800">Solução:</span> {c.solution}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
               )}

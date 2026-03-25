@@ -279,7 +279,190 @@ router.get('/summary', async (req, res) => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   Rotas genéricas (mantidas para compatibilidade)
+   FAP — Psicoterapia Analítica Funcional
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /clinical-tools/:scopeKey/fap → { crbs, five_rules, session_notes }
+router.get('/:scopeKey/fap', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const tid = req.user.tenant_id;
+    const [crbsRaw, fiveRulesRaw, notesRaw] = await Promise.all([
+      getArray(tid, scopeKey, 'fap/crbs'),
+      getJson(tid, scopeKey, 'fap/five_rules'),
+      getArray(tid, scopeKey, 'fap/session_notes'),
+    ]);
+    res.json({
+      crbs: crbsRaw,
+      five_rules: fiveRulesRaw.data || {},
+      session_notes: notesRaw,
+    });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar FAP' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/fap
+router.put('/:scopeKey/fap', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { crbs, five_rules, session_notes } = req.body;
+    const pid = req.body.patient_id || null;
+    const uid = req.user.id;
+    const tid = req.user.tenant_id;
+    await Promise.all([
+      crbs !== undefined ? saveJson(tid, pid, uid, scopeKey, 'fap/crbs', crbs) : Promise.resolve(),
+      five_rules !== undefined ? saveJson(tid, pid, uid, scopeKey, 'fap/five_rules', five_rules) : Promise.resolve(),
+      session_notes !== undefined ? saveJson(tid, pid, uid, scopeKey, 'fap/session_notes', session_notes) : Promise.resolve(),
+    ]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar FAP' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   MINDFULNESS — Atenção Plena
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /clinical-tools/:scopeKey/mindfulness → { practices, bodyscans, anchors }
+router.get('/:scopeKey/mindfulness', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const tid = req.user.tenant_id;
+    const [practices, bodyscans, anchors] = await Promise.all([
+      getArray(tid, scopeKey, 'mindfulness/practices'),
+      getArray(tid, scopeKey, 'mindfulness/bodyscans'),
+      getArray(tid, scopeKey, 'mindfulness/anchors'),
+    ]);
+    res.json({ practices, bodyscans, anchors });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar Mindfulness' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/mindfulness
+router.put('/:scopeKey/mindfulness', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { practices, bodyscans, anchors } = req.body;
+    const pid = req.body.patient_id || null;
+    const uid = req.user.id;
+    const tid = req.user.tenant_id;
+    await Promise.all([
+      practices !== undefined ? saveJson(tid, pid, uid, scopeKey, 'mindfulness/practices', practices) : Promise.resolve(),
+      bodyscans !== undefined ? saveJson(tid, pid, uid, scopeKey, 'mindfulness/bodyscans', bodyscans) : Promise.resolve(),
+      anchors !== undefined ? saveJson(tid, pid, uid, scopeKey, 'mindfulness/anchors', anchors) : Promise.resolve(),
+    ]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar Mindfulness' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   PSICOLOGIA POSITIVA — VIA / Gratidão / PERMA
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /clinical-tools/:scopeKey/positivepsych → { strengths, gratitude_entries, wellbeing }
+router.get('/:scopeKey/positivepsych', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const tid = req.user.tenant_id;
+    const [strengths, gratitudeEntries, wellbeingRaw] = await Promise.all([
+      getArray(tid, scopeKey, 'positivepsych/strengths'),
+      getArray(tid, scopeKey, 'positivepsych/gratitude'),
+      getJson(tid, scopeKey, 'positivepsych/wellbeing'),
+    ]);
+    res.json({
+      strengths,
+      gratitude_entries: gratitudeEntries,
+      wellbeing: wellbeingRaw.data || {},
+    });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar Psicologia Positiva' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/positivepsych
+router.put('/:scopeKey/positivepsych', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { strengths, gratitude_entries, wellbeing } = req.body;
+    const pid = req.body.patient_id || null;
+    const uid = req.user.id;
+    const tid = req.user.tenant_id;
+    await Promise.all([
+      strengths !== undefined ? saveJson(tid, pid, uid, scopeKey, 'positivepsych/strengths', strengths) : Promise.resolve(),
+      gratitude_entries !== undefined ? saveJson(tid, pid, uid, scopeKey, 'positivepsych/gratitude', gratitude_entries) : Promise.resolve(),
+      wellbeing !== undefined ? saveJson(tid, pid, uid, scopeKey, 'positivepsych/wellbeing', wellbeing) : Promise.resolve(),
+    ]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar Psicologia Positiva' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   ACT — Aceitação e Compromisso (dados completos)
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /clinical-tools/:scopeKey/act → { values, defusions, matrix }
+router.get('/:scopeKey/act', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const tid = req.user.tenant_id;
+    const [values, defusions, matrixRaw] = await Promise.all([
+      getArray(tid, scopeKey, 'act/values'),
+      getArray(tid, scopeKey, 'act/defusions'),
+      getJson(tid, scopeKey, 'act/matrix'),
+    ]);
+    res.json({ values, defusions, matrix: matrixRaw.data || {} });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar ACT' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/act
+router.put('/:scopeKey/act', async (req, res) => {
+  try {
+    const { scopeKey } = req.params;
+    const { values, defusions, matrix } = req.body;
+    const pid = req.body.patient_id || null;
+    const uid = req.user.id;
+    const tid = req.user.tenant_id;
+    await Promise.all([
+      values !== undefined ? saveJson(tid, pid, uid, scopeKey, 'act/values', values) : Promise.resolve(),
+      defusions !== undefined ? saveJson(tid, pid, uid, scopeKey, 'act/defusions', defusions) : Promise.resolve(),
+      matrix !== undefined ? saveJson(tid, pid, uid, scopeKey, 'act/matrix', matrix) : Promise.resolve(),
+    ]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar ACT' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   Rotas genéricas paramétricas (2 parâmetros: toolType)
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /clinical-tools/:scopeKey/:toolType
+router.get('/:scopeKey/:toolType', async (req, res, next) => {
+  // Ignora se 'summary' passar por aqui indevidamente
+  if (req.params.scopeKey === 'summary') return next();
+  try {
+    const { scopeKey, toolType } = req.params;
+    const { data } = await getJson(req.user.tenant_id, scopeKey, toolType);
+    res.json(data !== null ? data : null);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar ferramenta' }); }
+});
+
+// PUT /clinical-tools/:scopeKey/:toolType
+router.put('/:scopeKey/:toolType', async (req, res) => {
+  try {
+    const { scopeKey, toolType } = req.params;
+    await saveJson(req.user.tenant_id, req.body.patient_id, req.user.id, scopeKey, toolType, req.body.data ?? req.body);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao salvar ferramenta' }); }
+});
+
+// PATCH /clinical-tools/:scopeKey/:toolType
+router.patch('/:scopeKey/:toolType', async (req, res) => {
+  try {
+    const { scopeKey, toolType } = req.params;
+    const { data: existing } = await getJson(req.user.tenant_id, scopeKey, toolType);
+    const merged = { ...(typeof existing === 'object' && existing !== null ? existing : {}), ...req.body };
+    await saveJson(req.user.tenant_id, null, req.user.id, scopeKey, toolType, merged);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao atualizar ferramenta' }); }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   Rotas genéricas aninhadas (3 parâmetros: category/type)
    ═══════════════════════════════════════════════════════════ */
 
 // GET /clinical-tools/:scopeKey/:toolCategory/:toolType
