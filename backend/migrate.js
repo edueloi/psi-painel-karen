@@ -786,22 +786,35 @@ async function migrate() {
   }
 
   // ---- MEDICAL RECORDS — colunas novas (IA, restrito, aprovação, versões) ----
-  const mrCols = [
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS draft_content LONGTEXT NULL`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS ai_organized_content LONGTEXT NULL`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS restricted_content LONGTEXT NULL`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS ai_status VARCHAR(50) DEFAULT 'pending'`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS appointment_type VARCHAR(50) DEFAULT 'individual'`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS approved_by INT NULL`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP NULL`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS version_count INT DEFAULT 1`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS tags JSON NULL`,
-    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`,
-    `ALTER TABLE medical_records MODIFY COLUMN status VARCHAR(50) DEFAULT 'Rascunho'`,
-  ];
-  for (const sql of mrCols) {
-    try { await conn.query(sql); } catch (e) { if (!e.message.includes('Duplicate column')) console.warn('MR col:', e.message); }
-  }
+  const [existingCols] = await conn.query(`
+    SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'medical_records'
+  `, [process.env.DB_NAME || 'psiflux']);
+  
+  const colNames = existingCols.map(c => c.COLUMN_NAME.toLowerCase());
+  
+  const addCol = async (col, sql) => {
+    if (!colNames.includes(col.toLowerCase())) {
+        try { 
+            await conn.query(`ALTER TABLE medical_records ADD COLUMN ${sql}`);
+            console.log(`   [medical_records] Coluna adicionada: ${col}`);
+        } catch (e) { console.warn(`   [medical_records] Erro ao adicionar ${col}:`, e.message); }
+    }
+  };
+
+  await addCol('draft_content', 'draft_content LONGTEXT NULL');
+  await addCol('ai_organized_content', 'ai_organized_content LONGTEXT NULL');
+  await addCol('restricted_content', 'restricted_content LONGTEXT NULL');
+  await addCol('ai_status', "ai_status VARCHAR(50) DEFAULT 'pending'");
+  await addCol('appointment_type', "appointment_type VARCHAR(50) DEFAULT 'individual'");
+  await addCol('approved_by', 'approved_by INT NULL');
+  await addCol('approved_at', 'approved_at TIMESTAMP NULL');
+  await addCol('version_count', 'version_count INT DEFAULT 1');
+  await addCol('tags', 'tags JSON NULL');
+
+  // Garantir que status e updated_at estejam corretos
+  try { await conn.query("ALTER TABLE medical_records MODIFY COLUMN status VARCHAR(50) DEFAULT 'Rascunho'"); } catch(e){}
+  try { await conn.query("ALTER TABLE medical_records MODIFY COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"); } catch(e){}
 
   // ---- MEDICAL RECORD VERSIONS ----
   await conn.query(`
