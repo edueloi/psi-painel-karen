@@ -4,7 +4,10 @@ import {
   Sparkles, Target, Activity, ArrowRight, Brain, 
   Microscope, Compass, PenTool, ClipboardList, 
   MessageSquare, SlidersHorizontal, Filter, Grid, 
-  Menu, Info, Zap, Workflow, Sun, Shield, Settings2
+  Menu, Info, Zap, Workflow, Sun, Shield, Settings2,
+  HeartHandshake, Flower2, Star, ShieldCheck, UserCheck,
+  ZapOff, Palette, Baby, Users, GraduationCap, Gauge,
+  Lock, ExternalLink, RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,7 +15,7 @@ import { PageHeader } from '../components/UI/PageHeader';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
-import { GripVertical, Eye, EyeOff, HeartHandshake, Star } from 'lucide-react';
+import { GripVertical, Eye, EyeOff } from 'lucide-react';
 
 interface Tool {
   id: string;
@@ -21,7 +24,7 @@ interface Tool {
   description: string;
   icon: React.ReactNode;
   path: string;
-  color: string;
+  color: 'indigo' | 'rose' | 'amber' | 'blue' | 'emerald' | 'slate' | 'violet' | 'cyan' | 'orange' | 'fuchsia';
   tags: string[];
 }
 
@@ -30,7 +33,7 @@ const tools: Tool[] = [
     id: 'tcc',
     title: 'Terapia Cognitivo-Comportamental',
     category: 'clinical',
-    description: 'RPD Digital, Cartões de Enfrentamento e Questionamento Socrático integrados.',
+    description: 'Protocolos de RPD, Seta Descendente e Experimentos Comportamentais validados.',
     icon: <BrainCircuit />,
     path: '/caixa-ferramentas/tcc',
     color: 'indigo',
@@ -40,7 +43,7 @@ const tools: Tool[] = [
     id: 'esquemas',
     title: 'Terapia do Esquema',
     category: 'clinical',
-    description: 'Trabalho com Modos, Mapa de Esquemas e intervenções focadas em trauma.',
+    description: 'Trabalho com Modos, Cartões de Enfrentamento e Diálogo de Vozes.',
     icon: <LayoutGrid />,
     path: '/caixa-ferramentas/esquemas',
     color: 'rose',
@@ -63,54 +66,54 @@ const tools: Tool[] = [
     description: 'Gestão de testes, escalas e mapeamento de funções cognitivas.',
     icon: <Brain />,
     path: '/neurodesenvolvimento',
-    color: 'blue',
+    color: 'cyan',
     tags: ['Avaliação', 'Testes', 'Métricas']
   },
   {
     id: 'integrativa',
     title: 'Integrativa / Eclética',
     category: 'clinical',
-    description: 'Combinação técnica de múltiplas abordagens adaptada à necessidade do paciente.',
+    description: 'Combinação técnica de múltiplas abordagens adaptada ao sujeito.',
     icon: <Sparkles />,
     path: '/caixa-ferramentas/integrativa',
-    color: 'emerald',
+    color: 'indigo',
     tags: ['Flexibilidade', 'Sinergia', 'Personalizado']
   },
   {
     id: 'humanista',
     title: 'Psicologia Humanista',
     category: 'clinical',
-    description: 'Abordagem centrada na pessoa, fenomenologia e busca de sentido.',
-    icon: <Compass />,
+    description: 'Abordagem centrada na pessoa, fenomenologia e Aceitação Incondicional.',
+    icon: <Sun />,
     path: '/caixa-ferramentas/humanista',
     color: 'emerald',
     tags: ['Empatia', 'Aqui-Agora', 'Logoterapia']
   },
   {
-    id: 'instrumentos',
+    id: 'escalas',
     title: 'Instrumentos & Escalas',
     category: 'assessment',
-    description: 'Questionários (DISC, DASS, etc) e inventários estruturados.',
+    description: 'Questionários (BDI, BAI, DASS) e inventários estruturados.',
     icon: <ClipboardList />,
     path: '/formularios',
     color: 'slate',
     tags: ['Avaliação', 'Testes', 'Mensuração']
   },
   {
-    id: 'estudos',
+    id: 'case-studies',
     title: 'Estudos de Caso',
     category: 'management',
     description: 'Organização de supervisão, hipóteses diagnósticas e evolução estratégica.',
-    icon: <Target />,
+    icon: <Search />,
     path: '/estudos-de-caso',
-    color: 'violet',
+    color: 'blue',
     tags: ['Supervisão', 'Estratégia', 'Análise']
   },
   {
     id: 'sistemica',
     title: 'Sistêmica / Familiar',
     category: 'clinical',
-    description: 'Genograma Digital, Perguntas Circulares e Análise de Dinâmicas Relacionais.',
+    description: 'Genograma Digital, Perguntas Circulares e Análise de Sistemas.',
     icon: <Workflow />,
     path: '/caixa-ferramentas/sistemica',
     color: 'blue',
@@ -118,19 +121,19 @@ const tools: Tool[] = [
   },
   {
     id: 'act',
-    title: 'ACT - Aceitação & Compromisso',
+    title: 'ACT - Aceitação',
     category: 'clinical',
-    description: 'Bússola de Valores, Desfusão e Ação Comprometida.',
-    icon: <Target />,
+    description: 'Bússola de Valores, Desfusão Cognitiva e Ação Comprometida.',
+    icon: <Compass />,
     path: '/caixa-ferramentas/act',
-    color: 'emerald',
+    color: 'violet',
     tags: ['Flexibilidade', 'Valores', 'Aceitação']
   },
   {
     id: 'dbt',
     title: 'DBT - Comportamental Dialética',
     category: 'clinical',
-    description: 'Diário de Cartão, Treino de Habilidades e Regulação Emocional.',
+    description: 'Treino de Habilidades, Tolerância ao Mal-estar e Regulação Emocional.',
     icon: <Activity />,
     path: '/caixa-ferramentas/dbt',
     color: 'rose',
@@ -140,7 +143,7 @@ const tools: Tool[] = [
     id: 'emdr',
     title: 'EMDR - Trauma & Memória',
     category: 'clinical',
-    description: 'Reprocessamento com Estimulação Bilateral e Rastreio SUD.',
+    description: 'Reprocessamento com Estimulação Bilateral e Rastreio de SUD.',
     icon: <Zap />,
     path: '/caixa-ferramentas/emdr',
     color: 'amber',
@@ -150,17 +153,17 @@ const tools: Tool[] = [
     id: 'junguiana',
     title: 'Junguiana / Analítica',
     category: 'clinical',
-    description: 'Análise de Sonhos, Símbolos e Integração de Sombra.',
-    icon: <Feather />,
+    description: 'Análise de Sonhos, Arquétipos e Integração de Sombra.',
+    icon: <ShieldCheck />,
     path: '/caixa-ferramentas/junguiana',
     color: 'indigo',
     tags: ['Individuação', 'Inconsciente', 'Arquétipos']
   },
   {
     id: 'comportamental',
-    title: 'Psicologia Comportamental',
+    title: 'Análise do Comportamento',
     category: 'clinical',
-    description: 'Análise Funcional (ABC), Economia de Fichas e Modelagem.',
+    description: 'Análise Funcional (ABC), Economia de Fichas e Reforço Positivo.',
     icon: <Settings2 />,
     path: '/caixa-ferramentas/comportamental',
     color: 'slate',
@@ -170,7 +173,7 @@ const tools: Tool[] = [
     id: 'fap',
     title: 'FAP - Analítica Funcional',
     category: 'clinical',
-    description: 'Trabalho focado na relação terapêutica e mapeamento de CRBs ao vivo.',
+    description: 'Foco na relação terapêutica e comportamentos de melhora clínica (CRB).',
     icon: <HeartHandshake />,
     path: '/caixa-ferramentas/fap',
     color: 'emerald',
@@ -180,40 +183,83 @@ const tools: Tool[] = [
     id: 'mindfulness',
     title: 'Mindfulness',
     category: 'clinical',
-    description: 'Mapeamento de práticas focadas no presente e atenção plena.',
-    icon: <Sun />,
+    description: 'Práticas de Atenção Plena, Body Scan e Redução de Estresse.',
+    icon: <Flower2 />,
     path: '/caixa-ferramentas/mindfulness',
-    color: 'emerald',
+    color: 'cyan',
     tags: ['Atenção Plena', 'Presente', 'Aceitação']
   },
   {
     id: 'positiva',
     title: 'Psicologia Positiva',
     category: 'clinical',
-    description: 'Identificação de forças, virtudes e intervenções focadas no bem-estar.',
-    icon: <Star />,
+    description: 'Identificação de Forças de Caráter, Virtudes e Bem-estar (PERMA).',
+    icon: <Sparkles />,
     path: '/caixa-ferramentas/positiva',
-    color: 'amber',
+    color: 'orange',
     tags: ['Flow', 'Forças', 'Bem-estar']
+  },
+  {
+    id: 'disc',
+    title: 'Perfil DISC',
+    category: 'assessment',
+    description: 'Avaliação comportamental baseada em Dominância, Influência, Estabilidade e Conformidade.',
+    icon: <Gauge />,
+    path: '/disc',
+    color: 'violet',
+    tags: ['Comportamento', 'Personalidade', 'Corporativo']
+  },
+  {
+    id: 'infantil',
+    title: 'Ludoterapia / Infantil',
+    category: 'clinical',
+    description: 'Recursos lúdicos, hora do jogo e manejo comportamental infantil.',
+    icon: <Baby />,
+    path: '/caixa-ferramentas/infantil',
+    color: 'rose',
+    tags: ['Lúdico', 'Desenvolvimento', 'Crianças']
+  },
+  {
+    id: 'casal',
+    title: 'Terapia de Casal',
+    category: 'clinical',
+    description: 'Mediação de conflitos, comunicação não-violenta e dinâmicas relacionais.',
+    icon: <Users />,
+    path: '/caixa-ferramentas/casal',
+    color: 'emerald',
+    tags: ['Vínculo', 'Comunicação', 'Relacionamento']
+  },
+  {
+    id: 'orientacao',
+    title: 'Orientação de Pais',
+    category: 'management',
+    description: 'Treino de habilidades parentais, psicoeducação e manejo de contingências.',
+    icon: <UserCheck />,
+    path: '/caixa-ferramentas/pais',
+    color: 'amber',
+    tags: ['Família', 'Educativo', 'Prevenção']
   }
 ];
 
 const categoryLabels = {
-  all: 'Todas as Ferramentas',
-  clinical: 'Abordagens Clínicas',
-  assessment: 'Avaliação & Testes',
-  neuro: 'Neuropsicologia',
-  management: 'Gestão de Casos'
+  all: 'Ecossistema Completo',
+  clinical: 'Módulos Clínicos',
+  assessment: 'Testes & DISC',
+  neuro: 'Neurociência',
+  management: 'Gestão de Evolução'
 };
 
 const colorVariants: Record<string, string> = {
-    indigo: 'from-indigo-500 to-indigo-600 bg-indigo-50 text-indigo-600 border-indigo-100',
-    rose: 'from-rose-500 to-rose-600 bg-rose-50 text-rose-600 border-rose-100',
-    amber: 'from-amber-500 to-amber-600 bg-amber-50 text-amber-600 border-amber-100',
-    blue: 'from-blue-500 to-blue-600 bg-blue-50 text-blue-600 border-blue-100',
-    emerald: 'from-emerald-500 to-emerald-600 bg-emerald-50 text-emerald-600 border-emerald-100',
-    slate: 'from-slate-500 to-slate-600 bg-slate-50 text-slate-600 border-slate-100',
-    violet: 'from-violet-500 to-violet-600 bg-violet-50 text-violet-600 border-violet-100'
+    indigo: 'from-indigo-600 to-indigo-800 bg-indigo-50 text-indigo-600 border-indigo-100 shadow-indigo-600/20',
+    rose: 'from-rose-600 to-rose-800 bg-rose-50 text-rose-600 border-rose-100 shadow-rose-600/20',
+    amber: 'from-amber-600 to-amber-800 bg-amber-50 text-amber-600 border-amber-100 shadow-amber-600/20',
+    blue: 'from-blue-600 to-blue-800 bg-blue-50 text-blue-600 border-blue-100 shadow-blue-600/20',
+    emerald: 'from-emerald-600 to-emerald-800 bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-600/20',
+    slate: 'from-slate-600 to-slate-800 bg-slate-50 text-slate-600 border-slate-100 shadow-slate-600/20',
+    violet: 'from-violet-600 to-violet-800 bg-violet-50 text-violet-600 border-violet-100 shadow-violet-600/20',
+    cyan: 'from-cyan-600 to-cyan-800 bg-cyan-50 text-cyan-600 border-cyan-100 shadow-cyan-600/20',
+    orange: 'from-orange-600 to-orange-800 bg-orange-50 text-orange-600 border-orange-100 shadow-orange-600/20',
+    fuchsia: 'from-fuchsia-600 to-fuchsia-800 bg-fuchsia-50 text-fuchsia-600 border-fuchsia-100 shadow-fuchsia-600/20'
 };
 
 export const ClinicalTools: React.FC = () => {
@@ -225,7 +271,6 @@ export const ClinicalTools: React.FC = () => {
 
   const { orderedIds, hiddenIds } = preferences.clinicalTools;
 
-  // Sync orderedIds if new tools are added or if empty
   const allToolIds = tools.map(t => t.id);
   const currentOrder = orderedIds.length > 0 
     ? [...orderedIds, ...allToolIds.filter(id => !orderedIds.includes(id))] 
@@ -275,137 +320,154 @@ export const ClinicalTools: React.FC = () => {
   const toolsForCustomizer = currentOrder.map(id => tools.find(t => t.id === id)!).filter(Boolean);
 
   return (
-    <div className="space-y-8 pb-24 animate-fadeIn">
+    <div className="mx-auto max-w-[1700px] px-6 pt-6 pb-24 animate-fadeIn font-sans space-y-12">
       <PageHeader
-        icon={<Boxes />}
-        title="Caixa de Ferramentas"
+        icon={<Boxes className="text-indigo-600" />}
+        title="Caixa de Ferramentas Clínica"
+        subtitle="Protocolos e recursos avançados sincronizados com o histórico do seu paciente."
         showBackButton
         onBackClick={() => navigate('/')}
         actions={
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
               <div className="relative group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={18} />
                   <input 
                       type="text"
-                      placeholder="Buscar ferramenta..."
+                      placeholder="Pesquisar módulo..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium w-full md:w-64 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                      className="pl-12 pr-6 py-3 bg-white border border-slate-200 rounded-[20px] text-sm font-bold w-full md:w-80 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
                   />
               </div>
               <button 
                 onClick={() => setIsCustomizerOpen(true)}
-                className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
+                className="p-3.5 bg-white border border-slate-200 rounded-[20px] text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm hover:shadow-xl"
                 title="Personalizar layout"
               >
-                  <SlidersHorizontal size={20} />
+                  <SlidersHorizontal size={22} />
               </button>
           </div>
         }
       />
 
       {/* FILTERS */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide">
+      <div className="flex items-center gap-3 overflow-x-auto pb-6 scrollbar-hide">
         {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map(cat => (
             <button
                 key={cat}
                 onClick={() => setFilter(cat)}
-                className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-tight transition-all border whitespace-nowrap ${filter === cat ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                className={`px-8 py-4 rounded-[24px] text-[11px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${filter === cat ? 'bg-slate-950 text-white border-slate-950 shadow-2xl scale-105' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
             >
                 {categoryLabels[cat]}
             </button>
         ))}
       </div>
 
-      {/* TOOLS GRID */}
+      {/* TOOLS GRID - 4 cards on laptop (lg), 3 huge cards on larger (2xl) */}
       {displayedTools.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-3 gap-10">
             {displayedTools.map((tool) => (
                 <div 
                     key={tool.id}
                     onClick={() => navigate(tool.path)}
-                    className="group relative bg-white rounded-[32px] p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col h-full"
+                    className="group relative bg-white/70 backdrop-blur-xl rounded-[56px] p-10 border border-white shadow-xl hover:shadow-[0_80px_160px_rgba(0,0,0,0.1)] hover:-translate-y-4 transition-all duration-700 cursor-pointer overflow-hidden flex flex-col h-[380px] group/card"
                 >
-                    {/* Background Icon Watermark */}
-                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity rotate-12 scale-150">
+                    {/* Watermark */}
+                    <div className="absolute -right-12 -bottom-12 opacity-[0.03] group-hover:opacity-[0.08] transition-all duration-1000 rotate-12 scale-[3]">
                         {tool.icon}
                     </div>
 
-                    <div className="flex items-start justify-between mb-6">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ring-1 ring-white/50 group-hover:scale-110 transition-transform ${colorVariants[tool.color].split(' ').slice(2, 5).join(' ')}`}>
-                            {React.cloneElement(tool.icon as React.ReactElement, { size: 28 })}
+                    <div className="flex items-start justify-between mb-8 relative z-10">
+                        <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center shadow-2xl ring-4 ring-white group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 bg-gradient-to-br ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} text-white`}>
+                            {React.cloneElement(tool.icon as React.ReactElement, { size: 40 })}
                         </div>
-                        <div className="flex items-center gap-1">
-                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Integrado</span>
+                        <div className="flex flex-col items-end gap-2">
+                             <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-100 shadow-sm">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest leading-none">Ativo PRO</span>
+                             </div>
+                             <div className="flex items-center gap-1 group-hover:scale-110 transition-transform">
+                                <Lock size={12} className="text-slate-300" />
+                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Protegido</span>
+                             </div>
                         </div>
                     </div>
 
-                    <div className="space-y-2 flex-1 relative z-10">
-                        <h3 className="text-lg font-black text-slate-800 tracking-tight leading-none uppercase">{tool.title}</h3>
-                        <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{tool.description}</p>
+                    <div className="space-y-4 flex-1 relative z-10">
+                        <section className="space-y-1">
+                            <h3 className="text-2xl font-black text-slate-900 tracking-tighter leading-none uppercase group-hover:text-indigo-600 transition-colors">{tool.title}</h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{categoryLabels[tool.category]}</p>
+                        </section>
+                        <p className="text-sm text-slate-500 font-bold leading-relaxed italic line-clamp-2">"{tool.description}"</p>
                     </div>
 
-                    <div className="mt-6 pt-6 border-t border-slate-50 flex items-center justify-between relative z-10">
-                        <div className="flex flex-wrap gap-1.5">
-                            {tool.tags.map(tag => (
-                                <span key={tag} className="px-2.5 py-1 bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-lg">#{tag}</span>
+                    <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between relative z-10">
+                        <div className="flex flex-wrap gap-2">
+                            {tool.tags.slice(0, 3).map(tag => (
+                                <span key={tag} className="px-3 py-1.5 bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-xl border border-slate-100 group-hover:border-indigo-100 group-hover:bg-indigo-50/50 group-hover:text-indigo-500 transition-all">#{tag}</span>
                             ))}
                         </div>
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50 text-slate-400 group-hover:bg-gradient-to-r group-hover:text-white transition-all ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} shadow-inner`}>
-                            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center bg-slate-950 text-white shadow-2xl group-hover:bg-indigo-600 transition-all group-hover:scale-110 active:scale-95`}>
+                            <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
                         </div>
                     </div>
 
-                    {/* Progress Indicator (Mock) */}
-                    <div className="absolute top-0 left-0 h-1 bg-gradient-to-r transition-all duration-500 opacity-0 group-hover:opacity-100" style={{ width: '100%', backgroundImage: `linear-gradient(to right, var(--tw-gradient-stops))` }}></div>
+                    {/* Left Border Glow */}
+                    <div className={`absolute top-10 bottom-10 left-0 w-1.5 rounded-r-full transition-all bg-gradient-to-b ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} opacity-20 group-hover:opacity-100 group-hover:w-2`}></div>
                 </div>
             ))}
         </div>
       ) : (
-        <div className="bg-white rounded-[40px] p-20 flex flex-col items-center text-center space-y-4 border border-dashed border-slate-300">
-             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
-                 <Search size={40} />
+        <div className="bg-white rounded-[64px] p-24 flex flex-col items-center text-center space-y-8 border border-slate-50 shadow-inner">
+             <div className="w-32 h-32 bg-slate-50 rounded-[48px] flex items-center justify-center text-slate-100">
+                 <Search size={64} />
              </div>
-             <div className="space-y-1">
-                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Nenhuma ferramenta encontrada</h3>
-                <p className="text-slate-400 font-medium">Tente ajustar seus filtros ou mude o termo de busca.</p>
+             <div className="space-y-4">
+                <h3 className="text-4xl font-black text-slate-950 uppercase tracking-tighter leading-none">Silêncio Clínico</h3>
+                <p className="text-slate-400 text-lg font-medium max-w-lg">Nenhuma ferramenta foi encontrada com o termo "{search}". Tente buscar por abordagem ou recurso.</p>
              </div>
-             <button 
+             <Button 
+                variant="primary"
                 onClick={() => {setFilter('all'); setSearch('');}}
-                className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-2xl text-xs font-black uppercase tracking-tight hover:bg-slate-200 transition-all"
+                className="rounded-[24px] px-12 py-6 text-xs uppercase tracking-widest font-black"
             >
-                Limpar Filtros
-            </button>
+                Restaurar Ecossistema
+            </Button>
         </div>
       )}
 
-      {/* FOOTER INTELLIGENCE */}
-      <div className="bg-indigo-600 rounded-[40px] p-10 text-white shadow-2xl relative overflow-hidden">
-         <div className="absolute -left-10 -bottom-10 opacity-10">
-            <Sparkles size={200} />
+      {/* FOOTER INTELLIGENCE - ULTRA PREMIUM */}
+      <div className="bg-slate-950 rounded-[80px] p-16 md:p-24 text-white shadow-[0_80px_160px_rgba(0,0,0,0.3)] relative overflow-hidden mt-16 border border-white/5">
+         <div className="absolute -left-20 -bottom-20 opacity-5 scale-[2] rotate-12">
+            <Sparkles size={400} />
          </div>
-         <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
-             <div className="w-24 h-24 bg-white/10 rounded-[32px] backdrop-blur-md border border-white/20 flex items-center justify-center shrink-0">
-                 <Zap size={40} className="text-amber-400" />
+         <div className="flex flex-col lg:flex-row items-center gap-20 relative z-10">
+             <div className="w-32 h-32 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[48px] shadow-2xl flex items-center justify-center shrink-0 relative group">
+                 <div className="absolute inset-0 bg-white/20 blur-2xl group-hover:scale-150 transition-transform duration-1000"></div>
+                 <Zap size={56} className="text-white relative z-10 animate-float" />
              </div>
-             <div className="space-y-4 text-center md:text-left">
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-black tracking-tighter uppercase">Clínica Integrada 3.0</h2>
-                    <p className="text-indigo-100/70 font-medium italic">"Sua caixa de ferramentas sincroniza automaticamente com o prontuário do paciente selecionado."</p>
-                </div>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">
-                        <Activity size={14} className="text-emerald-400" /> Sincronização Ativa
+             <div className="space-y-8 text-center lg:text-left flex-1">
+                <div className="space-y-3">
+                    <div className="inline-flex items-center gap-3 px-6 py-2 bg-indigo-500/20 rounded-full border border-indigo-500/30">
+                        <span className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-400">Aurora AI High Performance</span>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">
-                        <Microscope size={14} className="text-amber-400" /> Análise de Dados
+                    <h2 className="text-6xl font-black tracking-tighter leading-none uppercase">A inteligência que<br /><span className="text-indigo-500">potencializa</span> sua clínica.</h2>
+                </div>
+                <p className="text-indigo-100/60 font-medium italic text-xl max-w-3xl leading-relaxed">
+                    "Todas as ferramentas da sua caixa estão vivas. Elas retroalimentam o motor de IA do PsiFlux para sugerir condutas baseadas em anos de prática clínica e ciência do comportamento."
+                </p>
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6">
+                    <div className="flex items-center gap-3 px-5 py-2.5 bg-white/5 rounded-2xl text-xs font-black uppercase tracking-widest border border-white/10 group hover:bg-white/10 transition-colors">
+                        <RefreshCw size={18} className="text-emerald-400 group-hover:rotate-180 transition-transform duration-700" /> Sincronização em Tempo Real
+                    </div>
+                    <div className={`flex items-center gap-3 px-5 py-2.5 bg-white/5 rounded-2xl text-xs font-black uppercase tracking-widest border border-white/10 group hover:bg-white/10 transition-colors`}>
+                        <ExternalLink size={18} className="text-amber-400" /> Exportação Multiformato
                     </div>
                 </div>
              </div>
-             <div className="md:ml-auto">
-                 <button className="px-8 py-4 bg-white text-indigo-900 rounded-3xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-slate-50 transition-all active:scale-95">
-                    Modo Supervisão <Info size={16} className="ml-2 inline" />
+             <div className="lg:ml-auto">
+                 <button className="px-12 py-8 bg-white text-indigo-950 rounded-[40px] font-black uppercase tracking-widest text-[11px] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-4 group">
+                    Tutorial Assistido <Info size={20} className="text-indigo-600 group-hover:rotate-12 transition-transform" />
                  </button>
              </div>
          </div>
@@ -415,21 +477,21 @@ export const ClinicalTools: React.FC = () => {
       <Modal
         isOpen={isCustomizerOpen}
         onClose={() => setIsCustomizerOpen(false)}
-        title="Personalizar Ferramentas"
-        subtitle="Arraste para reordenar ou use o olho para ocultar ferramentas da sua visão principal."
+        title="Escalabilidade do Workspace"
+        subtitle="Organize as ferramentas de acordo com a sua demanda clínica atual."
         maxWidth="lg"
         footer={
-            <div className="flex justify-between w-full items-center">
-                <Button variant="ghost" size="sm" onClick={resetPreferences} className="text-slate-400 hover:text-rose-500">
-                    Resetar Padrão
+            <div className="flex justify-between w-full items-center p-2">
+                <Button variant="ghost" size="sm" onClick={resetPreferences} className="text-slate-400 hover:text-rose-500 font-black uppercase tracking-widest text-[10px]">
+                    Resetar Ordem Padrão
                 </Button>
-                <Button variant="primary" size="sm" onClick={() => setIsCustomizerOpen(false)}>
-                    Concluir
+                <Button variant="primary" size="sm" onClick={() => setIsCustomizerOpen(false)} className="rounded-[20px] px-10 py-5">
+                    Confirmar Layout
                 </Button>
             </div>
         }
       >
-        <div className="space-y-2">
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-4 scrollbar-hide py-2">
             {toolsForCustomizer.map((tool) => {
                 const isHidden = hiddenIds.includes(tool.id);
                 return (
@@ -439,31 +501,31 @@ export const ClinicalTools: React.FC = () => {
                         onDragStart={(e) => handleDragStart(e, tool.id)}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => handleDrop(e, tool.id)}
-                        className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-move group ${
-                            isHidden ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md'
+                        className={`flex items-center gap-6 p-6 rounded-[32px] border transition-all cursor-move group ${
+                            isHidden ? 'bg-slate-50 border-slate-100 opacity-40 shadow-inner' : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-2xl'
                         }`}
                     >
-                        <div className="text-slate-300 group-hover:text-indigo-400 transition-colors">
-                            <GripVertical size={20} />
+                        <div className="text-slate-200 group-hover:text-indigo-400 transition-colors">
+                            <GripVertical size={28} />
                         </div>
                         
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorVariants[tool.color].split(' ').slice(2, 5).join(' ')}`}>
-                            {React.cloneElement(tool.icon as React.ReactElement, { size: 20 })}
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-xl bg-gradient-to-br ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} group-hover:rotate-6 transition-transform`}>
+                            {React.cloneElement(tool.icon as React.ReactElement, { size: 28 })}
                         </div>
 
                         <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-bold text-slate-800 truncate uppercase tracking-tight">{tool.title}</h4>
-                            <p className="text-[10px] text-slate-400 font-medium truncate">{categoryLabels[tool.category]}</p>
+                            <h4 className="text-base font-black text-slate-800 truncate uppercase tracking-tight">{tool.title}</h4>
+                            <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">{categoryLabels[tool.category]}</p>
                         </div>
 
                         <button 
                             onClick={(e) => { e.stopPropagation(); toggleVisibility(tool.id); }}
-                            className={`p-2 rounded-lg transition-all ${
-                                isHidden ? 'text-slate-400 hover:bg-slate-200' : 'text-indigo-500 hover:bg-indigo-50'
+                            className={`w-12 h-12 rounded-[18px] transition-all flex items-center justify-center ${
+                                isHidden ? 'text-slate-400 bg-slate-100 hover:bg-slate-200' : 'text-indigo-500 bg-indigo-50 hover:bg-indigo-100'
                             }`}
-                            title={isHidden ? 'Mostrar' : 'Ocultar'}
+                            title={isHidden ? 'Ativar Módulo' : 'Ocultar Módulo'}
                         >
-                            {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
+                            {isHidden ? <EyeOff size={22} /> : <Eye size={22} />}
                         </button>
                     </div>
                 );

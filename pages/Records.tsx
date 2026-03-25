@@ -268,14 +268,22 @@ const RecordEditor: React.FC<{
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 overflow-hidden animate-fadeIn">
       {/* Header */}
-      <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition" title="Cancelar e Sair"><ArrowLeft size={16}/></button>
+      <div className="bg-white border-b border-slate-100 px-6 py-6 flex items-center justify-between shadow-md relative z-10">
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={onClose} 
+            className="group flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-600 border border-slate-100 hover:border-rose-100 transition-all shadow-sm"
+          >
+            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-black uppercase tracking-widest">Voltar / Cancelar</span>
+          </button>
+          <div className="w-px h-10 bg-slate-100" />
           <div>
-            <h2 className="font-black text-slate-800 uppercase tracking-tight text-sm">{mode === 'new' ? 'Nova Evolução' : 'Editar Registro'}</h2>
-            <div className="flex items-center gap-2">
-                <p className="text-[11px] text-slate-400 font-medium">{title}</p>
-                <button onClick={onClose} className="text-[9px] font-black text-rose-500 uppercase hover:underline">Cancelar</button>
+            <h2 className="font-black text-slate-900 uppercase tracking-tighter text-lg leading-none">{mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro'}</h2>
+            <div className="flex items-center gap-2 mt-1">
+                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">{title}</p>
+                <span className="w-1 h-1 rounded-full bg-slate-300" />
+                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Etapa: {step === 'draft' ? 'Rascunho' : 'Revisão IA'}</span>
             </div>
           </div>
         </div>
@@ -415,18 +423,19 @@ const RecordEditor: React.FC<{
                 )}
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button onClick={onClose} className="h-11 px-6 rounded-xl border border-slate-200 text-slate-400 font-black text-xs uppercase hover:bg-slate-50">
-                  Cancelar
+              <div className="flex flex-col sm:flex-row gap-4 pt-6 mt-10 border-t border-slate-100">
+                <button 
+                  onClick={onClose} 
+                  className="h-14 px-8 rounded-2xl border-2 border-slate-100 text-slate-400 font-black text-xs uppercase hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 transition-all flex items-center justify-center gap-2 shrink-0"
+                >
+                  <X size={18} /> Descartar Alterações
                 </button>
-                <button onClick={() => setStep('draft')} className="h-11 px-6 rounded-xl border border-slate-200 text-slate-600 font-black text-xs uppercase flex items-center gap-2 hover:bg-slate-50">
-                  <RotateCcw size={14}/> Editar Rascunho
+                <button onClick={() => setStep('draft')} className="h-14 px-8 rounded-2xl border-2 border-slate-100 text-slate-600 font-black text-xs uppercase flex items-center gap-2 hover:bg-slate-50 transition-all shrink-0">
+                  <RotateCcw size={18}/> Retornar ao Rascunho
                 </button>
-                <button onClick={() => onExport()} className="h-9 px-4 rounded-xl border border-slate-200 text-slate-600 font-black text-xs uppercase flex items-center gap-2 hover:bg-slate-50 shadow-sm">
-                  <Download size={14}/> Exportar Histórico
-                </button>
-                <button onClick={() => save('Revisado')} disabled={saving} className="flex-1 h-11 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase hover:bg-indigo-700 transition flex items-center justify-center gap-2">
-                  {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salvar como Revisado
+                <div className="flex-1" />
+                <button onClick={() => save('Revisado')} disabled={saving} className="h-14 px-10 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-3">
+                  {saving ? <Loader2 size={20} className="animate-spin"/> : <Save size={20}/>} Finalizar Revisão e Salvar
                 </button>
               </div>
             </div>

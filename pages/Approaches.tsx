@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  BookCheck, Brain, Heart, Target, Sparkles, Layers, 
-  ChevronRight, ArrowRight, Plus, BrainCircuit, LayoutGrid, 
-  Feather, BookOpen, Settings2, Sun, HelpCircle, Activity, 
+import {
+  BookCheck, Brain, Heart, Target, Sparkles, Layers,
+  ChevronRight, ArrowRight, Plus, BrainCircuit, LayoutGrid,
+  Feather, BookOpen, Settings2, Sun, HelpCircle, Activity,
   Workflow, Info, Lightbulb, Microscope, Zap, History,
   ClipboardList, RefreshCw, HeartHandshake, Flower2, Search,
-  Compass, ShieldCheck, UserCheck, MessageSquare, Gauge
+  Compass, ShieldCheck, UserCheck, MessageSquare, Gauge, Baby, Users,
+  Star, Quote, ZapOff, CheckCircle2
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
@@ -264,6 +265,62 @@ const approaches: ApproachData[] = [
     path: '/caixa-ferramentas/positiva',
     color: 'orange',
     features: ['Mapa de Forças', 'Diário de Gratidão', 'PERMA Check'],
+  },
+  {
+    id: 'disc',
+    title: 'Perfil DISC',
+    subtitle: 'Comportamento & Dominância',
+    description: 'A metodologia DISC é uma ferramenta de avaliação comportamental que identifica padrões de resposta em quatro dimensões fundamentais.',
+    origin: 'William Moulton Marston (1928), o mesmo criador da Mulher-Maravilha e do Detector de Mentiras.',
+    curiosity: 'Marston criou o DISC baseado não em patologias, mas no comportamento de pessoas "normais" em diferentes ambientes.',
+    whenToUse: 'Orientação profissional, desenvolvimento de liderança e conflitos interpessoais.',
+    howItWorks: 'Mapeamento de Dominância, Influência, Estabilidade e Conformidade.',
+    icon: <Gauge />,
+    path: '/disc',
+    color: 'violet',
+    features: ['Gráfico de Perfil', 'Análise de Stress', 'Match de Cargos'],
+  },
+  {
+    id: 'infantil',
+    title: 'Ludoterapia / Infantil',
+    subtitle: 'O Brincar Terapêutico',
+    description: 'Abordagem que utiliza o jogo e a atividade lúdica como meio natural de autoexpressão da criança.',
+    origin: 'Melanie Klein e Anna Freud, adaptando a técnica analítica para o mundo infantil.',
+    curiosity: 'Na ludoterapia, o brinquedo é para a criança o que a palavra é para o adulto.',
+    whenToUse: 'Dificuldades escolares, traumas infantis, divórcio dos pais e TDAH.',
+    howItWorks: 'Uso da "Hora do Jogo" diagnóstica e manejo de limites através do lúdico.',
+    icon: <Baby />,
+    path: '/caixa-ferramentas/infantil',
+    color: 'rose',
+    features: ['Caixa de Brinquedos', 'Desenho Livre', 'Contação Histórias'],
+  },
+  {
+    id: 'casal',
+    title: 'Terapia de Casal',
+    subtitle: 'Vínculo & Conjugalidade',
+    description: 'Focada nos padrões de interação do sistema conjugal e na reconstrução da conexão emocional.',
+    origin: 'Influenciada pela Terapia Sistêmica e pelos estudos de John Gottman (Lab do Amor).',
+    curiosity: 'Gottman consegue prever divórcios com 90% de precisão observando apenas 15 minutos de uma discussão.',
+    whenToUse: 'Infidelidade, falhas na comunicação, crises de ciclo vital e divórcio consciente.',
+    howItWorks: 'Treino de Comunicação Não-Violenta e mapeamento de mapas do amor.',
+    icon: <Users />,
+    path: '/caixa-ferramentas/casal',
+    color: 'emerald',
+    features: ['Contrato de Casal', 'Feedback Seguro', 'Mapa do Amor'],
+  },
+  {
+    id: 'orientacao',
+    title: 'Orientação de Pais',
+    subtitle: 'Parentalidade Consciente',
+    description: 'Consultoria terapêutica focada no manejo de contingências e no fortalecimento do vínculo pais-filhos.',
+    origin: 'Baseada na Disciplina Positiva de Jane Nelsen e Alfred Adler.',
+    curiosity: 'Estudos mostram que mudar o comportamento dos pais é mais eficaz que tratar a criança isoladamente em muitos casos.',
+    whenToUse: 'Dificuldades de manejo, birras severas, adolescência conflituosa e depressão pós-parto.',
+    howItWorks: 'Treino de habilidades sociais parentais e psicoeducação sobre desenvolvimento.',
+    icon: <UserCheck />,
+    path: '/caixa-ferramentas/pais',
+    color: 'amber',
+    features: ['Plano de Contingências', 'Rotina Visual', 'Cuidado Parental'],
   }
 ];
 
@@ -284,174 +341,209 @@ export const Approaches: React.FC = () => {
   const navigate = useNavigate();
   const { info, success } = useToast();
   const [activeTab, setActiveTab] = useState<'cards' | 'manual'>('cards');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredApproaches = approaches.filter(app => 
+    app.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    app.subtitle.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 animate-fadeIn font-sans space-y-12">
+    <div className="mx-auto max-w-[1700px] px-6 pt-6 pb-24 animate-fadeIn font-sans space-y-12">
       <PageHeader
-        icon={<Layers />}
-        title="Hub de Epistemologia Clínica"
-        subtitle="O ecossistema teórico do PsiFlux está à sua disposição. Explore, aprenda e automatize."
+        icon={<Layers className="text-indigo-600" />}
+        title="Dossiê Clânico de Epistemologia"
+        subtitle="Explore o ecossistema teórico do PsiFlux. Sua abordagem define o cérebro da nossa IA."
         showBackButton
         onBackClick={() => navigate('/caixa-ferramentas')}
         containerClassName="mb-0"
         actions={
-          <div className="flex items-center gap-2 p-1.5 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-x-auto max-w-full">
-            <button 
-                onClick={() => setActiveTab('cards')}
-                className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-tight transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'cards' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-                <LayoutGrid size={14} /> Painéis Visuais
-            </button>
-            <button 
-                onClick={() => setActiveTab('manual')}
-                className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-tight transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'manual' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-                <BookOpen size={14} /> Enciclopédia Clínica
-            </button>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="relative group">
+               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={16} />
+               <input 
+                  type="text"
+                  placeholder="Pesquisar abordagem..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-bold w-64 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
+               />
+            </div>
+            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner">
+                <button 
+                    onClick={() => setActiveTab('cards')}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'cards' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                    <LayoutGrid size={14} /> Painéis
+                </button>
+                <button 
+                    onClick={() => setActiveTab('manual')}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'manual' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                    <BookOpen size={14} /> Manual
+                </button>
+            </div>
           </div>
         }
       />
 
       {activeTab === 'cards' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-            {approaches.map((app) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-3 gap-8">
+            {filteredApproaches.map((app) => (
                 <div 
                     key={app.id}
-                    className="group relative bg-white rounded-[32px] border border-slate-100 p-6 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden flex flex-col gap-5 h-full"
+                    className="group relative bg-white/80 backdrop-blur-xl rounded-[48px] border border-white shadow-xl hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] hover:-translate-y-3 transition-all duration-700 overflow-hidden flex flex-col h-[520px]"
                 >
-                     {/* Dynamic Background Glow */}
-                     <div className={`absolute -top-12 -right-12 w-40 h-40 rounded-full opacity-0 blur-3xl group-hover:opacity-10 transition-opacity bg-indigo-600`} />
+                     {/* Background Glow */}
+                     <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[100px] opacity-[0.03] group-hover:opacity-10 transition-opacity bg-indigo-600`} />
                      
-                     {/* Top Interaction Layer */}
-                     <div className="flex items-start justify-between relative z-10">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ring-4 ring-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')} text-white`}>
-                            {React.cloneElement(app.icon as React.ReactElement, { size: 24 })}
-                        </div>
-                        <div className="flex flex-col items-end">
-                             <div className={`text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-slate-50 text-slate-400 border border-slate-100 flex items-center gap-1`}>
-                                <ShieldCheck size={10} /> Integrado
-                             </div>
-                        </div>
-                     </div>
- 
-                     {/* Information Layer */}
-                     <div className="space-y-3 flex-1 relative z-10">
-                        <section>
-                            <h2 className="text-sm font-black text-slate-800 tracking-tight leading-none uppercase mb-1">{app.title}</h2>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">{app.subtitle}</p>
-                        </section>
-                        
-                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-2 italic">"{app.description}"</p>
+                     {/* Header Decoration */}
+                     <div className={`absolute top-0 left-0 w-full h-2 bg-gradient-to-r ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')} opacity-20`} />
 
-                        <div className="flex flex-wrap gap-1.5 pt-2">
-                             {app.features.slice(0, 3).map(f => (
-                                 <span key={f} className="bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full text-[8px] font-bold border border-slate-100 tracking-tight">#{f}</span>
-                             ))}
-                        </div>
- 
-                        <div className="pt-2 space-y-3 border-t border-slate-50 mt-2">
-                             <div className="space-y-0.5">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 leading-none">
-                                    <History size={10} className="text-slate-300"/> Herança
-                                </span>
-                                <p className="text-[9px] font-bold text-slate-600 leading-tight line-clamp-1">{app.origin}</p>
+                     <div className="p-8 space-y-8 flex-1 flex flex-col">
+                         {/* Icon & Status */}
+                         <div className="flex items-start justify-between">
+                            <div className={`w-20 h-20 rounded-[28px] flex items-center justify-center shadow-2xl ring-4 ring-white group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')} text-white`}>
+                                {React.cloneElement(app.icon as React.ReactElement, { size: 40 })}
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                                 <div className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1.5 animate-pulse`}>
+                                    <CheckCircle2 size={12} /> Integrado
+                                 </div>
+                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-50">V.3.1</span>
+                            </div>
+                         </div>
+    
+                         {/* Content */}
+                         <div className="space-y-4 flex-1">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-black text-slate-900 tracking-tighter leading-tight uppercase group-hover:text-indigo-600 transition-colors">{app.title}</h2>
+                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest py-1 px-3 bg-slate-50 rounded-lg inline-block border border-slate-100">{app.subtitle}</p>
+                            </div>
+                            
+                            <div className="relative">
+                                <Quote className="absolute -left-2 -top-2 w-4 h-4 text-slate-100" />
+                                <p className="text-sm text-slate-600 font-medium leading-[1.6] pl-3 italic line-clamp-3">
+                                    {app.description}
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 pt-2">
+                                 {app.features.map(f => (
+                                     <span key={f} className="bg-white text-slate-600 px-3 py-1.5 rounded-2xl text-[10px] font-black border border-slate-100 shadow-sm tracking-tight group-hover:border-indigo-100 group-hover:bg-indigo-50/50 transition-all uppercase">#{f}</span>
+                                 ))}
+                            </div>
+                         </div>
+
+                         {/* Epistemology Card */}
+                         <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 group-hover:bg-white group-hover:border-indigo-50 transition-all duration-500">
+                             <div className="flex items-center gap-4">
+                                <div className="p-2.5 bg-white rounded-xl shadow-sm text-slate-400">
+                                    <History size={18} />
+                                </div>
+                                <div className="space-y-0.5 min-w-0">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Origem Teórica</span>
+                                    <p className="text-[11px] font-bold text-slate-800 truncate">{app.origin}</p>
+                                </div>
                              </div>
-                        </div>
+                         </div>
                      </div>
  
-                     {/* Action Layer */}
-                     <div className="pt-3 flex items-center justify-between relative z-10 border-t border-slate-50">
+                     {/* Footer Actions */}
+                     <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between group-hover:bg-indigo-600 group-hover:border-indigo-600 transition-all duration-500">
                          <Link 
                             to={app.path}
-                            className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all p-2 text-slate-400 hover:text-indigo-600`}
+                            className={`flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all text-slate-400 group-hover:text-white`}
                          >
-                            Acessar Painel <ArrowRight size={14} />
+                            Acessar Painel <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
                          </Link>
                          <button 
-                            onClick={() => info(app.title, app.description)}
-                            className="w-8 h-8 rounded-lg bg-slate-50 text-slate-300 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center"
+                            onClick={() => info(app.title, app.curiosity)}
+                            className="w-12 h-12 rounded-[20px] bg-white text-slate-300 hover:scale-110 active:scale-95 shadow-sm group-hover:shadow-xl transition-all flex items-center justify-center hover:text-indigo-600"
+                            title="Ver curiosidade"
                          >
-                            <Plus size={14} />
+                            <Lightbulb size={24} />
                          </button>
                      </div>
                 </div>
             ))}
         </div>
       ) : (
-        <div className="max-w-6xl mx-auto space-y-12 animate-slideUpFade px-4">
-            <div className="text-center mb-16">
-                 <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-4">Manual de Epistemologia Clínica</h2>
-                 <p className="text-slate-500 max-w-2xl mx-auto font-medium">Um mergulho profundo nas raízes históricas e curiosidades teóricas que moldam o atendimento psicológico moderno.</p>
+        <div className="max-w-6xl mx-auto space-y-16 animate-slideUpFade px-4">
+            <div className="text-center relative py-12">
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-indigo-100 rounded-full blur-[60px] opacity-50" />
+                 <h2 className="text-5xl font-black text-slate-950 tracking-tighter uppercase mb-6 relative">Manual de Epistemologia Clínica</h2>
+                 <p className="text-slate-500 max-w-2xl mx-auto text-lg font-medium leading-relaxed">O guia definitivo sobre as bases teóricas que alimentam o motor clínico da nossa plataforma inteligente.</p>
             </div>
 
-            {approaches.map((app, idx) => (
-                <div key={app.id} className="relative group bg-white border border-slate-100 rounded-[48px] p-8 md:p-12 shadow-sm hover:shadow-xl transition-all duration-700">
-                    <div className="flex flex-col lg:flex-row gap-12">
-                        <div className="lg:w-1/3 space-y-8">
-                             <div className={`w-28 h-28 rounded-[40px] flex items-center justify-center text-white shadow-2xl z-10 relative group-hover:scale-105 transition-all duration-500 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')}`}>
-                                {React.cloneElement(app.icon as React.ReactElement, { size: 48 })}
+            {filteredApproaches.map((app) => (
+                <div key={app.id} className="relative group bg-white border border-slate-100 rounded-[64px] p-10 md:p-16 shadow-2xl hover:shadow-[0_50px_100px_rgba(0,0,0,0.08)] transition-all duration-1000 overflow-hidden">
+                    <div className="absolute top-0 right-0 p-20 opacity-[0.02] scale-150 rotate-12 group-hover:opacity-5 transition-opacity">
+                        {app.icon}
+                    </div>
+                    
+                    <div className="flex flex-col lg:flex-row gap-16 relative z-10">
+                        <div className="lg:w-2/5 space-y-10">
+                             <div className={`w-32 h-32 rounded-[48px] flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-1000 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')}`}>
+                                {React.cloneElement(app.icon as React.ReactElement, { size: 64 })}
                              </div>
                              
-                             <div className="space-y-4">
-                                <h3 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-[0.9]">{app.title}</h3>
+                             <div className="space-y-6">
+                                <h3 className="text-6xl font-black text-slate-950 tracking-tighter uppercase leading-[0.85]">{app.title}</h3>
                                 <div className="flex items-center gap-4">
-                                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-900 text-white shadow-lg`}>{app.subtitle}</span>
+                                    <span className={`px-6 py-2.5 rounded-2xl text-[12px] font-black uppercase tracking-widest bg-slate-950 text-white shadow-xl`}>{app.subtitle}</span>
                                 </div>
+                                <p className="text-lg text-slate-500 font-medium leading-relaxed italic border-l-8 border-indigo-100 pl-8 transition-all group-hover:border-indigo-600">
+                                    "{app.description}"
+                                </p>
                              </div>
 
-                             <div className="pt-8 space-y-6">
-                                <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 shadow-inner">
-                                     <h4 className="flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-                                         <Info size={16}/> Definição Rápida
-                                     </h4>
-                                     <p className="text-sm text-slate-600 font-bold leading-relaxed">{app.description}</p>
-                                </div>
-                                
-                                <Link to={app.path} className="flex items-center justify-center gap-3 w-full py-5 bg-indigo-600 text-white rounded-[24px] font-black text-[11px] uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-slate-900 transition-all">
-                                    Explorar Clínica Personalizada <ArrowRight size={18} />
+                             <div className="pt-8 flex flex-col gap-4">
+                                <Link to={app.path} className="flex items-center justify-center gap-4 w-full py-7 bg-indigo-600 text-white rounded-[32px] font-black text-[13px] uppercase tracking-[0.2em] shadow-2xl shadow-indigo-200 hover:bg-slate-950 transition-all hover:scale-[1.02] active:scale-95">
+                                    Configurar Clínica <ArrowRight size={20} />
                                 </Link>
+                                <p className="text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">Ajusta o comportamento da Aurora AI automaticamente</p>
                              </div>
                         </div>
 
                         <div className="flex-1 space-y-12">
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <section className="space-y-8">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                <section className="space-y-10">
                                     <div className="space-y-4">
-                                        <h4 className="flex items-center gap-3 text-xs font-black text-slate-800 uppercase tracking-widest border-l-4 border-amber-400 pl-4 py-1">
-                                            História e Origem
+                                        <h4 className="flex items-center gap-4 text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-100 pb-4">
+                                            <div className="p-2 bg-amber-50 rounded-lg text-amber-500"><History size={18}/></div> História & Origem
                                         </h4>
-                                        <p className="text-base text-slate-500 leading-relaxed font-medium">{app.origin}</p>
+                                        <p className="text-base text-slate-500 leading-relaxed font-bold">{app.origin}</p>
                                     </div>
 
-                                    <div className="p-8 bg-blue-50/50 rounded-[40px] border border-blue-100/30 relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 p-8 opacity-5"><Lightbulb size={64}/></div>
-                                        <h4 className="flex items-center gap-3 text-xs font-black text-blue-900 uppercase tracking-widest mb-6">
-                                            Indicações de Ouro
+                                    <div className="p-10 bg-indigo-50/50 rounded-[48px] border border-indigo-100 shadow-inner relative overflow-hidden group/box">
+                                        <div className="absolute top-0 right-0 p-10 opacity-5 group-hover/box:scale-110 transition-transform"><Target size={80}/></div>
+                                        <h4 className="flex items-center gap-3 text-xs font-black text-indigo-900 uppercase tracking-widest mb-6">
+                                            Casos de Indicação Ouro
                                         </h4>
-                                        <p className="text-sm text-blue-900/80 font-bold leading-relaxed">{app.whenToUse}</p>
+                                        <p className="text-base text-indigo-900/70 font-black leading-relaxed italic">{app.whenToUse}</p>
                                     </div>
                                 </section>
 
-                                <section className="space-y-8">
+                                <section className="space-y-10">
                                     <div className="space-y-4">
-                                        <h4 className="flex items-center gap-3 text-xs font-black text-indigo-500 uppercase tracking-widest border-l-4 border-indigo-400 pl-4 py-1">
-                                            Fatos e Curiosidades
+                                        <h4 className="flex items-center gap-4 text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-100 pb-4">
+                                            <div className="p-2 bg-indigo-50 rounded-lg text-indigo-500"><Lightbulb size={18}/></div> Você sabia?
                                         </h4>
-                                        <div className="bg-slate-50 rounded-[40px] p-8 border border-slate-100 shadow-inner relative group-hover:bg-white group-hover:shadow-2xl transition-all duration-500">
-                                            <p className="text-base font-black leading-relaxed italic text-slate-700">"Você sabia?"</p>
-                                            <p className="text-sm font-bold text-slate-400 leading-relaxed mt-4 italic">{app.curiosity}</p>
+                                        <div className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-xl relative group-hover:shadow-2xl transition-all duration-700">
+                                            <p className="text-base font-black leading-relaxed italic text-slate-800">"{app.curiosity}"</p>
                                         </div>
                                     </div>
 
-                                    <div className="p-8 bg-indigo-600 rounded-[40px] text-white shadow-2xl shadow-indigo-100/50 relative overflow-hidden">
-                                        <div className="absolute -bottom-4 -right-4 opacity-10"><Zap size={100}/></div>
-                                        <h4 className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest opacity-60 mb-6">
-                                            Funcionamento no PsiFlux
+                                    <div className="p-10 bg-slate-950 rounded-[48px] text-white shadow-2xl relative overflow-hidden group/box">
+                                        <div className="absolute bottom-0 right-0 p-10 opacity-10 group-hover/box:rotate-12 transition-transform"><Sparkles size={80}/></div>
+                                        <h4 className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest opacity-40 mb-6">
+                                            Como a IA interpreta
                                         </h4>
-                                        <p className="text-sm font-black leading-relaxed mb-6 italic">"{app.howItWorks}"</p>
+                                        <p className="text-sm font-bold leading-relaxed mb-8 italic">"{app.howItWorks}"</p>
                                         <div className="flex flex-wrap gap-2">
                                             {app.features.map(f => (
-                                                <span key={f} className="px-3 py-1 bg-white/10 rounded-lg text-[9px] font-bold border border-white/10">{f}</span>
+                                                <span key={f} className="px-4 py-2 bg-white/10 rounded-xl text-[9px] font-black border border-white/10 uppercase tracking-widest hover:bg-indigo-500 transition-colors cursor-default">{f}</span>
                                             ))}
                                         </div>
                                     </div>
@@ -464,62 +556,62 @@ export const Approaches: React.FC = () => {
         </div>
       )}
 
-      {/* NEW FOOTER CTA - SMART AGENT */}
-      <div className="bg-slate-950 rounded-[64px] p-12 md:p-20 text-white shadow-2xl relative overflow-hidden mt-20 border border-slate-800">
-        <div className="absolute top-0 right-0 p-20 opacity-5 scale-150 rotate-12">
-           <Brain size={300} />
+      {/* SMART AGENT CTA */}
+      <div className="bg-gradient-to-br from-slate-950 to-indigo-950 rounded-[80px] p-16 md:p-24 text-white shadow-[0_80px_160px_rgba(0,0,0,0.3)] relative overflow-hidden mt-20 border border-slate-800 animate-pulse-subtle">
+        <div className="absolute top-0 right-0 p-24 opacity-5 scale-[2] rotate-12">
+           <Brain size={400} />
         </div>
-        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-16">
-             <div className="lg:w-1/2 space-y-10">
-                 <div className="inline-flex items-center gap-3 px-6 py-2 bg-emerald-500/10 rounded-full border border-emerald-500/20 backdrop-blur-md">
-                     <span className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-400">
-                        Inteligência Teórica Ativa
+        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-20">
+             <div className="lg:w-3/5 space-y-10 text-center lg:text-left">
+                 <div className="inline-flex items-center gap-4 px-8 py-3 bg-indigo-600/20 rounded-full border border-indigo-500/30 backdrop-blur-2xl">
+                     <span className="text-[11px] font-black uppercase tracking-[0.4em] text-indigo-400">
+                        Sincronização Ativa 3.1
                      </span>
                  </div>
-                 <h2 className="text-6xl font-black tracking-tighter leading-none uppercase">A IA que entende<br />sua conduta.</h2>
-                 <p className="text-slate-400 text-lg font-medium leading-relaxed">
-                    Sua escolha de abordagem clínica é o coração da nossa IA. Ao selecionar TCC, Psicanálise ou Esquemas, a Aurora ajusta automaticamente os resumos e evoluções para respeitar os termos técnicos e a lógica de cada escola.
+                 <h2 className="text-7xl font-black tracking-tighter leading-none uppercase">Neuro-Epistemologia<br /><span className="text-indigo-500">Aumentada por IA.</span></h2>
+                 <p className="text-slate-400 text-xl font-medium leading-[1.8] max-w-2xl mx-auto lg:mx-0">
+                    A Aurora não apenas escreve resumos, ela **pensa** como você. Sua abordagem clínica é o filtro intelectual que define como o sistema analisa padrões de fala, sonhos e distorções cognitivas.
                  </p>
-                 <div className="flex flex-col sm:flex-row gap-6">
+                 <div className="flex flex-col sm:flex-row gap-8 justify-center lg:justify-start">
                     <Link 
-                        to="/ia-config"
-                        className="px-10 py-6 bg-emerald-500 text-slate-950 rounded-[32px] font-black uppercase tracking-widest text-xs shadow-2xl shadow-emerald-500/20 hover:bg-white transition-all flex items-center justify-center gap-3"
+                        to="/configuracoes"
+                        className="px-14 py-8 bg-indigo-600 text-white rounded-[40px] font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-indigo-600/20 hover:bg-white hover:text-indigo-900 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-4 group"
                     >
-                        Configurar Aurora AI <Sparkles size={18}/>
+                        Configurar Aurora <Sparkles size={20} className="group-hover:rotate-12 transition-transform" />
                     </Link>
                     <button 
-                        onClick={() => success('Sincronização Ativa', 'A IA agora está usando a base epistemológica configurada.')}
-                        className="px-10 py-6 bg-slate-800 text-white rounded-[32px] font-black uppercase tracking-widest text-[10px] hover:bg-slate-700 transition-all border border-slate-700"
+                        onClick={() => success('Base Teórica Sincronizada', 'A Aurora IA agora opera sob o paradigma clínico selecionado.')}
+                        className="px-14 py-8 bg-slate-900 text-indigo-400 rounded-[40px] font-black uppercase tracking-[0.2em] text-xs hover:bg-slate-800 transition-all border border-slate-800 hover:border-indigo-500/50"
                     >
-                        Sincronizar Toolboxes
+                        Calibrar Motor Clínico
                     </button>
                  </div>
              </div>
              
-             <div className="lg:w-1/2 grid grid-cols-2 gap-6 relative">
-                 <div className="absolute inset-0 bg-emerald-500/5 blur-[100px] pointer-events-none"></div>
-                 <div className="space-y-6 translate-y-12">
-                     <div className="bg-slate-900/50 p-6 rounded-[32px] border border-slate-800 backdrop-blur-sm">
-                         <div className="w-10 h-10 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center mb-4"><MessageSquare size={20}/></div>
-                         <p className="text-[10px] font-black uppercase text-slate-500 mb-2">Resumos</p>
-                         <p className="text-xs font-bold text-slate-300">A IA utiliza termos como "Transferência" ou "Distorção Cognitiva" dependendo da sua escola.</p>
+             <div className="lg:w-2/5 grid grid-cols-2 gap-8 relative lg:pt-20">
+                 <div className="absolute inset-0 bg-indigo-500/10 blur-[150px] pointer-events-none"></div>
+                 <div className="space-y-8 animate-float">
+                     <div className="bg-slate-900/40 p-8 rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-indigo-500/50 transition-all group">
+                         <div className="w-12 h-12 bg-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><MessageSquare size={24}/></div>
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">Linguagem Técnica</p>
+                         <p className="text-xs font-bold text-slate-200 leading-relaxed">Vocabulário ajustado perfeitamente ao seu referencial teórico (RPD, Interpretação, Modos).</p>
                      </div>
-                     <div className="bg-slate-900/50 p-6 rounded-[32px] border border-slate-800 backdrop-blur-sm">
-                         <div className="w-10 h-10 bg-rose-500/20 text-rose-400 rounded-xl flex items-center justify-center mb-4"><Target size={20}/></div>
-                         <p className="text-[10px] font-black uppercase text-slate-500 mb-2">Metas</p>
-                         <p className="text-xs font-bold text-slate-300">Sugestões de metas terapêuticas alinhadas com os protocolos de cada abordagem.</p>
+                     <div className="bg-slate-900/40 p-8 rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-rose-500/50 transition-all group">
+                         <div className="w-12 h-12 bg-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><Target size={24}/></div>
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">Estratégia de Caso</p>
+                         <p className="text-xs font-bold text-slate-200 leading-relaxed">Sugestões de hipóteses e planejamentos terapêuticos baseados em evidência da sua escola.</p>
                      </div>
                  </div>
-                 <div className="space-y-6">
-                     <div className="bg-slate-900/50 p-6 rounded-[32px] border border-slate-800 backdrop-blur-sm">
-                         <div className="w-10 h-10 bg-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center mb-4"><Gauge size={20}/></div>
-                         <p className="text-[10px] font-black uppercase text-slate-500 mb-2">Mensuração</p>
-                         <p className="text-xs font-bold text-slate-300">Gráficos de evolução que mostram o progresso real em protocolos validados.</p>
+                 <div className="space-y-8 lg:translate-y-24 animate-float-delayed">
+                     <div className="bg-slate-900/40 p-8 rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-amber-500/50 transition-all group">
+                         <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><Gauge size={24}/></div>
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">Análise Métrica</p>
+                         <p className="text-xs font-bold text-slate-200 leading-relaxed">Dashboards que mostram a evolução do paciente nos indicadores próprios da sua abordagem.</p>
                      </div>
-                     <div className="bg-slate-900/50 p-6 rounded-[32px] border border-slate-800 backdrop-blur-sm">
-                         <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center mb-4"><UserCheck size={20}/></div>
-                         <p className="text-[10px] font-black uppercase text-slate-500 mb-2">Relatórios</p>
-                         <p className="text-xs font-bold text-slate-300">Geração de documentos oficiais com fundamentação teórica pré-carregada.</p>
+                     <div className="bg-slate-900/40 p-8 rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-emerald-500/50 transition-all group">
+                         <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><UserCheck size={24}/></div>
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">Relatórios Pro</p>
+                         <p className="text-xs font-bold text-slate-200 leading-relaxed">Geração de documentos oficiais com fundamentação ética e teórica automática.</p>
                      </div>
                  </div>
              </div>
