@@ -248,7 +248,7 @@ export const PublicProfile: React.FC = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-40 pb-20 lg:pt-52 lg:pb-32 px-6 overflow-hidden">
+      <section className="relative pt-40 pb-20 lg:pt-52 lg:pb-32 px-6 overflow-hidden hero-container">
          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/10 blur-[150px] rounded-full -translate-y-1/2 translate-x-1/2" />
          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-fuchsia-500/10 blur-[120px] rounded-full translate-y-1/2 -translate-x-1/2" />
 
@@ -316,13 +316,13 @@ export const PublicProfile: React.FC = () => {
       <main className={`relative z-10 ${layout === 'vibrant' ? 'bg-black/20' : layout === 'dark' ? 'bg-slate-900' : 'bg-[#F9FAFB]'} pt-24 pb-48`}>
          
          {/* Value Propositions */}
-         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 mb-32 -mt-40 relative z-20">
+         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 mb-32 -mt-40 relative z-20 props-grid">
             {[
-              { icon: <Target className="text-indigo-500" />, title: 'Abordagem Focada', desc: 'Metodologias comprovadas para resultados sólidos e bem-estar.' },
-              { icon: <Shield className="text-rose-500" />, title: 'Sigilo Absoluto', desc: 'Espaço seguro e ético dentro das normas do conselho federal.' },
-              { icon: <Heart className="text-fuchsia-500" />, title: 'Atendimento Humano', desc: 'Foco na sua singularidade e em uma escuta sem julgamentos.' },
+              { icon: <Target className="text-indigo-500" />, title: data.profile_theme?.prop_1_title || 'Abordagem Focada', desc: data.profile_theme?.prop_1_desc || 'Metodologias comprovadas para resultados sólidos e bem-estar.' },
+              { icon: <Shield className="text-rose-500" />, title: data.profile_theme?.prop_2_title || 'Sigilo Absoluto', desc: data.profile_theme?.prop_2_desc || 'Espaço seguro e ético dentro das normas do conselho federal.' },
+              { icon: <Heart className="text-fuchsia-500" />, title: data.profile_theme?.prop_3_title || 'Atendimento Humano', desc: data.profile_theme?.prop_3_desc || 'Foco na sua singularidade e em uma escuta sem julgamentos.' },
             ].map((prop, i) => (
-              <div key={i} className={`${themeColors.section} p-10 rounded-[3rem] shadow-xl hover:-translate-y-2 transition-all duration-500`}>
+              <div key={i} className={`${themeColors.section} p-10 rounded-[3rem] shadow-xl hover:-translate-y-2 transition-all duration-500 prop-card`}>
                 <div className="w-16 h-16 rounded-[2rem] bg-current/5 flex items-center justify-center mb-6">{prop.icon}</div>
                 <h3 className={`text-xl font-black mb-4 tracking-tight ${themeColors.text}`}>{prop.title}</h3>
                 <p className={`leading-relaxed ${themeColors.subtext}`}>{prop.desc}</p>
@@ -403,17 +403,17 @@ export const PublicProfile: React.FC = () => {
             )}
 
             {/* How it Works / Steps */}
-            <section className="bg-slate-900 rounded-[5rem] p-12 lg:p-24 text-white overflow-hidden relative border border-white/5">
+            <section className="bg-slate-900 rounded-[5rem] p-12 lg:p-24 text-white overflow-hidden relative border border-white/5 cta-section">
                <div className="absolute top-0 right-0 w-[400px] h-full bg-indigo-600 opacity-10 skew-x-12 translate-x-32" />
-               <div className="max-w-5xl mx-auto relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+               <div className="max-w-5xl mx-auto relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center cta-grid">
                   <div className="space-y-10">
-                     <h2 className="text-4xl lg:text-7xl font-black tracking-tight leading-[1.1]">Dê o primeiro passo hoje.</h2>
+                     <h2 className="text-4xl lg:text-7xl font-black tracking-tight leading-[1.1] cta-title">{data.profile_theme?.steps_title || 'Dê o primeiro passo hoje.'}</h2>
                      <p className="text-xl opacity-60 leading-relaxed max-w-md">Não espere o esgotamento para cuidar do que mais importa. Sua saúde mental merece prioridade.</p>
                      <div className="space-y-8">
                         {[
-                          { step: '01', title: 'Agendamento Simples', desc: 'Mande uma mensagem pelo WhatsApp sem burocracias.' },
-                          { step: '02', title: 'Primeira Escuta', desc: 'Um espaço livre de julgamentos para você se abrir.' },
-                          { step: '03', title: 'Caminho de Cura', desc: 'Desenvolvemos as ferramentas para sua nova fase.' },
+                          { step: '01', title: data.profile_theme?.step_1_title || 'Agendamento Simples', desc: data.profile_theme?.step_1_desc || 'Mande uma mensagem pelo WhatsApp sem burocracias.' },
+                          { step: '02', title: data.profile_theme?.step_2_title || 'Primeira Escuta', desc: data.profile_theme?.step_2_desc || 'Um espaço livre de julgamentos para você se abrir.' },
+                          { step: '03', title: data.profile_theme?.step_3_title || 'Caminho de Cura', desc: data.profile_theme?.step_3_desc || 'Desenvolvemos as ferramentas para sua nova fase.' },
                         ].map((s, i) => (
                           <div key={i} className="flex gap-6 items-start group">
                              <div className="text-2xl font-black text-indigo-500 opacity-40 group-hover:opacity-100 transition-opacity">{s.step}</div>
@@ -609,7 +609,13 @@ export const PublicProfile: React.FC = () => {
         }
 
         @media (max-width: 768px) {
-           h1 { font-size: 3.2rem !important; line-height: 0.95 !important; }
+           h1 { font-size: 3rem !important; line-height: 1 !important; }
+           .hero-container { padding-top: 120px !important; padding-bottom: 40px !important; }
+           .props-grid { margin-top: -80px !important; padding-left: 16px !important; padding-right: 16px !important; gap: 16px !important; }
+           .prop-card { padding: 32px !important; border-radius: 2rem !important; }
+           .cta-section { padding: 40px 24px !important; border-radius: 3rem !important; }
+           .cta-grid { gap: 48px !important; }
+           .cta-title { font-size: 2.5rem !important; }
         }
         
         html { scroll-behavior: smooth; }

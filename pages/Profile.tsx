@@ -85,7 +85,14 @@ export const Profile: React.FC = () => {
       show_schedule: true,
       show_map: true,
       show_trajectory: true,
-      show_specialties: true
+      show_specialties: true,
+      prop_1_title: '', prop_1_desc: '',
+      prop_2_title: '', prop_2_desc: '',
+      prop_3_title: '', prop_3_desc: '',
+      steps_title: '',
+      step_1_title: '', step_1_desc: '',
+      step_2_title: '', step_2_desc: '',
+      step_3_title: '', step_3_desc: '',
     },
     gender: 'female' as 'male' | 'female' | 'other'
   });
@@ -145,7 +152,20 @@ export const Profile: React.FC = () => {
               show_schedule: data.profile_theme?.show_schedule !== false,
               show_map: data.profile_theme?.show_map !== false,
               show_trajectory: data.profile_theme?.show_trajectory !== false,
-              show_specialties: data.profile_theme?.show_specialties !== false
+              show_specialties: data.profile_theme?.show_specialties !== false,
+              prop_1_title: data.profile_theme?.prop_1_title || '',
+              prop_1_desc: data.profile_theme?.prop_1_desc || '',
+              prop_2_title: data.profile_theme?.prop_2_title || '',
+              prop_2_desc: data.profile_theme?.prop_2_desc || '',
+              prop_3_title: data.profile_theme?.prop_3_title || '',
+              prop_3_desc: data.profile_theme?.prop_3_desc || '',
+              steps_title: data.profile_theme?.steps_title || '',
+              step_1_title: data.profile_theme?.step_1_title || '',
+              step_1_desc: data.profile_theme?.step_1_desc || '',
+              step_2_title: data.profile_theme?.step_2_title || '',
+              step_2_desc: data.profile_theme?.step_2_desc || '',
+              step_3_title: data.profile_theme?.step_3_title || '',
+              step_3_desc: data.profile_theme?.step_3_desc || '',
             },
             gender: data.gender || 'female'
           });
@@ -642,6 +662,86 @@ export const Profile: React.FC = () => {
                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
                              placeholder="Ex: +100"
                            />
+                        </div>
+                      </div>
+
+                      {/* Cartões de Proposta de Valor */}
+                      <div className="pt-8 border-t border-slate-100 mb-8">
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="w-1.5 h-6 rounded-full bg-rose-500"></div>
+                            <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Cartões de Proposta de Valor (3 Cards)</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {[1, 2, 3].map(num => (
+                            <div key={num} className="space-y-4 p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                               <div className="space-y-2">
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Título Card {num}</label>
+                                  <input 
+                                    type="text"
+                                    value={(user.profile_theme as any)[`prop_${num}_title`] || ''}
+                                    onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`prop_${num}_title`]: e.target.value } }))}
+                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all"
+                                    placeholder={`Título do Card ${num}`}
+                                  />
+                               </div>
+                               <div className="space-y-2">
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Descrição Card {num}</label>
+                                  <textarea 
+                                    value={(user.profile_theme as any)[`prop_${num}_desc`] || ''}
+                                    onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`prop_${num}_desc`]: e.target.value } }))}
+                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all resize-none"
+                                    rows={3}
+                                    placeholder={`Descrição breve do Card ${num}`}
+                                  />
+                               </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Seção de Passos / Como Funciona */}
+                      <div className="pt-8 border-t border-slate-100 mb-8">
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="w-1.5 h-6 rounded-full bg-amber-500"></div>
+                            <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Seção: Como Funciona (Título + 3 Passos)</h4>
+                        </div>
+                        <div className="space-y-6">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Título da Seção de Passos</label>
+                              <input 
+                                type="text"
+                                value={user.profile_theme.steps_title || ''}
+                                onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, steps_title: e.target.value } }))}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all"
+                                placeholder="Ex: Dê o primeiro passo hoje."
+                              />
+                           </div>
+                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                              {[1, 2, 3].map(num => (
+                                <div key={num} className="space-y-4 p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Passo {num} - Título</label>
+                                    <input 
+                                      type="text"
+                                      value={(user.profile_theme as any)[`step_${num}_title`] || ''}
+                                      onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`step_${num}_title`]: e.target.value } }))}
+                                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all"
+                                      placeholder={`Título do Passo ${num}`}
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Passo {num} - Descrição</label>
+                                    <textarea 
+                                      value={(user.profile_theme as any)[`step_${num}_desc`] || ''}
+                                      onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`step_${num}_desc`]: e.target.value } }))}
+                                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all resize-none"
+                                      rows={2}
+                                      placeholder={`Descrição do Passo ${num}`}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                           </div>
                         </div>
                       </div>
 
