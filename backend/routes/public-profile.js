@@ -8,7 +8,7 @@ router.get('/:slug', async (req, res) => {
     const [rows] = await db.query(
       `SELECT name, specialty, crp, bio, phone, email, public_slug,
               avatar_url, cover_url, clinic_logo_url, company_name, 
-              social_links, profile_theme, schedule
+              social_links, profile_theme, schedule, gender
        FROM users 
        WHERE public_slug = ? AND public_profile_enabled = true`,
        [req.params.slug]

@@ -11,6 +11,7 @@ const ASSESSMENT_TEMPLATES = [
     description: 'Childhood Autism Rating Scale - 2nd Edition', 
     category: 'autism',
     initial: 'C',
+    help_text: 'Soma total: 15-29.5 (Sem Autismo); 30-36.5 (Leve-Mod); 37+ (Grave).',
     fields: [
       { id: 'total_score', label: 'Pontuação Total', type: 'number', placeholder: 'Soma total (15-60)' },
       { id: 'classification', label: 'Classificação', type: 'select', options: ['Mínimo/Sem Autismo', 'Autismo Leve a Moderado', 'Autismo Grave'] },
@@ -23,6 +24,7 @@ const ASSESSMENT_TEMPLATES = [
     description: 'Autism Diagnostic Observation Schedule', 
     category: 'autism',
     initial: 'A',
+    help_text: 'Considere o ponto de corte do módulo específico aplicado.',
     fields: [
       { id: 'module', label: 'Módulo Aplicado', type: 'select', options: ['Módulo 1', 'Módulo 2', 'Módulo 3', 'Módulo 4', 'Toddler'] },
       { id: 'social_affect', label: 'Afeto Social (SA)', type: 'number' },
@@ -37,6 +39,7 @@ const ASSESSMENT_TEMPLATES = [
     description: 'Vineland Adaptive Behavior Scales - 3rd Edition', 
     category: 'adaptive',
     initial: 'V',
+    help_text: 'Standard Score: Média=100, DP=15. Escores abaixo de 70 indicam déficit.',
     fields: [
       { id: 'abc_score', label: 'Índice de Comportamento Adaptativo (ABC)', type: 'number', placeholder: 'Standard Score (M=100, SD=15)' },
       { id: 'communication', label: 'Comunicação (Pontuação Padrão)', type: 'number' },
@@ -52,6 +55,7 @@ const ASSESSMENT_TEMPLATES = [
     description: 'Escala de Inteligência Wechsler para Crianças - 5ª Ed.', 
     category: 'intelligence',
     initial: 'W',
+    help_text: 'QI 90-109: Médio; 70-79: Limítrofe; <70: Muito Baixo.',
     fields: [
       { id: 'fsiq', label: 'QI Total (FSIQ)', type: 'number' },
       { id: 'vci', label: 'Compreensão Verbal (VCI)', type: 'number' },
@@ -67,6 +71,7 @@ const ASSESSMENT_TEMPLATES = [
     description: 'Swanson, Nolan e Pelham Questionnaire - TDAH', 
     category: 'adhd',
     initial: 'S',
+    help_text: 'Desatenção/Hiperat: Normal <1.2; Limítrofe 1.2-1.6/1.7; Clínico >1.6/1.7.',
     fields: [
       { id: 'inattention_avg', label: 'Média de Desatenção (Itens 1-9)', type: 'number', placeholder: 'Normal < 1.2 / Limite 1.2-1.7' },
       { id: 'hyperactivity_avg', label: 'Média de Hiperat./Impul. (Itens 10-18)', type: 'number', placeholder: 'Normal < 1.2 / Limite 1.2-2.3' },
@@ -80,6 +85,7 @@ const ASSESSMENT_TEMPLATES = [
     description: 'Questionário de Capacidades e Dificuldades', 
     category: 'behavior',
     initial: 'S',
+    help_text: 'Dificuldades totais: 0-13 Normal; 14-16 Limítrofe; 17+ Anormal.',
     fields: [
       { id: 'total_difficulties', label: 'Escore de Dificuldades Totais', type: 'number', placeholder: '0-40' },
       { id: 'emotional_symptoms', label: 'Sintomas Emocionais', type: 'number' },

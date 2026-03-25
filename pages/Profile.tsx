@@ -72,7 +72,22 @@ export const Profile: React.FC = () => {
     public_slug: '',
     public_profile_enabled: false,
     social_links: [] as { platform: string; url: string }[],
-    profile_theme: { primaryColor: '#4F46E5', layout: 'modern' },
+    profile_theme: { 
+      primaryColor: '#4F46E5', 
+      layout: 'modern',
+      hero_title: '',
+      specialties_summary: '',
+      specialties_list: [] as string[],
+      experience_years: '',
+      patients_count: '',
+      faq: [] as { question: string; answer: string }[],
+      show_faq: true,
+      show_schedule: true,
+      show_map: true,
+      show_trajectory: true,
+      show_specialties: true
+    },
+    gender: 'female' as 'male' | 'female' | 'other'
   });
 
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
@@ -117,7 +132,22 @@ export const Profile: React.FC = () => {
             public_slug: data.public_slug || '',
             public_profile_enabled: !!data.public_profile_enabled,
             social_links: data.social_links || [],
-            profile_theme: data.profile_theme || { primaryColor: '#4F46E5', layout: 'modern' },
+            profile_theme: {
+              primaryColor: data.profile_theme?.primaryColor || '#4F46E5',
+              layout: data.profile_theme?.layout || 'modern',
+              hero_title: data.profile_theme?.hero_title || '',
+              specialties_summary: data.profile_theme?.specialties_summary || '',
+              specialties_list: data.profile_theme?.specialties_list || [],
+              experience_years: data.profile_theme?.experience_years || '',
+              patients_count: data.profile_theme?.patients_count || '',
+              faq: data.profile_theme?.faq || [],
+              show_faq: data.profile_theme?.show_faq !== false,
+              show_schedule: data.profile_theme?.show_schedule !== false,
+              show_map: data.profile_theme?.show_map !== false,
+              show_trajectory: data.profile_theme?.show_trajectory !== false,
+              show_specialties: data.profile_theme?.show_specialties !== false
+            },
+            gender: data.gender || 'female'
           });
         }
 
@@ -236,6 +266,7 @@ export const Profile: React.FC = () => {
         public_profile_enabled: user.public_profile_enabled,
         social_links: user.social_links,
         profile_theme: user.profile_theme,
+        gender: user.gender,
       });
 
       setSaveStatus('saved');
@@ -470,9 +501,16 @@ export const Profile: React.FC = () => {
                           <input
                             type="text"
                             value={user.public_slug}
-                            onChange={e => setUser(p => ({ ...p, public_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') }))}
+                            onChange={e => {
+                              const val = e.target.value
+                                .toLowerCase()
+                                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
+                                .replace(/[^a-z0-9]/g, '-') // remove special chars/dots/spaces
+                                .replace(/-+/g, '-'); // collapse multiple hyphens
+                              setUser(p => ({ ...p, public_slug: val }));
+                            }}
                             className="flex-1 h-full bg-transparent border-none outline-none text-sm font-black text-indigo-600 placeholder:text-slate-300"
-                            placeholder="seu-nome"
+                            placeholder="ex-meu-nome"
                           />
                         </div>
                         {user.public_slug && (
@@ -554,6 +592,200 @@ export const Profile: React.FC = () => {
                       )}
                     </div>
 
+                    {/* Site Content Management */}
+                    <div className="pt-8 border-t border-slate-100">
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="w-1.5 h-6 rounded-full bg-indigo-500"></div>
+                        <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Conteúdo Estratégico do Site</h4>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Título de Impacto (Hero)</label>
+                           <input 
+                             type="text"
+                             value={user.profile_theme.hero_title || ''}
+                             onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, hero_title: e.target.value } }))}
+                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
+                             placeholder="Ex: Apoio Psicológico de Confiança"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Resumo das Especialidades</label>
+                           <input 
+                             type="text"
+                             value={user.profile_theme.specialties_summary || ''}
+                             onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_summary: e.target.value } }))}
+                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
+                             placeholder="Ex: Especialidades focadas no seu desenvolvimento..."
+                           />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Anos de Experiência</label>
+                           <input 
+                             type="text"
+                             value={user.profile_theme.experience_years || ''}
+                             onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, experience_years: e.target.value } }))}
+                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
+                             placeholder="Ex: 8+"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Clientes/Vidas Atendidas</label>
+                           <input 
+                             type="text"
+                             value={user.profile_theme.patients_count || ''}
+                             onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, patients_count: e.target.value } }))}
+                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
+                             placeholder="Ex: +100"
+                           />
+                        </div>
+                      </div>
+
+                      {/* Section Visibility Toggles */}
+                      <div className="pt-8 border-t border-slate-100 mb-8">
+                        <div className="flex items-center gap-2 mb-6">
+                          <div className="w-1.5 h-6 rounded-full bg-emerald-500"></div>
+                          <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Configuração de Seções do Site</h4>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          {[
+                            { id: 'show_trajectory', label: 'Trajetória/Bio' },
+                            { id: 'show_specialties', label: 'Especialidades' },
+                            { id: 'show_faq', label: 'Perguntas (FAQ)' },
+                            { id: 'show_schedule', label: 'Agenda Semanal' },
+                            { id: 'show_map', label: 'Mapa/Localização' },
+                          ].map(s => (
+                            <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                               <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{s.label}</span>
+                               <button 
+                                 onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [s.id]: !p.profile_theme[s.id as keyof typeof p.profile_theme] } }))}
+                                 className={`w-10 h-6 rounded-full transition-all relative ${user.profile_theme[s.id as keyof typeof user.profile_theme] ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                               >
+                                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${user.profile_theme[s.id as keyof typeof user.profile_theme] ? 'left-5' : 'left-1'}`} />
+                               </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Specialties Tags Editor */}
+                      <div className="space-y-4 mb-8">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Especialidades em Cartão</label>
+                          <button 
+                            onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_list: [...(p.profile_theme.specialties_list || []), ''] } }))}
+                            className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 hover:text-indigo-700 transition-all"
+                          >
+                            <Plus size={14} /> ADICIONAR ITEM
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {(user.profile_theme.specialties_list || []).map((s, idx) => (
+                            <div key={idx} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-100">
+                              <input 
+                                type="text"
+                                value={s}
+                                onChange={e => {
+                                  const newList = [...user.profile_theme.specialties_list];
+                                  newList[idx] = e.target.value;
+                                  setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_list: newList } }));
+                                }}
+                                className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 placeholder:text-slate-300"
+                                placeholder={`Especialidade ${idx + 1}...`}
+                              />
+                              <button onClick={() => {
+                                const newList = [...user.profile_theme.specialties_list];
+                                newList.splice(idx, 1);
+                                setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_list: newList } }));
+                              }} className="text-slate-300 hover:text-red-500 transition-all">
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* FAQ Manager */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perguntas Frequentes (FAQ)</label>
+                          <button 
+                            onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: [...(p.profile_theme.faq || []), { question: '', answer: '' }] } }))}
+                            className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 hover:text-indigo-700 transition-all"
+                          >
+                            <Plus size={14} /> ADICIONAR PERGUNTA
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          {(user.profile_theme.faq || []).map((f, idx) => (
+                            <div key={idx} className="p-4 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col gap-3 relative group">
+                              <button
+                                onClick={() => {
+                                  const newFaq = [...user.profile_theme.faq];
+                                  newFaq.splice(idx, 1);
+                                  setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
+                                }}
+                                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                              >
+                                <X size={20} />
+                              </button>
+                              <input 
+                                type="text"
+                                value={f.question}
+                                onChange={e => {
+                                  const newFaq = [...user.profile_theme.faq];
+                                  newFaq[idx].question = e.target.value;
+                                  setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
+                                }}
+                                className="bg-transparent border-none outline-none text-sm font-black text-slate-800 placeholder:text-slate-400"
+                                placeholder="Pergunta (Ex: Qual o valor da sessão?)"
+                              />
+                              <textarea 
+                                value={f.answer}
+                                onChange={e => {
+                                  const newFaq = [...user.profile_theme.faq];
+                                  newFaq[idx].answer = e.target.value;
+                                  setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
+                                }}
+                                className="bg-transparent border-none outline-none text-xs font-bold text-slate-500 placeholder:text-slate-400 min-h-[60px] resize-none"
+                                placeholder="Resposta detalhada..."
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Gênero e Título */}
+                    <div className="pt-6 border-t border-slate-100">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1 mb-4">Gênero Profissional</label>
+                      <p className="text-[10px] text-slate-400 font-bold mb-4 px-1">Isso ajustará seu título automaticamente para "Psicólogo" ou "Psicóloga" na página pública.</p>
+                      <div className="flex gap-3">
+                        {[
+                          { id: 'female', label: 'Feminino (Psicóloga)' },
+                          { id: 'male', label: 'Masculino (Psicólogo)' },
+                          { id: 'other', label: 'Outro (Psicólogo(a))' }
+                        ].map(g => (
+                          <button
+                            key={g.id}
+                            onClick={() => setUser(p => ({ ...p, gender: g.id as any }))}
+                            className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all border-2 ${
+                              user.gender === g.id 
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' 
+                              : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'
+                            }`}
+                          >
+                            {g.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Tema */}
                     <div className="pt-6 border-t border-slate-100">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1 mb-6">Personalização do Tema</label>
@@ -586,6 +818,8 @@ export const Profile: React.FC = () => {
                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                              {[
                                { id: 'modern', label: 'Moderno', color: 'bg-indigo-500' },
+                               { id: 'vibrant', label: 'Vibrant', color: 'bg-gradient-to-tr from-rose-500 to-indigo-700' },
+                               { id: 'marble', label: 'Marble', color: 'bg-[#FDFBF7] border border-teal-100' },
                                { id: 'dark', label: 'Dark', color: 'bg-slate-900' },
                                { id: 'glass', label: 'Glass', color: 'bg-gradient-to-br from-indigo-400 to-pink-400' },
                                { id: 'brutal', label: 'Brutal', color: 'bg-yellow-400 border-2 border-black' },

@@ -28,6 +28,7 @@ const ensureColumns = async () => {
     "ALTER TABLE users ADD COLUMN social_links JSON NULL",
     "ALTER TABLE users ADD COLUMN public_profile_enabled BOOLEAN DEFAULT FALSE",
     "ALTER TABLE users ADD COLUMN profile_theme JSON NULL",
+    "ALTER TABLE users ADD COLUMN gender VARCHAR(20) NULL",
   ];
   for (const sql of extras) {
     try { 
@@ -50,6 +51,7 @@ router.get('/me', async (req, res) => {
               u.schedule, u.active, u.permissions as user_permissions,
               u.ui_preferences, u.forms_archived, u.forms_favorites,
               u.two_factor_enabled, u.public_slug, u.social_links, u.public_profile_enabled, u.profile_theme,
+              u.gender,
               p.permissions as profile_permissions, p.slug as profile_slug,
               pl.features as plan_features
        FROM users u 
@@ -105,7 +107,8 @@ router.put('/me', async (req, res) => {
     const { 
       name, email, phone, crp, specialty, company_name, address, bio, 
       avatar_url, clinic_logo_url, cover_url, schedule,
-      public_slug, social_links, public_profile_enabled, profile_theme
+      public_slug, social_links, public_profile_enabled, profile_theme,
+      gender
     } = req.body;
 
     await db.query(
@@ -125,7 +128,8 @@ router.put('/me', async (req, res) => {
         public_slug = ?,
         social_links = ?,
         public_profile_enabled = ?,
-        profile_theme = ?
+        profile_theme = ?,
+        gender = ?
        WHERE id = ?`,
       [
         name, email, phone, crp, specialty, company_name || null, address || null, bio || null,
@@ -135,6 +139,7 @@ router.put('/me', async (req, res) => {
         social_links ? JSON.stringify(social_links) : null,
         public_profile_enabled || false,
         profile_theme ? JSON.stringify(profile_theme) : null,
+        gender || 'other',
         req.user.id
       ]
     );
@@ -142,7 +147,7 @@ router.put('/me', async (req, res) => {
     const [rows] = await db.query(
       `SELECT id, name, email, role, phone, crp, specialty, avatar_url, bio, 
               company_name, address, clinic_logo_url, cover_url, schedule,
-              public_slug, social_links, public_profile_enabled, profile_theme
+              public_slug, social_links, public_profile_enabled, profile_theme, gender
        FROM users WHERE id = ?`,
       [req.user.id]
     );

@@ -6,7 +6,7 @@ import { api } from '../services/api';
 import { 
   BrainCircuit, Plus, Search, ChevronDown, CheckCircle, TrendingUp, 
   Target, Calendar, Activity, ArrowRight, User, List, Layers, ClipboardCheck, 
-  AlertTriangle, Radar, Eye, Volume2, Hand, Footprints, Smile, MessageSquare,
+  AlertTriangle, Radar, Eye, Volume2, Hand, Info, Footprints, Smile, MessageSquare,
   Clock, FileText, ChevronRight, X, Save, ArrowLeft, Zap, Box, Brain, Loader2,
   Trash2, Edit2
 } from 'lucide-react';
@@ -28,6 +28,7 @@ type NeuroAssessment = {
   fields?: { id: string; label: string; type: 'number' | 'text' | 'select'; options?: string[]; placeholder?: string }[];
   cutoff?: number | null;
   color?: string | null;
+  help_text?: string;
 };
 
 // 1. Goals
@@ -936,10 +937,28 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                                 </div>
                                 
                                 {lastResult ? (
-                                    <div className="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100/50">
+                                    <div className="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100/50 relative group/result">
                                         <div className="flex justify-between items-center mb-1">
                                             <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Último Resultado</span>
-                                            <span className="text-[10px] text-indigo-300 font-medium">{new Date(lastResult.created_at).toLocaleDateString()}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-indigo-300 font-medium">{new Date(lastResult.created_at).toLocaleDateString()}</span>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/result:opacity-100 transition-opacity ml-2">
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); setEditingId(String(lastResult.id)); setDynamicValues(lastResult.data || {}); setActive(item); }}
+                                                        className="p-1 text-indigo-400 hover:text-indigo-600 transition-colors"
+                                                        title={t('common.edit')}
+                                                    >
+                                                        <Edit2 size={10} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteResult(String(lastResult.id)); }}
+                                                        className="p-1 text-slate-300 hover:text-red-600 transition-colors"
+                                                        title={t('common.delete')}
+                                                    >
+                                                        <Trash2 size={10} />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2 mt-2">
                                             {Object.entries(lastResult.data || {}).slice(0, 3).map(([k, v]) => (
@@ -998,6 +1017,15 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                 )}
             >
                 <div className="space-y-6">
+                    {active?.help_text && (
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex gap-3">
+                            <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
+                            <div>
+                                <h5 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Referência Clínica</h5>
+                                <p className="text-xs text-blue-700 font-medium leading-relaxed">{active.help_text}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="grid grid-cols-1 gap-5">
                         {(active?.fields || []).map(f => (
                             <div key={f.id} className="relative">
