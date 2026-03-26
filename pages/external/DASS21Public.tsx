@@ -176,31 +176,31 @@ export const DASS21Public: React.FC = () => {
             </div>
 
             {professional && (
-              <div className="pt-8 flex flex-col md:flex-row items-center gap-6 group">
+              <div className="pt-3 md:pt-8 flex flex-row items-center gap-3 md:gap-6 group">
                  <div className="relative">
                     <div className="absolute -inset-2 bg-gradient-to-tr from-white/30 to-white/10 rounded-[2.2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                     {professional.clinic_logo_url ? (
-                      <img 
-                        src={getStaticUrl(professional.clinic_logo_url)} 
+                      <img
+                        src={getStaticUrl(professional.clinic_logo_url)}
                         alt={professional.company_name || professional.name}
-                        className="w-24 h-24 rounded-[2.2rem] bg-white border-8 border-white/20 shadow-2xl object-contain p-2 relative z-10 transform transition-transform group-hover:scale-105"
+                        className="w-12 h-12 md:w-24 md:h-24 rounded-2xl md:rounded-[2.2rem] bg-white border-4 md:border-8 border-white/20 shadow-xl object-contain p-1 md:p-2 relative z-10"
                       />
                     ) : (
-                      <div className="w-20 h-20 rounded-[1.8rem] bg-white/20 border-2 border-white/30 flex items-center justify-center font-black text-3xl relative z-10 backdrop-blur-sm overflow-hidden group-hover:rotate-3 transition-transform">
+                      <div className="w-10 h-10 md:w-20 md:h-20 rounded-xl md:rounded-[1.8rem] bg-white/20 border-2 border-white/30 flex items-center justify-center font-black text-xl md:text-3xl relative z-10">
                           {professional.name?.[0]}
                       </div>
                     )}
                  </div>
                  
-                 <div className="text-center md:text-left transition-all group-hover:translate-x-1">
-                    <p className="text-indigo-200 font-black uppercase tracking-[0.3em] text-[10px] mb-2 opacity-80">Psicólogo(a) Responsável</p>
-                    <p className="font-black text-2xl md:text-4xl tracking-tight leading-tight mb-2">{professional.name}</p>
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-1.5">
+                 <div className="text-left">
+                    <p className="text-indigo-200 font-bold uppercase tracking-widest text-[9px] mb-0.5 opacity-70">Psicólogo(a) Responsável</p>
+                    <p className="font-black text-base md:text-4xl tracking-tight leading-tight">{professional.name}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       {professional.specialty && (
-                        <span className="text-[12px] font-bold text-indigo-50/90 bg-white/10 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-sm whitespace-nowrap">{professional.specialty}</span>
+                        <span className="text-[10px] md:text-[12px] font-bold text-indigo-50/90 bg-white/10 px-2 md:px-4 py-1 md:py-1.5 rounded-full border border-white/10 whitespace-nowrap">{professional.specialty}</span>
                       )}
                       {professional.crp && (
-                        <span className="text-[12px] font-black bg-slate-950/40 px-4 py-1.5 rounded-full border border-white/10 text-white leading-none backdrop-blur-md">
+                        <span className="text-[10px] md:text-[12px] font-black bg-slate-950/40 px-2 md:px-4 py-1 md:py-1.5 rounded-full border border-white/10 text-white leading-none">
                           CRP {professional.crp}
                         </span>
                       )}
@@ -211,60 +211,60 @@ export const DASS21Public: React.FC = () => {
          </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 -mt-12 space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-         <div className="bg-white rounded-[2rem] md:rounded-[3rem] border border-slate-100 p-5 md:p-12 shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-5 md:space-y-8 relative z-20 overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 transition-all group-hover:scale-125" />
-            <div className="flex items-center gap-5 text-indigo-600">
-               <div className="w-16 h-16 bg-indigo-50 rounded-[1.8rem] flex items-center justify-center shadow-inner border border-indigo-100/30">
-                  <Info size={32} />
+      <div className="max-w-3xl mx-auto px-3 md:px-4 mt-0 md:-mt-12 space-y-3 md:space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+         <div className="bg-white rounded-2xl border border-slate-100 p-4 md:p-12 shadow-lg md:shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-4 md:space-y-8 relative z-20 overflow-hidden">
+            <div className="flex items-center gap-3 text-indigo-600">
+               <div className="w-9 h-9 md:w-16 md:h-16 bg-indigo-50 rounded-xl md:rounded-[1.8rem] flex items-center justify-center border border-indigo-100/30 shrink-0">
+                  <Info size={18} className="md:hidden" />
+                  <Info size={32} className="hidden md:block" />
                </div>
                <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 mb-1 leading-none">Guia Clínico</h3>
-                  <p className="text-2xl font-black text-indigo-950 uppercase italic tracking-tighter">Instruções de Resposta</p>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none">Guia Clínico</h3>
+                  <p className="text-base md:text-2xl font-black text-indigo-950 uppercase italic tracking-tight">Instruções de Resposta</p>
                </div>
             </div>
-            <p className="text-base text-slate-500 leading-relaxed font-semibold max-w-xl">
-               Selecione a opção que indique o quanto cada afirmação se aplicou a você <span className="text-indigo-600 font-black italic underline decoration-indigo-200 underline-offset-4">durante a última semana</span>.
+            <p className="text-sm md:text-base text-slate-500 leading-relaxed font-medium">
+               Selecione o quanto cada afirmação se aplicou a você <span className="text-indigo-600 font-bold italic underline decoration-indigo-200 underline-offset-2">durante a última semana</span>.
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="grid grid-cols-4 gap-2 md:gap-4">
                {[
                  { v: 0, l: 'Não se aplicou' },
                  { v: 1, l: 'Algum grau' },
                  { v: 2, l: 'Grau considerável' },
                  { v: 3, l: 'Quase sempre' }
                ].map(opt => (
-                 <div key={opt.v} className="bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100 text-center flex flex-col items-center justify-center group hover:bg-white hover:border-indigo-100 hover:shadow-xl transition-all">
-                    <p className="text-indigo-600 font-black text-3xl leading-none mb-2">{opt.v}</p>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{opt.l}</p>
+                 <div key={opt.v} className="bg-slate-50 py-3 md:p-6 rounded-xl md:rounded-[1.5rem] border border-slate-100 text-center flex flex-col items-center justify-center gap-1">
+                    <p className="text-indigo-600 font-black text-xl md:text-3xl leading-none">{opt.v}</p>
+                    <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase leading-tight">{opt.l}</p>
                  </div>
                ))}
             </div>
          </div>
 
-         <form onSubmit={handleSubmit} className="space-y-6">
+         <form onSubmit={handleSubmit} className="space-y-3 md:space-y-6">
             {DASS_ITEMS.map((item, idx) => (
-              <div key={item.id} className="bg-white rounded-[2rem] md:rounded-[3rem] border-2 border-transparent p-5 md:p-10 shadow-[0_15px_50px_-15px_rgba(30,41,59,0.06)] space-y-5 md:space-y-10 hover:border-indigo-100 hover:shadow-2xl hover:shadow-indigo-100/30 transition-all duration-500 group relative overflow-hidden">
-                 <div className="absolute top-0 left-0 w-2 h-full bg-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                 
-                 <div className="flex flex-col md:flex-row md:items-center gap-6">
-                    <div className="w-14 h-14 rounded-[1.8rem] bg-slate-50 border border-slate-100 flex items-center justify-center text-sm font-black text-slate-400 shrink-0 group-hover:bg-indigo-600 group-hover:text-white group-hover:-rotate-6 transition-all duration-500">
+              <div key={item.id} className={`bg-white rounded-2xl md:rounded-[3rem] border-2 p-4 md:p-10 shadow-sm md:shadow-[0_15px_50px_-15px_rgba(30,41,59,0.06)] space-y-3 md:space-y-10 transition-all duration-300 ${
+                answers[item.id] !== undefined ? 'border-indigo-100' : 'border-transparent'
+              }`}>
+                 <div className="flex items-start gap-3">
+                    <span className="shrink-0 w-7 h-7 md:w-14 md:h-14 rounded-xl md:rounded-[1.8rem] bg-slate-100 flex items-center justify-center text-xs md:text-sm font-black text-slate-400 mt-0.5">
                        {String(idx + 1).padStart(2, '0')}
-                    </div>
-                    <p className="text-xl md:text-2xl font-black text-indigo-950 leading-tight group-hover:translate-x-1 transition-transform duration-500">
+                    </span>
+                    <p className="text-base md:text-2xl font-bold md:font-black text-slate-800 leading-snug pt-0.5">
                       {item.text}
                     </p>
                  </div>
-                 
+
                  <div className="grid grid-cols-4 gap-2 md:gap-4">
                     {[0, 1, 2, 3].map(val => (
                       <button
                         key={val}
                         type="button"
                         onClick={() => setAnswers({ ...answers, [item.id]: val })}
-                        className={`h-14 md:h-24 rounded-[1.2rem] md:rounded-[1.8rem] text-base md:text-xl font-black transition-all duration-300 border-2 ${
-                          answers[item.id] === val 
-                          ? 'bg-slate-950 text-white border-slate-950 shadow-2xl scale-[1.05] ring-8 ring-indigo-50' 
-                          : 'bg-white text-slate-300 border-slate-100 hover:border-indigo-200 hover:text-indigo-600 hover:bg-indigo-50/50'
+                        className={`h-12 md:h-24 rounded-xl md:rounded-[1.8rem] text-lg md:text-xl font-black transition-all duration-200 border-2 ${
+                          answers[item.id] === val
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200 scale-[1.04]'
+                          : 'bg-slate-50 text-slate-400 border-slate-100 active:bg-indigo-50 active:text-indigo-600'
                         }`}
                       >
                          {val}
@@ -274,24 +274,22 @@ export const DASS21Public: React.FC = () => {
               </div>
             ))}
 
-            <div className="pt-4 md:pt-12">
+            <div className="pt-2 md:pt-12">
                <button
                  type="submit"
                  disabled={loading}
-                 className="w-full bg-indigo-600 hover:bg-slate-950 text-white rounded-[2rem] md:rounded-[3rem] py-5 md:py-12 font-black uppercase tracking-[0.3em] text-sm md:text-lg shadow-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-4 border-b-4 md:border-b-8 border-indigo-800 hover:border-slate-800 active:border-b-0 active:translate-y-2 group"
+                 className="w-full bg-indigo-600 text-white rounded-2xl md:rounded-[3rem] py-4 md:py-12 font-black uppercase tracking-widest text-sm md:text-lg shadow-lg shadow-indigo-200 transition-all disabled:opacity-50 flex items-center justify-center gap-3 active:scale-[0.98]"
                >
-                  {loading ? 'Sincronizando Respostas...' : (
+                  {loading ? 'Enviando...' : (
                     <>
-                      Finalizar Avaliação <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+                      Finalizar Avaliação <ArrowRight size={18} />
                     </>
                   )}
                </button>
-               {error && <p className="text-rose-500 text-center mt-6 text-sm font-black uppercase tracking-widest">{error}</p>}
-               <div className="flex flex-col items-center gap-3 mt-10 opacity-40">
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em] flex items-center gap-3">
-                     <ShieldCheck size={18} className="text-indigo-400" /> Protocolo de Sigilo PsiFlux
-                  </p>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Tecnologia Certificada para Prática Clínica</p>
+               {error && <p className="text-rose-500 text-center mt-4 text-sm font-bold">{error}</p>}
+               <div className="flex items-center justify-center gap-2 mt-6 opacity-30">
+                  <ShieldCheck size={14} className="text-indigo-400" />
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Protocolo de Sigilo PsiFlux</p>
                </div>
             </div>
          </form>
