@@ -63,11 +63,20 @@ router.get('/token/:token', async (req, res) => {
   }
 });
 
+// Resolve userId a partir de share token ou ID numérico puro (fallback retrocompatível)
+function resolveUserId(uParam) {
+  if (!uParam) return null;
+  const { parseShareToken } = require('../utils/shareToken');
+  const fromToken = parseShareToken(uParam);
+  if (fromToken) return fromToken;
+  const asInt = parseInt(uParam, 10);
+  return Number.isFinite(asInt) && asInt > 0 ? asInt : null;
+}
+
 // GET /public-profile/dass-21/:patientId?u=TOKEN — Busca histórico DASS-21 do paciente (público)
 router.get('/dass-21/:patientId', async (req, res) => {
   try {
-    const { parseShareToken } = require('../utils/shareToken');
-    const userId = parseShareToken(req.query.u);
+    const userId = resolveUserId(req.query.u);
     if (!userId) return res.status(400).json({ error: 'Token inválido.' });
 
     const [[user]] = await db.query('SELECT tenant_id FROM users WHERE id = ?', [userId]);
@@ -91,8 +100,7 @@ router.get('/dass-21/:patientId', async (req, res) => {
 // POST /public-profile/dass-21/:patientId?u=TOKEN — Salva resultado DASS-21 (público)
 router.post('/dass-21/:patientId', async (req, res) => {
   try {
-    const { parseShareToken } = require('../utils/shareToken');
-    const userId = parseShareToken(req.query.u);
+    const userId = resolveUserId(req.query.u);
     if (!userId) return res.status(400).json({ error: 'Token inválido.' });
 
     const [[user]] = await db.query('SELECT tenant_id FROM users WHERE id = ?', [userId]);

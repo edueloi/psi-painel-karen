@@ -157,7 +157,7 @@ export const DASS21Page: React.FC = () => {
 
   const getShareLink = () => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/f/dass-21?u=${user?.id}&p=${selectedPatientId}`;
+    return `${baseUrl}/f/dass-21?u=${user?.shareToken}&p=${selectedPatientId}`;
   };
 
   const handleCopy = () => {
