@@ -6,6 +6,32 @@ const crypto = require('crypto');
 const speakeasy = require('speakeasy');
 const db = require('../db');
 const { sendMail, templates } = require('../services/emailService');
+const rateLimit = require('express-rate-limit');
+
+// Bloqueio de Força Bruta (Rate Limiters)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // Máximo de 10 tentativas por IP
+  message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const verify2faLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutos
+  max: 10,
+  message: { error: 'Muitas tentativas de 2FA. Tente novamente em 10 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3, // Máximo de 3 pedidos de reset por hora por IP
+  message: { error: 'Muitos pedidos de recuperação de senha. Tente novamente em 1 hora.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Garante colunas de reset na tabela users
 (async () => {
@@ -19,7 +45,7 @@ const { sendMail, templates } = require('../services/emailService');
 })();
 
 // POST /auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -100,7 +126,7 @@ router.post('/login', async (req, res) => {
  * POST /auth/verify-2fa
  * Verifica o código 2FA e emite o token final
  */
-router.post('/verify-2fa', async (req, res) => {
+router.post('/verify-2fa', verify2faLimiter, async (req, res) => {
   try {
     const { userId, token: totpToken } = req.body;
 
@@ -235,7 +261,7 @@ router.get('/me', async (req, res) => {
 });
 
 // POST /auth/forgot-password
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
