@@ -51,7 +51,10 @@ class WhatsAppManager {
 
     if (data.client) {
       console.log(`[WPP] Encerrando instância anterior do Tenant ${tenantId}...`);
-      try { await data.client.close(); } catch(e) {}
+      try {
+        if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners();
+        await data.client.close();
+      } catch(e) {}
       data.client = null;
     }
 
@@ -149,7 +152,8 @@ class WhatsAppManager {
 
       console.log(`✅ WhatsApp Tenant ${tenantId} Conectado: ${data.phone}`);
       
-      // Ping pong setup
+      // Ping pong — garante que não acumula listeners em reconexões
+      if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners('message');
       data.client.onMessage((message) => {
         if (message.body === 'ping') {
           data.client.sendText(message.from, 'pong');
@@ -168,16 +172,15 @@ class WhatsAppManager {
     const data = this.getTenantData(tenantId);
     if (data.client) {
       try {
+        if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners();
         await data.client.logout();
         await data.client.close();
       } catch (e) {
         console.error('Erro ao fechar cliente WPP:', e.message);
       }
     }
-    data.client = null;
-    data.status = 'disconnected';
-    data.qrcode = null;
-    data.phone = null;
+    // Remove completamente do Map para liberar memória
+    this.instances.delete(tenantId);
 
     await db.query(
       'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?',

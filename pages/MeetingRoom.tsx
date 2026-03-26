@@ -41,6 +41,9 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
+import logoUrl from '../images/logo-psiflux.png';
+import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
 import { ClinicalForm, FormQuestion } from "../types";
 import { api, API_BASE_URL } from "../services/api";
 
@@ -121,6 +124,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { resolvedMode } = useTheme();
+  const isDark = resolvedMode === 'dark';
   const hasAuthToken = Boolean(localStorage.getItem("psi_token"));
   const isGuest =
     isGuestProp || searchParams.get("guest") === "true" || !hasAuthToken;
@@ -3695,8 +3700,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                         <img src={user.clinicLogoUrl} alt="Logo" className="w-full h-full object-contain" />
                       </div>
                     ) : (
-                      <div className="absolute -bottom-3 -right-3 w-14 h-14 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
-                        <img src="/images/logo-psiflux.png" alt="PsiFlux" className="w-10 h-10 object-contain" />
+                      <div className="absolute -bottom-3 -right-3 w-16 h-16 bg-white rounded-2xl p-1 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
+                        <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-12 h-12 object-contain" />
                       </div>
                     )}
                   </div>

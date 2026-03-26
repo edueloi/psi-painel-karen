@@ -35,23 +35,54 @@ const assessmentsMap = new Map(); // { id, event_type, assessment_id, question_i
 const transcriptsMap = new Map(); // { id, speaker_name, text, created_at }
 const waitingMap     = new Map(); // { id(string), guest_name, status, token, created_at }
 const participantsMap = new Map();
+const lastActivityMap = new Map(); // roomKey → Date.now() — usado para TTL
+
+const ROOM_TTL_MS  = 2 * 60 * 60 * 1000; // 2h sem atividade → limpa da memória
+const MAX_ITEMS    = 300;                  // cap de itens por sala por store
 
 let _seq = 1;
 const nextId = () => _seq++;
 
 function getRoomKey(id) { return String(id).toLowerCase().trim(); }
+
+function touchRoom(key) { lastActivityMap.set(key, Date.now()); }
+
 function getList(map, key) {
   if (!map.has(key)) map.set(key, []);
   return map.get(key);
 }
+
 function pushItem(map, key, item) {
-  getList(map, key).push(item);
+  touchRoom(key);
+  const list = getList(map, key);
+  list.push(item);
+  // Mantém só os últimos MAX_ITEMS para não crescer indefinidamente
+  if (list.length > MAX_ITEMS) list.splice(0, list.length - MAX_ITEMS);
   return item;
 }
+
 function sinceItems(map, key, since) {
   const n = Number(since) || 0;
   return getList(map, key).filter(i => i.id > n);
 }
+
+// Limpa salas inativas a cada 30 minutos
+function cleanupInactiveRooms() {
+  const cutoff = Date.now() - ROOM_TTL_MS;
+  for (const [key, ts] of lastActivityMap) {
+    if (ts < cutoff) {
+      eventsMap.delete(key);
+      messagesMap.delete(key);
+      assessmentsMap.delete(key);
+      transcriptsMap.delete(key);
+      waitingMap.delete(key);
+      participantsMap.delete(key);
+      lastActivityMap.delete(key);
+      console.log(`[VirtualRooms] Sala "${key}" removida da memória por inatividade.`);
+    }
+  }
+}
+setInterval(cleanupInactiveRooms, 30 * 60 * 1000);
 
 // ── CRUD Routes (auth required via index.js) ──────────────────────────────────
 
@@ -174,6 +205,11 @@ router.delete('/:id', async (req, res) => {
       [req.params.id, req.user.tenant_id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Sala não encontrada' });
+    // Libera memória da sala imediatamente ao deletar
+    const key = getRoomKey(req.params.id);
+    eventsMap.delete(key); messagesMap.delete(key); assessmentsMap.delete(key);
+    transcriptsMap.delete(key); waitingMap.delete(key); participantsMap.delete(key);
+    lastActivityMap.delete(key);
     res.status(204).send();
   } catch (err) {
     console.error(err);

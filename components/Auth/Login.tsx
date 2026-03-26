@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, BrainCircuit, ShieldCheck, ChevronLeft, Smartphone, AlertCircle } from 'lucide-react';
 import logoUrl from '../../images/logo-psiflux.png';
+import logoDarkUrl from '../../images/logopsiflux-para-fundo-escuro.png';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -63,6 +65,8 @@ const LeftIllustration = () => (
 // ─────────────────────────────────────────────────────────────────────────────
 export const Login: React.FC<{ onLogin: () => void }> = () => {
   const { login, isAuthenticated } = useAuth();
+  const { resolvedMode } = useTheme();
+  const isDark = resolvedMode === 'dark';
   const navigate  = useNavigate();
 
   React.useEffect(() => {
@@ -170,8 +174,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
         <div className="absolute top-1/2 left-1/2 w-96 h-96 rounded-full opacity-15" style={{ background: 'radial-gradient(circle, #e0e7ff, transparent 70%)', transform: 'translate(-50%,-50%)' }} />
 
         <div className="flex items-center gap-4 relative z-10">
-          <div className="w-[52px] h-[52px] rounded-2xl overflow-hidden shadow-xl ring-2 ring-indigo-200/60 bg-white/80 backdrop-blur-sm flex-shrink-0">
-            <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-1" />
+          <div className="w-[64px] h-[64px] rounded-2xl overflow-hidden shadow-xl ring-2 ring-indigo-200/60 bg-white/80 backdrop-blur-sm flex-shrink-0">
+            <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-0.5" />
           </div>
           <div>
             <h1 className="text-slate-800 font-display font-bold text-[24px] leading-none tracking-tight flex items-baseline">
@@ -210,8 +214,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
           {/* Logo mobile */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md ring-2 ring-indigo-100 bg-indigo-50/50 flex-shrink-0">
-              <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-0.5" />
+            <div className="w-16 h-16 rounded-xl overflow-hidden shadow-md ring-2 ring-indigo-100 bg-indigo-50/50 flex-shrink-0">
+              <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="text-slate-800 font-display font-bold text-[22px] leading-none tracking-tight flex items-baseline">

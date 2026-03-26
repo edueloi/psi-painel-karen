@@ -23,28 +23,33 @@ const fmtShort = (v: number) => _fmtCompact.format(v);
 const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).toUpperCase() : '—';
 
 // ── constants ─────────────────────────────────────────────────────────────────
+// Cada item DEVE ter um requiredFeature correspondente no constants.tsx (NAV_SECTIONS)
+// Chaves sem correspondência no menu foram removidas para não confundir
 const FEATURES_OPTIONS = [
-  { key: 'agenda',               label: 'Agenda' },
-  { key: 'prontuario',           label: 'Prontuário' },
-  { key: 'formularios',          label: 'Formulários' },
-  { key: 'salas_virtuais',       label: 'Salas Virtuais', premium: true },
-  { key: 'pei',                  label: 'PEI / Neurodesenvolvimento', premium: true },
-  { key: 'ferramentas_clinicas', label: 'Ferramentas Clínicas' },
-  { key: 'estudos_de_caso',      label: 'Estudos de Caso' },
-  { key: 'financeiro',           label: 'Financeiro', premium: true },
-  { key: 'documentos',           label: 'Gerador de Documentos', premium: true },
-  { key: 'relatorios',           label: 'Relatórios Avançados', premium: true },
-  { key: 'profissionais',        label: 'Gestão de Profissionais' },
-  { key: 'servicos',             label: 'Gestão de Serviços' },
-  { key: 'produtos',             label: 'Gestão de Produtos' },
-  { key: 'comandas',             label: 'Gestão de Comandas' },
-  { key: 'mensagens',            label: 'Mensagens Internas' },
-  { key: 'api_acesso',           label: 'Acesso à API', premium: true },
-  { key: 'suporte_prioritario',  label: 'Suporte Prioritário', premium: true },
-  { key: 'whatsapp_bot',         label: 'WhatsApp Bot', premium: true },
-  { key: 'aurora_ai',            label: 'Aurora AI', premium: true },
-  { key: 'abordagens_clinicas',  label: 'Abordagens (ACT, DBT, EMDR, etc)' },
-  { key: 'neuro_avalicao',       label: 'Neuropsicologia & Avaliação' },
+  // ── Clínico ──────────────────────────────────────────────────────────────
+  { key: 'pacientes',            label: 'Pacientes',                        group: 'Clínico' },
+  { key: 'prontuario',           label: 'Prontuário',                       group: 'Clínico' },
+  { key: 'estudos_de_caso',      label: 'Estudos de Caso',                  group: 'Clínico' },
+  // ── Intervenção & Teoria ──────────────────────────────────────────────────
+  { key: 'ferramentas_clinicas', label: 'Ferramentas Clínicas, DISC & Abordagens', group: 'Intervenção' },
+  // ── Avaliação ─────────────────────────────────────────────────────────────
+  { key: 'formularios',          label: 'Formulários & Instrumentos',       group: 'Avaliação' },
+  // ── Documentos ────────────────────────────────────────────────────────────
+  { key: 'documentos',           label: 'Documentos, Encaminhamentos & Termos', group: 'Documentos', premium: true },
+  // ── Gestão ───────────────────────────────────────────────────────────────
+  { key: 'agenda',               label: 'Agenda',                           group: 'Gestão' },
+  { key: 'salas_virtuais',       label: 'Salas Virtuais',                   group: 'Gestão', premium: true },
+  { key: 'profissionais',        label: 'Profissionais',                    group: 'Gestão' },
+  { key: 'servicos',             label: 'Serviços',                         group: 'Gestão' },
+  { key: 'produtos',             label: 'Produtos',                         group: 'Gestão' },
+  { key: 'comandas',             label: 'Comandas',                         group: 'Gestão' },
+  // ── Financeiro ───────────────────────────────────────────────────────────
+  { key: 'financeiro',           label: 'Financeiro & Livro Caixa',         group: 'Financeiro', premium: true },
+  { key: 'relatorios',           label: 'Relatórios & Desempenho',          group: 'Financeiro', premium: true },
+  // ── Comunicação ───────────────────────────────────────────────────────────
+  { key: 'mensagens',            label: 'Mensagens Internas',               group: 'Comunicação' },
+  { key: 'aurora_ai',            label: 'Aurora AI',                        group: 'Comunicação', premium: true },
+  { key: 'whatsapp_bot',         label: 'WhatsApp Bot',                     group: 'Comunicação', premium: true },
 ];
 
 const MASTER_PERMISSIONS_OPTIONS = [
@@ -379,9 +384,14 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     catch (e: any) { setError(e.message); } finally { setSaving(false); }
   };
 
-  const handleDeleteTeamMember = (id: number, name: string) =>
+  const handleDeleteTeamMember = (id: number, name: string) => {
+    if (user?.email !== 'super@psiflux.com') {
+      toast('Apenas o Administrador Raiz (super@psiflux.com) pode excluir membros da equipe.', 'error');
+      return;
+    }
     doConfirm({ message: `Remover ${name}?`, detail: 'O acesso master será revogado permanentemente.', danger: true,
       onConfirm: async () => { try { await api.delete(`/master-users/${id}`); toast(`${name} removido.`); load(); } catch { toast('Erro ao remover.', 'error'); } } });
+  };
 
   const handleSaveClient = async () => {
     setError('');
@@ -434,7 +444,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   };
 
   const openNewPlan  = () => { setError(''); setEditPlan(null); setPlanForm({ name: '', description: '', price: '', max_users: '10', features: [] }); setPlanModal(true); };
-  const openEditPlan = (p: any) => { setError(''); setEditPlan(p); setPlanForm({ name: p.name, description: p.description || '', price: String(p.price), max_users: String(p.max_users), features: p.features || [] }); setPlanModal(true); };
+  const openEditPlan = (p: any) => { setError(''); setEditPlan(p); setPlanForm({ name: p.name, description: p.description || '', price: Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), max_users: String(p.max_users), features: p.features || [] }); setPlanModal(true); };
   
   const handleDeletePlan = (p: any) =>
     doConfirm({ message: `Remover plano "${p.name}"?`, detail: 'Esta ação removerá o plano. Se existirem clínicas usando este plano, ele será apenas desativado para novas adesões.', danger: true,
@@ -895,7 +905,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                       <Edit2 size={12} />
                                     </button>
                                     <StatusBadge active={u.active !== false} />
-                                    {isAdmin && u.id !== user?.id && u.email !== 'super@psiflux.com' && (
+                                    {user?.email === 'super@psiflux.com' && u.id !== user?.id && u.email !== 'super@psiflux.com' && (
                                       <button onClick={() => handleDeleteTeamMember(u.id, u.name)}
                                         className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition ml-1">
                                         <Trash2 size={12} />
@@ -1508,35 +1518,43 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
             <div className="col-span-2">{lbl('Descrição')}<input className={inp} placeholder="Breve descrição" value={planForm.description} onChange={e => setPlanForm({ ...planForm, description: e.target.value })} /></div>
             <div>
               {lbl('Preço R$ *')}
-              <input 
-                className={inp} 
-                placeholder="R$ 0,00" 
-                value={planForm.price} 
+              <input
+                className={inp}
+                placeholder="R$ 0,00"
+                value={planForm.price}
                 onChange={e => {
-                  let v = e.target.value.replace(/\D/g, '');
-                  if (!v) return setPlanForm({ ...planForm, price: '' });
-                  const n = (parseInt(v) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                  const digits = e.target.value.replace(/\D/g, '');
+                  if (!digits) return setPlanForm({ ...planForm, price: '' });
+                  const n = (parseInt(digits, 10) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                   setPlanForm({ ...planForm, price: n });
-                }} 
+                }}
               />
             </div>
             <div>{lbl('Usuários')}<input type="number" className={inp} placeholder="10" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} /></div>
           </div>
-          <div>{lbl('Funcionalidades')}
-            <div className="grid grid-cols-2 gap-1.5 mt-1">
-              {FEATURES_OPTIONS.map(opt => {
-                const active = planForm.features.includes(opt.key);
-                return (
-                  <label key={opt.key} className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition text-xs border ${active ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
-                    <input type="checkbox" className="sr-only" checked={active} onChange={() => toggleFeature(opt.key)} />
-                    <div className={`w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0 border transition ${active ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
-                      {active && <Check size={9} className="text-white" />}
-                    </div>
-                    <span>{opt.label}</span>
-                    {opt.premium && <span className="ml-auto text-[8px] font-bold bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm border border-amber-200/50">Premium</span>}
-                  </label>
-                );
-              })}
+          <div>
+            {lbl('Funcionalidades')}
+            <div className="space-y-3 mt-1">
+              {Array.from(new Set(FEATURES_OPTIONS.map(o => o.group))).map(group => (
+                <div key={group}>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">{group}</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {FEATURES_OPTIONS.filter(o => o.group === group).map(opt => {
+                      const active = planForm.features.includes(opt.key);
+                      return (
+                        <label key={opt.key} className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition text-xs border ${active ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                          <input type="checkbox" className="sr-only" checked={active} onChange={() => toggleFeature(opt.key)} />
+                          <div className={`w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0 border transition ${active ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
+                            {active && <Check size={9} className="text-white" />}
+                          </div>
+                          <span>{opt.label}</span>
+                          {opt.premium && <span className="ml-auto text-[8px] font-bold bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm border border-amber-200/50">Premium</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
           <div className="flex gap-3 pt-1">

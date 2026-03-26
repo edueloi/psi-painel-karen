@@ -3,6 +3,14 @@ const db = require('../db');
 const { sendMail, templates } = require('./emailService');
 const wppService = require('./whatsappService');
 
+// Guard: evita que crons sobreponham execuções caso demorem mais de 1 minuto
+const _running = {};
+async function withLock(name, fn) {
+  if (_running[name]) return;
+  _running[name] = true;
+  try { await fn(); } finally { _running[name] = false; }
+}
+
 // Helper: formata data pt-BR
 function fmtDate(d) {
   if (!d) return '';
@@ -419,9 +427,9 @@ async function autoConfirmAppointments() {
 
 // ─── Inicializar todos os cron jobs ──────────────────────────────────────────
 function startCronJobs() {
-  cron.schedule('* * * * *', checkAppointmentReminders, { timezone: 'America/Sao_Paulo' });
-  cron.schedule('* * * * *', checkDailyTasks, { timezone: 'America/Sao_Paulo' });
-  cron.schedule('*/30 * * * *', autoConfirmAppointments, { timezone: 'America/Sao_Paulo' });
+  cron.schedule('* * * * *', () => withLock('reminders', checkAppointmentReminders), { timezone: 'America/Sao_Paulo' });
+  cron.schedule('* * * * *', () => withLock('dailyTasks', checkDailyTasks), { timezone: 'America/Sao_Paulo' });
+  cron.schedule('*/30 * * * *', () => withLock('autoConfirm', autoConfirmAppointments), { timezone: 'America/Sao_Paulo' });
   autoConfirmAppointments(); // roda uma vez na inicialização
 
   // Jobs de email só rodam se as variáveis de ambiente estiverem configuradas

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { NAV_SECTIONS } from '../../constants';
 import { X, LogOut, BrainCircuit, ShieldAlert } from 'lucide-react';
 import logoUrl from '../../images/logo-psiflux.png';
+import logoDarkUrl from '../../images/logopsiflux-para-fundo-escuro.png';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -70,8 +71,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
       <aside className={`fixed top-0 left-0 z-50 h-full w-[250px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:shadow-lg ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className={`h-[88px] flex items-center px-6 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
           <div className="flex items-center gap-3.5 group cursor-pointer">
-            <div className={`relative h-14 w-14 rounded-2xl overflow-hidden shadow-lg flex-shrink-0 ${logoRing}`}>
-              <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-1" />
+            <div className={`relative h-16 w-16 rounded-2xl overflow-hidden shadow-lg flex-shrink-0 ${logoRing}`}>
+              <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-0.5" />
             </div>
             <div>
               <h1 className="font-display font-bold text-[28px] leading-none tracking-tight flex items-baseline">

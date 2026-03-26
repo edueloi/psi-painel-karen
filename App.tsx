@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams, BrowserRouter } from 'react-router-dom';
 import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { Sidebar } from './components/Layout/Sidebar';
@@ -71,6 +71,7 @@ import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
 import { Help } from './pages/Help';
 import logoUrl from './images/logo-psiflux.png';
+import logoDarkUrl from './images/logopsiflux-para-fundo-escuro.png';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
@@ -136,39 +137,41 @@ const RedirectToSala: React.FC = () => {
 
 const AppRoutes: React.FC = () => {
   const { user, logout, isInitializing } = useAuth();
+  const { resolvedMode } = useTheme();
+  const isDark = resolvedMode === 'dark';
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-white relative overflow-hidden transition-all duration-700">
-        <div className="absolute top-0 right-0 w-[50vh] h-[50vh] bg-indigo-50/50 rounded-full -translate-y-1/2 translate-x-1/2 blur-[80px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[50vh] h-[50vh] bg-violet-50/50 rounded-full translate-y-1/2 -translate-x-1/2 blur-[80px] pointer-events-none" />
+      <div className={`min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden transition-all duration-700 ${isDark ? 'bg-slate-950' : 'bg-white'}`}>
+        <div className={`absolute top-0 right-0 w-[50vh] h-[50vh] rounded-full -translate-y-1/2 translate-x-1/2 blur-[80px] pointer-events-none ${isDark ? 'bg-indigo-500/10' : 'bg-indigo-50/50'}`} />
+        <div className={`absolute bottom-0 left-0 w-[50vh] h-[50vh] rounded-full translate-y-1/2 -translate-x-1/2 blur-[80px] pointer-events-none ${isDark ? 'bg-violet-500/10' : 'bg-violet-50/50'}`} />
         
         <div className="relative z-10 flex flex-col items-center">
           <div className="relative mb-12 transform-gpu hover:scale-105 transition-transform duration-700">
-            <div className="absolute -inset-10 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" />
-            <div className="w-28 h-28 bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(79,70,229,0.15)] flex items-center justify-center p-4 relative z-10 ring-1 ring-slate-100/50">
-               <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+            <div className={`absolute -inset-10 rounded-full blur-3xl animate-pulse ${isDark ? 'bg-indigo-500/20' : 'bg-indigo-500/10'}`} />
+            <div className={`w-32 h-32 rounded-[2.5rem] shadow-[0_20px_50px_rgba(79,70,229,0.15)] flex items-center justify-center p-2 relative z-10 ring-1 ${isDark ? 'bg-slate-900 ring-slate-800' : 'bg-white ring-slate-100/50'}`}>
+               <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
             </div>
-            <div className="absolute -inset-2 border border-indigo-200/50 rounded-[2.8rem] animate-[spin_8s_linear_infinite]" />
+            <div className={`absolute -inset-2 border rounded-[2.8rem] animate-[spin_8s_linear_infinite] ${isDark ? 'border-indigo-500/30' : 'border-indigo-200/50'}`} />
           </div>
 
           <div className="text-center space-y-4 animate-slideUpFade">
             <h1 className="text-4xl font-display font-black tracking-tight flex items-baseline justify-center gap-0.5">
-              <span className="text-slate-900">Psi</span>
+              <span className={isDark ? "text-slate-100" : "text-slate-900"}>Psi</span>
               <span className="text-indigo-600">Flux</span>
             </h1>
             <div className="flex flex-col items-center gap-4">
-               <div className="flex items-center gap-2 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
+               <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
                   <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                  <p className="text-slate-500 font-black tracking-[0.1em] text-[10px] uppercase">
+                  <p className={`font-black tracking-[0.1em] text-[10px] uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     Carregando seu consultório
                   </p>
                </div>
                
                <div className="flex gap-2.5">
-                  <div className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="w-2 h-2 rounded-full bg-indigo-200 animate-bounce"></div>
+                  <div className={`w-2 h-2 rounded-full animate-bounce [animation-delay:-0.3s] ${isDark ? 'bg-indigo-500' : 'bg-indigo-600'}`}></div>
+                  <div className={`w-2 h-2 rounded-full animate-bounce [animation-delay:-0.15s] ${isDark ? 'bg-indigo-400/80' : 'bg-indigo-400'}`}></div>
+                  <div className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-indigo-300/60' : 'bg-indigo-200'}`}></div>
                </div>
             </div>
           </div>
