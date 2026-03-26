@@ -156,7 +156,7 @@ export const DISCPublic: React.FC = () => {
             <CheckCircle className="text-emerald-500" size={48} />
           </div>
           <div className="space-y-4">
-            <h2 className="text-4xl font-black text-slate-800 tracking-tight leading-none uppercase">Concluído!</h2>
+            <h2 className="text-4xl font-black text-slate-800 tracking-tight leading-none uppercase italic">Concluído!</h2>
             <p className="text-base text-slate-500 font-bold leading-relaxed italic">
               Seu perfil comportamental foi mapeado e enviado com sucesso. Seu profissional analisará os dados para melhor atendê-lo(a).
             </p>

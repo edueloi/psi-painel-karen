@@ -7,6 +7,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Info,
+  Sparkles
 } from 'lucide-react';
 
 const SNAPIV_ITEMS = [
@@ -145,7 +146,7 @@ export const SNAPIVPublic: React.FC = () => {
           <div className="w-24 h-24 bg-blue-50 rounded-[2.5rem] flex items-center justify-center mx-auto border border-blue-100 shadow-inner">
             <CheckCircle className="text-blue-500" size={48} />
           </div>
-          <div className="space-y-4">
+          <div className="space-y-4 text-center">
             <h2 className="text-4xl font-black text-slate-800 tracking-tight leading-none uppercase italic">Enviado!</h2>
             <p className="text-base text-slate-500 font-bold leading-relaxed italic opacity-80">
               Suas respostas foram encaminhadas com segurança ao psicólogo(a) responsável. Ele(a) discutirá os resultados com você na próxima sessão.
@@ -179,7 +180,7 @@ export const SNAPIVPublic: React.FC = () => {
 
          <div className="max-w-3xl mx-auto space-y-8 relative z-10 animate-in fade-in slide-in-from-top-4 duration-700 text-center md:text-left">
             <div className="flex items-center gap-3 bg-white/10 w-fit px-5 py-2.5 rounded-full border border-white/20 backdrop-blur-md mx-auto md:mx-0 shadow-xl">
-               <ShieldCheck size={18} className="text-blue-200" />
+               <Sparkles size={18} className="text-blue-200" />
                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-50">Avaliação TDAH — Swanson, Nolan e Pelham</span>
             </div>
 
