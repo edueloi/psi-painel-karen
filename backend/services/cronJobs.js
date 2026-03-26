@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const db = require('../db');
 const { sendMail, templates } = require('./emailService');
 const wppService = require('./whatsappService');
+const notificationService = require('./notificationService');
 
 // Guard: evita que crons sobreponham execuções caso demorem mais de 1 minuto
 const _running = {};
@@ -108,7 +109,7 @@ async function checkAppointmentReminders() {
          s.name as service_name,
          c.sessions_total, c.sessions_used, c.description as package_name,
          t.whatsapp_status, t.whatsapp_preferences, t.name as clinic_name,
-         a.whatsapp_reminder_1h_sent, a.whatsapp_reminder_24h_sent
+         a.whatsapp_reminder_1h_sent, a.whatsapp_reminder_24h_sent, a.whatsapp_reminder_professional_sent
        FROM appointments a
        LEFT JOIN patients p ON p.id = a.patient_id
        LEFT JOIN users u ON u.id = a.professional_id
@@ -118,7 +119,7 @@ async function checkAppointmentReminders() {
        WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) 
          AND a.start_time < DATE_ADD(NOW(), INTERVAL 26 HOUR)
          AND a.status IN ('scheduled','confirmed')
-         AND (a.whatsapp_reminder_1h_sent = 0 OR a.whatsapp_reminder_24h_sent = 0)
+         AND (a.whatsapp_reminder_1h_sent = 0 OR a.whatsapp_reminder_24h_sent = 0 OR a.whatsapp_reminder_professional_sent = 0)
     `);
 
     if (appointments.length === 0) return;
@@ -148,19 +149,27 @@ async function checkAppointmentReminders() {
           // Modificado: Janela de tolerância e controle para evitar duplicados ou faltas
           if (diffMinutes > 30 && diffMinutes <= 70 && !apt.whatsapp_reminder_1h_sent && prefs.reminder_1h_enabled !== false) {
             const msg = buildMsg(prefs.reminder_1h_msg, `🔔 *Lembrete de Atendimento*\n\nOlá, *{patient_name}*.\nSua sessão com {professional_name} é hoje às {time}.`);
-            const ok = await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
-            if (ok === true) {
-               await db.query('UPDATE appointments SET whatsapp_reminder_1h_sent = 1 WHERE id = ?', [apt.id]);
-               console.log(`[CRON-WPP Tenant ${apt.tenant_id}] Lembrete 1h enviado para ${apt.patient_name}`);
-            }
+            // Enqueue instead of direct send
+            await notificationService.enqueue({
+              tenant_id: apt.tenant_id,
+              recipient_phone: targetPhone,
+              content: msg,
+              metadata: { apt_id: apt.id, type: '1h-reminder-patient' }
+            });
+            await db.query('UPDATE appointments SET whatsapp_reminder_1h_sent = 1 WHERE id = ?', [apt.id]);
+            console.log(`[CRON-QUEUE Patient 1h] Agendado para Tenant ${apt.tenant_id}: ${apt.patient_name}`);
           }
           if (diffMinutes > 1400 && diffMinutes <= 1460 && !apt.whatsapp_reminder_24h_sent && prefs.reminder_24h_enabled !== false) {
             const msg = buildMsg(prefs.reminder_24h_msg, `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nConfirmamos sua consulta para amanhã ({date}) às {time}.`);
-            const ok = await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
-            if (ok === true) {
-               await db.query('UPDATE appointments SET whatsapp_reminder_24h_sent = 1 WHERE id = ?', [apt.id]);
-               console.log(`[CRON-WPP Tenant ${apt.tenant_id}] Lembrete 24h enviado para ${apt.patient_name}`);
-            }
+            // Enqueue instead of direct send
+            await notificationService.enqueue({
+              tenant_id: apt.tenant_id,
+              recipient_phone: targetPhone,
+              content: msg,
+              metadata: { apt_id: apt.id, type: '24h-reminder-patient' }
+            });
+            await db.query('UPDATE appointments SET whatsapp_reminder_24h_sent = 1 WHERE id = ?', [apt.id]);
+            console.log(`[CRON-QUEUE Patient 24h] Agendado para Tenant ${apt.tenant_id}: ${apt.patient_name}`);
           }
         }
       }
@@ -172,7 +181,8 @@ async function checkAppointmentReminders() {
         // Respeita se o profissional quer receber lembretes (intervalo padrão do perfil dele)
         const reminderMinutes = profPrefs.appointment_reminder_minutes || 60;
 
-        if (diffMinutes === reminderMinutes) {
+        // Modificado para janela de tolerância e flag persistente para profissionais
+        if (diffMinutes >= reminderMinutes - 10 && diffMinutes <= reminderMinutes + 10 && !apt.whatsapp_reminder_professional_sent) {
           const timeStr = fmtTime(apt.start_time);
           const label = reminderMinutes === 30 ? '30min' : '1h';
           
@@ -187,8 +197,14 @@ async function checkAppointmentReminders() {
           const phrase = getRandomPhrase();
           const wppMsg = `${icon} *${greeting}, ${apt.professional_name}!*\n\nPassando para lembrar do seu próximo ${typeLabel.toLowerCase()}:\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}${sessaoInfo}\n🏢 *Clínica:* ${apt.clinic_name || 'PsiFlux'}\n\n${phrase}\n\nBom trabalho! 🚀\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
           
-          await wppService.sendReminder(masterTenantId, apt.professional_phone, wppMsg);
-          console.log(`[CRON-MasterBot] Aviso ${label} enviado para Parceiro ${apt.professional_name} (${apt.clinic_name})`);
+          await notificationService.enqueue({
+             tenant_id: masterTenantId,
+             recipient_phone: apt.professional_phone,
+             content: wppMsg,
+             metadata: { apt_id: apt.id, type: 'reminder-professional', professional_id: apt.professional_id }
+          });
+          await db.query('UPDATE appointments SET whatsapp_reminder_professional_sent = 1 WHERE id = ?', [apt.id]);
+          console.log(`[CRON-QUEUE Professional ${label}] Agendado via MasterBot para Parceiro ${apt.professional_name}`);
         }
       }
 
@@ -264,8 +280,13 @@ async function checkAppointmentReminders() {
               let msg = prefs.birthday_msg || defaultMsg;
               msg = msg.replace(/\{patient_name\}/g, p.name || p.full_name || 'Paciente');
 
-              await wppService.sendReminder(t.id, targetPhone, msg);
-              console.log(`[CRON-WPP Tenant ${t.id}] Bday enviado para ${p.name}`);
+              await notificationService.enqueue({
+                tenant_id: t.id,
+                recipient_phone: targetPhone,
+                content: msg,
+                metadata: { patient_id: p.id, type: 'birthday' }
+              });
+              console.log(`[CRON-QUEUE Birthday] Agendado para Tenant ${t.id}: ${p.name}`);
             }
           }
         }
@@ -290,8 +311,13 @@ async function checkAppointmentReminders() {
             msg = msg.replace(/\{patient_name\}/g, pay.patient_name || 'Paciente')
                      .replace(/\{amount\}/g, Number(pay.amount).toFixed(2).replace('.', ','));
 
-            await wppService.sendReminder(t.id, targetPhone, msg);
-            console.log(`[CRON-WPP Tenant ${t.id}] Pgto enviado para ${pay.patient_name}`);
+            await notificationService.enqueue({
+              tenant_id: t.id,
+              recipient_phone: targetPhone,
+              content: msg,
+              metadata: { payment_id: pay.id, type: 'payment-reminder' }
+            });
+            console.log(`[CRON-QUEUE Payment] Agendado para Tenant ${t.id}: ${pay.patient_name}`);
           }
         }
       }
@@ -447,7 +473,10 @@ async function autoConfirmAppointments() {
 function startCronJobs() {
   cron.schedule('* * * * *', () => withLock('reminders', checkAppointmentReminders), { timezone: 'America/Sao_Paulo' });
   cron.schedule('* * * * *', () => withLock('dailyTasks', checkDailyTasks), { timezone: 'America/Sao_Paulo' });
+  cron.schedule('* * * * *', () => withLock('processQueue', () => notificationService.processQueue()), { timezone: 'America/Sao_Paulo' });
   cron.schedule('*/30 * * * *', () => withLock('autoConfirm', autoConfirmAppointments), { timezone: 'America/Sao_Paulo' });
+  
+  notificationService.ensureSchema();
   autoConfirmAppointments(); // roda uma vez na inicialização
 
   // Jobs de email só rodam se as variáveis de ambiente estiverem configuradas

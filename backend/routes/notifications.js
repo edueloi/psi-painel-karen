@@ -95,4 +95,43 @@ router.post('/trigger/monthly', async (req, res) => {
   res.json({ message: 'Relatório mensal enviado' });
 });
 
+
+// --- Novas Rotas de Fila ---
+
+// GET /notifications/queue — ver fila do tenant
+router.get('/queue', async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+    const tenantId = req.user.tenant_id;
+
+    let query = 'SELECT * FROM notification_queue';
+    const params = [];
+
+    if (req.user.role !== 'super_admin') {
+      query += ' WHERE tenant_id = ?';
+      params.push(tenantId);
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT 100';
+
+    const [rows] = await db.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar fila' });
+  }
+});
+
+// POST /notifications/queue/:id/retry — forçar retentativa
+router.post('/queue/:id/retry', async (req, res) => {
+  try {
+    const [result] = await db.query(
+      "UPDATE notification_queue SET status = 'pending', attempts = 0 WHERE id = ? AND (tenant_id = ? OR ? = 'super_admin')",
+      [req.params.id, req.user.tenant_id, req.user.role]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao reiniciar notificação' });
+  }
+});
+
 module.exports = router;
