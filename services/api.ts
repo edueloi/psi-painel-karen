@@ -81,8 +81,15 @@ export const api: Api = {
       const response = await fetch(url, config);
 
       if (response.status === 401) {
-        localStorage.removeItem('psi_token');
-        window.location.href = '/login';
+        const isPublicPath = window.location.pathname.startsWith('/f/') || 
+                           window.location.pathname.startsWith('/p/') || 
+                           window.location.pathname === '/login' ||
+                           window.location.pathname === '/';
+        
+        if (!isPublicPath) {
+          localStorage.removeItem('psi_token');
+          window.location.href = '/login';
+        }
         throw new Error('Sessao expirada');
       }
 

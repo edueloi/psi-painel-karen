@@ -100,6 +100,16 @@ const tools: Tool[] = [
     tags: ['Avaliação', 'Testes', 'Mensuração']
   },
   {
+    id: 'dass21',
+    title: 'DASS-21',
+    category: 'assessment',
+    description: 'Escala de Depressão, Ansiedade e Estresse de 21 itens com triagem automática.',
+    icon: <Activity />,
+    path: '/caixa-ferramentas/dass-21',
+    color: 'indigo',
+    tags: ['Triagem', 'Depressão', 'Ansiedade']
+  },
+  {
     id: 'case-studies',
     title: 'Estudos de Caso',
     category: 'management',
@@ -200,14 +210,14 @@ const tools: Tool[] = [
     tags: ['Flow', 'Forças', 'Bem-estar']
   },
   {
-    id: 'disc',
-    title: 'Perfil DISC',
+    id: 'disc-professional',
+    title: 'DISC (Perfil Marston)',
     category: 'assessment',
-    description: 'Avaliação comportamental baseada em Dominância, Influência, Estabilidade e Conformidade.',
+    description: 'Manual de aplicação, compartilhamento externo e painel de resultados com análise profunda via Aurora IA.',
     icon: <Gauge />,
-    path: '/disc',
+    path: '/caixa-ferramentas/disc-avaliativo',
     color: 'violet',
-    tags: ['Comportamento', 'Personalidade', 'Corporativo']
+    tags: ['Comportamental', 'Personalidade', 'Aurora IA']
   },
   {
     id: 'infantil',

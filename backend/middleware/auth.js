@@ -11,6 +11,27 @@ async function authMiddleware(req, res, next) {
   // Allow public virtual-room guest routes without a token
   if (PUBLIC_PATHS.some(p => req.path.startsWith(p))) return next();
 
+  // Suporte a Share Token (u) para fins de resposta externa (GET/PUT em ferramentas)
+  const shareToken = req.query.u || req.body.u;
+  const isToolPath = req.path.includes('/clinical-tools') || req.path.includes('/disc');
+  
+  if (shareToken && isToolPath) {
+    const { parseShareToken } = require('../utils/shareToken');
+    const db = require('../db');
+    const userId = parseShareToken(shareToken);
+    if (userId) {
+      try {
+        const [users] = await db.query('SELECT id, tenant_id, role, name, email FROM users WHERE id = ?', [userId]);
+        if (users.length > 0) {
+          req.user = users[0];
+          return next();
+        }
+      } catch (err) {
+        console.error('Share Token validation error:', err);
+      }
+    }
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token não fornecido' });

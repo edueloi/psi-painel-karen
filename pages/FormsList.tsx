@@ -84,6 +84,7 @@ export const FormsList: React.FC = () => {
         interpretations: [],
         responseCount: f.response_count ?? 0,
         isGlobal: Boolean(f.is_global),
+        isSystem: Boolean(f.is_system),
         category: f.category || ''
       })) as ClinicalForm[];
       
@@ -257,7 +258,7 @@ export const FormsList: React.FC = () => {
     f.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (f.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (f.category || '').toLowerCase().includes(searchTerm.toLowerCase())
-  ).filter(f => {
+  ).filter(f => !(f as any).isSystem).filter(f => {
     if (activeFilter === 'Arquivados') return archivedIds.includes(f.id);
     if (activeFilter === 'Ativos') return !archivedIds.includes(f.id);
     if (activeFilter === 'Favoritos') return favoriteIds.includes(f.id);

@@ -1128,4 +1128,62 @@ router.post('/complete', async (req, res) => {
   }
 });
 
+router.post('/analyze-clinical-tool', async (req, res) => {
+  try {
+    const { toolName, patientId, data } = req.body;
+    
+    // Security: ensure patient belongs to the same tenant as the user
+    const [patientRows] = await db.query('SELECT * FROM patients WHERE id = ? AND tenant_id = ?', [patientId, req.user.tenant_id]);
+    const patientData = patientRows[0] || {};
+    
+    if (!patientData.id && patientId) {
+      console.warn(`Tentativa de acesso a paciente ${patientId} por outro tenant: ${req.user.tenant_id}`);
+    }
+    
+    const prompt = `Voce e a Aurora, a assistente de inteligencia artificial clinica da Psiflux.
+Seu objetivo e realizar uma ANALISE CLINICA detalhada de uma ferramenta de avaliacao psicolgica.
+
+DADOS DA FERRAMENTA:
+- Nome: ${toolName}
+- Respondente (Paciente): ${patientData.name || 'Nao identificado'}
+
+DADOS DA AVALIACAO (Pontuacoes/Resultados):
+${JSON.stringify(data, null, 2)}
+
+DADOS DO PACIENTE (Ficha):
+${JSON.stringify({ 
+  name: patientData.name, 
+  gender: patientData.gender,
+  birth_date: patientData.birth_date,
+  notes: patientData.notes
+})}
+
+INSTRUCOES PARA O RELATORIO:
+1. Seja PROFISSIONAL, CLINICO e ANALITICO.
+2. NAO use blocos de codigo markdown.
+3. Use Negritos (**texto**) para titulos de secoes.
+4. Estrutura obrigatoria:
+   - **SUMARIO DO RESULTADO** (Breve resumo do que a pontuacao indica)
+   - **ANALISE CLINICA** (Interpretacao técnica baseada nos scores)
+   - **IMPLICACOES TERAPEUTICAS** (O que trabalhar em sessao?)
+   - **RECOMENDACOES** (Orientacoes praticas para o manejo do caso)
+
+RESPONDA SEMPRE EM PORTUGUES-BR.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Voce e uma assistente clinica para psicologos altamente capacitada.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.6
+    });
+
+    res.json({ analysis: response.choices[0].message.content });
+  } catch (err) {
+    console.error('Erro na analise de ferramenta clínica:', err);
+    res.status(500).json({ error: 'Erro ao gerar analise da ferramenta' });
+  }
+});
+
 module.exports = router;
