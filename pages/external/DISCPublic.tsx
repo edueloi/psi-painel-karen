@@ -172,7 +172,7 @@ export const DISCPublic: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#fcfcff] font-sans pb-24 selection:bg-violet-100 italic-text-none">
-      <div className="bg-gradient-to-br from-violet-700 via-violet-600 to-indigo-700 text-white py-20 px-6 shadow-[0_20px_60px_-15px_rgba(109,40,217,0.3)] relative overflow-hidden">
+      <div className="bg-gradient-to-br from-violet-700 via-violet-600 to-indigo-700 text-white py-10 md:py-20 px-6 shadow-2xl relative overflow-hidden">
          <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none rotate-12 scale-150 transform-gpu">
             <Brain size={400} />
          </div>
@@ -194,33 +194,33 @@ export const DISCPublic: React.FC = () => {
             </div>
 
             {professional && (
-              <div className="pt-8 flex flex-col md:flex-row items-center gap-6 md:gap-7 group">
+              <div className="pt-3 md:pt-8 flex flex-row items-center gap-3 md:gap-6 group">
                  <div className="relative">
                    <div className="absolute -inset-2 bg-gradient-to-tr from-white/40 to-white/10 rounded-[2.2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                    {professional.clinic_logo_url ? (
                      <img 
                       src={getStaticUrl(professional.clinic_logo_url)} 
                       alt={professional.company_name || professional.name}
-                      className="w-24 h-24 rounded-[2rem] bg-white border-8 border-white/20 shadow-2xl object-contain p-2 relative z-10 transform transition-transform group-hover:scale-105"
+                      className="w-12 h-12 md:w-24 md:h-24 rounded-2xl md:rounded-[2.2rem] bg-white border-4 md:border-8 border-white/20 shadow-xl object-contain p-1 md:p-2 relative z-10"
                      />
                    ) : (
-                     <div className="w-20 h-20 rounded-[1.8rem] bg-white/20 border-2 border-white/30 flex items-center justify-center font-black text-3xl shadow-lg ring-8 ring-white/5 relative z-10 overflow-hidden group-hover:rotate-3 transition-transform">
+                     <div className="w-10 h-10 md:w-20 md:h-20 rounded-xl md:rounded-[1.8rem] bg-white/20 border-2 border-white/30 flex items-center justify-center font-black text-xl md:text-3xl relative z-10">
                         {professional.name?.[0]}
                      </div>
                    )}
                  </div>
                  
-                 <div className="text-center md:text-left transition-all group-hover:translate-x-1">
-                    <p className="text-violet-200 font-black uppercase tracking-[0.3em] text-[10px] mb-2 opacity-80">Psicólogo(a) Responsável</p>
-                    <p className="font-black text-2xl md:text-4xl leading-[1.1] tracking-tight text-white mb-2">{professional.name}</p>
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                 <div className="text-left">
+                    <p className="text-violet-200 font-bold uppercase tracking-widest text-[9px] mb-0.5 opacity-70">Psicólogo(a) Responsável</p>
+                    <p className="font-black text-base md:text-4xl tracking-tight leading-tight">{professional.name}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       {professional.specialty && (
-                        <span className="text-[12px] font-bold text-violet-100 bg-white/10 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-sm whitespace-nowrap">
+                        <span className="text-[10px] md:text-[12px] font-bold text-violet-100/90 bg-white/10 px-2 md:px-4 py-1 md:py-1.5 rounded-full border border-white/10 whitespace-nowrap">
                           {professional.specialty}
                         </span>
                       )}
                       {professional.crp && (
-                        <span className="text-[12px] font-black bg-slate-950/40 px-4 py-1.5 rounded-full border border-white/10 text-white leading-none backdrop-blur-md">
+                        <span className="text-[10px] md:text-[12px] font-black bg-slate-950/40 px-2 md:px-4 py-1 md:py-1.5 rounded-full border border-white/10 text-white leading-none">
                           CRP {professional.crp}
                         </span>
                       )}
@@ -231,8 +231,8 @@ export const DISCPublic: React.FC = () => {
          </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 -mt-12 space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-         <div className="bg-white rounded-[3rem] border border-slate-100 p-8 md:p-12 shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-8 relative z-20 overflow-hidden group">
+       <div className="max-w-3xl mx-auto px-3 md:px-4 mt-0 md:-mt-12 space-y-3 md:space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 md:p-12 shadow-lg md:shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-4 md:space-y-8 relative z-20 overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-violet-50/50 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 transition-all group-hover:scale-125" />
             <div className="flex items-center gap-5 text-violet-600">
                <div className="w-16 h-16 bg-violet-50 rounded-[1.8rem] flex items-center justify-center shadow-inner border border-violet-100/30">
@@ -257,37 +257,36 @@ export const DISCPublic: React.FC = () => {
 
          <form onSubmit={handleSubmit} className="space-y-6">
             {DISC_ITEMS.map((item, idx) => (
-              <div key={item.id} className="bg-white rounded-[3rem] border-2 border-transparent p-10 shadow-[0_15px_40px_-10px_rgba(30,41,59,0.04)] space-y-8 hover:border-violet-100 hover:shadow-2xl hover:shadow-violet-100/30 transition-all duration-500 group relative overflow-hidden">
-                 <div className="absolute top-0 left-0 w-2 h-full bg-violet-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                 
-                 <div className="flex flex-col md:flex-row md:items-center gap-6">
-                    <div className="w-14 h-14 rounded-[1.8rem] bg-slate-50 border border-slate-100 flex items-center justify-center text-sm font-black text-slate-400 shrink-0 group-hover:bg-violet-600 group-hover:text-white group-hover:rotate-6 transition-all duration-500">
-                       {String(idx + 1).padStart(2, '0')}
-                    </div>
-                    <p className="text-xl md:text-2xl font-black text-indigo-950 leading-tight group-hover:translate-x-1 transition-transform duration-500">
-                      {item.text}
-                    </p>
-                 </div>
-                 
-                 <div className="grid grid-cols-5 gap-2 md:gap-4">
-                    {[1, 2, 3, 4, 5].map(val => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setAnswers({ ...answers, [item.id]: val })}
-                        className={`h-20 rounded-[1.8rem] text-sm md:text-lg font-black transition-all duration-300 border-2 ${
-                          answers[item.id] === val 
-                          ? 'bg-indigo-950 text-white border-indigo-950 shadow-2xl scale-[1.05] ring-8 ring-indigo-50' 
-                          : 'bg-white text-slate-300 border-slate-100 hover:border-violet-200 hover:text-violet-600 hover:bg-violet-50/50'
-                        }`}
-                      >
-                         {val}
-                      </button>
-                    ))}
-                 </div>
-              </div>
-            ))}
-
+               <div key={item.id} className={`bg-white rounded-2xl md:rounded-[3rem] border-2 p-4 md:p-10 shadow-sm md:shadow-[0_15px_50px_-15px_rgba(30,41,59,0.06)] space-y-3 md:space-y-10 transition-all duration-300 ${
+                 answers[item.id] !== undefined ? 'border-violet-100' : 'border-transparent'
+               }`}>
+                  <div className="flex items-start gap-3">
+                     <span className="shrink-0 w-7 h-7 md:w-14 md:h-14 rounded-xl md:rounded-[1.8rem] bg-slate-100 flex items-center justify-center text-xs md:text-sm font-black text-slate-400 mt-0.5">
+                        {String(idx + 1).padStart(2, '0')}
+                     </span>
+                     <p className="text-base md:text-2xl font-bold md:font-black text-slate-800 leading-snug pt-0.5">
+                       {item.text}
+                     </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-5 gap-2 md:gap-4">
+                     {[1, 2, 3, 4, 5].map(val => (
+                       <button
+                         key={val}
+                         type="button"
+                         onClick={() => setAnswers({ ...answers, [item.id]: val })}
+                         className={`h-12 md:h-24 rounded-xl md:rounded-[1.8rem] text-lg md:text-xl font-black transition-all duration-200 border-2 ${
+                           answers[item.id] === val 
+                           ? 'bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-200 scale-[1.04]' 
+                           : 'bg-slate-50 text-slate-400 border-slate-100 active:bg-violet-50 active:text-violet-600'
+                         }`}
+                       >
+                          {val}
+                       </button>
+                     ))}
+                  </div>
+               </div>
+             ))}
             <div className="pt-12">
                <button
                  type="submit"
