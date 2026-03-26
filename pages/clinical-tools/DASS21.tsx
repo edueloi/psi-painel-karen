@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { jsPDF } from 'jspdf';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 import { 
@@ -468,6 +469,217 @@ export const DASS21Page: React.FC = () => {
     setTimeout(() => w.print(), 500);
   };
 
+  const handleDownloadPDF = (result: DassResult | null, patientName: string) => {
+    if (!result) return;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = 210;
+    const MARGIN = 18;
+    const CONTENT_W = W - MARGIN * 2;
+    const { parts, conclusion } = getClinicalAnalysis(result.scores);
+    const dateStr = new Date(result.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const systemName = 'PsiFlux · Tecnologia para Prática Clínica';
+
+    // ── Header ──────────────────────────────────────────
+    doc.setFillColor(79, 70, 229); // indigo-600
+    doc.rect(0, 0, W, 45, 'F');
+    // Light strip
+    doc.setFillColor(99, 91, 255);
+    doc.rect(0, 36, W, 9, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8); doc.setTextColor(200, 195, 255);
+    doc.text('RELATÓRIO DE AVALIAÇÃO PSICOLÓGICA', MARGIN, 15);
+    
+    doc.setFontSize(22); doc.setTextColor(255, 255, 255);
+    doc.text(patientName, MARGIN, 26);
+    
+    doc.setFontSize(9); doc.setTextColor(220, 218, 255);
+    doc.text(`Avaliação: DASS-21 (Vignola & Tucci)  |  ${dateStr}`, MARGIN, 33);
+
+    let y = 58;
+
+    // ── Resumo dos Domínios ────────────────────────────────
+    doc.setFontSize(10); doc.setTextColor(99, 102, 241);
+    doc.text('RESULTADOS POR DOMÍNIO', MARGIN, y);
+    y += 6;
+
+    const subscaleLabels: Record<string, string> = { Depression: 'Depressão', Anxiety: 'Ansiedade', Stress: 'Estresse' };
+    const colorMap: Record<string, [number, number, number]> = { 
+      Normal: [16, 185, 129], 
+      Leve: [245, 158, 11], 
+      Moderado: [249, 115, 22], 
+      Grave: [244, 63, 94], 
+      'Muito Grave': [220, 38, 38] 
+    };
+
+    (['Depression', 'Anxiety', 'Stress'] as const).forEach(sub => {
+      const score = result.scores[sub];
+      const interp = getInterpretation(sub, score);
+      const rgb = colorMap[interp.label] || [148, 163, 184];
+
+      doc.setFillColor(250, 250, 250);
+      doc.setDrawColor(241, 245, 249);
+      doc.roundedRect(MARGIN, y, CONTENT_W, 20, 4, 4, 'FD');
+
+      doc.setFontSize(8); doc.setTextColor(51, 65, 85);
+      doc.text(subscaleLabels[sub].toUpperCase(), MARGIN + 6, y + 8);
+
+      doc.setFontSize(24); doc.setTextColor(15, 23, 42);
+      doc.text(String(score), MARGIN + 6, y + 17);
+
+      // Label background
+      doc.setFillColor(rgb[0], rgb[1], rgb[2], 0.1);
+      const labelW = doc.getTextWidth(interp.label) + 6;
+      doc.roundedRect(W - MARGIN - labelW - 6, y + 4, labelW, 6, 3, 3, 'F');
+      
+      doc.setFontSize(7.5); doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+      doc.text(interp.label, W - MARGIN - labelW / 2 - 6, y + 8.2, { align: 'center' });
+
+      // Progress bar
+      const barW = CONTENT_W - 55;
+      const barX = MARGIN + 40;
+      doc.setFillColor(226, 232, 240);
+      doc.roundedRect(barX, y + 12, barW, 2.5, 1.25, 1.25, 'F');
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+      const progressW = Math.min((score / 42) * barW, barW);
+      doc.roundedRect(barX, y + 12, progressW, 2.5, 1.25, 1.25, 'F');
+
+      y += 24;
+    });
+
+    // ── Radar Chart (Visual WOW) ──────────────────────────
+    const rx = W - MARGIN - 35;
+    const ry = 80;
+    const rSize = 25;
+    
+    // Web
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
+    [0.25, 0.5, 0.75, 1].forEach(s => {
+      const r = rSize * s;
+      const x1 = rx + r * Math.cos(-Math.PI/2); const y1 = ry + r * Math.sin(-Math.PI/2);
+      const x2 = rx + r * Math.cos(Math.PI/6);  const y2 = ry + r * Math.sin(Math.PI/6);
+      const x3 = rx + r * Math.cos(5*Math.PI/6); const y3 = ry + r * Math.sin(5*Math.PI/6);
+      doc.line(x1, y1, x2, y2); doc.line(x2, y2, x3, y3); doc.line(x3, y3, x1, y1);
+    });
+
+    // Axes
+    [ -Math.PI/2, Math.PI/6, 5*Math.PI/6 ].forEach(a => {
+      doc.line(rx, ry, rx + rSize * Math.cos(a), ry + rSize * Math.sin(a));
+    });
+
+    // Polygon
+    const dR = (result.scores.Depression / 42) * rSize;
+    const aR = (result.scores.Anxiety / 42) * rSize;
+    const sR = (result.scores.Stress / 42) * rSize;
+    
+    const p1 = { x: rx + dR * Math.cos(-Math.PI/2), y: ry + dR * Math.sin(-Math.PI/2) };
+    const p2 = { x: rx + aR * Math.cos(Math.PI/6),  y: ry + aR * Math.sin(Math.PI/6) };
+    const p3 = { x: rx + sR * Math.cos(5*Math.PI/6), y: ry + sR * Math.sin(5*Math.PI/6) };
+    
+    doc.setFillColor(79, 70, 229, 0.3); doc.setDrawColor(79, 70, 229); doc.setLineWidth(0.5);
+    doc.lines([[p2.x - p1.x, p2.y - p1.y], [p3.x - p2.x, p3.y - p2.y], [p1.x - p3.x, p1.y - p3.y]], p1.x, p1.y, [1, 1], 'FD', true);
+
+    y += 4;
+
+    // ── Análise Clínica ───────────────────────────────────
+    if (y > 230) { doc.addPage(); y = 20; }
+    doc.setFontSize(10); doc.setTextColor(99, 102, 241);
+    doc.text('ANÁLISE CLÍNICA', MARGIN, y);
+    y += 8;
+
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor(241, 245, 249);
+    
+    // Calcular altura da análise
+    const analysisLines: string[] = [];
+    parts.forEach(p => {
+      const clean = p.replace(/\*\*/g, '');
+      analysisLines.push(...doc.splitTextToSize(clean, CONTENT_W - 16));
+    });
+    const conclusionLines = doc.splitTextToSize('Conclusão: ' + conclusion, CONTENT_W - 16);
+    const boxH = (analysisLines.length + conclusionLines.length) * 5 + 15;
+
+    if (y + boxH > 275) { doc.addPage(); y = 20; }
+    doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 4, 4, 'FD');
+    
+    let analysisY = y + 8;
+    doc.setFontSize(9); doc.setTextColor(71, 85, 105);
+    analysisLines.forEach(line => {
+      doc.text('• ' + line, MARGIN + 6, analysisY);
+      analysisY += 5;
+    });
+    
+    analysisY += 2;
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(55, 48, 163);
+    conclusionLines.forEach((line, i) => {
+      doc.text(line, MARGIN + 6, analysisY);
+      analysisY += 5;
+    });
+
+    y += boxH + 15;
+
+    // ── Respostas do Paciente ─────────────────────────────
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(99, 102, 241);
+    doc.text('RESPOSTAS DO PACIENTE', MARGIN, y);
+    y += 6;
+
+    const tableHeaderY = y;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(MARGIN, y, CONTENT_W, 8, 'F');
+    doc.setFontSize(7); doc.setTextColor(148, 163, 184);
+    doc.text('#', MARGIN + 4, y + 5);
+    doc.text('AFIRMAÇÃO', MARGIN + 12, y + 5);
+    doc.text('RESPOSTA', W - MARGIN - 6, y + 5, { align: 'right' });
+    y += 8;
+
+    const labels4 = ['Não se aplicou', 'Algum grau', 'Grau considerável', 'Quase sempre'];
+    doc.setFontSize(8.5); doc.setTextColor(51, 65, 85);
+    DASS_ITEMS.forEach((item, i) => {
+      if (y > 275) { 
+        doc.addPage(); y = 20; 
+        // Repetir header se quiser
+      }
+      const val = result.answers[item.id];
+      const textLines = doc.splitTextToSize(item.text, CONTENT_W - 40);
+      const rowH = Math.max(textLines.length * 4.5, 8);
+
+      if (i % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(MARGIN, y, CONTENT_W, rowH, 'F');
+      }
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(148, 163, 184);
+      doc.text(String(item.id).padStart(2, '0'), MARGIN + 2, y + 5);
+
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(51, 65, 85);
+      textLines.forEach((ln, li) => {
+        doc.text(ln, MARGIN + 12, y + 5 + li * 4.5);
+      });
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(79, 70, 229);
+      doc.text(String(val ?? '—'), W - MARGIN - 20, y + 5);
+      
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(161, 161, 170);
+      doc.text(labels4[val] || '', W - MARGIN - 6, y + 5, { align: 'right' });
+
+      y += rowH;
+    });
+
+    // ── Footer ───────────────────────────────────────────
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let j = 1; j <= totalPages; j++) {
+      doc.setPage(j);
+      doc.setFontSize(7); doc.setTextColor(203, 213, 225);
+      doc.setDrawColor(241, 245, 249);
+      doc.line(MARGIN, 282, W - MARGIN, 282);
+      doc.text(systemName, MARGIN, 288);
+      doc.text(`Página ${j} de ${totalPages}`, W - MARGIN, 288, { align: 'right' });
+    }
+
+    doc.save(`DASS-21_${patientName.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
+  };
+
   const currentScores = useMemo(() => calculateScores(currentAnswers), [currentAnswers]);
 
   const handleSave = async () => {
@@ -832,7 +1044,7 @@ export const DASS21Page: React.FC = () => {
                       const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
                       return (<>
                         <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={14}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
-                        <Button variant="ghost" size="sm" radius="xl" leftIcon={<Share size={14}/>} onClick={() => handlePrintReport(detailResult, patientName)}>PDF</Button>
+                        <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14}/>} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-lg shadow-slate-200">PDF</Button>
                       </>);
                     })()}
                     <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">

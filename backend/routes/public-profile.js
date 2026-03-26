@@ -133,4 +133,64 @@ router.post('/dass-21/:patientId', async (req, res) => {
   }
 });
 
+// GET /public-profile/disc-evaluative/:patientId?u=TOKEN — Busca histórico DISC do paciente (público)
+router.get('/disc-evaluative/:patientId', async (req, res) => {
+  try {
+    const userId = resolveUserId(req.query.u);
+    if (!userId) return res.status(400).json({ error: 'Token inválido.' });
+
+    const [[user]] = await db.query('SELECT tenant_id FROM users WHERE id = ?', [userId]);
+    if (!user) return res.status(404).json({ error: 'Profissional não encontrado.' });
+
+    const [rows] = await db.query(
+      'SELECT data FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
+      [req.params.patientId, 'disc-evaluative', user.tenant_id]
+    );
+
+    if (rows.length === 0) return res.json([]);
+    let data = rows[0].data;
+    try { data = JSON.parse(data); } catch {}
+    res.json(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error('Erro ao buscar DISC público:', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /public-profile/disc-evaluative/:patientId?u=TOKEN — Salva resultado DISC (público)
+router.post('/disc-evaluative/:patientId', async (req, res) => {
+  try {
+    const userId = resolveUserId(req.query.u);
+    if (!userId) return res.status(400).json({ error: 'Token inválido.' });
+
+    const [[user]] = await db.query('SELECT tenant_id FROM users WHERE id = ?', [userId]);
+    if (!user) return res.status(404).json({ error: 'Profissional não encontrado.' });
+
+    const { data } = req.body;
+    if (!Array.isArray(data)) return res.status(400).json({ error: 'Dados inválidos.' });
+
+    const patientId = req.params.patientId;
+    const str = JSON.stringify(data);
+
+    const [rows] = await db.query(
+      'SELECT id FROM clinical_tools WHERE scope_key = ? AND tool_type = ? AND tenant_id = ?',
+      [patientId, 'disc-evaluative', user.tenant_id]
+    );
+
+    if (rows.length > 0) {
+      await db.query('UPDATE clinical_tools SET data = ?, updated_at = NOW() WHERE id = ?', [str, rows[0].id]);
+    } else {
+      await db.query(
+        'INSERT INTO clinical_tools (tenant_id, patient_id, professional_id, scope_key, tool_type, data) VALUES (?, ?, ?, ?, ?, ?)',
+        [user.tenant_id, patientId, userId, patientId, 'disc-evaluative', str]
+      );
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro ao salvar DISC público:', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 module.exports = router;

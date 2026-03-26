@@ -128,6 +128,7 @@ app.get('/f/:hash', async (req, res) => {
     // Instrumentos clínicos fixos (não estão na tabela forms)
     const CLINICAL_TOOL_LABELS = {
       'dass-21': { title: 'DASS-21', description: 'Escala de Depressão, Ansiedade e Estresse (DASS-21). Avaliação clínica enviada pelo seu psicólogo(a). Clique para responder.' },
+      'disc': { title: 'DISC Avaliativo', description: 'Mapeamento de Perfil Comportamental DISC (Marston). Avaliação clínica enviada pelo seu psicólogo(a). Clique para responder.' },
     };
 
     if (req.params.hash in CLINICAL_TOOL_LABELS && userId && fs.existsSync(distIndexPath)) {

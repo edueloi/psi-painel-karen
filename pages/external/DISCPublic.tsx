@@ -123,21 +123,20 @@ export const DISCPublic: React.FC = () => {
         C: Number((raw.C / counts.C).toFixed(2)),
       };
 
-      // Get current history avec a share token for public access
       const uParam = professionalId ? `?u=${professionalId}` : '';
-      const resp = await api.get<any[]>(`/clinical-tools/${patientId}/disc-evaluative${uParam}`);
+      const resp = await api.get<any[]>(`/public-profile/disc-evaluative/${patientId}${uParam}`);
       const currentHistory = Array.isArray(resp) ? resp : [];
-      
+
       const newResult = {
         id: Date.now(),
         date: new Date().toISOString(),
+        answers: answers,
         scores: finalScores,
         origin: 'external',
         type: 'evaluative'
       };
 
-      await api.put(`/clinical-tools/${patientId}/disc-evaluative?u=${professionalId}`, {
-        patient_id: patientId,
+      await api.post(`/public-profile/disc-evaluative/${patientId}${uParam}`, {
         data: [...currentHistory, newResult]
       });
 
