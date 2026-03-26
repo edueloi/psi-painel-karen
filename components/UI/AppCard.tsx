@@ -64,6 +64,7 @@ interface AppCardProps {
   className?: string;
   compact?: boolean;
   children?: React.ReactNode;
+  id?: string;
 }
 
 const toneMap: Record<CardTone, string> = {
@@ -152,6 +153,7 @@ export const AppCard: React.FC<AppCardProps> = ({
   className = '',
   compact = false,
   children,
+  id,
 }) => {
   const progressPercent =
     typeof progressValue === 'number'
@@ -160,6 +162,7 @@ export const AppCard: React.FC<AppCardProps> = ({
 
   return (
     <div
+      id={id}
       onClick={onClick}
       className={cx(
         'relative overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm transition-all text-left',

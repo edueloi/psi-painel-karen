@@ -48,6 +48,7 @@ export const FormResponses: React.FC = () => {
   const [questionsMetadata, setQuestionsMetadata] = useState<any[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [aiAnalysisMap, setAiAnalysisMap] = useState<Record<string, string>>({});
+  const [autoOpenId, setAutoOpenId] = useState<string | null>(null);
 
   const { user } = useAuth();
 
@@ -55,6 +56,9 @@ export const FormResponses: React.FC = () => {
   useEffect(() => {
     const pid = searchParams.get('patientId');
     if (pid) setFilterPatientId(pid);
+
+    const rid = searchParams.get('responseId');
+    if (rid) setAutoOpenId(rid);
 
     const df = searchParams.get('dateFrom');
     if (df) {
@@ -215,6 +219,21 @@ export const FormResponses: React.FC = () => {
   useEffect(() => {
     load();
   }, [id]);
+
+  // Auto-scroll e destaque para a resposta específica vinda da URL
+  useEffect(() => {
+    if (!autoOpenId || isLoading) return;
+    const el = document.getElementById(`response-card-${autoOpenId}`);
+    if (!el) return;
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-indigo-400', 'ring-offset-2');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-400', 'ring-offset-2'), 3000);
+      // Abrir o accordion de detalhes
+      const details = el.querySelector('details');
+      if (details) details.open = true;
+    }, 300);
+  }, [autoOpenId, isLoading]);
 
   const getInterpretation = (score: number | null | undefined) => {
     if (score === null || score === undefined) return null;
@@ -475,7 +494,7 @@ export const FormResponses: React.FC = () => {
                 const respondentDisplay = patientName || res.respondent_name || 'Usuário Externo';
                 
                 return (
-                  <AppCard key={res.id} noPadding className="group overflow-visible bg-white border-slate-100 hover:border-indigo-500/10 shadow-lg hover:shadow-2xl transition-all duration-700 rounded-[2.5rem]">
+                  <AppCard key={res.id} id={`response-card-${res.id}`} noPadding className="group overflow-visible bg-white border-slate-100 hover:border-indigo-500/10 shadow-lg hover:shadow-2xl transition-all duration-700 rounded-[2.5rem]">
                     {/* Header Item */}
                     <div className="p-8 flex flex-col md:flex-row gap-10 justify-between items-start text-left">
                       <div className="flex items-start gap-6 text-left">

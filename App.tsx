@@ -21,6 +21,7 @@ import { Forms } from './pages/Forms';
 import { FormsList } from './pages/FormsList';
 import { FormsMetrics } from './pages/FormsMetrics';
 import { FormEditor } from './pages/FormEditor';
+import { FormResponses } from './pages/FormResponses';
 import { PublicProfile } from './pages/PublicProfile';
 import { ExternalForm } from './pages/ExternalForm';
 import { ResetPassword } from './pages/ResetPassword';
@@ -240,6 +241,8 @@ const AppRoutes: React.FC = () => {
       <Route path="/formularios/lista" element={<ProtectedRoute requiredPermission="manage_forms"><FormsList /></ProtectedRoute>} />
       <Route path="/formularios/metricas" element={<ProtectedRoute requiredPermission="manage_forms"><FormsMetrics /></ProtectedRoute>} />
       <Route path="/formularios/novo" element={<ProtectedRoute requiredPermission="manage_forms"><FormEditor /></ProtectedRoute>} />
+      <Route path="/formularios/respostas" element={<ProtectedRoute requiredPermission="manage_forms"><FormResponses /></ProtectedRoute>} />
+      <Route path="/formularios/:id/respostas" element={<ProtectedRoute requiredPermission="manage_forms"><FormResponses /></ProtectedRoute>} />
       <Route path="/formularios/:id" element={<ProtectedRoute requiredPermission="manage_forms"><FormEditor /></ProtectedRoute>} />
       <Route path="/instrumentos" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><Instruments /></ProtectedRoute>} />
       <Route path="/disc" element={<ProtectedRoute><Disc /></ProtectedRoute>} />

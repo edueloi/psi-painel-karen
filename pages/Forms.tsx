@@ -210,7 +210,7 @@ export const Forms: React.FC = () => {
                 <div
                   key={res.id}
                   className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/formularios/${res.formId}/respostas`)}
+                  onClick={() => navigate(`/formularios/${res.formId}/respostas?responseId=${res.id}`)}
                 >
                   <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">
                     {(res.patient || '?').charAt(0).toUpperCase()}
