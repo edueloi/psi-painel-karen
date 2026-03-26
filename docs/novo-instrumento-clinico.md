@@ -233,4 +233,5 @@ const getShareLink = () => {
 | WhatsApp mostra preview genérico do PsiFlux | Instrumento não está em `CLINICAL_TOOL_LABELS` | Adicionar em `backend/index.js` |
 | Token inválido (400) | `getShareLink()` usando `user?.id` em vez de `user?.shareToken` | Corrigir o link de compartilhamento |
 | Histórico não carrega | `tool_type` no banco diverge do slug da rota | Garantir que são idênticos em todos os lugares |
+| Modal "caído" ou com gap branco | `space-y-8` no elemento pai do Modal | Mover os Modais para fora do container `space-y-8` (usar `<> . . . </>`) |
 | SEO funciona mas sem foto | `clinic_logo_url` ou `avatar_url` nulos no banco | Normal se o profissional não fez upload de logo |

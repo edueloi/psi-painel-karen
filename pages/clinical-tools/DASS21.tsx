@@ -92,6 +92,62 @@ const SCORING_LABELS = {
   ]
 };
 
+// ─── Markdown renderer ───────────────────────────────────────────────────────
+function renderMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split('\n');
+  const result: React.ReactNode[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (!line) { i++; continue; }
+    // Heading-like patterns: **TITLE** alone on a line
+    const headingMatch = line.match(/^\*\*([^*]+)\*\*\s*$/);
+    if (headingMatch) {
+      result.push(
+        <p key={i} className="text-xs font-black uppercase tracking-widest text-amber-300 mt-4 mb-1 first:mt-0">
+          {headingMatch[1]}
+        </p>
+      );
+      i++; continue;
+    }
+    // Numbered list item: "1. text"
+    const numMatch = line.match(/^(\d+)\.\s+(.+)/);
+    if (numMatch) {
+      result.push(
+        <div key={i} className="flex gap-2 mt-2">
+          <span className="shrink-0 font-black text-amber-300">{numMatch[1]}.</span>
+          <span>{inlineMarkdown(numMatch[2])}</span>
+        </div>
+      );
+      i++; continue;
+    }
+    // Bullet
+    const bulletMatch = line.match(/^[-*]\s+(.+)/);
+    if (bulletMatch) {
+      result.push(
+        <div key={i} className="flex gap-2 mt-1">
+          <span className="shrink-0 text-amber-300">•</span>
+          <span>{inlineMarkdown(bulletMatch[1])}</span>
+        </div>
+      );
+      i++; continue;
+    }
+    // Normal paragraph
+    result.push(<p key={i} className="mt-2 leading-relaxed">{inlineMarkdown(line)}</p>);
+    i++;
+  }
+  return result;
+}
+
+function inlineMarkdown(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    const m = part.match(/^\*\*([^*]+)\*\*$/);
+    if (m) return <strong key={i} className="font-black text-white">{m[1]}</strong>;
+    return part;
+  });
+}
+
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 interface DassResult {
   id: string | number;
@@ -252,42 +308,164 @@ export const DASS21Page: React.FC = () => {
     if (!result) return;
     const { parts, conclusion } = getClinicalAnalysis(result.scores);
     const dateStr = new Date(result.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const answersHtml = result.answers ? DASS_ITEMS.map(item => {
-      const val = result.answers[item.id];
-      const labels = ['Não se aplicou', 'Algum grau', 'Grau considerável', 'Quase sempre'];
-      return `<tr><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155">${item.id}. ${item.text}</td><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;font-weight:700;color:#4f46e5;text-align:center">${val ?? '—'} — ${val !== undefined ? labels[val] : '—'}</td></tr>`;
-    }).join('') : '';
+    const colorMap: Record<string,string> = { Normal:'#10b981', Leve:'#f59e0b', Moderado:'#f97316', Grave:'#f43f5e', 'Muito Grave':'#dc2626' };
+    const bgMap: Record<string,string> = { Normal:'#ecfdf5', Leve:'#fffbeb', Moderado:'#fff7ed', Grave:'#fff1f2', 'Muito Grave':'#fef2f2' };
+    const labels4 = ['Não se aplicou', 'Algum grau', 'Grau considerável', 'Quase sempre'];
+    const subLabels: Record<string,string> = { Depression:'Depressão', Anxiety:'Ansiedade', Stress:'Estresse' };
+    const subColor: Record<string,string> = { Depression:'#8b5cf6', Anxiety:'#f97316', Stress:'#3b82f6' };
 
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>DASS-21 — ${patientName}</title>
-    <style>body{font-family:system-ui,sans-serif;color:#0f172a;margin:0;padding:32px;} h1{font-size:22px;font-weight:900;margin:0} h2{font-size:14px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 8px} p{margin:4px 0;font-size:13px;line-height:1.6} .badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;text-transform:uppercase} .score-row{display:flex;gap:16px;margin:6px 0;align-items:center} .bar{flex:1;height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden} .bar-fill{height:100%;border-radius:99px} table{width:100%;border-collapse:collapse;margin-top:8px} @media print{body{padding:16px}}</style>
-    </head><body>
-    <div style="border-bottom:3px solid #6366f1;padding-bottom:16px;margin-bottom:24px">
-      <p style="font-size:11px;font-weight:900;color:#6366f1;text-transform:uppercase;letter-spacing:.15em;margin-bottom:4px">DASS-21 — Relatório de Avaliação</p>
-      <h1>${patientName}</h1>
-      <p style="color:#94a3b8;font-size:12px;margin-top:4px">${dateStr}</p>
-    </div>
-    <h2>Resultados por Domínio</h2>
-    ${(['Depression','Anxiety','Stress'] as const).map(sub => {
+    const scoresHtml = (['Depression','Anxiety','Stress'] as const).map(sub => {
       const score = result.scores[sub];
       const interp = getInterpretation(sub, score);
-      const label = sub === 'Depression' ? 'Depressão' : sub === 'Anxiety' ? 'Ansiedade' : 'Estresse';
-      const colorMap: Record<string,string> = { Normal:'#10b981', Leve:'#f59e0b', Moderado:'#f97316', Grave:'#f43f5e', 'Muito Grave':'#dc2626' };
       const c = colorMap[interp.label] || '#94a3b8';
-      return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em">${label}</span><span class="badge" style="background:${c}20;color:${c}">${interp.label}</span></div><div class="score-row"><span style="font-size:22px;font-weight:900;min-width:40px">${score}</span><div class="bar"><div class="bar-fill" style="width:${Math.min((score/42)*100,100)}%;background:${c}"></div></div></div></div>`;
-    }).join('')}
-    <h2>Análise Clínica</h2>
-    ${parts.map(p => `<p style="margin-bottom:8px">${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`).join('')}
-    <p style="margin-top:12px;padding:12px;background:#f8fafc;border-left:3px solid #6366f1;border-radius:4px"><strong>Conclusão:</strong> ${conclusion}</p>
-    ${answersHtml ? `<h2 style="margin-top:24px">Respostas do Paciente</h2><table>${answersHtml}</table>` : ''}
-    <p style="margin-top:32px;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:12px">Gerado por PsiFlux · DASS-21 (Vignola & Tucci) · ${new Date().toLocaleDateString('pt-BR')}</p>
-    </body></html>`;
+      const bg = bgMap[interp.label] || '#f8fafc';
+      const pct = Math.min((score / 42) * 100, 100).toFixed(1);
+      return `
+        <div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:16px;padding:18px 22px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#334155">${subLabels[sub]}</span>
+            <span style="background:${bg};color:${c};border:1px solid ${c}30;padding:3px 12px;border-radius:99px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">${interp.label}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <span style="font-size:32px;font-weight:900;color:#0f172a;line-height:1;min-width:44px">${score}</span>
+            <div style="flex:1">
+              <div style="height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${c};border-radius:99px"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:4px">
+                <span style="font-size:9px;color:#94a3b8;font-weight:600">0</span>
+                <span style="font-size:9px;color:#94a3b8;font-weight:600">42</span>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const analysisHtml = parts.map(p => {
+      const clean = p.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#1e293b">$1</strong>');
+      return `<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+        <div style="width:6px;height:6px;background:#6366f1;border-radius:50%;margin-top:5px;flex-shrink:0"></div>
+        <p style="margin:0;font-size:12.5px;line-height:1.65;color:#475569">${clean}</p>
+      </div>`;
+    }).join('');
+
+    const answersHtml = result.answers ? DASS_ITEMS.map((item, i) => {
+      const val = result.answers[item.id];
+      const sc = subColor[item.subscale] || '#6366f1';
+      const subAbbr = item.subscale === 'Depression' ? 'D' : item.subscale === 'Anxiety' ? 'A' : 'E';
+      const bg = i % 2 === 0 ? '#fafafa' : '#ffffff';
+      return `<tr style="background:${bg}">
+        <td style="padding:8px 12px;font-size:11px;color:#64748b;font-weight:700;width:28px;text-align:right">${String(item.id).padStart(2,'0')}</td>
+        <td style="padding:8px 6px;width:22px"><span style="background:${sc}15;color:${sc};font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px">${subAbbr}</span></td>
+        <td style="padding:8px 10px;font-size:12px;color:#334155;line-height:1.4">${item.text}</td>
+        <td style="padding:8px 12px;text-align:right;white-space:nowrap">
+          <span style="font-size:16px;font-weight:900;color:#4f46e5">${val ?? '—'}</span>
+          ${val !== undefined ? `<div style="font-size:9px;color:#94a3b8;font-weight:600;margin-top:1px">${labels4[val]}</div>` : ''}
+        </td>
+      </tr>`;
+    }).join('') : '';
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>DASS-21 — ${patientName}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #0f172a; margin: 0; padding: 0; background: #fff; }
+  @page { margin: 0; size: A4; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-break { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<!-- COVER STRIPE -->
+<div style="background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);padding:28px 40px 24px;color:white">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <p style="margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;opacity:.75">Relatório de Avaliação Psicológica</p>
+      <h1 style="margin:0 0 6px;font-size:26px;font-weight:900;letter-spacing:-.5px">${patientName}</h1>
+      <p style="margin:0;font-size:12px;opacity:.8;font-weight:500">${dateStr}</p>
+    </div>
+    <div style="text-align:right">
+      <div style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:8px 16px;display:inline-block">
+        <p style="margin:0;font-size:10px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;opacity:.8;margin-bottom:2px">Instrumento</p>
+        <p style="margin:0;font-size:18px;font-weight:900;letter-spacing:-.3px">DASS-21</p>
+        <p style="margin:0;font-size:9px;opacity:.7;margin-top:2px">Vignola & Tucci</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BODY -->
+<div style="padding:32px 40px">
+
+  <!-- SCORES -->
+  <div class="no-break" style="margin-bottom:28px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#6366f1;display:flex;align-items:center;gap:8px">
+      <span style="display:inline-block;width:20px;height:2px;background:#6366f1;border-radius:1px"></span> Resultados por Domínio
+    </h2>
+    ${scoresHtml}
+  </div>
+
+  <!-- ANALYSIS -->
+  <div class="no-break" style="margin-bottom:28px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#6366f1;display:flex;align-items:center;gap:8px">
+      <span style="display:inline-block;width:20px;height:2px;background:#6366f1;border-radius:1px"></span> Análise Clínica
+    </h2>
+    <div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:16px;padding:20px 22px">
+      ${analysisHtml}
+      <div style="margin-top:14px;padding:14px 16px;background:#eef2ff;border-left:3px solid #6366f1;border-radius:0 8px 8px 0">
+        <p style="margin:0;font-size:12.5px;color:#3730a3;line-height:1.6"><strong>Conclusão:</strong> ${conclusion}</p>
+      </div>
+    </div>
+  </div>
+
+  ${answersHtml ? `
+  <!-- ANSWERS -->
+  <div style="margin-bottom:28px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#6366f1;display:flex;align-items:center;gap:8px">
+      <span style="display:inline-block;width:20px;height:2px;background:#6366f1;border-radius:1px"></span> Respostas do Paciente
+    </h2>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #f1f5f9;border-radius:12px;overflow:hidden">
+      <thead>
+        <tr style="background:#f8fafc">
+          <th style="padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:right;width:36px">#</th>
+          <th style="padding:8px 6px;width:26px"></th>
+          <th style="padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:left">Afirmação</th>
+          <th style="padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:right">Resposta</th>
+        </tr>
+      </thead>
+      <tbody>${answersHtml}</tbody>
+    </table>
+  </div>` : ''}
+
+  <!-- LEGEND -->
+  <div class="no-break" style="margin-bottom:28px;display:flex;gap:8px;flex-wrap:wrap">
+    ${(['Normal','Leve','Moderado','Grave','Muito Grave'] as const).map(l => `
+      <div style="background:${bgMap[l]};border:1px solid ${colorMap[l]}30;border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:6px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${colorMap[l]};display:inline-block;flex-shrink:0"></span>
+        <span style="font-size:10px;font-weight:700;color:${colorMap[l]}">${l}</span>
+      </div>`).join('')}
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div style="border-top:1px solid #f1f5f9;padding:16px 40px;display:flex;justify-content:space-between;align-items:center">
+  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;text-transform:uppercase;letter-spacing:.1em">PsiFlux · Tecnologia para Prática Clínica</p>
+  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600">Gerado em ${new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' })}</p>
+</div>
+
+</body>
+</html>`;
 
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(html);
     w.document.close();
     w.focus();
-    setTimeout(() => w.print(), 400);
+    setTimeout(() => w.print(), 500);
   };
 
   const currentScores = useMemo(() => calculateScores(currentAnswers), [currentAnswers]);
@@ -419,7 +597,8 @@ export const DASS21Page: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <>
+      <div className="space-y-8 animate-fadeIn mb-8">
       <PageHeader
         title="DASS-21"
         subtitle="Escala de Depressão, Ansiedade e Estresse (Vignola & Tucci)."
@@ -580,34 +759,40 @@ export const DASS21Page: React.FC = () => {
                     </div>
                     <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto custom-scrollbar">
                        {history.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(res => (
-                         <div key={res.id} className="p-8 hover:bg-slate-50/50 transition-all group flex items-center justify-between">
-                            <div className="space-y-2">
-                               <div className="flex items-center gap-3">
-                                  <Clock size={12} className="text-indigo-400" />
-                                  <span className="text-xs font-black text-slate-800">{new Date(res.date).toLocaleDateString()}</span>
-                                  {res.analysis && <Sparkles size={12} className="text-amber-500 animate-pulse" />}
-                               </div>
-                               <div className="flex gap-4">
-                                  {(['Depression', 'Anxiety', 'Stress'] as const).map(s => (
-                                     <div key={s} className="flex flex-col">
-                                        <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{s.charAt(0)}</span>
-                                        <span className={`text-[11px] font-black ${getInterpretation(s, res.scores[s]).color}`}>{res.scores[s]}</span>
-                                     </div>
-                                  ))}
+                         <div key={res.id} className="px-6 py-4 hover:bg-slate-50 transition-all group flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4 min-w-0">
+                               <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                     <Clock size={11} className="text-indigo-400 shrink-0" />
+                                     <span className="text-xs font-black text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
+                                     {res.analysis && <Sparkles size={11} className="text-amber-400" />}
+                                  </div>
+                                  <div className="flex gap-3">
+                                     {(['Depression', 'Anxiety', 'Stress'] as const).map(s => {
+                                        const interp = getInterpretation(s, res.scores[s]);
+                                        return (
+                                           <div key={s} className="flex flex-col items-center">
+                                              <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">{s.charAt(0)}</span>
+                                              <span className={`text-xs font-black ${interp.color}`}>{res.scores[s]}</span>
+                                           </div>
+                                        );
+                                     })}
+                                  </div>
                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                               <button 
+                            <div className="flex items-center gap-2 shrink-0">
+                               <button
                                  onClick={() => generateAIResult(res.id)}
-                                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${res.analysis ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-300 hover:text-indigo-500'}`}
+                                 title="Análise Aurora"
+                                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${res.analysis ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-300 hover:text-indigo-500'}`}
                                >
-                                  <Sparkles size={16} className={analyzingId === res.id ? 'animate-spin' : ''} />
+                                  <Sparkles size={13} className={analyzingId === res.id ? 'animate-spin' : ''} />
                                </button>
-                               <button 
+                               <button
                                  onClick={() => setDetailResult(res)}
-                                 className="w-10 h-10 bg-slate-50 text-slate-300 hover:text-indigo-500 rounded-xl flex items-center justify-center transition-all"
+                                 className="flex items-center gap-1.5 px-3 h-8 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg text-[11px] font-black uppercase tracking-wide transition-all"
                                >
-                                  <ChevronRight size={18} />
+                                 Ver <ChevronRight size={12} />
                                </button>
                             </div>
                          </div>
@@ -625,48 +810,61 @@ export const DASS21Page: React.FC = () => {
           </div>
         )}
       </div>
+    </div>
 
-      {/* Result Detail Modal */}
-      {detailResult && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-           <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-12 space-y-12 relative animate-slideUpFade">
-              <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="absolute top-8 right-8 p-3 bg-slate-50 rounded-2xl text-slate-400 hover:text-rose-500 transition-all">
-                 <Plus size={24} className="rotate-45" />
-              </button>
+    {/* Result Detail Modal */}
+    {detailResult && (
+        <div className="fixed inset-0 mt-0 bg-slate-950/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-white rounded-3xl shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{maxHeight:'90vh'}}>
 
+              {/* Header fixo */}
+              <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
+                 <div>
+                    <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Avaliação Consolidada</p>
+                    {(() => {
+                      const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
+                      return <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{patientName}</h2>;
+                    })()}
+                    <p className="text-xs font-medium text-slate-400 mt-0.5">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                 </div>
+                 <div className="flex items-center gap-2 shrink-0">
+                    {(() => {
+                      const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
+                      return (<>
+                        <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={14}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
+                        <Button variant="ghost" size="sm" radius="xl" leftIcon={<Share size={14}/>} onClick={() => handlePrintReport(detailResult, patientName)}>PDF</Button>
+                      </>);
+                    })()}
+                    <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
+                       <Plus size={20} className="rotate-45" />
+                    </button>
+                 </div>
+              </div>
+
+              {/* Conteúdo com scroll interno */}
+              <div className="overflow-y-auto flex-1 px-7 py-6 space-y-6 custom-scrollbar pb-12">
               {(() => {
                 const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
                 const { parts, conclusion } = getClinicalAnalysis(detailResult.scores);
                 return (<>
-                <div className="flex flex-col md:flex-row gap-8 items-start justify-between border-b border-slate-50 pb-10">
-                   <div className="space-y-2">
-                      <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Avaliação Consolidada</p>
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">{patientName}</h2>
-                      <p className="text-sm font-bold text-slate-400">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                   </div>
-                   <div className="flex gap-3 shrink-0">
-                      <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={16}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
-                      <Button variant="ghost" size="sm" radius="xl" leftIcon={<Share size={16}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Exportar PDF</Button>
-                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                   <div className="bg-slate-950 rounded-[2.5rem] p-10 flex items-center justify-center shadow-2xl">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                   <div className="bg-slate-950 rounded-2xl p-6 flex items-center justify-center shadow-xl" style={{minHeight:'200px'}}>
                       <RadarGraphic scores={detailResult.scores} />
                    </div>
-                   <div className="space-y-8">
+                   <div className="space-y-3">
                       {(['Depression', 'Anxiety', 'Stress'] as const).map(sub => {
                          const score = detailResult.scores[sub];
                          const interp = getInterpretation(sub, score);
                          return (
-                           <div key={sub} className="p-8 rounded-[2rem] border border-slate-100 bg-slate-50/50 space-y-4">
-                              <div className="flex items-center justify-between">
-                                 <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">{sub === 'Depression' ? 'Depressão' : sub === 'Anxiety' ? 'Ansiedade' : 'Estresse'}</h4>
-                                 <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-xl ${interp.bg} ${interp.color}`}>{interp.label}</span>
+                           <div key={sub} className="px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                              <div className="flex items-center justify-between mb-2">
+                                 <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">{sub === 'Depression' ? 'Depressão' : sub === 'Anxiety' ? 'Ansiedade' : 'Estresse'}</h4>
+                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
                               </div>
-                              <div className="flex items-center gap-6">
-                                 <div className="text-3xl font-black text-slate-900">{score}</div>
-                                 <div className="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+                              <div className="flex items-center gap-4">
+                                 <div className="text-2xl font-black text-slate-900 w-8">{score}</div>
+                                 <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
                                     <div className={`h-full ${interp.color.replace('text', 'bg')}`} style={{ width: `${(score / 42) * 100}%` }} />
                                  </div>
                               </div>
@@ -688,7 +886,7 @@ export const DASS21Page: React.FC = () => {
                         return (
                           <div key={i} className="flex gap-3 text-sm leading-relaxed text-slate-600">
                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 mt-2 shrink-0" />
-                             <p><span className="font-black text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':')}</p>
+                             <p><span className="font-black text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
                           </div>
                         );
                       })}
@@ -699,12 +897,12 @@ export const DASS21Page: React.FC = () => {
                 </div>
 
                 {detailResult.analysis && (
-                  <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-100 space-y-6">
-                     <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
-                        <Sparkles size={20} className="text-amber-400" /> Análise Aurora (IA)
+                  <div className="bg-indigo-600 rounded-xl p-5 text-white shadow-lg shadow-indigo-100">
+                     <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-3">
+                        <Sparkles size={14} className="text-amber-400" /> Análise Aurora (IA)
                      </h3>
-                     <div className="text-base font-bold leading-relaxed text-indigo-50/80 italic">
-                        "{detailResult.analysis}"
+                     <div className="text-sm text-indigo-100 space-y-0">
+                        {renderMarkdown(detailResult.analysis!)}
                      </div>
                   </div>
                 )}
@@ -758,6 +956,7 @@ export const DASS21Page: React.FC = () => {
                 )}
                 </>);
               })()}
+              </div>
            </div>
         </div>
       )}
@@ -864,6 +1063,6 @@ export const DASS21Page: React.FC = () => {
            </div>
         </div>
       </Modal>
-    </div>
+    </>
   );
 };
