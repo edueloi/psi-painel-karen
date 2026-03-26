@@ -921,6 +921,46 @@ export const DASS21Page: React.FC = () => {
                        </div>
                     </div>
                  </div>
+
+                 {/* Cross-instrument recommendations */}
+                 {history.length > 0 && (() => {
+                   const last = history[history.length - 1];
+                   const depInterp = getInterpretation('Depression', last.scores.Depression);
+                   const anxInterp = getInterpretation('Anxiety', last.scores.Anxiety);
+                   const recs = [];
+                   if (['Moderado','Grave','Muito Grave'].includes(depInterp.label)) {
+                     recs.push({ slug: 'bdi-ii', label: 'BDI-II', desc: 'Inventário de Depressão de Beck', reason: `Depressão ${depInterp.label} no DASS-21`, color: 'rose' });
+                   }
+                   if (['Moderado','Grave','Muito Grave'].includes(anxInterp.label)) {
+                     recs.push({ slug: 'bai', label: 'BAI', desc: 'Inventário de Ansiedade de Beck', reason: `Ansiedade ${anxInterp.label} no DASS-21`, color: 'amber' });
+                   }
+                   if (recs.length === 0) return null;
+                   return (
+                     <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-3">
+                       <p className="text-[9px] font-black uppercase tracking-[0.25em] text-indigo-300 flex items-center gap-2">
+                         <Zap size={12} /> Instrumentos Sugeridos
+                       </p>
+                       {recs.map(r => (
+                         <button
+                           key={r.slug}
+                           onClick={() => navigate(`/caixa-ferramentas/${r.slug}?patientId=${selectedPatientId}`)}
+                           className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                             r.color === 'rose'
+                               ? 'bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20'
+                               : 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20'
+                           }`}
+                         >
+                           <div className="text-left">
+                             <p className={`text-xs font-black ${r.color === 'rose' ? 'text-rose-300' : 'text-amber-300'}`}>{r.label}</p>
+                             <p className="text-[9px] text-slate-400 font-medium">{r.desc}</p>
+                             <p className="text-[8px] text-slate-500 mt-0.5 italic">{r.reason}</p>
+                           </div>
+                           <ChevronRight size={14} className="text-slate-500 shrink-0" />
+                         </button>
+                       ))}
+                     </div>
+                   );
+                 })()}
               </div>
 
               {/* Right Column: History & Evolution */}

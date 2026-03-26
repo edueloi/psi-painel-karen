@@ -708,7 +708,8 @@ export const DISCProfessionalPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <>
+      <div className="space-y-8 animate-fadeIn">
       <PageHeader
         title="DISC Avaliativo (Clínico)"
         subtitle="Mapeamento técnico de tendências comportamentais para uso em sessão."
@@ -892,8 +893,9 @@ export const DISCProfessionalPage: React.FC = () => {
           </div>
         )}
       </div>
+    </div>
 
-      <Modal
+    <Modal
         isOpen={isApplying}
         onClose={() => setIsApplying(false)}
         title="Mapeamento DISC Clínico"
@@ -1145,6 +1147,6 @@ export const DISCProfessionalPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };

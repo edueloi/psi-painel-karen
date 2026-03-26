@@ -389,9 +389,8 @@ const INSTRUMENTS_CONFIG = [
     icon: <Radar size={26} className="text-white"/>,
     tags: ['Comportamento', 'Perfil', 'Estilo'],
     applyPath: '/caixa-ferramentas/disc-avaliativo',
+    viewPath: undefined as string | undefined,
     applyColor: 'bg-indigo-600 hover:bg-indigo-700',
-    statColor: 'text-indigo-600',
-    statBg: 'bg-indigo-50',
   },
   {
     id: 'dass',
@@ -402,31 +401,92 @@ const INSTRUMENTS_CONFIG = [
     icon: <Activity size={26} className="text-white"/>,
     tags: ['Saúde Mental', 'Rastreio', 'Triagem'],
     applyPath: '/caixa-ferramentas/dass-21',
+    viewPath: undefined as string | undefined,
     applyColor: 'bg-rose-600 hover:bg-rose-700',
-    statColor: 'text-rose-600',
-    statBg: 'bg-rose-50',
+  },
+  {
+    id: 'bdi',
+    title: 'BDI-II',
+    subtitle: 'Inventário de Depressão de Beck',
+    description: 'Inventário de 21 itens que avalia a presença e intensidade de sintomas depressivos. Pontuação de 0 a 63 com classificação Mínimo/Leve/Moderado/Grave.',
+    gradient: 'from-rose-600 to-red-700',
+    icon: <Brain size={26} className="text-white"/>,
+    tags: ['Depressão', 'Beck', 'Sintomas'],
+    applyPath: '/caixa-ferramentas/bdi-ii',
+    viewPath: '/caixa-ferramentas/bdi-ii',
+    applyColor: 'bg-rose-600 hover:bg-rose-700',
+  },
+  {
+    id: 'bai',
+    title: 'BAI',
+    subtitle: 'Inventário de Ansiedade de Beck',
+    description: 'Inventário de 21 itens que mensura a intensidade de sintomas de ansiedade. Avalia sintomas autonômicos, cognitivos e somáticos.',
+    gradient: 'from-amber-500 to-orange-600',
+    icon: <Zap size={26} className="text-white"/>,
+    tags: ['Ansiedade', 'Beck', 'Autonômico'],
+    applyPath: '/caixa-ferramentas/bai',
+    viewPath: '/caixa-ferramentas/bai',
+    applyColor: 'bg-amber-600 hover:bg-amber-700',
+  },
+  {
+    id: 'snap',
+    title: 'SNAP-IV',
+    subtitle: 'Rastreio de TDAH e Oposição/Desafio',
+    description: 'Escala de 26 itens respondida por pais ou professores. Avalia desatenção, hiperatividade/impulsividade e comportamento opositor/desafiador.',
+    gradient: 'from-blue-600 to-indigo-700',
+    icon: <BarChart2 size={26} className="text-white"/>,
+    tags: ['TDAH', 'Neurodesenv.', 'Infantil'],
+    applyPath: '/caixa-ferramentas/snap-iv',
+    viewPath: '/caixa-ferramentas/snap-iv',
+    applyColor: 'bg-blue-600 hover:bg-blue-700',
+  },
+  {
+    id: 'mchat',
+    title: 'M-CHAT-R/F',
+    subtitle: 'Triagem para Autismo em Crianças',
+    description: 'Instrumento de triagem com 20 itens (SIM/NÃO) para sinais de autismo em crianças de 16 a 30 meses. Respondido por pais/responsáveis.',
+    gradient: 'from-teal-500 to-emerald-600',
+    icon: <CheckCircle2 size={26} className="text-white"/>,
+    tags: ['Autismo', 'TEA', 'Triagem'],
+    applyPath: '/caixa-ferramentas/m-chat-r',
+    viewPath: '/caixa-ferramentas/m-chat-r',
+    applyColor: 'bg-teal-600 hover:bg-teal-700',
   },
 ];
 
 /* ═══════════════════════════════════════════════════════════
    MAIN PAGE
 ═══════════════════════════════════════════════════════════ */
-type ViewType = 'hub' | 'disc' | 'dass';
+type ViewType = 'hub' | 'disc' | 'dass' | 'bdi' | 'bai' | 'snap' | 'mchat';
 
 export const Instruments: React.FC = () => {
   const navigate = useNavigate();
   const { pushToast } = useToast();
   const [view, setView] = useState<ViewType>('hub');
-  const [stats, setStats] = useState<{ disc: number; dass: number }>({ disc: 0, dass: 0 });
+  const [stats, setStats] = useState<Record<string, number>>({ disc: 0, dass: 0, bdi: 0, bai: 0, snap: 0, mchat: 0 });
 
   useEffect(() => {
-    Promise.all([
-      api.get<any[]>('/disc').catch(() => []),
-      api.get<any[]>('/clinical-tools/dass-all').catch(() => []),
-    ]).then(([disc, dass]) => {
-      const uniqueDisc = new Set((disc || []).map((r: any) => r.patient_id)).size;
-      setStats({ disc: uniqueDisc, dass: (dass || []).length });
-    });
+    const fetchStats = async () => {
+      try {
+        const [disc, dass] = await Promise.all([
+          api.get<any[]>('/disc').catch(() => []),
+          api.get<any[]>('/clinical-tools/dass-all').catch(() => []),
+        ]);
+        
+        // As outras rotas podem não retornar tudo de uma vez, mas podemos tentar buscar por pacientes ou deixar em 0 por enquanto
+        // se as rotas específicas não existirem no backend agregadas.
+        // Contudo, se DISC/DASS estão funcionando, vamos focar nelas e tentar inferir as outras se possível.
+        
+        const uniqueDisc = new Set((disc || []).map((r: any) => r.patient_id)).size;
+        
+        setStats(prev => ({
+          ...prev,
+          disc: uniqueDisc,
+          dass: (dass || []).length
+        }));
+      } catch (e) {}
+    };
+    fetchStats();
   }, []);
 
   if (view === 'disc') return <DiscView onBack={() => setView('hub')}/>;
@@ -469,11 +529,19 @@ export const Instruments: React.FC = () => {
       {/* Instrument cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {INSTRUMENTS_CONFIG.map(inst => {
-          const count = inst.id === 'disc' ? stats.disc : stats.dass;
+          const count = stats[inst.id] || 0;
+          const handleView = () => {
+            if (inst.viewPath) {
+              navigate(inst.viewPath);
+            } else {
+              setView(inst.id as ViewType);
+            }
+          };
+
           return (
             <div key={inst.id}
               className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer group"
-              onClick={() => setView(inst.id as ViewType)}
+              onClick={handleView}
             >
               {/* Header */}
               <div className={`bg-gradient-to-r ${inst.gradient} p-6`}>
@@ -485,9 +553,9 @@ export const Instruments: React.FC = () => {
                     <h3 className="font-black text-white text-xl leading-tight">{inst.title}</h3>
                     <p className="text-white/80 text-xs font-bold mt-0.5">{inst.subtitle}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {inst.tags.map(tag => (
-                        <span key={tag} className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/20">{tag}</span>
-                      ))}
+                       {inst.tags.map(tag => (
+                         <span key={tag} className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/20">{tag}</span>
+                       ))}
                     </div>
                   </div>
                   <div className="bg-white/20 border border-white/30 rounded-2xl px-3 py-2 text-center shrink-0">
@@ -506,7 +574,7 @@ export const Instruments: React.FC = () => {
                     className={`flex-1 h-11 rounded-2xl font-black text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${inst.applyColor} text-white shadow-md`}>
                     <Plus size={13}/> Aplicar
                   </button>
-                  <button onClick={() => setView(inst.id as ViewType)}
+                  <button onClick={(e) => { e.stopPropagation(); handleView(); }}
                     className="flex-1 h-11 rounded-2xl font-black text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100">
                     <BarChart2 size={13}/> Ver Resultados <ChevronRight size={12}/>
                   </button>

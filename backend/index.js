@@ -129,32 +129,48 @@ app.get('/f/:hash', async (req, res) => {
     const CLINICAL_TOOL_LABELS = {
       'dass-21': { title: 'DASS-21', description: 'Escala de Depressão, Ansiedade e Estresse (DASS-21). Avaliação clínica enviada pelo seu psicólogo(a). Clique para responder.' },
       'disc': { title: 'DISC Avaliativo', description: 'Mapeamento de Perfil Comportamental DISC (Marston). Avaliação clínica enviada pelo seu psicólogo(a). Clique para responder.' },
+      'bdi-ii': { title: 'BDI-II', description: 'Inventário de Depressão de Beck (BDI-II). Avaliação de sintomas depressivos enviada pelo seu psicólogo(a). Clique para responder.' },
+      'bai': { title: 'BAI', description: 'Inventário de Ansiedade de Beck (BAI). Avaliação de sintomas de ansiedade enviada pelo seu psicólogo(a). Clique para responder.' },
+      'snap-iv': { title: 'SNAP-IV', description: 'Escala SNAP-IV de avaliação de TDAH e oposição/desafio. Instrumento enviado pelo psicólogo(a). Clique para responder.' },
+      'm-chat-r': { title: 'M-CHAT-R/F', description: 'Instrumento de triagem para sinais de autismo em crianças pequenas (M-CHAT-R/F). Enviado pelo psicólogo(a). Clique para responder.' },
     };
 
-    if (req.params.hash in CLINICAL_TOOL_LABELS && userId && fs.existsSync(distIndexPath)) {
-      const tool = CLINICAL_TOOL_LABELS[req.params.hash];
-      const [[prof]] = await db.query(
-        'SELECT name, specialty, crp, company_name, clinic_logo_url, avatar_url FROM users WHERE id = ?',
-        [userId]
-      );
+    const hash = req.params.hash?.toLowerCase();
+
+    if (hash && hash in CLINICAL_TOOL_LABELS && fs.existsSync(distIndexPath)) {
+      const tool = CLINICAL_TOOL_LABELS[hash];
+      let prof = null;
+      
+      if (userId) {
+        const [[p]] = await db.query(
+          'SELECT name, specialty, crp, company_name, clinic_logo_url, avatar_url FROM users WHERE id = ?',
+          [userId]
+        );
+        prof = p;
+      }
+
       const profName = prof?.name || '';
       const specialty = prof?.specialty || '';
       const crp = prof?.crp || '';
       const clinic = prof?.company_name || 'PsiFlux';
       const descParts = [profName, specialty, crp ? `CRP ${crp}` : ''].filter(Boolean);
       const profLine = descParts.join(' • ');
+      
       const ogTitle = `${tool.title} — ${clinic}`;
       const ogDesc = profLine
-        ? `${tool.description.replace('pelo seu psicólogo(a)', `por ${profName}`)}`
+        ? tool.description.replace('pelo seu psicólogo(a)', `por ${profName}`).replace('pelo psicólogo(a)', `por ${profName}`)
         : tool.description;
+
       const toPublicUrl = (url) => {
         if (!url) return null;
         if (url.startsWith('http')) return url;
         if (url.startsWith('/uploads-static/')) return `${FRONTEND_URL}/api${url}`;
         return `${FRONTEND_URL}${url}`;
       };
-      const logoUrl = toPublicUrl(prof?.clinic_logo_url) || toPublicUrl(prof?.avatar_url) || null;
-      const pageUrl = `${FRONTEND_URL}/f/${req.params.hash}?u=${req.query.u}&p=${req.query.p || ''}`;
+
+      const logoUrl = toPublicUrl(prof?.clinic_logo_url) || toPublicUrl(prof?.avatar_url) || `${FRONTEND_URL}/images/logo-psiflux.png`;
+      const pageUrl = `${FRONTEND_URL}/f/${req.params.hash}?u=${req.query.u || ''}&p=${req.query.p || ''}`;
+      
       const ogTags = `
     <title>${ogTitle}</title>
     <meta name="description" content="${ogDesc}" />
@@ -162,13 +178,16 @@ app.get('/f/:hash', async (req, res) => {
     <meta property="og:url" content="${pageUrl}" />
     <meta property="og:title" content="${ogTitle}" />
     <meta property="og:description" content="${ogDesc}" />
-    ${logoUrl ? `<meta property="og:image" content="${logoUrl}" />\n    <meta property="og:image:width" content="512" />\n    <meta property="og:image:height" content="512" />` : ''}
+    <meta property="og:image" content="${logoUrl}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:site_name" content="${clinic}" />
     <meta property="og:locale" content="pt_BR" />
-    <meta name="twitter:card" content="${logoUrl ? 'summary_large_image' : 'summary'}" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${ogTitle}" />
     <meta name="twitter:description" content="${ogDesc}" />
-    ${logoUrl ? `<meta name="twitter:image" content="${logoUrl}" />` : ''}`;
+    <meta name="twitter:image" content="${logoUrl}" />`;
+
       let html = fs.readFileSync(distIndexPath, 'utf8');
       html = html.replace(/<title>.*?<\/title>/is, '');
       html = html.replace(/<meta\s+[^>]*name=["']description["'][^>]*>/gi, '');
@@ -176,6 +195,7 @@ app.get('/f/:hash', async (req, res) => {
       html = html.replace(/<meta\s+[^>]*name=["']twitter:[^"']*["'][^>]*>/gi, '');
       html = html.replace(/<meta\s+[^>]*property=["']twitter:[^"']*["'][^>]*>/gi, '');
       html = html.replace('<head>', `<head>${ogTags}`);
+      
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=30');
       return res.send(html);

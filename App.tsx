@@ -47,10 +47,18 @@ import { PositivePsychologyPage } from './pages/clinical-tools/PositivePsycholog
 import { PlayTherapyPage } from './pages/clinical-tools/PlayTherapy';
 import { CoupleTherapyPage } from './pages/clinical-tools/CoupleTherapy';
 import { ParentingGuidancePage } from './pages/clinical-tools/ParentingGuidance';
-import { DASS21Page } from './pages/clinical-tools/DASS21';
-import { DASS21Public } from './pages/external/DASS21Public';
-import { DISCPublic } from './pages/external/DISCPublic';
-import { DISCProfessionalPage } from './pages/clinical-tools/DiscProfessional';
+import { DASS21Page } from '@/pages/clinical-tools/DASS21';
+import { DASS21Public } from '@/pages/external/DASS21Public';
+import { DISCPublic } from '@/pages/external/DISCPublic';
+import { DISCProfessionalPage } from '@/pages/clinical-tools/DiscProfessional';
+import { BDIPublic } from '@/pages/external/BDIPublic';
+import { BDIPage } from '@/pages/clinical-tools/BDIProfessional';
+import { BAIPublic } from '@/pages/external/BAIPublic';
+import { BAIPage } from '@/pages/clinical-tools/BAIProfessional';
+import { SNAPIVPublic } from '@/pages/external/SNAPIVPublic';
+import { SNAPIVPage } from '@/pages/clinical-tools/SNAPIVProfessional';
+import { MCHATPublic } from '@/pages/external/MCHATPublic';
+import { MCHATPage } from '@/pages/clinical-tools/MCHATProfessional';
 import { Records } from './pages/Records';
 import { CaseStudies } from './pages/CaseStudies';
 import { Documents } from './pages/Documents';
@@ -189,6 +197,10 @@ const AppRoutes: React.FC = () => {
       <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/f/dass-21" element={<DASS21Public />} />
       <Route path="/f/disc" element={<DISCPublic />} />
+      <Route path="/f/bdi-ii" element={<BDIPublic />} />
+      <Route path="/f/bai" element={<BAIPublic />} />
+      <Route path="/f/snap-iv" element={<SNAPIVPublic />} />
+      <Route path="/f/m-chat-r" element={<MCHATPublic />} />
       <Route path="/f/:hash" element={<ExternalForm />} />
       <Route path="/p/:slug" element={<PublicProfile />} />
 
@@ -233,6 +245,10 @@ const AppRoutes: React.FC = () => {
       <Route path="/caixa-ferramentas/pais" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><ParentingGuidancePage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/dass-21" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><DASS21Page /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/disc-avaliativo" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><DISCProfessionalPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/bdi-ii" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><BDIPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/bai" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><BAIPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/snap-iv" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><SNAPIVPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/m-chat-r" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><MCHATPage /></ProtectedRoute>} />
       <Route path="/prontuario" element={<ProtectedRoute requiredPermission="view_medical_records"><Records /></ProtectedRoute>} />
       <Route path="/analises" element={<ProtectedRoute requiredPermission="view_medical_records"><Records defaultTab="analysis" /></ProtectedRoute>} />
       <Route path="/estudos-de-caso" element={<ProtectedRoute><CaseStudies /></ProtectedRoute>} />
