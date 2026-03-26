@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { sendMail, templates } = require('../services/emailService');
 const { checkBirthdays, sendWeeklyReport, sendMonthlyReport } = require('../services/cronJobs');
+const notificationService = require('../services/notificationService');
 
 // Garante coluna email_preferences na tabela users
 async function ensureEmailPrefsColumn() {
@@ -131,6 +132,39 @@ router.post('/queue/:id/retry', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao reiniciar notificação' });
+  }
+});
+
+// POST /notifications/test-enqueue — Criar notificação de teste na fila
+router.post('/test-enqueue', async (req, res) => {
+  try {
+    const { phone, content, expires_in_minutes = 10 } = req.body;
+    if (!phone || !content) return res.status(400).json({ error: 'Telefone e conteúdo obrigatórios' });
+
+    const expiresAt = new Date(Date.now() + expires_in_minutes * 60000).toISOString().slice(0, 19).replace('T', ' ');
+
+    const id = await notificationService.enqueue({
+      tenant_id: req.user.tenant_id,
+      recipient_phone: phone,
+      content: content,
+      expires_at: expiresAt,
+      metadata: { source: 'manual-test', user_id: req.user.id }
+    });
+
+    res.json({ success: true, id, message: `Notificação ${id} enfileirada. Expira em ${expires_in_minutes} min.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao enfileirar: ' + err.message });
+  }
+});
+
+// POST /notifications/trigger-process — Forçar processamento imediato da fila
+router.post('/trigger-process', async (req, res) => {
+  try {
+    if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Apenas super admin' });
+    await notificationService.processQueue();
+    res.json({ success: true, message: 'Processamento de fila disparado' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao processar: ' + err.message });
   }
 });
 

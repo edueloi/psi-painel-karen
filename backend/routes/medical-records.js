@@ -315,6 +315,16 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
 
     if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
 
+    // SEGURANÇA: Verificar se o paciente pertence a este tenant
+    const [[patient]] = await db.query('SELECT id FROM patients WHERE id = ? AND tenant_id = ?', [patient_id, req.user.tenant_id]);
+    if (!patient) return res.status(403).json({ error: 'Paciente não encontrado ou acesso negado nesta clínica.' });
+
+    // SEGURANÇA: Se houver agendamento, verificar se ele também pertence ao tenant
+    if (appointment_id) {
+       const [[apt]] = await db.query('SELECT id FROM appointments WHERE id = ? AND tenant_id = ?', [appointment_id, req.user.tenant_id]);
+       if (!apt) return res.status(403).json({ error: 'Agendamento não pertence a esta clínica.' });
+    }
+
     const tagsStr = tags ? JSON.stringify(Array.isArray(tags) ? tags : []) : null;
 
     const [result] = await db.query(
@@ -599,10 +609,15 @@ router.get('/:id/audit', authMiddleware, async (req, res) => {
 ────────────────────────────────────────────────────────── */
 router.delete('/:id', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
   try {
+    // SEGURANÇA: Verificar existência e posse primeiro
+    const [[record]] = await db.query('SELECT id FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    if (!record) return res.status(404).json({ error: 'Prontuário não encontrado' });
+
+    // Só deleta dependentes se o registro for dele
     await db.query('DELETE FROM medical_record_attachments WHERE record_id = ?', [req.params.id]);
     await db.query('DELETE FROM medical_record_versions WHERE record_id = ?', [req.params.id]);
-    const [result] = await db.query('DELETE FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
+    await db.query('DELETE FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    
     await logAudit(req.params.id, req.user.id, req.user.tenant_id, 'deleted');
     res.status(204).send();
   } catch (err) {

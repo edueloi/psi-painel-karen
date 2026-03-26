@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "migrate": "cd backend && node migrate.js",
     "patch-db": "cd backend && node patch_database.js",
-    "reset-db": "cd backend && node reset_database.js"
+    "reset-db": "cd backend && node reset_database.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@google/genai": "^1.33.0",
@@ -29,10 +30,15 @@
     "recharts": "^3.8.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.1",
+    "jsdom": "^29.0.1",
+    "supertest": "^7.2.2",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^4.1.2"
   }
 }
