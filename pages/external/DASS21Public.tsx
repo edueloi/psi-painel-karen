@@ -109,9 +109,9 @@ export const DASS21Public: React.FC = () => {
       };
 
       const uParam = professionalId ? `?u=${professionalId}` : '';
-      const resp = await api.get<any[]>(`/clinical-tools/${patientId}/dass-21${uParam}`);
+      const resp = await api.get<any[]>(`/public-profile/dass-21/${patientId}${uParam}`);
       const currentHistory = Array.isArray(resp) ? resp : [];
-      
+
       const newResult = {
         id: Date.now(),
         date: new Date().toISOString(),
@@ -120,8 +120,7 @@ export const DASS21Public: React.FC = () => {
         origin: 'external'
       };
 
-      await api.put(`/clinical-tools/${patientId}/dass-21?u=${professionalId}`, {
-        patient_id: patientId,
+      await api.post(`/public-profile/dass-21/${patientId}${uParam}`, {
         data: [...currentHistory, newResult]
       });
 
@@ -157,7 +156,7 @@ export const DASS21Public: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#fafaff] font-sans pb-24 selection:bg-indigo-100 italic-text-none">
-      <div className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-slate-800 text-white py-20 px-6 shadow-2xl relative overflow-hidden">
+      <div className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-slate-800 text-white py-10 md:py-20 px-6 shadow-2xl relative overflow-hidden">
          <div className="absolute top-0 right-0 p-12 opacity-[0.05] pointer-events-none rotate-12 scale-125">
             <Activity size={320} />
          </div>
@@ -170,7 +169,7 @@ export const DASS21Public: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none uppercase italic transform -skew-x-2 drop-shadow-2xl">DASS-21</h1>
+              <h1 className="text-4xl md:text-8xl font-black tracking-tighter leading-none uppercase italic transform -skew-x-2 drop-shadow-2xl">DASS-21</h1>
               <p className="text-indigo-100 font-medium text-lg md:text-2xl leading-relaxed italic opacity-90 max-w-2xl mx-auto md:mx-0">
                 Escala clínica de Depressão, Ansiedade e Estresse.
               </p>
@@ -213,7 +212,7 @@ export const DASS21Public: React.FC = () => {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 -mt-12 space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-         <div className="bg-white rounded-[3rem] border border-slate-100 p-8 md:p-12 shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-8 relative z-20 overflow-hidden group">
+         <div className="bg-white rounded-[2rem] md:rounded-[3rem] border border-slate-100 p-5 md:p-12 shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-5 md:space-y-8 relative z-20 overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 transition-all group-hover:scale-125" />
             <div className="flex items-center gap-5 text-indigo-600">
                <div className="w-16 h-16 bg-indigo-50 rounded-[1.8rem] flex items-center justify-center shadow-inner border border-indigo-100/30">
@@ -244,7 +243,7 @@ export const DASS21Public: React.FC = () => {
 
          <form onSubmit={handleSubmit} className="space-y-6">
             {DASS_ITEMS.map((item, idx) => (
-              <div key={item.id} className="bg-white rounded-[3rem] border-2 border-transparent p-10 shadow-[0_15px_50px_-15px_rgba(30,41,59,0.06)] space-y-10 hover:border-indigo-100 hover:shadow-2xl hover:shadow-indigo-100/30 transition-all duration-500 group relative overflow-hidden">
+              <div key={item.id} className="bg-white rounded-[2rem] md:rounded-[3rem] border-2 border-transparent p-5 md:p-10 shadow-[0_15px_50px_-15px_rgba(30,41,59,0.06)] space-y-5 md:space-y-10 hover:border-indigo-100 hover:shadow-2xl hover:shadow-indigo-100/30 transition-all duration-500 group relative overflow-hidden">
                  <div className="absolute top-0 left-0 w-2 h-full bg-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                  
                  <div className="flex flex-col md:flex-row md:items-center gap-6">
@@ -262,7 +261,7 @@ export const DASS21Public: React.FC = () => {
                         key={val}
                         type="button"
                         onClick={() => setAnswers({ ...answers, [item.id]: val })}
-                        className={`h-24 rounded-[1.8rem] text-sm md:text-xl font-black transition-all duration-300 border-2 ${
+                        className={`h-14 md:h-24 rounded-[1.2rem] md:rounded-[1.8rem] text-base md:text-xl font-black transition-all duration-300 border-2 ${
                           answers[item.id] === val 
                           ? 'bg-slate-950 text-white border-slate-950 shadow-2xl scale-[1.05] ring-8 ring-indigo-50' 
                           : 'bg-white text-slate-300 border-slate-100 hover:border-indigo-200 hover:text-indigo-600 hover:bg-indigo-50/50'
@@ -275,11 +274,11 @@ export const DASS21Public: React.FC = () => {
               </div>
             ))}
 
-            <div className="pt-12">
+            <div className="pt-4 md:pt-12">
                <button
                  type="submit"
                  disabled={loading}
-                 className="w-full bg-indigo-600 hover:bg-slate-950 text-white rounded-[3rem] py-12 font-black uppercase tracking-[0.3em] text-sm md:text-lg shadow-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-4 border-b-8 border-indigo-800 hover:border-slate-800 active:border-b-0 active:translate-y-2 group"
+                 className="w-full bg-indigo-600 hover:bg-slate-950 text-white rounded-[2rem] md:rounded-[3rem] py-5 md:py-12 font-black uppercase tracking-[0.3em] text-sm md:text-lg shadow-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-4 border-b-4 md:border-b-8 border-indigo-800 hover:border-slate-800 active:border-b-0 active:translate-y-2 group"
                >
                   {loading ? 'Sincronizando Respostas...' : (
                     <>
