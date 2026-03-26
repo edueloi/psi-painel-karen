@@ -93,21 +93,11 @@ const tools: Tool[] = [
     id: 'escalas',
     title: 'Instrumentos & Escalas',
     category: 'assessment',
-    description: 'Questionários (BDI, BAI, DASS) e inventários estruturados.',
+    description: 'DISC, DASS-21 e outros instrumentos psicológicos padronizados.',
     icon: <ClipboardList />,
-    path: '/formularios',
+    path: '/instrumentos',
     color: 'slate',
     tags: ['Avaliação', 'Testes', 'Mensuração']
-  },
-  {
-    id: 'dass21',
-    title: 'DASS-21',
-    category: 'assessment',
-    description: 'Escala de Depressão, Ansiedade e Estresse de 21 itens com triagem automática.',
-    icon: <Activity />,
-    path: '/caixa-ferramentas/dass-21',
-    color: 'indigo',
-    tags: ['Triagem', 'Depressão', 'Ansiedade']
   },
   {
     id: 'case-studies',
@@ -210,16 +200,6 @@ const tools: Tool[] = [
     tags: ['Flow', 'Forças', 'Bem-estar']
   },
   {
-    id: 'disc-professional',
-    title: 'DISC (Perfil Marston)',
-    category: 'assessment',
-    description: 'Manual de aplicação, compartilhamento externo e painel de resultados com análise profunda via Aurora IA.',
-    icon: <Gauge />,
-    path: '/caixa-ferramentas/disc-avaliativo',
-    color: 'violet',
-    tags: ['Comportamental', 'Personalidade', 'Aurora IA']
-  },
-  {
     id: 'infantil',
     title: 'Ludoterapia / Infantil',
     category: 'clinical',
@@ -254,7 +234,7 @@ const tools: Tool[] = [
 const categoryLabels = {
   all: 'Ecossistema Completo',
   clinical: 'Módulos Clínicos',
-  assessment: 'Testes & DISC',
+  assessment: 'Instrumentos & Avaliação',
   neuro: 'Neurociência',
   management: 'Gestão de Evolução'
 };

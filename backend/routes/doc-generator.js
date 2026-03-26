@@ -162,8 +162,8 @@ router.post('/doc-templates/:id/render', async (req, res) => {
     }
 
     const replacements = {
-      '{{patient_name}}': data.patient_name || patientData.full_name || '',
-      '{{nome_paciente}}': data.patient_name || patientData.full_name || '',
+      '{{patient_name}}': data.patient_name || patientData.name || '',
+      '{{nome_paciente}}': data.patient_name || patientData.name || '',
       '{{cpf_paciente}}': patientData.cpf || '',
       '{{patient_cpf}}': patientData.cpf || '',
       '{{date}}': data.date || '',

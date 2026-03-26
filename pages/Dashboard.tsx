@@ -197,7 +197,7 @@ export const Dashboard: React.FC = () => {
       'no-show': { label: 'Falta', color: '#94a3b8' },
     };
     return Object.entries(statusCounts)
-      .filter(([, v]) => v > 0)
+      .filter(([, v]: [string, number]) => v > 0)
       .map(([key, value]) => ({
         name: map[key]?.label || key,
         value,
@@ -218,6 +218,7 @@ export const Dashboard: React.FC = () => {
 
   const birthdays = useMemo(() => {
     const list = patients
+      .filter(p => p.status === 'ativo' || p.status === 'active')
       .map(p => {
         const dateStr = p.birth_date || p.birthDate;
         if (!dateStr) return null;

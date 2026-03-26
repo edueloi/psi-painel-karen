@@ -58,6 +58,13 @@ async function getTenantUsers(tenantId) {
   return rows.filter(r => r.email);
 }
 
+// A coluna shared_with agora é garantida por patch externo ou scripts de inicialização
+// A função anterior causava Deadlocks e lentidões.
+async function ensureSharedWith() {
+  /* No-op — Garantido externamente */
+}
+ensureSharedWith();
+
 // Busca todos os tenants ativos
 async function getActiveTenants() {
   const [rows] = await db.query(
@@ -100,16 +107,18 @@ async function checkAppointmentReminders() {
          u.email_preferences,
          s.name as service_name,
          c.sessions_total, c.sessions_used, c.description as package_name,
-         t.whatsapp_status, t.whatsapp_preferences, t.name as clinic_name
+         t.whatsapp_status, t.whatsapp_preferences, t.name as clinic_name,
+         a.whatsapp_reminder_1h_sent, a.whatsapp_reminder_24h_sent
        FROM appointments a
        LEFT JOIN patients p ON p.id = a.patient_id
        LEFT JOIN users u ON u.id = a.professional_id
        LEFT JOIN services s ON s.id = a.service_id
        LEFT JOIN comandas c ON c.id = a.comanda_id
        LEFT JOIN tenants t ON t.id = a.tenant_id
-       WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) 
-         AND a.start_time < DATE_ADD(NOW(), INTERVAL 25 HOUR)
+       WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) 
+         AND a.start_time < DATE_ADD(NOW(), INTERVAL 26 HOUR)
          AND a.status IN ('scheduled','confirmed')
+         AND (a.whatsapp_reminder_1h_sent = 0 OR a.whatsapp_reminder_24h_sent = 0)
     `);
 
     if (appointments.length === 0) return;
@@ -136,13 +145,22 @@ async function checkAppointmentReminders() {
                        .replace(/\{date\}/g, dateStr);
           };
 
-          if (diffMinutes === 60 && prefs.reminder_1h_enabled !== false) {
+          // Modificado: Janela de tolerância e controle para evitar duplicados ou faltas
+          if (diffMinutes > 30 && diffMinutes <= 70 && !apt.whatsapp_reminder_1h_sent && prefs.reminder_1h_enabled !== false) {
             const msg = buildMsg(prefs.reminder_1h_msg, `🔔 *Lembrete de Atendimento*\n\nOlá, *{patient_name}*.\nSua sessão com {professional_name} é hoje às {time}.`);
-            await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
+            const ok = await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
+            if (ok === true) {
+               await db.query('UPDATE appointments SET whatsapp_reminder_1h_sent = 1 WHERE id = ?', [apt.id]);
+               console.log(`[CRON-WPP Tenant ${apt.tenant_id}] Lembrete 1h enviado para ${apt.patient_name}`);
+            }
           }
-          if (diffMinutes === 1440 && prefs.reminder_24h_enabled !== false) {
+          if (diffMinutes > 1400 && diffMinutes <= 1460 && !apt.whatsapp_reminder_24h_sent && prefs.reminder_24h_enabled !== false) {
             const msg = buildMsg(prefs.reminder_24h_msg, `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nConfirmamos sua consulta para amanhã ({date}) às {time}.`);
-            await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
+            const ok = await wppService.sendReminder(apt.tenant_id, targetPhone, msg);
+            if (ok === true) {
+               await db.query('UPDATE appointments SET whatsapp_reminder_24h_sent = 1 WHERE id = ?', [apt.id]);
+               console.log(`[CRON-WPP Tenant ${apt.tenant_id}] Lembrete 24h enviado para ${apt.patient_name}`);
+            }
           }
         }
       }

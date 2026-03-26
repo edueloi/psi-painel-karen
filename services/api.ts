@@ -127,15 +127,15 @@ export const api: Api = {
   },
 
   post<T>(endpoint: string, body: any): Promise<T> {
-    return this.request(endpoint, { method: 'POST', body: JSON.stringify(body) });
+    return this.request(endpoint, { method: 'POST', body: body instanceof FormData ? body : JSON.stringify(body) });
   },
 
   put<T>(endpoint: string, body: any): Promise<T> {
-    return this.request(endpoint, { method: 'PUT', body: JSON.stringify(body) });
+    return this.request(endpoint, { method: 'PUT', body: body instanceof FormData ? body : JSON.stringify(body) });
   },
 
   patch<T>(endpoint: string, body: any): Promise<T> {
-    return this.request(endpoint, { method: 'PATCH', body: JSON.stringify(body) });
+    return this.request(endpoint, { method: 'PATCH', body: body instanceof FormData ? body : JSON.stringify(body) });
   },
 
   delete<T>(endpoint: string): Promise<T> {

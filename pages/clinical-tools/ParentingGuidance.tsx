@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
+
 import { 
   UserCheck, 
   Target, 
@@ -48,7 +50,9 @@ interface ParentingData {
 }
 
 export const ParentingGuidancePage: React.FC = () => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
+
   const [searchParams] = useSearchParams();
   const initialPatientId = searchParams.get('patientId') || searchParams.get('patient_id');
   const { success, error, info } = useToast();
@@ -195,7 +199,8 @@ export const ParentingGuidancePage: React.FC = () => {
             patientSearch={patientSearch}
             setPatientSearch={setPatientSearch}
             isLoading={isLoadingPatients}
-            t={(k) => k}
+            t={t}
+
           />
         </div>
 

@@ -21,13 +21,7 @@ import {
   Package,
   ShoppingBag,
   UserCheck,
-  Video,
   Briefcase,
-  BookOpen,
-  Radar,
-  Layers,
-  Printer,
-  Key
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -44,9 +38,9 @@ const MODULES = [
   { key: 'view_medical_records',    label: 'Prontuário & Estudos de Caso',       icon: <FileText size={16} />,    group: 'Clínico' },
   { key: 'neuro_access',            label: 'Neurodesenvolvimento (PEI)',         icon: <BrainCircuit size={16} />, group: 'Clínico' },
   // Intervenção & Teoria
-  { key: 'manage_clinical_tools',   label: 'Ferramentas Clínicas, DISC & Abordagens', icon: <Briefcase size={16} />, group: 'Intervenção' },
+  { key: 'manage_clinical_tools',   label: 'Ferramentas Clínicas, Instrumentos (DISC, DASS) & Abordagens', icon: <Briefcase size={16} />, group: 'Intervenção' },
   // Avaliação
-  { key: 'manage_forms',            label: 'Formulários & Instrumentos',         icon: <ClipboardList size={16} />, group: 'Avaliação' },
+  { key: 'manage_forms',            label: 'Formulários',                          icon: <ClipboardList size={16} />, group: 'Avaliação' },
   // Documentos
   { key: 'manage_documents',        label: 'Documentos, Encaminhamentos & Termos', icon: <FolderOpen size={16} />, group: 'Documentos' },
   // Gestão
@@ -79,6 +73,7 @@ const ROLES = [
       neuro_access:             'total',
       manage_clinical_tools:    'total',
       manage_forms:             'total',
+      manage_instruments:       'total',
       manage_documents:         'total',
       view_agenda:              'total',
       manage_professionals:     'total',
@@ -105,6 +100,7 @@ const ROLES = [
       neuro_access:             'own',
       manage_clinical_tools:    'total',
       manage_forms:             'view',
+      manage_instruments:       'total',
       manage_documents:         'own',
       view_agenda:              'own',
       manage_professionals:     'none',
@@ -131,6 +127,7 @@ const ROLES = [
       neuro_access:             'none',
       manage_clinical_tools:    'none',
       manage_forms:             'view',
+      manage_instruments:       'none',
       manage_documents:         'view',
       view_agenda:              'edit',
       manage_professionals:     'view',

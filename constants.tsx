@@ -27,8 +27,8 @@ export const NAV_SECTIONS = [
   {
     title: 'nav.group.assessment',
     items: [
-      { label: 'nav.instruments', path: '/formularios', icon: <PenLine size={18} />, requiredPermission: 'manage_forms', requiredFeature: 'formularios' },
-      { label: 'nav.evaluations_desc', path: '/disc', icon: <Radar size={18} />, requiredPermission: 'manage_clinical_tools', requiredFeature: 'ferramentas_clinicas' },
+      { label: 'nav.forms', path: '/formularios', icon: <PenLine size={18} />, requiredPermission: 'manage_forms', requiredFeature: 'formularios' },
+      { label: 'nav.instruments', path: '/instrumentos', icon: <Radar size={18} />, requiredPermission: 'manage_clinical_tools', requiredFeature: 'ferramentas_clinicas' },
     ]
   },
   {

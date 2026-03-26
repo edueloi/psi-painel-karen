@@ -66,6 +66,7 @@ import { Messages } from './pages/Messages';
 import { Settings } from './pages/Settings';
 import Disc from './pages/Disc';
 import { Approaches } from './pages/Approaches';
+import { Instruments } from './pages/Instruments';
 import { Profile } from './pages/Profile';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
@@ -240,6 +241,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/formularios/metricas" element={<ProtectedRoute requiredPermission="manage_forms"><FormsMetrics /></ProtectedRoute>} />
       <Route path="/formularios/novo" element={<ProtectedRoute requiredPermission="manage_forms"><FormEditor /></ProtectedRoute>} />
       <Route path="/formularios/:id" element={<ProtectedRoute requiredPermission="manage_forms"><FormEditor /></ProtectedRoute>} />
+      <Route path="/instrumentos" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><Instruments /></ProtectedRoute>} />
       <Route path="/disc" element={<ProtectedRoute><Disc /></ProtectedRoute>} />
       <Route path="/termos" element={<ProtectedRoute requiredPermission="manage_documents"><DocumentVault /></ProtectedRoute>} />
       <Route path="/abordagens" element={<ProtectedRoute><Approaches /></ProtectedRoute>} />

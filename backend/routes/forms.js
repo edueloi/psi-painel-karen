@@ -273,10 +273,10 @@ router.get('/public/:hash', async (req, res) => {
     const patientId = req.query.p;
     if (patientId) {
       try {
-        const [patients] = await db.query('SELECT full_name, email, whatsapp, phone FROM patients WHERE id = ? AND tenant_id = ?', [patientId, row.tenant_id]);
+        const [patients] = await db.query('SELECT name, email, phone FROM patients WHERE id = ? AND tenant_id = ?', [patientId, row.tenant_id]);
         if (patients.length > 0) {
           form.patient = { 
-            name: patients[0].full_name,
+            name: patients[0].name,
             email: patients[0].email,
             phone: patients[0].whatsapp || patients[0].phone
           };

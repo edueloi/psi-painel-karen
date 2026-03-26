@@ -31,9 +31,10 @@ const FEATURES_OPTIONS = [
   { key: 'prontuario',           label: 'Prontuário',                       group: 'Clínico' },
   { key: 'estudos_de_caso',      label: 'Estudos de Caso',                  group: 'Clínico' },
   // ── Intervenção & Teoria ──────────────────────────────────────────────────
-  { key: 'ferramentas_clinicas', label: 'Ferramentas Clínicas, DISC & Abordagens', group: 'Intervenção' },
+  { key: 'ferramentas_clinicas', label: 'Ferramentas Clínicas & Abordagens', group: 'Intervenção' },
   // ── Avaliação ─────────────────────────────────────────────────────────────
-  { key: 'formularios',          label: 'Formulários & Instrumentos',       group: 'Avaliação' },
+  { key: 'formularios',          label: 'Formulários',                       group: 'Avaliação' },
+  { key: 'instrumentos',         label: 'Instrumentos (DISC, DASS-21)',       group: 'Avaliação', premium: true },
   // ── Documentos ────────────────────────────────────────────────────────────
   { key: 'documentos',           label: 'Documentos, Encaminhamentos & Termos', group: 'Documentos', premium: true },
   // ── Gestão ───────────────────────────────────────────────────────────────

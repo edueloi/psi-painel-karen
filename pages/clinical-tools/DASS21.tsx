@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
+
 import { 
   Activity, 
   Target, 
@@ -104,7 +106,9 @@ interface DassResult {
 }
 
 export const DASS21Page: React.FC = () => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
+
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const initialPid = searchParams.get('patientId') || searchParams.get('patient_id');
@@ -358,7 +362,8 @@ export const DASS21Page: React.FC = () => {
             patientSearch={patientSearch}
             setPatientSearch={setPatientSearch}
             isLoading={loadingPatients}
-            t={k => k}
+            t={t}
+
           />
 
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">

@@ -24,6 +24,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { PageHeader } from '../../components/UI/PageHeader';
 import { Button } from '../../components/UI/Button';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { Modal } from '../../components/UI/Modal';
 import { Patient } from '../../types';
 import { api } from '../../services/api';
@@ -74,6 +75,7 @@ export const DISCProfessionalPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialPid = searchParams.get('patientId') || searchParams.get('patient_id');
   const { success, error, info } = useToast();
+  const { t } = useLanguage();
 
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -325,7 +327,7 @@ export const DISCProfessionalPage: React.FC = () => {
             patientSearch={patientSearch}
             setPatientSearch={setPatientSearch}
             isLoading={loadingPatients}
-            t={k => k}
+            t={t}
           />
 
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">

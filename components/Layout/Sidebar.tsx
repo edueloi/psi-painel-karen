@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { NAV_SECTIONS } from '../../constants';
 import { X, LogOut, BrainCircuit, ShieldAlert } from 'lucide-react';
 import logoUrl from '../../images/logo-psiflux.png';
-import logoDarkUrl from '../../images/logopsiflux-para-fundo-escuro.png';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -69,13 +68,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
     <>
       <div className={`fixed inset-0 bg-slate-900/60 z-40 lg:hidden backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
       <aside className={`fixed top-0 left-0 z-50 h-full w-[250px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:shadow-lg ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className={`h-[88px] flex items-center px-6 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
-          <div className="flex items-center gap-3.5 group cursor-pointer">
-            <div className={`relative h-16 w-16 rounded-2xl overflow-hidden shadow-lg flex-shrink-0 ${logoRing}`}>
-              <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-0.5" />
+        <div className={`h-[72px] flex items-center px-4 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
+          <div className="flex items-center gap-3 group cursor-pointer">
+            <div className="relative h-11 w-11 rounded-xl overflow-hidden shadow-md flex-shrink-0 bg-white ring-2 ring-white/80">
+              <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-0.5" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-[28px] leading-none tracking-tight flex items-baseline">
+              <h1 className="font-display font-bold text-[24px] leading-none tracking-tight flex items-baseline">
                 <span className={isDark ? "text-slate-100" : "text-[#1e295b]"}>Psi</span>
                 <span className="text-[#00bcd4]">Flux</span>
               </h1>
@@ -107,6 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                         '/pacientes': 'pacientes',
                         '/prontuario': 'prontuarios',
                         '/formularios': 'formularios',
+                        '/instrumentos': 'instrumentos',
                         '/servicos': 'servicos',
                         '/comandas': 'comandas',
                         '/financeiro': 'financeiro',
