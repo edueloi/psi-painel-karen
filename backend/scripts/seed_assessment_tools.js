@@ -13,14 +13,22 @@ async function seed() {
   try {
     console.log('🚀 Atualizando Shema e Seeding de Ferramentas Clínicas...');
 
-    // 1. Garantir colunas no forms
-    const alterForms = [
-      'ALTER TABLE forms ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT false',
-      'ALTER TABLE forms ADD COLUMN IF NOT EXISTS hash VARCHAR(100) UNIQUE'
+    // 1. Garantir colunas no forms (modo mais compatível)
+    const columnsToEnsure = [
+        { name: 'is_system', sql: 'ADD COLUMN is_system BOOLEAN DEFAULT false' },
+        { name: 'hash', sql: 'ADD COLUMN hash VARCHAR(100) UNIQUE' }
     ];
 
-    for (const stmt of alterForms) {
-      try { await conn.query(stmt); } catch (e) {}
+    for (const col of columnsToEnsure) {
+        try {
+            const [cols] = await conn.query(`SHOW COLUMNS FROM forms LIKE ?`, [col.name]);
+            if (cols.length === 0) {
+                await conn.query(`ALTER TABLE forms ${col.sql}`);
+                console.log(`✅ Coluna ${col.name} adicionada`);
+            }
+        } catch (e) {
+            console.warn(`ℹ️ Aviso ao verificar/adicionar coluna ${col.name}:`, e.message);
+        }
     }
 
     // 2. Pegar um usuário admin para vincular o seed (se necessário)

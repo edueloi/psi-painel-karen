@@ -407,6 +407,7 @@ async function migrate() {
       fields LONGTEXT,
       is_public BOOLEAN DEFAULT false,
       is_global BOOLEAN DEFAULT false,
+      is_system BOOLEAN DEFAULT false,
       hash VARCHAR(100) UNIQUE,
       created_by INT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -696,7 +697,9 @@ async function migrate() {
     "ALTER TABLE pei_goals ADD COLUMN current_value INT DEFAULT 0",
     "ALTER TABLE pei_goals ADD COLUMN target_value INT DEFAULT 100",
     "ALTER TABLE pei_abc ADD COLUMN intensity VARCHAR(100)",
-    "ALTER TABLE pei_abc ADD COLUMN duration VARCHAR(100)"
+    "ALTER TABLE pei_abc ADD COLUMN duration VARCHAR(100)",
+    "ALTER TABLE forms ADD COLUMN is_system BOOLEAN DEFAULT false",
+    "ALTER TABLE forms ADD COLUMN hash VARCHAR(100) UNIQUE"
   ];
 
   // ---- USER SESSIONS ----
