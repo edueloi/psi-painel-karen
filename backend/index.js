@@ -137,16 +137,21 @@ app.get('/f/:hash', async (req, res) => {
 
     const hash = req.params.hash?.toLowerCase();
 
-    if (hash && hash in CLINICAL_TOOL_LABELS && fs.existsSync(distIndexPath)) {
+    if (hash && hash in CLINICAL_TOOL_LABELS) {
       const tool = CLINICAL_TOOL_LABELS[hash];
       let prof = null;
-      
+
+      // Busca dados do profissional com proteção a falha de DB
       if (userId) {
-        const [[p]] = await db.query(
-          'SELECT name, specialty, crp, company_name, clinic_logo_url, avatar_url FROM users WHERE id = ?',
-          [userId]
-        );
-        prof = p;
+        try {
+          const [[p]] = await db.query(
+            'SELECT name, specialty, crp, company_name, clinic_logo_url, avatar_url FROM users WHERE id = ?',
+            [userId]
+          );
+          prof = p || null;
+        } catch (dbErr) {
+          console.warn('[/f/:hash] Falha ao buscar profissional:', dbErr.message);
+        }
       }
 
       const profName = prof?.name || '';
@@ -155,8 +160,8 @@ app.get('/f/:hash', async (req, res) => {
       const clinic = prof?.company_name || 'PsiFlux';
       const descParts = [profName, specialty, crp ? `CRP ${crp}` : ''].filter(Boolean);
       const profLine = descParts.join(' • ');
-      
-      const ogTitle = `${tool.title} — ${clinic}`;
+
+      const ogTitle = profName ? `${tool.title} — ${clinic}` : `${tool.title} | PsiFlux`;
       const ogDesc = profLine
         ? tool.description.replace('pelo seu psicólogo(a)', `por ${profName}`).replace('pelo psicólogo(a)', `por ${profName}`)
         : tool.description;
@@ -170,7 +175,7 @@ app.get('/f/:hash', async (req, res) => {
 
       const logoUrl = toPublicUrl(prof?.clinic_logo_url) || toPublicUrl(prof?.avatar_url) || `${FRONTEND_URL}/images/logo-psiflux.png`;
       const pageUrl = `${FRONTEND_URL}/f/${req.params.hash}?u=${req.query.u || ''}&p=${req.query.p || ''}`;
-      
+
       const ogTags = `
     <title>${ogTitle}</title>
     <meta name="description" content="${ogDesc}" />
@@ -188,17 +193,25 @@ app.get('/f/:hash', async (req, res) => {
     <meta name="twitter:description" content="${ogDesc}" />
     <meta name="twitter:image" content="${logoUrl}" />`;
 
-      let html = fs.readFileSync(distIndexPath, 'utf8');
-      html = html.replace(/<title>.*?<\/title>/is, '');
-      html = html.replace(/<meta\s+[^>]*name=["']description["'][^>]*>/gi, '');
-      html = html.replace(/<meta\s+[^>]*property=["']og:[^"']*["'][^>]*>/gi, '');
-      html = html.replace(/<meta\s+[^>]*name=["']twitter:[^"']*["'][^>]*>/gi, '');
-      html = html.replace(/<meta\s+[^>]*property=["']twitter:[^"']*["'][^>]*>/gi, '');
-      html = html.replace('<head>', `<head>${ogTags}`);
-      
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=30');
-      return res.send(html);
+      // Tenta injetar as OG tags no HTML; se o dist não existir, serve o fallback padrão
+      try {
+        if (!fs.existsSync(distIndexPath)) throw new Error('dist/index.html not found');
+        let html = fs.readFileSync(distIndexPath, 'utf8');
+        html = html.replace(/<title>.*?<\/title>/is, '');
+        html = html.replace(/<meta\s+[^>]*name=["']description["'][^>]*>/gi, '');
+        html = html.replace(/<meta\s+[^>]*property=["']og:[^"']*["'][^>]*>/gi, '');
+        html = html.replace(/<meta\s+[^>]*name=["']twitter:[^"']*["'][^>]*>/gi, '');
+        html = html.replace(/<meta\s+[^>]*property=["']twitter:[^"']*["'][^>]*>/gi, '');
+        html = html.replace('<head>', `<head>${ogTags}`);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=30');
+        return res.send(html);
+      } catch (htmlErr) {
+        console.warn('[/f/:hash] Fallback: nao conseguiu injetar OG tags:', htmlErr.message);
+        // Fallback: redireciona o browser para a URL correta (o JS fará o carregamento)
+        if (fs.existsSync(distIndexPath)) return res.sendFile(distIndexPath);
+        return res.redirect(`${FRONTEND_URL}/f/${req.params.hash}${req._parsedUrl.search || ''}`);
+      }
     }
 
     const [forms] = await db.query(
