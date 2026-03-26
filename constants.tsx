@@ -69,7 +69,6 @@ export const NAV_SECTIONS = [
     title: 'nav.group.communication',
     items: [
       { label: 'nav.messages', path: '/mensagens', icon: <MessageCircle size={20} />, requiredPermission: 'access_messages', requiredFeature: 'mensagens' },
-      { label: 'Aurora AI', path: '/aurora', icon: <Sparkles size={20} />, requiredFeature: 'aurora_ai' },
     ]
   },
   {
