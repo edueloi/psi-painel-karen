@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams, BrowserRouter } from 'react-router-dom';
 import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -82,17 +82,46 @@ import { Terms } from './pages/Terms';
 import { Help } from './pages/Help';
 import logoUrl from './images/logo-psiflux.png';
 import logoDarkUrl from './images/logopsiflux-para-fundo-escuro.png';
+import { useInactivityTimeout } from './hooks/useInactivityTimeout';
+
+const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutos
+const WARNING_BEFORE_MS = 5 * 60 * 1000;       // aviso 5 min antes
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const location = useLocation();
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showWarning, setShowWarning] = useState(false);
 
   useEffect(() => {
     if (window.innerWidth <= 1024) {
       setSidebarOpen(false);
     }
   }, [location]);
+
+  // Reseta o aviso de inatividade junto com o timer principal
+  const handleReset = useCallback(() => {
+    setShowWarning(false);
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+    warningTimerRef.current = setTimeout(() => {
+      setShowWarning(true);
+    }, INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_MS);
+  }, []);
+
+  // Setup do aviso inicial
+  useEffect(() => {
+    handleReset();
+    const events = ['mousemove','mousedown','keydown','touchstart','click','scroll'];
+    events.forEach(e => window.addEventListener(e, handleReset, { passive: true }));
+    return () => {
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+      events.forEach(e => window.removeEventListener(e, handleReset));
+    };
+  }, [handleReset]);
+
+  // Hook de logout por inatividade
+  useInactivityTimeout(logout, INACTIVITY_TIMEOUT_MS);
 
   return (
     <div className="flex h-screen w-full bg-slate-50/80 text-slate-800 font-sans overflow-hidden" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
@@ -103,6 +132,25 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="max-w-[1600px] mx-auto pb-8">{children}</div>
         </main>
       </div>
+
+      {/* Banner de aviso de inatividade */}
+      {showWarning && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center gap-4 bg-amber-950 text-amber-50 px-6 py-4 rounded-2xl shadow-2xl border border-amber-800/50 backdrop-blur-lg">
+            <span className="text-2xl">⏱️</span>
+            <div>
+              <p className="font-black text-sm uppercase tracking-widest text-amber-200">Sessão prestes a expirar</p>
+              <p className="text-xs text-amber-300/80 font-medium mt-0.5">Você será desconectado em 5 minutos por inatividade. Mova o mouse para continuar.</p>
+            </div>
+            <button
+              onClick={() => { handleReset(); }}
+              className="ml-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xs rounded-xl transition-colors uppercase tracking-widest whitespace-nowrap"
+            >
+              Continuar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
