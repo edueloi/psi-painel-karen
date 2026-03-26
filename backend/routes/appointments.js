@@ -18,6 +18,7 @@ async function ensureSchema() {
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN duration_minutes INT NULL DEFAULT 60' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN room_id VARCHAR(50) NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN reschedule_reason TEXT NULL' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN whatsapp_reminder_professional_sent TINYINT(1) DEFAULT 0' },
     { table: 'services', sql: 'ALTER TABLE services ADD COLUMN category VARCHAR(100) NULL' },
     // Comandas table schema
     { table: 'comandas', sql: `

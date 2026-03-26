@@ -26,6 +26,7 @@ class NotificationService {
           max_attempts INT DEFAULT 10,
           last_error TEXT,
           scheduled_at TIMESTAMP NULL,
+          expires_at TIMESTAMP NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           sent_at TIMESTAMP NULL,
           metadata JSON NULL,
@@ -41,16 +42,16 @@ class NotificationService {
   /**
    * Adiciona uma mensagem à fila
    */
-  async enqueue({ tenant_id, recipient_phone, content, scheduled_at = null, metadata = null }) {
+  async enqueue({ tenant_id, recipient_phone, content, scheduled_at = null, expires_at = null, metadata = null }) {
     try {
       if (!recipient_phone || !content) {
         throw new Error('Telefone e conteúdo são obrigatórios para enfileirar notificação.');
       }
 
       const [result] = await db.query(
-        `INSERT INTO notification_queue (tenant_id, recipient_phone, content, scheduled_at, metadata)
-         VALUES (?, ?, ?, ?, ?)`,
-        [tenant_id, recipient_phone, content, scheduled_at, metadata ? JSON.stringify(metadata) : null]
+        `INSERT INTO notification_queue (tenant_id, recipient_phone, content, scheduled_at, expires_at, metadata)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [tenant_id, recipient_phone, content, scheduled_at, expires_at, metadata ? JSON.stringify(metadata) : null]
       );
 
       return result.insertId;
@@ -86,6 +87,13 @@ class NotificationService {
 
       for (const item of pending) {
         try {
+          // CANCELAMENTO AUTOMÁTICO SE EXPIRADO (Ex: aviso de consulta enviada após a consulta)
+          if (item.expires_at && new Date(item.expires_at) < new Date()) {
+            await db.query("UPDATE notification_queue SET status = 'canceled', last_error = 'Expirada' WHERE id = ?", [item.id]);
+            console.log(`[NotificationQueue] Mensagem ${item.id} expirada e cancelada.`);
+            continue;
+          }
+
           // Tenta enviar via wppService
           const result = await wppService.sendReminder(item.tenant_id, item.recipient_phone, item.content);
           

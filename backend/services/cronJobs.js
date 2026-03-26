@@ -154,6 +154,7 @@ async function checkAppointmentReminders() {
               tenant_id: apt.tenant_id,
               recipient_phone: targetPhone,
               content: msg,
+              expires_at: new Date(new Date(apt.start_time).getTime() + 10 * 60000).toISOString().slice(0, 19).replace('T', ' '),
               metadata: { apt_id: apt.id, type: '1h-reminder-patient' }
             });
             await db.query('UPDATE appointments SET whatsapp_reminder_1h_sent = 1 WHERE id = ?', [apt.id]);
@@ -166,6 +167,7 @@ async function checkAppointmentReminders() {
               tenant_id: apt.tenant_id,
               recipient_phone: targetPhone,
               content: msg,
+              expires_at: new Date(new Date(apt.start_time).getTime() + 10 * 60000).toISOString().slice(0, 19).replace('T', ' '),
               metadata: { apt_id: apt.id, type: '24h-reminder-patient' }
             });
             await db.query('UPDATE appointments SET whatsapp_reminder_24h_sent = 1 WHERE id = ?', [apt.id]);
@@ -201,6 +203,7 @@ async function checkAppointmentReminders() {
              tenant_id: masterTenantId,
              recipient_phone: apt.professional_phone,
              content: wppMsg,
+             expires_at: new Date(new Date(apt.start_time).getTime() + 10 * 60000).toISOString().slice(0, 19).replace('T', ' '),
              metadata: { apt_id: apt.id, type: 'reminder-professional', professional_id: apt.professional_id }
           });
           await db.query('UPDATE appointments SET whatsapp_reminder_professional_sent = 1 WHERE id = ?', [apt.id]);
