@@ -125,6 +125,7 @@ export const DASS21Page: React.FC = () => {
   const [analyzingId, setAnalyzingId] = useState<string | number | null>(null);
   const [detailResult, setDetailResult] = useState<DassResult | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -190,6 +191,103 @@ export const DASS21Page: React.FC = () => {
   const getInterpretation = (subscale: 'Depression' | 'Anxiety' | 'Stress', score: number) => {
     const labels = SCORING_LABELS[subscale];
     return labels.find(l => score >= l.range[0] && score <= l.range[1]) || labels[0];
+  };
+
+  const getClinicalAnalysis = (scores: { Depression: number; Anxiety: number; Stress: number }) => {
+    const d = getInterpretation('Depression', scores.Depression);
+    const a = getInterpretation('Anxiety', scores.Anxiety);
+    const s = getInterpretation('Stress', scores.Stress);
+
+    const descMap: Record<string, string> = {
+      Normal: 'dentro da normalidade clínica, sem indicadores de sofrimento significativo',
+      Leve: 'em nível leve, com indicadores iniciais que merecem atenção',
+      Moderado: 'em nível moderado, com sintomas que impactam o funcionamento diário',
+      Grave: 'em nível grave, com sintomas marcantes que comprometem a qualidade de vida',
+      'Muito Grave': 'em nível muito grave, com sintomas intensos que exigem atenção clínica imediata',
+    };
+
+    const depText = {
+      Normal: 'Sem sinais de humor disfórico ou perda de motivação.',
+      Leve: 'Presença leve de humor deprimido, podendo haver leve diminuição de energia ou prazer.',
+      Moderado: 'Sintomas como humor triste persistente, baixa autoestima, dificuldade de concentração e perda de interesse em atividades.',
+      Grave: 'Presença intensa de desesperança, desmotivação acentuada, possível ideação negativa e retraimento social.',
+      'Muito Grave': 'Quadro depressivo severo com marcada anedonia, sentimentos de inutilidade, possível ideação suicida e comprometimento funcional importante.',
+    };
+    const anxText = {
+      Normal: 'Sem indícios de ativação autonômica excessiva ou ansiedade clínica.',
+      Leve: 'Leve hiperatividade autonômica, tensão muscular ou preocupação ocasional.',
+      Moderado: 'Sintomas de ansiedade visíveis: taquicardia, boca seca, tensão, preocupação excessiva ou dificuldade de relaxar.',
+      Grave: 'Ansiedade intensa com sintomas físicos (palpitações, tremores), medo excessivo, possíveis crises de pânico.',
+      'Muito Grave': 'Ansiedade incapacitante com ativação autonômica severa, pânico frequente e comprometimento significativo do funcionamento.',
+    };
+    const strText = {
+      Normal: 'Nível de estresse dentro da normalidade, sem sobrecarga emocional aparente.',
+      Leve: 'Leve tensão emocional com dificuldade ocasional em relaxar ou reagir proporcionalmente.',
+      Moderado: 'Irritabilidade, impaciência, tensão persistente e dificuldade em desacelerar ou descansar.',
+      Grave: 'Sobrecarga emocional significativa, reações exageradas a situações, agitação e dificuldade em controlar impulsos.',
+      'Muito Grave': 'Estresse crônico severo com exaustão emocional, intolerância marcante e risco de esgotamento (burnout).',
+    };
+
+    const parts: string[] = [];
+    parts.push(`**Depressão (${scores.Depression} pts — ${d.label}):** ${depText[d.label]}`);
+    parts.push(`**Ansiedade (${scores.Anxiety} pts — ${a.label}):** ${anxText[a.label]}`);
+    parts.push(`**Estresse (${scores.Stress} pts — ${s.label}):** ${strText[s.label]}`);
+
+    const high = [d, a, s].filter(x => ['Grave', 'Muito Grave'].includes(x.label));
+    let conclusion = '';
+    if (high.length === 0) {
+      conclusion = 'O perfil geral da avaliação não indica sofrimento psicológico clinicamente significativo no momento.';
+    } else if (high.length === 1) {
+      conclusion = `Atenção especial recomendada para a dimensão destacada. Considerar acompanhamento e aprofundamento clínico.`;
+    } else if (high.length === 2) {
+      conclusion = `Dois domínios apresentam severidade elevada. Recomenda-se avaliação clínica aprofundada e planejamento de intervenção.`;
+    } else {
+      conclusion = `Os três domínios apresentam níveis elevados de sofrimento. Intervenção clínica prioritária é fortemente indicada.`;
+    }
+
+    return { parts, conclusion };
+  };
+
+  const handlePrintReport = (result: typeof detailResult, patientName: string) => {
+    if (!result) return;
+    const { parts, conclusion } = getClinicalAnalysis(result.scores);
+    const dateStr = new Date(result.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const answersHtml = result.answers ? DASS_ITEMS.map(item => {
+      const val = result.answers[item.id];
+      const labels = ['Não se aplicou', 'Algum grau', 'Grau considerável', 'Quase sempre'];
+      return `<tr><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155">${item.id}. ${item.text}</td><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;font-weight:700;color:#4f46e5;text-align:center">${val ?? '—'} — ${val !== undefined ? labels[val] : '—'}</td></tr>`;
+    }).join('') : '';
+
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>DASS-21 — ${patientName}</title>
+    <style>body{font-family:system-ui,sans-serif;color:#0f172a;margin:0;padding:32px;} h1{font-size:22px;font-weight:900;margin:0} h2{font-size:14px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 8px} p{margin:4px 0;font-size:13px;line-height:1.6} .badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;text-transform:uppercase} .score-row{display:flex;gap:16px;margin:6px 0;align-items:center} .bar{flex:1;height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden} .bar-fill{height:100%;border-radius:99px} table{width:100%;border-collapse:collapse;margin-top:8px} @media print{body{padding:16px}}</style>
+    </head><body>
+    <div style="border-bottom:3px solid #6366f1;padding-bottom:16px;margin-bottom:24px">
+      <p style="font-size:11px;font-weight:900;color:#6366f1;text-transform:uppercase;letter-spacing:.15em;margin-bottom:4px">DASS-21 — Relatório de Avaliação</p>
+      <h1>${patientName}</h1>
+      <p style="color:#94a3b8;font-size:12px;margin-top:4px">${dateStr}</p>
+    </div>
+    <h2>Resultados por Domínio</h2>
+    ${(['Depression','Anxiety','Stress'] as const).map(sub => {
+      const score = result.scores[sub];
+      const interp = getInterpretation(sub, score);
+      const label = sub === 'Depression' ? 'Depressão' : sub === 'Anxiety' ? 'Ansiedade' : 'Estresse';
+      const colorMap: Record<string,string> = { Normal:'#10b981', Leve:'#f59e0b', Moderado:'#f97316', Grave:'#f43f5e', 'Muito Grave':'#dc2626' };
+      const c = colorMap[interp.label] || '#94a3b8';
+      return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em">${label}</span><span class="badge" style="background:${c}20;color:${c}">${interp.label}</span></div><div class="score-row"><span style="font-size:22px;font-weight:900;min-width:40px">${score}</span><div class="bar"><div class="bar-fill" style="width:${Math.min((score/42)*100,100)}%;background:${c}"></div></div></div></div>`;
+    }).join('')}
+    <h2>Análise Clínica</h2>
+    ${parts.map(p => `<p style="margin-bottom:8px">${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`).join('')}
+    <p style="margin-top:12px;padding:12px;background:#f8fafc;border-left:3px solid #6366f1;border-radius:4px"><strong>Conclusão:</strong> ${conclusion}</p>
+    ${answersHtml ? `<h2 style="margin-top:24px">Respostas do Paciente</h2><table>${answersHtml}</table>` : ''}
+    <p style="margin-top:32px;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:12px">Gerado por PsiFlux · DASS-21 (Vignola & Tucci) · ${new Date().toLocaleDateString('pt-BR')}</p>
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
   };
 
   const currentScores = useMemo(() => calculateScores(currentAnswers), [currentAnswers]);
@@ -532,64 +630,134 @@ export const DASS21Page: React.FC = () => {
       {detailResult && (
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-12 space-y-12 relative animate-slideUpFade">
-              <button onClick={() => setDetailResult(null)} className="absolute top-8 right-8 p-3 bg-slate-50 rounded-2xl text-slate-400 hover:text-rose-500 transition-all">
+              <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="absolute top-8 right-8 p-3 bg-slate-50 rounded-2xl text-slate-400 hover:text-rose-500 transition-all">
                  <Plus size={24} className="rotate-45" />
               </button>
 
-              <div className="flex flex-col md:flex-row gap-8 items-start justify-between border-b border-slate-50 pb-10">
-                 <div className="space-y-2">
-                    <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Avaliação Consolidada</p>
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">{patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}</h2>
-                    <p className="text-sm font-bold text-slate-400">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                 </div>
-                 <div className="flex gap-3">
-                    <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={16}/>}>Imprimir Relatório</Button>
-                    <Button variant="ghost" size="sm" radius="xl" leftIcon={<Share size={16}/>}>Exportar PDF</Button>
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                 <div className="bg-slate-950 rounded-[2.5rem] p-10 flex items-center justify-center shadow-2xl">
-                    <RadarGraphic scores={detailResult.scores} />
-                 </div>
-                 <div className="space-y-8">
-                    {(['Depression', 'Anxiety', 'Stress'] as const).map(sub => {
-                       const score = detailResult.scores[sub];
-                       const interp = getInterpretation(sub, score);
-                       return (
-                         <div key={sub} className="p-8 rounded-[2rem] border border-slate-100 bg-slate-50/50 space-y-4">
-                            <div className="flex items-center justify-between">
-                               <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">{sub === 'Depression' ? 'Depressão' : sub === 'Anxiety' ? 'Ansiedade' : 'Estresse'}</h4>
-                               <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-xl ${interp.bg} ${interp.color}`}>{interp.label}</span>
-                            </div>
-                            <div className="flex items-center gap-6">
-                               <div className="text-3xl font-black text-slate-900">{score}</div>
-                               <div className="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
-                                  <div className={`h-full ${interp.color.replace('text', 'bg')}`} style={{ width: `${(score / 42) * 100}%` }} />
-                               </div>
-                            </div>
-                         </div>
-                       );
-                    })}
-                 </div>
-              </div>
-
-              {detailResult.analysis ? (
-                <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-100 space-y-6">
-                   <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
-                      <Sparkles size={20} className="text-amber-400" /> Análise Clínica Aurora (IA)
-                   </h3>
-                   <div className="text-base font-bold leading-relaxed text-indigo-50/80 italic">
-                      "{detailResult.analysis}"
+              {(() => {
+                const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
+                const { parts, conclusion } = getClinicalAnalysis(detailResult.scores);
+                return (<>
+                <div className="flex flex-col md:flex-row gap-8 items-start justify-between border-b border-slate-50 pb-10">
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Avaliação Consolidada</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">{patientName}</h2>
+                      <p className="text-sm font-bold text-slate-400">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                   </div>
+                   <div className="flex gap-3 shrink-0">
+                      <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={16}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
+                      <Button variant="ghost" size="sm" radius="xl" leftIcon={<Share size={16}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Exportar PDF</Button>
                    </div>
                 </div>
-              ) : (
-                <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-12 text-center space-y-4">
-                   <Brain size={48} className="mx-auto text-slate-200" />
-                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Inicie a análise Aurora para obter insights clínicos deste resultado.</p>
-                   <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-indigo-600 text-white rounded-2xl px-10 py-5">Analisar agora</Button>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                   <div className="bg-slate-950 rounded-[2.5rem] p-10 flex items-center justify-center shadow-2xl">
+                      <RadarGraphic scores={detailResult.scores} />
+                   </div>
+                   <div className="space-y-8">
+                      {(['Depression', 'Anxiety', 'Stress'] as const).map(sub => {
+                         const score = detailResult.scores[sub];
+                         const interp = getInterpretation(sub, score);
+                         return (
+                           <div key={sub} className="p-8 rounded-[2rem] border border-slate-100 bg-slate-50/50 space-y-4">
+                              <div className="flex items-center justify-between">
+                                 <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">{sub === 'Depression' ? 'Depressão' : sub === 'Anxiety' ? 'Ansiedade' : 'Estresse'}</h4>
+                                 <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-xl ${interp.bg} ${interp.color}`}>{interp.label}</span>
+                              </div>
+                              <div className="flex items-center gap-6">
+                                 <div className="text-3xl font-black text-slate-900">{score}</div>
+                                 <div className="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+                                    <div className={`h-full ${interp.color.replace('text', 'bg')}`} style={{ width: `${(score / 42) * 100}%` }} />
+                                 </div>
+                              </div>
+                           </div>
+                         );
+                      })}
+                   </div>
                 </div>
-              )}
+
+                {/* Análise Clínica Baseada em Protocolo */}
+                <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
+                   <div className="bg-slate-50 px-8 py-5 flex items-center gap-3 border-b border-slate-100">
+                      <Brain size={18} className="text-indigo-500" />
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Análise Clínica — DASS-21 (Vignola & Tucci)</h3>
+                   </div>
+                   <div className="p-8 space-y-4">
+                      {parts.map((part, i) => {
+                        const [bold, ...rest] = part.split(':');
+                        return (
+                          <div key={i} className="flex gap-3 text-sm leading-relaxed text-slate-600">
+                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 mt-2 shrink-0" />
+                             <p><span className="font-black text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':')}</p>
+                          </div>
+                        );
+                      })}
+                      <div className="mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-sm text-slate-700 leading-relaxed">
+                         <span className="font-black text-indigo-700">Conclusão: </span>{conclusion}
+                      </div>
+                   </div>
+                </div>
+
+                {detailResult.analysis && (
+                  <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-100 space-y-6">
+                     <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                        <Sparkles size={20} className="text-amber-400" /> Análise Aurora (IA)
+                     </h3>
+                     <div className="text-base font-bold leading-relaxed text-indigo-50/80 italic">
+                        "{detailResult.analysis}"
+                     </div>
+                  </div>
+                )}
+
+                {!detailResult.analysis && (
+                  <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 flex items-center gap-6">
+                     <Sparkles size={32} className="text-slate-300 shrink-0" />
+                     <div className="flex-1">
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Aurora — IA Clínica</p>
+                        <p className="text-sm text-slate-400">Gere uma análise aprofundada com inteligência artificial para este resultado.</p>
+                     </div>
+                     <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-indigo-600 text-white rounded-2xl px-6 py-3 shrink-0">Analisar</Button>
+                  </div>
+                )}
+
+                {/* Respostas do Paciente */}
+                {detailResult.answers && Object.keys(detailResult.answers).length > 0 && (
+                  <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
+                     <button
+                       onClick={() => setShowAnswers(!showAnswers)}
+                       className="w-full bg-slate-50 px-8 py-5 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 transition-all"
+                     >
+                        <div className="flex items-center gap-3">
+                           <FileText size={18} className="text-slate-400" />
+                           <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Respostas do Paciente (21 itens)</h3>
+                        </div>
+                        <ChevronRight size={18} className={`text-slate-400 transition-transform ${showAnswers ? 'rotate-90' : ''}`} />
+                     </button>
+                     {showAnswers && (
+                       <div className="divide-y divide-slate-50">
+                          {DASS_ITEMS.map(item => {
+                            const val = detailResult.answers[item.id];
+                            const labels = ['Não se aplicou', 'Algum grau', 'Grau considerável', 'Quase sempre'];
+                            const subLabel = item.subscale === 'Depression' ? 'D' : item.subscale === 'Anxiety' ? 'A' : 'E';
+                            const subColor = item.subscale === 'Depression' ? 'text-amber-500 bg-amber-50' : item.subscale === 'Anxiety' ? 'text-orange-500 bg-orange-50' : 'text-blue-500 bg-blue-50';
+                            return (
+                              <div key={item.id} className="px-8 py-4 flex items-start gap-4 hover:bg-slate-50/60">
+                                 <span className="text-[10px] font-black text-slate-300 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2,'0')}</span>
+                                 <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${subColor}`}>{subLabel}</span>
+                                 <p className="flex-1 text-sm text-slate-600 leading-relaxed">{item.text}</p>
+                                 <div className="shrink-0 text-right">
+                                    <span className="text-lg font-black text-indigo-600">{val ?? '—'}</span>
+                                    {val !== undefined && <p className="text-[10px] text-slate-400 font-bold">{labels[val]}</p>}
+                                 </div>
+                              </div>
+                            );
+                          })}
+                       </div>
+                     )}
+                  </div>
+                )}
+                </>);
+              })()}
            </div>
         </div>
       )}
