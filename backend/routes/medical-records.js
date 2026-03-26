@@ -26,14 +26,24 @@ const parseJson = (val) => {
    GET /medical-records
    Suporta filtros: patient_id, professional_id, status, date_from, date_to, record_type
 ────────────────────────────────────────────────────────── */
+// Garante coluna shared_with na tabela (migration segura)
+async function ensureSharedWith() {
+  try {
+    await db.query("ALTER TABLE medical_records ADD COLUMN shared_with JSON NULL DEFAULT NULL");
+  } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') console.warn('shared_with:', e.message); }
+}
+ensureSharedWith();
+
 router.get('/', authMiddleware, checkPermission('view_medical_records'), async (req, res) => {
   try {
     const { patient_id, professional_id, status, date_from, date_to, record_type, my_records } = req.query;
+    const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+    const uid = req.user.id;
 
-    // Query segura para schemas antigos e novos (sem colunas que talvez não existam)
     let query = `
       SELECT r.id, r.patient_id, r.professional_id, r.record_type, r.title,
-             r.status, r.start_time, r.end_time, r.created_at, r.tags,
+             r.status, r.ai_status, r.start_time, r.end_time, r.created_at, r.tags,
+             r.shared_with,
              LEFT(r.content, 300) as content,
              p.name as patient_name,
              u.name as professional_name
@@ -44,7 +54,13 @@ router.get('/', authMiddleware, checkPermission('view_medical_records'), async (
     `;
     const params = [req.user.tenant_id];
 
-    if (my_records === '1') { query += ' AND r.professional_id = ?'; params.push(req.user.id); }
+    // Segurança de propriedade: profissionais só veem os próprios ou os compartilhados com eles
+    if (!isAdmin) {
+      query += ' AND (r.professional_id = ? OR JSON_CONTAINS(r.shared_with, ?, "$"))';
+      params.push(uid, String(uid));
+    }
+
+    if (my_records === '1') { query += ' AND r.professional_id = ?'; params.push(uid); }
     if (patient_id) { query += ' AND r.patient_id = ?'; params.push(patient_id); }
     if (professional_id) { query += ' AND r.professional_id = ?'; params.push(professional_id); }
     if (status) { query += ' AND r.status = ?'; params.push(status); }
@@ -59,6 +75,66 @@ router.get('/', authMiddleware, checkPermission('view_medical_records'), async (
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar prontuários' });
+  }
+});
+
+/* ──────────────────────────────────────────────────────────
+   POST /medical-records/:id/share — compartilhar com profissional
+   Body: { user_id: number }
+────────────────────────────────────────────────────────── */
+router.post('/:id/share', authMiddleware, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ error: 'user_id obrigatório' });
+
+    const [[record]] = await db.query(
+      'SELECT id, professional_id, shared_with FROM medical_records WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (!record) return res.status(404).json({ error: 'Registro não encontrado' });
+    if (record.professional_id !== req.user.id && !['admin','super_admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Apenas o responsável pode compartilhar este registro.' });
+
+    // Verifica se o profissional a compartilhar é do mesmo tenant
+    const [[target]] = await db.query('SELECT id, name FROM users WHERE id = ? AND tenant_id = ?', [user_id, req.user.tenant_id]);
+    if (!target) return res.status(404).json({ error: 'Profissional não encontrado neste sistema.' });
+
+    let list = [];
+    try { list = JSON.parse(record.shared_with || '[]'); } catch {}
+    if (!list.includes(Number(user_id))) list.push(Number(user_id));
+
+    await db.query('UPDATE medical_records SET shared_with = ? WHERE id = ?', [JSON.stringify(list), req.params.id]);
+    await logAudit(req.params.id, req.user.id, req.user.tenant_id, 'updated', { action: 'shared_with', target_user: user_id });
+
+    res.json({ ok: true, shared_with: list, target_name: target.name });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao compartilhar' });
+  }
+});
+
+/* ──────────────────────────────────────────────────────────
+   DELETE /medical-records/:id/share/:userId — revogar compartilhamento
+────────────────────────────────────────────────────────── */
+router.delete('/:id/share/:userId', authMiddleware, async (req, res) => {
+  try {
+    const [[record]] = await db.query(
+      'SELECT id, professional_id, shared_with FROM medical_records WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (!record) return res.status(404).json({ error: 'Registro não encontrado' });
+    if (record.professional_id !== req.user.id && !['admin','super_admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Apenas o responsável pode revogar o compartilhamento.' });
+
+    let list = [];
+    try { list = JSON.parse(record.shared_with || '[]'); } catch {}
+    list = list.filter(id => id !== Number(req.params.userId));
+
+    await db.query('UPDATE medical_records SET shared_with = ? WHERE id = ?', [JSON.stringify(list), req.params.id]);
+    res.json({ ok: true, shared_with: list });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao revogar compartilhamento' });
   }
 });
 
@@ -83,6 +159,38 @@ router.get('/stats', authMiddleware, checkPermission('view_medical_records'), as
 });
 
 /* ──────────────────────────────────────────────────────────
+   Prompt canônico — compartilhado pelos dois endpoints de IA
+────────────────────────────────────────────────────────── */
+const AI_SYSTEM_PROMPT = `Você é uma assistente de organização de prontuário psicológico.
+Sua função é reorganizar o texto bruto escrito pela psicóloga em formato técnico, ético, claro, objetivo e sucinto.
+Regras obrigatórias:
+- Não invente fatos não informados pela psicóloga
+- Não emita diagnóstico se não foi explicitamente informado
+- Não use linguagem moralista, acusatória ou opinativa
+- Separe o conteúdo padrão do que deve permanecer em campo restrito
+- Preserve o sigilo e reduza detalhes íntimos desnecessários
+- Sinalize com [REVISAR] pontos ambíguos para revisão humana
+- Mantenha coerência temporal
+- Padronize linguagem clínica técnica
+- Diferencie fato relatado pela paciente de observação clínica do profissional
+- Quando houver risco, encaminhamento ou intercorrência, destaque no campo apropriado
+
+Retorne SOMENTE um JSON válido com esta estrutura:
+{
+  "motivo_consulta": "...",
+  "contexto_relevante": "...",
+  "observacoes_clinicas": "...",
+  "intervencoes_realizadas": "...",
+  "evolucao_resposta": "...",
+  "plano_terapeutico": "...",
+  "encaminhamentos": "...",
+  "observacao_complementar": "...",
+  "conteudo_restrito": "... (apenas para uso interno - não entra em exportação padrão)",
+  "pontos_revisao": ["..."],
+  "classificacao": "apto_padrao | necessita_revisao | manter_restrito"
+}`;
+
+/* ──────────────────────────────────────────────────────────
    POST /medical-records/organize-ai — organizar WITHOUT existing record
    (usado para novos registros ainda não salvos)
 ────────────────────────────────────────────────────────── */
@@ -91,29 +199,23 @@ router.post('/organize-ai', authMiddleware, async (req, res) => {
     const { draft_content, patient_context } = req.body;
     if (!draft_content) return res.status(400).json({ error: 'Rascunho vazio' });
 
-    // Retorna estrutura organizada sem precisar de record_id
     const organized = {
-      motivo_consulta: '',
-      contexto_relevante: draft_content,
-      observacoes_clinicas: '',
-      intervencoes_realizadas: '',
-      evolucao_resposta: '',
-      plano_terapeutico: '',
-      encaminhamentos: '',
-      observacao_complementar: '',
+      motivo_consulta: '', contexto_relevante: draft_content,
+      observacoes_clinicas: '', intervencoes_realizadas: '',
+      evolucao_resposta: '', plano_terapeutico: '',
+      encaminhamentos: '', observacao_complementar: '',
       conteudo_restrito: '',
-      pontos_revisao: ['Preencha cada campo com as informações clínicas pertinentes — a IA não está disponível neste modo.'],
+      pontos_revisao: ['IA indisponível — preencha cada campo manualmente.'],
       classificacao: 'necessita_revisao'
     };
 
-    // Tenta chamar IA se disponível
     try {
-      const aiResp = await fetch(`http://localhost:${process.env.PORT || 3013}/api/ai/complete`, {
+      const aiResp = await fetch(`http://localhost:${process.env.PORT || 3000}/api/ai/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': req.headers.authorization },
         body: JSON.stringify({
-          system: `Você é uma assistente de organização de prontuário psicológico. Reorganize o texto bruto em formato técnico, ético, claro e sucinto. Não invente fatos. Não emita diagnóstico não informado. Separe o conteúdo padrão do restrito. Retorne APENAS JSON válido com esta estrutura: {"motivo_consulta":"","contexto_relevante":"","observacoes_clinicas":"","intervencoes_realizadas":"","evolucao_resposta":"","plano_terapeutico":"","encaminhamentos":"","observacao_complementar":"","conteudo_restrito":"","pontos_revisao":[],"classificacao":"apto_padrao"}`,
-          prompt: `Contexto: ${patient_context || 'Não informado'}\n\nRascunho:\n${draft_content}`,
+          system: AI_SYSTEM_PROMPT,
+          prompt: `Contexto do paciente: ${patient_context || 'Não informado'}\n\nRascunho da sessão:\n${draft_content}`,
           max_tokens: 2000
         })
       });
@@ -123,12 +225,33 @@ router.post('/organize-ai', authMiddleware, async (req, res) => {
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) Object.assign(organized, JSON.parse(jsonMatch[0]));
       }
-    } catch { /* IA indisponível — retorna estrutura básica */ }
+    } catch { /* IA indisponível — retorna estrutura básica para preenchimento manual */ }
 
     res.json({ organized, ai_status: 'organized' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao organizar com IA' });
+  }
+});
+
+/* ──────────────────────────────────────────────────────────
+   POST /medical-records/log-export — registrar exportação no audit
+   Chamado pelo frontend após gerar PDF/Word (geração é client-side)
+────────────────────────────────────────────────────────── */
+router.post('/log-export', authMiddleware, async (req, res) => {
+  try {
+    const { record_ids, patient_id, export_mode, export_format } = req.body;
+    // Loga uma entrada de audit por registro exportado
+    const ids = Array.isArray(record_ids) ? record_ids : [];
+    for (const rid of ids) {
+      await logAudit(rid, req.user.id, req.user.tenant_id, 'exported', {
+        patient_id, export_mode, export_format
+      });
+    }
+    res.json({ ok: true, logged: ids.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao registrar exportação' });
   }
 });
 
@@ -363,34 +486,8 @@ router.post('/:id/organize-ai', authMiddleware, async (req, res) => {
     const [rows] = await db.query('SELECT * FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
 
-    // Sistema de prompt para a IA
-    const systemPrompt = `Você é uma assistente de organização de prontuário psicológico.
-Sua função é reorganizar o texto bruto escrito pela psicóloga em formato técnico, ético, claro, objetivo e sucinto.
-Regras obrigatórias:
-- Não invente fatos não informados pela psicóloga
-- Não emita diagnóstico se não foi explicitamente informado
-- Não use linguagem moralista, acusatória ou opinativa
-- Separe o conteúdo padrão do que deve permanecer em campo restrito
-- Preserve o sigilo e reduza detalhes íntimos desnecessários
-- Estruture em campos específicos com JSON
-- Sinalize com [REVISAR] pontos ambíguos
-- Mantenha coerência temporal
-- Padronize linguagem clínica técnica
-
-Retorne SOMENTE um JSON válido com esta estrutura:
-{
-  "motivo_consulta": "...",
-  "contexto_relevante": "...",
-  "observacoes_clinicas": "...",
-  "intervencoes_realizadas": "...",
-  "evolucao_resposta": "...",
-  "plano_terapeutico": "...",
-  "encaminhamentos": "...",
-  "observacao_complementar": "...",
-  "conteudo_restrito": "... (apenas para uso interno - não entra em exportação padrão)",
-  "pontos_revisao": ["..."],
-  "classificacao": "apto_padrao | necessita_revisao | manter_restrito"
-}`;
+    // Usa o prompt canônico definido acima (AI_SYSTEM_PROMPT)
+    const systemPrompt = AI_SYSTEM_PROMPT;
 
     // Chamar o endpoint de IA do sistema
     const aiResponse = await fetch(`http://localhost:${process.env.PORT || 3000}/api/ai/complete`, {

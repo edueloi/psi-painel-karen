@@ -10,7 +10,7 @@ import {
   Trash2, Eye, Edit3, CheckCircle2, ChevronRight, Loader2,
   Sparkles, Lock, LockOpen, AlertTriangle, Save, Shield,
   X, ArrowLeft, Layers, User, Download, RotateCcw, Tag,
-  History, BookOpen, Filter
+  History, BookOpen, Filter, Share2, Users
 } from 'lucide-react';
 import { DatePicker } from '../components/UI/DatePicker';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
@@ -136,6 +136,243 @@ const ExportModal: React.FC<{
         </div>
         
         <button onClick={onClose} className="w-full h-10 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600">Fechar</button>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   RECORD VIEWER — visualização somente-leitura do prontuário
+═══════════════════════════════════════════════════════════════ */
+const ORGANIZED_FIELDS_LABELS: { key: string; label: string; icon: string }[] = [
+  { key: 'motivo_consulta',        label: 'Motivo da Consulta / Tema Central',      icon: '🎯' },
+  { key: 'contexto_relevante',     label: 'Contexto Relevante',                     icon: '📋' },
+  { key: 'observacoes_clinicas',   label: 'Observações Clínicas',                   icon: '🔍' },
+  { key: 'intervencoes_realizadas',label: 'Intervenções Realizadas',                icon: '🛠️' },
+  { key: 'evolucao_resposta',      label: 'Evolução / Resposta da Paciente',        icon: '📈' },
+  { key: 'plano_terapeutico',      label: 'Plano Terapêutico / Próximos Passos',   icon: '🗺️' },
+  { key: 'encaminhamentos',        label: 'Encaminhamentos',                        icon: '➡️' },
+  { key: 'observacao_complementar',label: 'Observação Complementar',               icon: '📝' },
+];
+
+const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose: () => void; onEdit: () => void }> = ({ record, patient, onClose, onEdit }) => {
+  const organized = useMemo(() => {
+    if (!record.ai_organized_content) return null;
+    try { return JSON.parse(record.ai_organized_content); } catch { return null; }
+  }, [record]);
+
+  const reviewPoints: string[] = organized?.pontos_revisao || [];
+  const fields = ORGANIZED_FIELDS_LABELS.filter(f => organized?.[f.key]);
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-start justify-center bg-black/50 backdrop-blur-sm overflow-y-auto py-6 px-4">
+      <div className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl overflow-hidden animate-zoomIn">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 px-8 py-6 relative">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)' }}/>
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${STATUS_COLORS[record.status] || 'bg-white/20 text-white border-white/20'}`}>{record.status}</span>
+                {record.ai_status === 'organized' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 flex items-center gap-1"><Sparkles size={8}/> Organizado IA</span>}
+              </div>
+              <h2 className="font-black text-white text-xl leading-tight truncate">{record.title}</h2>
+              <div className="flex flex-wrap items-center gap-3 mt-2 text-indigo-100 text-xs font-bold">
+                {patient && <span className="flex items-center gap-1"><User size={11}/>{patient.full_name}</span>}
+                <span className="flex items-center gap-1"><Calendar size={11}/>{fmtDate(record.created_at)}</span>
+                {record.start_time && <span className="flex items-center gap-1"><Clock size={11}/>{record.start_time}{record.end_time ? ` – ${record.end_time}` : ''}</span>}
+                <span className="bg-white/20 px-2 py-0.5 rounded-lg">{TYPE_LABELS[record.record_type] || record.record_type}</span>
+                {record.appointment_type && <span className="bg-white/20 px-2 py-0.5 rounded-lg capitalize">{record.appointment_type}</span>}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={onEdit} className="h-9 px-4 bg-white/20 hover:bg-white/30 text-white rounded-xl font-black text-xs uppercase transition flex items-center gap-2 border border-white/30">
+                <Edit3 size={13}/> Editar
+              </button>
+              <button onClick={onClose} className="w-9 h-9 bg-white/20 hover:bg-white/30 text-white rounded-xl flex items-center justify-center transition border border-white/30">
+                <X size={16}/>
+              </button>
+            </div>
+          </div>
+          {record.tags && record.tags.length > 0 && (
+            <div className="relative flex flex-wrap gap-1.5 mt-3">
+              {record.tags.map((tag, i) => <span key={i} className="text-[9px] bg-white/20 text-white px-2 py-0.5 rounded-full font-bold border border-white/20">{tag}</span>)}
+            </div>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto">
+          {/* Review points */}
+          {reviewPoints.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+              <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0"/>
+              <div>
+                <p className="font-black text-amber-800 text-xs uppercase tracking-wide mb-1">Pontos para revisão humana</p>
+                <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-medium">• {p}</li>)}</ul>
+              </div>
+            </div>
+          )}
+
+          {/* Organized fields */}
+          {organized && fields.length > 0 ? (
+            <div className="space-y-4">
+              {fields.map(f => (
+                <div key={f.key} className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">{f.icon}</span>
+                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{f.label}</span>
+                  </div>
+                  <p className="text-sm text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{organized[f.key]}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Fallback: raw content */
+            <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Conteúdo da Sessão</p>
+              <div className="text-sm text-slate-700 font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: record.content || record.draft_content || '<em>Sem conteúdo</em>' }}/>
+            </div>
+          )}
+
+          {/* Draft content if has organized */}
+          {organized && record.draft_content && (
+            <details className="group">
+              <summary className="cursor-pointer text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition list-none flex items-center gap-2">
+                <ChevronRight size={12} className="group-open:rotate-90 transition-transform"/> Ver Rascunho Original
+              </summary>
+              <div className="mt-3 bg-slate-50 rounded-xl border border-slate-100 p-4">
+                <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">{strip(record.draft_content)}</p>
+              </div>
+            </details>
+          )}
+
+          {/* Version info footer */}
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+            <span>ID: {record.id}</span>
+            {record.updated_at && <span>Atualizado: {fmtDate(record.updated_at)}</span>}
+            {record.version_count && <span className="flex items-center gap-1"><History size={10}/> {record.version_count} versões</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARE MODAL — compartilhar prontuário com outro profissional
+═══════════════════════════════════════════════════════════════ */
+const ShareModal: React.FC<{
+  recordId: string;
+  recordTitle: string;
+  currentShared?: string[];
+  professionals: { id: string; name: string; email?: string }[];
+  onClose: () => void;
+  onShared: () => void;
+}> = ({ recordId, recordTitle, currentShared = [], professionals, onClose, onShared }) => {
+  const { pushToast } = useToast();
+  const [selectedId, setSelectedId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [shared, setShared] = useState<string[]>(currentShared);
+
+  const share = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    try {
+      await api.post(`/medical-records/${recordId}/share`, { user_id: selectedId });
+      setShared(prev => [...prev, selectedId]);
+      setSelectedId('');
+      pushToast('success', 'Acesso compartilhado!');
+      onShared();
+    } catch (e: any) {
+      pushToast('error', e?.response?.data?.error || 'Erro ao compartilhar');
+    } finally { setSaving(false); }
+  };
+
+  const revoke = async (uid: string) => {
+    try {
+      await api.delete(`/medical-records/${recordId}/share/${uid}`);
+      setShared(prev => prev.filter(id => id !== uid));
+      pushToast('success', 'Acesso removido.');
+      onShared();
+    } catch (e: any) {
+      pushToast('error', e?.response?.data?.error || 'Erro ao remover acesso');
+    }
+  };
+
+  const availableProfessionals = professionals.filter(p => !shared.includes(String(p.id)));
+  const sharedProfessionals = professionals.filter(p => shared.includes(String(p.id)));
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-zoomIn">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Share2 size={18} className="text-indigo-200"/>
+                <h3 className="font-black text-white uppercase tracking-tight text-sm">Compartilhar Prontuário</h3>
+              </div>
+              <p className="text-indigo-200 text-xs font-medium truncate max-w-[260px]">{recordTitle}</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 bg-white/20 hover:bg-white/30 text-white rounded-xl flex items-center justify-center transition">
+              <X size={15}/>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Who already has access */}
+          {sharedProfessionals.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Com acesso</p>
+              <div className="space-y-2">
+                {sharedProfessionals.map(p => (
+                  <div key={p.id} className="flex items-center gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl p-3">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm shrink-0">
+                      {(p.name || '?')[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-black text-slate-800 text-sm truncate">{p.name}</div>
+                      {p.email && <div className="text-[10px] text-slate-400">{p.email}</div>}
+                    </div>
+                    <button onClick={() => revoke(String(p.id))} className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center transition shrink-0">
+                      <X size={12}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add new */}
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Adicionar profissional</p>
+            {availableProfessionals.length === 0 ? (
+              <p className="text-xs text-slate-400 font-medium bg-slate-50 rounded-2xl p-4 text-center">Todos os profissionais já têm acesso.</p>
+            ) : (
+              <div className="flex gap-2">
+                <select
+                  className="flex-1 h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300"
+                  value={selectedId} onChange={e => setSelectedId(e.target.value)}
+                >
+                  <option value="">Selecione um profissional...</option>
+                  {availableProfessionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+                </select>
+                <button onClick={share} disabled={!selectedId || saving}
+                  className="h-11 px-5 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase hover:bg-indigo-700 transition flex items-center gap-2 disabled:opacity-50 shrink-0">
+                  {saving ? <Loader2 size={14} className="animate-spin"/> : <Share2 size={14}/>}
+                  Compartilhar
+                </button>
+              </div>
+            )}
+          </div>
+
+          <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+            Apenas profissionais do mesmo tenant com acesso ao sistema aparecem aqui. O dono do prontuário mantém controle total.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -459,6 +696,7 @@ const RecordEditor: React.FC<{
 ═══════════════════════════════════════════════════════════════ */
 export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis' }> = ({ defaultTab }) => {
   const { pushToast } = useToast();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<'grid' | 'patient'>(searchParams.get('patient_id') ? 'patient' : 'grid');
   const [activeTab, setActiveTab] = useState<'history' | 'analysis'>(defaultTab === 'analysis' ? 'analysis' : 'history');
@@ -485,6 +723,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [restrictedModal, setRestrictedModal] = useState<{recordId: string; content?: string} | null>(null);
   const [showPwModal, setShowPwModal] = useState<{ type: string; recordId: string } | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [viewerRecord, setViewerRecord] = useState<MedicalRecord | null>(null);
+  const [shareModal, setShareModal] = useState<{ record: MedicalRecord } | null>(null);
+  const [professionals, setProfessionals] = useState<{ id: string; name: string; email?: string }[]>([]);
 
   useEffect(() => { 
     fetchAll(); 
@@ -511,12 +752,14 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const fetchAll = async () => {
     setIsLoading(true);
     try {
-      const [pp, st] = await Promise.all([
+      const [pp, st, profs] = await Promise.all([
         api.get<Patient[]>('/patients'),
-        api.get<Stats>('/medical-records/stats').catch(() => null)
+        api.get<Stats>('/medical-records/stats').catch(() => null),
+        api.get<any[]>('/users').catch(() => []),
       ]);
       setPatients(pp.map(p => ({ ...p, full_name: p.full_name || (p as any).name || '' })));
       if (st) setStats(st);
+      if (profs) setProfessionals((profs as any[]).map(u => ({ id: String(u.id), name: u.name || u.full_name || '', email: u.email })));
     } catch (e: any) {
       pushToast('error', e?.message || 'Erro ao carregar dados');
     } finally {
@@ -611,62 +854,214 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     if (!selectedPatient) return;
     setIsLoading(true);
     try {
-        const title = `Prontuário Clínico — ${selectedPatient.full_name}`;
-        const header = `Clínica PsiFlux — Sistema de Prontuário Informatizado`;
-        const profInfo = `Profissional Responsável: ${(patients as any).professional_name || 'Profissional'} | CRP: ${(patients as any).professional_crp || 'Não informado'}`;
-        const patientInfo = `Paciente: ${selectedPatient.full_name} | Documento: ${selectedPatient.cpf || 'Não informado'} | Nascimento: ${selectedPatient.birth_date || 'Não informado'}`;
-
-        const chunks: any[] = [];
-        patientRecords.forEach(r => {
-            const dateStr = `Data: ${fmtDate(r.created_at)} — Hora: ${r.start_time || '--:--'} às ${r.end_time || '--:--'}`;
-            const typeStr = `Tipo: ${TYPE_LABELS[r.record_type] || r.record_type} | Status: ${r.status}`;
-            
-            chunks.push(`--------------------------------------------------------------------------------\n${dateStr}\n${typeStr}\n--------------------------------------------------------------------------------\n`);
-            
-            if (mode !== 'restricted_only') {
-                chunks.push(`RESUMO CLÍNICO:\n${strip(r.content || '')}\n`);
-            }
-            
-            if (r.restricted_content && (mode === 'full' || mode === 'restricted_only')) {
-                chunks.push(`RESTRITO (PSICÓLOGA):\n${r.restricted_content}\n`);
-            }
-            chunks.push(`\n`);
-        });
-
-        const fullText = `${header}\n${profInfo}\n\n${patientInfo}\n\n${chunks.join('\n')}`;
+        const systemName = 'PsiFlux — Sistema de Prontuário Informatizado';
+        const profName = user?.name || 'Profissional';
+        const profCRP = (user as any)?.crp || 'Não informado';
+        const patName = selectedPatient.full_name;
+        const patCPF = selectedPatient.cpf || 'Não informado';
+        const patBirth = selectedPatient.birth_date ? new Date(selectedPatient.birth_date).toLocaleDateString('pt-BR') : 'Não informado';
+        const exportDate = new Date().toLocaleString('pt-BR');
 
         if (format === 'pdf') {
-            const doc = new jsPDF();
-            doc.setFontSize(8); doc.setTextColor(150); doc.text(header, 20, 15);
-            doc.setFontSize(14); doc.setTextColor(0); doc.text(title, 20, 25);
-            doc.setFontSize(9); doc.setTextColor(100); doc.text(profInfo, 20, 32);
-            doc.text(patientInfo, 20, 37);
-            doc.setDrawColor(230); doc.line(20, 42, 190, 42);
-            
-            doc.setFontSize(10); doc.setTextColor(60);
-            const lines = doc.splitTextToSize(chunks.join('\n'), 170);
-            let y = 50;
-            lines.forEach((line: string) => {
-                if (y > 275) { doc.addPage(); y = 20; }
-                doc.text(line, 20, y); y += 5;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            const W = 210; const MARGIN = 18;
+            const CONTENT_W = W - MARGIN * 2;
+
+            // ── Cover banner ──────────────────────────────────────
+            doc.setFillColor(79, 70, 229);
+            doc.rect(0, 0, W, 46, 'F');
+            // Subtle light strip
+            doc.setFillColor(99, 91, 255);
+            doc.rect(0, 36, W, 10, 'F');
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9); doc.setTextColor(200, 195, 255);
+            doc.text(systemName, MARGIN, 14);
+            doc.setFontSize(18); doc.setTextColor(255, 255, 255);
+            doc.text('Prontuário Clínico', MARGIN, 27);
+            doc.setFontSize(9); doc.setTextColor(220, 218, 255);
+            doc.text(`Gerado em: ${exportDate}`, MARGIN, 40);
+
+            // ── Patient info box ───────────────────────────────────
+            let y = 56;
+            doc.setFillColor(248, 248, 255);
+            doc.roundedRect(MARGIN, y, CONTENT_W, 28, 4, 4, 'F');
+            doc.setDrawColor(210, 207, 255);
+            doc.roundedRect(MARGIN, y, CONTENT_W, 28, 4, 4, 'S');
+
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(100, 90, 220);
+            doc.text('PACIENTE', MARGIN + 5, y + 7);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30, 27, 75);
+            doc.text(patName, MARGIN + 5, y + 15);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
+            doc.text(`CPF: ${patCPF}   |   Nascimento: ${patBirth}`, MARGIN + 5, y + 22);
+
+            // ── Professional info ──────────────────────────────────
+            y += 34;
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
+            doc.text(`Profissional Responsável: ${profName}   |   CRP: ${profCRP}`, MARGIN, y);
+            y += 5;
+            doc.setDrawColor(226, 232, 240); doc.line(MARGIN, y, W - MARGIN, y);
+            y += 8;
+
+            // Mode label
+            const modeLabels: Record<ExportMode, string> = {
+              standard: 'Resumo Clínico Padrão',
+              full: 'Prontuário Completo',
+              no_restricted: 'Versão Compartilhada (sem campo restrito)',
+              restricted_only: 'Anotações Restritas',
+            };
+            doc.setFillColor(243, 244, 246); doc.roundedRect(MARGIN, y, CONTENT_W, 8, 2, 2, 'F');
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
+            doc.text(`Modalidade de exportação: ${modeLabels[mode]}`, MARGIN + 4, y + 5.5);
+            y += 14;
+
+            // ── Records ───────────────────────────────────────────
+            const addPage = () => { doc.addPage(); y = 20; };
+
+            patientRecords.forEach((r, idx) => {
+                // Record header pill
+                if (y > 255) addPage();
+                const headerH = 14;
+                doc.setFillColor(238, 242, 255);
+                doc.roundedRect(MARGIN, y, CONTENT_W, headerH, 3, 3, 'F');
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(55, 48, 163);
+                doc.text(`${idx + 1}. ${r.title}`, MARGIN + 5, y + 9);
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
+                doc.text(`${fmtDate(r.created_at)}   ${r.start_time || ''}${r.end_time ? ` – ${r.end_time}` : ''}   ${TYPE_LABELS[r.record_type] || r.record_type}   ${r.status}`, W - MARGIN - 5, y + 9, { align: 'right' });
+                y += headerH + 4;
+
+                // Tags
+                if (r.tags && r.tags.length > 0) {
+                    doc.setFontSize(7); doc.setTextColor(99, 91, 255);
+                    doc.text('Tags: ' + r.tags.join(', '), MARGIN + 3, y);
+                    y += 5;
+                }
+
+                const FIELD_LABELS: Record<string, string> = {
+                    motivo_consulta: 'Motivo da Consulta',
+                    contexto_relevante: 'Contexto Relevante',
+                    observacoes_clinicas: 'Observações Clínicas',
+                    intervencoes_realizadas: 'Intervenções Realizadas',
+                    evolucao_resposta: 'Evolução / Resposta',
+                    plano_terapeutico: 'Plano Terapêutico',
+                    encaminhamentos: 'Encaminhamentos',
+                    observacao_complementar: 'Observação Complementar',
+                };
+
+                if (mode !== 'restricted_only') {
+                    // Try organized fields first
+                    let organized: any = null;
+                    if (r.ai_organized_content) { try { organized = JSON.parse(r.ai_organized_content); } catch {} }
+
+                    if (organized) {
+                        Object.entries(FIELD_LABELS).forEach(([key, label]) => {
+                            const val = organized[key];
+                            if (!val) return;
+                            if (y > 258) addPage();
+                            doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(79, 70, 229);
+                            doc.text(label.toUpperCase(), MARGIN + 3, y);
+                            y += 4;
+                            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(30, 41, 59);
+                            const lines = doc.splitTextToSize(String(val), CONTENT_W - 6);
+                            lines.forEach((line: string) => {
+                                if (y > 275) addPage();
+                                doc.text(line, MARGIN + 3, y); y += 4.5;
+                            });
+                            y += 2;
+                        });
+                    } else {
+                        const content = strip(r.content || r.draft_content || '');
+                        if (content) {
+                            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(51, 65, 85);
+                            const lines = doc.splitTextToSize(content, CONTENT_W - 6);
+                            lines.forEach((line: string) => {
+                                if (y > 275) addPage();
+                                doc.text(line, MARGIN + 3, y); y += 4.5;
+                            });
+                        }
+                    }
+                }
+
+                // Restricted content
+                if (r.restricted_content && (mode === 'full' || mode === 'restricted_only')) {
+                    if (y > 255) addPage();
+                    doc.setFillColor(255, 241, 242); doc.roundedRect(MARGIN + 2, y, CONTENT_W - 4, 6, 2, 2, 'F');
+                    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(190, 18, 60);
+                    doc.text('CAMPO RESTRITO — USO EXCLUSIVO', MARGIN + 5, y + 4.5);
+                    y += 9;
+                    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(136, 19, 55);
+                    const rlines = doc.splitTextToSize(r.restricted_content, CONTENT_W - 6);
+                    rlines.forEach((line: string) => {
+                        if (y > 275) addPage();
+                        doc.text(line, MARGIN + 3, y); y += 4.5;
+                    });
+                }
+
+                // Separator
+                y += 4;
+                if (y < 270) { doc.setDrawColor(226, 232, 240); doc.line(MARGIN, y, W - MARGIN, y); y += 6; }
             });
-            doc.save(`${selectedPatient.full_name.replace(/\s/g, '_')}_Prontuario.pdf`);
+
+            // Footer on each page
+            const totalPages = (doc as any).internal.getNumberOfPages();
+            for (let pg = 1; pg <= totalPages; pg++) {
+                doc.setPage(pg);
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(180);
+                doc.text(`${systemName}  |  Pág. ${pg} de ${totalPages}  |  ${exportDate}`, W / 2, 292, { align: 'center' });
+            }
+
+            doc.save(`${patName.replace(/\s+/g, '_')}_Prontuario.pdf`);
         } else {
-            const doc = new Document({
-                sections: [{
-                    children: [
-                        new Paragraph({ text: header, heading: HeadingLevel.HEADING_3 }),
-                        new Paragraph({ text: title, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
-                        new Paragraph({ text: profInfo, spacing: { after: 200 } }),
-                        new Paragraph({ text: patientInfo, spacing: { after: 400 } }),
-                        ...chunks.map(c => new Paragraph({ text: c, spacing: { after: 200 } }))
-                    ],
-                }],
+            // ── Word export ────────────────────────────────────────
+            const children: any[] = [
+                new Paragraph({ text: systemName, heading: HeadingLevel.HEADING_3 }),
+                new Paragraph({ text: `Prontuário Clínico — ${patName}`, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
+                new Paragraph({ children: [new TextRun({ text: `Paciente: ${patName}   CPF: ${patCPF}   Nascimento: ${patBirth}`, bold: false })], spacing: { after: 100 } }),
+                new Paragraph({ children: [new TextRun({ text: `Profissional: ${profName}   CRP: ${profCRP}`, bold: false })], spacing: { after: 100 } }),
+                new Paragraph({ children: [new TextRun({ text: `Gerado em: ${exportDate}`, italics: true, color: '888888' })], spacing: { after: 400 } }),
+            ];
+
+            patientRecords.forEach((r, idx) => {
+                children.push(new Paragraph({ text: `${idx + 1}. ${r.title}`, heading: HeadingLevel.HEADING_2 }));
+                children.push(new Paragraph({ children: [new TextRun({ text: `Data: ${fmtDate(r.created_at)}  |  Tipo: ${TYPE_LABELS[r.record_type] || r.record_type}  |  Status: ${r.status}`, color: '666666', size: 18 })], spacing: { after: 100 } }));
+
+                if (mode !== 'restricted_only') {
+                    let organized: any = null;
+                    if (r.ai_organized_content) { try { organized = JSON.parse(r.ai_organized_content); } catch {} }
+                    if (organized) {
+                        const LABELS: Record<string, string> = { motivo_consulta: 'Motivo da Consulta', contexto_relevante: 'Contexto Relevante', observacoes_clinicas: 'Observações Clínicas', intervencoes_realizadas: 'Intervenções Realizadas', evolucao_resposta: 'Evolução / Resposta', plano_terapeutico: 'Plano Terapêutico', encaminhamentos: 'Encaminhamentos', observacao_complementar: 'Observação Complementar' };
+                        Object.entries(LABELS).forEach(([k, label]) => {
+                            if (!organized[k]) return;
+                            children.push(new Paragraph({ children: [new TextRun({ text: label, bold: true, color: '4F46E5' })], spacing: { before: 120, after: 40 } }));
+                            children.push(new Paragraph({ text: organized[k], spacing: { after: 100 } }));
+                        });
+                    } else {
+                        children.push(new Paragraph({ text: strip(r.content || r.draft_content || ''), spacing: { after: 200 } }));
+                    }
+                }
+                if (r.restricted_content && (mode === 'full' || mode === 'restricted_only')) {
+                    children.push(new Paragraph({ children: [new TextRun({ text: 'CAMPO RESTRITO — USO EXCLUSIVO', bold: true, color: 'BE123C' })], spacing: { before: 200, after: 60 } }));
+                    children.push(new Paragraph({ text: r.restricted_content, spacing: { after: 200 } }));
+                }
+                children.push(new Paragraph({ text: '─────────────────────────────────────────────', spacing: { after: 200 } }));
             });
-            const blob = await Packer.toBlob(doc);
-            saveAs(blob, `${selectedPatient.full_name.replace(/\s/g, '_')}_Prontuario.docx`);
+
+            const docx = new Document({ sections: [{ children }] });
+            const blob = await Packer.toBlob(docx);
+            saveAs(blob, `${patName.replace(/\s+/g, '_')}_Prontuario.docx`);
         }
-        
+
+        // Registra a exportação no audit log (compliance CFP)
+        try {
+          await api.post('/medical-records/log-export', {
+            record_ids: patientRecords.map(r => r.id),
+            patient_id: selectedPatient.id,
+            export_mode: mode,
+            export_format: format,
+          });
+        } catch { /* log de audit não deve bloquear a exportação */ }
+
         pushToast('success', 'Documento gerado e baixado!');
         setShowExportModal(false);
     } catch (err: any) {
@@ -693,27 +1088,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   };
 
   const exportPDF = () => {
-    if (!selectedPatient) return;
-    const doc = new jsPDF();
-    doc.setFontSize(18); doc.setTextColor(79, 70, 229);
-    doc.text('Prontuário Clínico', 20, 20);
-    doc.setFontSize(10); doc.setTextColor(100, 116, 139);
-    doc.text(`Paciente: ${selectedPatient.full_name}`, 20, 30);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 36);
-    doc.setDrawColor(226, 232, 240); doc.line(20, 40, 190, 40);
-    let y = 50;
-    patientRecords.forEach(r => {
-      if (y > 260) { doc.addPage(); y = 20; }
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59);
-      doc.text(`${fmtDate(r.created_at)} — ${r.title}`, 20, y); y += 6;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 116, 139);
-      doc.text(`${TYPE_LABELS[r.record_type] || r.record_type} | ${r.status}`, 20, y); y += 6;
-      const lines = doc.splitTextToSize(strip(r.content || ''), 170);
-      doc.setTextColor(51, 65, 85);
-      doc.text(lines.slice(0, 8), 20, y); y += (Math.min(lines.length, 8) * 5) + 8;
-    });
-    doc.save(`Prontuario_${selectedPatient.full_name.replace(/\s+/g, '_')}.pdf`);
-    pushToast('success', 'PDF gerado!');
+    setShowExportModal(true);
   };
 
   if (editorOpen) {
@@ -978,6 +1353,14 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       )}
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <button onClick={() => setViewerRecord(r)} title="Visualizar prontuário"
+                        className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-500 hover:text-white flex items-center justify-center transition">
+                        <Eye size={13}/>
+                      </button>
+                      <button onClick={() => setShareModal({ record: r })} title="Compartilhar acesso"
+                        className="w-8 h-8 rounded-lg bg-purple-50 text-purple-500 hover:bg-purple-500 hover:text-white flex items-center justify-center transition">
+                        <Share2 size={13}/>
+                      </button>
                       <button onClick={() => setShowPwModal({ type: 'restricted', recordId: r.id })} title="Ver campo restrito"
                         className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white flex items-center justify-center transition">
                         <Lock size={13}/>
@@ -1089,6 +1472,27 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             records={patientRecords}
             onExport={finishExport}
             onClose={() => setShowExportModal(false)}
+        />
+      )}
+
+      {/* Record Viewer */}
+      {viewerRecord && (
+        <RecordViewer
+          record={viewerRecord}
+          patient={patients.find(p => String(p.id) === String(viewerRecord.patient_id))}
+          onClose={() => setViewerRecord(null)}
+          onEdit={() => { openEdit(viewerRecord.id); setViewerRecord(null); }}
+        />
+      )}
+
+      {/* Share Modal */}
+      {shareModal && (
+        <ShareModal
+          recordId={shareModal.record.id}
+          recordTitle={shareModal.record.title}
+          professionals={professionals.filter(p => String(p.id) !== String(user?.id))}
+          onClose={() => setShareModal(null)}
+          onShared={() => selectedPatientId && fetchRecords(selectedPatientId)}
         />
       )}
     </div>
