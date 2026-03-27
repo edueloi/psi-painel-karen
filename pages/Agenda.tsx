@@ -174,7 +174,7 @@ export const Agenda: React.FC = () => {
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [managerTab, setManagerTab] = useState<'atendimentos' | 'pagamentos' | 'pacote'>('atendimentos');
-  const [newPayment, setNewPayment] = useState({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '', comandaId: '' });
+  const [newPayment, setNewPayment] = useState<{ id?: string, value: string, date: string, method: string, receiptCode: string, comandaId: string }>({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '', comandaId: '' });
   const [comandaPayments, setComandaPayments] = useState<any[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [isNewComandaModalOpen, setIsNewComandaModalOpen] = useState(false);
@@ -829,7 +829,7 @@ export const Agenda: React.FC = () => {
   };
 
   const handleSavePayment = async () => {
-    const comandaId = selectedApt?.comanda_id || editingComanda?.id;
+    const comandaId = selectedApt?.comanda_id || editingComanda?.id || newPayment.comandaId;
     if (!comandaId) {
         pushToast('error', 'Nenhuma comanda vinculada.');
         return;
@@ -842,27 +842,78 @@ export const Agenda: React.FC = () => {
     }
 
     try {
-        await api.post(`/finance/comandas/${comandaId}/payments`, {
-            amount: valueToAdd,
-            payment_date: newPayment.date,
-            payment_method: newPayment.method,
-            receipt_code: newPayment.receiptCode || null,
-        });
+        if (newPayment.id) {
+          await api.put(`/finance/comandas/${comandaId}/payments/${newPayment.id}`, {
+              amount: valueToAdd,
+              payment_date: newPayment.date,
+              payment_method: newPayment.method,
+              receipt_code: newPayment.receiptCode || null,
+          });
+        } else {
+          await api.post(`/finance/comandas/${comandaId}/payments`, {
+              amount: valueToAdd,
+              payment_date: newPayment.date,
+              payment_method: newPayment.method,
+              receipt_code: newPayment.receiptCode || null,
+          });
+        }
 
-        pushToast('success', 'Pagamento registrado com sucesso!');
+        pushToast('success', newPayment.id ? 'Pagamento atualizado com sucesso!' : 'Pagamento registrado com sucesso!');
         setIsAddPaymentModalOpen(false);
-        setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '' });
+        setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '', comandaId: '' });
 
         // Recarregar dados
         fetchData();
         if (selectedApt?.patient_id || editingComanda?.patientId) {
             const pid = selectedApt?.patient_id || editingComanda?.patientId;
-            const res = await api.get(`/finance/comandas?patient_id=${pid}`);
+            const res = await api.get<any[]>(`/finance/comandas?patient_id=${pid}`);
             setPatientComandas(res as any[]);
+            
+            if (editingComanda) {
+              const comandas = Array.isArray(res) ? res : (res as any).data || [];
+              const updatedComanda = comandas.find((c: any) => String(c.id) === String(comandaId));
+              if (updatedComanda) {
+                setEditingComanda({
+                  ...updatedComanda,
+                  patientId: String(updatedComanda.patient_id),
+                  professionalId: String(updatedComanda.professional_id),
+                  items: updatedComanda.items?.map((it: any) => ({ ...it, serviceId: it.service_id }))
+                });
+              }
+            }
         }
     } catch (err) {
         console.error(err);
         pushToast('error', 'Erro ao salvar pagamento');
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string | number, comandaId: string | number) => {
+    try {
+      await api.delete(`/finance/comandas/${comandaId}/payments/${paymentId}`);
+      pushToast('success', 'Pagamento excluído com sucesso!');
+      
+      // Recarregar dados
+      fetchData();
+      if (selectedApt?.patient_id || editingComanda?.patientId) {
+        const pid = selectedApt?.patient_id || editingComanda?.patientId;
+        const res = await api.get<any[]>(`/finance/comandas?patient_id=${pid}`);
+        const comandas = Array.isArray(res) ? res : (res as any).data || [];
+        setPatientComandas(comandas);
+        if (editingComanda) {
+          const updatedComanda = comandas.find((c: any) => String(c.id) === String(comandaId));
+          if (updatedComanda) {
+            setEditingComanda({
+              ...updatedComanda,
+              patientId: String(updatedComanda.patient_id),
+              professionalId: String(updatedComanda.professional_id),
+              items: updatedComanda.items?.map((it: any) => ({ ...it, serviceId: it.service_id }))
+            });
+          }
+        }
+      }
+    } catch (err: any) {
+      pushToast('error', err?.response?.data?.error || 'Erro ao excluir pagamento');
     }
   };
 
@@ -3783,7 +3834,7 @@ export const Agenda: React.FC = () => {
                   <Button
                     onClick={() => {
                        setNewPayment({
-                          value: String(getComandaTotal(cmnd) - getComandaPaid(cmnd)),
+                          value: formatCurrencyInput(getComandaTotal(cmnd) - getComandaPaid(cmnd)) || '0,00',
                           date: new Date().toISOString().slice(0, 10),
                           method: 'Pix',
                           receiptCode: cmnd.receipt_code || '',
@@ -3835,7 +3886,7 @@ export const Agenda: React.FC = () => {
       <Modal
         isOpen={isAddPaymentModalOpen}
         onClose={() => setIsAddPaymentModalOpen(false)}
-        title="Lançar Novo Pagamento"
+        title={newPayment.id ? "Editar Pagamento" : "Lançar Novo Pagamento"}
         footer={
           <div className="flex w-full items-center justify-end gap-3">
             <Button

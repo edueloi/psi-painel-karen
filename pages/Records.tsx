@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { api } from '../services/api';
+import { api, getStaticUrl } from '../services/api';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +30,7 @@ interface MedicalRecord {
   restricted_content?: string; is_restricted?: boolean; appointment_type?: string;
   start_time?: string; end_time?: string; created_at: string; updated_at?: string;
   tags?: string[]; patient_name?: string; version_count?: number; approved_at?: string;
+  attachments?: any[];
 }
 interface Stats { total: number; thisMonth: number; approved: number; drafts: number; byType: any[]; byMonth: any[]; topPatients: any[]; }
 
@@ -285,6 +286,28 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
             </div>
           )}
 
+          {/* Anexos */}
+          {record.attachments && record.attachments.length > 0 && (
+            <div className="pt-4 border-t border-slate-100">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <Layers size={14} className="text-indigo-500"/> Anexos
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {record.attachments.map((att: any, idx: number) => (
+                  <a key={idx} href={getStaticUrl(att.file_url || att.url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors group">
+                     <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                       <FileText size={18} className="text-indigo-500" />
+                     </div>
+                     <div className="truncate">
+                       <p className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors">{att.file_name}</p>
+                       <p className="text-[10px] text-slate-400 font-medium">{att.file_size ? (att.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'Tamanho desconhecido'}</p>
+                     </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Metadata Footer */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-6 border-t border-slate-100">
               <div className="flex items-center gap-1.5">
@@ -448,6 +471,9 @@ const RecordEditor: React.FC<{
   const [endTime, setEndTime] = useState(record?.end_time || '');
   const [status, setStatus] = useState(record?.status || 'Rascunho');
   const [tags, setTags] = useState((record?.tags || []).join(', '));
+  const [attachments, setAttachments] = useState<any[]>(record?.attachments || []);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [draft, setDraft] = useState(strip(record?.draft_content || ''));
   const [privateNotes, setPrivateNotes] = useState(strip(record?.restricted_content || ''));
@@ -457,6 +483,36 @@ const RecordEditor: React.FC<{
   const [saving, setSaving] = useState(false);
 
   const [showApproveModal, setShowApproveModal] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return;
+    const file = e.target.files[0];
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      if (patientId) fd.append('patient_id', patientId);
+      
+      const data = await api.post<any>('/uploads', fd);
+      
+      setAttachments(prev => [...prev, {
+        file_name: data.file_name,
+        file_url: data.file_url,
+        file_type: file.type,
+        file_size: file.size
+      }]);
+      pushToast('success', 'Arquivo anexado com sucesso!');
+    } catch (err: any) {
+      pushToast('error', err?.response?.data?.error || 'Erro ao enviar arquivo');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Restaura organized se existir
   useEffect(() => {
@@ -503,7 +559,8 @@ const RecordEditor: React.FC<{
         draft_content: draft,
         restricted_content: privateNotes,
         ai_organized_content: organized ? JSON.stringify(organized) : null,
-        content: organized ? Object.values(organized).join('\n\n') : draft
+        content: organized ? Object.values(organized).join('\n\n') : draft,
+        attachments
       };
 
       if (record?.id) { await api.put(`/medical-records/${record.id}`, body); }
@@ -680,6 +737,45 @@ const RecordEditor: React.FC<{
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Anexos (Evolução) */}
+          {recordType === 'Evolucao' && (
+            <div className="bg-slate-50/50 rounded-[24px] border border-slate-200 p-6 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Layers size={18} className="text-indigo-500"/>
+                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Anexos da Evolução</h3>
+                </div>
+                <Button variant="ghost" className="text-xs uppercase tracking-widest bg-white border border-slate-200 hover:border-indigo-300 shadow-sm disabled:opacity-50" onClick={() => fileInputRef.current?.click()} isLoading={uploading}>
+                  <Plus size={14} /> Anexar Arquivo
+                </Button>
+                <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+              </div>
+              
+              {attachments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                  {attachments.map((att, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm animate-fadeIn">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                         <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                           <FileText size={18} className="text-indigo-500" />
+                         </div>
+                         <div className="truncate">
+                           <p className="text-xs font-bold text-slate-700 truncate">{att.file_name}</p>
+                           <p className="text-[10px] text-slate-400 font-medium">{(att.file_size / 1024 / 1024).toFixed(2)} MB</p>
+                         </div>
+                      </div>
+                      <button onClick={() => removeAttachment(idx)} className="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 hover:bg-rose-100 transition-colors" title="Remover anexo">
+                         <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400 font-medium mt-1">Você pode anexar documentos médicos, exames ou materiais relevantes para esta evolução.</p>
+              )}
             </div>
           )}
         </div>

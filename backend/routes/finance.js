@@ -164,6 +164,52 @@ router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_pa
   }
 });
 
+// PUT /finance/comandas/:id/payments/:paymentId - Atualizar pagamento
+router.put('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  try {
+    await withSchema();
+    const { amount, payment_date, payment_method, receipt_code, notes } = req.body;
+
+    if (!amount || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Valor inválido' });
+    }
+
+    const payDate = payment_date || new Date().toISOString().slice(0, 10);
+    const payMethod = payment_method || 'Pix';
+
+    // Atualizar transação financeira (que é onde o GET de pagamentos busca)
+    await db.query(
+      `UPDATE financial_transactions 
+       SET amount = ?, date = ?, payment_method = ?, observation = ? 
+       WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
+      [parseFloat(amount), payDate, payMethod, notes || null, req.params.paymentId, req.params.id, req.user.tenant_id]
+    );
+
+    // Recalcular paid_value com base na tabela financeira unificada
+    const [payments] = await db.query(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
+      [req.params.id, req.user.tenant_id]
+    );
+    const totalPaid = parseFloat(payments[0].total);
+
+    const [comanda] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ?', [req.params.id]);
+    const comandaTotal = parseFloat(comanda[0]?.total || 0);
+    const sessionsTotal = parseInt(comanda[0]?.sessions_total || 1);
+    const sessionsUsed = parseInt(comanda[0]?.sessions_used || 0);
+    const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
+
+    await db.query(
+      'UPDATE comandas SET paid_value = ? WHERE id = ? AND tenant_id = ?',
+      [totalPaid, req.params.id, req.user.tenant_id]
+    );
+
+    res.json({ success: true, totalPaid, status: newStatus });
+  } catch (err) {
+    console.error('Erro ao atualizar pagamento:', err);
+    res.status(500).json({ error: 'Erro ao atualizar pagamento' });
+  }
+});
+
 // DELETE /finance/comandas/:id/payments/:paymentId - Remover pagamento
 router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
@@ -573,9 +619,10 @@ router.get('/comandas', async (req, res) => {
         
         // Pagamentos vinculados
         const [pymtData] = await db.query(
-          `SELECT * FROM comanda_payments 
-           WHERE comanda_id = ? AND tenant_id = ? 
-           ORDER BY payment_date DESC, created_at DESC`,
+          `SELECT id, amount, date as payment_date, payment_method, observation as notes, receipt_code
+           FROM financial_transactions 
+           WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'
+           ORDER BY date DESC, created_at DESC`,
           [c.id, req.user.tenant_id]
         );
         c.payments = pymtData;
@@ -628,9 +675,10 @@ router.get('/comandas/patient/:patientId', async (req, res) => {
                 
                 c.sessions_used = usedCount;
                 const [pymtData] = await db.query(
-                    `SELECT * FROM comanda_payments 
-                     WHERE comanda_id = ? AND tenant_id = ? 
-                     ORDER BY payment_date DESC, created_at DESC`,
+                    `SELECT id, amount, date as payment_date, payment_method, observation as notes, receipt_code
+                     FROM financial_transactions 
+                     WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'
+                     ORDER BY date DESC, created_at DESC`,
                     [c.id, req.user.tenant_id]
                 );
                 c.payments = pymtData;

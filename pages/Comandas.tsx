@@ -218,11 +218,12 @@ export const Comandas: React.FC = () => {
   };
 
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
-  const [newPayment, setNewPayment] = useState({
+  const [newPayment, setNewPayment] = useState<{ id?: string, value: string, date: string, method: string, receiptCode: string, comandaId: string }>({
     value: '',
     date: new Date().toISOString().slice(0, 10),
     method: 'Pix',
     receiptCode: '',
+    comandaId: ''
   });
 
 
@@ -865,15 +866,20 @@ export const Comandas: React.FC = () => {
         receipt_code: newPayment.receiptCode,
       };
 
-      await api.post(`/finance/comandas/${historyComanda.id}/payments`, payload);
+      if (newPayment.id) {
+        await api.put(`/finance/comandas/${historyComanda.id}/payments/${newPayment.id}`, payload);
+      } else {
+        await api.post(`/finance/comandas/${historyComanda.id}/payments`, payload);
+      }
 
-      pushToast('success', 'Pagamento registrado!');
+      pushToast('success', newPayment.id ? 'Pagamento atualizado!' : 'Pagamento registrado!');
       setIsAddPaymentModalOpen(false);
       setNewPayment({
         value: '',
         date: new Date().toISOString().slice(0, 10),
         method: 'Pix',
         receiptCode: '',
+        comandaId: ''
       });
 
       await fetchData();
@@ -881,9 +887,40 @@ export const Comandas: React.FC = () => {
       const refreshed = await api.get<Comanda[]>('/finance/comandas');
       const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));
       if (updated) setHistoryComanda(updated);
+      
+      // Update livro caixa state as well
+      const allTx = await api.get<any[]>('/finance', { comanda_id: String(historyComanda.id) });
+      const linked = (Array.isArray(allTx) ? allTx : []).filter(
+        (tx: any) => String(tx.comanda_id) === String(historyComanda.id)
+      );
+      setComandaLivroCaixaTx(linked);
+
     } catch (error) {
       console.error(error);
-      pushToast('error', 'Erro ao registrar pagamento.');
+      pushToast('error', 'Erro ao salvar pagamento.');
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string | number) => {
+    if (!historyComanda) return;
+    
+    try {
+      await api.delete(`/finance/comandas/${historyComanda.id}/payments/${paymentId}`);
+      pushToast('success', 'Pagamento excluído com sucesso!');
+      
+      await fetchData();
+      
+      const refreshed = await api.get<Comanda[]>('/finance/comandas');
+      const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));
+      if (updated) setHistoryComanda(updated);
+      
+      const allTx = await api.get<any[]>('/finance', { comanda_id: String(historyComanda.id) });
+      const linked = (Array.isArray(allTx) ? allTx : []).filter(
+        (tx: any) => String(tx.comanda_id) === String(historyComanda.id)
+      );
+      setComandaLivroCaixaTx(linked);
+    } catch (err: any) {
+      pushToast('error', err?.response?.data?.error || 'Erro ao excluir pagamento.');
     }
   };
 
@@ -2116,40 +2153,48 @@ export const Comandas: React.FC = () => {
 
         {managerTab === 'pagamentos' && (
           <div className="divide-y divide-slate-100">
-            {(historyComanda as any).payments?.map((payment: any) => (
-              <div key={payment.id} className="flex items-center justify-between px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                    <Check size={13} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">
-                      {formatCurrency(Number(payment.amount || 0))}
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      {new Date(payment.payment_date).toLocaleDateString('pt-BR')} · {payment.payment_method}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[11px] text-slate-400">#{payment.receipt_code || '---'}</span>
-              </div>
-            ))}
             {comandaLivroCaixaTx.map((tx: any) => (
-              <div key={`lc-${tx.id}`} className="flex items-center justify-between px-3 py-2.5 bg-indigo-50/50">
-                <div className="flex items-center gap-2">
+              <div key={`lc-${tx.id}`} className="flex items-center justify-between px-3 py-2.5 bg-indigo-50/50 group">
+                <div className="flex items-center gap-2 max-w-[calc(100%-80px)]">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
                     <Check size={13} />
                   </div>
-                  <div>
+                  <div className="truncate">
                     <p className="text-sm font-semibold text-slate-800">
                       {formatCurrency(Number(tx.amount || 0))}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-400 truncate">
                       {tx.date ? new Date(tx.date).toLocaleDateString('pt-BR') : '—'} · {tx.payment_method || '—'} · <span className="text-indigo-500 font-semibold">Livro Caixa</span>
                     </p>
                   </div>
                 </div>
-                <span className="text-[11px] font-semibold text-indigo-400">Recebido</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-indigo-400 group-hover:hidden">Recebido</span>
+                  <div className="hidden group-hover:flex items-center gap-1">
+                    <button onClick={() => {
+                        setNewPayment({
+                          value: formatCurrencyInput(Number(tx.amount || 0)) || '0,00',
+                          date: tx.date ? new Date(tx.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+                          method: tx.payment_method || 'Pix',
+                          receiptCode: tx.receipt_code || '',
+                          comandaId: String(historyComanda?.id),
+                          id: String(tx.id)
+                        });
+                        setIsAddPaymentModalOpen(true);
+                      }} 
+                      className="p-1 rounded bg-indigo-100 text-indigo-600 hover:bg-indigo-200" title="Editar pagamento">
+                      <Edit3 size={12} />
+                    </button>
+                    <button onClick={() => {
+                        if (window.confirm('Tem certeza que deseja remover este pagamento do livro caixa?')) {
+                          handleDeletePayment(tx.id);
+                        }
+                      }} 
+                      className="p-1 rounded bg-rose-100 text-rose-600 hover:bg-rose-200" title="Excluir pagamento">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
             {(!(historyComanda as any).payments || (historyComanda as any).payments.length === 0) &&
@@ -2298,7 +2343,16 @@ export const Comandas: React.FC = () => {
         </div>
         {hasPermission('process_payments') && (
           <button
-            onClick={() => setIsAddPaymentModalOpen(true)}
+            onClick={() => {
+              setNewPayment({
+                value: formatCurrencyInput(getComandaPending(historyComanda)) || '0,00',
+                date: new Date().toISOString().slice(0, 10),
+                method: 'Pix',
+                receiptCode: '',
+                comandaId: String(historyComanda.id)
+              });
+              setIsAddPaymentModalOpen(true);
+            }}
             className="mt-3 w-full rounded-lg bg-white py-1.5 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
           >
             + Novo pagamento
@@ -2332,7 +2386,7 @@ export const Comandas: React.FC = () => {
       <Modal
         isOpen={isAddPaymentModalOpen}
         onClose={() => setIsAddPaymentModalOpen(false)}
-        title="Lançar Novo Pagamento"
+        title={newPayment.id ? "Editar Pagamento" : "Lançar Novo Pagamento"}
         footer={
           <div className="flex w-full items-center justify-end gap-3">
             <Button
