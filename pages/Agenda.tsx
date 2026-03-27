@@ -437,6 +437,18 @@ export const Agenda: React.FC = () => {
 
   useEffect(() => { fetchData(); }, []);
 
+  useEffect(() => {
+    const aptId = searchParams.get('appointmentId');
+    if (aptId && appointments.length > 0 && !hasPrefilled) {
+      const apt = appointments.find(a => String(a.id) === String(aptId));
+      if (apt) {
+        setCurrentDate(new Date(apt.start));
+        openDetailModal(apt);
+        setHasPrefilled(true);
+      }
+    }
+  }, [searchParams, appointments, hasPrefilled]);
+
   const filteredAppointments = useMemo(() => {
     let filtered = appointments;
     if (filterPatientId) filtered = filtered.filter(a => String(a.patient_id || '') === String(filterPatientId));

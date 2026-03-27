@@ -4,6 +4,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Modal } from '../components/UI/Modal';
+import { Button } from '../components/UI/Button';
+import { GridTable } from '../components/UI/GridTable';
 import { PageHeader } from '../components/UI/PageHeader';
 import {
   Search, Plus, FileText, Calendar, Clock, Activity, BarChart2,
@@ -56,7 +58,7 @@ const PasswordModal: React.FC<{ title: string; onConfirm: (p: string) => Promise
   const [err, setErr] = useState('');
 
   const submit = async () => {
-    if (!pw) return;
+    if (!pw) { setErr('Digite sua senha'); return; }
     setLoading(true); setErr('');
     try { await onConfirm(pw); onClose(); }
     catch (e: any) { setErr(e?.response?.data?.error || e?.message || 'Senha incorreta'); }
@@ -64,24 +66,42 @@ const PasswordModal: React.FC<{ title: string; onConfirm: (p: string) => Promise
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-[28px] shadow-2xl p-8 w-full max-w-sm mx-4 space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600"><Shield size={22}/></div>
-          <h3 className="font-black text-slate-800 uppercase tracking-tight">{title}</h3>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={title}
+      subtitle="Digite sua senha de acesso para confirmar esta operação sensível."
+      maxWidth="sm"
+      footer={
+        <div className="flex gap-3 w-full">
+           <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">Cancelar</Button>
+           <Button onClick={submit} isLoading={loading} variant="primary" className="flex-1 uppercase text-xs font-black tracking-widest gap-2">
+             <Shield size={16}/> Confirmar
+           </Button>
         </div>
-        <p className="text-sm text-slate-500">Digite sua senha de acesso ao sistema para continuar.</p>
-        <input type="password" autoFocus value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
-          className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-bold outline-none focus:border-indigo-400 text-sm" placeholder="••••••••" />
-        {err && <p className="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-2 rounded-xl border border-rose-100">{err}</p>}
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-slate-200 text-slate-600 font-black uppercase text-xs hover:bg-slate-50">Cancelar</button>
-          <button onClick={submit} disabled={loading} className="flex-1 h-11 bg-indigo-600 text-white rounded-xl font-black uppercase text-xs hover:bg-indigo-700 transition flex items-center justify-center gap-2">
-            {loading ? <Loader2 size={16} className="animate-spin"/> : <Shield size={14}/>} Confirmar
-          </button>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex flex-col gap-1.5 pt-2">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Senha do sistema</label>
+          <input 
+            type="password" 
+            autoFocus 
+            value={pw} 
+            onChange={e => setPw(e.target.value)} 
+            onKeyDown={e => e.key === 'Enter' && submit()}
+            className="w-full h-12 px-4 rounded-xl border border-slate-100 bg-slate-50 font-bold outline-none focus:border-indigo-300 focus:bg-white transition-all text-sm placeholder:text-slate-300 shadow-inner" 
+            placeholder="••••••••" 
+          />
         </div>
+        {err && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-100 animate-shake">
+            <AlertTriangle size={14} className="text-rose-500 shrink-0"/>
+            <p className="text-xs font-bold text-rose-600 leading-tight">{err}</p>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -99,45 +119,53 @@ const ExportModal: React.FC<{
 }> = ({ patient, records, onExport, onClose }) => {
   const [mode, setMode] = useState<ExportMode>('standard');
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-md">
-      <div className="bg-white rounded-[32px] shadow-2xl p-8 w-full max-w-md mx-4 space-y-6 animate-zoomIn">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm"><Download size={28}/></div>
-          <div>
-            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Exportar Documentação</h3>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{patient?.full_name}</p>
-          </div>
-        </div>
+  const OPTIONS = [
+    { id: 'standard', title: 'Resumo Clínico Padrão', desc: 'Informações essenciais para continuidade do cuidado.' },
+    { id: 'full', title: 'Prontuário Completo', desc: 'Todo o histórico clínico e evoluções (sem campo restrito).' },
+    { id: 'no_restricted', title: 'Versão Compartilhada', desc: 'Apenas os campos públicos/compartilhados.' },
+    { id: 'restricted_only', title: 'Anotações Restritas', desc: 'Apenas o campo restrito (uso interno autorizado).' },
+  ];
 
-        <div className="space-y-3">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Selecione o Conteúdo</p>
-          {[
-            { id: 'standard', title: 'Resumo Clínico Padrão', desc: 'Informações essenciais para continuidade do cuidado.' },
-            { id: 'full', title: 'Prontuário Completo', desc: 'Todo o histórico clínico e evoluções (sem campo restrito).' },
-            { id: 'no_restricted', title: 'Versão Compartilhada', desc: 'Apenas os campos públicos/compartilhados.' },
-            { id: 'restricted_only', title: 'Anotações Restritas', desc: 'Apenas o campo restrito (uso interno autorizado).' },
-          ].map(opt => (
-            <button key={opt.id} onClick={() => setMode(opt.id as ExportMode)}
-              className={`w-full p-4 rounded-2xl border text-left transition-all ${mode === opt.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-indigo-200'}`}>
-              <div className="font-black text-sm mb-0.5">{opt.title}</div>
-              <div className={`text-[10px] font-medium leading-tight ${mode === opt.id ? 'text-indigo-100' : 'text-slate-400'}`}>{opt.desc}</div>
+  return (
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="Exportar Documentação"
+      subtitle={`Selecione o formato e conteúdo para: ${patient?.full_name}`}
+      maxWidth="md"
+      footer={
+        <div className="flex gap-3 w-full">
+           <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">Fechar</Button>
+           <Button onClick={() => onExport(mode, 'pdf')} variant="primary" className="flex-1 bg-slate-800 border-slate-800 uppercase text-xs font-black tracking-widest gap-2">
+             <FileText size={16}/> Gerar PDF
+           </Button>
+           <Button onClick={() => onExport(mode, 'word')} variant="primary" className="flex-1 uppercase text-xs font-black tracking-widest gap-2">
+             <Download size={16}/> Gerar Word
+           </Button>
+        </div>
+      }
+    >
+      <div className="space-y-3 pt-2">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Selecione o Conteúdo</p>
+        <div className="grid grid-cols-1 gap-2">
+          {OPTIONS.map(opt => (
+            <button 
+              key={opt.id} 
+              onClick={() => setMode(opt.id as ExportMode)}
+              className={`w-full p-4 rounded-2xl border text-left transition-all relative overflow-hidden group ${
+                mode === opt.id 
+                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                  : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-indigo-200 hover:bg-white'
+              }`}
+            >
+              {mode === opt.id && <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-white animate-pulse" />}
+              <div className="font-black text-sm mb-0.5 uppercase tracking-tight">{opt.title}</div>
+              <div className={`text-[11px] font-bold leading-tight ${mode === opt.id ? 'text-indigo-100' : 'text-slate-400 font-medium'}`}>{opt.desc}</div>
             </button>
           ))}
         </div>
-
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <button onClick={() => onExport(mode, 'pdf')} className="h-14 bg-slate-800 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-slate-700 shadow-xl shadow-slate-200">
-            <FileText size={16}/> Gerar PDF
-          </button>
-          <button onClick={() => onExport(mode, 'word')} className="h-14 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 shadow-xl shadow-indigo-200">
-            <Download size={16}/> Gerar Word
-          </button>
-        </div>
-        
-        <button onClick={onClose} className="w-full h-10 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600">Fechar</button>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -165,97 +193,112 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
   const fields = ORGANIZED_FIELDS_LABELS.filter(f => organized?.[f.key]);
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-start justify-center bg-black/50 backdrop-blur-sm overflow-y-auto py-6 px-4">
-      <div className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl overflow-hidden animate-zoomIn">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 px-8 py-6 relative">
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)' }}/>
-          <div className="relative flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${STATUS_COLORS[record.status] || 'bg-white/20 text-white border-white/20'}`}>{record.status}</span>
-                {record.ai_status === 'organized' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 flex items-center gap-1"><Sparkles size={8}/> Organizado IA</span>}
-              </div>
-              <h2 className="font-black text-white text-xl leading-tight truncate">{record.title}</h2>
-              <div className="flex flex-wrap items-center gap-3 mt-2 text-indigo-100 text-xs font-bold">
-                {patient && <span className="flex items-center gap-1"><User size={11}/>{patient.full_name}</span>}
-                <span className="flex items-center gap-1"><Calendar size={11}/>{fmtDate(record.created_at)}</span>
-                {record.start_time && <span className="flex items-center gap-1"><Clock size={11}/>{record.start_time}{record.end_time ? ` – ${record.end_time}` : ''}</span>}
-                <span className="bg-white/20 px-2 py-0.5 rounded-lg">{TYPE_LABELS[record.record_type] || record.record_type}</span>
-                {record.appointment_type && <span className="bg-white/20 px-2 py-0.5 rounded-lg capitalize">{record.appointment_type}</span>}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button onClick={onEdit} className="h-9 px-4 bg-white/20 hover:bg-white/30 text-white rounded-xl font-black text-xs uppercase transition flex items-center gap-2 border border-white/30">
-                <Edit3 size={13}/> Editar
-              </button>
-              <button onClick={onClose} className="w-9 h-9 bg-white/20 hover:bg-white/30 text-white rounded-xl flex items-center justify-center transition border border-white/30">
-                <X size={16}/>
-              </button>
-            </div>
-          </div>
-          {record.tags && record.tags.length > 0 && (
-            <div className="relative flex flex-wrap gap-1.5 mt-3">
-              {record.tags.map((tag, i) => <span key={i} className="text-[9px] bg-white/20 text-white px-2 py-0.5 rounded-full font-bold border border-white/20">{tag}</span>)}
-            </div>
-          )}
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={record.title}
+      subtitle={`${patient?.full_name} — ${fmtDate(record.created_at)}`}
+      maxWidth="3xl"
+      footer={
+        <div className="flex gap-3 w-full justify-between items-center">
+           <div className="flex gap-2">
+              <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg border ${STATUS_COLORS[record.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{record.status}</span>
+              {record.ai_status === 'organized' && <span className="text-[10px] font-black uppercase px-3 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1.5"><Sparkles size={12}/> Organizado IA</span>}
+           </div>
+           <div className="flex gap-2">
+              <Button variant="ghost" onClick={onClose} className="uppercase text-xs font-black tracking-widest">Fechar</Button>
+              <Button onClick={onEdit} variant="primary" className="uppercase text-xs font-black tracking-widest gap-2 min-w-[120px]">
+                <Edit3 size={16}/> Editar
+              </Button>
+           </div>
         </div>
+      }
+    >
+        <div className="space-y-6 pt-2">
+          {/* Header Info Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6 border-b border-slate-100">
+             <div className="space-y-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Profissional</span>
+                <span className="text-sm font-bold text-slate-700">{record.professional_name || '—'}</span>
+             </div>
+             <div className="space-y-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tipo</span>
+                <span className="text-sm font-bold text-slate-700">{TYPE_LABELS[record.record_type] || record.record_type}</span>
+             </div>
+             <div className="space-y-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Modalidade</span>
+                <span className="text-sm font-bold text-slate-700 capitalize">{record.appointment_type || '—'}</span>
+             </div>
+             <div className="space-y-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Horário</span>
+                <span className="text-sm font-bold text-slate-700">{record.start_time ? `${record.start_time}${record.end_time ? ` – ${record.end_time}` : ''}` : '—'}</span>
+             </div>
+          </div>
 
-        {/* Body */}
-        <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto">
           {/* Review points */}
           {reviewPoints.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-              <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0"/>
+              <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0"/>
               <div>
                 <p className="font-black text-amber-800 text-xs uppercase tracking-wide mb-1">Pontos para revisão humana</p>
-                <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-medium">• {p}</li>)}</ul>
+                <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-bold">• {p}</li>)}</ul>
               </div>
             </div>
           )}
 
           {/* Organized fields */}
           {organized && fields.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {fields.map(f => (
-                <div key={f.key} className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base leading-none">{f.icon}</span>
-                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{f.label}</span>
+                <div key={f.key} className="group">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-base leading-none group-hover:scale-110 transition-transform">{f.icon}</span>
+                    <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">{f.label}</span>
                   </div>
-                  <p className="text-sm text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{organized[f.key]}</p>
+                  <div className="bg-slate-50 border border-slate-100 rounded-[20px] p-5">
+                    <p className="text-sm text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{organized[f.key]}</p>
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            /* Fallback: raw content */
-            <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Conteúdo da Sessão</p>
-              <div className="text-sm text-slate-700 font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: record.content || record.draft_content || '<em>Sem conteúdo</em>' }}/>
+            <div className="bg-slate-50 border border-slate-100 rounded-[24px] p-6">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Conteúdo Original do Registro</p>
+              <div className="text-sm text-slate-700 font-medium leading-relaxed text-editor-content" dangerouslySetInnerHTML={{ __html: record.content || record.draft_content || '<em>Sem conteúdo registrado</em>' }}/>
             </div>
           )}
 
           {/* Draft content if has organized */}
           {organized && record.draft_content && (
-            <details className="group">
-              <summary className="cursor-pointer text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition list-none flex items-center gap-2">
-                <ChevronRight size={12} className="group-open:rotate-90 transition-transform"/> Ver Rascunho Original
-              </summary>
-              <div className="mt-3 bg-slate-50 rounded-xl border border-slate-100 p-4">
-                <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">{strip(record.draft_content)}</p>
-              </div>
-            </details>
+            <div className="pt-4 border-t border-slate-100">
+              <details className="group">
+                <summary className="cursor-pointer text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition list-none flex items-center gap-2 outline-none">
+                  <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center group-open:bg-indigo-50 group-open:text-indigo-600 transition-colors">
+                    <ChevronRight size={14} className="group-open:rotate-90 transition-transform"/> 
+                  </div>
+                  Exibir Rascunho Bruto (Histórico)
+                </summary>
+                <div className="mt-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 p-5">
+                  <p className="text-xs text-slate-500 leading-relaxed font-medium">{strip(record.draft_content)}</p>
+                </div>
+              </details>
+            </div>
           )}
 
-          {/* Version info footer */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wide">
-            <span>ID: {record.id}</span>
-            {record.updated_at && <span>Atualizado: {fmtDate(record.updated_at)}</span>}
-            {record.version_count && <span className="flex items-center gap-1"><History size={10}/> {record.version_count} versões</span>}
+          {/* Metadata Footer */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-1.5">
+                <Tag size={12} className="text-slate-400"/>
+                <span className="text-[10px] font-black text-slate-400 uppercase">Tags:</span>
+                <div className="flex gap-1">
+                  {record.tags && record.tags.length > 0 ? record.tags.map((t, i) => <span key={i} className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-bold">{t}</span>) : <span className="text-[9px] text-slate-300 font-bold italic">Nenhuma</span>}
+                </div>
+              </div>
+              <div className="flex-1" />
+              <div className="text-[10px] text-slate-300 font-black uppercase tracking-widest">ID: {record.id.split('-')[0]}...</div>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -282,10 +325,10 @@ const ShareModal: React.FC<{
       await api.post(`/medical-records/${recordId}/share`, { user_id: selectedId });
       setShared(prev => [...prev, selectedId]);
       setSelectedId('');
-      pushToast('success', 'Acesso compartilhado!');
+      pushToast('success', 'Acesso compartilhado com sucesso!');
       onShared();
     } catch (e: any) {
-      pushToast('error', e?.response?.data?.error || 'Erro ao compartilhar');
+      pushToast('error', e?.response?.data?.error || 'Erro ao compartilhar acesso');
     } finally { setSaving(false); }
   };
 
@@ -293,7 +336,7 @@ const ShareModal: React.FC<{
     try {
       await api.delete(`/medical-records/${recordId}/share/${uid}`);
       setShared(prev => prev.filter(id => id !== uid));
-      pushToast('success', 'Acesso removido.');
+      pushToast('success', 'Acesso removido com sucesso.');
       onShared();
     } catch (e: any) {
       pushToast('error', e?.response?.data?.error || 'Erro ao remover acesso');
@@ -304,77 +347,81 @@ const ShareModal: React.FC<{
   const sharedProfessionals = professionals.filter(p => shared.includes(String(p.id)));
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-zoomIn">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Share2 size={18} className="text-indigo-200"/>
-                <h3 className="font-black text-white uppercase tracking-tight text-sm">Compartilhar Prontuário</h3>
-              </div>
-              <p className="text-indigo-200 text-xs font-medium truncate max-w-[260px]">{recordTitle}</p>
-            </div>
-            <button onClick={onClose} className="w-8 h-8 bg-white/20 hover:bg-white/30 text-white rounded-xl flex items-center justify-center transition">
-              <X size={15}/>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6 space-y-5">
-          {/* Who already has access */}
-          {sharedProfessionals.length > 0 && (
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Com acesso</p>
-              <div className="space-y-2">
-                {sharedProfessionals.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl p-3">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm shrink-0">
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="Compartilhar Acesso"
+      subtitle={recordTitle}
+      maxWidth="md"
+      footer={<Button variant="ghost" onClick={onClose} className="w-full uppercase text-xs font-black tracking-widest">Concluir</Button>}
+    >
+      <div className="space-y-6 pt-2">
+        {/* Com Acesso */}
+        {sharedProfessionals.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Profissionais com Acesso</h4>
+            <div className="grid gap-2">
+              {sharedProfessionals.map(p => (
+                <div key={p.id} className="flex items-center justify-between p-3 rounded-2xl bg-indigo-50/50 border border-indigo-100 group transition-all hover:bg-indigo-50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm shadow-sm group-hover:scale-105 transition-transform">
                       {(p.name || '?')[0].toUpperCase()}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-black text-slate-800 text-sm truncate">{p.name}</div>
-                      {p.email && <div className="text-[10px] text-slate-400">{p.email}</div>}
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-700 text-sm truncate">{p.name}</div>
+                      <div className="text-[10px] text-slate-400 font-medium truncate">{p.email || '—'}</div>
                     </div>
-                    <button onClick={() => revoke(String(p.id))} className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center transition shrink-0">
-                      <X size={12}/>
-                    </button>
                   </div>
-                ))}
-              </div>
+                  <button 
+                    onClick={() => revoke(String(p.id))}
+                    className="w-10 h-10 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100 hover:bg-rose-50 transition-all flex items-center justify-center shadow-sm"
+                    title="Remover acesso"
+                  >
+                    <Trash2 size={16}/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Adicionar */}
+        <div className="space-y-3">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Conceder Novo Acesso</h4>
+          {availableProfessionals.length === 0 ? (
+            <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center">
+              <p className="text-xs text-slate-400 font-medium">Todos os profissionais já possuem acesso a este registro.</p>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <select
+                className="flex-1 h-12 px-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300 focus:bg-white transition-all shadow-inner"
+                value={selectedId} onChange={e => setSelectedId(e.target.value)}
+              >
+                <option value="">Selecione um profissional...</option>
+                {availableProfessionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+              </select>
+              <Button 
+                onClick={share} 
+                disabled={!selectedId || saving} 
+                isLoading={saving}
+                variant="primary" 
+                className="h-12 px-6 gap-2 shadow-lg shadow-indigo-100"
+              >
+                <Plus size={18}/> Conceder
+              </Button>
             </div>
           )}
+        </div>
 
-          {/* Add new */}
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Adicionar profissional</p>
-            {availableProfessionals.length === 0 ? (
-              <p className="text-xs text-slate-400 font-medium bg-slate-50 rounded-2xl p-4 text-center">Todos os profissionais já têm acesso.</p>
-            ) : (
-              <div className="flex gap-2">
-                <select
-                  className="flex-1 h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300"
-                  value={selectedId} onChange={e => setSelectedId(e.target.value)}
-                >
-                  <option value="">Selecione um profissional...</option>
-                  {availableProfessionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
-                </select>
-                <button onClick={share} disabled={!selectedId || saving}
-                  className="h-11 px-5 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase hover:bg-indigo-700 transition flex items-center gap-2 disabled:opacity-50 shrink-0">
-                  {saving ? <Loader2 size={14} className="animate-spin"/> : <Share2 size={14}/>}
-                  Compartilhar
-                </button>
-              </div>
-            )}
-          </div>
-
-          <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-            Apenas profissionais do mesmo tenant com acesso ao sistema aparecem aqui. O dono do prontuário mantém controle total.
-          </p>
+        <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-amber-50/50 border border-amber-100">
+           <Shield size={16} className="text-amber-500 shrink-0 mt-0.5"/>
+           <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
+             O compartilhamento permite que outros profissionais visualizem e editem este registro. O proprietário original mantém o controle da auditoria.
+           </p>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -426,62 +473,47 @@ const RecordEditor: React.FC<{
       const url = record?.id ? `/medical-records/${record.id}/organize-ai` : '/medical-records/organize-ai';
       const resp = await api.post<any>(url, {
         draft_content: draft,
-        patient_context: patient ? `Paciente: ${patient.full_name}` : undefined
+        patient_id: patientId,
+        patient_name: patient?.full_name,
+        created_at: sessionDate
       });
-      setOrganized(resp.organized);
-      setReviewPoints(resp.organized?.pontos_revisao || []);
+      setOrganized(resp.data.organized);
+      setReviewPoints(resp.data.review_points || []);
       setStep('ai_result');
+      pushToast('success', 'Evolução organizada pela Aurora IA!');
     } catch (e: any) {
-      pushToast('error', e?.message || 'Erro ao organizar com IA');
-    } finally {
-      setAiLoading(false);
-    }
+      pushToast('error', e?.response?.data?.error || 'Erro ao organizar com IA');
+    } finally { setAiLoading(false); }
   };
 
-  const buildContent = () => {
-    if (!organized) return `<p>${draft}</p>`;
-    const fields = [
-      ['Motivo da Consulta', organized.motivo_consulta],
-      ['Contexto Relevante', organized.contexto_relevante],
-      ['Observações Clínicas', organized.observacoes_clinicas],
-      ['Intervenções Realizadas', organized.intervencoes_realizadas],
-      ['Evolução / Resposta', organized.evolucao_resposta],
-      ['Plano Terapêutico', organized.plano_terapeutico],
-      ['Encaminhamentos', organized.encaminhamentos],
-      ['Observação Complementar', organized.observacao_complementar],
-    ].filter(([, v]) => v).map(([k, v]) => `<h3>${k}</h3><p>${v}</p>`).join('');
-    return fields || `<p>${draft}</p>`;
-  };
-
-  const save = async (finalStatus?: string) => {
-    if (!patientId) { pushToast('error', 'Selecione um paciente.'); return; }
+  const save = async (newStatus?: string) => {
+    if (!patientId) { pushToast('error', 'Selecione o paciente.'); return; }
     setSaving(true);
     try {
-      const payload = {
+      const body = {
         patient_id: patientId,
-        title, record_type: recordType, appointment_type: appointmentType,
-        start_time: startTime || null, end_time: endTime || null,
-        status: finalStatus || status,
-        draft_content: draft,
-        ai_organized_content: organized ? JSON.stringify(organized) : null,
-        ai_status: organized ? 'organized' : 'pending',
-        content: buildContent(),
-        restricted_content: privateNotes || null,
+        title,
+        record_type: recordType,
+        appointment_type: appointmentType,
+        created_at: sessionDate,
+        start_time: startTime,
+        end_time: endTime,
+        status: newStatus || status,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        draft_content: draft,
+        restricted_content: privateNotes,
+        ai_organized_content: organized ? JSON.stringify(organized) : null,
+        content: organized ? Object.values(organized).join('\n\n') : draft
       };
-      if (mode === 'edit' && record?.id) {
-        await api.put(`/medical-records/${record.id}`, payload);
-      } else {
-        await api.post('/medical-records', payload);
-      }
-      pushToast('success', 'Prontuário salvo!');
-      onSave();
-      onClose();
+
+      if (record?.id) { await api.put(`/medical-records/${record.id}`, body); }
+      else { await api.post('/medical-records', body); }
+
+      pushToast('success', 'Registro salvo com sucesso!');
+      onSave(); onClose();
     } catch (e: any) {
-      pushToast('error', e?.message || 'Erro ao salvar');
-    } finally {
-      setSaving(false);
-    }
+      pushToast('error', e?.response?.data?.error || 'Erro ao salvar registro');
+    } finally { setSaving(false); }
   };
 
   const approve = async (pw: string) => {
@@ -503,89 +535,81 @@ const RecordEditor: React.FC<{
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 overflow-hidden animate-fadeIn">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-100 px-6 py-6 flex items-center justify-between shadow-md relative z-10">
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={onClose} 
-            className="group flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-600 border border-slate-100 hover:border-rose-100 transition-all shadow-sm"
-          >
-            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-black uppercase tracking-widest">Voltar / Cancelar</span>
-          </button>
-          <div className="w-px h-10 bg-slate-100" />
-          <div>
-            <h2 className="font-black text-slate-900 uppercase tracking-tighter text-lg leading-none">{mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro'}</h2>
-            <div className="flex items-center gap-2 mt-1">
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">{title}</p>
-                <span className="w-1 h-1 rounded-full bg-slate-300" />
-                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Etapa: {step === 'draft' ? 'Rascunho' : 'Revisão IA'}</span>
-            </div>
-          </div>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro'}
+      subtitle={title}
+      maxWidth="full"
+      footer={
+        <div className="flex items-center justify-between w-full">
+           <div className="flex items-center gap-4">
+              <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-3 py-1 bg-indigo-50 rounded-lg shadow-sm border border-indigo-100">Etapa: {step === 'draft' ? 'Rascunho' : 'Revisão IA'}</span>
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
+                {(['draft', 'ai_result'] as const).map((s, i) => (
+                  <button key={s} onClick={() => setStep(s)} disabled={s === 'ai_result' && !organized}
+                    className={`px-4 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${step === s ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-600 disabled:opacity-30'}`}>
+                    {i + 1}. {s === 'draft' ? 'Rascunho' : 'Revisão IA'}
+                  </button>
+                ))}
+              </div>
+           </div>
+           <div className="flex items-center gap-3">
+              <Button variant="ghost" onClick={onClose} className="uppercase text-xs font-black tracking-widest">Cancelar</Button>
+              <Button onClick={() => save()} isLoading={saving} variant="primary" className="h-11 px-8 gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-indigo-200">
+                <Save size={16}/> Salvar Rascunho
+              </Button>
+              <Button onClick={() => setShowApproveModal(true)} variant="primary" className="h-11 px-8 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-emerald-200">
+                <CheckCircle2 size={16}/> Aprovar Registro
+              </Button>
+           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Step tabs */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 mr-2">
-            {(['draft', 'ai_result'] as const).map((s, i) => (
-              <button key={s} onClick={() => setStep(s)} disabled={s === 'ai_result' && !organized}
-                className={`px-4 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${step === s ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-600 disabled:opacity-30'}`}>
-                {i + 1}. {s === 'draft' ? 'Rascunho' : 'Revisão IA'}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => save()} disabled={saving} className="h-9 px-5 bg-slate-800 text-white rounded-xl font-black text-xs uppercase hover:bg-slate-700 transition flex items-center gap-2">
-            {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salvar
-          </button>
-          <button onClick={() => setShowApproveModal(true)} className="h-9 px-5 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase hover:bg-emerald-700 transition flex items-center gap-2">
-            <CheckCircle2 size={14}/> Aprovar
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      }
+    >
+        <div className="space-y-6 max-w-5xl mx-auto py-2">
           {/* Metadados */}
           <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-            <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4">Identificação</h3>
+            <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
+              <User size={14} className="text-indigo-500" /> Identificação e Metadados
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase">Paciente</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Paciente</label>
                 <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300" value={patientId} onChange={e => setPatientId(e.target.value)}>
                   <option value="">Selecione...</option>
                   {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase">Data</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Data</label>
                 <input type="date" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={sessionDate} onChange={e => setSessionDate(e.target.value)}/>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase">Título</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Título</label>
                 <input className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300" value={title} onChange={e => setTitle(e.target.value)}/>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase">Tipo de Registro</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Tipo de Registro</label>
                 <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none" value={recordType} onChange={e => setRecordType(e.target.value)}>
                   {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase">Modalidade</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Modalidade</label>
                 <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none" value={appointmentType} onChange={e => setAppointmentType(e.target.value)}>
                   {['individual','casal','familiar','grupo','online','presencial'].map(a => <option key={a}>{a}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase">Início</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Início</label>
                 <input type="time" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={startTime} onChange={e => setStartTime(e.target.value)}/>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase">Fim</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Fim</label>
                 <input type="time" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={endTime} onChange={e => setEndTime(e.target.value)}/>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase">Tags (vírgula)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Tags (vírgula)</label>
                 <input className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" placeholder="ansiedade, fobia..." value={tags} onChange={e => setTags(e.target.value)}/>
               </div>
             </div>
@@ -596,29 +620,31 @@ const RecordEditor: React.FC<{
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Rascunho Bruto da Sessão</h3>
-                  <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded-lg font-bold">Escreva livremente — a IA vai organizar</span>
+                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest flex items-center gap-2">
+                    <FileText size={14} className="text-indigo-500" /> Rascunho Bruto da Sessão
+                  </h3>
+                  <span className="text-[10px] text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider">Escreva livremente — a IA vai organizar</span>
                 </div>
                 <RichTextEditor
                   value={draft}
                   onChange={setDraft}
                   placeholder="Escreva tudo o que aconteceu na sessão de forma livre. A paciente relatou... Trabalhamos com... Realizei a intervenção... A resposta foi..."
-                  minHeight="300px"
+                  minHeight="350px"
                 />
-                <button onClick={organizeWithAI} disabled={aiLoading || !draft.trim()}
-                  className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-wider text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
-                  {aiLoading ? <Loader2 size={20} className="animate-spin"/> : <Sparkles size={20}/>}
-                  {aiLoading ? 'Organizando com IA...' : 'Organizar Evolução com IA'}
-                </button>
+                <Button onClick={organizeWithAI} isLoading={aiLoading} disabled={!draft.trim()} variant="primary"
+                  className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3">
+                  {!aiLoading && <Sparkles size={22} className="text-yellow-300 animate-pulse"/>}
+                  {aiLoading ? 'Organizando conteúdo com Aurora IA...' : 'Organizar Evolução com Inteligência Artificial'}
+                </Button>
               </div>
 
               {/* Campo Restrito */}
               <div className="bg-rose-50/50 rounded-[24px] border border-rose-100 p-6 shadow-sm space-y-3">
                 <div className="flex items-center gap-3">
-                  <Lock size={16} className="text-rose-500"/>
+                  <Shield size={18} className="text-rose-500"/>
                   <h3 className="font-black text-rose-700 text-xs uppercase tracking-widest">Observações Privadas (Campo Restrito)</h3>
                 </div>
-                <p className="text-[11px] text-rose-600/70 font-medium">Este campo NÃO entra no prontuário compartilhado nem nas exportações padrão. Acesso exclusivo seu.</p>
+                <p className="text-[11px] text-rose-600/70 font-medium">Este campo NÃO entra no prontuário compartilhado nem nas exportações padrão. Acesso exclusivo seu conforme normas do CFP.</p>
                 <textarea className="w-full p-4 rounded-2xl bg-white border border-rose-100 text-sm leading-relaxed resize-none outline-none focus:border-rose-300 transition font-medium min-h-[120px]"
                   placeholder="Hipóteses clínicas, impressões pessoais, formulações iniciais, conteúdos que não devem circular..."
                   value={privateNotes} onChange={e => setPrivateNotes(e.target.value)} />
@@ -631,54 +657,32 @@ const RecordEditor: React.FC<{
             <div className="space-y-4 animate-slideUpFade">
               {reviewPoints.length > 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-                  <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0"/>
+                  <AlertTriangle size={20} className="text-amber-500 mt-0.5 shrink-0"/>
                   <div>
                     <p className="font-black text-amber-800 text-xs uppercase tracking-wide mb-1">Pontos para revisão humana</p>
-                    <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-medium">• {p}</li>)}</ul>
+                    <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-bold">• {p}</li>)}</ul>
                   </div>
                 </div>
               )}
 
-              <div className="grid gap-4">
+              <div className="grid gap-4 pb-20">
                 {ORGANIZED_FIELDS.map(f => (
-                  <div key={f.key} className="bg-white rounded-[20px] border border-slate-100 p-5 shadow-sm space-y-2">
-                    <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{f.label}</label>
+                  <div key={f.key} className="bg-white rounded-[20px] border border-slate-100 p-5 shadow-sm space-y-2 group hover:border-indigo-100 transition-all">
+                    <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                       {f.label}
+                    </label>
                     <textarea
-                      className="w-full p-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium resize-none outline-none focus:bg-white focus:border-indigo-300 transition min-h-[80px]"
+                      className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium resize-none outline-none focus:bg-white focus:border-indigo-300 transition min-h-[100px] leading-relaxed text-slate-700"
                       value={organized[f.key] || ''}
                       onChange={e => setOrganized({ ...organized, [f.key]: e.target.value })}
                     />
                   </div>
                 ))}
-
-                {organized.conteudo_restrito && (
-                  <div className="bg-rose-50/60 rounded-[20px] border border-rose-100 p-5 space-y-2">
-                    <div className="flex items-center gap-2"><Lock size={14} className="text-rose-500"/><label className="text-[10px] font-black text-rose-700 uppercase tracking-widest">Conteúdo Restrito (sugerido pela IA)</label></div>
-                    <textarea className="w-full p-3 rounded-xl bg-white border border-rose-100 text-sm font-medium resize-none outline-none min-h-[80px]"
-                      value={organized.conteudo_restrito} onChange={e => setOrganized({ ...organized, conteudo_restrito: e.target.value })} />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4 pt-6 mt-10 border-t border-slate-100">
-                <button 
-                  onClick={onClose} 
-                  className="h-14 px-8 rounded-2xl border-2 border-slate-100 text-slate-400 font-black text-xs uppercase hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 transition-all flex items-center justify-center gap-2 shrink-0"
-                >
-                  <X size={18} /> Descartar Alterações
-                </button>
-                <button onClick={() => setStep('draft')} className="h-14 px-8 rounded-2xl border-2 border-slate-100 text-slate-600 font-black text-xs uppercase flex items-center gap-2 hover:bg-slate-50 transition-all shrink-0">
-                  <RotateCcw size={18}/> Retornar ao Rascunho
-                </button>
-                <div className="flex-1" />
-                <button onClick={() => save('Revisado')} disabled={saving} className="h-14 px-10 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-3">
-                  {saving ? <Loader2 size={20} className="animate-spin"/> : <Save size={20}/>} Finalizar Revisão e Salvar
-                </button>
               </div>
             </div>
           )}
         </div>
-      </div>
 
       {showApproveModal && (
         <PasswordModal
@@ -687,7 +691,7 @@ const RecordEditor: React.FC<{
           onClose={() => setShowApproveModal(false)}
         />
       )}
-    </div>
+    </Modal>
   );
 };
 
@@ -1245,52 +1249,124 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             {isLoading ? (
               <div className="flex items-center justify-center py-12"><Loader2 size={28} className="text-indigo-400 animate-spin"/></div>
             ) : showLatestRecords ? (
-                <div className="space-y-3">
-                    {globalRecords.filter(r => strip(r.content || '').toLowerCase().includes(search.toLowerCase()) || r.title.toLowerCase().includes(search.toLowerCase())).map(r => (
-                        <div key={r.id} className="bg-slate-50 border border-slate-100 rounded-[20px] p-4 flex items-center gap-4 hover:bg-indigo-50 hover:border-indigo-100 transition cursor-pointer"
-                             onClick={() => { setSearchParams({ patient_id: String(r.patient_id) }); setSelectedPatientId(String(r.patient_id)); setView('patient'); }}>
-                             <div className="w-10 h-10 rounded-xl bg-white text-indigo-600 flex items-center justify-center shrink-0 shadow-sm"><FileText size={18}/></div>
-                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                    <h4 className="font-black text-slate-800 text-sm truncate">{r.title}</h4>
-                                    <span className="text-[10px] font-medium text-slate-400">— {r.patient_name}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                                    <Calendar size={10}/> {fmtDate(r.created_at)}
-                                    <span className={`px-1.5 py-0.5 rounded-md ${STATUS_COLORS[r.status] || 'bg-slate-200 text-slate-500'}`}>{r.status}</span>
-                                </div>
-                             </div>
-                             <ChevronRight size={16} className="text-slate-300"/>
-                        </div>
-                    ))}
-                    {globalRecords.length === 0 && <div className="text-center py-10 text-slate-400 font-bold uppercase text-[10px] tracking-widest">Nenhum registro encontrado nos filtros atuais.</div>}
+                <div className="border border-slate-100 rounded-2xl overflow-hidden mt-4 shadow-sm">
+                    <GridTable
+                        data={globalRecords.filter(r => strip(r.content || '').toLowerCase().includes(search.toLowerCase()) || r.title.toLowerCase().includes(search.toLowerCase()))}
+                        keyExtractor={(r) => r.id}
+                        columns={[
+                            {
+                                header: 'Registro e Paciente',
+                                accessor: 'title',
+                                render: (r: MedicalRecord) => (
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                        <div className="font-black text-slate-800 text-sm truncate uppercase tracking-tighter">{r.title}</div>
+                                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                            <User size={10} className="text-slate-300"/> {r.patient_name || 'Paciente não identificado'}
+                                        </div>
+                                    </div>
+                                )
+                            },
+                            {
+                                header: 'Data',
+                                accessor: 'created_at',
+                                render: (r: MedicalRecord) => (
+                                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                                        <Calendar size={12} className="text-slate-300"/>
+                                        {fmtDate(r.created_at)}
+                                    </div>
+                                )
+                            },
+                            {
+                                header: 'Status',
+                                accessor: 'status',
+                                render: (r: MedicalRecord) => (
+                                    <div className="flex flex-wrap gap-1.5 items-center">
+                                        <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.status}</span>
+                                        {r.ai_status === 'organized' && <span className="text-[9px] font-black uppercase px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1"><Sparkles size={10}/> IA</span>}
+                                    </div>
+                                )
+                            },
+                            {
+                                header: 'Ações',
+                                className: 'text-right',
+                                render: (r: MedicalRecord) => (
+                                    <div className="flex items-center justify-end gap-1.5">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => { setSearchParams({ patient_id: String(r.patient_id) }); setSelectedPatientId(String(r.patient_id)); setView('patient'); }}
+                                            className="h-9 w-9 p-0 rounded-xl"
+                                            title="Ver Paciente"
+                                        >
+                                            <ChevronRight size={16}/>
+                                        </Button>
+                                    </div>
+                                )
+                            }
+                        ]}
+                    />
                 </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {filteredPatients.map(p => (
-                  <button key={p.id} onClick={() => { setSearchParams({ patient_id: String(p.id) }); setSelectedPatientId(String(p.id)); setView('patient'); }}
-                    className="bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 rounded-[20px] p-4 text-left transition-all group">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm shrink-0">
-                        {(p.full_name || '?')[0].toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="font-black text-slate-800 text-sm leading-tight truncate group-hover:text-indigo-700">{p.full_name}</h4>
-                        <p className="text-[10px] text-slate-400 font-medium">{p.cpf || 'CPF não informado'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${p.status === 'ativo' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
-                        {p.status || 'ativo'}
-                      </span>
-                      <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 transition"/>
-                    </div>
-                  </button>
-                ))}
-                {filteredPatients.length === 0 && (
-                  <div className="col-span-full text-center py-10 text-slate-400 font-bold">Nenhum paciente encontrado.</div>
-                )}
-              </div>
+                <div className="border border-slate-100 rounded-2xl overflow-hidden mt-4 shadow-sm">
+                    <GridTable
+                        data={filteredPatients}
+                        keyExtractor={(p) => p.id}
+                        onRowClick={(p) => { setSearchParams({ patient_id: String(p.id) }); setSelectedPatientId(String(p.id)); setView('patient'); }}
+                        columns={[
+                            {
+                                header: 'Identificação do Paciente',
+                                accessor: 'full_name',
+                                render: (p: Patient) => (
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-100 shadow-sm">
+                                            {(p.full_name || '?')[0].toUpperCase()}
+                                        </div>
+                                        <div className="flex flex-col gap-0.5 min-w-0">
+                                            <div className="font-black text-slate-800 text-sm truncate uppercase tracking-tighter">{p.full_name}</div>
+                                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                                <User size={10} className="text-slate-300"/> {p.cpf || 'CPF não informado'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            },
+                            {
+                                header: 'Email / Contato',
+                                accessor: 'email',
+                                render: (p: Patient) => (
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="text-[11px] font-bold text-slate-600 truncate">{p.email || 'Nenhum e-mail'}</div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.phone || 'Sem telefone'}</div>
+                                    </div>
+                                )
+                            },
+                            {
+                                header: 'Status',
+                                accessor: 'status',
+                                render: (p: Patient) => (
+                                    <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${p.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                        {p.status || 'ativo'}
+                                    </span>
+                                )
+                            },
+                            {
+                                header: 'Ações',
+                                className: 'text-right',
+                                render: (p: Patient) => (
+                                    <div className="flex items-center justify-end">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-9 w-9 p-0 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                        >
+                                            <ChevronRight size={18}/>
+                                        </Button>
+                                    </div>
+                                )
+                            }
+                        ]}
+                    />
+                </div>
             )}
           </div>
         </div>
@@ -1318,63 +1394,102 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
           {/* Histórico */}
           {activeTab === 'history' && (
-            <div className="space-y-3">
+            <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden animate-fadeIn">
               {patientRecords.length === 0 ? (
-                <div className="bg-white rounded-[32px] border border-slate-100 p-16 shadow-sm text-center">
-                  <BookOpen size={32} className="text-slate-200 mx-auto mb-4"/>
-                  <p className="font-bold text-slate-400">Nenhuma evolução registrada.</p>
-                  <button onClick={openNew} className="mt-4 h-10 px-6 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase hover:bg-indigo-700 inline-flex items-center gap-2">
-                    <Plus size={13}/> Nova Evolução
-                  </button>
-                </div>
-              ) : patientRecords.map(r => (
-                <div key={r.id} className="bg-white rounded-[20px] border border-slate-100 shadow-sm p-5 group relative hover:border-indigo-200 hover:shadow-md transition-all">
-                  <div className="flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                      <FileText size={18}/>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h4 className="font-black text-slate-800 text-sm">{r.title}</h4>
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.status}</span>
-                        {r.ai_status === 'organized' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 flex items-center gap-1"><Sparkles size={9}/> IA</span>}
-                      </div>
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium mb-2">
-                        <span className="flex items-center gap-1"><Calendar size={11}/>{fmtDate(r.created_at)}</span>
-                        {r.start_time && <span className="flex items-center gap-1"><Clock size={11}/>{r.start_time}</span>}
-                        <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-500">{TYPE_LABELS[r.record_type] || r.record_type}</span>
-                        {r.appointment_type && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-500">{r.appointment_type}</span>}
-                      </div>
-                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{strip(r.content || '').slice(0, 200)}</p>
-                      {r.tags && r.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {r.tags.map((tag, i) => <span key={i} className="text-[9px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold">{tag}</span>)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <button onClick={() => setViewerRecord(r)} title="Visualizar prontuário"
-                        className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-500 hover:text-white flex items-center justify-center transition">
-                        <Eye size={13}/>
-                      </button>
-                      <button onClick={() => setShareModal({ record: r })} title="Compartilhar acesso"
-                        className="w-8 h-8 rounded-lg bg-purple-50 text-purple-500 hover:bg-purple-500 hover:text-white flex items-center justify-center transition">
-                        <Share2 size={13}/>
-                      </button>
-                      <button onClick={() => setShowPwModal({ type: 'restricted', recordId: r.id })} title="Ver campo restrito"
-                        className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white flex items-center justify-center transition">
-                        <Lock size={13}/>
-                      </button>
-                      <button onClick={() => openEdit(r.id)} className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition">
-                        <Edit3 size={13}/>
-                      </button>
-                      <button onClick={() => setDeleteId(r.id)} className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-rose-600 hover:text-white flex items-center justify-center transition">
-                        <Trash2 size={13}/>
-                      </button>
-                    </div>
+                <div className="p-20 text-center">
+                  <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 mx-auto mb-4 border border-slate-100">
+                    <BookOpen size={32}/>
                   </div>
+                  <p className="font-bold text-slate-400 mb-6 uppercase text-[11px] tracking-widest">Nenhuma evolução registrada para este paciente.</p>
+                  <Button onClick={openNew} variant="primary" className="h-11 px-8 gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-indigo-100 transition-all hover:-translate-y-0.5">
+                    <Plus size={18}/> Iniciar Evolução
+                  </Button>
                 </div>
-              ))}
+              ) : (
+                <GridTable
+                  data={patientRecords}
+                  keyExtractor={(r) => r.id}
+                  columns={[
+                    {
+                      header: 'Documento / Registro',
+                      accessor: 'title',
+                      render: (r: MedicalRecord) => (
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100 shadow-sm">
+                            <FileText size={18}/>
+                          </div>
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="font-black text-slate-800 text-sm uppercase tracking-tighter truncate">{r.title}</span>
+                            <div className="flex items-center gap-2">
+                               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{TYPE_LABELS[r.record_type] || r.record_type}</span>
+                               {r.appointment_type && (
+                                  <span className="w-1 h-1 rounded-full bg-slate-200" />
+                               )}
+                               {r.appointment_type && (
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{r.appointment_type}</span>
+                               )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    },
+                    {
+                      header: 'Data da Sessão',
+                      accessor: 'created_at',
+                      render: (r: MedicalRecord) => (
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                             <Calendar size={13} className="text-slate-300"/> {fmtDate(r.created_at)}
+                          </div>
+                          {r.start_time && (
+                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                               <Clock size={11} className="text-slate-200"/> {r.start_time}{r.end_time ? ` – ${r.end_time}` : ''}
+                             </div>
+                          )}
+                        </div>
+                      )
+                    },
+                    {
+                      header: 'Status',
+                      accessor: 'status',
+                      render: (r: MedicalRecord) => (
+                        <div className="flex flex-wrap gap-1.5 items-center">
+                          <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.status}</span>
+                          {r.ai_status === 'organized' && <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1.5"><Sparkles size={11}/> IA</span>}
+                        </div>
+                      )
+                    },
+                    {
+                      header: 'Ações',
+                      className: 'text-right',
+                      render: (r: MedicalRecord) => (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => setViewerRecord(r)} title="Visualizar prontuário"
+                            className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition shadow-sm border border-slate-100">
+                            <Eye size={16}/>
+                          </button>
+                          <button onClick={() => openEdit(r.id)} title="Editar"
+                            className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-amber-500 hover:text-white flex items-center justify-center transition shadow-sm border border-slate-100">
+                            <Edit3 size={16}/>
+                          </button>
+                          <button onClick={() => setShowPwModal({ type: 'restricted', recordId: r.id })} title="Ver campo restrito"
+                            className="w-9 h-9 rounded-xl bg-slate-50 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center transition shadow-sm border border-rose-50">
+                            <Lock size={16}/>
+                          </button>
+                          <button onClick={() => setShareModal({ record: r })} title="Compartilhar acesso"
+                            className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-purple-600 hover:text-white flex items-center justify-center transition shadow-sm border border-slate-100">
+                            <Share2 size={16}/>
+                          </button>
+                          <button onClick={() => setDeleteId(r.id)} title="Excluir"
+                            className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-600 hover:text-white flex items-center justify-center transition shadow-sm border border-slate-100">
+                            <Trash2 size={16}/>
+                          </button>
+                        </div>
+                      )
+                    }
+                  ]}
+                />
+              )}
             </div>
           )}
 
@@ -1421,21 +1536,30 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       )}
 
       {/* Delete Modal */}
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[28px] shadow-2xl p-8 w-full max-w-sm mx-4 space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600"><Trash2 size={22}/></div>
-              <h3 className="font-black text-slate-800">Excluir Registro?</h3>
-            </div>
-            <p className="text-sm text-slate-500">Esta ação é irreversível. O registro será excluído permanentemente.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} className="flex-1 h-11 rounded-xl border border-slate-200 text-slate-600 font-black uppercase text-xs hover:bg-slate-50">Cancelar</button>
-              <button onClick={deleteRecord} className="flex-1 h-11 bg-rose-600 text-white rounded-xl font-black uppercase text-xs hover:bg-rose-700 transition">Excluir</button>
-            </div>
+      <Modal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        title="Excluir Registro?"
+        subtitle="Esta ação é irreversível e o prontuário será removido permanentemente do sistema."
+        maxWidth="sm"
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1 uppercase text-xs font-black tracking-widest">Cancelar</Button>
+            <Button variant="primary" onClick={deleteRecord} className="flex-1 bg-rose-600 border-rose-600 hover:bg-rose-700 uppercase text-xs font-black tracking-widest gap-2">
+              <Trash2 size={16}/> Confirmar Exclusão
+            </Button>
           </div>
+        }
+      >
+        <div className="flex flex-col items-center gap-4 py-4 text-center">
+          <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 shadow-sm border border-rose-100">
+            <AlertTriangle size={32} className="animate-pulse" />
+          </div>
+          <p className="text-sm text-slate-500 font-medium leading-relaxed">
+            Você está prestes a excluir um registro clínico. Esta operação será registrada nos logs de auditoria do sistema para conformidade com o CFP.
+          </p>
         </div>
-      )}
+      </Modal>
 
       {/* Restricted Content Password Modal */}
       {showPwModal && (
@@ -1447,23 +1571,26 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       )}
 
       {/* Restricted Content View */}
-      {restrictedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[28px] shadow-2xl p-8 w-full max-w-lg mx-4 space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500"><Lock size={22}/></div>
-                <h3 className="font-black text-slate-800">Conteúdo Restrito</h3>
-              </div>
-              <button onClick={() => setRestrictedModal(null)} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center"><X size={16}/></button>
-            </div>
-            <div className="bg-rose-50/60 border border-rose-100 rounded-2xl p-5">
-              <p className="text-sm font-medium text-rose-900 leading-relaxed whitespace-pre-wrap">{restrictedModal.content}</p>
-            </div>
-            <p className="text-[10px] text-slate-400 font-medium">Este conteúdo é de uso exclusivo e não entra em exportações padrão.</p>
+      <Modal
+        isOpen={!!restrictedModal}
+        onClose={() => setRestrictedModal(null)}
+        title="Conteúdo Restrito"
+        subtitle="Informações sigilosas de uso exclusivo do profissional responsável."
+        maxWidth="lg"
+        footer={<Button variant="ghost" onClick={() => setRestrictedModal(null)} className="w-full uppercase text-xs font-black tracking-widest">Fechar Visualização</Button>}
+      >
+        <div className="space-y-4 pt-2">
+          <div className="bg-rose-50 border border-rose-100/50 rounded-2xl p-6 shadow-inner">
+            <p className="text-sm font-medium text-rose-900 leading-relaxed whitespace-pre-wrap selection:bg-rose-200">
+               {restrictedModal?.content}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 px-1">
+             <Shield size={12} className="text-slate-400"/>
+             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Protegido por Criptografia de Ponta a Ponta</p>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Export Modal */}
       {showExportModal && (

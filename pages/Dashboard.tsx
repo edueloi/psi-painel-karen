@@ -101,7 +101,7 @@ export const Dashboard: React.FC = () => {
   const [financeData, setFinanceData] = useState({ current: 0, percentage: 0 });
 
   const defaultShortcuts: Shortcut[] = [
-    { id: 'crp', title: 'Portal CRP', url: 'https://site.cfp.org.br/', icon: 'globe', color: 'bg-blue-600', isSystem: true },
+    { id: 'crp', title: 'Portal CFP', url: 'https://site.cfp.org.br/', icon: 'globe', color: 'bg-blue-600', isSystem: true },
     { id: 'spotify', title: 'Playlist Relax', url: 'https://open.spotify.com/genre/focus-page', icon: 'music', color: 'bg-emerald-500', isSystem: true },
   ];
 
@@ -339,16 +339,6 @@ export const Dashboard: React.FC = () => {
       }));
   }, [statusCounts]);
 
-  const recentPatients = useMemo(() => {
-    const copy = [...patients];
-    copy.sort((a, b) => {
-      const ad = (a as any).created_at ? new Date((a as any).created_at).getTime() : 0;
-      const bd = (b as any).created_at ? new Date((b as any).created_at).getTime() : 0;
-      if (ad !== bd) return bd - ad;
-      return (a.full_name || '').localeCompare(b.full_name || '');
-    });
-    return copy.slice(0, 5);
-  }, [patients]);
 
   const birthdays = useMemo(() => {
     const list = patients
@@ -734,7 +724,7 @@ export const Dashboard: React.FC = () => {
                     >
                       Paciente
                     </button>
-                    <button onClick={() => navigate('/agenda')} className="text-xs font-bold text-slate-400 hover:text-indigo-600">Agenda</button>
+                      <button onClick={() => navigate(`/agenda?appointmentId=${app.id}`)} className="text-xs font-bold text-slate-400 hover:text-indigo-600">Agenda</button>
                   </div>
                 </div>
               ))}
@@ -844,38 +834,6 @@ export const Dashboard: React.FC = () => {
 
         {/* Right column */}
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wide">Pacientes recentes</h3>
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1,2,3].map(i => (
-                  <div key={i} className="flex justify-between items-center">
-                     <div className="space-y-1.5"><div className="h-4 w-32 bg-slate-100 rounded animate-pulse"></div><div className="h-3 w-20 bg-slate-50 rounded animate-pulse"></div></div>
-                     <div className="h-4 w-10 bg-slate-100 rounded animate-pulse"></div>
-                  </div>
-                ))}
-              </div>
-            ) : recentPatients.length === 0 ? (
-              <div className="text-center text-slate-400 text-sm py-6">Sem pacientes cadastrados.</div>
-            ) : (
-              <div className="space-y-3">
-                {recentPatients.map(p => (
-                  <div key={p.id} className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold text-slate-700 truncate">{p.full_name}</div>
-                      <div className="text-[10px] text-slate-400">{p.email || p.whatsapp || p.phone || 'Sem contato'}</div>
-                    </div>
-                    <button
-                      onClick={() => navigate(`/pacientes?search=${encodeURIComponent(p.full_name || '')}`)}
-                      className="text-xs font-bold text-indigo-600 hover:underline ml-2"
-                    >
-                      Abrir
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* SECTION: BIRTHDAYS */}
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
