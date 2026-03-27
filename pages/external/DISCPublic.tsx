@@ -155,15 +155,15 @@ export const DISCPublic: React.FC = () => {
           <div className="w-24 h-24 bg-emerald-50 rounded-[2.5rem] flex items-center justify-center mx-auto border border-emerald-100 shadow-inner">
             <CheckCircle className="text-emerald-500" size={48} />
           </div>
-          <div className="space-y-4">
+          <div className="space-y-4 text-center">
             <h2 className="text-4xl font-black text-slate-800 tracking-tight leading-none uppercase italic">Concluído!</h2>
-            <p className="text-base text-slate-500 font-bold leading-relaxed italic">
+            <p className="text-base text-slate-500 font-bold leading-relaxed italic opacity-80">
               Seu perfil comportamental foi mapeado e enviado com sucesso. Seu profissional analisará os dados para melhor atendê-lo(a).
             </p>
           </div>
           <div className="pt-8 border-t border-slate-100 flex items-center justify-center gap-3">
              <ShieldCheck size={18} className="text-slate-300" />
-             <span className="text-[11px] font-black text-slate-300 uppercase tracking-[0.3em]">Criptografia PsiFlux Ativa</span>
+             <span className="text-[11px] font-black text-slate-300 uppercase tracking-[0.3em]">Criptografia PsiFlux 256-bit</span>
           </div>
         </div>
       </div>
@@ -232,28 +232,35 @@ export const DISCPublic: React.FC = () => {
       </div>
 
        <div className="max-w-3xl mx-auto px-3 md:px-4 mt-0 md:-mt-12 space-y-3 md:space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-          <div className="bg-white rounded-2xl border border-slate-100 p-4 md:p-12 shadow-lg md:shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-4 md:space-y-8 relative z-20 overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-violet-50/50 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 transition-all group-hover:scale-125" />
-            <div className="flex items-center gap-5 text-violet-600">
-               <div className="w-16 h-16 bg-violet-50 rounded-[1.8rem] flex items-center justify-center shadow-inner border border-violet-100/30">
-                  <Info size={32} />
-               </div>
-               <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 mb-1 leading-none">Guia de Percepção</h3>
-                  <p className="text-2xl font-black text-indigo-950">Instruções Técnicas</p>
-               </div>
-            </div>
-            <p className="text-base text-slate-500 leading-relaxed font-semibold max-w-xl">
-               Não existem respostas certas ou erradas. Responda de acordo com sua <span className="text-violet-600 font-black">percepção natural</span> sobre si mesmo(a) em contextos de rotina.
-            </p>
-            <div className="grid grid-cols-5 gap-3 md:gap-4">
-               {[1, 2, 3, 4, 5].map(v => (
-                 <div key={v} className="bg-slate-50 p-5 rounded-[1.5rem] border border-slate-100 text-center flex flex-col items-center justify-center">
-                    <p className="text-violet-600 font-black text-2xl leading-none">{v}</p>
-                 </div>
-               ))}
-            </div>
-         </div>
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 md:p-12 shadow-lg md:shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-4 md:space-y-8 relative z-20 overflow-hidden">
+             <div className="flex items-center gap-3 text-violet-600">
+                <div className="w-9 h-9 md:w-16 md:h-16 bg-violet-50 rounded-xl md:rounded-[1.8rem] flex items-center justify-center border border-violet-100/30 shrink-0">
+                   <Info size={18} className="md:hidden" />
+                   <Info size={32} className="hidden md:block" />
+                </div>
+                <div>
+                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none">Guia Clínico</h3>
+                   <p className="text-base md:text-2xl font-black text-violet-950 uppercase italic tracking-tight">Instruções de Resposta</p>
+                </div>
+             </div>
+             <p className="text-sm md:text-base text-slate-500 leading-relaxed font-medium">
+                Não existem respostas certas ou erradas. Responda de acordo com sua <span className="text-violet-600 font-bold italic underline decoration-violet-200 underline-offset-2">percepção natural</span> sobre si mesmo(a) em contextos de rotina.
+             </p>
+             <div className="grid grid-cols-5 gap-2 md:gap-4">
+                {[
+                  { v: 1, l: 'Discordo' },
+                  { v: 2, l: 'Pouco' },
+                  { v: 3, l: 'Neutro' },
+                  { v: 4, l: 'Concordo' },
+                  { v: 5, l: 'Totalmente' },
+                ].map(opt => (
+                  <div key={opt.v} className="bg-slate-50 py-3 md:p-6 rounded-xl md:rounded-[1.5rem] border border-slate-100 text-center flex flex-col items-center justify-center gap-1">
+                     <p className="text-violet-600 font-black text-xl md:text-3xl leading-none">{opt.v}</p>
+                     <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase leading-tight">{opt.l}</p>
+                  </div>
+                ))}
+             </div>
+          </div>
 
          <form onSubmit={handleSubmit} className="space-y-6">
             {DISC_ITEMS.map((item, idx) => (
@@ -287,27 +294,25 @@ export const DISCPublic: React.FC = () => {
                   </div>
                </div>
              ))}
-            <div className="pt-12">
+            <div className="pt-2 md:pt-12">
                <button
                  type="submit"
                  disabled={loading}
-                 className="w-full bg-violet-600 hover:bg-slate-950 text-white rounded-[2.5rem] py-10 font-black uppercase tracking-[0.3em] text-sm md:text-lg shadow-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-4 border-b-8 border-violet-800 hover:border-slate-800 active:border-b-0 active:translate-y-2 group"
+                 className="w-full bg-violet-600 text-white rounded-2xl md:rounded-[3rem] py-4 md:py-12 font-black uppercase tracking-widest text-sm md:text-lg shadow-lg shadow-violet-200 transition-all disabled:opacity-50 flex items-center justify-center gap-3 active:scale-[0.98]"
                >
-                  {loading ? 'Processando Mapeamento...' : (
+                  {loading ? 'Processando...' : (
                     <>
-                      Encerrar e Enviar Perfil <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+                      Enviar Perfil Comportamental <ArrowRight size={18} />
                     </>
                   )}
                </button>
-               {error && <p className="text-rose-500 text-center mt-6 text-sm font-black uppercase tracking-widest">{error}</p>}
-               <div className="flex flex-col items-center gap-2 mt-8 opacity-40">
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em] flex items-center gap-3">
-                     <ShieldCheck size={16} /> Protocolo de Segurança SSL Ativo
-                  </p>
-                  <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">© 2026 PsiFlux • Inteligência Clínica</p>
+               {error && <p className="text-rose-500 text-center mt-4 text-sm font-bold">{error}</p>}
+               <div className="flex items-center justify-center gap-2 mt-6 opacity-30">
+                  <ShieldCheck size={14} className="text-violet-400" />
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Protocolo de Sigilo PsiFlux</p>
                </div>
             </div>
-         </form>
+          </form>
       </div>
     </div>
   );
