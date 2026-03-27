@@ -472,8 +472,33 @@ async function autoConfirmAppointments() {
   }
 }
 
+// ─── Garante que as colunas de tracking WhatsApp existam na tabela appointments ──
+async function ensureAppointmentSchema() {
+  const cols = [
+    'whatsapp_reminder_1h_sent',
+    'whatsapp_reminder_24h_sent',
+    'whatsapp_reminder_professional_sent',
+  ];
+  for (const col of cols) {
+    try {
+      await db.query(
+        `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS \`${col}\` TINYINT(1) NOT NULL DEFAULT 0`
+      );
+      console.log(`[Schema] Coluna appointments.${col} garantida.`);
+    } catch (e) {
+      // Ignora se já existir ou se o banco não suportar IF NOT EXISTS
+      if (!e.message?.includes('Duplicate column')) {
+        console.warn(`[Schema] Aviso ao criar coluna ${col}:`, e.message);
+      }
+    }
+  }
+}
+
 // ─── Inicializar todos os cron jobs ──────────────────────────────────────────
 function startCronJobs() {
+  // Garante schema antes de qualquer cron rodar
+  ensureAppointmentSchema().catch(e => console.error('[Schema] Erro ensureAppointmentSchema:', e.message));
+
   cron.schedule('* * * * *', () => withLock('reminders', checkAppointmentReminders), { timezone: 'America/Sao_Paulo' });
   cron.schedule('* * * * *', () => withLock('dailyTasks', checkDailyTasks), { timezone: 'America/Sao_Paulo' });
   cron.schedule('* * * * *', () => withLock('processQueue', () => notificationService.processQueue()), { timezone: 'America/Sao_Paulo' });
