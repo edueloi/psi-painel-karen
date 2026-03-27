@@ -47,6 +47,7 @@ const fs = require('fs');
 
 const path = require('path');
 const app = express();
+app.set('trust proxy', 1); // Necessário para o Nginx (express-rate-limit e logs corretos)
 const PORT = process.env.PORT || 3013;
 
 function mountApiRoutes(prefix = '') {
