@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const crypto = require('crypto');
+const notificationService = require('../services/notificationService');
 
 /* ─────────────────────────────────────────────────────────────
    HELPERS
@@ -157,7 +158,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // 1. Verificar paciente pertence ao tenant
     const [[patient]] = await connection.query(
-      'SELECT id, name FROM patients WHERE id = ? AND tenant_id = ?',
+      'SELECT id, name, phone FROM patients WHERE id = ? AND tenant_id = ?',
       [Number(patient_id), req.user.tenant_id]
     );
 
@@ -227,9 +228,34 @@ router.post('/', authMiddleware, async (req, res) => {
         throw new Error('Erro ao recuperar registro após inserção');
     }
 
+    const publicLink = `${process.env.FRONTEND_URL || 'https://psiflux.com.br'}/f/anamnese?t=${token}`;
+
+    // 7. Agendar lembrete automático via bot do tenant (se reminder_hours configurado e paciente tem telefone)
+    const patientPhone = (patient.phone || '').replace(/\D/g, '');
+    if (reminder_hours && Number(reminder_hours) > 0 && patientPhone.length >= 10) {
+      try {
+        const scheduledAt = new Date(Date.now() + Number(reminder_hours) * 3600000);
+        const reminderMsg = `Olá, ${patient.name}! 😊\n\nPassando para lembrar que o formulário de anamnese *${title}* ainda está aguardando o seu preenchimento.\n\nEsse formulário é importante para me ajudar a compreender melhor o seu momento e conduzir seu atendimento com mais cuidado e atenção. 💙\n\nQuando puder, é só acessar pelo link abaixo:\n${publicLink}\n\nSe tiver qualquer dúvida ou dificuldade para preencher, estou à disposição. 🔒`;
+        await notificationService.enqueue({
+          tenant_id: Number(req.user.tenant_id),
+          recipient_phone: patientPhone,
+          content: reminderMsg,
+          scheduled_at: scheduledAt,
+          expires_at: expiresAt || null,
+          metadata: { type: 'anamnesis_reminder', send_id: sendId }
+        });
+        await db.query(
+          'INSERT INTO anamnesis_reminder_logs (send_id, channel, status) VALUES (?, ?, ?)',
+          [sendId, 'whatsapp', 'sent']
+        );
+      } catch (reminderErr) {
+        console.warn('[anamnesis-send] Erro ao agendar lembrete automático:', reminderErr.message);
+      }
+    }
+
     res.status(201).json({
       ...send,
-      public_link: `${process.env.FRONTEND_URL || 'https://psiflux.com.br'}/f/anamnese?t=${token}`
+      public_link: publicLink
     });
 
   } catch (err) {
@@ -356,6 +382,17 @@ router.post('/:id/cancel', authMiddleware, async (req, res) => {
       'UPDATE anamnesis_secure_links SET is_revoked = 1 WHERE send_id = ?',
       [req.params.id]
     );
+
+    // Cancelar lembretes automáticos pendentes na fila
+    try {
+      await db.query(
+        `UPDATE notification_queue SET status = 'canceled'
+         WHERE status = 'pending'
+           AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'anamnesis_reminder'
+           AND JSON_EXTRACT(metadata, '$.send_id') = ?`,
+        [req.params.id]
+      );
+    } catch (e) { console.warn('[cancel] fila:', e.message); }
 
     res.json({ ok: true });
   } catch (err) {
@@ -568,6 +605,74 @@ router.post('/:id/ai-summary', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('[anamnesis-send POST /:id/ai-summary]', err);
     res.status(500).json({ error: 'Erro ao gerar resumo IA' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /anamnesis-send/:id/send-reminder
+   Envia lembrete via bot do tenant (fila) + link manual como fallback
+ ───────────────────────────────────────────────────────────── */
+router.post('/:id/send-reminder', authMiddleware, async (req, res) => {
+  try {
+    const [[send]] = await db.query(
+      `SELECT s.*, l.token AS secure_token, l.is_revoked,
+              p.name AS patient_name, p.phone AS patient_phone
+       FROM anamnesis_sends s
+       LEFT JOIN anamnesis_secure_links l ON l.send_id = s.id AND l.is_revoked = 0
+       LEFT JOIN patients p ON p.id = s.patient_id
+       WHERE s.id = ? AND s.tenant_id = ?`,
+      [req.params.id, req.user.tenant_id]
+    );
+
+    if (!send) return res.status(404).json({ error: 'Envio não encontrado' });
+    if (send.status === 'answered') return res.status(400).json({ error: 'O paciente já respondeu' });
+    if (send.status === 'cancelled') return res.status(400).json({ error: 'Envio cancelado' });
+    if (send.is_revoked) return res.status(400).json({ error: 'Link revogado' });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+    const publicLink = `${frontendUrl}/f/anamnese?t=${send.secure_token}`;
+    const reminderMsg = `Olá, ${send.patient_name}! 😊\n\nPassando para lembrar que o formulário de anamnese *${send.title}* ainda está aguardando o seu preenchimento.\n\nEsse formulário é importante para me ajudar a compreender melhor o seu momento e conduzir seu atendimento com mais cuidado e atenção. 💙\n\nQuando puder, é só acessar pelo link abaixo:\n${publicLink}\n\nSe tiver qualquer dúvida ou dificuldade para preencher, estou à disposição. 🔒`;
+
+    // Tentar enviar via bot do tenant (fila de notificações)
+    const patientPhone = (send.patient_phone || '').replace(/\D/g, '');
+    let sentViaBot = false;
+
+    if (patientPhone.length >= 10) {
+      try {
+        await notificationService.enqueue({
+          tenant_id: Number(req.user.tenant_id),
+          recipient_phone: patientPhone,
+          content: reminderMsg,
+          scheduled_at: null, // imediato
+          metadata: { type: 'anamnesis_reminder', send_id: Number(req.params.id) }
+        });
+        sentViaBot = true;
+      } catch (botErr) {
+        console.warn('[send-reminder] Fila indisponível, fallback para link manual:', botErr.message);
+      }
+    }
+
+    // Registrar no log
+    await db.query(
+      'INSERT INTO anamnesis_reminder_logs (send_id, channel, status) VALUES (?, ?, ?)',
+      [req.params.id, 'whatsapp', sentViaBot ? 'sent' : 'failed']
+    );
+
+    // Link manual de fallback (se bot offline ou sem telefone)
+    const whatsappUrl = patientPhone.length >= 10
+      ? `https://wa.me/${patientPhone}?text=${encodeURIComponent(reminderMsg)}`
+      : null;
+
+    res.json({
+      ok: true,
+      sent_via_bot: sentViaBot,
+      public_link: publicLink,
+      whatsapp_url: sentViaBot ? null : whatsappUrl, // só abre manual se bot falhou
+      patient_phone: send.patient_phone
+    });
+  } catch (err) {
+    console.error('[anamnesis-send POST /:id/send-reminder]', err);
+    res.status(500).json({ error: 'Erro ao enviar lembrete' });
   }
 });
 

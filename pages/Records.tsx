@@ -14,7 +14,7 @@ import {
   X, ArrowLeft, Layers, User, Download, RotateCcw, Tag,
   History, BookOpen, Filter, Share2, Users, Send, Copy, ExternalLink,
   ClipboardCheck, RefreshCw, MessageSquare, Brain, CheckCheck,
-  LinkIcon,
+  LinkIcon, Bell,
   Settings
 } from 'lucide-react';
 import { DatePicker } from '../components/UI/DatePicker';
@@ -897,6 +897,7 @@ const SendAnamnesisModal: React.FC<{
   const [allowResume, setAllowResume] = useState(true);
   const [allowEditAfterSubmit, setAllowEditAfterSubmit] = useState(false);
   const [expiresHours, setExpiresHours] = useState<number | null>(168); // 7 dias
+  const [reminderHours, setReminderHours] = useState<number | null>(48);
   const [loading, setLoading] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -917,6 +918,7 @@ const SendAnamnesisModal: React.FC<{
         allow_resume: allowResume,
         allow_edit_after_submit: allowEditAfterSubmit,
         expires_hours: expiresHours,
+        reminder_hours: reminderHours,
         consent_required: true,
         notify_channels: ['link'],
       });
@@ -1021,6 +1023,34 @@ const SendAnamnesisModal: React.FC<{
             )}
           </div>
 
+          {/* Confirmação do lembrete automático */}
+          {reminderHours ? (
+            <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
+              <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                <Bell size={15} className="text-amber-600" />
+              </div>
+              <div>
+                <p className="font-black text-amber-800 text-xs uppercase tracking-widest">Lembrete automático agendado</p>
+                <p className="text-amber-700 text-xs font-medium mt-0.5">
+                  Se o paciente não responder, o bot enviará um lembrete via WhatsApp automaticamente em{' '}
+                  <strong>
+                    {reminderHours === 24 ? '24 horas' :
+                     reminderHours === 48 ? '2 dias' :
+                     reminderHours === 72 ? '3 dias' :
+                     reminderHours === 168 ? '7 dias' :
+                     `${reminderHours}h`}
+                  </strong>.
+                </p>
+                <p className="text-amber-500 text-[10px] font-medium mt-1">O lembrete é cancelado automaticamente quando o paciente responder ou se você cancelar o envio.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <Bell size={13} className="text-slate-300 shrink-0" />
+              <p className="text-[11px] text-slate-400 font-medium">Sem lembrete automático configurado. Você pode enviar um lembrete manual a qualquer momento.</p>
+            </div>
+          )}
+
           <p className="text-[10px] text-slate-400 font-medium text-center px-4">
             🔒 Link criptografado e de uso único por sessão. O paciente não precisa de conta no sistema.
           </p>
@@ -1103,6 +1133,19 @@ const SendAnamnesisModal: React.FC<{
                 <option value="48">Expira em 48h</option>
                 <option value="168">Expira em 7 dias</option>
                 <option value="720">Expira em 30 dias</option>
+              </select>
+
+              {/* Lembrete */}
+              <select
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold outline-none focus:border-indigo-400"
+                value={reminderHours ?? ''}
+                onChange={e => setReminderHours(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Sem lembrete</option>
+                <option value="24">Lembrar em 24h</option>
+                <option value="48">Lembrar em 48h</option>
+                <option value="72">Lembrar em 3 dias</option>
+                <option value="168">Lembrar em 7 dias</option>
               </select>
             </div>
           </div>
@@ -1196,6 +1239,22 @@ const AnamnesisResponseModal: React.FC<{
     finally { setConvertLoading(false); }
   };
 
+  const sendReminder = async () => {
+    try {
+      const result: any = await api.post(`/anamnesis-send/${sendId}/send-reminder`, {});
+      if (result.sent_via_bot) {
+        pushToast('success', 'Lembrete enviado via WhatsApp pelo bot!');
+      } else if (result.whatsapp_url) {
+        pushToast('success', 'Bot offline — abrindo WhatsApp para envio manual.');
+        window.open(result.whatsapp_url, '_blank', 'noopener,noreferrer');
+      } else {
+        pushToast('success', 'Lembrete registrado. Paciente sem telefone cadastrado.');
+      }
+    } catch (e: any) {
+      pushToast('error', e?.response?.data?.error || 'Erro ao enviar lembrete.');
+    }
+  };
+
   const REVIEW_STATUS_LABELS: Record<string, string> = {
     pending: 'Pendente', reviewing: 'Em Revisão', approved: 'Aprovado', discarded: 'Descartado'
   };
@@ -1216,8 +1275,14 @@ const AnamnesisResponseModal: React.FC<{
       subtitle={`Paciente: ${patientName}`}
       maxWidth="xl"
       footer={
-        <div className="flex gap-3 w-full">
+        <div className="flex gap-3 w-full flex-wrap">
           <Button variant="ghost" onClick={onClose} className="uppercase text-xs font-black tracking-widest">Fechar</Button>
+          {!hasAnswers && data?.status !== 'answered' && data?.status !== 'cancelled' && (
+            <Button variant="ghost" onClick={sendReminder}
+              className="gap-2 uppercase text-xs font-black tracking-widest border-amber-200 text-amber-700 hover:bg-amber-50">
+              <Bell size={14} /> Enviar Lembrete
+            </Button>
+          )}
           {hasAnswers && reviewStatus !== 'approved' && (
             <Button variant="primary" onClick={convertToRecord} disabled={convertLoading}
               className="gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-emerald-100 bg-emerald-600 border-emerald-600 hover:bg-emerald-700">
@@ -1473,6 +1538,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [sendAnamnesisModal, setSendAnamnesisModal] = useState<{ record: MedicalRecord; patient: Patient } | null>(null);
   const [anamnesisResponseModal, setAnamnesisResponseModal] = useState<{ sendId: number; patientName: string } | null>(null);
   const [anamnesisSends, setAnamnesisSends] = useState<any[]>([]);
+  const [cancelAnamnesisModal, setCancelAnamnesisModal] = useState<{ sendId: number; patientName: string } | null>(null);
 
   useEffect(() => { 
     fetchAll(); 
@@ -2349,6 +2415,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 if (!pat) return null;
 
                                 if (sendForThisRecord) {
+                                  const canCancel = !['answered', 'cancelled', 'expired'].includes(sendForThisRecord.status);
                                   return (
                                     <>
                                       <button
@@ -2356,13 +2423,27 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                         className={`h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm border transition ${
                                           sendForThisRecord.status === 'answered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' :
                                           sendForThisRecord.status === 'filling' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 animate-pulse' :
+                                          sendForThisRecord.status === 'cancelled' ? 'bg-slate-50 text-slate-400 border-slate-200 line-through opacity-60' :
                                           'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
                                         }`}
                                       >
                                         <ClipboardCheck size={13}/>
-                                        <span className="hidden lg:inline">{sendForThisRecord.status === 'answered' ? 'Ver respostas' : 'Status Envio'}</span>
+                                        <span className="hidden lg:inline">
+                                          {sendForThisRecord.status === 'answered' ? 'Ver respostas' :
+                                           sendForThisRecord.status === 'cancelled' ? 'Cancelado' :
+                                           'Status Envio'}
+                                        </span>
                                       </button>
-                                      <button 
+                                      {canCancel && (
+                                        <button
+                                          title="Cancelar envio"
+                                          onClick={() => setCancelAnamnesisModal({ sendId: sendForThisRecord.id, patientName: pat.full_name })}
+                                          className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all"
+                                        >
+                                          <X size={14}/>
+                                        </button>
+                                      )}
+                                      <button
                                         onClick={() => setSendAnamnesisModal({ record: r, patient: pat })}
                                         title="Enviar novamente"
                                         className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-indigo-600 hover:bg-slate-50 transition-all"
@@ -2578,6 +2659,50 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             if (selectedPatientId) fetchRecords(selectedPatientId);
           }}
         />
+      )}
+
+      {/* Modal de confirmação de cancelamento de anamnese */}
+      {cancelAnamnesisModal && (
+        <Modal
+          isOpen
+          onClose={() => setCancelAnamnesisModal(null)}
+          title="Cancelar envio de anamnese"
+          maxWidth="sm"
+          footer={
+            <div className="flex gap-3 w-full">
+              <Button variant="ghost" onClick={() => setCancelAnamnesisModal(null)} className="flex-1 uppercase text-xs font-black tracking-widest">
+                Manter ativo
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1 uppercase text-xs font-black tracking-widest bg-rose-600 border-rose-600 hover:bg-rose-700 shadow-rose-100"
+                onClick={async () => {
+                  try {
+                    await api.post(`/anamnesis-send/${cancelAnamnesisModal.sendId}/cancel`, {});
+                    setAnamnesisSends((prev: any[]) => prev.map((s: any) => s.id === cancelAnamnesisModal.sendId ? { ...s, status: 'cancelled' } : s));
+                    pushToast('success', 'Envio cancelado. Lembretes interrompidos.');
+                  } catch { pushToast('error', 'Erro ao cancelar envio.'); }
+                  finally { setCancelAnamnesisModal(null); }
+                }}
+              >
+                <X size={14} /> Sim, cancelar
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-4 pt-2">
+            <div className="flex items-start gap-3 p-4 bg-rose-50 rounded-2xl border border-rose-100">
+              <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-black text-rose-700 text-sm">Cancelar o formulário de {cancelAnamnesisModal.patientName}?</p>
+                <p className="text-rose-600 text-xs font-medium mt-1">O paciente não poderá mais responder e todos os lembretes automáticos serão interrompidos imediatamente.</p>
+              </div>
+            </div>
+            <p className="text-slate-500 text-xs font-medium leading-relaxed px-1">
+              Se quiser enviar novamente no futuro, basta clicar em <strong>"+"</strong> para gerar um novo link.
+            </p>
+          </div>
+        </Modal>
       )}
     </div>
   );

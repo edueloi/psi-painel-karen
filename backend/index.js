@@ -135,7 +135,7 @@ app.get('/f/:hash', async (req, res) => {
       'bai': { title: 'BAI', description: 'Inventário de Ansiedade de Beck (BAI). Avaliação de sintomas de ansiedade enviada pelo seu psicólogo(a). Clique para responder.' },
       'snap-iv': { title: 'SNAP-IV', description: 'Escala SNAP-IV de avaliação de TDAH e oposição/desafio. Instrumento enviado pelo psicólogo(a). Clique para responder.' },
       'm-chat-r': { title: 'M-CHAT-R/F', description: 'Instrumento de triagem para sinais de autismo em crianças pequenas (M-CHAT-R/F). Enviado pelo psicólogo(a). Clique para responder.' },
-      'anamnese': { title: 'Anamnese Clínica', description: 'Formulário de anamnese psicológica enviado pela sua psicóloga. Suas respostas são sigilosas e serão analisadas com cuidado. Clique para responder.' },
+      'anamnese': { title: 'Anamnese Clínica', description: 'Formulário de anamnese psicológica enviado por seu psicólogo(a). Suas respostas são sigilosas e serão analisadas com cuidado. Clique para responder.' },
     };
 
     const hash = req.params.hash?.toLowerCase();

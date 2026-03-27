@@ -566,9 +566,68 @@ router.post('/anamnese/submit', async (req, res) => {
       [link.send_id]
     );
 
+    // Cancelar lembretes automáticos pendentes na fila (paciente já respondeu)
+    try {
+      await db.query(
+        `UPDATE notification_queue
+         SET status = 'canceled'
+         WHERE status = 'pending'
+           AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'anamnesis_reminder'
+           AND JSON_EXTRACT(metadata, '$.send_id') = ?`,
+        [link.send_id]
+      );
+    } catch (cancelErr) {
+      console.warn('[anamnese submit] Erro ao cancelar lembretes pendentes:', cancelErr.message);
+    }
+
     res.json({ ok: true, has_critical_content: hasCritical });
   } catch (err) {
     console.error('Erro submeter anamnese:', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /public-profile/anamnese/cancel?t=TOKEN
+// Paciente cancela o formulário — revoga link e para todos os lembretes
+router.post('/anamnese/cancel', async (req, res) => {
+  try {
+    const { t: token } = req.query;
+    if (!token) return res.status(400).json({ error: 'Token inválido.' });
+
+    const [[link]] = await db.query(
+      'SELECT l.*, s.status AS send_status FROM anamnesis_secure_links l JOIN anamnesis_sends s ON s.id = l.send_id WHERE l.token = ? AND l.is_revoked = 0',
+      [token]
+    );
+    if (!link) return res.status(404).json({ error: 'Link inválido ou já cancelado.' });
+    if (link.send_status === 'answered') return res.status(400).json({ error: 'Este formulário já foi respondido.' });
+    if (link.send_status === 'cancelled') return res.json({ ok: true }); // já cancelado
+
+    // Revogar link
+    await db.query('UPDATE anamnesis_secure_links SET is_revoked = 1 WHERE token = ?', [token]);
+
+    // Cancelar envio
+    await db.query(
+      "UPDATE anamnesis_sends SET status = 'cancelled', updated_at = NOW() WHERE id = ?",
+      [link.send_id]
+    );
+
+    // Cancelar todos os lembretes pendentes na fila
+    try {
+      await db.query(
+        `UPDATE notification_queue
+         SET status = 'canceled'
+         WHERE status = 'pending'
+           AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'anamnesis_reminder'
+           AND JSON_EXTRACT(metadata, '$.send_id') = ?`,
+        [link.send_id]
+      );
+    } catch (e) {
+      console.warn('[anamnese cancel] Erro ao cancelar fila:', e.message);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro cancelar anamnese:', err);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });

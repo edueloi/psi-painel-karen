@@ -102,7 +102,7 @@ const SHORT_ANAMNESIS_FIELDS = [
 const CONSENT_ITEMS = [
   'Estou ciente de que este formulário coletará informações pessoais e de saúde mental.',
   'Compreendo que este formulário não substitui atendimento de urgência. Em caso de crise, ligue 188 (CVV) ou vá à UPA mais próxima.',
-  'Autorizo que as informações preenchidas sejam analisadas exclusivamente pela profissional responsável pelo meu atendimento.',
+  'Autorizo que as informações preenchidas sejam analisadas exclusivamente pelo(a) profissional responsável pelo meu atendimento.',
   'Entendo que minhas respostas serão tratadas com sigilo profissional, conforme o Código de Ética do CFP.',
 ];
 
@@ -171,7 +171,7 @@ export const AnamnesisPublic: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
 
-  const [step, setStep] = useState<'loading' | 'error' | 'already_done' | 'consent' | 'form' | 'critical_alert' | 'submitted'>('loading');
+  const [step, setStep] = useState<'loading' | 'error' | 'already_done' | 'consent' | 'form' | 'critical_alert' | 'submitted' | 'cancelled'>('loading');
   const [formData, setFormData] = useState<FormData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [consentChecked, setConsentChecked] = useState<boolean[]>([false, false, false, false]);
@@ -237,6 +237,15 @@ export const AnamnesisPublic: React.FC = () => {
       document.title = 'Anamnese Clínica | PsiFlux';
     }
   }, [formData]);
+
+  /* Cancel form */
+  const handleCancel = async () => {
+    if (!token) return;
+    try {
+      await api.post(`/public-profile/anamnese/cancel?t=${token}`, {});
+    } catch { /* se já cancelado ou erro, mostra tela de qualquer forma */ }
+    setStep('cancelled');
+  };
 
   /* Consent accept */
   const handleConsentSubmit = async () => {
@@ -512,6 +521,15 @@ export const AnamnesisPublic: React.FC = () => {
             {saving ? <Loader2 size={20} className="animate-spin" /> : <ArrowRight size={20} />}
             {saving ? 'Registrando...' : 'Li e aceito — Começar'}
           </button>
+
+          <div className="text-center pt-2">
+            <button
+              onClick={handleCancel}
+              className="text-slate-400 text-xs font-medium underline underline-offset-2 hover:text-slate-600 transition"
+            >
+              Não consigo preencher agora — cancelar formulário
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -658,16 +676,62 @@ export const AnamnesisPublic: React.FC = () => {
 
           {/* "Save and continue later" */}
           {formData?.allow_resume && !isLastSection && (
-            <div className="text-center pb-4">
+            <div className="text-center pb-2">
               <button onClick={() => { /* Progresso já é salvo automaticamente */ }} className="text-slate-400 text-xs font-bold underline underline-offset-2">
                 Seu progresso é salvo automaticamente — pode continuar mais tarde
               </button>
             </div>
           )}
+
+          {/* Cancelar formulário */}
+          <div className="text-center pb-6">
+            <button
+              onClick={handleCancel}
+              className="text-slate-300 text-xs font-medium underline underline-offset-2 hover:text-slate-500 transition"
+            >
+              Não vou conseguir preencher — cancelar este formulário
+            </button>
+          </div>
         </div>
       </div>
     );
   }
+
+  /* ── CANCELLED ── */
+  if (step === 'cancelled') return (
+    <div className="min-h-screen bg-[#fafaff] font-sans flex items-center justify-center px-4">
+      <div className="max-w-md w-full text-center space-y-6">
+        <div className="w-20 h-20 bg-slate-100 rounded-[2rem] flex items-center justify-center mx-auto border border-slate-200">
+          <Info size={36} className="text-slate-400" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black text-slate-700">Formulário cancelado</h2>
+          <p className="text-slate-500 font-medium leading-relaxed text-sm">
+            Tudo bem! O formulário foi cancelado e você não receberá mais lembretes sobre ele.
+          </p>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            Se quiser preencher em outro momento, solicite um novo link ao(à) seu(sua) psicólogo(a).
+          </p>
+        </div>
+        {prof && (
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-3 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center font-black text-indigo-600 text-lg shrink-0">
+              {prof.name?.[0]}
+            </div>
+            <div className="text-left">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Responsável pelo atendimento</p>
+              <p className="font-bold text-slate-700 text-sm">{prof.name}</p>
+              {prof.crp && <p className="text-slate-400 text-xs">CRP {prof.crp}</p>}
+            </div>
+          </div>
+        )}
+        <div className="flex items-center justify-center gap-2 opacity-30">
+          <ShieldCheck size={14} />
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PsiFlux • Segurança Clínica</span>
+        </div>
+      </div>
+    </div>
+  );
 
   return null;
 };
