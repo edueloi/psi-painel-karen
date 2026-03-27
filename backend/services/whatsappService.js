@@ -114,6 +114,15 @@ class WhatsAppManager {
               }
             }, 35000);
           }
+          // Telefone desvinculou da sessão WA Web — precisa novo QR Code
+          if (statusSession === 'disconnectedMobile') {
+            data.status = 'disconnected';
+            data.phone = null;
+            data.initializing = false;
+            data.qrcode = null;
+            db.query('UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?', ['disconnected', null, tenantId]).catch(()=>{});
+            console.log(`[WPP] Tenant ${tenantId} — telefone desvinculou (disconnectedMobile). Necessário novo QR Code.`);
+          }
         },
         mkdirFolder: this.tokensPath,
         puppeteerOptions: {
