@@ -39,7 +39,6 @@ const permissionProfilesRoutes = require('./routes/permission-profiles');
 const commissionsRoutes = require('./routes/commissions');
 const notificationsRoutes = require('./routes/notifications');
 const whatsappRoutes = require('./routes/whatsapp');
-const wppService = require('./services/whatsappService');
 const { startCronJobs } = require('./services/cronJobs');
 const { provisionFormsForAllTenants } = require('./services/provisionForms');
 const db = require('./db');
@@ -403,7 +402,5 @@ app.listen(PORT, () => {
   ensureAlertSchema().catch(e => console.warn('⚠️  system_alerts schema:', e.message));
   provisionFormsForAllTenants().catch(e => console.warn('⚠️  provisionForms:', e.message));
 
-  // Recupera conexões do WhatsApp de todos os tenants ativos
-  console.log('🔄 Verificando sessões do WhatsApp para recuperar...');
-  wppService.recoverActiveSessions();
+  console.log('🔄 WPP Bot separado para micro-serviço (porta 3014) ✅');
 }); // Fecha o bloco do app.listen

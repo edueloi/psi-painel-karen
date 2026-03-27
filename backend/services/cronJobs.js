@@ -1,7 +1,6 @@
 const cron = require('node-cron');
 const db = require('../db');
 const { sendMail, templates } = require('./emailService');
-const wppService = require('./whatsappService');
 const notificationService = require('./notificationService');
 
 // Guard: evita que crons sobreponham execuções caso demorem mais de 1 minuto
@@ -96,8 +95,8 @@ async function checkAppointmentReminders() {
     let masterBotConnected = false;
 
     if (masterTenantId) {
-       const status = wppService.getStatus(masterTenantId);
-       masterBotConnected = status.status === 'connected';
+       const [tRows] = await db.query(`SELECT whatsapp_status FROM tenants WHERE id = ?`, [masterTenantId]);
+       masterBotConnected = tRows[0]?.whatsapp_status === 'connected';
     }
 
     // Busca agendamentos próximos (24h e 1h)
@@ -503,10 +502,8 @@ function startCronJobs() {
 
   cron.schedule('* * * * *', () => withLock('reminders', checkAppointmentReminders), { timezone: 'America/Sao_Paulo' });
   cron.schedule('* * * * *', () => withLock('dailyTasks', checkDailyTasks), { timezone: 'America/Sao_Paulo' });
-  cron.schedule('* * * * *', () => withLock('processQueue', () => notificationService.processQueue()), { timezone: 'America/Sao_Paulo' });
   cron.schedule('*/30 * * * *', () => withLock('autoConfirm', autoConfirmAppointments), { timezone: 'America/Sao_Paulo' });
   
-  notificationService.ensureSchema();
   autoConfirmAppointments(); // roda uma vez na inicialização
 
   // Jobs de email só rodam se as variáveis de ambiente estiverem configuradas

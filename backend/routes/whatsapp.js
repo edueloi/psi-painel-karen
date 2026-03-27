@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const db = require('../db');
 const { authorize } = require('../middleware/auth');
-const wppService = require('../services/whatsappService');
+
+const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 
 // Restrição para Admins da Clínica (Tenant) e Super Admin
 const isTenantAdmin = (user) => user && ['admin', 'super_admin'].includes(user.role);
@@ -19,9 +21,19 @@ router.get('/status', async (req, res) => {
     const [rows] = await db.query('SELECT whatsapp_preferences FROM tenants WHERE id = ?', [tenantId]);
     const prefsRaw = rows[0]?.whatsapp_preferences;
     const preferences = prefsRaw ? (typeof prefsRaw === 'string' ? JSON.parse(prefsRaw) : prefsRaw) : {};
-    res.json({ ...wppService.getStatus(tenantId), preferences });
+    
+    // Pega o status do bot rodando na porta 3014
+    let botStatus = { status: 'disconnected', reason: 'Bot offline' };
+    try {
+       const resp = await axios.get(`${BOT_URL}/status/${tenantId}`);
+       botStatus = resp.data;
+    } catch(err) {
+       console.warn('Bot service unreachable:', err.message);
+    }
+    
+    res.json({ ...botStatus, preferences });
   } catch(e) {
-    res.json({ ...wppService.getStatus(tenantId), preferences: {} });
+    res.json({ status: 'disconnected', preferences: {} });
   }
 });
 
@@ -42,22 +54,26 @@ router.post('/connect', async (req, res) => {
   const tenantId = req.user.tenant_id;
 
   try {
-    // Inicia conexão de forma assíncrona
-    // forceNew = true: apaga a sessão antiga e gera um novo QR code limpo
-    wppService.connect(tenantId, true).catch(err => console.error('WPP Connect Error:', err.message));
+    // Comunica com o bot localmente de forma fire-and-forget
+    axios.post(`${BOT_URL}/connect/${tenantId}`).catch(err => console.error('Bot connect proxy err:', err.message));
 
-    // Retorna status imediato (provavelmente connecting)
-    setTimeout(() => {
+    setTimeout(async () => {
+        let botStatus = { status: 'connecting' };
+        try {
+           const resp = await axios.get(`${BOT_URL}/status/${tenantId}`);
+           botStatus = resp.data;
+        } catch(e) {}
+
         res.json({
           success: true,
-          ...wppService.getStatus(tenantId),
+          ...botStatus,
           message: 'Escaneie o QR Code para conectar'
         });
-    }, 500); // pequeno delay para dar tempo do QR ser gerado se for rápido
+    }, 1500); // 1.5s delay pro bot subir
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao iniciar conexão' });
+    res.status(500).json({ error: 'Erro ao conectar ao serviço do bot' });
   }
 });
 
@@ -67,11 +83,11 @@ router.post('/disconnect', async (req, res) => {
   const tenantId = req.user.tenant_id;
 
   try {
-    await wppService.disconnect(tenantId);
+    await axios.post(`${BOT_URL}/disconnect/${tenantId}`);
     res.json({ success: true, message: 'Desconectado com sucesso' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao desconectar' });
+    console.error(err.message);
+    res.status(500).json({ error: 'Erro ao desconectar no seviço do bot' });
   }
 });
 
@@ -84,18 +100,11 @@ router.post('/test', async (req, res) => {
   if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem são obrigatórios' });
 
   try {
-    const result = await wppService.sendReminder(tenantId, phone, message);
-    if (result === true) {
-      res.json({ success: true, message: 'Mensagem enviada com sucesso!' });
-    } else {
-      // Se result não for true, pode ser o objeto de erro ou false
-      res.status(500).json({ 
-        error: typeof result === 'string' ? result : 'O bot não conseguiu entregar a mensagem. Verifique se o aparelho ainda está conectado e se o número existe.' 
-      });
-    }
+    const response = await axios.post(`${BOT_URL}/test/${tenantId}`, { phone, message });
+    res.json(response.data);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro interno: ' + err.message });
+    console.error(err.message);
+    res.status(500).json({ error: err.response?.data?.error || 'Erro interno de comunicação com o Bot' });
   }
 });
 
