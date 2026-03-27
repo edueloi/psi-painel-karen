@@ -18,12 +18,53 @@ import {
   Send,
   TrendingUp,
   XCircle,
-  UserCheck
+  UserCheck,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Twitter,
+  Youtube,
+  Github,
+  Mail,
+  Phone,
+  MessageCircle,
+  Briefcase,
+  Book,
+  Coffee,
+  Heart,
+  Settings,
+  Menu,
+  MonitorPlay,
+  FileBarChart,
+  Camera,
+  Image as ImageIcon,
+  Mic,
+  Headphones,
+  Film,
+  MapPin,
+  ShoppingCart,
+  CreditCard,
+  Banknote,
+  Gift,
+  Award,
+  Zap,
+  Smile,
+  Star,
+  Shield,
+  Trash2,
+  CheckCircle2,
+  Circle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { AuroraAssistant } from '../components/AI/AuroraAssistant';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { Button } from '../components/UI/Button';
+import { Input } from '../components/UI/Input';
+import { Modal } from '../components/UI/Modal';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -42,28 +83,113 @@ type UpcomingFilter = 'hoje' | 'semana' | 'mes' | 'todos';
 
 export const Dashboard: React.FC = () => {
   const { t, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { pushToast } = useToast();
   const navigate = useNavigate();
+
+  interface TodoItem {
+    id: string;
+    text: string;
+    completed: boolean;
+  }
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [upcomingFilter, setUpcomingFilter] = useState<UpcomingFilter>('todos');
+  const [showFinance, setShowFinance] = useState(false); // Widget Financeiro oculto/visivo
+  const [financeData, setFinanceData] = useState({ current: 0, percentage: 0 });
 
-  const [shortcuts] = useState<Shortcut[]>([
+  const defaultShortcuts: Shortcut[] = [
     { id: 'crp', title: 'Portal CRP', url: 'https://site.cfp.org.br/', icon: 'globe', color: 'bg-blue-600', isSystem: true },
     { id: 'spotify', title: 'Playlist Relax', url: 'https://open.spotify.com/genre/focus-page', icon: 'music', color: 'bg-emerald-500', isSystem: true },
-  ]);
+  ];
+
+  const customShortcuts = Array.isArray(user?.uiPreferences?.dashboard_shortcuts) 
+    ? user.uiPreferences.dashboard_shortcuts 
+    : [];
+
+  const todosList: TodoItem[] = Array.isArray(user?.uiPreferences?.dashboard_todos)
+    ? user.uiPreferences.dashboard_todos
+    : [];
+
+  const allShortcuts = [...defaultShortcuts, ...customShortcuts];
+
+  const [isAddShortcutOpen, setIsAddShortcutOpen] = useState(false);
+  const [editingShortcutId, setEditingShortcutId] = useState<string | null>(null);
+  const [newShortcut, setNewShortcut] = useState<Partial<Shortcut>>({ title: '', url: '', icon: 'link', color: 'bg-indigo-500' });
+  const [isSavingShortcut, setIsSavingShortcut] = useState(false);
+  
+  const [newTodo, setNewTodo] = useState('');
+
+  const COLOR_OPTIONS = [
+    'bg-slate-500', 'bg-slate-800', 'bg-red-500', 'bg-red-600',
+    'bg-orange-500', 'bg-orange-600', 'bg-amber-500', 'bg-amber-600',
+    'bg-yellow-400', 'bg-yellow-500', 'bg-lime-500', 'bg-lime-600',
+    'bg-green-500', 'bg-green-600', 'bg-emerald-500', 'bg-emerald-600',
+    'bg-teal-500', 'bg-teal-600', 'bg-cyan-500', 'bg-cyan-600',
+    'bg-sky-500', 'bg-sky-600', 'bg-blue-500', 'bg-blue-600', 'bg-blue-700',
+    'bg-indigo-500', 'bg-indigo-600', 'bg-violet-500', 'bg-violet-600',
+    'bg-purple-500', 'bg-purple-600', 'bg-fuchsia-500', 'bg-fuchsia-600',
+    'bg-pink-500', 'bg-pink-600', 'bg-rose-500', 'bg-rose-600'
+  ];
+
+  const ICON_OPTIONS = [
+    { id: 'link', icon: <LinkIcon size={16}/>, color: 'bg-slate-500' },
+    { id: 'globe', icon: <Globe size={16}/>, color: 'bg-blue-500' },
+    { id: 'facebook', icon: <Facebook size={16}/>, color: 'bg-indigo-600' },
+    { id: 'instagram', icon: <Instagram size={16}/>, color: 'bg-pink-600' },
+    { id: 'linkedin', icon: <Linkedin size={16}/>, color: 'bg-blue-700' },
+    { id: 'twitter', icon: <Twitter size={16}/>, color: 'bg-sky-500' },
+    { id: 'youtube', icon: <Youtube size={16}/>, color: 'bg-red-600' },
+    { id: 'github', icon: <Github size={16}/>, color: 'bg-slate-800' },
+    { id: 'mail', icon: <Mail size={16}/>, color: 'bg-amber-500' },
+    { id: 'phone', icon: <Phone size={16}/>, color: 'bg-emerald-600' },
+    { id: 'whatsapp', icon: <MessageCircle size={16}/>, color: 'bg-emerald-500' },
+    { id: 'calendar', icon: <Calendar size={16}/>, color: 'bg-violet-500' },
+    { id: 'briefcase', icon: <Briefcase size={16}/>, color: 'bg-amber-700' },
+    { id: 'book', icon: <Book size={16}/>, color: 'bg-indigo-500' },
+    { id: 'video', icon: <MonitorPlay size={16}/>, color: 'bg-rose-500' },
+    { id: 'chart', icon: <FileBarChart size={16}/>, color: 'bg-teal-500' },
+    { id: 'coffee', icon: <Coffee size={16}/>, color: 'bg-amber-600' },
+    { id: 'heart', icon: <Heart size={16}/>, color: 'bg-rose-600' },
+    { id: 'star', icon: <Star size={16}/>, color: 'bg-yellow-500' },
+    { id: 'shield', icon: <Shield size={16}/>, color: 'bg-slate-700' },
+    { id: 'music', icon: <Music size={16}/>, color: 'bg-purple-600' },
+    { id: 'camera', icon: <Camera size={16}/>, color: 'bg-slate-600' },
+    { id: 'image', icon: <ImageIcon size={16}/>, color: 'bg-fuchsia-500' },
+    { id: 'mic', icon: <Mic size={16}/>, color: 'bg-indigo-400' },
+    { id: 'headphones', icon: <Headphones size={16}/>, color: 'bg-violet-600' },
+    { id: 'film', icon: <Film size={16}/>, color: 'bg-red-500' },
+    { id: 'mappin', icon: <MapPin size={16}/>, color: 'bg-red-600' },
+    { id: 'cart', icon: <ShoppingCart size={16}/>, color: 'bg-orange-500' },
+    { id: 'card', icon: <CreditCard size={16}/>, color: 'bg-emerald-600' },
+    { id: 'money', icon: <Banknote size={16}/>, color: 'bg-emerald-500' },
+    { id: 'gift', icon: <Gift size={16}/>, color: 'bg-pink-500' },
+    { id: 'award', icon: <Award size={16}/>, color: 'bg-amber-400' },
+    { id: 'zap', icon: <Zap size={16}/>, color: 'bg-yellow-400' },
+    { id: 'smile', icon: <Smile size={16}/>, color: 'bg-sky-400' },
+  ];
 
   const fetchData = async () => {
     setIsLoading(true);
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    const lastMonthDate = new Date(now);
+    lastMonthDate.setMonth(now.getMonth() - 1);
+    const lastMonth = lastMonthDate.getMonth() + 1;
+    const lastMonthYear = lastMonthDate.getFullYear();
+
     try {
-      const [pts, apts] = await Promise.all([
-        api.get<Patient[]>('/patients'),
-        api.get<any[]>('/appointments')
+      const [patientsRes, appointmentsRes, currentSum, lastSum] = await Promise.all([
+        api.get<Patient[]>('/patients').catch(() => []),
+        api.get<Appointment[]>('/appointments').catch(() => []),
+        api.get<any>('/finance/summary', { month: currentMonth.toString(), year: currentYear.toString() }).catch(() => null),
+        api.get<any>('/finance/summary', { month: lastMonth.toString(), year: lastMonthYear.toString() }).catch(() => null)
       ]);
-      setPatients(Array.isArray(pts) ? pts : []);
-      setAppointments((Array.isArray(apts) ? apts : []).map(a => {
+      setPatients(Array.isArray(patientsRes) ? patientsRes : []);
+      setAppointments((Array.isArray(appointmentsRes) ? appointmentsRes : []).map(a => {
         const rawStart = a.start_time || a.appointment_date || a.start;
         const startDate = rawStart ? new Date(rawStart) : new Date(NaN);
         return {
@@ -73,8 +199,16 @@ export const Dashboard: React.FC = () => {
           patient_name: a.patient_name || a.patientName || 'Consulta'
         };
       }));
-    } catch (e) {
-      console.error(e);
+
+      const currInc = currentSum?.income || 0;
+      const lastInc = lastSum?.income || 0;
+      let pct = 0;
+      if (lastInc > 0) pct = Math.round(((currInc - lastInc) / lastInc) * 100);
+      else if (currInc > 0) pct = 100;
+      
+      setFinanceData({ current: currInc, percentage: pct });
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -239,7 +373,144 @@ export const Dashboard: React.FC = () => {
   const renderIcon = (iconName: string, size = 20) => {
     if (iconName === 'globe') return <Globe size={size} />;
     if (iconName === 'music') return <Music size={size} />;
+    if (iconName === 'facebook') return <Facebook size={size} />;
+    if (iconName === 'instagram') return <Instagram size={size} />;
+    if (iconName === 'linkedin') return <Linkedin size={size} />;
+    if (iconName === 'twitter') return <Twitter size={size} />;
+    if (iconName === 'youtube') return <Youtube size={size} />;
+    if (iconName === 'github') return <Github size={size} />;
+    if (iconName === 'mail') return <Mail size={size} />;
+    if (iconName === 'phone') return <Phone size={size} />;
+    if (iconName === 'whatsapp') return <MessageCircle size={size} />;
+    if (iconName === 'calendar') return <Calendar size={size} />;
+    if (iconName === 'briefcase') return <Briefcase size={size} />;
+    if (iconName === 'book') return <Book size={size} />;
+    if (iconName === 'video') return <MonitorPlay size={size} />;
+    if (iconName === 'chart') return <FileBarChart size={size} />;
+    if (iconName === 'coffee') return <Coffee size={size} />;
+    if (iconName === 'heart') return <Heart size={size} />;
+    if (iconName === 'star') return <Star size={size} />;
+    if (iconName === 'shield') return <Shield size={size} />;
+    if (iconName === 'camera') return <Camera size={size} />;
+    if (iconName === 'image') return <ImageIcon size={size} />;
+    if (iconName === 'mic') return <Mic size={size} />;
+    if (iconName === 'headphones') return <Headphones size={size} />;
+    if (iconName === 'film') return <Film size={size} />;
+    if (iconName === 'mappin') return <MapPin size={size} />;
+    if (iconName === 'cart') return <ShoppingCart size={size} />;
+    if (iconName === 'card') return <CreditCard size={size} />;
+    if (iconName === 'money') return <Banknote size={size} />;
+    if (iconName === 'gift') return <Gift size={size} />;
+    if (iconName === 'award') return <Award size={size} />;
+    if (iconName === 'zap') return <Zap size={size} />;
+    if (iconName === 'smile') return <Smile size={size} />;
     return <LinkIcon size={size} />;
+  };
+
+  const handleSaveShortcut = async () => {
+    if (!newShortcut.title || !newShortcut.url || !user?.uiPreferences) return;
+    setIsSavingShortcut(true);
+    try {
+        let newList = [...customShortcuts];
+        if (editingShortcutId) {
+            // Edit existing
+            newList = newList.map(s => s.id === editingShortcutId ? {
+                ...s,
+                title: newShortcut.title!,
+                url: newShortcut.url!.startsWith('http') ? newShortcut.url! : `https://${newShortcut.url}`,
+                icon: newShortcut.icon || 'link',
+                color: newShortcut.color || 'bg-indigo-500'
+            } : s);
+        } else {
+            // Add new
+            const added: Shortcut = {
+                id: 'custom-' + Date.now(),
+                title: newShortcut.title,
+                url: newShortcut.url.startsWith('http') ? newShortcut.url : `https://${newShortcut.url}`,
+                icon: newShortcut.icon || 'link',
+                color: newShortcut.color || 'bg-indigo-500',
+                isSystem: false
+            };
+            newList.push(added);
+        }
+
+        const newPrefs = { ...user.uiPreferences, dashboard_shortcuts: newList };
+        await api.patch('/profile/preferences', { ui_preferences: newPrefs });
+        
+        if (updateUser) updateUser({ uiPreferences: newPrefs });
+        
+        pushToast('success', editingShortcutId ? 'Acesso rápido atualizado com sucesso!' : 'Novo acesso rápido adicionado!');
+        setIsAddShortcutOpen(false);
+        setEditingShortcutId(null);
+        setNewShortcut({ title: '', url: '', icon: 'link', color: 'bg-indigo-500' });
+    } catch (e) {
+        console.error(e);
+        pushToast('error', 'Ops! Tivemos um erro ao salvar seu acesso rápido.');
+    } finally {
+        setIsSavingShortcut(false);
+    }
+  };
+
+  const openEditShortcut = (shortcut: Shortcut, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingShortcutId(shortcut.id);
+    setNewShortcut({ title: shortcut.title, url: shortcut.url, icon: shortcut.icon, color: shortcut.color || 'bg-indigo-500' });
+    setIsAddShortcutOpen(true);
+  };
+
+  const handleRemoveShortcut = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user?.uiPreferences) return;
+    try {
+        const newList = customShortcuts.filter((s: Shortcut) => s.id !== id);
+        const newPrefs = { ...user.uiPreferences, dashboard_shortcuts: newList };
+        await api.patch('/profile/preferences', { ui_preferences: newPrefs });
+        if (updateUser) updateUser({ uiPreferences: newPrefs });
+        pushToast('success', 'Acesso rápido removido com sucesso!');
+    } catch (err) {
+        console.error(err);
+        pushToast('error', 'Ocorreu um erro ao excluir esse acesso.');
+    }
+  };
+
+  const handleSaveTodo = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newTodo.trim() || !user?.uiPreferences) return;
+    try {
+       const added: TodoItem = { id: 'todo-' + Date.now(), text: newTodo.trim(), completed: false };
+       const updated = [added, ...todosList]; // Novos em cima
+       const newPrefs = { ...user.uiPreferences, dashboard_todos: updated };
+       await api.patch('/profile/preferences', { ui_preferences: newPrefs });
+       if (updateUser) updateUser({ uiPreferences: newPrefs });
+       setNewTodo('');
+    } catch (err) {
+       console.error(err);
+    }
+  };
+
+  const toggleTodo = async (id: string, completed: boolean) => {
+    if (!user?.uiPreferences) return;
+    try {
+        const updated = todosList.map(t => t.id === id ? { ...t, completed } : t);
+        // Opcional: mover os concluídos pro final
+        updated.sort((a, b) => Number(a.completed) - Number(b.completed));
+
+        const newPrefs = { ...user.uiPreferences, dashboard_todos: updated };
+        await api.patch('/profile/preferences', { ui_preferences: newPrefs });
+        if (updateUser) updateUser({ uiPreferences: newPrefs });
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRemoveTodo = async (id: string) => {
+    if (!user?.uiPreferences) return;
+    try {
+        const updated = todosList.filter(t => t.id !== id);
+        const newPrefs = { ...user.uiPreferences, dashboard_todos: updated };
+        await api.patch('/profile/preferences', { ui_preferences: newPrefs });
+        if (updateUser) updateUser({ uiPreferences: newPrefs });
+    } catch (err) { console.error(err); }
   };
 
   // Taxa de confirmação = (confirmed + completed) / total consultas
@@ -255,35 +526,51 @@ export const Dashboard: React.FC = () => {
     const isNextToday = next?.start
       ? next.start.getDate() === now.getDate() && next.start.getMonth() === now.getMonth()
       : false;
-    const nextDate = next?.start && !isNextToday
-      ? next.start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às '
-      : '';
-    const nextLabel = next ? `${next.patient_name} - ${nextDate}${nextTime}` : 'Sem consultas futuras no momento.';
+    
+    // Gerador de insight dinâmico (Falso IA / Premium logic)
+    const generateInsight = () => {
+       if (isLoading) return 'Sincronizando Aurora Insights...';
+       if (!next) return 'Sem novos atendimentos na agenda hoje. Aproveite o tempo para revisar seus prontuários pendentes.';
+       if (isNextToday) return `Seu próximo paciente é ${next.patient_name} às ${nextTime}. ${todosList.filter(t => !t.completed).length > 0 ? `Lembre-se de concluir suas ${todosList.filter(t => !t.completed).length} tarefas pendentes hoje.` : 'Sua lista de tarefas está em dia!'}`;
+       return `Hoje o dia está limpo. O próximo atendimento será com ${next.patient_name} em breve. Boa jornada!`;
+    };
 
     return (
-      <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-4">
-          <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-lg border border-white/20"><Sparkles size={20} className="text-yellow-300" /></div>
+      <div className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 rounded-[2rem] p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden group">
+        {/* Background glow animations */}
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-purple-400 transition-colors duration-1000"></div>
+        <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-blue-300 opacity-20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-5">
+          <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-inner">
+             <Sparkles size={24} className="text-yellow-300 animate-pulse" />
+          </div>
           <div className="flex-1">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-100 mb-1">Resumo do dia</h3>
-            <p className="text-base font-medium leading-relaxed">
-              {isLoading ? 'Sincronizando dados...' : `Hoje: ${todaysAppointments.length} atendimentos. Próximo: ${nextLabel}`}
+            <h3 className="font-extrabold text-[11px] uppercase tracking-[0.2em] text-indigo-100 mb-1.5 flex items-center gap-2">
+               Aurora Insights <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-ping"></span>
+            </h3>
+            <p className="text-sm md:text-base font-medium leading-relaxed max-w-2xl text-white/90">
+              {generateInsight()}
             </p>
           </div>
-          <button onClick={() => navigate('/agenda')} className="shrink-0 text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg border border-white/20">Abrir agenda</button>
+          <button onClick={() => navigate('/agenda')} className="shrink-0 text-[11px] uppercase tracking-widest font-black bg-white text-indigo-700 hover:bg-indigo-50 hover:scale-105 active:scale-95 px-5 h-10 rounded-xl border border-white/20 transition-all shadow-md">
+             Agenda Completa
+          </button>
         </div>
       </div>
     );
   };
 
   const StatCard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; hint?: string; onClick?: () => void }> = ({ label, value, icon, hint, onClick }) => (
-    <div onClick={onClick} className={`bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all hover:border-indigo-100 group ${onClick ? 'cursor-pointer' : ''}`}>
-      <div className="flex items-start justify-between">
-        <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">{icon}</div>
-        {hint && <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{hint}</span>}
+    <div onClick={onClick} className={`bg-white p-5 xl:p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all hover:border-indigo-100 group flex flex-col justify-between min-w-0 ${onClick ? 'cursor-pointer' : ''}`}>
+      <div className="flex items-start justify-between gap-2 overflow-hidden">
+        <div className="p-3 shrink-0 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">{icon}</div>
+        {hint && <span className="text-[8px] lg:text-[7px] xl:text-[9px] font-black text-slate-300 uppercase tracking-widest text-right leading-tight break-words max-w-[65%] mt-1">{hint}</span>}
       </div>
-      <h3 className="text-3xl font-black text-slate-800 mt-5 group-hover:text-indigo-600 transition-colors">{value}</h3>
-      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 pr-2 leading-tight">{label}</p>
+      <div>
+         <h3 className="text-3xl font-black text-slate-800 mt-4 xl:mt-5 group-hover:text-indigo-600 transition-colors truncate">{value}</h3>
+         <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mt-1 leading-tight break-words line-clamp-2 pr-1">{label}</p>
+      </div>
     </div>
   );
 
@@ -322,8 +609,39 @@ export const Dashboard: React.FC = () => {
 
       <InsightWidget />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards & Financial Mini Widget */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {/* FINANCIAL MINI WIDGET (Ocupa 1 coluna tbm) */}
+        <div className="bg-slate-900 overflow-hidden relative p-6 rounded-[2rem] shadow-sm border border-slate-800 transition-all group flex flex-col justify-between hidden md:flex">
+             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform"><TrendingUp size={80} /></div>
+             <div className="relative z-10">
+                <div className="flex items-start justify-between">
+                   <div className="p-2.5 bg-white/10 rounded-xl text-emerald-400 backdrop-blur-md"><Banknote size={16} /></div>
+                   <button onClick={() => setShowFinance(!showFinance)} className="text-slate-400 hover:text-white p-1">
+                      {showFinance ? <EyeOff size={14}/> : <Eye size={14}/>}
+                   </button>
+                </div>
+                {isLoading ? (
+                   <div className="mt-4"><div className="h-8 w-24 bg-slate-800 rounded animate-pulse"></div></div>
+                ) : (
+                  <h3 className="text-2xl font-black text-white mt-4 tracking-tight flex items-end gap-1">
+                     <span className="text-base text-slate-400 font-bold mb-1">R$</span> {showFinance ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(financeData.current) : '••••,••'}
+                  </h3>
+                )}
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 leading-tight border-b border-slate-700/50 pb-2">Entradas do Mês</p>
+                <div className="flex items-center gap-1.5 mt-3">
+                   {isLoading ? (
+                     <div className="h-4 w-12 bg-slate-800 rounded animate-pulse"></div>
+                   ) : (
+                     <span className={`flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-md ${financeData.percentage >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'}`}>
+                       {financeData.percentage >= 0 ? '+' : ''}{financeData.percentage}%
+                     </span>
+                   )}
+                   <span className="text-[10px] text-slate-500 font-medium truncate">vs. mês passado</span>
+                </div>
+             </div>
+        </div>
+
         <StatCard
           label={t('dashboard.totalPatients')}
           value={isLoading ? '-' : patients.length}
@@ -380,9 +698,17 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <div className="p-4 space-y-2 max-h-[380px] overflow-y-auto custom-scrollbar">
-              {isLoading ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-indigo-300" /></div>
-              ) : upcomingFiltered.length === 0 ? (
+            {isLoading ? (
+              <div className="space-y-4 py-4">
+                 <div className="h-6 w-48 bg-slate-100 rounded-lg animate-pulse mb-6"></div>
+                 {[1,2,3,4].map(i => (
+                    <div key={i} className="flex gap-4 items-center">
+                       <div className="w-12 h-12 bg-slate-100 rounded-2xl animate-pulse shrink-0"></div>
+                       <div className="space-y-2 flex-1"><div className="h-4 bg-slate-100 rounded w-1/3 animate-pulse"></div><div className="h-3 bg-slate-50 rounded w-1/4 animate-pulse"></div></div>
+                    </div>
+                 ))}
+              </div>
+            ) : upcomingFiltered.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">
                   Sem atendimentos {upcomingFilter === 'hoje' ? 'hoje' : upcomingFilter === 'semana' ? 'esta semana' : upcomingFilter === 'mes' ? 'este mês' : 'futuros'}.
                 </div>
@@ -521,7 +847,14 @@ export const Dashboard: React.FC = () => {
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wide">Pacientes recentes</h3>
             {isLoading ? (
-              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-indigo-300" /></div>
+              <div className="space-y-3">
+                {[1,2,3].map(i => (
+                  <div key={i} className="flex justify-between items-center">
+                     <div className="space-y-1.5"><div className="h-4 w-32 bg-slate-100 rounded animate-pulse"></div><div className="h-3 w-20 bg-slate-50 rounded animate-pulse"></div></div>
+                     <div className="h-4 w-10 bg-slate-100 rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
             ) : recentPatients.length === 0 ? (
               <div className="text-center text-slate-400 text-sm py-6">Sem pacientes cadastrados.</div>
             ) : (
@@ -553,7 +886,14 @@ export const Dashboard: React.FC = () => {
                 </h3>
             </div>
             {isLoading ? (
-              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-indigo-300" /></div>
+              <div className="space-y-3 pt-4">
+                {[1,2].map(i => (
+                  <div key={i} className="flex gap-3 items-center">
+                     <div className="w-10 h-10 bg-slate-100 rounded-xl animate-pulse"></div>
+                     <div className="space-y-1.5 flex-1"><div className="h-4 w-28 bg-slate-100 rounded animate-pulse"></div><div className="h-3 w-16 bg-slate-50 rounded animate-pulse"></div></div>
+                  </div>
+                ))}
+              </div>
             ) : birthdays.length === 0 ? (
               <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-50 rounded-2xl">Sem aniversários próximos.</div>
             ) : (
@@ -600,13 +940,74 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
 
+          {/* SECTION: TO-DO LIST (Gestão Diária) */}
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm flex flex-col max-h-[400px]">
+            <div className="flex items-center justify-between mb-5">
+                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-indigo-500" />
+                    Tarefas Diárias
+                </h3>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{todosList.filter(t=>!t.completed).length} Pendentes</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto w-full custom-scrollbar pr-2 space-y-2 mb-4">
+               {todosList.length === 0 ? (
+                  <div className="text-center text-slate-400 text-sm py-4 border border-dashed border-slate-100 rounded-2xl">
+                    Sua lista está vazia! Adicione tarefas abaixo. ✍🏼
+                  </div>
+               ) : (
+                  todosList.map(t => (
+                     <div key={t.id} className="group flex items-start gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                        <button onClick={() => toggleTodo(t.id, !t.completed)} className="mt-0.5 shrink-0 transition-all active:scale-90">
+                           {t.completed ? <CheckCircle2 size={18} className="text-emerald-500" /> : <Circle size={18} className="text-slate-300 hover:text-indigo-400" />}
+                        </button>
+                        <p className={`flex-1 text-sm font-medium leading-snug transition-all ${t.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                           {t.text}
+                        </p>
+                        <button onClick={() => handleRemoveTodo(t.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1">
+                           <Trash2 size={14} />
+                        </button>
+                     </div>
+                  ))
+               )}
+            </div>
+
+            <form onSubmit={handleSaveTodo} className="relative mt-auto border-t border-slate-50 pt-3">
+               <input
+                 type="text"
+                 placeholder="O que você não esquecer hoje?"
+                 value={newTodo}
+                 onChange={e => setNewTodo(e.target.value)}
+                 className="w-full bg-slate-50 border border-slate-100 placeholder-slate-400 text-sm rounded-xl py-3 pl-4 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:bg-white transition-all text-slate-700 font-medium"
+               />
+               <button type="submit" disabled={!newTodo.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 mt-1.5 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-lg transition-colors">
+                  <Plus size={14} />
+               </button>
+            </form>
+          </div>
+
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-3 text-xs uppercase tracking-wide">Acesso rápido</h3>
+            <div className="flex justify-between items-center mb-4">
+               <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wide">Acesso rápido</h3>
+               <button onClick={() => { setEditingShortcutId(null); setNewShortcut({ title: '', url: '', icon: 'link', color: 'bg-indigo-500' }); setIsAddShortcutOpen(true); }} className="text-slate-400 hover:text-indigo-600 p-1.5 bg-slate-50 hover:bg-indigo-50 rounded-lg transition-colors group relative" title="Adicionar Atalho">
+                  <Plus size={16} />
+               </button>
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              {shortcuts.map(s => (
-                <a key={s.id} href={s.url} target="_blank" rel="noopener" className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-50 hover:bg-white border border-slate-100 transition-all text-center">
+              {allShortcuts.map(s => (
+                <a key={s.id} href={s.url} target="_blank" rel="noopener" className="group/btn relative flex flex-col items-center justify-center p-3 rounded-lg bg-slate-50 hover:bg-white border border-slate-100 hover:border-indigo-100 transition-all text-center">
+                  {!s.isSystem && (
+                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 pointer-events-none group-hover/btn:opacity-100 group-hover/btn:pointer-events-auto transition-all">
+                       <button onClick={(e) => openEditShortcut(s, e)} className="bg-slate-200 text-slate-600 hover:bg-indigo-100 hover:text-indigo-600 rounded-md p-1.5 shadow-sm transition-colors" title="Editar">
+                         <Settings size={12} />
+                       </button>
+                       <button onClick={(e) => handleRemoveShortcut(s.id, e)} className="bg-slate-200 text-slate-600 hover:bg-red-500 hover:text-white rounded-md p-1.5 shadow-sm transition-colors" title="Excluir">
+                         <Trash2 size={12} />
+                       </button>
+                     </div>
+                  )}
                   <div className={`w-8 h-8 ${s.color} rounded-full flex items-center justify-center text-white mb-1.5`}>{renderIcon(s.icon, 16)}</div>
-                  <span className="text-[10px] font-bold text-slate-700">{s.title}</span>
+                  <span className="text-[10px] font-bold text-slate-700 truncate w-full px-1">{s.title}</span>
                 </a>
               ))}
             </div>
@@ -615,6 +1016,64 @@ export const Dashboard: React.FC = () => {
       </div>
 
       <AuroraAssistant />
+
+      {/* MODAL ADICIONAR/EDITAR ACESSO RÁPIDO */}
+      <Modal
+         isOpen={isAddShortcutOpen}
+         onClose={() => { setIsAddShortcutOpen(false); setEditingShortcutId(null); }}
+         title={editingShortcutId ? "Editar Acesso Rápido" : "Novo Acesso Rápido"}
+         size="sm"
+         footer={
+            <div className="flex justify-end gap-2 w-full">
+               <Button variant="ghost" onClick={() => { setIsAddShortcutOpen(false); setEditingShortcutId(null); }}>Cancelar</Button>
+               <Button variant="primary" onClick={handleSaveShortcut} isLoading={isSavingShortcut}>Salvar</Button>
+            </div>
+         }
+      >
+         <div className="space-y-4 py-2">
+             <Input 
+                label="Nome do Acesso"
+                placeholder="Ex: Meu Site, Artigos..."
+                value={newShortcut.title || ''}
+                onChange={e => setNewShortcut({...newShortcut, title: e.target.value})}
+             />
+             <Input 
+                label="Link (URL)"
+                placeholder="exemplo.com.br"
+                value={newShortcut.url || ''}
+                onChange={e => setNewShortcut({...newShortcut, url: e.target.value})}
+             />
+             <div>
+                <span className="text-xs font-bold text-slate-600 block mb-2">Selecione o Ícone</span>
+                <div className="flex gap-2 flex-wrap max-h-36 overflow-y-auto w-full custom-scrollbar p-1">
+                   {ICON_OPTIONS.map(opt => (
+                      <button
+                         key={opt.id}
+                         onClick={() => setNewShortcut({...newShortcut, icon: opt.id, color: opt.color})} /* Sugere a cor baseada no icone */
+                         className={`p-3 rounded-xl transition-all border-2 flex items-center justify-center ${newShortcut.icon === opt.id ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shrink-0 scale-110 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300 text-slate-400 hover:bg-slate-50'}`}
+                         title={opt.id}
+                      >
+                         {opt.icon}
+                      </button>
+                   ))}
+                </div>
+             </div>
+
+             <div>
+                <span className="text-xs font-bold text-slate-600 block mb-2">Cor do Círculo</span>
+                <div className="flex gap-2 flex-wrap max-h-36 overflow-y-auto w-full custom-scrollbar p-1">
+                   {COLOR_OPTIONS.map(col => (
+                      <button
+                         key={col}
+                         onClick={() => setNewShortcut({...newShortcut, color: col})}
+                         className={`w-8 h-8 rounded-full shadow-sm transition-all border-2 ${col} ${newShortcut.color === col ? 'border-slate-800 scale-110' : 'border-transparent hover:scale-105'}`}
+                         title={col}
+                      />
+                   ))}
+                </div>
+             </div>
+         </div>
+      </Modal>
     </div>
   );
 };
