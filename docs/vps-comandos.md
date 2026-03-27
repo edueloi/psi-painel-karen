@@ -1,21 +1,22 @@
 # Dicas e Comandos de Sobrevivência (VPS)
 
-Guarde este documento para ter sempre à mão os comandos rotineiros de como acessar, atualizar e manter seu servidor VPS rodando a todo vapor com a nova arquitetura do PsiFlux.
+Guarde este documento para ter sempre à mão os comandos rotineiros de como acessar, atualizar e manter seu servidor VPS rodando a todo vapor com a arquitetura do PsiFlux.
 
 ---
 
 ## 🔐 1. Como Acessar o Servidor
-Para entrar no terminal do seu servidor (no PowerShell), use:
+
+No PowerShell ou terminal, use:
 ```bash
 ssh root@72.62.8.195
 ```
-*(Ele pedirá a senha do servidor e não vai mostrar os caracteres enquanto você digita, é normal).*
+*(Ele pedirá a senha — não mostra os caracteres enquanto você digita, é normal.)*
 
 ---
 
-## 🚀 2. Como Subir Atualizações Padrão (Deploy)
-Esse é o comando que você vai usar 99% das vezes após modificar o visual do seu painel e as funcionalidades do backend. 
-Ele irá **reiniciar apenas o servidor principal**, mantendo o WhatsApp seguro e rolando sem interrupções de QR Code.
+## 🚀 2. Deploy Padrão (Frontend + Backend)
+
+Use este comando para 99% das atualizações — reinicia o servidor principal sem derrubar o WhatsApp:
 
 ```bash
 cd /var/www/psiflux && git pull && npm install && npm run build && cd /var/www/psiflux/backend && npm install && pm2 restart psiflux
@@ -23,46 +24,119 @@ cd /var/www/psiflux && git pull && npm install && npm run build && cd /var/www/p
 
 ---
 
-## 🗄️ 3. Como Atualizar Tabelas no Banco de Dados
-Sempre que você mesmo, ou a Inteligência Artificial (eu), criar novas tabelas no banco de dados (ex: nova tabela para Notas, Pacientes, Ferramentas Clínicas), você deve acessar a pasta do backend e rodar as migrações/scripts para que a Nuvem acompanhe o que você fez no seu PC.
-*(Atualmente, o PsiFlux usa scripts manuais de banco).*
+## 🤖 3. Deploy que muda o WhatsApp / Bot
+
+Quando mudar `backend/bot.js`, `backend/services/whatsappService.js`, `backend/services/cronJobs.js` ou `backend/services/notificationService.js`:
 
 ```bash
-cd /var/www/psiflux/backend
-node migrate.js
+cd /var/www/psiflux && git pull && cd /var/www/psiflux/backend && npm install && pm2 restart psiflux && pm2 restart psiflux-bot
 ```
-*(Obs: Dependendo de como nosso sistema de migração estiver estruturado, você rodará o nome exato do script que foi criado para subir as tabelas).*
+
+> ⚠️ Reiniciar o `psiflux-bot` vai fechar as conexões WhatsApp temporariamente — você verá o status como "Reconectando" por cerca de 30-60 segundos. Depois volta sozinho sem precisar de novo QR Code (sessão salva no disco).
 
 ---
 
-## 🤖 4. Como Atualizar/Reiniciar os Bots do WhatsApp (Microsserviço)
-Criamos um arquivo `bot.js` rodando na porta `3014` com o Express próprio dele para isolar o Whatsapp do fluxo principal da aplicação.
+## 🆕 4. Primeira vez rodando o Bot no PM2 (ou se o bot sumir da lista)
 
-Se um dia modificarmos algo diretamente atrelado ao WhatsApp (`backend/services/whatsappService.js` ou `backend/bot.js`), aí sim você deverá reiniciar o bot em separado:
+Se `pm2 list` não mostrar o `psiflux-bot`, rode:
+
 ```bash
-# Sincroniza os novos arquivos e reinicia SÓ o motor do whatsapp
-cd /var/www/psiflux && git pull
-pm2 restart psiflux-bot
+cd /var/www/psiflux && pm2 startOrReload ecosystem.config.js && pm2 save
 ```
 
-### 🧹 Limpando Sessões Corrompidas
-Se algum dia o servidor fechar todas as instâncias de WhatsApp e não quiser mais abrir:
+Isso sobe **ambos** os processos (`psiflux` + `psiflux-bot`) e salva para reiniciar automaticamente caso o servidor reinicie.
+
+---
+
+## 🗄️ 5. Atualizar Tabelas do Banco de Dados
+
+Quando novas tabelas ou colunas forem criadas, rode as migrações:
+
 ```bash
-# Apaga todas as sessões salvas antigas
+cd /var/www/psiflux/backend && node migrate.js
+```
+
+> As novas colunas de rastreamento de lembretes WhatsApp (`whatsapp_reminder_personal_1h_sent`, `whatsapp_reminder_personal_24h_sent`) são criadas automaticamente pelo sistema ao iniciar — não precisa rodar migrate para elas.
+
+---
+
+## 🧹 6. Limpando Sessões WhatsApp Corrompidas
+
+Se o bot não conseguir mais conectar de jeito nenhum:
+
+```bash
+# Para o bot
+pm2 stop psiflux-bot
+
+# Apaga sessões corrompidas
 rm -rf /var/www/psiflux/backend/tokens
 
-# Reinicia do zero o motor de WhatsApp pedindo novos QR Codes e novas criptografias
-pm2 restart psiflux-bot
+# Reinicia — vai pedir novos QR Codes para cada tenant
+pm2 start psiflux-bot
+```
+
+Depois de rodar, entre no painel de cada conta e reconecte o WhatsApp escaneando o QR Code.
+
+---
+
+## 📋 7. Diagnóstico com PM2
+
+Ver o que está rodando:
+```bash
+pm2 list
+```
+
+Ver logs ao vivo:
+```bash
+# Logs do painel (frontend/backend principal)
+pm2 logs psiflux --lines 50
+
+# Logs exclusivos do WhatsApp/Bot
+pm2 logs psiflux-bot --lines 50
+
+# Seguir em tempo real (Ctrl+C para sair)
+pm2 logs psiflux-bot --lines 0
+```
+
+Ver consumo de memória e CPU:
+```bash
+pm2 monit
 ```
 
 ---
 
-## 📋 Diagnóstico (PM2)
-Se quiser ver ao vivo as coisas dando erro ou enviando certo na tela preta:
-```bash
-## Ver logs de Navegação/Acessos do Painel:
-pm2 logs psiflux --lines 40
+## 🔁 8. Caminhos Importantes no Servidor
 
-## Ver logs exclusivos de Disparo do WhatsApp:
-pm2 logs psiflux-bot --lines 40
-```
+| O quê | Caminho |
+|-------|---------|
+| Raiz do projeto | `/var/www/psiflux/` |
+| Backend | `/var/www/psiflux/backend/` |
+| Frontend build (servido pelo Nginx) | `/var/www/psiflux/dist/` |
+| Sessões WhatsApp (tokens) | `/var/www/psiflux/backend/tokens/` |
+| Logs PM2 | `/var/www/psiflux/logs/` |
+| Ecosystem PM2 | `/var/www/psiflux/ecosystem.config.js` |
+
+---
+
+## ⚙️ 9. Processos PM2 do PsiFlux
+
+| Nome | Script | Função |
+|------|--------|--------|
+| `psiflux` | `backend/index.js` | API principal + cron jobs (lembretes, emails) |
+| `psiflux-bot` | `backend/bot.js` | WhatsApp (WPPConnect) + processamento da fila de mensagens |
+
+> O `psiflux-bot` reinicia automaticamente se travar. Ele também tenta **reconectar o WhatsApp sozinho** a cada 35 segundos após uma queda, e faz um health-check a cada 5 minutos.
+
+---
+
+## 🤖 10. Lógica de Automações WhatsApp
+
+| Evento | Quem recebe | Via qual bot | Condição |
+|--------|-------------|--------------|----------|
+| Lembrete consulta 1h | Paciente | Bot da clínica | Paciente tem nome + telefone |
+| Lembrete consulta 24h | Paciente | Bot da clínica | Paciente tem nome + telefone |
+| Lembrete profissional | Profissional | Master Bot | Sempre (X min antes conforme preferência) |
+| Evento pessoal 1h | Profissional | Master Bot | Tipo = "pessoal" |
+| Evento pessoal 24h | Profissional | Master Bot | Tipo = "pessoal" + tem Responsável no campo Notas |
+| Aniversariante | Paciente | Bot da clínica | Paciente ativo (`status = 'ativo'`) |
+| Pagamento vencendo | Paciente | Bot da clínica | Vencimento hoje + status pendente |

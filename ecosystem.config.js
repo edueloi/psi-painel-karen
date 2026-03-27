@@ -1,6 +1,20 @@
 module.exports = {
   apps: [
     {
+      name: 'psiflux-bot',
+      script: './backend/bot.js',
+      autorestart: true,
+      max_restarts: 20,
+      min_uptime: '20s',
+      restart_delay: 5000,
+      max_memory_restart: '700M',
+      error_file: './logs/pm2-bot-error.log',
+      out_file:   './logs/pm2-bot-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      env: { NODE_ENV: 'production' },
+    },
+    {
       name: 'psiflux',
       script: './backend/index.js',
 

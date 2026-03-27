@@ -51,13 +51,31 @@ app.post('/bot-api/test/:tenantId', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🤖 PsiFlux-Bot (WPPConnect) rodando na porta ${PORT}`);
-  
+
   // Recupera conexões do WhatsApp de todos os tenants ativos
   console.log('🔄 Verificando sessões do WhatsApp para recuperar...');
   wppService.recoverActiveSessions();
 
-  // Iniciar Cron da Fila de Notificacoes (transferido do cronJobs.js principal)
+  // Iniciar Cron da Fila de Notificacoes
   notificationService.ensureSchema();
   cron.schedule('* * * * *', () => withLock('processQueue', () => notificationService.processQueue()), { timezone: 'America/Sao_Paulo' });
   console.log('✅ Cron de Processamento da Fila (WhatsApp) iniciado.');
+
+  // Health-check a cada 5 minutos: tenta reconectar tenants que deveriam estar conectados mas caíram silenciosamente
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const db = require('./db');
+      const [rows] = await db.query("SELECT id FROM tenants WHERE whatsapp_status = 'connected'");
+      for (const row of rows) {
+        const s = wppService.getStatus(row.id);
+        if (s.status !== 'connected' && !s.initializing) {
+          console.log(`[HealthCheck] Tenant ${row.id} deveria estar conectado mas está ${s.status}. Reconectando...`);
+          wppService.connect(row.id, false).catch(e => console.error(`[HealthCheck] Erro reconect Tenant ${row.id}:`, e.message));
+        }
+      }
+    } catch(e) {
+      console.error('[HealthCheck] Erro:', e.message);
+    }
+  }, { timezone: 'America/Sao_Paulo' });
+  console.log('✅ Health-check de reconexão WhatsApp iniciado (a cada 5min).');
 });

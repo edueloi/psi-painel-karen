@@ -37,6 +37,7 @@ class WhatsAppManager {
       status: data.status,
       qrcode: data.qrcode,
       phone: data.phone,
+      initializing: data.initializing,
     };
   }
 
@@ -104,6 +105,14 @@ class WhatsAppManager {
             data.phone = null;
             data.initializing = false;
             db.query('UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?', ['disconnected', null, tenantId]).catch(()=>{});
+            // Auto-reconexão: aguarda 35 segundos e tenta reconectar sem forçar novo QR
+            console.log(`[WPP] Tenant ${tenantId} desconectado — agendando reconexão automática em 35s...`);
+            setTimeout(() => {
+              if (data.status === 'disconnected' && !data.initializing) {
+                console.log(`[WPP] Tentando reconectar automaticamente Tenant ${tenantId}...`);
+                this.connect(tenantId, false).catch(e => console.error(`[WPP] Auto-reconnect Tenant ${tenantId}:`, e.message));
+              }
+            }, 35000);
           }
         },
         mkdirFolder: this.tokensPath,

@@ -5,6 +5,8 @@ const wppService = require('./whatsappService');
  * Serviço de Fila de Notificações
  * Gerencia o agendamento, envio e retentativa de mensagens via WhatsApp.
  */
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 class NotificationService {
   constructor() {
     this.isProcessing = false;
@@ -69,13 +71,14 @@ class NotificationService {
     this.isProcessing = true;
 
     try {
-      // Busca até 20 mensagens pendentes que já deveriam ter sido enviadas
+      // Busca até 10 mensagens pendentes por vez (com delay de 3s entre envios = ~30s por rodada)
       const [pending] = await db.query(
-        `SELECT * FROM notification_queue 
-         WHERE status = 'pending' 
+        `SELECT * FROM notification_queue
+         WHERE status = 'pending'
            AND (scheduled_at IS NULL OR scheduled_at <= NOW())
            AND attempts < max_attempts
-         LIMIT 20`
+         ORDER BY created_at ASC
+         LIMIT 10`
       );
 
       if (pending.length === 0) {
@@ -91,7 +94,7 @@ class NotificationService {
           if (item.expires_at && new Date(item.expires_at) < new Date()) {
             await db.query("UPDATE notification_queue SET status = 'canceled', last_error = 'Expirada' WHERE id = ?", [item.id]);
             console.log(`[NotificationQueue] Mensagem ${item.id} expirada e cancelada.`);
-            continue;
+            continue; // expirada não precisa de delay
           }
 
           // Tenta enviar via wppService
@@ -110,12 +113,16 @@ class NotificationService {
               'UPDATE notification_queue SET attempts = attempts + 1, last_error = ? WHERE id = ?',
               [errorMsg, item.id]
             );
-            
+
             // Se excedeu o máximo de tentativas, marca como erro definitivo
             if (item.attempts + 1 >= item.max_attempts) {
               await db.query('UPDATE notification_queue SET status = ? WHERE id = ?', ['error', item.id]);
             }
           }
+
+          // Aguarda 3 segundos antes do próximo envio para não sobrecarregar o WhatsApp
+          await sleep(3000);
+
         } catch (err) {
           console.error(`[NotificationQueue] Erro crítico ao processar item ${item.id}:`, err.message);
           await db.query(
