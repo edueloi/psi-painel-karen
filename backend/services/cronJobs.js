@@ -475,21 +475,23 @@ async function autoConfirmAppointments() {
 // ─── Garante que as colunas de tracking WhatsApp existam na tabela appointments ──
 async function ensureAppointmentSchema() {
   const cols = [
-    'whatsapp_reminder_1h_sent',
-    'whatsapp_reminder_24h_sent',
-    'whatsapp_reminder_professional_sent',
+    ['whatsapp_reminder_1h_sent',           'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['whatsapp_reminder_24h_sent',          'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['whatsapp_reminder_professional_sent', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ];
-  for (const col of cols) {
+  for (const [col, def] of cols) {
     try {
-      await db.query(
-        `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS \`${col}\` TINYINT(1) NOT NULL DEFAULT 0`
+      const [rows] = await db.query(
+        `SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appointments' AND COLUMN_NAME = ?`,
+        [col]
       );
-      console.log(`[Schema] Coluna appointments.${col} garantida.`);
-    } catch (e) {
-      // Ignora se já existir ou se o banco não suportar IF NOT EXISTS
-      if (!e.message?.includes('Duplicate column')) {
-        console.warn(`[Schema] Aviso ao criar coluna ${col}:`, e.message);
+      if (rows[0].cnt === 0) {
+        await db.query(`ALTER TABLE appointments ADD COLUMN \`${col}\` ${def}`);
+        console.log(`[Schema] ✅ Coluna appointments.${col} criada.`);
       }
+    } catch (e) {
+      console.warn(`[Schema] Aviso ao verificar/criar coluna ${col}:`, e.message);
     }
   }
 }
