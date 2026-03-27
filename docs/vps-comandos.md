@@ -41,7 +41,7 @@ cd /var/www/psiflux && git pull && cd /var/www/psiflux/backend && npm install &&
 Se `pm2 list` não mostrar o `psiflux-bot`, rode:
 
 ```bash
-cd /var/www/psiflux && pm2 startOrReload ecosystem.config.js && pm2 save
+cd /var/www/psiflux && pm2 startOrReload ecosystem.config.cjs && pm2 save
 ```
 
 Isso sobe **ambos** os processos (`psiflux` + `psiflux-bot`) e salva para reiniciar automaticamente caso o servidor reinicie.
@@ -114,7 +114,7 @@ pm2 monit
 | Frontend build (servido pelo Nginx) | `/var/www/psiflux/dist/` |
 | Sessões WhatsApp (tokens) | `/var/www/psiflux/backend/tokens/` |
 | Logs PM2 | `/var/www/psiflux/logs/` |
-| Ecosystem PM2 | `/var/www/psiflux/ecosystem.config.js` |
+| Ecosystem PM2 | `/var/www/psiflux/ecosystem.config.cjs` |
 
 ---
 
