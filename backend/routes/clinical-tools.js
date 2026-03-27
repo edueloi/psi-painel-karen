@@ -270,35 +270,40 @@ router.delete('/:scopeKey/psycho/signifiers/:itemId', async (req, res) => {
 /* ═══════════════════════════════════════════════════════════
    INSTRUMENTS SUMMARY — lista todos DASS-21 do tenant
    ═══════════════════════════════════════════════════════════ */
-// GET /clinical-tools/dass-all → todos pacientes com histórico DASS-21
-router.get('/dass-all', async (req, res) => {
+// GET /clinical-tools/:toolType/all → busca todos os registros de um tipo para o tenant
+router.get('/:toolType/all', async (req, res) => {
   try {
+    const { toolType } = req.params;
     const tid = req.user.tenant_id;
     const [rows] = await db.query(
       `SELECT ct.scope_key, ct.data, ct.updated_at,
               p.id as patient_id, p.name as patient_name
        FROM clinical_tools ct
        LEFT JOIN patients p ON p.id = ct.patient_id AND p.tenant_id = ?
-       WHERE ct.tenant_id = ? AND ct.tool_type = 'dass-21'
+       WHERE ct.tenant_id = ? AND ct.tool_type = ?
        ORDER BY ct.updated_at DESC`,
-      [tid, tid]
+      [tid, tid, toolType]
     );
     const result = rows.map(r => {
       let history = [];
       try { history = JSON.parse(r.data || '[]'); } catch {}
-      const last = Array.isArray(history) ? history[history.length - 1] : null;
+      const last = Array.isArray(history) ? history[history.length - 1] : (typeof history === 'object' ? history : null);
       return {
         patient_id: r.patient_id || r.scope_key,
         patient_name: r.patient_name || `Paciente ${r.scope_key}`,
         updated_at: r.updated_at,
-        sessions: Array.isArray(history) ? history.length : 0,
-        last_scores: last?.scores || null,
-        last_date: last?.date || r.updated_at,
-        history,
+        sessions: Array.isArray(history) ? history.length : (history ? 1 : 0),
+        last_scores: last?.scores || last?.score || null,
+        last_date: last?.date || last?.created_at || r.updated_at,
+        history: Array.isArray(history) ? history : [history].filter(Boolean),
       };
     });
     res.json(result);
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar dados DASS-21' }); }
+  } catch (err) { console.error(err); res.status(500).json({ error: `Erro ao buscar dados de ${req.params.toolType}` }); }
+});
+
+router.get('/dass-all', async (req, res) => {
+  res.redirect(307, `./dass-21/all`);
 });
 
 router.get('/summary', async (req, res) => {

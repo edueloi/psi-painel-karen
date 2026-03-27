@@ -383,11 +383,11 @@ const INSTRUMENTS_CONFIG = [
   {
     id: 'disc',
     title: 'DISC',
-    subtitle: 'Perfil Comportamental de Marston',
-    description: 'Avalia Dominância, Influência, Estabilidade e Conformidade. Ideal para compreender estilos de comunicação e comportamento clínico.',
-    gradient: 'from-indigo-600 to-purple-600',
-    icon: <Radar size={26} className="text-white"/>,
-    tags: ['Comportamento', 'Perfil', 'Estilo'],
+    subtitle: 'Perfil Comportamental',
+    description: 'Avalia Dominância, Influência, Estabilidade e Conformidade. Ideal para compreender estilos de comportamento clínico.',
+    gradient: 'from-indigo-600 to-violet-700',
+    icon: <Radar size={24} className="text-white"/>,
+    tags: ['Comportamento', 'Perfil'],
     applyPath: '/caixa-ferramentas/disc-avaliativo',
     viewPath: undefined as string | undefined,
     applyColor: 'bg-indigo-600 hover:bg-indigo-700',
@@ -396,10 +396,10 @@ const INSTRUMENTS_CONFIG = [
     id: 'dass',
     title: 'DASS-21',
     subtitle: 'Depressão, Ansiedade e Estresse',
-    description: 'Escala de 21 itens que rastreia sintomas de depressão, ansiedade e estresse. Validada para uso clínico com classificação de severidade.',
+    description: 'Rastreia sintomas de depressão, ansiedade e estresse. Validada para uso clínico com classificação de severidade.',
     gradient: 'from-rose-500 to-pink-600',
-    icon: <Activity size={26} className="text-white"/>,
-    tags: ['Saúde Mental', 'Rastreio', 'Triagem'],
+    icon: <Activity size={24} className="text-white"/>,
+    tags: ['Saúde Mental', 'Rastreio'],
     applyPath: '/caixa-ferramentas/dass-21',
     viewPath: undefined as string | undefined,
     applyColor: 'bg-rose-600 hover:bg-rose-700',
@@ -408,34 +408,34 @@ const INSTRUMENTS_CONFIG = [
     id: 'bdi',
     title: 'BDI-II',
     subtitle: 'Inventário de Depressão de Beck',
-    description: 'Inventário de 21 itens que avalia a presença e intensidade de sintomas depressivos. Pontuação de 0 a 63 com classificação Mínimo/Leve/Moderado/Grave.',
-    gradient: 'from-rose-600 to-red-700',
-    icon: <Brain size={26} className="text-white"/>,
-    tags: ['Depressão', 'Beck', 'Sintomas'],
+    description: 'Avalia a presença e intensidade de sintomas depressivos. Padrão ouro para monitoramento de humor.',
+    gradient: 'from-amber-500 to-orange-600',
+    icon: <Brain size={24} className="text-white"/>,
+    tags: ['Depressão', 'Beck'],
     applyPath: '/caixa-ferramentas/bdi-ii',
     viewPath: '/caixa-ferramentas/bdi-ii',
-    applyColor: 'bg-rose-600 hover:bg-rose-700',
+    applyColor: 'bg-amber-600 hover:bg-amber-700',
   },
   {
     id: 'bai',
     title: 'BAI',
     subtitle: 'Inventário de Ansiedade de Beck',
-    description: 'Inventário de 21 itens que mensura a intensidade de sintomas de ansiedade. Avalia sintomas autonômicos, cognitivos e somáticos.',
-    gradient: 'from-amber-500 to-orange-600',
-    icon: <Zap size={26} className="text-white"/>,
-    tags: ['Ansiedade', 'Beck', 'Autonômico'],
+    description: 'Mensura a intensidade de sintomas de ansiedade, incluindo sintomas autonômicos e somáticos.',
+    gradient: 'from-emerald-500 to-teal-600',
+    icon: <Zap size={24} className="text-white"/>,
+    tags: ['Ansiedade', 'Beck'],
     applyPath: '/caixa-ferramentas/bai',
     viewPath: '/caixa-ferramentas/bai',
-    applyColor: 'bg-amber-600 hover:bg-amber-700',
+    applyColor: 'bg-emerald-600 hover:bg-emerald-700',
   },
   {
     id: 'snap',
     title: 'SNAP-IV',
-    subtitle: 'Rastreio de TDAH e Oposição/Desafio',
-    description: 'Escala de 26 itens respondida por pais ou professores. Avalia desatenção, hiperatividade/impulsividade e comportamento opositor/desafiador.',
-    gradient: 'from-blue-600 to-indigo-700',
-    icon: <BarChart2 size={26} className="text-white"/>,
-    tags: ['TDAH', 'Neurodesenv.', 'Infantil'],
+    subtitle: 'Rastreio de TDAH',
+    description: 'Escala para avaliação de desatenção, hiperatividade e comportamento opositor/desafiador.',
+    gradient: 'from-blue-600 to-sky-700',
+    icon: <BarChart2 size={24} className="text-white"/>,
+    tags: ['TDAH', 'Infantil'],
     applyPath: '/caixa-ferramentas/snap-iv',
     viewPath: '/caixa-ferramentas/snap-iv',
     applyColor: 'bg-blue-600 hover:bg-blue-700',
@@ -443,14 +443,14 @@ const INSTRUMENTS_CONFIG = [
   {
     id: 'mchat',
     title: 'M-CHAT-R/F',
-    subtitle: 'Triagem para Autismo em Crianças',
-    description: 'Instrumento de triagem com 20 itens (SIM/NÃO) para sinais de autismo em crianças de 16 a 30 meses. Respondido por pais/responsáveis.',
-    gradient: 'from-teal-500 to-emerald-600',
-    icon: <CheckCircle2 size={26} className="text-white"/>,
-    tags: ['Autismo', 'TEA', 'Triagem'],
+    subtitle: 'Triagem para Autismo',
+    description: 'Instrumento de triagem precoce para sinais de autismo em crianças (16 a 30 meses).',
+    gradient: 'from-purple-500 to-fuchsia-600',
+    icon: <CheckCircle2 size={24} className="text-white"/>,
+    tags: ['Autismo', 'TEA'],
     applyPath: '/caixa-ferramentas/m-chat-r',
     viewPath: '/caixa-ferramentas/m-chat-r',
-    applyColor: 'bg-teal-600 hover:bg-teal-700',
+    applyColor: 'bg-purple-600 hover:bg-purple-700',
   },
 ];
 
@@ -468,22 +468,25 @@ export const Instruments: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [disc, dass] = await Promise.all([
+        const [disc, dass, bdi, bai, snap, mchat] = await Promise.all([
           api.get<any[]>('/disc').catch(() => []),
-          api.get<any[]>('/clinical-tools/dass-all').catch(() => []),
+          api.get<any[]>('/clinical-tools/dass-21/all').catch(() => []),
+          api.get<any[]>('/clinical-tools/bdi-ii/all').catch(() => []),
+          api.get<any[]>('/clinical-tools/bai/all').catch(() => []),
+          api.get<any[]>('/clinical-tools/snap-iv/all').catch(() => []),
+          api.get<any[]>('/clinical-tools/m-chat-r/all').catch(() => []),
         ]);
         
-        // As outras rotas podem não retornar tudo de uma vez, mas podemos tentar buscar por pacientes ou deixar em 0 por enquanto
-        // se as rotas específicas não existirem no backend agregadas.
-        // Contudo, se DISC/DASS estão funcionando, vamos focar nelas e tentar inferir as outras se possível.
+        const getCount = (arr: any[]) => new Set((arr || []).map((r: any) => r.patient_id)).size;
         
-        const uniqueDisc = new Set((disc || []).map((r: any) => r.patient_id)).size;
-        
-        setStats(prev => ({
-          ...prev,
-          disc: uniqueDisc,
-          dass: (dass || []).length
-        }));
+        setStats({
+          disc: getCount(disc),
+          dass: getCount(dass),
+          bdi: getCount(bdi),
+          bai: getCount(bai),
+          snap: getCount(snap),
+          mchat: getCount(mchat)
+        });
       } catch (e) {}
     };
     fetchStats();
@@ -501,27 +504,29 @@ export const Instruments: React.FC = () => {
       />
 
       {/* Banner */}
-      <div className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 rounded-[28px] p-6 text-white relative overflow-hidden shadow-xl shadow-indigo-200">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 80% 50%, white 0%, transparent 60%)' }}/>
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center shrink-0 border border-white/30">
-            <Brain size={28}/>
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl border border-white/5">
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #4f46e5 0%, transparent 50%), radial-gradient(circle at 80% 50%, #701a75 0%, transparent 50%)' }}/>
+        <div className="relative flex flex-col lg:flex-row items-center gap-8">
+          <div className="w-20 h-20 bg-white/10 rounded-[28px] flex items-center justify-center shrink-0 border border-white/20 backdrop-blur-xl shadow-inner">
+            <Brain size={40} className="text-indigo-300"/>
           </div>
-          <div className="flex-1">
-            <h2 className="font-black text-xl mb-1">Avaliação Psicológica Padronizada</h2>
-            <p className="text-indigo-100 text-sm font-medium leading-relaxed max-w-xl">
-              Aplique instrumentos psicométricos validados e acompanhe os resultados dos pacientes com gráficos e histórico longitudinal.
+          <div className="flex-1 text-center lg:text-left">
+            <h2 className="text-3xl font-black mb-2 tracking-tight">Hub de Instrumentos <span className="text-indigo-400">PsiFlux</span></h2>
+            <p className="text-slate-300 text-sm font-medium leading-relaxed max-w-2xl">
+              Centralize a gestão de escalas psicométricas e inventários clínicos. Acompanhe a evolução longitudinal de seus pacientes com análises assistidas por IA.
             </p>
           </div>
-          <div className="flex gap-3 shrink-0">
-            <div className="bg-white/20 border border-white/30 rounded-2xl px-4 py-2 text-center">
-              <div className="font-black text-2xl">{stats.disc}</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-100">DISC</div>
-            </div>
-            <div className="bg-white/20 border border-white/30 rounded-2xl px-4 py-2 text-center">
-              <div className="font-black text-2xl">{stats.dass}</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-100">DASS-21</div>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
+             {[
+               { label: 'DISC', val: stats.disc, color: 'indigo' },
+               { label: 'DASS-21', val: stats.dass, color: 'rose' },
+               { label: 'Beck +', val: stats.bdi + stats.bai, color: 'amber' },
+             ].map(s => (
+                <div key={s.label} className="bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-center backdrop-blur-sm min-w-[100px]">
+                  <div className={`text-2xl font-black text-${s.color}-400`}>{s.val}</div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{s.label}</div>
+                </div>
+             ))}
           </div>
         </div>
       </div>
@@ -540,43 +545,42 @@ export const Instruments: React.FC = () => {
 
           return (
             <div key={inst.id}
-              className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer group"
+              className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-xl hover:translate-y-[-4px] transition-all duration-300 cursor-pointer group flex flex-col h-full"
               onClick={handleView}
             >
-              {/* Header */}
-              <div className={`bg-gradient-to-r ${inst.gradient} p-6`}>
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center shrink-0 border border-white/30">
+              <div className={`h-2 bg-gradient-to-r ${inst.gradient}`} />
+              
+              <div className="p-7 flex-1 flex flex-col">
+                <div className="flex items-start justify-between mb-6">
+                  <div className={`w-14 h-14 bg-gradient-to-br ${inst.gradient} rounded-2xl flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                     {inst.icon}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-black text-white text-xl leading-tight">{inst.title}</h3>
-                    <p className="text-white/80 text-xs font-bold mt-0.5">{inst.subtitle}</p>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                       {inst.tags.map(tag => (
-                         <span key={tag} className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/20">{tag}</span>
-                       ))}
-                    </div>
-                  </div>
-                  <div className="bg-white/20 border border-white/30 rounded-2xl px-3 py-2 text-center shrink-0">
-                    <div className="font-black text-white text-xl">{count}</div>
-                    <div className="text-[9px] text-white/80 font-bold uppercase">pacientes</div>
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2 text-center">
+                    <div className="text-xl font-black text-slate-800">{count}</div>
+                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Pacientes</div>
                   </div>
                 </div>
-              </div>
 
-              {/* Body */}
-              <div className="p-6 space-y-4">
-                <p className="text-sm text-slate-600 font-medium leading-relaxed">{inst.description}</p>
+                <div className="mb-6 flex-1">
+                  <h3 className="font-black text-slate-800 text-xl tracking-tight mb-1">{inst.title}</h3>
+                  <p className="text-indigo-600 text-[10px] font-black uppercase tracking-widest mb-3">{inst.subtitle}</p>
+                  <p className="text-slate-500 text-sm font-medium leading-relaxed line-clamp-2">{inst.description}</p>
+                </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-1.5 mb-8">
+                   {inst.tags.map(tag => (
+                     <span key={tag} className="text-[9px] font-black uppercase px-2.5 py-1 rounded-lg bg-slate-50 text-slate-500 border border-slate-100">{tag}</span>
+                   ))}
+                </div>
+
+                <div className="flex gap-3 mt-auto">
                   <button onClick={e => { e.stopPropagation(); navigate(inst.applyPath); }}
-                    className={`flex-1 h-11 rounded-2xl font-black text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${inst.applyColor} text-white shadow-md`}>
-                    <Plus size={13}/> Aplicar
+                    className={`flex-1 h-12 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${inst.applyColor} text-white shadow-lg shadow-indigo-100 group-hover:shadow-indigo-200`}>
+                    <Plus size={16}/> Aplicar
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); handleView(); }}
-                    className="flex-1 h-11 rounded-2xl font-black text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100">
-                    <BarChart2 size={13}/> Ver Resultados <ChevronRight size={12}/>
+                    className="flex-1 h-12 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all bg-white text-slate-700 hover:bg-slate-50 border border-slate-200">
+                    <BarChart2 size={16}/> Resultados
                   </button>
                 </div>
               </div>
