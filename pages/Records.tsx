@@ -12,7 +12,10 @@ import {
   Trash2, Eye, Edit3, CheckCircle2, ChevronRight, Loader2,
   Sparkles, Lock, LockOpen, AlertTriangle, Save, Shield,
   X, ArrowLeft, Layers, User, Download, RotateCcw, Tag,
-  History, BookOpen, Filter, Share2, Users
+  History, BookOpen, Filter, Share2, Users, Send, Copy, ExternalLink,
+  ClipboardCheck, RefreshCw, MessageSquare, Brain, CheckCheck,
+  LinkIcon,
+  Settings
 } from 'lucide-react';
 import { DatePicker } from '../components/UI/DatePicker';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
@@ -49,6 +52,39 @@ const PIE_COLORS = ['#4f46e5', '#f59e0b', '#10b981', '#ec4899', '#06b6d4'];
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
 const strip = (h: string) => (h || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+const ANAMNESIS_FIELD_LABELS: Record<string, string> = {
+  // História e Contexto
+  motivo_busca: 'Motivo da busca',
+  queixa_principal: 'Queixa principal',
+  tempo_sofrimento: 'Tempo de sofrimento',
+  // História Pessoal
+  historico_tratamentos: 'Histórico de tratamentos',
+  tratamentos_detalhes: 'Detalhes dos tratamentos anteriores',
+  medicamentos: 'Uso de medicamentos',
+  medicamentos_quais: 'Quais medicamentos',
+  historico_saude: 'Histórico de saúde física/mental',
+  // Vida Atual
+  sono: 'Qualidade do sono',
+  alimentacao: 'Qualidade da alimentação',
+  atividade_fisica: 'Atividade física',
+  trabalho_estudo: 'Trabalho ou estudo',
+  satisfacao_trabalho: 'Satisfação com trabalho/estudo',
+  // Relacionamentos
+  relacionamento_atual: 'Relacionamento afetivo atual',
+  apoio_social: 'Rede de apoio social',
+  relacoes_familiares: 'Relações familiares',
+  // Saúde Emocional
+  humor_geral: 'Humor predominante',
+  ansiedade: 'Frequência de ansiedade',
+  pensamentos_intrusivos: 'Pensamentos intrusivos',
+  pensamentos_descricao: 'Descrição dos pensamentos',
+  bem_estar_geral: 'Autoavaliação de bem-estar (0-10)',
+  // Objetivos
+  objetivos_terapia: 'Objetivos com a terapia',
+  urgencia: 'Situação de urgência ou crise',
+  urgencia_descricao: 'Detalhamento da urgência',
+};
 
 /* ═══════════════════════════════════════════════════════════════
    PASSWORD GATE MODAL
@@ -457,7 +493,8 @@ const RecordEditor: React.FC<{
   patients: Patient[]; selectedPatientId: string | null;
   onSave: () => void; onClose: () => void;
   onExport: () => void;
-}> = ({ record, mode, patients, selectedPatientId, onSave, onClose, onExport }) => {
+  anamnesisSends: any[];
+}> = ({ record, mode, patients, selectedPatientId, onSave, onClose, onExport, anamnesisSends }) => {
   const { pushToast } = useToast();
   const [step, setStep] = useState<'draft' | 'ai_result' | 'approve'>(
     record?.ai_organized_content ? 'ai_result' : 'draft'
@@ -467,7 +504,7 @@ const RecordEditor: React.FC<{
   const [recordType, setRecordType] = useState(record?.record_type || 'Evolucao');
   const [appointmentType, setAppointmentType] = useState(record?.appointment_type || 'individual');
   const [sessionDate, setSessionDate] = useState(record?.created_at ? record.created_at.split('T')[0] : new Date().toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState(record?.start_time || '');
+  const [startTime, setStartTime] = useState(record?.start_time || (mode === 'new' ? new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''));
   const [endTime, setEndTime] = useState(record?.end_time || '');
   const [status, setStatus] = useState(record?.status || 'Rascunho');
   const [tags, setTags] = useState((record?.tags || []).join(', '));
@@ -632,14 +669,14 @@ const RecordEditor: React.FC<{
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1 md:col-span-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase px-1">Paciente</label>
-                <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300" value={patientId} onChange={e => setPatientId(e.target.value)}>
+                <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300 disabled:opacity-60" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={mode === 'edit'}>
                   <option value="">Selecione...</option>
                   {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase px-1">Data</label>
-                <input type="date" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={sessionDate} onChange={e => setSessionDate(e.target.value)}/>
+                <input type="date" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none disabled:opacity-60" value={sessionDate} onChange={e => setSessionDate(e.target.value)} disabled={mode === 'edit'}/>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase px-1">Título</label>
@@ -647,7 +684,7 @@ const RecordEditor: React.FC<{
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase px-1">Tipo de Registro</label>
-                <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none" value={recordType} onChange={e => setRecordType(e.target.value)}>
+                <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none disabled:opacity-60" value={recordType} onChange={e => setRecordType(e.target.value)} disabled={mode === 'edit'}>
                   {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
@@ -659,7 +696,7 @@ const RecordEditor: React.FC<{
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase px-1">Início</label>
-                <input type="time" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={startTime} onChange={e => setStartTime(e.target.value)}/>
+                <input type="time" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none disabled:opacity-60" value={startTime} onChange={e => setStartTime(e.target.value)} disabled={mode === 'edit'}/>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase px-1">Fim</label>
@@ -675,37 +712,88 @@ const RecordEditor: React.FC<{
           {/* STEP 1 — Rascunho */}
           {step === 'draft' && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest flex items-center gap-2">
-                    <FileText size={14} className="text-indigo-500" /> Rascunho Bruto da Sessão
-                  </h3>
-                  <span className="text-[10px] text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider">Escreva livremente — a IA vai organizar</span>
-                </div>
-                <RichTextEditor
-                  value={draft}
-                  onChange={setDraft}
-                  placeholder="Escreva tudo o que aconteceu na sessão de forma livre. A paciente relatou... Trabalhamos com... Realizei a intervenção... A resposta foi..."
-                  minHeight="350px"
-                />
-                <Button onClick={organizeWithAI} isLoading={aiLoading} disabled={!draft.trim()} variant="primary"
-                  className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3">
-                  {!aiLoading && <Sparkles size={22} className="text-yellow-300 animate-pulse"/>}
-                  {aiLoading ? 'Organizando conteúdo com Aurora IA...' : 'Organizar Evolução com Inteligência Artificial'}
-                </Button>
-              </div>
+              {recordType === 'Anamnese' ? (
+                /* ── ESPECIAL PARA ANAMNESE ── */
+                <div className="bg-white rounded-[24px] border border-slate-100 p-8 shadow-sm space-y-6 text-center">
+                  <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100 mb-2">
+                    <ClipboardCheck size={32} className="text-indigo-600" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-2">
+                    <h3 className="font-black text-slate-800 text-lg uppercase tracking-widest">Coleta de Dados (Remota)</h3>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                      Para este tipo de registro, o histórico é coletado diretamente com o paciente através de um formulário seguro e sigiloso.
+                    </p>
+                  </div>
 
-              {/* Campo Restrito */}
-              <div className="bg-rose-50/50 rounded-[24px] border border-rose-100 p-6 shadow-sm space-y-3">
-                <div className="flex items-center gap-3">
-                  <Shield size={18} className="text-rose-500"/>
-                  <h3 className="font-black text-rose-700 text-xs uppercase tracking-widest">Observações Privadas (Campo Restrito)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left max-w-2xl mx-auto pt-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-slate-300"/> 1. Salve o Registro</p>
+                      <p className="text-[11px] text-slate-500 font-medium">Garanta que o título e os dados básicos estejam corretos e salve como rascunho.</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-slate-300"/> 2. Envie ao Paciente</p>
+                      <p className="text-[11px] text-slate-500 font-medium">Após salvar, use o botão "Enviar ao Paciente" que aparecerá no histórico clínico.</p>
+                    </div>
+                  </div>
+
+                  {record?.id && (
+                    <div className="pt-6 animate-slideUpFade">
+                       <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-3">Status do Envio Atual</p>
+                       {(() => {
+                         const currentSend = anamnesisSends.find(s => String(s.medical_record_id) === String(record.id));
+                         if (!currentSend) return <p className="text-xs text-slate-400 font-bold italic">Nenhum formulário vinculado a este registro ainda.</p>;
+                         return (
+                           <div className="inline-flex items-center gap-3 px-6 py-3 bg-indigo-50 rounded-2xl border border-indigo-100">
+                             <span className={`w-2 h-2 rounded-full animate-pulse ${currentSend.status === 'answered' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                             <span className="text-xs font-black text-indigo-700 uppercase tracking-widest">
+                               {currentSend.status === 'sent' ? 'Link gerado / Aguardando paciente' :
+                                currentSend.status === 'viewed' ? 'Paciente visualizou o formulário' :
+                                currentSend.status === 'filling' ? 'Paciente está preenchendo agora' :
+                                currentSend.status === 'answered' ? 'Resposta recebida! Clique em "Ações" na lista para revisar' :
+                                'Status desconhecido'}
+                             </span>
+                           </div>
+                         );
+                       })()}
+                    </div>
+                  )}
                 </div>
-                <p className="text-[11px] text-rose-600/70 font-medium">Este campo NÃO entra no prontuário compartilhado nem nas exportações padrão. Acesso exclusivo seu conforme normas do CFP.</p>
-                <textarea className="w-full p-4 rounded-2xl bg-white border border-rose-100 text-sm leading-relaxed resize-none outline-none focus:border-rose-300 transition font-medium min-h-[120px]"
-                  placeholder="Hipóteses clínicas, impressões pessoais, formulações iniciais, conteúdos que não devem circular..."
-                  value={privateNotes} onChange={e => setPrivateNotes(e.target.value)} />
-              </div>
+              ) : (
+                /* ── RASCUNHO PADRÃO (OUTROS TIPOS) ── */
+                <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest flex items-center gap-2">
+                      <FileText size={14} className="text-indigo-500" /> Rascunho Bruto da Sessão
+                    </h3>
+                    <span className="text-[10px] text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider">Escreva livremente — a IA vai organizar</span>
+                  </div>
+                  <RichTextEditor
+                    value={draft}
+                    onChange={setDraft}
+                    placeholder="Escreva tudo o que aconteceu na sessão de forma livre. A paciente relatou... Trabalhamos com... Realizei a intervenção... A resposta foi..."
+                    minHeight="350px"
+                  />
+                  <Button onClick={organizeWithAI} isLoading={aiLoading} disabled={!draft.trim()} variant="primary"
+                    className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3">
+                    {!aiLoading && <Sparkles size={22} className="text-yellow-300 animate-pulse"/>}
+                    {aiLoading ? 'Organizando conteúdo com Aurora IA...' : 'Organizar Evolução com Inteligência Artificial'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Campo Restrito (Apenas para Evoluções/Outros, não Anamnese) */}
+              {recordType !== 'Anamnese' && (
+                <div className="bg-rose-50/50 rounded-[24px] border border-rose-100 p-6 shadow-sm space-y-3 animate-fadeIn">
+                  <div className="flex items-center gap-3">
+                    <Shield size={18} className="text-rose-500"/>
+                    <h3 className="font-black text-rose-700 text-xs uppercase tracking-widest">Observações Privadas (Campo Restrito)</h3>
+                  </div>
+                  <p className="text-[11px] text-rose-600/70 font-medium">Este campo NÃO entra no prontuário compartilhado nem nas exportações padrão. Acesso exclusivo seu conforme normas do CFP.</p>
+                  <textarea className="w-full p-4 rounded-2xl bg-white border border-rose-100 text-sm leading-relaxed resize-none outline-none focus:border-rose-300 transition font-medium min-h-[120px]"
+                    placeholder="Hipóteses clínicas, impressões pessoais, formulações iniciais, conteúdos que não devem circular..."
+                    value={privateNotes} onChange={e => setPrivateNotes(e.target.value)} />
+                </div>
+              )}
             </div>
           )}
 
@@ -792,9 +880,565 @@ const RecordEditor: React.FC<{
 };
 
 /* ═══════════════════════════════════════════════════════════════
+   SEND ANAMNESIS MODAL
+   Profissional configura e gera link seguro para o paciente
+═══════════════════════════════════════════════════════════════ */
+const SendAnamnesisModal: React.FC<{
+  record: MedicalRecord;
+  patient: Patient;
+  user: any;
+  onClose: () => void;
+  onSent: (sendData: any) => void;
+}> = ({ record, patient, onClose, onSent }) => {
+  const [title, setTitle] = useState(`Anamnese — ${patient.full_name}`);
+  const [customMessage, setCustomMessage] = useState('');
+  const [templateType, setTemplateType] = useState<'full' | 'short'>('full');
+  const [approach, setApproach] = useState('');
+  const [allowResume, setAllowResume] = useState(true);
+  const [allowEditAfterSubmit, setAllowEditAfterSubmit] = useState(false);
+  const [expiresHours, setExpiresHours] = useState<number | null>(168); // 7 dias
+  const [loading, setLoading] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const { pushToast } = useToast();
+
+  const FRONTEND_URL = typeof window !== 'undefined' ? window.location.origin : 'https://psiflux.com.br';
+
+  const handleSend = async () => {
+    setLoading(true);
+    try {
+      const data: any = await api.post('/anamnesis-send', {
+        patient_id: patient.id,
+        medical_record_id: record.id,
+        title,
+        custom_message: customMessage || null,
+        template_type: templateType,
+        approach: approach || null,
+        allow_resume: allowResume,
+        allow_edit_after_submit: allowEditAfterSubmit,
+        expires_hours: expiresHours,
+        consent_required: true,
+        notify_channels: ['link'],
+      });
+      const link = data.public_link || `${FRONTEND_URL}/f/anamnese?t=${data.secure_token}`;
+      setGeneratedLink(link);
+      onSent(data);
+    } catch (e: any) {
+      pushToast('error', e?.response?.data?.error || 'Erro ao criar envio.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (!generatedLink) return;
+    navigator.clipboard.writeText(generatedLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
+
+  const whatsappLink = generatedLink
+    ? `https://wa.me/${(patient.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${patient.full_name}! Preparei um formulário de anamnese para você preencher antes da nossa sessão. Por favor, acesse o link abaixo e responda com calma:\n\n${generatedLink}\n\nSuas respostas são confidenciais. 🔒`)}`
+    : null;
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Enviar Anamnese ao Paciente"
+      subtitle={`Paciente: ${patient.full_name}`}
+      maxWidth="lg"
+      footer={
+        <div className="flex gap-3 w-full">
+          <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">
+            {generatedLink ? 'Fechar' : 'Cancelar'}
+          </Button>
+          {!generatedLink && (
+            <Button
+              variant="primary"
+              onClick={handleSend}
+              disabled={loading || !title.trim()}
+              className="flex-1 gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-indigo-100"
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              {loading ? 'Gerando link...' : 'Gerar Link Seguro'}
+            </Button>
+          )}
+        </div>
+      }
+    >
+      {generatedLink ? (
+        /* ── LINK GERADO ── */
+        <div className="space-y-5 pt-2 animate-in fade-in duration-500">
+          <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
+              <CheckCheck size={20} className="text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-black text-emerald-800 text-sm">Link gerado com sucesso!</p>
+              <p className="text-emerald-600 text-xs font-medium">Compartilhe com o paciente pelo canal de sua preferência.</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Link seguro do paciente</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs text-indigo-700 font-mono bg-white p-2 rounded-xl border border-indigo-100 truncate">{generatedLink}</code>
+              <button
+                onClick={copyLink}
+                className={`h-9 px-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-1.5 transition ${copied ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+              >
+                {copied ? <><CheckCheck size={14}/> Copiado!</> : <><Copy size={14}/> Copiar</>}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={copyLink}
+              className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border-2 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition text-center"
+            >
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                <ExternalLink size={18} className="text-slate-600" />
+              </div>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-wider">Copiar Link</p>
+              <p className="text-[10px] text-slate-400 font-medium">Cole em qualquer canal</p>
+            </button>
+            {whatsappLink && (patient.phone || '').replace(/\D/g, '').length >= 10 && (
+              <a
+                href={whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-2 p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-100 hover:border-emerald-400 hover:bg-emerald-100 transition text-center"
+              >
+                <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
+                  <MessageSquare size={18} className="text-white" />
+                </div>
+                <p className="text-xs font-black text-emerald-700 uppercase tracking-wider">Enviar WhatsApp</p>
+                <p className="text-[10px] text-emerald-600 font-medium">{patient.phone}</p>
+              </a>
+            )}
+          </div>
+
+          <p className="text-[10px] text-slate-400 font-medium text-center px-4">
+            🔒 Link criptografado e de uso único por sessão. O paciente não precisa de conta no sistema.
+          </p>
+        </div>
+      ) : (
+        /* ── CONFIGURAÇÕES ── */
+        <div className="space-y-5 pt-2">
+          {/* Título */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Título do formulário *</label>
+            <input
+              className="w-full h-11 px-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold outline-none focus:border-indigo-400 focus:bg-white transition"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Ex: Anamnese Inicial — Nome do Paciente"
+            />
+          </div>
+
+          {/* Mensagem personalizada */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mensagem de boas-vindas (opcional)</label>
+            <textarea
+              className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium outline-none focus:border-indigo-400 focus:bg-white transition resize-none min-h-[80px]"
+              value={customMessage}
+              onChange={e => setCustomMessage(e.target.value)}
+              placeholder="Ex: Olá! Antes da nossa primeira sessão, gostaria que você preenchesse este formulário..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Tipo de formulário */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Versão</label>
+              <div className="flex flex-col gap-2">
+                {([['full', 'Completa', '~15 min'], ['short', 'Rápida', '~5 min']] as const).map(([val, lab, time]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setTemplateType(val as 'full' | 'short')}
+                    className={`p-3 rounded-xl border-2 text-left transition ${templateType === val ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-slate-50 border-slate-100 text-slate-500 hover:border-indigo-100'}`}
+                  >
+                    <p className="font-black text-xs uppercase">{lab}</p>
+                    <p className="text-[10px] font-medium opacity-70">{time}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Opções */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Configurações</label>
+              {[
+                { label: 'Continuar em etapas', sub: 'Salva o progresso', val: allowResume, set: setAllowResume },
+                { label: 'Editar após envio', sub: 'Permite correções', val: allowEditAfterSubmit, set: setAllowEditAfterSubmit },
+              ].map(opt => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => opt.set(!opt.val)}
+                  className={`w-full p-3 rounded-xl border-2 text-left flex items-center gap-3 transition ${opt.val ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-100'}`}
+                >
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${opt.val ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                    {opt.val && <CheckCheck size={12} className="text-white" />}
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-700">{opt.label}</p>
+                    <p className="text-[10px] font-medium text-slate-400">{opt.sub}</p>
+                  </div>
+                </button>
+              ))}
+
+              {/* Expiração */}
+              <select
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold outline-none focus:border-indigo-400"
+                value={expiresHours ?? ''}
+                onChange={e => setExpiresHours(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Sem expiração</option>
+                <option value="24">Expira em 24h</option>
+                <option value="48">Expira em 48h</option>
+                <option value="168">Expira em 7 dias</option>
+                <option value="720">Expira em 30 dias</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Abordagem */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Abordagem terapêutica (para guiar IA)</label>
+            <select
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold outline-none focus:border-indigo-400"
+              value={approach}
+              onChange={e => setApproach(e.target.value)}
+            >
+              <option value="">Não especificar</option>
+              <option value="tcc">TCC — Terapia Cognitivo-Comportamental</option>
+              <option value="psicanalise">Psicanálise</option>
+              <option value="humanista">Humanista / Rogersiana</option>
+              <option value="act">ACT — Terapia de Aceitação e Compromisso</option>
+              <option value="sistemica">Sistêmica / Familiar</option>
+              <option value="integrativa">Integrativa</option>
+            </select>
+            <p className="text-[10px] text-slate-400 font-medium">A IA usará esta abordagem para organizar as respostas do paciente.</p>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3">
+            <Brain size={16} className="text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 font-medium leading-relaxed">
+              As respostas do paciente <strong>não vão diretamente para o prontuário</strong>. Você receberá um aviso para revisar e aprovar antes de incorporá-las ao histórico clínico.
+            </p>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   ANAMNESIS RESPONSE MODAL
+   Profissional revisa respostas do paciente, usa IA e converte
+═══════════════════════════════════════════════════════════════ */
+const AnamnesisResponseModal: React.FC<{
+  sendId: number;
+  patientName: string;
+  user: any;
+  onClose: () => void;
+  onConvertToRecord: (recordId: number) => void;
+}> = ({ sendId, patientName, onClose, onConvertToRecord }) => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [convertLoading, setConvertLoading] = useState(false);
+  const [notes, setNotes] = useState('');
+  const { pushToast } = useToast();
+
+  useEffect(() => {
+    api.get<any>(`/anamnesis-send/${sendId}`)
+      .then(d => {
+        setData(d);
+        setNotes(d?.response?.professional_notes || '');
+      })
+      .catch(() => pushToast('error', 'Erro ao carregar respostas.'))
+      .finally(() => setLoading(false));
+  }, [sendId]);
+
+  const generateAI = async () => {
+    setAiLoading(true);
+    try {
+      const result: any = await api.post(`/anamnesis-send/${sendId}/ai-summary`, {});
+      setData((prev: any) => ({
+        ...prev,
+        response: { ...prev.response, ai_summary: result.summary, tcc_draft: result.tcc_draft }
+      }));
+      pushToast('success', 'Resumo clínico gerado pela IA!');
+    } catch { pushToast('error', 'Erro ao gerar resumo IA.'); }
+    finally { setAiLoading(false); }
+  };
+
+  const saveReview = async (status: 'reviewing' | 'approved' | 'discarded') => {
+    try {
+      await api.post(`/anamnesis-send/${sendId}/review`, { review_status: status, professional_notes: notes });
+      pushToast('success', status === 'discarded' ? 'Respostas descartadas.' : 'Revisão salva!');
+      setData((prev: any) => ({ ...prev, response: { ...prev.response, review_status: status, professional_notes: notes } }));
+    } catch { pushToast('error', 'Erro ao salvar revisão.'); }
+  };
+
+  const convertToRecord = async () => {
+    setConvertLoading(true);
+    try {
+      const result: any = await api.post(`/anamnesis-send/${sendId}/to-record`, {});
+      onConvertToRecord(result.record_id);
+    } catch { pushToast('error', 'Erro ao converter para prontuário.'); }
+    finally { setConvertLoading(false); }
+  };
+
+  const REVIEW_STATUS_LABELS: Record<string, string> = {
+    pending: 'Pendente', reviewing: 'Em Revisão', approved: 'Aprovado', discarded: 'Descartado'
+  };
+
+  const answers = data?.response?.answers || {};
+  const hasAnswers = Object.keys(answers).length > 0;
+  const reviewStatus = data?.response?.review_status || 'pending';
+  const aiSummary = data?.response?.ai_summary;
+  const tccDraft = data?.response?.tcc_draft;
+  const hasCritical = data?.response?.has_critical_content;
+  const alerts = data?.response?.clinical_alerts || [];
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Respostas da Anamnese"
+      subtitle={`Paciente: ${patientName}`}
+      maxWidth="xl"
+      footer={
+        <div className="flex gap-3 w-full">
+          <Button variant="ghost" onClick={onClose} className="uppercase text-xs font-black tracking-widest">Fechar</Button>
+          {hasAnswers && reviewStatus !== 'approved' && (
+            <Button variant="primary" onClick={convertToRecord} disabled={convertLoading}
+              className="gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-emerald-100 bg-emerald-600 border-emerald-600 hover:bg-emerald-700">
+              {convertLoading ? <Loader2 size={16} className="animate-spin" /> : <ClipboardCheck size={16} />}
+              Criar Rascunho de Prontuário
+            </Button>
+          )}
+        </div>
+      }
+    >
+      {loading ? (
+        <div className="py-16 flex items-center justify-center">
+          <Loader2 size={32} className="text-indigo-600 animate-spin" />
+        </div>
+      ) : !hasAnswers ? (
+        <div className="py-12 text-center space-y-3">
+          <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-slate-100">
+            <ClipboardCheck size={28} className="text-slate-300" />
+          </div>
+          <p className="text-slate-500 font-bold text-sm">
+            {data?.status === 'sent' ? 'O paciente ainda não abriu o formulário.' :
+             data?.status === 'viewed' ? 'O paciente abriu o formulário mas ainda não respondeu.' :
+             data?.status === 'filling' ? 'O paciente está preenchendo o formulário agora.' :
+             'Nenhuma resposta registrada ainda.'}
+          </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{REVIEW_STATUS_LABELS[reviewStatus] || reviewStatus}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-5 pt-2 max-h-[65vh] overflow-y-auto">
+          {/* Alerta crítico */}
+          {hasCritical && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3">
+              <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-black text-rose-700 text-sm">Conteúdo crítico detectado</p>
+                <p className="text-rose-600 text-xs font-medium mt-0.5">O paciente mencionou: {alerts.join(', ')}. Avalie com atenção prioritária.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Metadados */}
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            {[
+              { label: 'Enviado', val: data?.sent_at ? new Date(data.sent_at).toLocaleString('pt-BR') : '—' },
+              { label: 'Respondido', val: data?.response?.submitted_at ? new Date(data.response.submitted_at).toLocaleString('pt-BR') : '—' },
+              { label: 'Status envio', val: data?.status },
+              { label: 'Revisão', val: REVIEW_STATUS_LABELS[reviewStatus] || reviewStatus },
+            ].map(item => (
+              <div key={item.label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">{item.label}</p>
+                <p className="font-bold text-slate-700 mt-0.5">{item.val}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
+              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <Settings size={12}/> Configuração do Envio
+              </div>
+              <div className="space-y-2">
+                <div>
+                   <span className="text-[10px] font-bold text-slate-400 uppercase">Versão</span>
+                   <p className="text-sm font-black text-slate-700 uppercase">{data?.template_type === 'full' ? 'Completa (~15min)' : 'Rápida (~5min)'}</p>
+                </div>
+                <div>
+                   <span className="text-[10px] font-bold text-slate-400 uppercase">Abordagem (IA)</span>
+                   <p className="text-[11px] font-bold text-slate-600 uppercase">{data?.approach ? data.approach.toUpperCase() : 'Não especificada'}</p>
+                </div>
+                {data?.custom_message && (
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Mensagem enviada</span>
+                    <p className="text-xs text-slate-500 italic leading-snug line-clamp-2">"{data.custom_message}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className={`rounded-2xl p-4 border space-y-3 ${data?.status === 'answered' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
+              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <LinkIcon size={12}/> Link do Formulário
+              </div>
+              
+              {data?.status === 'answered' ? (
+                <div className="py-2">
+                   <p className="text-xs font-black text-emerald-700 bg-emerald-100/50 px-3 py-1.5 rounded-lg border border-emerald-200 inline-block">FORMULÁRIO CONCLUÍDO</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                   <div className="bg-white p-2 rounded-xl border border-indigo-100 flex items-center justify-between gap-3">
+                      <span className="text-[11px] font-medium text-slate-400 truncate max-w-[150px]">{data?.public_link}</span>
+                      <Button 
+                        size="xs" 
+                        variant="ghost" 
+                        onClick={() => { navigator.clipboard.writeText(data?.public_link); pushToast('success', 'Link copiado!'); }}
+                        className="h-7 w-7 p-0 shrink-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white"
+                      >
+                        <Copy size={12}/>
+                      </Button>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      <Button size="xs" variant="ghost" className="h-8 text-[10px] uppercase font-black tracking-widest bg-white border border-slate-200" onClick={async () => {
+                         try {
+                            const resp: any = await api.post(`/anamnesis-send/${sendId}/resend`, {});
+                            setData((prev: any) => ({ ...prev, public_link: resp.public_link, status: 'sent', secure_token: resp.secure_token }));
+                            pushToast('success', 'Novo link gerado!');
+                         } catch { pushToast('error', 'Erro ao gerar novo link.'); }
+                      }}>Gerar Novo Link</Button>
+                      <Button size="xs" variant="ghost" className="h-8 text-[10px] uppercase font-black tracking-widest text-rose-600 hover:bg-rose-50" onClick={async () => {
+                         if (!confirm('Deseja realmente cancelar este link? O paciente não poderá mais responder.')) return;
+                         try {
+                            await api.post(`/anamnesis-send/${sendId}/cancel`, {});
+                            setData((prev: any) => ({ ...prev, status: 'cancelled' }));
+                            pushToast('success', 'Link revogado.');
+                         } catch { pushToast('error', 'Erro ao revogar link.'); }
+                      }}>Revogar</Button>
+                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Resumo IA */}
+          {(aiSummary || tccDraft) ? (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <Brain size={16} className="text-indigo-600" />
+                <p className="font-black text-indigo-700 text-xs uppercase tracking-widest">Análise Clínica — Aurora IA</p>
+              </div>
+              {tccDraft && (
+                <div className="space-y-2">
+                  {Object.entries(tccDraft).filter(([, v]) => v).map(([k, v]) => (
+                    <div key={k}>
+                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{k.replace(/_/g, ' ')}</p>
+                      <p className="text-sm text-indigo-800 font-medium leading-relaxed">{String(v)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {aiSummary && !tccDraft && (
+                <div className="space-y-2">
+                  {Object.entries(aiSummary).filter(([, v]) => v).map(([k, v]) => (
+                    <div key={k}>
+                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{k.replace(/_/g, ' ')}</p>
+                      <p className="text-sm text-indigo-800 font-medium leading-relaxed">{String(v)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={generateAI}
+              disabled={aiLoading}
+              className="w-full h-12 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-600 text-xs font-black uppercase tracking-widest hover:bg-indigo-50 transition flex items-center justify-center gap-2"
+            >
+              {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+              {aiLoading ? 'Gerando análise IA...' : 'Gerar Análise com Aurora IA'}
+            </button>
+          )}
+
+          {/* Respostas Detalhadas */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <ClipboardCheck size={12} /> Respostas do Paciente
+              </p>
+              <span className="text-[9px] font-bold text-slate-300 uppercase">Respostas fornecidas via link seguro</span>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {Object.entries(answers).map(([key, val]) => (
+                <div key={key} className="bg-white border border-slate-100 rounded-[20px] p-5 shadow-sm hover:border-indigo-100 transition-colors">
+                  <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <div className="w-1 h-3 bg-indigo-500 rounded-full" />
+                    {ANAMNESIS_FIELD_LABELS[key] || key.replace(/_/g, ' ')}
+                  </p>
+                  <p className="text-sm text-slate-700 font-semibold leading-relaxed">
+                    {Array.isArray(val) ? val.join(', ') : typeof val === 'number' ? `${val}/10` : String(val || '—')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Notas profissional */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Anotações clínicas (uso profissional)</label>
+            <textarea
+              className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium outline-none focus:border-indigo-400 focus:bg-white min-h-[80px] resize-none"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Impressões clínicas, observações, pontos a aprofundar na sessão..."
+            />
+            <div className="flex gap-2">
+              <button onClick={() => saveReview('reviewing')} className="h-9 px-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-black uppercase hover:bg-amber-100 transition">
+                Salvar como Em Revisão
+              </button>
+              <button onClick={() => saveReview('approved')} className="h-9 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black uppercase hover:bg-emerald-100 transition">
+                Marcar como Aprovado
+              </button>
+              <button onClick={() => saveReview('discarded')} className="h-9 px-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-black uppercase hover:bg-rose-100 transition ml-auto">
+                Descartar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
    MAIN RECORDS PAGE
 ═══════════════════════════════════════════════════════════════ */
 export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis' }> = ({ defaultTab }) => {
+
   const { pushToast } = useToast();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -826,6 +1470,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [viewerRecord, setViewerRecord] = useState<MedicalRecord | null>(null);
   const [shareModal, setShareModal] = useState<{ record: MedicalRecord } | null>(null);
   const [professionals, setProfessionals] = useState<{ id: string; name: string; email?: string }[]>([]);
+  const [sendAnamnesisModal, setSendAnamnesisModal] = useState<{ record: MedicalRecord; patient: Patient } | null>(null);
+  const [anamnesisResponseModal, setAnamnesisResponseModal] = useState<{ sendId: number; patientName: string } | null>(null);
+  const [anamnesisSends, setAnamnesisSends] = useState<any[]>([]);
 
   useEffect(() => { 
     fetchAll(); 
@@ -849,6 +1496,23 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     else fetchGlobalRecords();
   }, [filterStatus, filterType, dateFrom, dateTo]);
 
+  // Atualização automática (polling) enquanto houver anamneses pendentes
+  useEffect(() => {
+    if (!selectedPatientId || view !== 'patient') return;
+
+    // Se houver alguma anamnese não respondida, verifica status periodicamente
+    const hasPending = anamnesisSends.some(s => s.status !== 'answered');
+    if (!hasPending) return;
+
+    const interval = setInterval(() => {
+      api.get<any[]>('/anamnesis-send', { patient_id: selectedPatientId })
+        .then(sends => setAnamnesisSends(sends || []))
+        .catch(() => {});
+    }, 8000); // 8 segundos
+
+    return () => clearInterval(interval);
+  }, [selectedPatientId, view, anamnesisSends]);
+
   const fetchAll = async () => {
     setIsLoading(true);
     try {
@@ -860,12 +1524,15 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       setPatients(pp.map(p => ({ ...p, full_name: p.full_name || (p as any).name || '' })));
       if (st) setStats(st);
       if (profs) setProfessionals((profs as any[]).map(u => ({ id: String(u.id), name: u.name || u.full_name || '', email: u.email })));
+      // Carrega registros globais para mostrar tipo do prontuário na lista de pacientes
+      fetchGlobalRecords();
     } catch (e: any) {
       pushToast('error', e?.message || 'Erro ao carregar dados');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const fetchGlobalRecords = async () => {
     try {
@@ -901,12 +1568,17 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         patient_id: String(r.patient_id),
         tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [] 
       })));
+      // Carrega envios de anamnese para mostrar status/botão correto
+      api.get<any[]>('/anamnesis-send', { patient_id: pid })
+        .then(sends => setAnamnesisSends(sends || []))
+        .catch(() => {});
     } catch (e: any) {
       pushToast('error', e?.message || 'Erro ao buscar prontuários');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const selectedPatient = useMemo(() => patients.find(p => String(p.id) === selectedPatientId), [patients, selectedPatientId]);
 
@@ -1199,6 +1871,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         onSave={() => selectedPatientId && fetchRecords(selectedPatientId)}
         onClose={() => setEditorOpen(false)}
         onExport={() => setShowExportModal(true)}
+        anamnesisSends={anamnesisSends}
       />
     );
   }
@@ -1215,25 +1888,63 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           <div className="flex items-center gap-2">
             {view === 'patient' && (
               <>
+                <button
+                  onClick={() => { setSearchParams({}); setView('grid'); setSelectedPatientId(null); setRecords([]); setAnamnesisSends([]); }}
+                  className="h-9 px-3 md:px-4 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase text-slate-600 hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-all"
+                >
+                  <ArrowLeft size={14}/> <span className="hidden sm:inline">Voltar</span>
+                </button>
+
                 <div className="flex items-center gap-1 bg-white/50 p-1 rounded-2xl border border-slate-200 shadow-sm">
                   {(['history', 'analysis'] as const).map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
-                      className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all flex items-center gap-1.5 ${activeTab === tab ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
-                      {tab === 'history' ? <><History size={13}/> Histórico</> : <><BarChart2 size={13}/> Análise</>}
+                      className={`px-3 md:px-4 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tight transition-all flex items-center gap-1.5 ${activeTab === tab ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
+                      {tab === 'history' ? <><History size={13}/> <span className="hidden xs:inline">Histórico</span></> : <><BarChart2 size={13}/> <span className="hidden xs:inline">Análise</span></>}
                     </button>
                   ))}
                 </div>
-                <button onClick={exportPDF} className="h-9 px-4 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase text-slate-600 hover:bg-slate-50 flex items-center gap-2">
-                  <Download size={14}/> PDF
+
+                <button onClick={exportPDF} className="h-9 px-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase text-slate-600 hover:bg-slate-50 flex items-center justify-center sm:gap-2 shadow-sm">
+                  <Download size={14}/> <span className="hidden sm:inline">PDF</span>
                 </button>
-                <button onClick={openNew} className="h-9 px-5 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase shadow hover:bg-indigo-700 flex items-center gap-2">
-                  <Plus size={14}/> Nova Evolução
+
+                <button onClick={openNew} className="h-9 md:h-10 px-3 md:px-6 bg-indigo-600 text-white rounded-xl text-[10px] md:text-[11px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 flex items-center justify-center sm:gap-2 transition-all">
+                  <Plus size={16}/> <span className="hidden sm:inline">Nova Evolução</span>
                 </button>
               </>
+            )}
+            {view === 'grid' && (
+              <button 
+                onClick={() => setShowFilters(!showFilters)} 
+                className={`h-9 px-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showFilters ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >
+                <Filter size={14}/> <span className="hidden sm:inline">Filtros</span>
+              </button>
             )}
           </div>
         }
       />
+
+      {/* Linha de Filtros de Tipo (Mobile Friendly) */}
+      {view === 'patient' && activeTab === 'history' && (
+        <div className="bg-white/40 p-1.5 rounded-2xl border border-slate-200/50 flex items-center gap-1 overflow-x-auto no-scrollbar animate-fadeIn">
+          <button 
+            onClick={() => setFilterType('')}
+            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${!filterType ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-white hover:text-indigo-600'}`}
+          >
+            Tudo
+          </button>
+          {Object.entries(TYPE_LABELS).map(([key, label]) => (
+            <button 
+              key={key} 
+              onClick={() => setFilterType(key)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${filterType === key ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-white hover:text-indigo-600'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ─── GRID DE PACIENTES ─── */}      {/* Filtros Expansion */}
       {showFilters && (
@@ -1437,13 +2148,34 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 )
                             },
                             {
-                                header: 'Status',
+                                header: 'Prontuário',
                                 accessor: 'status',
-                                render: (p: Patient) => (
-                                    <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${p.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                                        {p.status || 'ativo'}
-                                    </span>
-                                )
+                                render: (p: Patient) => {
+                                  // Conta registros deste paciente no globalRecords
+                                  const pRecs = globalRecords.filter(r => String(r.patient_id) === String(p.id));
+                                  const lastRec = pRecs[0];
+                                  const statusPt = !p.status || p.status === 'ativo' || p.status === 'active' || p.status === 'Ativo'
+                                    ? 'Em Atendimento' : p.status === 'inativo' || p.status === 'inactive' ? 'Inativo' : p.status;
+                                  const isActive = !p.status || ['ativo','active','Ativo','Em Atendimento'].includes(p.status);
+                                  return (
+                                    <div className="flex flex-col gap-1.5">
+                                      <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm w-fit ${
+                                        isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
+                                      }`}>
+                                        {statusPt}
+                                      </span>
+                                      {lastRec && (
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                          {TYPE_LABELS[lastRec.record_type] || lastRec.record_type}
+                                          {pRecs.length > 1 && ` +${pRecs.length - 1}`}
+                                        </span>
+                                      )}
+                                      {!lastRec && (
+                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Sem registros</span>
+                                      )}
+                                    </div>
+                                  );
+                                }
                             },
                             {
                                 header: 'Ações',
@@ -1502,8 +2234,39 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   </Button>
                 </div>
               ) : (
-                <GridTable
-                  data={patientRecords}
+                <div className="space-y-4">
+                  {/* Resumo do Prontuário */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+                    <div className="bg-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-indigo-100 flex flex-col justify-between h-24">
+                       <span className="text-[10px] font-black uppercase opacity-60 tracking-widest">Total Geral</span>
+                       <span className="text-3xl font-black">{patientRecords.length}</span>
+                    </div>
+                    {Object.entries(TYPE_LABELS).map(([key, label]) => {
+                       const count = patientRecords.filter(r => r.record_type === key).length;
+                       if (count === 0) return null;
+                       return (
+                         <div key={key} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col justify-between h-24 hover:border-indigo-200 transition-all cursor-pointer" onClick={() => setFilterType(key)}>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+                            <span className="text-2xl font-black text-slate-800">{count}</span>
+                         </div>
+                       );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 mb-2 px-2">
+                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                      <History size={14} className="text-indigo-500" /> Histórico de Registros
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Filtro atual:</span>
+                      <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 uppercase tracking-wider">
+                        {!filterType ? 'Tudo' : TYPE_LABELS[filterType] || filterType}
+                      </span>
+                    </div>
+                  </div>
+
+                  <GridTable
+                    data={patientRecords}
                   keyExtractor={(r) => r.id}
                   columns={[
                     {
@@ -1546,48 +2309,113 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       )
                     },
                     {
-                      header: 'Status',
+                      header: 'Tipo / Status',
                       accessor: 'status',
-                      render: (r: MedicalRecord) => (
-                        <div className="flex flex-wrap gap-1.5 items-center">
-                          <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.status}</span>
-                          {r.ai_status === 'organized' && <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1.5"><Sparkles size={11}/> IA</span>}
-                        </div>
-                      )
+                      render: (r: MedicalRecord) => {
+                        // Cores por tipo de registro
+                        const TYPE_COLORS: Record<string, string> = {
+                          'Anamnese': 'bg-violet-50 text-violet-700 border-violet-200',
+                          'Evolução': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                          'Relatório': 'bg-blue-50 text-blue-700 border-blue-200',
+                          'Avaliação': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+                          'Sessão': 'bg-teal-50 text-teal-700 border-teal-200',
+                          'Diagnóstico': 'bg-rose-50 text-rose-700 border-rose-200',
+                        };
+                        const typeColor = TYPE_COLORS[r.record_type] || 'bg-slate-50 text-slate-500 border-slate-200';
+                        return (
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${typeColor}`}>
+                              {TYPE_LABELS[r.record_type] || r.record_type}
+                            </span>
+                            <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                              {r.status}
+                            </span>
+                            {r.ai_status === 'organized' && <span className="text-[9px] font-black uppercase px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1"><Sparkles size={9}/> IA</span>}
+                          </div>
+                        );
+                      }
                     },
                     {
                       header: 'Ações',
-                      className: 'text-right',
+                      className: 'text-right min-w-[150px]',
                       render: (r: MedicalRecord) => (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => setViewerRecord(r)} title="Visualizar prontuário"
-                            className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition shadow-sm border border-slate-100">
-                            <Eye size={16}/>
-                          </button>
-                          <button onClick={() => openEdit(r.id)} title="Editar"
-                            className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-amber-500 hover:text-white flex items-center justify-center transition shadow-sm border border-slate-100">
-                            <Edit3 size={16}/>
-                          </button>
-                          <button onClick={() => setShowPwModal({ type: 'restricted', recordId: r.id })} title="Ver campo restrito"
-                            className="w-9 h-9 rounded-xl bg-slate-50 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center transition shadow-sm border border-rose-50">
-                            <Lock size={16}/>
-                          </button>
-                          <button onClick={() => setShareModal({ record: r })} title="Compartilhar acesso"
-                            className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-purple-600 hover:text-white flex items-center justify-center transition shadow-sm border border-slate-100">
-                            <Share2 size={16}/>
-                          </button>
-                          <button onClick={() => setDeleteId(r.id)} title="Excluir"
-                            className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-600 hover:text-white flex items-center justify-center transition shadow-sm border border-slate-100">
-                            <Trash2 size={16}/>
-                          </button>
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap md:flex-nowrap">
+                          {/* Botão especial: Enviar Anamnese / Ver Respostas */}
+                          {r.record_type === 'Anamnese' && (
+                            <div className="flex items-center gap-1.5">
+                              {(() => {
+                                const sendForThisRecord = anamnesisSends.find(s => String(s.medical_record_id) === String(r.id));
+                                const pat = patients.find(p => String(p.id) === String(r.patient_id));
+                                if (!pat) return null;
+
+                                if (sendForThisRecord) {
+                                  return (
+                                    <>
+                                      <button
+                                        onClick={() => setAnamnesisResponseModal({ sendId: sendForThisRecord.id, patientName: pat.full_name })}
+                                        className={`h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm border transition ${
+                                          sendForThisRecord.status === 'answered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' :
+                                          sendForThisRecord.status === 'filling' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 animate-pulse' :
+                                          'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        <ClipboardCheck size={13}/>
+                                        <span className="hidden lg:inline">{sendForThisRecord.status === 'answered' ? 'Ver respostas' : 'Status Envio'}</span>
+                                      </button>
+                                      <button 
+                                        onClick={() => setSendAnamnesisModal({ record: r, patient: pat })}
+                                        title="Enviar novamente"
+                                        className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-indigo-600 hover:bg-slate-50 transition-all"
+                                      >
+                                        <Plus size={14}/>
+                                      </button>
+                                    </>
+                                  );
+                                }
+
+                                return (
+                                  <button
+                                    onClick={() => setSendAnamnesisModal({ record: r, patient: pat })}
+                                    className="h-9 px-3 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-md shadow-indigo-100 border border-indigo-600 hover:bg-indigo-700 transition"
+                                  >
+                                    <Send size={13}/> <span className="hidden lg:inline">Enviar ao Paciente</span>
+                                  </button>
+                                );
+                              })()}
+                            </div>
+                          )}
+
+                          {/* Ações de Linha Padrão */}
+                          <div className="flex items-center gap-1 bg-slate-100/30 p-1 rounded-xl border border-slate-200/50">
+                            {[
+                              { icon: <Eye size={16}/>, title: "Visualizar", onClick: () => setViewerRecord(r), color: "indigo", skip: r.record_type === 'Anamnese' },
+                              { icon: <Edit3 size={16}/>, title: "Editar", onClick: () => openEdit(r.id), color: "amber" },
+                              { icon: <Lock size={16}/>, title: "Restrito", onClick: () => setShowPwModal({ type: 'restricted', recordId: r.id }), color: "rose", isRose: true },
+                              { icon: <Share2 size={16}/>, title: "Compartilhar", onClick: () => setShareModal({ record: r }), color: "purple" },
+                              { icon: <Trash2 size={16}/>, title: "Excluir", onClick: () => setDeleteId(r.id), color: "rose" },
+                            ].filter(b => !b.skip).map((btn, idx) => (
+                              <button 
+                                key={idx}
+                                onClick={btn.onClick} 
+                                title={btn.title}
+                                className={`w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center transition shadow-sm border border-slate-100 ${
+                                  btn.isRose ? 'bg-slate-50 text-rose-400 hover:bg-rose-500 hover:text-white border-rose-50' : 
+                                  `bg-white text-slate-400 hover:bg-${btn.color}-600 hover:text-white`
+                                }`}
+                              >
+                                {btn.icon}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )
                     }
                   ]}
                 />
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
 
           {/* Análise */}
           {activeTab === 'analysis' && analysisData && (
@@ -1716,6 +2544,39 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           professionals={professionals.filter(p => String(p.id) !== String(user?.id))}
           onClose={() => setShareModal(null)}
           onShared={() => selectedPatientId && fetchRecords(selectedPatientId)}
+        />
+      )}
+
+      {/* ══ MODAL: ENVIAR ANAMNESE PARA PACIENTE ══ */}
+      {sendAnamnesisModal && (
+        <SendAnamnesisModal
+          record={sendAnamnesisModal.record}
+          patient={sendAnamnesisModal.patient}
+          user={user as any}
+          onClose={() => setSendAnamnesisModal(null)}
+          onSent={(sendData) => {
+            setAnamnesisSends(prev => {
+              const exists = prev.find(s => s.id === sendData.id);
+              if (exists) return prev.map(s => s.id === sendData.id ? sendData : s);
+              return [...prev, sendData];
+            });
+            pushToast('success', 'Anamnese enviada ao paciente com sucesso!');
+          }}
+        />
+      )}
+
+      {/* ══ MODAL: VER RESPOSTAS DA ANAMNESE ══ */}
+      {anamnesisResponseModal && (
+        <AnamnesisResponseModal
+          sendId={anamnesisResponseModal.sendId}
+          patientName={anamnesisResponseModal.patientName}
+          user={user as any}
+          onClose={() => setAnamnesisResponseModal(null)}
+          onConvertToRecord={(recordId) => {
+            setAnamnesisResponseModal(null);
+            pushToast('success', 'Rascunho de prontuário criado com sucesso!');
+            if (selectedPatientId) fetchRecords(selectedPatientId);
+          }}
         />
       )}
     </div>

@@ -1,0 +1,23 @@
+FIELD: id | NULL: NO | TYPE: int | KEY: PRI | DEF: null
+FIELD: tenant_id | NULL: NO | TYPE: int | KEY: MUL | DEF: null
+FIELD: patient_id | NULL: NO | TYPE: int | KEY: MUL | DEF: null
+FIELD: professional_id | NULL: NO | TYPE: int | KEY:  | DEF: null
+FIELD: medical_record_id | NULL: YES | TYPE: int | KEY:  | DEF: null
+FIELD: title | NULL: NO | TYPE: varchar(255) | KEY:  | DEF: null
+FIELD: custom_message | NULL: YES | TYPE: text | KEY:  | DEF: null
+FIELD: template_type | NULL: YES | TYPE: enum('full','short') | KEY:  | DEF: full
+FIELD: approach | NULL: YES | TYPE: varchar(100) | KEY:  | DEF: null
+FIELD: allow_resume | NULL: YES | TYPE: tinyint(1) | KEY:  | DEF: 1
+FIELD: allow_edit_after_submit | NULL: YES | TYPE: tinyint(1) | KEY:  | DEF: 0
+FIELD: notify_channels | NULL: YES | TYPE: json | KEY:  | DEF: null
+FIELD: expires_at | NULL: YES | TYPE: datetime | KEY:  | DEF: null
+FIELD: reminder_hours | NULL: YES | TYPE: int | KEY:  | DEF: null
+FIELD: status | NULL: YES | TYPE: enum('draft','sent','viewed','filling','answered','expired','cancelled') | KEY: MUL | DEF: draft
+FIELD: consent_required | NULL: YES | TYPE: tinyint(1) | KEY:  | DEF: 1
+FIELD: fields_config | NULL: YES | TYPE: longtext | KEY:  | DEF: null
+FIELD: sent_at | NULL: YES | TYPE: datetime | KEY:  | DEF: null
+FIELD: viewed_at | NULL: YES | TYPE: datetime | KEY:  | DEF: null
+FIELD: started_at | NULL: YES | TYPE: datetime | KEY:  | DEF: null
+FIELD: completed_at | NULL: YES | TYPE: datetime | KEY:  | DEF: null
+FIELD: created_at | NULL: YES | TYPE: timestamp | KEY:  | DEF: CURRENT_TIMESTAMP
+FIELD: updated_at | NULL: YES | TYPE: timestamp | KEY:  | DEF: CURRENT_TIMESTAMP
