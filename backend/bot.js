@@ -28,9 +28,11 @@ app.post('/bot-api/connect/:tenantId', async (req, res) => {
   res.json({ success: true, message: 'Processando conexão...' });
 });
 
-app.post('/bot-api/disconnect/:tenantId', async (req, res) => {
-  await wppService.disconnect(req.params.tenantId);
+app.post('/bot-api/disconnect/:tenantId', (req, res) => {
+  // Responde imediatamente para não gerar timeout no Nginx
   res.json({ success: true });
+  // Desconecta em background (Puppeteer pode demorar)
+  wppService.disconnect(req.params.tenantId).catch(e => console.error('[Disconnect]', e.message));
 });
 
 app.post('/bot-api/test/:tenantId', async (req, res) => {
