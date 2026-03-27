@@ -236,10 +236,7 @@ export const Comandas: React.FC = () => {
 
   const formatCurrencyInput = (value?: number) => {
     if (value === undefined || value === null) return '';
-    return new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(value || 0));
+    return Number(value || 0).toFixed(2).replace('.', ',');
   };
 
   const parseMonetaryValue = (val: string) => {
@@ -251,16 +248,8 @@ export const Comandas: React.FC = () => {
 
   const handleMonetaryChange = (val: string, setter: (v: string) => void) => {
     const digits = val.replace(/\D/g, '');
-    if (!digits) {
-      setter('');
-      return;
-    }
-    const amount = parseFloat(digits) / 100;
-    const formatted = new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-    setter(formatted);
+    if (!digits) { setter(''); return; }
+    setter((parseFloat(digits) / 100).toFixed(2).replace('.', ','));
   };
 
   const normalizePatientName = (patient: any) =>

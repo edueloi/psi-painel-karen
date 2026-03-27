@@ -342,10 +342,7 @@ export const Agenda: React.FC = () => {
 
   const formatCurrencyInput = (value?: number) => {
     if (value === undefined || value === null) return '';
-    return new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(value || 0));
+    return Number(value || 0).toFixed(2).replace('.', ',');
   };
 
   const parseMonetaryValue = (val: string) => {
@@ -3055,7 +3052,20 @@ export const Agenda: React.FC = () => {
                   </div>
                 )}
                 {cmnd && (
-                  <button onClick={() => setIsComandaManagerOpen(true)} className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 hover:bg-emerald-100 transition-colors">
+                  <button onClick={async () => {
+                    try {
+                      const res = await api.get<any[]>('/finance/comandas');
+                      const all = Array.isArray(res) ? res : [];
+                      const fresh = all.find(c => String(c.id) === String(apt.comanda_id));
+                      if (fresh) {
+                        setPatientComandas(prev => {
+                          const filtered = prev.filter(c => String(c.id) !== String(apt.comanda_id));
+                          return [...filtered, fresh];
+                        });
+                      }
+                    } catch { /* use existing data */ }
+                    setIsComandaManagerOpen(true);
+                  }} className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 hover:bg-emerald-100 transition-colors">
                     <DollarSign size={13} className="text-emerald-600 shrink-0" />
                     <span className="text-[12px] font-semibold text-emerald-700">{formatCurrency(cmnd.paidValue || 0)}</span>
                     <span className="text-[10px] text-emerald-500 font-bold">pago</span>
@@ -3180,12 +3190,12 @@ export const Agenda: React.FC = () => {
                   <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recibo</span>
                 </button>
                 {apt.comanda_id && (
-                  <button onClick={async () => { 
+                  <button onClick={async () => {
                     try {
-                      // Usa o caminho correto /finance/comandas para bater na API certa
-                      const res = await api.get<any[]>(`/finance/comandas?id=${apt.comanda_id}`);
-                      const foundCmnd = Array.isArray(res) ? res[0] : (res as any).data?.[0];
-                      
+                      const res = await api.get<any[]>('/finance/comandas');
+                      const all = Array.isArray(res) ? res : [];
+                      const foundCmnd = all.find(c => String(c.id) === String(apt.comanda_id));
+
                       if (!foundCmnd) {
                         pushToast('error', 'Comanda não encontrada no sistema.');
                         return;
@@ -3195,7 +3205,7 @@ export const Agenda: React.FC = () => {
                         const filtered = prev.filter(c => String(c.id) !== String(apt.comanda_id));
                         return [...filtered, foundCmnd];
                       });
-                      setIsComandaManagerOpen(true); 
+                      setIsComandaManagerOpen(true);
                     } catch (e) {
                       pushToast('error', 'Erro ao carregar dados financeiros.');
                     }
@@ -3736,7 +3746,7 @@ export const Agenda: React.FC = () => {
                       {cmnd.payments?.map((payment: any) => (
                         <div
                           key={payment.id}
-                          className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"
+                          className="group flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"
                         >
                           <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-emerald-600">
@@ -3747,14 +3757,45 @@ export const Agenda: React.FC = () => {
                                 {formatCurrency(Number(payment.amount || 0))}
                               </p>
                               <p className="text-xs text-slate-400">
-                                {new Date(payment.payment_date).toLocaleDateString()} •{' '}
+                                {new Date(payment.payment_date).toLocaleDateString('pt-BR')} •{' '}
                                 {payment.payment_method}
+                                {payment.receipt_code ? ` • #${payment.receipt_code}` : ''}
                               </p>
                             </div>
                           </div>
-                          <span className="text-xs text-slate-400">
-                            #{payment.receipt_code || '---'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 group-hover:hidden">Recebido</span>
+                            <div className="hidden group-hover:flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setNewPayment({
+                                    id: String(payment.id),
+                                    value: formatCurrencyInput(Number(payment.amount || 0)),
+                                    date: payment.payment_date ? new Date(payment.payment_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+                                    method: payment.payment_method || 'Pix',
+                                    receiptCode: payment.receipt_code || '',
+                                    comandaId: String(cmnd.id),
+                                  });
+                                  setIsAddPaymentModalOpen(true);
+                                }}
+                                className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
+                                title="Editar pagamento"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm('Tem certeza que deseja excluir este pagamento?')) {
+                                    handleDeletePayment(payment.id, cmnd.id);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200"
+                                title="Excluir pagamento"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       ))}
 
@@ -3892,9 +3933,11 @@ export const Agenda: React.FC = () => {
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Valor do pagamento</label>
             <input
               value={newPayment.value}
-              onChange={(e) =>
-                setNewPayment((prev) => ({ ...prev, value: formatCurrencyInput(parseMonetaryValue(e.target.value)) }))
-              }
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '');
+                if (!digits) { setNewPayment(prev => ({ ...prev, value: '' })); return; }
+                setNewPayment(prev => ({ ...prev, value: (parseFloat(digits) / 100).toFixed(2).replace('.', ',') }));
+              }}
               placeholder="0,00"
               className={compactInputClass}
             />
