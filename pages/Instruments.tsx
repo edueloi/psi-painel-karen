@@ -584,17 +584,6 @@ export const Instruments: React.FC = () => {
           );
         })}
       </div>
-
-      {/* Coming soon */}
-      <div className="bg-slate-50 border border-dashed border-slate-200 rounded-[28px] p-8 text-center">
-        <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
-          <Zap size={24} className="text-slate-300"/>
-        </div>
-        <h3 className="font-black text-slate-500 text-sm uppercase tracking-widest mb-1">Mais Instrumentos em Breve</h3>
-        <p className="text-xs text-slate-400 font-medium max-w-sm mx-auto">
-          M-CHAT-R/F, SNAP-IV, BDI-II, BAI e outros instrumentos serão adicionados progressivamente.
-        </p>
-      </div>
     </div>
   );
 };
