@@ -945,25 +945,6 @@ export const Agenda: React.FC = () => {
     }
   };
 
-  const handleDeletePayment = async (paymentId: number) => {
-    const comandaId = selectedApt?.comanda_id;
-    if (!comandaId) return;
-    if (!window.confirm('Remover este pagamento?')) return;
-    try {
-      await api.delete(`/finance/comandas/${comandaId}/payments/${paymentId}`);
-      pushToast('success', 'Pagamento removido.');
-      await fetchComandaPayments(comandaId);
-      fetchData();
-      if (selectedApt?.patient_id) {
-        const res = await api.get(`/finance/comandas/patient/${selectedApt.patient_id}`);
-        setPatientComandas(res as any[]);
-      }
-    } catch (err) {
-      console.error(err);
-      pushToast('error', 'Erro ao remover pagamento.');
-    }
-  };
-
   const handleRemoveCharge = async () => {
     if (!selectedApt) return;
     if (!window.confirm('Deseja realmente remover o vínculo financeiro deste agendamento?')) return;
