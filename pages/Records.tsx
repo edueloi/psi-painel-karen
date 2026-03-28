@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { TherapeuticPlanEditor, EMPTY_PLAN, type TheraPlan } from '../components/TherapeuticPlanEditor';
+import { RelatorioModal, EncaminhamentoModal, AtestadoModal } from '../components/modals/DocumentModals';
+import { PatientTimeline } from '../components/PatientTimeline';
 import { api, getStaticUrl } from '../services/api';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
@@ -47,7 +49,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const TYPE_LABELS: Record<string, string> = {
   Evolucao: 'Evolução', Anamnese: 'Anamnese', Avaliacao: 'Avaliação',
-  Encaminhamento: 'Encaminhamento', Plano: 'Plano Terapêutico', Relatorio: 'Relatório'
+  Encaminhamento: 'Encaminhamento', Plano: 'Plano Terapêutico', Relatorio: 'Relatório',
+  Atestado: 'Atestado',
 };
 const PIE_COLORS = ['#4f46e5', '#f59e0b', '#10b981', '#ec4899', '#06b6d4'];
 
@@ -297,16 +300,22 @@ const TYPE_DEFINITIONS = [
     bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', iconBg: 'bg-emerald-100',
   },
   {
-    key: 'Relatorio', label: 'Relatório',
-    description: 'Relatório técnico, laudo ou documento para encaminhamentos',
+    key: 'Relatorio', label: 'Relatório / Laudo',
+    description: 'Relatório técnico, laudo psicológico ou declaração para terceiros',
     icon: '📄', color: 'blue',
     bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', iconBg: 'bg-blue-100',
   },
   {
     key: 'Encaminhamento', label: 'Encaminhamento',
-    description: 'Registro de encaminhamento para outro serviço ou profissional',
+    description: 'Encaminhamento para outro serviço, especialidade ou profissional',
     icon: '🔄', color: 'amber',
     bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', iconBg: 'bg-amber-100',
+  },
+  {
+    key: 'Atestado', label: 'Atestado',
+    description: 'Atestado de comparecimento, afastamento ou aptidão psicológica',
+    icon: '📋', color: 'rose',
+    bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', iconBg: 'bg-rose-100',
   },
 ];
 
@@ -2261,7 +2270,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<'grid' | 'patient'>(searchParams.get('patient_id') ? 'patient' : 'grid');
-  const [activeTab, setActiveTab] = useState<'history' | 'analysis'>(defaultTab === 'analysis' ? 'analysis' : 'history');
+  const [activeTab, setActiveTab] = useState<'history' | 'analysis' | 'timeline'>(defaultTab === 'analysis' ? 'analysis' : 'history');
   
   // Filtros
   const [search, setSearch] = useState('');
@@ -2290,6 +2299,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [shareModal, setShareModal] = useState<{ record: MedicalRecord } | null>(null);
   const [professionals, setProfessionals] = useState<{ id: string; name: string; email?: string }[]>([]);
   const [sendAnamnesisModal, setSendAnamnesisModal] = useState<{ record: MedicalRecord; patient: Patient } | null>(null);
+  const [relatorioModal, setRelatorioModal] = useState<Patient | null>(null);
+  const [encaminhamentoModal, setEncaminhamentoModal] = useState<Patient | null>(null);
+  const [atestadoModal, setAtestadoModal] = useState<Patient | null>(null);
   const [anamnesisResponseModal, setAnamnesisResponseModal] = useState<{ sendId: number; patientName: string } | null>(null);
   const [anamnesisSends, setAnamnesisSends] = useState<any[]>([]);
   const [cancelAnamnesisModal, setCancelAnamnesisModal] = useState<{ sendId: number; patientName: string } | null>(null);
@@ -2439,13 +2451,10 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       Anamnese: pat ? `Anamnese — ${pat.full_name}` : `Anamnese — ${today}`,
       Avaliacao: `Avaliação — ${today}`,
       Plano: pat ? `Plano Terapêutico — ${pat.full_name}` : `Plano Terapêutico — ${today}`,
-      Relatorio: `Relatório — ${today}`,
-      Encaminhamento: `Encaminhamento — ${today}`,
     };
     setTypeSelectorOpen(false);
 
     if (type === 'Anamnese' && pat) {
-      // Cria o registro de anamnese silenciosamente e abre direto o modal de envio
       try {
         const newRecord = await api.post<MedicalRecord>('/medical-records', {
           patient_id: selectedPatientId,
@@ -2461,6 +2470,10 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       }
       return;
     }
+
+    if (type === 'Relatorio' && pat) { setRelatorioModal(pat); return; }
+    if (type === 'Encaminhamento' && pat) { setEncaminhamentoModal(pat); return; }
+    if (type === 'Atestado' && pat) { setAtestadoModal(pat); return; }
 
     setCurrentRecord({ patient_id: selectedPatientId || '', record_type: type, title: titleMap[type] || `Registro — ${today}` });
     setEditorMode('new');
@@ -2750,10 +2763,14 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                 </button>
 
                 <div className="flex items-center gap-1 bg-white/50 p-1 rounded-2xl border border-slate-200 shadow-sm">
-                  {(['history', 'analysis'] as const).map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)}
-                      className={`px-3 md:px-4 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tight transition-all flex items-center gap-1.5 ${activeTab === tab ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
-                      {tab === 'history' ? <><History size={13}/> <span className="hidden xs:inline">Histórico</span></> : <><BarChart2 size={13}/> <span className="hidden xs:inline">Análise</span></>}
+                  {([
+                    { key: 'history', label: 'Registros', icon: <History size={13}/> },
+                    { key: 'timeline', label: 'Timeline', icon: <Clock size={13}/> },
+                    { key: 'analysis', label: 'Análise', icon: <BarChart2 size={13}/> },
+                  ] as const).map(tab => (
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                      className={`px-3 md:px-4 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tight transition-all flex items-center gap-1.5 ${activeTab === tab.key ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
+                      {tab.icon} <span className="hidden xs:inline">{tab.label}</span>
                     </button>
                   ))}
                 </div>
@@ -3353,6 +3370,16 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           </div>
         )}
 
+          {/* Timeline */}
+          {activeTab === 'timeline' && selectedPatientId && (
+            <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-5 animate-fadeIn">
+              <PatientTimeline
+                patientId={String(selectedPatientId)}
+                patientName={selectedPatient?.full_name}
+              />
+            </div>
+          )}
+
           {/* Análise */}
           {activeTab === 'analysis' && analysisData && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-fadeIn">
@@ -3489,6 +3516,36 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           professionals={professionals.filter(p => String(p.id) !== String(user?.id))}
           onClose={() => setShareModal(null)}
           onShared={() => selectedPatientId && fetchRecords(selectedPatientId)}
+        />
+      )}
+
+      {/* ══ MODAL: RELATÓRIO ══ */}
+      {relatorioModal && (
+        <RelatorioModal
+          patient={relatorioModal}
+          professional={{ name: user?.name, crp: user?.crp, specialty: (user as any)?.specialty, address: (user as any)?.address, phone: (user as any)?.phone, companyName: user?.companyName }}
+          onClose={() => setRelatorioModal(null)}
+          onSaved={() => { if (selectedPatientId) fetchRecords(selectedPatientId); pushToast('success', 'Relatório salvo no prontuário!'); }}
+        />
+      )}
+
+      {/* ══ MODAL: ENCAMINHAMENTO ══ */}
+      {encaminhamentoModal && (
+        <EncaminhamentoModal
+          patient={encaminhamentoModal}
+          professional={{ name: user?.name, crp: user?.crp, specialty: (user as any)?.specialty, address: (user as any)?.address, phone: (user as any)?.phone, companyName: user?.companyName }}
+          onClose={() => setEncaminhamentoModal(null)}
+          onSaved={() => { if (selectedPatientId) fetchRecords(selectedPatientId); pushToast('success', 'Encaminhamento registrado no prontuário!'); }}
+        />
+      )}
+
+      {/* ══ MODAL: ATESTADO ══ */}
+      {atestadoModal && (
+        <AtestadoModal
+          patient={atestadoModal}
+          professional={{ name: user?.name, crp: user?.crp, specialty: (user as any)?.specialty, address: (user as any)?.address, phone: (user as any)?.phone, companyName: user?.companyName }}
+          onClose={() => setAtestadoModal(null)}
+          onSaved={() => { if (selectedPatientId) fetchRecords(selectedPatientId); pushToast('success', 'Atestado emitido e salvo no prontuário!'); }}
         />
       )}
 

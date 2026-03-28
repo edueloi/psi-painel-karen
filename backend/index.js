@@ -41,6 +41,7 @@ const notificationsRoutes = require('./routes/notifications');
 const whatsappRoutes = require('./routes/whatsapp');
 const anamnesisSendRoutes = require('./routes/anamnesis-send');
 const therapeuticPlansRoutes = require('./routes/therapeutic-plans');
+const patientHistoryRoutes = require('./routes/patient-history');
 const { startCronJobs } = require('./services/cronJobs');
 const { provisionFormsForAllTenants } = require('./services/provisionForms');
 const db = require('./db');
@@ -101,6 +102,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/whatsapp`, whatsappRoutes);
   app.use(`${prefix}/anamnesis-send`, anamnesisSendRoutes);
   app.use(`${prefix}/therapeutic-plans`, therapeuticPlansRoutes);
+  app.use(`${prefix}/patient-history`, patientHistoryRoutes);
   app.use(`${prefix}/backup`, require('./routes/backup'));
 }
 

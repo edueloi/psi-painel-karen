@@ -12,6 +12,9 @@ interface AuthUser {
   clinicLogoUrl?: string;
   companyName?: string;
   crp?: string;
+  specialty?: string;
+  address?: string;
+  phone?: string;
   shareToken?: string;
   permissions?: Record<string, boolean>;
   plan_features?: string[];
@@ -65,6 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clinic_logo_url?: string;
         company_name?: string;
         crp?: string;
+        specialty?: string;
+        address?: string;
+        phone?: string;
         avatarUrl?: string;
         permissions?: Record<string, boolean>;
       }
@@ -77,6 +83,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clinicLogoUrl: data.clinic_logo_url || (decoded as any).clinic_logo_url,
         companyName: data.company_name,
         crp: data.crp,
+        specialty: data.specialty,
+        address: data.address,
+        phone: data.phone,
         shareToken: (data as any).share_token,
         permissions: data.permissions || {},
         plan_features: (data as any).plan_features || [],
