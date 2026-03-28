@@ -1345,10 +1345,17 @@ const RecordEditor: React.FC<{
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro'}
+      title={recordType === 'Plano' ? (mode === 'new' ? 'Plano Terapêutico' : 'Editar Plano') : (mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro')}
       subtitle={title}
-      maxWidth="full"
-      footer={
+      maxWidth={recordType === 'Plano' ? '5xl' : 'full'}
+      footer={recordType === 'Plano' ? (
+        <div className="flex items-center justify-end gap-2 w-full">
+          <Button variant="ghost" onClick={onClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
+          <Button onClick={() => save()} isLoading={saving} variant="primary" className="h-9 sm:h-10 px-5 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-emerald-200 bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
+            <Save size={14}/> Salvar Plano
+          </Button>
+        </div>
+      ) : (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between w-full gap-3">
            {/* Step indicator */}
            <div className="flex items-center gap-2 flex-wrap">
@@ -1375,7 +1382,7 @@ const RecordEditor: React.FC<{
               </Button>
            </div>
         </div>
-      }
+      )}
     >
         <div className="space-y-6 max-w-[1440px] mx-auto py-2 pb-12">
           {/* Metadados — compacto para Plano, completo para outros */}
@@ -1462,7 +1469,7 @@ const RecordEditor: React.FC<{
             </div>
           )}
 
-          <div className={recordType === 'Avaliacao' ? 'flex flex-col lg:flex-row gap-6' : 'max-w-5xl mx-auto'}>
+          <div className={recordType === 'Avaliacao' ? 'flex flex-col lg:flex-row gap-6' : recordType === 'Plano' ? 'w-full min-w-0' : 'max-w-5xl mx-auto'}>
              {/* COLUNA ESQUERDA - FONTES (Apenas para Avaliação) */}
              {recordType === 'Avaliacao' && patientId && (
                <div className="lg:w-80 xl:w-96 shrink-0 animate-slideRightFade">

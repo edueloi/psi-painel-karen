@@ -348,15 +348,15 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
   const approachFields = APPROACH_SPECIFIC_FIELDS[plan.approach] || APPROACH_SPECIFIC_FIELDS.TCC;
 
   const TABS = [
-    { id: 'overview', label: 'Visão Geral', icon: <Brain size={14}/> },
-    { id: 'current', label: 'Estado Atual', icon: <Activity size={14}/> },
-    { id: 'destination', label: 'Destino', icon: <Target size={14}/> },
-    { id: 'needs', label: `Necessidades (${plan.needs.length})`, icon: <Heart size={14}/> },
-    { id: 'goals', label: `Metas (${plan.goals.length})`, icon: <CheckCircle2 size={14}/> },
-    { id: 'roadmap', label: 'Roadmap', icon: <Map size={14}/> },
-    { id: 'interventions', label: `Intervenções (${plan.interventions.length})`, icon: <Zap size={14}/> },
-    { id: 'approach', label: plan.approach, icon: <BookOpen size={14}/> },
-    { id: 'reprogramming', label: `Reprogramações (${plan.reprogrammings.length})`, icon: <RotateCcw size={14}/> },
+    { id: 'overview', label: 'Visão Geral', icon: <Brain size={13}/> },
+    { id: 'current', label: 'Estado', icon: <Activity size={13}/> },
+    { id: 'destination', label: 'Destino', icon: <Target size={13}/> },
+    { id: 'needs', label: `Nec. (${plan.needs.length})`, icon: <Heart size={13}/> },
+    { id: 'goals', label: `Metas (${plan.goals.length})`, icon: <CheckCircle2 size={13}/> },
+    { id: 'roadmap', label: 'Roadmap', icon: <Map size={13}/> },
+    { id: 'interventions', label: `Interv. (${plan.interventions.length})`, icon: <Zap size={13}/> },
+    { id: 'approach', label: plan.approach, icon: <BookOpen size={13}/> },
+    { id: 'reprogramming', label: `Reprog. (${plan.reprogrammings.length})`, icon: <RotateCcw size={13}/> },
   ];
 
   return (
@@ -384,13 +384,13 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1">
+      <div className="flex gap-1 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {TABS.map(tab => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide whitespace-nowrap transition-all ${
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide whitespace-nowrap transition-all ${
               activeTab === tab.id
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
                 : 'bg-white border border-slate-100 text-slate-500 hover:border-indigo-200 hover:text-indigo-600'
