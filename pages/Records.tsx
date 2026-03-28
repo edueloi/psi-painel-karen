@@ -14,7 +14,7 @@ import {
   X, ArrowLeft, Layers, User, Download, RotateCcw, Tag,
   History, BookOpen, Filter, Share2, Users, Send, Copy, ExternalLink,
   ClipboardCheck, RefreshCw, MessageSquare, Brain, CheckCheck,
-  LinkIcon, Bell,
+  LinkIcon, Bell, Info,
   Settings
 } from 'lucide-react';
 import { DatePicker } from '../components/UI/DatePicker';
@@ -51,7 +51,41 @@ const TYPE_LABELS: Record<string, string> = {
 const PIE_COLORS = ['#4f46e5', '#f59e0b', '#10b981', '#ec4899', '#06b6d4'];
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+const fmtDateTime = (d: string) => d ? new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 const strip = (h: string) => (h || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+const TOOL_DISPLAY_NAMES: Record<string, { label: string; category: string }> = {
+  'dass-21': { label: 'DASS-21', category: 'Escala Clínica' },
+  'phq-9': { label: 'PHQ-9', category: 'Escala Clínica' },
+  'gad-7': { label: 'GAD-7', category: 'Escala Clínica' },
+  'bdi-ii': { label: 'Beck Depressão (BDI-II)', category: 'Inventário' },
+  'bai': { label: 'Beck Ansiedade (BAI)', category: 'Inventário' },
+  'beck-depressao': { label: 'Beck Depressão (BDI)', category: 'Inventário' },
+  'beck-ansiedade': { label: 'Beck Ansiedade (BAI)', category: 'Inventário' },
+  'snap-iv': { label: 'SNAP-IV (TDAH)', category: 'Escala Clínica' },
+  'm-chat-r': { label: 'M-CHAT-R/F (Autismo)', category: 'Escala Clínica' },
+  'neuro/assessment': { label: 'Avaliação Neuropsicológica', category: 'Neuropsicologia' },
+  'tcc/rpd': { label: 'RPD (TCC)', category: 'Registro Clínico' },
+  'tcc/cards': { label: 'Cartões de Enfrentamento', category: 'Recurso Terapêutico' },
+  'schema/latest': { label: 'Mapa de Esquemas', category: 'Terapia do Esquema' },
+  'psycho/dreams': { label: 'Registro de Sonhos', category: 'Psicanálise' },
+  'psycho/signifiers': { label: 'Significantes', category: 'Psicanálise' },
+  'psycho/free': { label: 'Associações Livres', category: 'Psicanálise' },
+  'fap/crbs': { label: 'Comportamentos Alvo (CRBs)', category: 'FAP' },
+  'fap/five_rules': { label: 'As 5 Regras da FAP', category: 'FAP' },
+  'fap/session_notes': { label: 'Notas de Sessão (FAP)', category: 'FAP' },
+  'mindfulness/practices': { label: 'Práticas de Mindfulness', category: 'Prática' },
+  'mindfulness/bodyscans': { label: 'Escaneamento Corporal', category: 'Prática' },
+  'mindfulness/anchors': { label: 'Âncoras', category: 'Prática' },
+  'positivepsych/strengths': { label: 'Forças de Caráter', category: 'Psicologia Positiva' },
+  'positivepsych/gratitude': { label: 'Diário de Gratidão', category: 'Psicologia Positiva' },
+  'positivepsych/wellbeing': { label: 'Bem-Estar (PERMA)', category: 'Psicologia Positiva' },
+  'act/values': { label: 'Valores Pessoais (ACT)', category: 'ACT' },
+  'act/defusions': { label: 'Desfusão Cognitiva', category: 'ACT' },
+  'act/matrix': { label: 'Matriz ACT', category: 'ACT' },
+  'anamnese': { label: 'Anamnese Clínica', category: 'Anamnese' }
+};
+
 
 const ANAMNESIS_FIELD_LABELS: Record<string, string> = {
   // História e Contexto
@@ -488,6 +522,588 @@ const ShareModal: React.FC<{
    RECORD EDITOR (modal completo: rascunho → IA → revisão → aprovação)
    Suporta os modos exigidos pelo CFP
 ═══════════════════════════════════════════════════════════════ */
+/* ─────────────────────────────────────────────────────────────
+   LINKED TOOLS SECTION (Para Avaliação do Caso)
+ ───────────────────────────────────────────────────────────── */
+const LinkedToolsSection: React.FC<{ 
+  patientId: string; 
+  onSelectSource?: (item: any) => void;
+  variant?: 'full' | 'sidebar';
+}> = ({ patientId, onSelectSource, variant = 'full' }) => {
+  const { pushToast } = useToast();
+  const [tools, setTools] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [comparing, setComparing] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<any | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showSynthesisModal, setShowSynthesisModal] = useState(false);
+  const [synthesisLoading, setSynthesisLoading] = useState(false);
+  const [approach, setApproach] = useState('TCC (Terapia Cognitivo-Comportamental)');
+
+  useEffect(() => {
+    if (!patientId) { setTools([]); setLoading(false); return; }
+    const fetchAll = async () => {
+      setLoading(true);
+      try {
+        // Buscar TODAS as fontes de dados do paciente em paralelo
+        const [anamnesis, clinical, formResponses, discAssessments] = await Promise.all([
+          api.get<any[]>(`/anamnesis-send?patient_id=${patientId}`).catch(() => []),
+          api.get<any[]>(`/clinical-tools/patient/${patientId}`).catch(() => []),
+          api.get<any[]>(`/forms/responses?patient_id=${patientId}`).catch(() => []),
+          api.get<any[]>(`/disc?patient_id=${patientId}`).catch(() => []),
+        ]);
+
+        const unified: any[] = [
+          // 1. Anamneses respondidas
+          ...(anamnesis || [])
+            .filter(s => s.status === 'answered')
+            .map(s => ({
+            id: `anam-${s.id}`,
+            rawId: s.id,
+            name: s.title || 'Anamnese Clínica',
+            category: 'Anamnese',
+            date: s.completed_at || s.created_at,
+            professional: s.professional_name || 'Psicólogo(a)',
+            status: 'Respondido',
+            origin: 'Paciente (Remoto)',
+            type: 'anamnese',
+            isRelevant: false,
+            responses: s.responses
+          })),
+
+          // 2. Ferramentas clínicas (TCC, Esquema, Psicanálise, FAP, ACT, Mindfulness, etc.)
+          ...(clinical || [])
+            .filter(c => {
+               if (!c.data) return false;
+               if (Array.isArray(c.data)) return c.data.length > 0;
+               if (typeof c.data === 'object') return Object.keys(c.data).length > 0;
+               return true;
+            })
+            .map(c => {
+            const config = TOOL_DISPLAY_NAMES[c.tool_type] || { label: c.tool_type, category: 'Caixa de Ferramentas' };
+            return {
+              id: `tool-${c.id}`,
+              rawId: c.id,
+              name: config.label,
+              category: config.category,
+              date: c.updated_at || c.created_at,
+              professional: c.professional_name || 'Psicólogo(a)',
+              status: 'Completo',
+              origin: 'Profissional/Sistema',
+              type: c.tool_type,
+              isRelevant: false,
+              data: c.data
+            };
+          }),
+
+          // 3. Formulários respondidos (PHQ-9, GAD-7, Beck, etc.)
+          ...(formResponses || [])
+            .filter(fr => fr.data)
+            .map(fr => ({
+            id: `form-${fr.id}`,
+            rawId: fr.id,
+            name: fr.form_title || 'Formulário Clínico',
+            category: fr.form_category || 'Formulário',
+            date: fr.created_at,
+            professional: fr.respondent_name || 'Paciente',
+            status: 'Respondido',
+            origin: 'Formulário Público',
+            type: 'form_response',
+            isRelevant: false,
+            data: fr.data,
+            score: fr.score
+          })),
+
+          // 4. Avaliações DISC
+          ...(discAssessments || [])
+            .map(disc => ({
+            id: `disc-${disc.id}`,
+            rawId: disc.id,
+            name: 'DISC — Perfil Comportamental',
+            category: 'Avaliação DISC',
+            date: disc.created_at,
+            professional: disc.respondent_name || disc.patient_name || 'Avaliado',
+            status: 'Completo',
+            origin: 'Formulário Público',
+            type: 'disc',
+            isRelevant: false,
+            data: {
+              scores: { D: disc.score_d, I: disc.score_i, S: disc.score_s, C: disc.score_c },
+              answers: disc.answers
+            },
+            score: disc.score_total,
+            auroraAnalysis: disc.aurora_analysis
+          })),
+        ];
+
+        setTools(unified.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      } catch (e) {
+        console.error('Erro ao buscar fontes vinculadas:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, [patientId]);
+
+  const filtered = tools.filter(t => {
+    const matchesSearch = t.name.toLowerCase().includes(filter.toLowerCase());
+    const matchesCat = categoryFilter === 'all' || t.category === categoryFilter;
+    return matchesSearch && matchesCat;
+  });
+
+  const categories = Array.from(new Set(tools.map(t => t.category)));
+
+  const handleSelectSource = (item: any) => {
+    if (!onSelectSource) return;
+    
+    let content = `### FONTE: ${item.name.toUpperCase()} (${fmtDate(item.date)})\n`;
+    
+    if (item.type === 'anamnese') {
+      content += `[Informações desta anamnese integrada ao caso. Paciente relatou histórico e contexto relevante.]\n`;
+    } else if (item.type === 'form_response') {
+      // Formulários respondidos (PHQ-9, GAD-7, etc.)
+      if (item.score != null) content += `Pontuação Total: ${item.score}\n`;
+      if (item.data?.answers) {
+        content += `Respostas do formulário registradas e disponíveis para análise.\n`;
+      }
+    } else if (item.type === 'disc') {
+      // Avaliação DISC
+      const s = item.data?.scores || {};
+      content += `Perfil DISC: D(${s.D || 0}), I(${s.I || 0}), S(${s.S || 0}), C(${s.C || 0})\n`;
+      if (item.auroraAnalysis) content += `Análise Aurora IA já disponível.\n`;
+    } else if (item.data) {
+       if (item.type === 'dass-21') {
+         if (Array.isArray(item.data)) {
+           const last = item.data[item.data.length - 1];
+           const s = last?.scores || last?.score || {};
+           content += `Última Pontuação: Depressão(${s.depression || 0}), Ansiedade(${s.anxiety || 0}), Estresse(${s.stress || 0})\n`;
+           if (item.data.length > 1) content += `Nota: Existem ${item.data.length} aplicações disponíveis para comparação longitudinal.\n`;
+         } else {
+           const s = item.data.scores || item.data.score || {};
+           content += `Pontuação: Depressão(${s.depression || 0}), Ansiedade(${s.anxiety || 0}), Estresse(${s.stress || 0})\n`;
+         }
+       } else if (item.type.includes('beck')) {
+          const score = item.data.score || item.data.total_score || '—';
+          content += `Resultado: Pontuação de ${score}.\n`;
+       } else {
+          // Ferramentas genéricas da Caixa de Ferramentas
+          const dataStr = JSON.stringify(item.data);
+          if (dataStr.length < 500) content += `Dados: ${dataStr}\n`;
+          else content += `Dados disponíveis para análise (${Object.keys(item.data).length} campos).\n`;
+       }
+    }
+    
+    content += `[Análise Clínica: Descreva aqui como este instrumento apoia sua formulação clínica do caso...]`;
+    onSelectSource({ ...item, summary: content });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleGenerateSynthesis = async () => {
+    if (selectedIds.length === 0) { pushToast('error', 'Selecione pelo menos uma fonte.'); return; }
+    setSynthesisLoading(true);
+    try {
+      const selectedTools = tools.filter(t => selectedIds.includes(t.id));
+      
+      // Monta o prompt de contexto com os DADOS REAIS das fontes
+      let contextStr = `Crie uma FORMULAÇÃO DE CASO detalhada baseada na abordagem ${approach.toUpperCase()}.\n\n`;
+      contextStr += `FONTES SELECIONADAS:\n`;
+      selectedTools.forEach(t => {
+        contextStr += `\n--- FONTE: ${t.name} (${fmtDate(t.date)}) ---\n`;
+
+        if (t.type === 'anamnese') {
+          contextStr += `Tipo: Anamnese Clínica\n`;
+          if (t.responses) {
+            try {
+              const parsedResp = typeof t.responses === 'string' ? JSON.parse(t.responses) : t.responses;
+              Object.entries(parsedResp).forEach(([key, value]: [string, any]) => {
+                const label = ANAMNESIS_FIELD_LABELS[key] || key;
+                if (value && String(value).trim()) {
+                  contextStr += `  ${label}: ${String(value)}\n`;
+                }
+              });
+            } catch {
+              contextStr += `  Dados da anamnese: ${String(t.responses).substring(0, 3000)}\n`;
+            }
+          } else {
+            contextStr += `  (Dados da anamnese não disponíveis)\n`;
+          }
+
+        } else if (t.type === 'form_response') {
+          // Formulários respondidos (PHQ-9, GAD-7, Beck, etc.)
+          contextStr += `Tipo: Formulário Clínico\n`;
+          if (t.score != null) contextStr += `  Pontuação Total: ${t.score}\n`;
+          if (t.data?.answers) {
+            const answers = t.data.answers;
+            Object.entries(answers).forEach(([qId, answer]: [string, any]) => {
+              if (answer && String(answer).trim()) {
+                contextStr += `  ${qId}: ${String(answer)}\n`;
+              }
+            });
+          } else if (t.data) {
+            contextStr += `  Dados: ${JSON.stringify(t.data).substring(0, 2000)}\n`;
+          }
+
+        } else if (t.type === 'disc') {
+          // Avaliação DISC
+          contextStr += `Tipo: Avaliação de Perfil Comportamental DISC\n`;
+          const s = t.data?.scores || {};
+          contextStr += `  Dominância (D): ${s.D || 0}\n`;
+          contextStr += `  Influência (I): ${s.I || 0}\n`;
+          contextStr += `  Estabilidade (S): ${s.S || 0}\n`;
+          contextStr += `  Conformidade (C): ${s.C || 0}\n`;
+          if (t.auroraAnalysis) {
+            contextStr += `  Análise Aurora IA anterior: ${String(t.auroraAnalysis).substring(0, 2000)}\n`;
+          }
+
+        } else {
+          // Ferramentas clínicas genéricas (TCC, Esquema, FAP, ACT, etc.)
+          if (Array.isArray(t.data)) {
+            const latest = t.data[t.data.length - 1];
+            const scores = latest?.scores || latest?.score || {};
+            contextStr += `Resultados mais recentes: ${JSON.stringify(scores)}\n`;
+            if (t.data.length > 1) {
+              contextStr += `Nota: Existem ${t.data.length} aplicações para análise longitudinal.\n`;
+              t.data.forEach((entry: any, i: number) => {
+                const entryScores = entry?.scores || entry?.score || {};
+                contextStr += `  Aplicação ${i + 1} (${fmtDate(entry.date || '')}): ${JSON.stringify(entryScores)}\n`;
+              });
+            }
+          } else if (t.data) {
+            const scores = t.data.scores || t.data.score || t.data;
+            contextStr += `Resultados: ${JSON.stringify(scores)}\n`;
+          }
+        }
+      });
+
+      // Aqui chamamos o backend para gerar a síntese
+      const resp = await api.post<any>('/medical-records/generate-synthesis', {
+        patient_id: patientId,
+        approach,
+        sources: selectedTools.map(t => ({ type: t.type, id: t.rawId, name: t.name })),
+        context: contextStr
+      });
+
+      // Verifica se o conteúdo retornado é válido
+      const content = resp.data?.content;
+      if (!content || content === 'Erro ao gerar síntese.' || content.startsWith('Erro')) {
+        pushToast('error', 'A IA não conseguiu gerar a síntese. Tente novamente.');
+        return;
+      }
+
+      onSelectSource({ 
+        name: 'Síntese Clínica Aurora IA', 
+        summary: `\n## SÍNTESE CLÍNICA INTEGRADA (IA)\n**Abordagem:** ${approach}\n\n${content}\n\n[Nota: Esta análise foi gerada automaticamente pela Aurora IA integrando ${selectedIds.length} fontes de dados. Revise antes de aprovar.]`
+      });
+      
+      pushToast('success', 'Síntese gerada com sucesso!');
+      setShowSynthesisModal(false);
+      setSelectedIds([]);
+    } catch (e: any) {
+      console.error('Erro ao gerar síntese:', e);
+      pushToast('error', e?.response?.data?.error || 'Erro ao gerar síntese. Verifique a conexão com o serviço de IA.');
+    } finally {
+      setSynthesisLoading(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-[28px] border-2 border-dashed border-slate-200 gap-3">
+      <Loader2 size={24} className="text-indigo-500 animate-spin" />
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronizando fonte histórico...</p>
+    </div>
+  );
+
+  const isSidebar = variant === 'sidebar';
+
+  return (
+    <div className={`bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden flex flex-col ${isSidebar ? 'h-full max-h-[1000px]' : 'space-y-6 p-8'}`}>
+      <div className={`flex flex-col gap-4 ${isSidebar ? 'p-5 bg-slate-50/50 border-b border-slate-100' : ''}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100 shrink-0">
+            <ClipboardCheck size={20} className="text-emerald-600" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-black text-slate-800 text-sm tracking-tight truncate">Fontes Pin-Clínico</h3>
+            <p className="text-[10px] text-slate-500 font-medium truncate">Documentos vinculados ao caso.</p>
+          </div>
+        </div>
+        
+        <div className={`flex gap-2 ${isSidebar ? 'flex-col' : ''}`}>
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Instrumento..." 
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              className="w-full h-9 pl-9 pr-4 rounded-xl bg-white border border-slate-200 text-xs font-bold outline-none focus:border-indigo-300 transition-all shadow-sm"
+            />
+          </div>
+          {!isSidebar && (
+            <select 
+              className="h-9 px-3 rounded-xl bg-white border border-slate-200 text-xs font-bold outline-none focus:border-indigo-300 transition-all shadow-sm"
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+            >
+              <option value="all">Todas Categorias</option>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
+        </div>
+      </div>
+
+      <div className={`${isSidebar ? 'flex-1 overflow-y-auto p-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}`}>
+        {filtered.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-100 border-dashed">
+            <Info size={20} className="text-slate-300 mx-auto mb-2" />
+            <p className="text-[11px] text-slate-400 font-medium italic">Sem registros vinculados.</p>
+          </div>
+        ) : (
+          filtered.map(item => {
+            const isTool = item.type !== 'anamnese';
+            const hasHistory = isTool && Array.isArray(item.data) && item.data.length > 1;
+
+            return (
+              <div key={item.id} className={`group flex flex-col p-4 rounded-2xl border transition-all duration-300 relative ${isSidebar ? 'mb-3 bg-white hover:bg-slate-50 border-slate-100 hover:border-indigo-200' : 'border-slate-100 bg-white hover:border-emerald-200 hover:shadow-md'}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      item.category === 'Anamnese' ? 'bg-indigo-50 text-indigo-600' : 
+                      'bg-emerald-50 text-emerald-600'
+                    }`}>
+                      {item.category === 'Anamnese' ? <ClipboardCheck size={16}/> : <Activity size={16}/>}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5 truncate">{item.category}</p>
+                      <h4 className="font-black text-slate-700 leading-tight text-[11px] truncate">{item.name}</h4>
+                    </div>
+                  </div>
+                  {hasHistory && (
+                     <div className="bg-amber-100 text-amber-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1 shadow-sm">
+                        <History size={10} /> +{item.data.length}
+                     </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5 mb-4 text-[10px] text-slate-500 font-medium">
+                  <div className="flex items-center gap-2 truncate">
+                    <Calendar size={11} className="text-slate-300 shrink-0"/>
+                    {fmtDate(item.date)}
+                  </div>
+                  <div className="flex items-center gap-2 truncate">
+                    <User size={11} className="text-slate-300 shrink-0"/>
+                    <span className="truncate">{item.professional}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 pt-2 border-t border-slate-50">
+                  {isSidebar && (
+                    <button 
+                      onClick={() => toggleSelect(item.id)}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors border shadow-sm ${
+                        selectedIds.includes(item.id) 
+                          ? 'bg-indigo-600 text-white border-indigo-600' 
+                          : 'bg-white text-slate-300 border-slate-100 hover:border-indigo-200'
+                      }`}
+                      title={selectedIds.includes(item.id) ? 'Remover da seleção' : 'Selecionar para síntese IA'}
+                    >
+                      <CheckCheck size={14} />
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => handleSelectSource(item)}
+                    className="flex-1 h-8 rounded-lg bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors shadow-sm shadow-emerald-100"
+                  >
+                    Usar Fonte
+                  </button>
+                  {hasHistory && (
+                    <button 
+                      onClick={() => setComparing(item.id)}
+                      className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors"
+                      title="Análise Longitudinal"
+                    >
+                      <BarChart2 size={14} />
+                    </button>
+                  )}
+                  <button 
+                    className="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors"
+                    title="Ver Detalhes"
+                    onClick={() => setViewing(item)}
+                  >
+                    <Eye size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className={`p-4 bg-indigo-50/50 rounded-b-lg border-t border-indigo-100 flex flex-col gap-3 mt-auto ${isSidebar ? '' : 'rounded-2xl'}`}>
+        <div className="flex items-start gap-3">
+          <Sparkles size={16} className="text-indigo-500 shrink-0 mt-0.5" />
+          <p className="text-[10px] text-indigo-700 font-medium leading-relaxed">
+            <strong>Assistente Aurora:</strong> {selectedIds.length > 0 ? `Você selecionou ${selectedIds.length} fontes para análise.` : 'Selecione fontes para gerar uma síntese clínica.'}
+          </p>
+        </div>
+        
+        {isSidebar && (
+          <Button 
+             variant="primary" 
+             className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-[9px] gap-2 shadow-lg shadow-indigo-100 disabled:opacity-50"
+             disabled={selectedIds.length === 0}
+             onClick={() => setShowSynthesisModal(true)}
+          >
+             <Brain size={14} /> Gerar Análise de Caso (IA)
+          </Button>
+        )}
+      </div>
+
+      {/* Modal de Parâmetros de Síntese IA */}
+      {showSynthesisModal && (
+        <Modal isOpen={true} onClose={() => setShowSynthesisModal(false)} title="Síntese Clínica com IA" subtitle="Formulação de Caso Baseada em Evidências" maxWidth="lg">
+           <div className="space-y-6">
+              <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex items-start gap-3">
+                 <Brain size={24} className="text-indigo-600 shrink-0" />
+                 <div>
+                    <h4 className="font-black text-indigo-900 text-xs uppercase tracking-widest mb-1">Análise Multidimensional</h4>
+                    <p className="text-[11px] text-indigo-700 font-medium">Aurora irá cruzar os dados das {selectedIds.length} fontes selecionadas para criar uma síntese clínica estruturada.</p>
+                 </div>
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Selecione sua Abordagem Terapêutica</label>
+                 <select 
+                   className="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold outline-none focus:border-indigo-300 transition-all shadow-sm"
+                   value={approach}
+                   onChange={e => setApproach(e.target.value)}
+                 >
+                    {[
+                      'TCC (Terapia Cognitivo-Comportamental)',
+                      'Psicanálise / Psicodinâmica',
+                      'Humanismo / Fenomenologia-Existencial',
+                      'Gestalt-Terapia',
+                      'Análise do Comportamento (Behaviorismo)',
+                      'Terapia do Esquema',
+                      'ACT (Aceitação e Compromisso)',
+                      'DBT (Dialética Comportamental)',
+                      'Terapia Sistêmica / Familiar',
+                      'Logoterapia'
+                    ].map(a => <option key={a} value={a}>{a}</option>)}
+                 </select>
+                 <p className="text-[10px] text-slate-400 italic px-1">A IA utilizará terminologia e conceitos específicos desta abordagem.</p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-slate-100">
+                 <button 
+                   type="button"
+                   onClick={() => setShowSynthesisModal(false)} 
+                   className="h-11 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all"
+                 >
+                    Cancelar
+                 </button>
+                 <Button 
+                   onClick={handleGenerateSynthesis} 
+                   isLoading={synthesisLoading} 
+                   variant="primary" 
+                   className="h-11 w-72 bg-indigo-600 hover:bg-indigo-700 text-white uppercase text-[10px] font-black tracking-widest shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                 >
+                    <Brain size={14} /> Iniciar Processamento IA
+                 </Button>
+              </div>
+           </div>
+        </Modal>
+      )}
+
+      {/* Modal de Comparação Longitudinal Simples */}
+      {comparing && (
+        <Modal isOpen={true} onClose={() => setComparing(null)} title="Análise Longitudinal" subtitle={tools.find(t => t.id === comparing)?.name} maxWidth="lg">
+           <div className="space-y-6">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                 <p className="text-xs text-slate-500 font-medium">Comparando aplicações históricas do instrumento para análise de evolução clínica.</p>
+              </div>
+              <div className="grid gap-3">
+                 {tools.find(t => t.id === comparing)?.data?.slice().reverse().map((entry: any, i: number) => (
+                   <div key={i} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{fmtDate(entry.date)}</p>
+                        <p className="text-xs font-bold text-slate-700">Resultado: {JSON.stringify(entry.scores || entry.score || entry.answers || {})}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${i === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                           {i === 0 ? 'Mais Recente' : 'Anterior'}
+                         </span>
+                      </div>
+                   </div>
+                 ))}
+              </div>
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 border-dashed">
+                 <p className="text-[11px] text-amber-700 font-medium text-center">Visualização gráfica em desenvolvimento. Utilize a comparação de escores brutos para avaliação clínica.</p>
+              </div>
+           </div>
+        </Modal>
+      )}
+
+      {/* Modal de Detalhes da Fonte */}
+      {viewing && (
+        <Modal isOpen={true} onClose={() => setViewing(null)} title="Detalhes da Fonte" subtitle={viewing.name} maxWidth="lg">
+           <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                 <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data da Coleta</span>
+                    <span className="text-xs font-bold text-slate-700">{fmtDate(viewing.date)}</span>
+                 </div>
+                 <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Origem</span>
+                    <span className="text-xs font-bold text-emerald-600">{viewing.origin}</span>
+                 </div>
+              </div>
+
+              <div className="space-y-4">
+                 <h4 className="font-black text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2">
+                    <FileText size={14} className="text-indigo-500"/> Conteúdo do Registro
+                 </h4>
+                 
+                 {viewing.type === 'anamnese' ? (
+                   <div className="space-y-3">
+                     {(() => {
+                        try {
+                           const res = JSON.parse(viewing.responses || '{}');
+                           return Object.entries(res).map(([k, v]: [string, any]) => (
+                             <div key={k} className="p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+                               <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">{ANAMNESIS_FIELD_LABELS[k] || k}</p>
+                               <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap">{String(v)}</p>
+                             </div>
+                           ));
+                        } catch {
+                           return <p className="text-xs text-slate-400 italic">Erro ao carregar respostas.</p>;
+                        }
+                     })()}
+                   </div>
+                 ) : (
+                   <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                      <pre className="text-xs text-slate-700 font-mono leading-relaxed">
+                        {JSON.stringify(viewing.data, null, 2)}
+                      </pre>
+                   </div>
+                 )}
+              </div>
+           </div>
+           <div className="mt-6 flex justify-end">
+              <Button onClick={() => setViewing(null)} variant="primary" className="h-10 px-6 uppercase text-[10px] font-black">Fechar</Button>
+           </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
 const RecordEditor: React.FC<{
   record: Partial<MedicalRecord> | null; mode: 'new' | 'edit';
   patients: Patient[]; selectedPatientId: string | null;
@@ -660,7 +1276,7 @@ const RecordEditor: React.FC<{
         </div>
       }
     >
-        <div className="space-y-6 max-w-5xl mx-auto py-2">
+        <div className="space-y-6 max-w-[1440px] mx-auto py-2 pb-12">
           {/* Metadados */}
           <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
             <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -709,160 +1325,145 @@ const RecordEditor: React.FC<{
             </div>
           </div>
 
-          {/* STEP 1 — Rascunho */}
-          {step === 'draft' && (
-            <div className="space-y-4 animate-fadeIn">
-              {recordType === 'Anamnese' ? (
-                /* ── ESPECIAL PARA ANAMNESE ── */
-                <div className="bg-white rounded-[24px] border border-slate-100 p-8 shadow-sm space-y-6 text-center">
-                  <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100 mb-2">
-                    <ClipboardCheck size={32} className="text-indigo-600" />
-                  </div>
-                  <div className="max-w-md mx-auto space-y-2">
-                    <h3 className="font-black text-slate-800 text-lg uppercase tracking-widest">Coleta de Dados (Remota)</h3>
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                      Para este tipo de registro, o histórico é coletado diretamente com o paciente através de um formulário seguro e sigiloso.
-                    </p>
-                  </div>
+          <div className={recordType === 'Avaliacao' ? 'flex flex-col lg:flex-row gap-6' : 'max-w-5xl mx-auto'}>
+             {/* COLUNA ESQUERDA - FONTES (Apenas para Avaliação) */}
+             {recordType === 'Avaliacao' && patientId && (
+               <div className="lg:w-80 xl:w-96 shrink-0 animate-slideRightFade">
+                 <LinkedToolsSection 
+                    patientId={patientId} 
+                    variant="sidebar"
+                    onSelectSource={(item: any) => {
+                      setDraft((prev) => prev + `\n\n${item.summary}`);
+                      pushToast('info', `${item.name} integrado.`);
+                    }} 
+                 />
+               </div>
+             )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left max-w-2xl mx-auto pt-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-slate-300"/> 1. Salve o Registro</p>
-                      <p className="text-[11px] text-slate-500 font-medium">Garanta que o título e os dados básicos estejam corretos e salve como rascunho.</p>
+             {/* COLUNA CENTRAL - EDITOR */}
+             <div className="flex-1 space-y-6">
+                {/* STEP 1 — Rascunho */}
+                {step === 'draft' && (
+                  <div className="space-y-4 animate-fadeIn">
+                    {recordType === 'Anamnese' ? (
+                      <div className="bg-white rounded-[24px] border border-slate-100 p-8 shadow-sm space-y-6 text-center">
+                        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100 mb-2">
+                          <ClipboardCheck size={32} className="text-indigo-600" />
+                        </div>
+                        <div className="max-w-md mx-auto space-y-2">
+                          <h3 className="font-black text-slate-800 text-lg uppercase tracking-widest">Coleta de Dados (Remota)</h3>
+                          <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                            Para este tipo de registro, o histórico é coletado diretamente com o paciente através de um formulário seguro e sigiloso.
+                          </p>
+                        </div>
+                        {record?.id && (
+                          <div className="pt-6 animate-slideUpFade">
+                             <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-3">Status do Envio Atual</p>
+                             {(() => {
+                               const currentSend = anamnesisSends.find(s => String(s.medical_record_id) === String(record.id));
+                               if (!currentSend) return <p className="text-xs text-slate-400 font-bold italic">Nenhum formulário vinculado.</p>;
+                               return (
+                                 <div className="inline-flex items-center gap-3 px-6 py-3 bg-indigo-50 rounded-2xl border border-indigo-100 text-[10px] font-black text-indigo-700 uppercase tracking-widest">
+                                   <span className={`w-2 h-2 rounded-full animate-pulse ${currentSend.status === 'answered' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                                   {currentSend.status}
+                                 </div>
+                               );
+                             })()}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest flex items-center gap-2">
+                            <FileText size={14} className="text-indigo-500" /> Rascunho Bruto da Sessão
+                          </h3>
+                        </div>
+                        <RichTextEditor
+                          value={draft}
+                          onChange={setDraft}
+                          placeholder="Escreva tudo o que aconteceu na sessão..."
+                          minHeight={recordType === 'Avaliacao' ? "550px" : "400px"}
+                        />
+                        <Button onClick={organizeWithAI} isLoading={aiLoading} disabled={!draft.trim()} variant="primary"
+                          className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3">
+                          {aiLoading ? 'Organizando conteúdo...' : 'Organizar com Inteligência Artificial'}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Campo Restrito */}
+                    {recordType !== 'Anamnese' && (
+                      <div className="bg-rose-50/50 rounded-[24px] border border-rose-100 p-6 shadow-sm space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Shield size={18} className="text-rose-500"/>
+                          <h3 className="font-black text-rose-700 text-xs uppercase tracking-widest">Observações Privadas (Campo Restrito)</h3>
+                        </div>
+                        <textarea className="w-full p-4 rounded-2xl bg-white border border-rose-100 text-sm leading-relaxed resize-none outline-none focus:border-rose-300 transition font-medium min-h-[120px]"
+                          placeholder="Hipóteses clínicas..."
+                          value={privateNotes} onChange={e => setPrivateNotes(e.target.value)} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* STEP 2 — Revisão IA */}
+                {step === 'ai_result' && organized && (
+                  <div className="space-y-4 animate-slideUpFade">
+                    {reviewPoints.length > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+                        <AlertTriangle size={20} className="text-amber-500 mt-0.5 shrink-0"/>
+                        <div>
+                          <p className="font-black text-amber-800 text-xs uppercase tracking-wide mb-1">Pontos para revisão humana</p>
+                          <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-bold">• {p}</li>)}</ul>
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid gap-4 pb-20">
+                      {ORGANIZED_FIELDS.map(f => (
+                        <div key={f.key} className="bg-white rounded-[20px] border border-slate-100 p-5 shadow-sm space-y-2">
+                          <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">{f.label}</label>
+                          <textarea
+                            className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium resize-none outline-none focus:bg-white focus:border-indigo-300 transition min-h-[100px] leading-relaxed text-slate-700"
+                            value={organized[f.key] || ''}
+                            onChange={e => setOrganized({ ...organized, [f.key]: e.target.value })}
+                          />
+                        </div>
+                      ))}
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-slate-300"/> 2. Envie ao Paciente</p>
-                      <p className="text-[11px] text-slate-500 font-medium">Após salvar, use o botão "Enviar ao Paciente" que aparecerá no histórico clínico.</p>
-                    </div>
                   </div>
-
-                  {record?.id && (
-                    <div className="pt-6 animate-slideUpFade">
-                       <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-3">Status do Envio Atual</p>
-                       {(() => {
-                         const currentSend = anamnesisSends.find(s => String(s.medical_record_id) === String(record.id));
-                         if (!currentSend) return <p className="text-xs text-slate-400 font-bold italic">Nenhum formulário vinculado a este registro ainda.</p>;
-                         return (
-                           <div className="inline-flex items-center gap-3 px-6 py-3 bg-indigo-50 rounded-2xl border border-indigo-100">
-                             <span className={`w-2 h-2 rounded-full animate-pulse ${currentSend.status === 'answered' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
-                             <span className="text-xs font-black text-indigo-700 uppercase tracking-widest">
-                               {currentSend.status === 'sent' ? 'Link gerado / Aguardando paciente' :
-                                currentSend.status === 'viewed' ? 'Paciente visualizou o formulário' :
-                                currentSend.status === 'filling' ? 'Paciente está preenchendo agora' :
-                                currentSend.status === 'answered' ? 'Resposta recebida! Clique em "Ações" na lista para revisar' :
-                                'Status desconhecido'}
-                             </span>
-                           </div>
-                         );
-                       })()}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* ── RASCUNHO PADRÃO (OUTROS TIPOS) ── */
-                <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest flex items-center gap-2">
-                      <FileText size={14} className="text-indigo-500" /> Rascunho Bruto da Sessão
-                    </h3>
-                    <span className="text-[10px] text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider">Escreva livremente — a IA vai organizar</span>
-                  </div>
-                  <RichTextEditor
-                    value={draft}
-                    onChange={setDraft}
-                    placeholder="Escreva tudo o que aconteceu na sessão de forma livre. A paciente relatou... Trabalhamos com... Realizei a intervenção... A resposta foi..."
-                    minHeight="350px"
-                  />
-                  <Button onClick={organizeWithAI} isLoading={aiLoading} disabled={!draft.trim()} variant="primary"
-                    className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3">
-                    {!aiLoading && <Sparkles size={22} className="text-yellow-300 animate-pulse"/>}
-                    {aiLoading ? 'Organizando conteúdo com Aurora IA...' : 'Organizar Evolução com Inteligência Artificial'}
-                  </Button>
-                </div>
-              )}
-
-              {/* Campo Restrito (Apenas para Evoluções/Outros, não Anamnese) */}
-              {recordType !== 'Anamnese' && (
-                <div className="bg-rose-50/50 rounded-[24px] border border-rose-100 p-6 shadow-sm space-y-3 animate-fadeIn">
-                  <div className="flex items-center gap-3">
-                    <Shield size={18} className="text-rose-500"/>
-                    <h3 className="font-black text-rose-700 text-xs uppercase tracking-widest">Observações Privadas (Campo Restrito)</h3>
-                  </div>
-                  <p className="text-[11px] text-rose-600/70 font-medium">Este campo NÃO entra no prontuário compartilhado nem nas exportações padrão. Acesso exclusivo seu conforme normas do CFP.</p>
-                  <textarea className="w-full p-4 rounded-2xl bg-white border border-rose-100 text-sm leading-relaxed resize-none outline-none focus:border-rose-300 transition font-medium min-h-[120px]"
-                    placeholder="Hipóteses clínicas, impressões pessoais, formulações iniciais, conteúdos que não devem circular..."
-                    value={privateNotes} onChange={e => setPrivateNotes(e.target.value)} />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 2 — Revisão IA */}
-          {step === 'ai_result' && organized && (
-            <div className="space-y-4 animate-slideUpFade">
-              {reviewPoints.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-                  <AlertTriangle size={20} className="text-amber-500 mt-0.5 shrink-0"/>
-                  <div>
-                    <p className="font-black text-amber-800 text-xs uppercase tracking-wide mb-1">Pontos para revisão humana</p>
-                    <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-bold">• {p}</li>)}</ul>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-4 pb-20">
-                {ORGANIZED_FIELDS.map(f => (
-                  <div key={f.key} className="bg-white rounded-[20px] border border-slate-100 p-5 shadow-sm space-y-2 group hover:border-indigo-100 transition-all">
-                    <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                       {f.label}
-                    </label>
-                    <textarea
-                      className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium resize-none outline-none focus:bg-white focus:border-indigo-300 transition min-h-[100px] leading-relaxed text-slate-700"
-                      value={organized[f.key] || ''}
-                      onChange={e => setOrganized({ ...organized, [f.key]: e.target.value })}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                )}
+             </div>
+          </div>
 
           {/* Anexos (Evolução) */}
           {recordType === 'Evolucao' && (
-            <div className="bg-slate-50/50 rounded-[24px] border border-slate-200 p-6 shadow-sm space-y-3">
+            <div className="bg-slate-50/50 rounded-[24px] border border-slate-200 p-6 shadow-sm max-w-5xl mx-auto">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Layers size={18} className="text-indigo-500"/>
                   <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Anexos da Evolução</h3>
                 </div>
-                <Button variant="ghost" className="text-xs uppercase tracking-widest bg-white border border-slate-200 hover:border-indigo-300 shadow-sm disabled:opacity-50" onClick={() => fileInputRef.current?.click()} isLoading={uploading}>
+                <Button variant="ghost" className="text-xs uppercase tracking-widest bg-white border border-slate-200 hover:border-indigo-300 shadow-sm" onClick={() => fileInputRef.current?.click()} isLoading={uploading}>
                   <Plus size={14} /> Anexar Arquivo
                 </Button>
                 <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
               </div>
               
-              {attachments.length > 0 ? (
+              {attachments.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                   {attachments.map((att, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm animate-fadeIn">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                         <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                           <FileText size={18} className="text-indigo-500" />
-                         </div>
-                         <div className="truncate">
-                           <p className="text-xs font-bold text-slate-700 truncate">{att.file_name}</p>
-                           <p className="text-[10px] text-slate-400 font-medium">{(att.file_size / 1024 / 1024).toFixed(2)} MB</p>
-                         </div>
-                      </div>
-                      <button onClick={() => removeAttachment(idx)} className="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 hover:bg-rose-100 transition-colors" title="Remover anexo">
-                         <Trash2 size={14} />
-                      </button>
+                    <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                       <div className="flex items-center gap-3 overflow-hidden">
+                          <FileText size={18} className="text-indigo-500" />
+                          <div className="truncate">
+                            <p className="text-xs font-bold text-slate-700 truncate">{att.file_name}</p>
+                          </div>
+                       </div>
+                       <button onClick={() => removeAttachment(idx)} className="text-rose-500 hover:text-rose-700"><Trash2 size={14} /></button>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="text-[11px] text-slate-400 font-medium mt-1">Você pode anexar documentos médicos, exames ou materiais relevantes para esta evolução.</p>
               )}
             </div>
           )}
@@ -1460,10 +2061,10 @@ const AnamnesisResponseModal: React.FC<{
             <div className="grid grid-cols-1 gap-3">
               {Object.entries(answers).map(([key, val]) => (
                 <div key={key} className="bg-white border border-slate-100 rounded-[20px] p-5 shadow-sm hover:border-indigo-100 transition-colors">
-                  <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-2">
                     <div className="w-1 h-3 bg-indigo-500 rounded-full" />
                     {ANAMNESIS_FIELD_LABELS[key] || key.replace(/_/g, ' ')}
-                  </p>
+                  </div>
                   <p className="text-sm text-slate-700 font-semibold leading-relaxed">
                     {Array.isArray(val) ? val.join(', ') : typeof val === 'number' ? `${val}/10` : String(val || '—')}
                   </p>

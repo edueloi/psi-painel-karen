@@ -119,13 +119,18 @@ router.get('/responses', authMiddleware, async (req, res) => {
     const { patient_id } = req.query;
     if (!patient_id) return res.json([]);
     const [rows] = await db.query(
-      `SELECT r.id, r.form_id, r.created_at, f.title as form_title
+      `SELECT r.id, r.form_id, r.respondent_name, r.score, r.data, r.created_at,
+              f.title as form_title, f.category as form_category
        FROM form_responses r
        JOIN forms f ON f.id = r.form_id
        WHERE r.patient_id = ? AND f.tenant_id = ?
        ORDER BY r.created_at DESC`,
       [patient_id, req.user.tenant_id]
     );
+    // Parse data JSON
+    for (const r of rows) {
+      try { r.data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data; } catch {}
+    }
     res.json(rows);
   } catch (err) {
     console.error(err);

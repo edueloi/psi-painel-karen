@@ -306,7 +306,45 @@ router.get('/dass-all', async (req, res) => {
   res.redirect(307, `./dass-21/all`);
 });
 
+/* ─────────────────────────────────────────────────────────────
+   PATIENT TOOLS — busca todos os instrumentos de um paciente
+ ───────────────────────────────────────────────────────────── */
+router.get('/patient/:patientId', async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const tid = req.user.tenant_id;
+    const [rows] = await db.query(
+      `SELECT ct.id, ct.tool_type, ct.data, ct.updated_at, ct.created_at,
+              u.name as professional_name
+       FROM clinical_tools ct
+       LEFT JOIN users u ON u.id = ct.professional_id
+       WHERE ct.tenant_id = ? AND (ct.patient_id = ? OR ct.scope_key = ?)
+       ORDER BY ct.updated_at DESC`,
+      [tid, patientId, String(patientId)]
+    );
+
+    const result = rows.map(r => {
+      let data = null;
+      try { data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data; } catch {}
+      return {
+        id: r.id,
+        tool_type: r.tool_type,
+        updated_at: r.updated_at,
+        created_at: r.created_at,
+        professional_name: r.professional_name,
+        data: data
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('[clinical-tools] Erro ao buscar instrumentos do paciente:', err);
+    res.status(500).json({ error: 'Erro ao buscar instrumentos do paciente' });
+  }
+});
+
 router.get('/summary', async (req, res) => {
+
   try {
     const { patient_id } = req.query;
     const [[{ count }]] = await db.query(
