@@ -94,6 +94,8 @@ interface GuidedTourProps {
   onFinish: () => void;
 }
 
+const SIDEBAR_STORAGE_KEY = 'sidebar_collapsed_sections';
+
 export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
@@ -116,6 +118,12 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
 
     return filtered;
   }, [user]);
+
+  // Expand all sidebar sections when tour starts so data-tour targets are visible
+  useEffect(() => {
+    localStorage.removeItem(SIDEBAR_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('psiflux:expand-sidebar'));
+  }, []);
 
   const current = STEPS[step];
   const isFirst = step === 0;

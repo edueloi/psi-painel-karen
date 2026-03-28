@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
-  Sparkles, Calendar, Users, DollarSign, MessageCircle,
-  Video, BookOpen, ChevronRight, ArrowRight, Star, Zap
+  Sparkles, Calendar, Users, DollarSign,
+  Video, BookOpen, ArrowRight, Star, Zap
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface WelcomeModalProps {
   userName: string;
@@ -10,17 +11,23 @@ interface WelcomeModalProps {
   onSkip: () => void;
 }
 
-const FEATURES = [
-  { icon: <Calendar size={20} />, color: 'bg-sky-500',    label: 'Agenda Inteligente',    desc: 'Consultas, lembretes e recorrências automáticas' },
-  { icon: <Users size={20} />,    color: 'bg-indigo-500', label: 'Gestão de Pacientes',  desc: 'Prontuários, histórico e formulários clínicos' },
-  { icon: <DollarSign size={20} />, color: 'bg-emerald-500', label: 'Financeiro Completo', desc: 'Comandas, NFS-e e relatórios detalhados' },
-  { icon: <Video size={20} />,    color: 'bg-violet-500', label: 'Sala Virtual',          desc: 'Videoconsultas integradas sem apps externos' },
-  { icon: <BookOpen size={20} />, color: 'bg-amber-500',  label: 'Formulários & DISC',   desc: 'Avaliações com análise inteligente da Aurora' },
-  { icon: <Sparkles size={20} />, color: 'bg-rose-500',   label: 'Aurora IA',            desc: 'Assistente que gerencia sua clínica por você' },
+const ALL_FEATURES = [
+  { icon: <Calendar size={20} />, color: 'bg-sky-500',     label: 'Agenda Inteligente',   desc: 'Consultas, lembretes e recorrências automáticas', feature: 'agenda' },
+  { icon: <Users size={20} />,    color: 'bg-indigo-500',  label: 'Gestão de Pacientes',  desc: 'Prontuários, histórico e formulários clínicos',   feature: 'pacientes' },
+  { icon: <DollarSign size={20} />, color: 'bg-emerald-500', label: 'Financeiro Completo', desc: 'Comandas, NFS-e e relatórios detalhados',          feature: 'financeiro' },
+  { icon: <Video size={20} />,    color: 'bg-violet-500',  label: 'Sala Virtual',          desc: 'Videoconsultas integradas sem apps externos',       feature: 'salas_virtuais' },
+  { icon: <BookOpen size={20} />, color: 'bg-amber-500',   label: 'Formulários & DISC',   desc: 'Avaliações com análise inteligente da Aurora',      feature: 'formularios' },
+  { icon: <Sparkles size={20} />, color: 'bg-rose-500',    label: 'Aurora IA',             desc: 'Assistente que gerencia sua clínica por você',     feature: 'aurora_ai' },
 ];
 
 export const WelcomeModal: React.FC<WelcomeModalProps> = ({ userName, onStartTour, onSkip }) => {
+  const { user } = useAuth();
   const firstName = userName?.split(' ')[0] || 'bem-vindo';
+
+  const features = useMemo(() => {
+    if (!user?.plan_features?.length) return ALL_FEATURES;
+    return ALL_FEATURES.filter(f => user.plan_features!.includes(f.feature));
+  }, [user?.plan_features]);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
@@ -54,7 +61,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ userName, onStartTou
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5">
-            {FEATURES.map((f, i) => (
+            {features.map((f, i) => (
               <div key={i} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-100">
                 <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl ${f.color} flex items-center justify-center shrink-0 text-white shadow-sm`}>
                   <span className="[&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5 sm:[&>svg]:h-5">{f.icon}</span>

@@ -38,7 +38,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
   };
 
   return (
-    <header className="sticky top-0 z-[100] h-[72px] px-4 md:px-8 flex items-center justify-between transition-all duration-300 bg-white/90 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_1px_3px_0_rgba(0,0,0,0.04),0_1px_2px_-1px_rgba(0,0,0,0.04)]">
+    <header className="sticky top-0 z-[100] h-[88px] px-4 md:px-8 flex items-center justify-between transition-all duration-300 bg-white/90 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_1px_3px_0_rgba(0,0,0,0.04),0_1px_2px_-1px_rgba(0,0,0,0.04)]">
 
       {/* Left Area: Mobile Menu & Search */}
       <div className="flex items-center gap-4 flex-1">

@@ -31,39 +31,54 @@ interface FormData {
 
 const FULL_ANAMNESIS_FIELDS = [
   {
-    section: 'Identificação e Contexto',
+    section: 'Motivo da Busca',
     questions: [
       { id: 'motivo_busca', label: 'O que te motivou a buscar atendimento psicológico agora?', type: 'textarea', required: true, placeholder: 'Descreva com suas palavras o que está sentindo ou passando...' },
       { id: 'queixa_principal', label: 'Qual é a principal dificuldade ou sofrimento que está enfrentando?', type: 'textarea', required: true, placeholder: 'Pode ser uma situação, um sentimento, um pensamento recorrente...' },
       { id: 'tempo_sofrimento', label: 'Há quanto tempo está enfrentando essa situação?', type: 'short', required: false, placeholder: 'Ex: 3 meses, 1 ano, desde a infância...' },
+      { id: 'tentativas_anteriores', label: 'Já tentou lidar com isso de alguma forma? O que funcionou ou não funcionou?', type: 'textarea', required: false, placeholder: 'Ex: exercícios, distrações, conversar com alguém, meditação...' },
     ]
   },
   {
-    section: 'História Pessoal',
+    section: 'História de Saúde',
     questions: [
       { id: 'historico_tratamentos', label: 'Já fez algum acompanhamento psicológico ou psiquiátrico antes?', type: 'radio', required: true, options: ['Sim', 'Não', 'Estou em tratamento atualmente'] },
       { id: 'tratamentos_detalhes', label: 'Se sim, como foi essa experiência?', type: 'textarea', required: false, placeholder: 'Quando foi, quanto tempo durou, como se sentiu...' },
       { id: 'medicamentos', label: 'Faz uso de algum medicamento atualmente?', type: 'radio', required: true, options: ['Sim', 'Não'] },
       { id: 'medicamentos_quais', label: 'Se sim, quais medicamentos?', type: 'short', required: false, placeholder: 'Nome e dose, se souber...' },
       { id: 'historico_saude', label: 'Tem alguma condição de saúde (física ou mental) diagnosticada?', type: 'textarea', required: false, placeholder: 'Doenças, diagnósticos, cirurgias relevantes...' },
+      { id: 'historico_familiar_mental', label: 'Tem histórico familiar de problemas de saúde mental (depressão, ansiedade, etc.)?', type: 'radio', required: false, options: ['Sim', 'Não', 'Não sei informar'] },
+      { id: 'uso_substancias', label: 'Faz uso de álcool, tabaco ou outras substâncias?', type: 'radio', required: true, options: ['Não', 'Raramente / socialmente', 'Com frequência', 'Uso diário'] },
+    ]
+  },
+  {
+    section: 'História de Vida',
+    questions: [
+      { id: 'infancia', label: 'Como foi sua infância e adolescência de forma geral?', type: 'textarea', required: false, placeholder: 'Aspectos marcantes, como era sua família, escola, amizades...' },
+      { id: 'eventos_traumaticos', label: 'Viveu algum evento difícil ou traumático que considera importante para sua história?', type: 'textarea', required: false, placeholder: 'Perdas, acidentes, separações, situações de violência ou abuso (somente se se sentir à vontade)...' },
+      { id: 'pontos_fortes', label: 'Quais são suas maiores qualidades ou pontos fortes?', type: 'textarea', required: false, placeholder: 'O que as pessoas costumam elogiar em você, o que você faz bem...' },
     ]
   },
   {
     section: 'Vida Atual',
     questions: [
       { id: 'sono', label: 'Como está seu sono?', type: 'scale', required: true, scaleMin: 'Muito ruim', scaleMax: 'Excelente' },
+      { id: 'sono_detalhes', label: 'Tem dificuldade para dormir, acorda durante a noite ou dorme em excesso?', type: 'textarea', required: false, placeholder: 'Descreva como é seu padrão de sono...' },
       { id: 'alimentacao', label: 'Como está sua alimentação?', type: 'scale', required: true, scaleMin: 'Muito ruim', scaleMax: 'Excelente' },
       { id: 'atividade_fisica', label: 'Pratica atividade física?', type: 'radio', required: true, options: ['Regularmente', 'Às vezes', 'Raramente', 'Não pratico'] },
       { id: 'trabalho_estudo', label: 'Está trabalhando ou estudando atualmente?', type: 'radio', required: true, options: ['Trabalhando', 'Estudando', 'Trabalhando e estudando', 'Nenhum dos dois'] },
       { id: 'satisfacao_trabalho', label: 'Como se sente em relação ao trabalho/estudo?', type: 'textarea', required: false, placeholder: 'Gosta do que faz, pressões, relações...' },
+      { id: 'lazer', label: 'Tem atividades de lazer ou hobbies que te trazem prazer?', type: 'textarea', required: false, placeholder: 'O que você gosta de fazer para relaxar ou se divertir...' },
     ]
   },
   {
     section: 'Relacionamentos',
     questions: [
       { id: 'relacionamento_atual', label: 'Está em um relacionamento afetivo atualmente?', type: 'radio', required: true, options: ['Sim, estável', 'Sim, com dificuldades', 'Não', 'Prefiro não informar'] },
+      { id: 'relacionamento_detalhes', label: 'Como é sua vida afetiva e amorosa de forma geral?', type: 'textarea', required: false, placeholder: 'Histórico de relacionamentos, padrões, dificuldades ou aspectos positivos...' },
       { id: 'apoio_social', label: 'Tem pessoas próximas (família, amigos) com quem pode contar?', type: 'scale', required: true, scaleMin: 'Muito isolado(a)', scaleMax: 'Muita rede de apoio' },
       { id: 'relacoes_familiares', label: 'Como são suas relações familiares?', type: 'textarea', required: false, placeholder: 'Família de origem, filhos, conflitos, vínculos importantes...' },
+      { id: 'conflitos_interpessoais', label: 'Tem dificuldades em algum tipo de relacionamento específico?', type: 'textarea', required: false, placeholder: 'Ex: com figuras de autoridade, parceiro(a), colegas, amigos...' },
     ]
   },
   {
@@ -71,15 +86,26 @@ const FULL_ANAMNESIS_FIELDS = [
     questions: [
       { id: 'humor_geral', label: 'Como descreveria seu humor na maior parte do tempo?', type: 'scale', required: true, scaleMin: 'Muito triste', scaleMax: 'Muito bem' },
       { id: 'ansiedade', label: 'Com que frequência sente ansiedade?', type: 'radio', required: true, options: ['Raramente', 'Às vezes', 'Frequentemente', 'Quase sempre'] },
+      { id: 'ansiedade_situacoes', label: 'Em quais situações a ansiedade aparece com mais intensidade?', type: 'textarea', required: false, placeholder: 'Ex: no trabalho, em relacionamentos, em situações sociais...' },
       { id: 'pensamentos_intrusivos', label: 'Tem pensamentos que te incomodam ou que ficam na mente repetidamente?', type: 'radio', required: true, options: ['Não', 'Às vezes', 'Frequentemente', 'Sempre'] },
       { id: 'pensamentos_descricao', label: 'Se sim, pode descrever brevemente o tipo de pensamento?', type: 'textarea', required: false, placeholder: 'Ex: pensamentos de preocupação, autocrítica, medo de situações...' },
+      { id: 'autoestima', label: 'Como está sua autoestima e autoconfiança?', type: 'scale', required: true, scaleMin: 'Muito baixa', scaleMax: 'Muito alta' },
       { id: 'bem_estar_geral', label: 'De forma geral, como avalia seu bem-estar hoje?', type: 'scale', required: true, scaleMin: '0 - Muito ruim', scaleMax: '10 - Ótimo' },
     ]
   },
   {
-    section: 'Objetivos',
+    section: 'Crenças e Espiritualidade',
+    questions: [
+      { id: 'espiritualidade', label: 'A espiritualidade ou religião tem algum papel importante em sua vida?', type: 'radio', required: false, options: ['Sim, é muito importante', 'Um pouco', 'Não', 'Prefiro não informar'] },
+      { id: 'crencas_limitantes', label: 'Existe alguma crença sobre si mesmo(a) que sente que te limita?', type: 'textarea', required: false, placeholder: 'Ex: "não sou suficiente", "não mereço ser feliz", "nunca vou mudar"...' },
+    ]
+  },
+  {
+    section: 'Objetivos Terapêuticos',
     questions: [
       { id: 'objetivos_terapia', label: 'O que espera alcançar com a terapia?', type: 'textarea', required: true, placeholder: 'Quais mudanças gostaria de ver em sua vida, pensamentos, emoções...' },
+      { id: 'prioridade_terapia', label: 'Se pudesse mudar uma coisa em sua vida agora, o que seria?', type: 'textarea', required: false, placeholder: 'A mudança mais importante ou urgente para você...' },
+      { id: 'expectativa_processo', label: 'Qual é sua expectativa em relação ao processo terapêutico?', type: 'textarea', required: false, placeholder: 'Como imagina que a terapia vai funcionar, quais seus receios ou esperanças...' },
       { id: 'urgencia', label: 'Existe alguma situação urgente ou de crise que precise de atenção imediata?', type: 'radio', required: true, options: ['Não, estou estável', 'Sim, há algo urgente'] },
       { id: 'urgencia_descricao', label: 'Se sim, pode descrever?', type: 'textarea', required: false, placeholder: 'Qualquer situação de risco, crise aguda ou necessidade imediata...' },
     ]
