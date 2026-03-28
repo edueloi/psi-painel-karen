@@ -54,6 +54,19 @@ const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '�
 const fmtDateTime = (d: string) => d ? new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 const strip = (h: string) => (h || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
+const mdToHtml = (md: string): string => {
+  return md
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^### (.+)$/gm, '<h3 style="margin:12px 0 4px;font-size:14px;font-weight:700">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 style="margin:14px 0 6px;font-size:16px;font-weight:700">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 style="margin:16px 0 8px;font-size:18px;font-weight:700">$1</h1>')
+    .replace(/\n\n/g, '</p><p style="margin:6px 0">')
+    .replace(/\n/g, '<br>')
+    .replace(/^/, '<p style="margin:6px 0">')
+    .replace(/$/, '</p>');
+};
+
 const TOOL_DISPLAY_NAMES: Record<string, { label: string; category: string }> = {
   'dass-21': { label: 'DASS-21', category: 'Escala Clínica' },
   'phq-9': { label: 'PHQ-9', category: 'Escala Clínica' },
@@ -1333,9 +1346,9 @@ const RecordEditor: React.FC<{
                     patientId={patientId} 
                     variant="sidebar"
                     onSelectSource={(item: any) => {
-                      setDraft((prev) => prev + `\n\n${item.summary}`);
+                      setDraft((prev) => prev + '<br><br>' + mdToHtml(item.summary));
                       pushToast('info', `${item.name} integrado.`);
-                    }} 
+                    }}
                  />
                </div>
              )}
