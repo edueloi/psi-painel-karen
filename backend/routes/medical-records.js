@@ -210,7 +210,7 @@ router.post('/organize-ai', authMiddleware, async (req, res) => {
     };
 
     try {
-      const aiResp = await fetch(`http://localhost:${process.env.PORT || 3000}/api/ai/complete`, {
+      const aiResp = await fetch(`http://localhost:${process.env.PORT || 3013}/api/ai/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': req.headers.authorization },
         body: JSON.stringify({
@@ -496,49 +496,42 @@ router.post('/:id/organize-ai', authMiddleware, async (req, res) => {
     const [rows] = await db.query('SELECT * FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
 
-    // Usa o prompt canônico definido acima (AI_SYSTEM_PROMPT)
-    const systemPrompt = AI_SYSTEM_PROMPT;
+    let organized = {
+      motivo_consulta: '',
+      contexto_relevante: draft_content,
+      observacoes_clinicas: '',
+      intervencoes_realizadas: '',
+      evolucao_resposta: '',
+      plano_terapeutico: '',
+      encaminhamentos: '',
+      observacao_complementar: '',
+      conteudo_restrito: '',
+      pontos_revisao: ['IA indisponível — preencha cada campo manualmente.'],
+      classificacao: 'necessita_revisao'
+    };
 
-    // Chamar o endpoint de IA do sistema
-    const aiResponse = await fetch(`http://localhost:${process.env.PORT || 3000}/api/ai/complete`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': req.headers.authorization
-      },
-      body: JSON.stringify({
-        system: systemPrompt,
-        prompt: `Contexto do paciente: ${patient_context || 'Não informado'}\n\nRascunho da sessão:\n${draft_content}`,
-        max_tokens: 2000
-      })
-    });
-
-    let organized;
-    if (aiResponse.ok) {
-      const aiData = await aiResponse.json();
-      try {
-        const raw = aiData.text || aiData.content || aiData.result || '';
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        organized = jsonMatch ? JSON.parse(jsonMatch[0]) : { motivo_consulta: raw, classificacao: 'necessita_revisao' };
-      } catch {
-        organized = { motivo_consulta: aiData.text || draft_content, classificacao: 'necessita_revisao', pontos_revisao: ['Revisar formato da resposta da IA'] };
+    try {
+      const aiResponse = await fetch(`http://localhost:${process.env.PORT || 3013}/api/ai/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': req.headers.authorization
+        },
+        body: JSON.stringify({
+          system: AI_SYSTEM_PROMPT,
+          prompt: `Contexto do paciente: ${patient_context || 'Não informado'}\n\nRascunho da sessão:\n${draft_content}`,
+          max_tokens: 2000
+        })
+      });
+      if (aiResponse.ok) {
+        const aiData = await aiResponse.json();
+        try {
+          const raw = aiData.text || aiData.content || aiData.result || '';
+          const jsonMatch = raw.match(/\{[\s\S]*\}/);
+          if (jsonMatch) Object.assign(organized, JSON.parse(jsonMatch[0]));
+        } catch { /* resposta da IA mal formatada — mantém fallback */ }
       }
-    } else {
-      // Fallback: estrutura básica extraída do rascunho
-      organized = {
-        motivo_consulta: '',
-        contexto_relevante: draft_content,
-        observacoes_clinicas: '',
-        intervencoes_realizadas: '',
-        evolucao_resposta: '',
-        plano_terapeutico: '',
-        encaminhamentos: '',
-        observacao_complementar: '',
-        conteudo_restrito: '',
-        pontos_revisao: ['IA indisponível - organize manualmente cada campo'],
-        classificacao: 'necessita_revisao'
-      };
-    }
+    } catch (e) { console.warn('[organize-ai] IA indisponível:', e.message); }
 
     // Salvar rascunho e resultado da IA
     await db.query(
@@ -623,6 +616,106 @@ router.delete('/:id', authMiddleware, checkPermission('edit_medical_record'), as
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao deletar prontuário' });
+  }
+});
+
+/* ──────────────────────────────────────────────────────────
+   PROMPT PARA SÍNTESE CLÍNICA (IA)
+────────────────────────────────────────────────────────── */
+const CLINICAL_SYNTHESIS_PROMPT = `Você é uma assistente de síntese clínica avançada (Aurora IA).
+Sua função é integrar múltiplos dados de um paciente (Anamneses, Escalas, Outros Instrumentos) em uma FORMULAÇÃO DE CASO coesa e estruturada.
+Você deve utilizar estritamente a abordagem teórica especificada pelo profissional.
+
+Estrutura da resposta (Markdown):
+1. **Síntese dos Dados Coletados** (Panorama Geral)
+2. **Formulação do Caso** (Sob a ótica da abordagem clínica selecionada)
+3. **Hipóteses Diagnósticas / Pontos de Atenção**
+4. **Planejamento Terapêutico Sugerido**
+
+Regras:
+- Utilize terminologia técnica da abordagem selecionada.
+- Seja empático, mas rigorosamente científico.
+- Destaque correlações entre diferentes instrumentos.
+- Sinalize lacunas de informação que necessitam de mais investigação.
+`;
+
+/* ──────────────────────────────────────────────────────────
+   POST /medical-records/generate-synthesis — gerar síntese multidimensional
+────────────────────────────────────────────────────────── */
+router.post('/generate-synthesis', authMiddleware, async (req, res) => {
+  try {
+    const { patient_id, approach, sources, context } = req.body;
+    if (!patient_id) return res.status(400).json({ error: 'patient_id obrigatório' });
+
+    // Enriquecer o contexto com dados reais do banco se as fontes foram informadas
+    let enrichedContext = context || '';
+
+    if (sources && Array.isArray(sources)) {
+      for (const src of sources) {
+        if (src.type === 'anamnese' && src.id) {
+          // Buscar respostas reais da anamnese se o contexto não contém dados suficientes
+          try {
+            const [[anamData]] = await db.query(
+              'SELECT responses, title FROM anamnesis_sends WHERE id = ? AND tenant_id = ?',
+              [src.id, req.user.tenant_id]
+            );
+            if (anamData && anamData.responses) {
+              const responses = typeof anamData.responses === 'string'
+                ? JSON.parse(anamData.responses) : anamData.responses;
+              // Se o contexto não já contém as respostas detalhadas, acrescentar
+              if (!enrichedContext.includes('Motivo da busca') && !enrichedContext.includes('motivo_busca')) {
+                enrichedContext += `\n\n--- DADOS COMPLETOS DA ANAMNESE (${anamData.title || 'Anamnese'}) ---\n`;
+                for (const [key, value] of Object.entries(responses)) {
+                  if (value && String(value).trim()) {
+                    enrichedContext += `${key}: ${String(value)}\n`;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Erro ao buscar dados da anamnese para síntese:', e.message);
+          }
+        }
+      }
+    }
+
+    if (!enrichedContext.trim()) {
+      return res.status(400).json({ error: 'Nenhum dado disponível para gerar a síntese. Verifique se as fontes selecionadas possuem dados.' });
+    }
+
+    // Chamar o endpoint de IA para completar
+    const aiResp = await fetch(`http://localhost:${process.env.PORT || 3013}/api/ai/complete`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': req.headers.authorization 
+      },
+      body: JSON.stringify({
+        system: CLINICAL_SYNTHESIS_PROMPT,
+        prompt: `Abordagem Selecionada: ${approach}\n\n${enrichedContext}`,
+        max_tokens: 2500,
+        temperature: 0.7
+      })
+    });
+
+    if (!aiResp.ok) {
+      const errBody = await aiResp.text().catch(() => '');
+      console.error('Falha na comunicação com Aurora IA:', aiResp.status, errBody);
+      return res.status(502).json({ error: 'Falha na comunicação com o serviço de IA. Tente novamente.' });
+    }
+
+    const aiData = await aiResp.json();
+    const content = aiData.text || aiData.content || aiData.result || '';
+
+    if (!content || content.length < 50) {
+      console.error('IA retornou conteúdo vazio ou muito curto:', content);
+      return res.status(502).json({ error: 'A IA não conseguiu gerar uma síntese válida. Tente novamente com mais dados.' });
+    }
+
+    res.json({ content });
+  } catch (err) {
+    console.error('Erro ao gerar síntese clínica:', err);
+    res.status(500).json({ error: 'Erro ao gerar síntese clínica com IA' });
   }
 });
 
