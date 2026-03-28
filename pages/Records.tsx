@@ -2780,7 +2780,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                 </button>
 
                 <button onClick={openNew} className="h-9 md:h-10 px-3 md:px-6 bg-indigo-600 text-white rounded-xl text-[10px] md:text-[11px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 flex items-center justify-center sm:gap-2 transition-all">
-                  <Plus size={16}/> <span className="hidden sm:inline">Nova Evolução</span>
+                  <Plus size={16}/> <span className="hidden sm:inline">Novo Registro</span>
                 </button>
               </>
             )}
