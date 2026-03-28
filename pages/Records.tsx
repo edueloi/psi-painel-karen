@@ -790,7 +790,7 @@ const LinkedToolsSection: React.FC<{
       });
 
       // Verifica se o conteúdo retornado é válido
-      const content = resp.data?.content;
+      const content = resp.content;
       if (!content || content === 'Erro ao gerar síntese.' || content.startsWith('Erro')) {
         pushToast('error', 'A IA não conseguiu gerar a síntese. Tente novamente.');
         return;
