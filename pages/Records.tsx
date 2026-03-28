@@ -1186,8 +1186,8 @@ const RecordEditor: React.FC<{
         patient_name: patient?.full_name,
         created_at: sessionDate
       });
-      setOrganized(resp.data.organized);
-      setReviewPoints(resp.data.review_points || []);
+      setOrganized(resp.organized);
+      setReviewPoints(resp.review_points || resp.organized?.pontos_revisao || []);
       setStep('ai_result');
       pushToast('success', 'Evolução organizada pela Aurora IA!');
     } catch (e: any) {
