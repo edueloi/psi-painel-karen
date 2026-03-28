@@ -27,7 +27,12 @@ import {
   Layout,
   Plus,
   X,
-  Copy
+  Copy,
+  Sparkles,
+  Loader2,
+  ChevronDown,
+  CheckCircle,
+  Monitor
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -112,6 +117,22 @@ export const Profile: React.FC = () => {
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic' | 'external'>('info');
+
+  // Aurora profile builder
+  const [auroraOpen, setAuroraOpen] = useState(false);
+  const [auroraStep, setAuroraStep] = useState(0);
+  const [auroraLoading, setAuroraLoading] = useState(false);
+  const [auroraAnswers, setAuroraAnswers] = useState<Record<string, string>>({});
+  const AURORA_QUESTIONS = [
+    { key: 'name',         label: 'Qual é o seu nome profissional?',                                          placeholder: 'Ex: Dra. Karen Gomes' },
+    { key: 'specialty',    label: 'Qual é a sua especialidade principal?',                                   placeholder: 'Ex: Psicologia Clínica, Terapia Cognitivo-Comportamental...' },
+    { key: 'experience',   label: 'Quantos anos de experiência você tem?',                                   placeholder: 'Ex: 8, mais de 10, 3...' },
+    { key: 'patients',     label: 'Quantas pessoas você já atendeu (aproximadamente)?',                      placeholder: 'Ex: +100, mais de 200...' },
+    { key: 'bio',          label: 'Descreva brevemente sua abordagem e diferenciais como profissional.',     placeholder: 'Fale sobre sua filosofia de trabalho, método, o que te diferencia...' },
+    { key: 'specialties',  label: 'Liste suas áreas de atuação (separadas por vírgula).',                   placeholder: 'Ex: Ansiedade, Depressão, Luto, Relacionamentos...' },
+    { key: 'hero_title',   label: 'Qual seria o título de impacto da sua página? (opcional)',               placeholder: 'Ex: Apoio Psicológico de Confiança. Ou deixe em branco para a Aurora criar.' },
+    { key: 'faq',          label: 'Liste 3 dúvidas frequentes dos seus pacientes (uma por linha).',         placeholder: 'Ex:\nQual o valor da sessão?\nVocê atende online?\nPreciso de encaminhamento?' },
+  ];
 
   const [schedule, setSchedule] = useState<ScheduleDay[]>([
     { dayKey: 'monday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
@@ -270,6 +291,80 @@ export const Profile: React.FC = () => {
   const copyDayToAll = (index: number) => {
     const src = schedule[index];
     setSchedule(prev => prev.map((d, i) => i === index ? d : { ...d, start: src.start, end: src.end, breaks: src.breaks.map(b => ({ ...b })) }));
+  };
+
+  const handleAuroraGenerate = async () => {
+    setAuroraLoading(true);
+    try {
+      const prompt = `Você é um especialista em marketing para profissionais de saúde mental. Com base nas informações abaixo, gere o conteúdo completo para uma página profissional pública de um psicólogo. Responda SOMENTE em JSON válido, sem markdown.
+
+Dados fornecidos:
+- Nome: ${auroraAnswers.name || user.name}
+- Especialidade: ${auroraAnswers.specialty || user.specialty}
+- Anos de experiência: ${auroraAnswers.experience}
+- Pacientes atendidos: ${auroraAnswers.patients}
+- Sobre/Bio: ${auroraAnswers.bio || user.bio}
+- Áreas de atuação: ${auroraAnswers.specialties}
+- Título desejado: ${auroraAnswers.hero_title || 'Gere um título impactante'}
+- Dúvidas frequentes: ${auroraAnswers.faq}
+
+Gere o seguinte JSON:
+{
+  "hero_title": "título de impacto para hero (máx 7 palavras)",
+  "specialties_summary": "frase curta descrevendo especialidades (máx 12 palavras)",
+  "experience_years": "texto de anos de experiência (ex: 8+)",
+  "patients_count": "texto de pacientes (ex: +100)",
+  "specialties_list": ["área1", "área2", "área3", "área4", "área5"],
+  "prop_1_title": "título do card de proposta 1",
+  "prop_1_desc": "descrição curta do card 1 (2 frases)",
+  "prop_2_title": "título do card de proposta 2",
+  "prop_2_desc": "descrição curta do card 2 (2 frases)",
+  "prop_3_title": "título do card de proposta 3",
+  "prop_3_desc": "descrição curta do card 3 (2 frases)",
+  "steps_title": "título da seção 'como funciona' (ex: Dê o primeiro passo hoje.)",
+  "step_1_title": "título do passo 1",
+  "step_1_desc": "descrição do passo 1",
+  "step_2_title": "título do passo 2",
+  "step_2_desc": "descrição do passo 2",
+  "step_3_title": "título do passo 3",
+  "step_3_desc": "descrição do passo 3",
+  "faq": [
+    {"question": "pergunta 1", "answer": "resposta 1"},
+    {"question": "pergunta 2", "answer": "resposta 2"},
+    {"question": "pergunta 3", "answer": "resposta 3"}
+  ]
+}`;
+
+      const result: any = await api.post('/profile/generate-aurora', {
+        system: 'Você é especialista em marketing para psicólogos. Responda APENAS em JSON válido sem markdown.',
+        prompt,
+        max_tokens: 2000,
+        temperature: 0.8,
+      });
+
+      const text = result.text || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('JSON inválido retornado pela IA');
+      const generated = JSON.parse(jsonMatch[0]);
+
+      setUser(prev => ({
+        ...prev,
+        profile_theme: {
+          ...prev.profile_theme,
+          ...generated,
+          public_name: auroraAnswers.name || prev.profile_theme.public_name,
+        }
+      }));
+
+      setAuroraOpen(false);
+      setAuroraStep(0);
+      setAuroraAnswers({});
+      pushToast('success', 'Aurora montou sua página! Revise e salve as alterações.');
+    } catch (e: any) {
+      pushToast('error', 'Erro ao gerar conteúdo. Tente novamente.');
+    } finally {
+      setAuroraLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -629,6 +724,25 @@ export const Profile: React.FC = () => {
                       )}
                     </div>
 
+                    {/* Aurora Builder */}
+                    <div className="pt-8 border-t border-slate-100">
+                      <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200">
+                          <Sparkles size={22} className="text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-black text-slate-800 text-sm">Aurora monta sua página por você</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Responda algumas perguntas rápidas e a IA preenche todo o conteúdo automaticamente.</p>
+                        </div>
+                        <button
+                          onClick={() => { setAuroraOpen(true); setAuroraStep(0); setAuroraAnswers({}); }}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 shrink-0 active:scale-95"
+                        >
+                          <Sparkles size={13} /> Gerar com IA
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Site Content Management */}
                     <div className="pt-8 border-t border-slate-100">
                       <div className="flex items-center gap-2 mb-6">
@@ -943,31 +1057,67 @@ export const Profile: React.FC = () => {
                              <div className="w-1.5 h-4 rounded-full bg-indigo-500"></div>
                              <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Layout da Página</p>
                            </div>
-                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                           <div className="grid grid-cols-3 gap-3">
                              {[
-                               { id: 'modern', label: 'Moderno', color: 'bg-indigo-500' },
-                               { id: 'vibrant', label: 'Vibrant', color: 'bg-gradient-to-tr from-rose-500 to-indigo-700' },
-                               { id: 'marble', label: 'Marble', color: 'bg-[#FDFBF7] border border-teal-100' },
-                               { id: 'dark', label: 'Dark', color: 'bg-slate-900' },
-                               { id: 'glass', label: 'Glass', color: 'bg-gradient-to-br from-indigo-400 to-pink-400' },
-                               { id: 'brutal', label: 'Brutal', color: 'bg-yellow-400 border-2 border-black' },
-                               { id: 'soft', label: 'Soft', color: 'bg-purple-100' },
-                               { id: 'classic', label: 'Classic', color: 'bg-slate-50 border border-slate-200' },
-                               { id: 'minimal', label: 'Minimal', color: 'bg-white border border-slate-100' },
+                               {
+                                 id: 'modern',
+                                 label: 'Moderno',
+                                 desc: 'Limpo e profissional',
+                                 preview: (
+                                   <div className="w-full h-16 rounded-xl bg-white border border-slate-100 overflow-hidden shadow-sm flex flex-col">
+                                     <div className="h-4 bg-indigo-600 w-full" />
+                                     <div className="flex-1 flex gap-1 p-1.5">
+                                       <div className="w-1/2 bg-slate-100 rounded" />
+                                       <div className="w-1/3 bg-indigo-100 rounded" />
+                                     </div>
+                                   </div>
+                                 ),
+                               },
+                               {
+                                 id: 'dark',
+                                 label: 'Escuro',
+                                 desc: 'Elegante e sofisticado',
+                                 preview: (
+                                   <div className="w-full h-16 rounded-xl bg-slate-900 overflow-hidden flex flex-col shadow-sm">
+                                     <div className="h-4 bg-slate-700 w-full flex items-center px-2 gap-1">
+                                       <div className="w-8 h-1.5 bg-indigo-400 rounded-full" />
+                                     </div>
+                                     <div className="flex-1 flex gap-1 p-1.5">
+                                       <div className="w-1/2 bg-slate-700 rounded" />
+                                       <div className="w-1/3 bg-indigo-800 rounded" />
+                                     </div>
+                                   </div>
+                                 ),
+                               },
+                               {
+                                 id: 'marble',
+                                 label: 'Natural',
+                                 desc: 'Acolhedor e humano',
+                                 preview: (
+                                   <div className="w-full h-16 rounded-xl overflow-hidden shadow-sm flex flex-col" style={{ background: 'linear-gradient(135deg, #FDFBF7 60%, #E6F4F1)' }}>
+                                     <div className="h-4 w-full" style={{ background: 'linear-gradient(90deg, #5EAAA8, #4F7CAC)' }} />
+                                     <div className="flex-1 flex gap-1 p-1.5">
+                                       <div className="w-1/2 rounded" style={{ background: '#E6F0EE' }} />
+                                       <div className="w-1/3 rounded" style={{ background: '#C9E4DE' }} />
+                                     </div>
+                                   </div>
+                                 ),
+                               },
                              ].map(l => (
                                <button
                                  key={l.id}
                                  onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, layout: l.id } }))}
                                  className={`group relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-                                   user.profile_theme.layout === l.id 
-                                   ? 'border-indigo-600 bg-indigo-50/50' 
+                                   user.profile_theme.layout === l.id
+                                   ? 'border-indigo-600 bg-indigo-50/50'
                                    : 'border-slate-100 bg-white hover:border-slate-200'
                                  }`}
                                >
-                                 <div className={`w-full h-12 rounded-xl ${l.color} shadow-sm transition-transform group-hover:scale-105`} />
+                                 {l.preview}
                                  <span className={`text-[10px] font-black uppercase tracking-tight ${user.profile_theme.layout === l.id ? 'text-indigo-600' : 'text-slate-400'}`}>
                                    {l.label}
                                  </span>
+                                 <span className="text-[9px] text-slate-400 font-bold">{l.desc}</span>
                                  {user.profile_theme.layout === l.id && (
                                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center border-2 border-white">
                                      <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -1105,6 +1255,105 @@ export const Profile: React.FC = () => {
         </div>
       </div>
 
+
+      {/* Aurora Modal */}
+      {auroraOpen && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) setAuroraOpen(false); }}>
+          <div className="w-full max-w-lg bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-fadeIn">
+            {/* Header */}
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                <Sparkles size={20} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-white text-sm">Aurora — Construtor de Perfil</p>
+                <p className="text-indigo-200 text-[10px] font-bold mt-0.5">Passo {auroraStep + 1} de {AURORA_QUESTIONS.length}</p>
+              </div>
+              <button onClick={() => setAuroraOpen(false)} className="text-white/60 hover:text-white transition-all">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-1 bg-indigo-100">
+              <div
+                className="h-full bg-indigo-600 transition-all duration-500"
+                style={{ width: `${((auroraStep + 1) / AURORA_QUESTIONS.length) * 100}%` }}
+              />
+            </div>
+
+            {/* Question */}
+            <div className="p-8">
+              <label className="block text-sm font-black text-slate-800 mb-1 leading-snug">
+                {AURORA_QUESTIONS[auroraStep].label}
+              </label>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-5">
+                Opcional — pule se preferir
+              </p>
+              <textarea
+                key={auroraStep}
+                autoFocus
+                value={auroraAnswers[AURORA_QUESTIONS[auroraStep].key] || ''}
+                onChange={e => setAuroraAnswers(prev => ({ ...prev, [AURORA_QUESTIONS[auroraStep].key]: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    if (auroraStep < AURORA_QUESTIONS.length - 1) setAuroraStep(s => s + 1);
+                    else handleAuroraGenerate();
+                  }
+                }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-none"
+                rows={4}
+                placeholder={AURORA_QUESTIONS[auroraStep].placeholder}
+              />
+              <p className="text-[9px] text-slate-300 font-bold mt-2 text-right">Ctrl+Enter para avançar</p>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 pb-8 flex items-center justify-between gap-3">
+              <button
+                onClick={() => auroraStep > 0 ? setAuroraStep(s => s - 1) : setAuroraOpen(false)}
+                className="flex items-center gap-2 px-5 py-2.5 text-slate-500 hover:text-slate-700 text-xs font-black rounded-xl transition-all border border-slate-200 hover:border-slate-300 bg-white"
+              >
+                {auroraStep > 0 ? '← Voltar' : 'Cancelar'}
+              </button>
+
+              <div className="flex items-center gap-2">
+                {/* Step dots */}
+                <div className="flex gap-1 mr-2">
+                  {AURORA_QUESTIONS.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setAuroraStep(i)}
+                      className={`w-1.5 h-1.5 rounded-full transition-all ${i === auroraStep ? 'bg-indigo-600 w-4' : i < auroraStep ? 'bg-indigo-300' : 'bg-slate-200'}`}
+                    />
+                  ))}
+                </div>
+
+                {auroraStep < AURORA_QUESTIONS.length - 1 ? (
+                  <button
+                    onClick={() => setAuroraStep(s => s + 1)}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95"
+                  >
+                    Próximo →
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleAuroraGenerate}
+                    disabled={auroraLoading}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95 disabled:opacity-60"
+                  >
+                    {auroraLoading ? (
+                      <><Loader2 size={13} className="animate-spin" /> Gerando...</>
+                    ) : (
+                      <><Sparkles size={13} /> Gerar Perfil</>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TOASTS */}
       <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">

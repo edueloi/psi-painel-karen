@@ -301,6 +301,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/caixa-ferramentas/m-chat-r" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><MCHATPage /></ProtectedRoute>} />
       <Route path="/prontuario" element={<ProtectedRoute requiredPermission="view_medical_records"><Records /></ProtectedRoute>} />
       <Route path="/analises" element={<ProtectedRoute requiredPermission="view_medical_records"><Records defaultTab="analysis" /></ProtectedRoute>} />
+      <Route path="/quadros" element={<ProtectedRoute><CaseStudies /></ProtectedRoute>} />
       <Route path="/estudos-de-caso" element={<ProtectedRoute><CaseStudies /></ProtectedRoute>} />
       <Route path="/documentos" element={<ProtectedRoute requiredPermission="manage_documents"><Documents /></ProtectedRoute>} />
       <Route path="/formularios" element={<ProtectedRoute requiredPermission="manage_forms"><Forms /></ProtectedRoute>} />

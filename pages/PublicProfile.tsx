@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_BASE_URL, getStaticUrl } from '../services/api';
+import psifluxLogoUrl from '../images/logo-psiflux.png';
 import {
   Instagram,
   Linkedin,
@@ -135,6 +136,68 @@ export const PublicProfile: React.FC = () => {
     if (slug) fetchProfile();
   }, [slug]);
 
+  // ── SEO dinâmico ──────────────────────────────────────
+  useEffect(() => {
+    if (!data) return;
+    const displayName = data.profile_theme?.public_name || data.name || 'Psicólogo(a)';
+    const specialty   = data.specialty || 'Psicologia';
+    const crpStr      = data.crp ? ` | CRP ${data.crp}` : '';
+    const bio         = data.bio || `${displayName} — ${specialty}. Agende sua consulta.`;
+    const ogImage     = data.avatar_url
+      ? getStaticUrl(data.avatar_url)
+      : data.clinic_logo_url
+        ? getStaticUrl(data.clinic_logo_url)
+        : '';
+
+    document.title = `${displayName} — ${specialty}${crpStr}`;
+
+    const setMeta = (attr: string, key: string, content: string) => {
+      let el = document.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    setMeta('name',     'description',          bio.slice(0, 160));
+    setMeta('property', 'og:title',             `${displayName} — ${specialty}`);
+    setMeta('property', 'og:description',       bio.slice(0, 200));
+    setMeta('property', 'og:image',             ogImage);
+    setMeta('property', 'og:image:width',       '1200');
+    setMeta('property', 'og:image:height',      '630');
+    setMeta('property', 'og:type',              'website');
+    setMeta('property', 'og:site_name',         displayName);
+    setMeta('property', 'og:url',               window.location.href);
+    setMeta('name',     'twitter:card',         'summary_large_image');
+    setMeta('name',     'twitter:title',        `${displayName} — ${specialty}`);
+    setMeta('name',     'twitter:description',  bio.slice(0, 200));
+    setMeta('name',     'twitter:image',        ogImage);
+
+    // JSON-LD Person schema
+    const existing = document.querySelector('#ld-json-person');
+    if (existing) existing.remove();
+    const script = document.createElement('script');
+    script.id = 'ld-json-person';
+    script.type = 'application/ld+json';
+    script.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: displayName,
+      jobTitle: specialty,
+      description: bio,
+      image: ogImage,
+      telephone: data.phone,
+      email: data.email,
+      address: data.address ? { '@type': 'PostalAddress', streetAddress: data.address } : undefined,
+      url: window.location.href,
+    });
+    document.head.appendChild(script);
+
+    return () => { document.querySelector('#ld-json-person')?.remove(); };
+  }, [data]);
+
   const primaryColor = data?.profile_theme?.primaryColor || '#4F46E5';
   const layout = data?.profile_theme?.layout || 'modern';
 
@@ -224,9 +287,17 @@ export const PublicProfile: React.FC = () => {
       <nav className={`fixed top-0 left-0 right-0 z-50 border-b transition-all duration-300 ${themeColors.header}`}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shrink-0">PF</div>
+             <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-white/10">
+               {data.clinic_logo_url ? (
+                 <img src={getStaticUrl(data.clinic_logo_url)} alt={data.company_name || data.name} className="w-full h-full object-contain" />
+               ) : data.avatar_url ? (
+                 <img src={getStaticUrl(data.avatar_url)} alt={data.name} className="w-full h-full object-cover rounded-xl" />
+               ) : (
+                 <img src={psifluxLogoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+               )}
+             </div>
              <span className={`font-black text-lg tracking-tighter ${themeColors.text} truncate max-w-[120px] sm:max-w-none`}>
-               {data.company_name || 'PsiFlux'}
+               {data.company_name || data.profile_theme?.public_name || data.name}
              </span>
           </div>
           <div className="hidden md:flex items-center gap-8 mr-8">
@@ -332,7 +403,7 @@ export const PublicProfile: React.FC = () => {
             {data.profile_theme?.show_trajectory !== false && (
               <section id="sobre" className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
                  <div className="space-y-8">
-                    <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase tracking-widest">Trajetória Proffisional</div>
+                    <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase tracking-widest">Trajetória Profissional</div>
                     <h2 className={`text-4xl lg:text-5xl font-black tracking-tight ${themeColors.text}`}>Entendendo os caminhos da alma humana.</h2>
                     <div className={`text-lg leading-[2] whitespace-pre-wrap ${themeColors.subtext}`}>
                        {data.bio || 'Profissional dedicado ao acolhimento psicológico e transformação humana.'}

@@ -417,4 +417,30 @@ router.post('/2fa/disable', async (req, res) => {
   }
 });
 
+// POST /profile/generate-aurora — Gera perfil com a IA Aurora
+router.post('/generate-aurora', async (req, res) => {
+  try {
+    const { system, prompt, max_tokens, temperature } = req.body;
+    
+    // Lazy load to avoid affecting other routes if key is missing globally
+    const OpenAI = require('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: system || 'Voce e uma assistente clinica para psicologos altamente capacitada.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: temperature || 0.7,
+      max_tokens: max_tokens || 2000
+    });
+
+    res.json({ text: response.choices[0].message.content });
+  } catch (err) {
+    console.error('Erro na Aurora (Perfil):', err);
+    res.status(500).json({ error: 'Erro de conexao com a IA ou bloqueio temporario da rede. Verifique a chave de API ou tente novamente.' });
+  }
+});
+
 module.exports = router;

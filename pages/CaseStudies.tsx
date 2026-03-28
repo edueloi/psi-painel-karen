@@ -64,12 +64,18 @@ interface CaseCard {
   columnId: string;
   patientId?: string;
   patientName: string;
+  title: string;
   description: string;
   tags: string[];
   details?: CaseDetails;
   attachments: Attachment[];
   comments: Comment[];
   createdAt: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  due_date?: string;
+  card_type?: string;
+  assignee?: string;
+  amount?: number;
 }
 
 interface CaseColumn {
@@ -87,6 +93,8 @@ interface CaseBoard {
   columns: CaseColumn[];
   columnCount?: number;
   cardCount?: number;
+  board_type?: string;
+  color?: string;
 }
 
 // --- Constants ---
@@ -141,12 +149,17 @@ export const CaseStudies: React.FC = () => {
   // New Item States
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardDesc, setNewBoardDesc] = useState('');
+  const [newBoardType, setNewBoardType] = useState<string>('geral');
   const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
 
+  const [newCardTitle, setNewCardTitle] = useState('');
   const [newCardPatientId, setNewCardPatientId] = useState('');
-  const [newCardPatientName, setNewCardPatientName] = useState('');
   const [newCardDesc, setNewCardDesc] = useState('');
   const [newCardTags, setNewCardTags] = useState('');
+  const [newCardPriority, setNewCardPriority] = useState<'low'|'medium'|'high'|'urgent'>('medium');
+  const [newCardDueDate, setNewCardDueDate] = useState('');
+  const [newCardType, setNewCardType] = useState('');
+  const [newCardAmount, setNewCardAmount] = useState('');
   const [newCardDetails, setNewCardDetails] = useState<CaseDetails>({
       complaint: '',
       history: '',
@@ -216,10 +229,15 @@ export const CaseStudies: React.FC = () => {
   };
 
   const resetCardForm = () => {
+      setNewCardTitle('');
       setNewCardPatientId('');
-      setNewCardPatientName('');
+
       setNewCardDesc('');
       setNewCardTags('');
+      setNewCardPriority('medium');
+      setNewCardDueDate('');
+      setNewCardType('');
+      setNewCardAmount('');
       setNewCardDetails({
         complaint: '',
         history: '',
@@ -281,7 +299,9 @@ export const CaseStudies: React.FC = () => {
       createdAt: row.created_at || row.createdAt || new Date().toISOString(),
       columns: [],
       columnCount: row.column_count ?? 0,
-      cardCount: row.card_count ?? 0
+      cardCount: row.card_count ?? 0,
+      board_type: row.board_type || 'geral',
+      color: row.color || undefined,
   });
 
   const mapBoardDetail = (row: any): CaseBoard => {
@@ -293,13 +313,19 @@ export const CaseStudies: React.FC = () => {
               id: String(card.id),
               columnId: String(card.column_id),
               patientId: card.patient_id ? String(card.patient_id) : undefined,
-              patientName: card.patient_name || card.title || 'Sem paciente',
+              patientName: card.patient_name || '',
+              title: card.title || card.patient_name || 'Sem título',
               description: card.description || '',
               tags: parseTags(card.tags_json),
               details: parseDetails(card.details_json),
               attachments: [],
               comments: [],
-              createdAt: card.created_at || new Date().toISOString()
+              createdAt: card.created_at || new Date().toISOString(),
+              priority: card.priority || 'medium',
+              due_date: card.due_date || undefined,
+              card_type: card.card_type || undefined,
+              assignee: card.assignee || undefined,
+              amount: card.amount || undefined,
           }))
       }));
 
@@ -379,7 +405,8 @@ export const CaseStudies: React.FC = () => {
           } else {
               const data = await api.post<{ id: number }>('/case-studies/boards', {
                   title: newBoardTitle.trim(),
-                  description: newBoardDesc.trim() || null
+                  description: newBoardDesc.trim() || null,
+                  board_type: newBoardType,
               });
               const boardId = String(data.id);
               setActiveBoardId(boardId);
@@ -390,6 +417,7 @@ export const CaseStudies: React.FC = () => {
           setIsBoardModalOpen(false);
           setNewBoardTitle('');
           setNewBoardDesc('');
+          setNewBoardType('geral');
           setEditingBoardId(null);
       } catch (e) {
           console.error(e);
@@ -546,14 +574,8 @@ export const CaseStudies: React.FC = () => {
 
   const handleCreateCard = async () => {
       if (!activeBoardId) return;
-      const patientName = newCardPatientName.trim();
-      const patientId = newCardPatientId || undefined;
-      if (!patientName && !patientId) {
-          pushToast('error', 'Selecione ou informe um paciente.');
-          return;
-      }
-      if (!newCardDesc.trim()) {
-          pushToast('error', 'Informe uma descrição para o caso.');
+      if (!newCardTitle.trim()) {
+          pushToast('error', 'Informe um título para o card.');
           return;
       }
 
@@ -563,22 +585,26 @@ export const CaseStudies: React.FC = () => {
       try {
           await api.post(`/case-studies/boards/${activeBoardId}/cards`, {
               column_id: targetColumnId,
-              patient_id: patientId || null,
-              title: patientId ? null : patientName,
-              description: newCardDesc.trim(),
+              patient_id: newCardPatientId || null,
+              title: newCardTitle.trim(),
+              description: newCardDesc.trim() || null,
               tags,
               details: newCardDetails,
+              priority: newCardPriority,
+              due_date: newCardDueDate || null,
+              card_type: newCardType || null,
+              amount: newCardAmount ? parseFloat(newCardAmount) : null,
               sort_order: activeBoard?.columns.find(c => c.id === targetColumnId)?.cards.length || 0
           });
 
           await loadBoardDetail(activeBoardId);
-          logActivity(`${t('cases.created')} "${patientName || 'Paciente'}"`);
-          pushToast('success', 'Caso criado com sucesso!');
+          logActivity(`Card criado: "${newCardTitle.trim()}"`);
+          pushToast('success', 'Card criado com sucesso!');
           resetCardForm();
           setIsCardModalOpen(false);
       } catch (e) {
           console.error(e);
-          pushToast('error', 'Erro ao criar caso. Tente novamente.');
+          pushToast('error', 'Erro ao criar card. Tente novamente.');
       } finally {
           setIsSavingCard(false);
       }
@@ -967,29 +993,53 @@ export const CaseStudies: React.FC = () => {
       {/* --- MODAL: NEW BOARD --- */}
       <Modal
         isOpen={isBoardModalOpen}
-        onClose={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardDesc(''); }}
-        title={editingBoardId ? 'Editar Quadro' : t('cases.newBoard')}
-        subtitle={editingBoardId ? 'Altere o nome e objetivo desta trilha.' : "Estruture trilhas de acompanhamento clínico."}
+        onClose={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardDesc(''); setNewBoardType('geral'); }}
+        title={editingBoardId ? 'Editar Quadro' : 'Novo Quadro'}
+        subtitle={editingBoardId ? 'Altere o nome e objetivo deste quadro.' : 'Crie um quadro para organizar qualquer tipo de atividade.'}
         maxWidth="md"
         footer={
           <div className="flex w-full items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardDesc(''); }}>{t('cases.cancel')}</Button>
-            <Button variant="primary" size="sm" onClick={handleAddBoard}>{editingBoardId ? 'Salvar Alterações' : t('cases.create')}</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardDesc(''); setNewBoardType('geral'); }}>Cancelar</Button>
+            <Button variant="primary" size="sm" onClick={handleAddBoard}>{editingBoardId ? 'Salvar Alterações' : 'Criar Quadro'}</Button>
           </div>
         }
-
       >
         <div className="space-y-4">
           <Input
-            label={t('cases.boardName')}
+            label="Nome do Quadro"
             required
             value={newBoardTitle}
             onChange={(e) => setNewBoardTitle(e.target.value)}
-            placeholder="Ex: Supervisão Clínica"
+            placeholder="Ex: Acompanhamento Clínico, Projetos da Clínica..."
           />
+          {!editingBoardId && (
+            <div>
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de Quadro</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {([
+                  { value: 'geral',      label: 'Geral',       emoji: '📋', desc: 'A Fazer · Em Progresso · Concluído' },
+                  { value: 'clinico',    label: 'Clínico',     emoji: '🧠', desc: 'Avaliação · Acompanhamento · Alta' },
+                  { value: 'projeto',    label: 'Projeto',     emoji: '🚀', desc: 'Backlog · Andamento · Revisão · Entregue' },
+                  { value: 'financeiro', label: 'Financeiro',  emoji: '💰', desc: 'A Receber · Recebido · A Pagar · Pago' },
+                  { value: 'atividade',  label: 'Atividade',   emoji: '⚡', desc: 'Planejado · Execução · Finalizado' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setNewBoardType(opt.value)}
+                    className={`p-3 rounded-xl border-2 text-left transition-all ${newBoardType === opt.value ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 hover:border-slate-200 bg-white'}`}
+                  >
+                    <div className="text-lg mb-1">{opt.emoji}</div>
+                    <div className={`text-xs font-bold ${newBoardType === opt.value ? 'text-indigo-700' : 'text-slate-700'}`}>{opt.label}</div>
+                    <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <TextArea
-            label={t('cases.desc')}
-            rows={3}
+            label="Descrição (opcional)"
+            rows={2}
             value={newBoardDesc}
             onChange={(e) => setNewBoardDesc(e.target.value)}
             placeholder="Objetivo e foco do quadro..."
@@ -1024,9 +1074,8 @@ export const CaseStudies: React.FC = () => {
               .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
               .map((p: any) => ({ id: String(p.id), label: p.full_name || p.name || '' }))}
             value={newCardPatientId}
-            onChange={(val: any, label?: string) => {
+            onChange={(val: any) => {
               setNewCardPatientId(String(val || ''));
-              setNewCardPatientName(label || '');
             }}
             size="md"
           />

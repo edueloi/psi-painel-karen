@@ -25,7 +25,7 @@ export const translations = {
     'nav.settings': 'Configurações',
     'nav.meeting': 'Sala Virtual',
     'nav.bot': 'Vincular Bot',
-    'nav.cases': 'Estudo de Caso',
+    'nav.boards': 'Quadros',
     'nav.neuro': 'Neurodesenvolvimento',
     'nav.tools': 'Caixa de Ferramentas',
     'nav.logout': 'Sair',
@@ -946,7 +946,7 @@ export const translations = {
     'nav.settings': 'Settings',
     'nav.meeting': 'Virtual Room',
     'nav.bot': 'Link Bot',
-    'nav.cases': 'Case Study',
+    'nav.boards': 'Boards',
     'nav.neuro': 'Neurodevelopment',
     'nav.tools': 'Toolbox',
         // Case Studies
@@ -1738,7 +1738,7 @@ export const translations = {
     'nav.settings': 'Configuraciones',
     'nav.meeting': 'Sala Virtual',
     'nav.bot': 'Vincular Bot',
-    'nav.cases': 'Estudo de Caso',
+    'nav.boards': 'Quadros',
     'nav.neuro': 'Neurodesarrollo',
     'nav.tools': 'Caja de Herramientas',
         // Estudio de Casos

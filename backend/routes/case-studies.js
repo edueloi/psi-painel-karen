@@ -2,20 +2,37 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// Garante colunas extras e ajustes na tabela case_study_cards
+// Garante colunas extras e ajustes nas tabelas
 (async () => {
   const migrations = [
+    // cards
     'ALTER TABLE case_study_cards ADD COLUMN patient_id INT NULL',
     'ALTER TABLE case_study_cards ADD COLUMN description TEXT NULL',
     'ALTER TABLE case_study_cards ADD COLUMN tags_json TEXT NULL',
     'ALTER TABLE case_study_cards ADD COLUMN details_json TEXT NULL',
-    // title pode ser nulo quando o card é identificado pelo paciente
     'ALTER TABLE case_study_cards MODIFY COLUMN title VARCHAR(255) NULL',
+    'ALTER TABLE case_study_cards ADD COLUMN priority ENUM("low","medium","high","urgent") DEFAULT "medium"',
+    'ALTER TABLE case_study_cards ADD COLUMN due_date DATE NULL',
+    'ALTER TABLE case_study_cards ADD COLUMN card_type VARCHAR(50) NULL',
+    'ALTER TABLE case_study_cards ADD COLUMN assignee VARCHAR(255) NULL',
+    'ALTER TABLE case_study_cards ADD COLUMN amount DECIMAL(10,2) NULL',
+    // boards
+    'ALTER TABLE case_study_boards ADD COLUMN board_type VARCHAR(50) DEFAULT "geral"',
+    'ALTER TABLE case_study_boards ADD COLUMN color VARCHAR(50) NULL',
   ];
   for (const sql of migrations) {
     try { await db.query(sql); } catch (_) {}
   }
 })();
+
+// Colunas padrão por tipo de quadro
+const DEFAULT_COLUMNS = {
+  geral:       [['A Fazer', 0], ['Em Progresso', 1], ['Concluído', 2]],
+  clinico:     [['Avaliação', 0], ['Em Acompanhamento', 1], ['Alta/Encerrado', 2]],
+  projeto:     [['Backlog', 0], ['Em Andamento', 1], ['Revisão', 2], ['Entregue', 3]],
+  financeiro:  [['A Receber', 0], ['Recebido', 1], ['A Pagar', 2], ['Pago', 3]],
+  atividade:   [['Planejado', 0], ['Em Execução', 1], ['Finalizado', 2]],
+};
 
 // GET /case-studies/boards
 router.get('/boards', async (req, res) => {
@@ -78,19 +95,23 @@ router.get('/boards/:boardId', async (req, res) => {
 // POST /case-studies/boards
 router.post('/boards', async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, board_type, color } = req.body;
     if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
 
+    const type = board_type || 'geral';
     const [result] = await db.query(
-      'INSERT INTO case_study_boards (tenant_id, title, description, created_by) VALUES (?, ?, ?, ?)',
-      [req.user.tenant_id, title, description || null, req.user.id]
+      'INSERT INTO case_study_boards (tenant_id, title, description, created_by, board_type, color) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.tenant_id, title, description || null, req.user.id, type, color || null]
     );
 
-    // Criar colunas padrão
-    await db.query(
-      'INSERT INTO case_study_columns (board_id, title, position) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?)',
-      [result.insertId, 'A Fazer', 0, result.insertId, 'Em Progresso', 1, result.insertId, 'Revisão', 2, result.insertId, 'Concluído', 3]
-    );
+    // Criar colunas padrão baseadas no tipo
+    const cols = DEFAULT_COLUMNS[type] || DEFAULT_COLUMNS.geral;
+    for (const [colTitle, position] of cols) {
+      await db.query(
+        'INSERT INTO case_study_columns (board_id, title, position) VALUES (?, ?, ?)',
+        [result.insertId, colTitle, position]
+      );
+    }
 
     const [board] = await db.query('SELECT * FROM case_study_boards WHERE id = ?', [result.insertId]);
     res.status(201).json(board[0]);
@@ -172,9 +193,9 @@ router.delete('/boards/:boardId/columns/:columnId', async (req, res) => {
 // POST /case-studies/boards/:boardId/cards
 router.post('/boards/:boardId/cards', async (req, res) => {
   try {
-    const { column_id, patient_id, title, description, tags, details, sort_order } = req.body;
-    if (!column_id || (!title && !patient_id)) {
-      return res.status(400).json({ error: 'Coluna e paciente/título são obrigatórios' });
+    const { column_id, patient_id, title, description, tags, details, sort_order, priority, due_date, card_type, assignee, amount } = req.body;
+    if (!column_id || !title) {
+      return res.status(400).json({ error: 'Coluna e título são obrigatórios' });
     }
 
     const [maxPos] = await db.query(
@@ -185,17 +206,16 @@ router.post('/boards/:boardId/cards', async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO case_study_cards
-         (board_id, column_id, patient_id, title, description, tags_json, details_json, position)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (board_id, column_id, patient_id, title, description, tags_json, details_json, position, priority, due_date, card_type, assignee, amount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.params.boardId,
-        column_id,
-        patient_id || null,
-        title || null,
-        description || null,
+        req.params.boardId, column_id, patient_id || null,
+        title, description || null,
         tags ? JSON.stringify(tags) : null,
         details ? JSON.stringify(details) : null,
-        position,
+        position, priority || 'medium',
+        due_date || null, card_type || null,
+        assignee || null, amount || null,
       ]
     );
 
@@ -216,26 +236,36 @@ router.post('/boards/:boardId/cards', async (req, res) => {
 // PUT /case-studies/cards/:cardId
 router.put('/cards/:cardId', async (req, res) => {
   try {
-    const { patient_id, title, description, tags, details, column_id, sort_order } = req.body;
+    const { patient_id, title, description, tags, details, column_id, sort_order, priority, due_date, card_type, assignee, amount } = req.body;
 
     await db.query(
       `UPDATE case_study_cards SET
         patient_id   = COALESCE(?, patient_id),
-        title        = ?,
+        title        = COALESCE(?, title),
         description  = COALESCE(?, description),
         tags_json    = COALESCE(?, tags_json),
         details_json = COALESCE(?, details_json),
         column_id    = COALESCE(?, column_id),
-        position     = COALESCE(?, position)
+        position     = COALESCE(?, position),
+        priority     = COALESCE(?, priority),
+        due_date     = ?,
+        card_type    = COALESCE(?, card_type),
+        assignee     = COALESCE(?, assignee),
+        amount       = COALESCE(?, amount)
        WHERE id = ?`,
       [
-        patient_id || null,
+        patient_id !== undefined ? (patient_id || null) : null,
         title || null,
         description || null,
         tags !== undefined ? JSON.stringify(tags) : null,
         details !== undefined ? JSON.stringify(details) : null,
         column_id || null,
         sort_order !== undefined ? sort_order : null,
+        priority || null,
+        due_date !== undefined ? (due_date || null) : undefined,
+        card_type || null,
+        assignee || null,
+        amount !== undefined ? (amount || null) : null,
         req.params.cardId,
       ]
     );

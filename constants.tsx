@@ -1,7 +1,7 @@
 
 
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource, PEI, Assessment } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, ShieldAlert, Key, Radar, Sparkles, PenLine, Layers, Brain, LayoutDashboard, Stethoscope, ClipboardCheck, FolderOpen as FolderIcon, Building2, TrendingUp, Cog, GraduationCap } from 'lucide-react';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, ShieldAlert, Key, Radar, Sparkles, PenLine, Layers, Brain, LayoutDashboard, Stethoscope, ClipboardCheck, FolderOpen as FolderIcon, Building2, TrendingUp, Cog, GraduationCap, Layout } from 'lucide-react';
 
 export const NAV_SECTIONS = [
   {
@@ -17,7 +17,7 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'nav.patients',  path: '/pacientes',        icon: <Users size={18} />,    requiredPermission: 'view_patients',        requiredFeature: 'pacientes' },
       { label: 'nav.records',   path: '/prontuario',       icon: <FileText size={18} />, requiredPermission: 'view_medical_records', requiredFeature: 'prontuario' },
-      { label: 'nav.cases',     path: '/estudos-de-caso',  icon: <Sparkles size={18} />, requiredPermission: 'view_medical_records', requiredFeature: 'estudos_de_caso' },
+      { label: 'nav.boards',    path: '/quadros',           icon: <Layout size={18} />,   requiredPermission: 'view_medical_records', requiredFeature: 'estudos_de_caso' },
       { label: 'nav.tools',     path: '/caixa-ferramentas',icon: <Briefcase size={18} />,requiredPermission: 'manage_clinical_tools',requiredFeature: 'ferramentas_clinicas' },
     ]
   },
