@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
 import { api, getStaticUrl } from '../services/api';
 import { PageHeader } from '../components/UI/PageHeader';
+import { Modal } from '../components/UI/Modal';
 import {
   Mail,
   Phone,
@@ -1257,103 +1258,91 @@ Gere o seguinte JSON:
 
 
       {/* Aurora Modal */}
-      {auroraOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) setAuroraOpen(false); }}>
-          <div className="w-full max-w-lg bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-fadeIn">
-            {/* Header */}
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-                <Sparkles size={20} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-white text-sm">Aurora — Construtor de Perfil</p>
-                <p className="text-indigo-200 text-[10px] font-bold mt-0.5">Passo {auroraStep + 1} de {AURORA_QUESTIONS.length}</p>
-              </div>
-              <button onClick={() => setAuroraOpen(false)} className="text-white/60 hover:text-white transition-all">
-                <X size={20} />
-              </button>
-            </div>
+      <Modal
+        isOpen={auroraOpen}
+        onClose={() => setAuroraOpen(false)}
+        title="Aurora — Construtor de Perfil"
+        subtitle={`Passo ${auroraStep + 1} de ${AURORA_QUESTIONS.length}`}
+        maxWidth="lg"
+        bodyClassName="!p-0"
+        footer={
+          <div className="flex w-full items-center justify-between gap-3 p-1">
+            <button
+              onClick={() => auroraStep > 0 ? setAuroraStep(s => s - 1) : setAuroraOpen(false)}
+              className="flex items-center gap-2 px-5 py-2.5 text-slate-500 hover:text-slate-700 text-xs font-black rounded-xl transition-all border border-slate-200 hover:border-slate-300 bg-white"
+            >
+              {auroraStep > 0 ? '← Voltar' : 'Cancelar'}
+            </button>
 
-            {/* Progress bar */}
-            <div className="h-1 bg-indigo-100">
-              <div
-                className="h-full bg-indigo-600 transition-all duration-500"
-                style={{ width: `${((auroraStep + 1) / AURORA_QUESTIONS.length) * 100}%` }}
-              />
-            </div>
-
-            {/* Question */}
-            <div className="p-8">
-              <label className="block text-sm font-black text-slate-800 mb-1 leading-snug">
-                {AURORA_QUESTIONS[auroraStep].label}
-              </label>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-5">
-                Opcional — pule se preferir
-              </p>
-              <textarea
-                key={auroraStep}
-                autoFocus
-                value={auroraAnswers[AURORA_QUESTIONS[auroraStep].key] || ''}
-                onChange={e => setAuroraAnswers(prev => ({ ...prev, [AURORA_QUESTIONS[auroraStep].key]: e.target.value }))}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    if (auroraStep < AURORA_QUESTIONS.length - 1) setAuroraStep(s => s + 1);
-                    else handleAuroraGenerate();
-                  }
-                }}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-none"
-                rows={4}
-                placeholder={AURORA_QUESTIONS[auroraStep].placeholder}
-              />
-              <p className="text-[9px] text-slate-300 font-bold mt-2 text-right">Ctrl+Enter para avançar</p>
-            </div>
-
-            {/* Footer */}
-            <div className="px-8 pb-8 flex items-center justify-between gap-3">
-              <button
-                onClick={() => auroraStep > 0 ? setAuroraStep(s => s - 1) : setAuroraOpen(false)}
-                className="flex items-center gap-2 px-5 py-2.5 text-slate-500 hover:text-slate-700 text-xs font-black rounded-xl transition-all border border-slate-200 hover:border-slate-300 bg-white"
-              >
-                {auroraStep > 0 ? '← Voltar' : 'Cancelar'}
-              </button>
-
-              <div className="flex items-center gap-2">
-                {/* Step dots */}
-                <div className="flex gap-1 mr-2">
-                  {AURORA_QUESTIONS.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setAuroraStep(i)}
-                      className={`w-1.5 h-1.5 rounded-full transition-all ${i === auroraStep ? 'bg-indigo-600 w-4' : i < auroraStep ? 'bg-indigo-300' : 'bg-slate-200'}`}
-                    />
-                  ))}
-                </div>
-
-                {auroraStep < AURORA_QUESTIONS.length - 1 ? (
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1 mr-2 hidden sm:flex">
+                {AURORA_QUESTIONS.map((_, i) => (
                   <button
-                    onClick={() => setAuroraStep(s => s + 1)}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95"
-                  >
-                    Próximo →
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleAuroraGenerate}
-                    disabled={auroraLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95 disabled:opacity-60"
-                  >
-                    {auroraLoading ? (
-                      <><Loader2 size={13} className="animate-spin" /> Gerando...</>
-                    ) : (
-                      <><Sparkles size={13} /> Gerar Perfil</>
-                    )}
-                  </button>
-                )}
+                    key={i}
+                    onClick={() => setAuroraStep(i)}
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${i === auroraStep ? 'bg-indigo-600 w-4' : i < auroraStep ? 'bg-indigo-300' : 'bg-slate-200'}`}
+                  />
+                ))}
               </div>
+
+              {auroraStep < AURORA_QUESTIONS.length - 1 ? (
+                <button
+                  onClick={() => setAuroraStep(s => s + 1)}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95"
+                >
+                  Próximo →
+                </button>
+              ) : (
+                <button
+                  onClick={handleAuroraGenerate}
+                  disabled={auroraLoading}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95 disabled:opacity-60"
+                >
+                  {auroraLoading ? (
+                    <><Loader2 size={13} className="animate-spin" /> Gerando...</>
+                  ) : (
+                    <><Sparkles size={13} /> Gerar Perfil</>
+                  )}
+                </button>
+              )}
             </div>
           </div>
+        }
+      >
+        {/* Progress bar overlaying just under header */}
+        <div className="h-1 bg-indigo-50 w-full mb-4">
+          <div
+            className="h-full bg-indigo-600 transition-all duration-500 rounded-r-full"
+            style={{ width: `${((auroraStep + 1) / AURORA_QUESTIONS.length) * 100}%` }}
+          />
         </div>
-      )}
+
+        {/* Question Content */}
+        <div className="px-6 pb-6">
+          <label className="block text-sm font-black text-slate-800 mb-1 leading-snug">
+            {AURORA_QUESTIONS[auroraStep].label}
+          </label>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-5">
+            Opcional — pule se preferir
+          </p>
+          <textarea
+            key={auroraStep}
+            autoFocus
+            value={auroraAnswers[AURORA_QUESTIONS[auroraStep].key] || ''}
+            onChange={e => setAuroraAnswers(prev => ({ ...prev, [AURORA_QUESTIONS[auroraStep].key]: e.target.value }))}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                if (auroraStep < AURORA_QUESTIONS.length - 1) setAuroraStep(s => s + 1);
+                else handleAuroraGenerate();
+              }
+            }}
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-none"
+            rows={4}
+            placeholder={AURORA_QUESTIONS[auroraStep].placeholder}
+          />
+          <p className="text-[9px] text-slate-300 font-bold mt-2 text-right">Ctrl+Enter para avançar</p>
+        </div>
+      </Modal>
 
       {/* TOASTS */}
       <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">

@@ -3093,9 +3093,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
           {/* Histórico */}
           {activeTab === 'history' && (
-            <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden animate-fadeIn">
+            <div className="animate-fadeIn">
               {patientRecords.length === 0 ? (
-                <div className="p-20 text-center">
+                <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden p-20 text-center">
                   <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 mx-auto mb-4 border border-slate-100">
                     <BookOpen size={32}/>
                   </div>
@@ -3105,39 +3105,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {/* Resumo do Prontuário */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
-                    <div className="bg-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-indigo-100 flex flex-col justify-between h-24">
-                       <span className="text-[10px] font-black uppercase opacity-60 tracking-widest">Total Geral</span>
-                       <span className="text-3xl font-black">{patientRecords.length}</span>
-                    </div>
-                    {Object.entries(TYPE_LABELS).map(([key, label]) => {
-                       const count = patientRecords.filter(r => r.record_type === key).length;
-                       if (count === 0) return null;
-                       return (
-                         <div key={key} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col justify-between h-24 hover:border-indigo-200 transition-all cursor-pointer" onClick={() => setFilterType(key)}>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
-                            <span className="text-2xl font-black text-slate-800">{count}</span>
-                         </div>
-                       );
-                    })}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4 mb-2 px-2">
-                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                      <History size={14} className="text-indigo-500" /> Histórico de Registros
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Filtro atual:</span>
-                      <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 uppercase tracking-wider">
-                        {!filterType ? 'Tudo' : TYPE_LABELS[filterType] || filterType}
-                      </span>
-                    </div>
-                  </div>
-
+                <>
                   {/* Mobile: card list */}
-                  <div className="md:hidden space-y-3 pb-4">
+                  <div className="md:hidden space-y-3">
                     {patientRecords.map((r) => {
                       const TYPE_COLORS_M: Record<string, string> = {
                         'Anamnese': 'bg-violet-50 text-violet-700 border-violet-200',
@@ -3365,10 +3335,10 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   ]}
                 />
                   </div>{/* end hidden md:block */}
-              </div>
-            )}
-          </div>
-        )}
+                </>
+              )}
+            </div>
+          )}
 
           {/* Timeline */}
           {activeTab === 'timeline' && selectedPatientId && (
