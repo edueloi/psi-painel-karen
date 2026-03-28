@@ -3083,7 +3083,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                           {/* Ações de Linha Padrão */}
                           <div className="flex items-center gap-1 bg-slate-100/30 p-1 rounded-xl border border-slate-200/50">
                             {[
-                              { icon: <Eye size={16}/>, title: "Visualizar", onClick: () => setViewerRecord(r), color: "indigo", skip: r.record_type === 'Anamnese' },
+                              { icon: <Eye size={16}/>, title: "Visualizar", onClick: async () => { try { const full = await api.get<MedicalRecord>(`/api/medical-records/${r.id}`); setViewerRecord(full); } catch { setViewerRecord(r); } }, color: "indigo", skip: r.record_type === 'Anamnese' },
                               { icon: <Edit3 size={16}/>, title: "Editar", onClick: () => openEdit(r.id), color: "amber" },
                               { icon: <Lock size={16}/>, title: "Restrito", onClick: () => setShowPwModal({ type: 'restricted', recordId: r.id }), color: "rose", isRose: true },
                               { icon: <Share2 size={16}/>, title: "Compartilhar", onClick: () => setShareModal({ record: r }), color: "purple" },
