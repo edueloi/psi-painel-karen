@@ -357,6 +357,178 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
   const reviewPoints: string[] = organized?.pontos_revisao || [];
   const fields = ORGANIZED_FIELDS_LABELS.filter(f => organized?.[f.key]);
 
+  const generateAtestadoPDF = () => {
+    const prof = organized?.professional || {};
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = 210; const MARGIN = 20; const CW = W - MARGIN * 2;
+    let y = 0;
+
+    // ── Cabeçalho azul ─────────────────────────────────────────
+    doc.setFillColor(26, 58, 92);
+    doc.rect(0, 0, W, 42, 'F');
+
+    // Nome da clínica/empresa
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(230, 244, 254);
+    doc.text(prof.companyName || prof.name || 'Clínica', MARGIN, 18);
+
+    // Especialidade
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(144, 196, 232);
+    doc.text(prof.specialty || 'Psicologia', MARGIN, 26);
+
+    // Endereço e telefone no cabeçalho (direita)
+    if (prof.address || prof.phone) {
+      doc.setFontSize(7.5);
+      doc.setTextColor(180, 210, 235);
+      const infoLines: string[] = [];
+      if (prof.address) infoLines.push(prof.address);
+      if (prof.phone) infoLines.push(`Tel: ${prof.phone}`);
+      doc.text(infoLines, W - MARGIN, 20, { align: 'right' });
+    }
+
+    // Linha separadora dourada
+    doc.setDrawColor(144, 196, 232);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN, 36, W - MARGIN, 36);
+
+    // CRP no cabeçalho
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(200, 224, 244);
+    if (prof.crp) doc.text(`CRP: ${prof.crp}`, MARGIN, 40);
+
+    y = 56;
+
+    // ── Título do documento ────────────────────────────────────
+    const tipo = organized?.tipo || 'Comparecimento';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(26, 58, 92);
+    doc.text(`ATESTADO DE ${tipo.toUpperCase()}`, W / 2, y, { align: 'center' });
+    y += 4;
+
+    // Linha decorativa abaixo do título
+    doc.setDrawColor(26, 58, 92);
+    doc.setLineWidth(0.8);
+    doc.line(W / 2 - 45, y, W / 2 + 45, y);
+    y += 10;
+
+    // ── Caixa de dados do paciente ─────────────────────────────
+    doc.setFillColor(240, 247, 255);
+    doc.setDrawColor(26, 58, 92);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(MARGIN, y, CW, 26, 3, 3, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(26, 58, 92);
+    doc.text('PACIENTE', MARGIN + 5, y + 7);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(15, 35, 60);
+    doc.text(patient?.full_name || 'Não informado', MARGIN + 5, y + 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(80, 100, 130);
+    const patInfoParts: string[] = [];
+    if (patient?.cpf) patInfoParts.push(`CPF: ${patient.cpf}`);
+    if (patient?.birth_date) patInfoParts.push(`Nascimento: ${new Date(patient.birth_date).toLocaleDateString('pt-BR')}`);
+    if (patInfoParts.length > 0) doc.text(patInfoParts.join('   |   '), MARGIN + 5, y + 22);
+    y += 34;
+
+    // ── Corpo do atestado ──────────────────────────────────────
+    // Texto principal
+    const patName = patient?.full_name || 'o(a) paciente';
+    const patCPF = patient?.cpf ? `, CPF ${patient.cpf},` : ',';
+    const profName = prof.name || record.professional_name || 'o(a) profissional';
+
+    const bodyText = `Atesto para os devidos fins que o(a) paciente ${patName}${patCPF} esteve sob meus cuidados psicológicos.`;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(30, 40, 60);
+    const bodyLines = doc.splitTextToSize(bodyText, CW);
+    doc.text(bodyLines, MARGIN, y);
+    y += bodyLines.length * 5.5 + 6;
+
+    // ── Campos específicos ─────────────────────────────────────
+    const addField = (label: string, value: string) => {
+      if (!value) return;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(26, 58, 92);
+      doc.text(`${label}:`, MARGIN, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 40, 60);
+      const lines = doc.splitTextToSize(value, CW - 35);
+      doc.text(lines, MARGIN + 33, y);
+      y += Math.max(lines.length * 5, 6) + 3;
+    };
+
+    const emissao = organized?.data_emissao ? new Date(organized.data_emissao).toLocaleDateString('pt-BR') : fmtDate(record.created_at);
+    addField('TIPO', tipo);
+    addField('DATA DE EMISSÃO', emissao);
+    if (organized?.cid) addField('CID-10', organized.cid);
+    if (organized?.finalidade) addField('FINALIDADE', organized.finalidade);
+    if (tipo === 'Afastamento' || organized?.afastamento_inicio) {
+      const inicio = organized?.afastamento_inicio ? new Date(organized.afastamento_inicio).toLocaleDateString('pt-BR') : '';
+      const fim = organized?.afastamento_fim ? new Date(organized.afastamento_fim).toLocaleDateString('pt-BR') : '';
+      if (inicio && fim) addField('PERÍODO DE AFASTAMENTO', `${inicio} a ${fim}`);
+      if (organized?.dias_afastamento) addField('TOTAL DE DIAS', `${organized.dias_afastamento} dia(s)`);
+    }
+    if (organized?.observacoes) {
+      y += 2;
+      addField('OBSERVAÇÕES', organized.observacoes);
+    }
+
+    y += 8;
+
+    // ── Rodapé com assinatura ──────────────────────────────────
+    // Linha de separação
+    doc.setDrawColor(200, 215, 230);
+    doc.setLineWidth(0.4);
+    doc.line(MARGIN, y, W - MARGIN, y);
+    y += 10;
+
+    // Local e data
+    const dateStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(80, 100, 130);
+    doc.text(`${dateStr}`, W / 2, y, { align: 'center' });
+    y += 18;
+
+    // Linha de assinatura
+    doc.setDrawColor(26, 58, 92);
+    doc.setLineWidth(0.5);
+    doc.line(W / 2 - 40, y, W / 2 + 40, y);
+    y += 5;
+
+    // Nome e CRP do profissional
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(26, 58, 92);
+    doc.text(profName, W / 2, y, { align: 'center' });
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(80, 100, 130);
+    if (prof.specialty) doc.text(prof.specialty, W / 2, y, { align: 'center' });
+    y += 4.5;
+    if (prof.crp) doc.text(`CRP: ${prof.crp}`, W / 2, y, { align: 'center' });
+
+    // ── Rodapé da página ───────────────────────────────────────
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(160, 175, 195);
+    doc.text(`Documento gerado em ${new Date().toLocaleString('pt-BR')}  |  PsiFlux`, W / 2, 289, { align: 'center' });
+
+    const fileName = `Atestado_${tipo}_${(patient?.full_name || 'paciente').replace(/\s+/g, '_')}.pdf`;
+    doc.save(fileName);
+  };
+
   return (
     <Modal
       isOpen={true}
@@ -371,6 +543,11 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
               {record.ai_status === 'organized' && <span className="text-[10px] font-black uppercase px-3 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1.5"><Sparkles size={12}/> Organizado IA</span>}
            </div>
            <div className="flex gap-2">
+              {record.record_type === 'Atestado' && (
+                <Button variant="ghost" onClick={generateAtestadoPDF} className="uppercase text-xs font-black tracking-widest gap-2 text-blue-700 border border-blue-200 hover:bg-blue-50">
+                  <Download size={14}/> PDF
+                </Button>
+              )}
               <Button variant="ghost" onClick={onClose} className="uppercase text-xs font-black tracking-widest">Fechar</Button>
               <Button onClick={onEdit} variant="primary" className="uppercase text-xs font-black tracking-widest gap-2 min-w-[120px]">
                 <Edit3 size={16}/> Editar
