@@ -19,6 +19,7 @@ async function ensureSchema() {
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN room_id VARCHAR(50) NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN reschedule_reason TEXT NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN whatsapp_reminder_professional_sent TINYINT(1) DEFAULT 0' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN session_fraction DECIMAL(3,2) DEFAULT 1.00' },
     { table: 'services', sql: 'ALTER TABLE services ADD COLUMN category VARCHAR(100) NULL' },
     // Comandas table schema
     { table: 'comandas', sql: `
@@ -869,7 +870,7 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
 
     res.json(updated[0]);
   } catch (err) {
-    console.error('Erro ao atualizar agendamento:', err);
+    console.error('Erro ao atualizar agendamento:', err.message, err.sql || '', 'Body:', JSON.stringify(req.body).slice(0, 500));
     res.status(500).json({ error: 'Erro ao atualizar agendamento', details: err.message });
   }
 });
