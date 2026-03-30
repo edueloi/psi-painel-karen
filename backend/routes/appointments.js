@@ -542,7 +542,10 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
         const formattedEnd = currentEnd.toISOString().slice(0, 19).replace('T', ' ');
 
         // Checagem de conflito de horário: mesmo profissional com período sobreposto
-        if (finalProfessionalId) {
+        // APENAS para agendamentos ÚNICOS (sem recorrência).
+        // Para recorrência, o usuário escolheu explicitamente essa agenda e espera
+        // que TODAS as N sessões sejam criadas — conflitos podem ser resolvidos depois.
+        if (finalProfessionalId && !freq) {
             const [conflicts] = await db.query(
                 `SELECT a.id,
                         u.name AS prof_name,
@@ -560,21 +563,16 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                 [req.user.tenant_id, finalProfessionalId, formattedEnd, formattedStart]
             );
             if (conflicts.length > 0) {
-                if (!freq) {
-                    // Agendamento único — retorna erro ao invés de salvar
-                    const c = conflicts[0];
-                    const toISO = (v) => (v instanceof Date ? v.toISOString() : String(v));
-                    return res.status(409).json({
-                        error: 'conflict',
-                        conflict: true,
-                        prof_name: c.prof_name || 'O profissional',
-                        start_time: toISO(c.raw_start),
-                        end_time: toISO(c.raw_end),
-                    });
-                }
-                // Recorrência — pula apenas esta ocorrência conflitante
-                console.log(`[recurrence] Pulando ${formattedStart} — conflito de horário para prof_id=${finalProfessionalId}`);
-                continue;
+                // Agendamento único — retorna erro ao invés de salvar
+                const c = conflicts[0];
+                const toISO = (v) => (v instanceof Date ? v.toISOString() : String(v));
+                return res.status(409).json({
+                    error: 'conflict',
+                    conflict: true,
+                    prof_name: c.prof_name || 'O profissional',
+                    start_time: toISO(c.raw_start),
+                    end_time: toISO(c.raw_end),
+                });
             }
         }
 
