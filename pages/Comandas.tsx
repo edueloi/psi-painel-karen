@@ -406,6 +406,15 @@ export const Comandas: React.FC = () => {
     return { total, open: pending, received };
   }, [filteredComandas]);
 
+  const openComandasStats = useMemo(() => {
+    const openComandas = comandas.filter(c => c.status === 'open');
+    const totalPending = openComandas.reduce((acc, c) => acc + getComandaPending(c), 0);
+    return {
+      count: openComandas.length,
+      totalPending: totalPending,
+    };
+  }, [comandas]);
+
   const modalGrossTotal = useMemo(() => {
     if (!editingComanda) return 0;
 
@@ -1308,6 +1317,28 @@ export const Comandas: React.FC = () => {
       </div>
 
       <main className="mx-auto max-w-[1600px] px-6 py-6">
+        {openComandasStats.count > 0 && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-6 w-6 text-amber-500" aria-hidden="true" />
+              </div>
+              <div className="ml-4">
+                <p className="text-base font-semibold text-amber-800">
+                  Atenção: Existem Comandas em Aberto!
+                </p>
+                <p className="mt-1 text-sm text-amber-700">
+                  Você possui{' '}
+                  <span className="font-bold">{openComandasStats.count}</span>{' '}
+                  comanda{openComandasStats.count > 1 ? 's' : ''} em aberto, totalizando{' '}
+                  <span className="font-bold">{formatCurrency(openComandasStats.totalPending)}</span>{' '}
+                  a receber. É importante fazer a gestão e finalização das mesmas.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-3">
