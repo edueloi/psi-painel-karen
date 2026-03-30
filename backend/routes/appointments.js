@@ -488,7 +488,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
         const formattedStart = currentStart.toISOString().slice(0, 19).replace('T', ' ');
 
         // Checagem anti-duplicata: se já existe agendamento para o mesmo paciente/profissional
-        // no mesmo horário exato, pula esta ocorrência para não criar fantasma.
+        // no mesmo horário exato, tenta vincular/atualizar ao invés de apenas pular.
         if (finalPatientId || finalProfessionalId) {
             const [existing] = await db.query(
                 `SELECT id FROM appointments
@@ -499,9 +499,42 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                  LIMIT 1`,
                 [req.user.tenant_id, formattedStart, finalPatientId || null, finalProfessionalId || null]
             );
+            
             if (existing.length > 0) {
-                console.log(`[recurrence] Pulando ${formattedStart} — já existe agendamento id=${existing[0].id}`);
-                continue; // não cria duplicata
+                const existingId = existing[0].id;
+                console.log(`[recurrence] Atualizando agendamento existente id=${existingId} para vincular à série/comanda em ${formattedStart}`);
+                
+                // Atualiza o existente para "entrar na dança" da comanda e recorrência
+                await db.query(
+                  `UPDATE appointments SET
+                    comanda_id = ?,
+                    recurrence_rule = ?,
+                    status = COALESCE(?, status),
+                    service_id = COALESCE(?, service_id),
+                    package_id = COALESCE(?, package_id),
+                    modality = ?,
+                    type = ?,
+                    duration_minutes = ?,
+                    notes = COALESCE(?, notes),
+                    color = COALESCE(?, color)
+                   WHERE id = ?`,
+                  [
+                    comanda_id || null,
+                    freq ? JSON.stringify({ freq, interval, count, until }) : null,
+                    status || 'scheduled',
+                    service_id || null,
+                    package_id || null,
+                    modality || 'presencial',
+                    type || 'consulta',
+                    duration,
+                    notes || null,
+                    color || null,
+                    existingId
+                  ]
+                );
+                
+                createdIds.push(existingId);
+                continue; // pula para próxima data da série já tendo reaproveitado esta
             }
         }
 
