@@ -487,22 +487,25 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
 
         const formattedStart = currentStart.toISOString().slice(0, 19).replace('T', ' ');
 
+        console.log(`[recurrence] i=${i}/${count} | date=${formattedStart} | patient=${finalPatientId} | prof=${finalProfessionalId} | comanda=${comanda_id || 'none'}`);
+
         // Checagem anti-duplicata: se já existe agendamento para o mesmo paciente/profissional
         // no mesmo horário exato, tenta vincular/atualizar ao invés de apenas pular.
-        if (finalPatientId || finalProfessionalId) {
+        if (finalPatientId && finalProfessionalId) {
             const [existing] = await db.query(
                 `SELECT id FROM appointments
                  WHERE tenant_id = ?
                    AND start_time = ?
-                   AND (patient_id = ? AND professional_id = ?)
+                   AND patient_id = ?
+                   AND professional_id = ?
                    AND status NOT IN ('cancelled')
                  LIMIT 1`,
-                [req.user.tenant_id, formattedStart, finalPatientId || null, finalProfessionalId || null]
+                [req.user.tenant_id, formattedStart, finalPatientId, finalProfessionalId]
             );
             
             if (existing.length > 0) {
                 const existingId = existing[0].id;
-                console.log(`[recurrence] Atualizando agendamento existente id=${existingId} para vincular à série/comanda em ${formattedStart}`);
+                console.log(`[recurrence] i=${i} → ANTI-DUPLICATA: atualizando id=${existingId} em ${formattedStart}`);
                 
                 // Atualiza o existente para "entrar na dança" da comanda e recorrência
                 await db.query(
@@ -603,7 +606,10 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
           ]
         );
         createdIds.push(result.insertId);
+        console.log(`[recurrence] i=${i} → INSERIDO id=${result.insertId} em ${formattedStart}`);
     }
+
+    console.log(`[recurrence] RESULTADO: ${createdIds.length} agendamentos criados/atualizados — ids=[${createdIds.join(',')}]`);
 
     if (createdIds.length === 0) {
         return res.status(400).json({ error: 'Nenhum agendamento foi criado. Já existem agendamentos neste horário para este paciente/profissional.' });
