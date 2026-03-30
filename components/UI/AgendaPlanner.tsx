@@ -944,13 +944,26 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                     )}
                                   </div>
 
-                                  <div className="flex shrink-0 items-center gap-1.5">
-                                    {event.modality === 'online' ? (
-                                      <Video size={11} style={{ color: '#0891b2' }} />
-                                    ) : event.modality === 'presencial' ? (
-                                      <MapPin size={11} className="text-slate-400" />
-                                    ) : null}
-                                    <span className={cx('h-1.5 w-1.5 rounded-full', status.dot)} />
+                                  <div className="flex shrink-0 items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                      {event.modality === 'online' ? (
+                                        <>
+                                          <Video size={10} style={{ color: '#0891b2' }} />
+                                          <span className="text-[8px] font-black uppercase text-cyan-600/90 tracking-tighter">Online</span>
+                                        </>
+                                      ) : event.modality === 'presencial' ? (
+                                        <>
+                                          <MapPin size={10} className="text-slate-400" />
+                                          <span className="text-[8px] font-black uppercase text-slate-400/90 tracking-tighter">Presencial</span>
+                                        </>
+                                      ) : null}
+                                    </div>
+                                    <div className="flex items-center gap-1 bg-white/40 px-1.5 py-0.5 rounded-full border border-slate-200/50">
+                                      <span className={cx('h-1 w-1 rounded-full', status.dot)} />
+                                      <span className="text-[8px] font-black uppercase text-slate-500 tracking-tighter whitespace-nowrap">
+                                        {status.label}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
 

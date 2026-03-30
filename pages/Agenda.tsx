@@ -1207,8 +1207,8 @@ export const Agenda: React.FC = () => {
       return;
     }
 
-    // Aviso: comanda de pacote sem repetição selecionada (e sem confirmação explícita de "Não Repete")
-    if (formData.comanda_id && !formData.recurrence_freq && !formData.recurrence_explicitly_none) {
+    // Aviso: comanda de pacote sem repetição selecionada (apenas ao CRIAR, não ao editar)
+    if (!formData.id && formData.comanda_id && !formData.recurrence_freq && !formData.recurrence_explicitly_none) {
       const selectedComanda = patientComandas.find((c: any) => String(c.id) === String(formData.comanda_id));
       const isPackageComanda = selectedComanda && (selectedComanda.package_id || Number(selectedComanda.sessions_total) > 1);
       if (isPackageComanda) {
@@ -1222,9 +1222,17 @@ export const Agenda: React.FC = () => {
     const dateChanged = !formData._originalDate || formData.appointment_date !== formData._originalDate;
     const localToUtc = (str: string) => str ? new Date(str).toISOString() : null;
 
+    // Sempre calcular end_time a partir do start + duração para garantir que
+    // mudanças de duração (sem mudar o horário) também persistam corretamente
+    const startUTC  = localToUtc(formData.appointment_date);
+    const endUTC    = startUTC && formData.duration_minutes
+      ? new Date(new Date(startUTC).getTime() + Number(formData.duration_minutes) * 60000).toISOString()
+      : null;
+
     const payload = {
         ...formData,
-        start_time: dateChanged ? localToUtc(formData.appointment_date) : null,
+        start_time: dateChanged ? startUTC : null,
+        end_time:   endUTC,   // sempre envia end_time correto (duração pode ter mudado sem mudar o horário)
         professional_id: formData.psychologist_id || formData.professional_id,
         service_id: isPackage ? null : cleanServiceId,
         package_id: isPackage ? cleanServiceId : null
@@ -2071,7 +2079,7 @@ export const Agenda: React.FC = () => {
 
                       {(() => {
                           const selComanda = formData.comanda_id ? patientComandas.find((c: any) => String(c.id) === String(formData.comanda_id)) : null;
-                          const needsRecurrence = selComanda && (selComanda.package_id || Number(selComanda.sessions_total) > 1) && !formData.recurrence_rule && !formData.recurrence_explicitly_none;
+                          const needsRecurrence = !formData.id && selComanda && (selComanda.package_id || Number(selComanda.sessions_total) > 1) && !formData.recurrence_rule && !formData.recurrence_explicitly_none;
                           return (
                           <div className={`p-4 rounded-xl border space-y-3 transition-colors ${needsRecurrence ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200/60'}`}>
                               <div className="flex items-center justify-between">

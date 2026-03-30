@@ -1805,7 +1805,7 @@ export const Comandas: React.FC = () => {
 
                 <Combobox
                   label="Cliente"
-                  options={activePatients.map((p: any) => ({ id: p.id, label: normalizePatientName(p) }))}
+                  options={patients.map((p: any) => ({ id: p.id, label: normalizePatientName(p) }))}
                   value={editingComanda.patientId || ''}
                   onChange={(id, label) => {
                     setEditingComanda({

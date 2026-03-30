@@ -699,7 +699,8 @@ async function migrate() {
     "ALTER TABLE pei_abc ADD COLUMN intensity VARCHAR(100)",
     "ALTER TABLE pei_abc ADD COLUMN duration VARCHAR(100)",
     "ALTER TABLE forms ADD COLUMN is_system BOOLEAN DEFAULT false",
-    "ALTER TABLE forms ADD COLUMN hash VARCHAR(100) UNIQUE"
+    "ALTER TABLE forms ADD COLUMN hash VARCHAR(100) UNIQUE",
+    "ALTER TABLE appointments ADD COLUMN session_fraction DECIMAL(3,2) DEFAULT 1.00"
   ];
 
   // ---- USER SESSIONS ----

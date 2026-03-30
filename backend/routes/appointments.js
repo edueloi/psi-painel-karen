@@ -494,7 +494,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                 `SELECT id FROM appointments
                  WHERE tenant_id = ?
                    AND start_time = ?
-                   AND (patient_id = ? OR professional_id = ?)
+                   AND (patient_id = ? AND professional_id = ?)
                    AND status NOT IN ('cancelled')
                  LIMIT 1`,
                 [req.user.tenant_id, formattedStart, finalPatientId || null, finalProfessionalId || null]
@@ -522,6 +522,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                    AND a.status NOT IN ('cancelled')
                    AND a.start_time < ?
                    AND a.end_time   > ?
+                 ORDER BY a.start_time
                  LIMIT 1`,
                 [req.user.tenant_id, finalProfessionalId, formattedEnd, formattedStart]
             );
@@ -718,7 +719,7 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
       patient_id, professional_id, psychologist_id, service_id, package_id, title,
       start_time, end_time, status, notes, color,
       modality, type, duration_minutes, meeting_url,
-      reschedule_reason, comanda_id
+      reschedule_reason, comanda_id, session_fraction
     } = req.body;
 
     const [existing] = await db.query(
@@ -753,6 +754,9 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
     const finalProfessionalId = professional_id || psychologist_id || null;
     const finalComandaId = comanda_id || existing[0].old_comanda || null;
 
+    const finalFraction = (session_fraction !== undefined && session_fraction !== null)
+      ? parseFloat(session_fraction) : null;
+
     await db.query(
       `UPDATE appointments SET
         patient_id = ?,
@@ -770,7 +774,8 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
         duration_minutes = ?,
         meeting_url = ?,
         reschedule_reason = ?,
-        comanda_id = ?
+        comanda_id = ?,
+        session_fraction = COALESCE(?, session_fraction)
        WHERE id = ? AND tenant_id = ?`,
       [
         patient_id || null,
@@ -789,6 +794,7 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
         meeting_url || null,
         reschedule_reason || null,
         finalComandaId,
+        finalFraction,
         req.params.id,
         req.user.tenant_id
       ]
