@@ -8,7 +8,7 @@ router.get('/:slug', async (req, res) => {
     const [rows] = await db.query(
       `SELECT name, specialty, crp, bio, phone, email, public_slug,
               avatar_url, cover_url, clinic_logo_url, company_name, 
-              social_links, profile_theme, schedule, gender
+              social_links, profile_theme, schedule, closed_dates, gender
        FROM users 
        WHERE public_slug = ? AND public_profile_enabled = true`,
        [req.params.slug]
@@ -21,7 +21,7 @@ router.get('/:slug', async (req, res) => {
     const u = rows[0];
 
     // Parse JSON fields
-    const jsonFields = ['social_links', 'profile_theme', 'schedule'];
+    const jsonFields = ['social_links', 'profile_theme', 'schedule', 'closed_dates'];
     jsonFields.forEach(f => {
       if (u[f] && typeof u[f] === 'string') {
         try { u[f] = JSON.parse(u[f]); } catch { u[f] = null; }
@@ -633,4 +633,3 @@ router.post('/anamnese/cancel', async (req, res) => {
 });
 
 module.exports = router;
-

@@ -103,8 +103,19 @@ async function migrate() {
       permissions JSON NULL,
       company_name VARCHAR(255) NULL,
       address VARCHAR(500) NULL,
+      bio TEXT NULL,
       clinic_logo_url VARCHAR(500) NULL,
+      cover_url VARCHAR(500) NULL,
       schedule JSON NULL,
+      closed_dates JSON NULL,
+      public_slug VARCHAR(255) NULL UNIQUE,
+      public_profile_enabled BOOLEAN DEFAULT FALSE,
+      social_links JSON NULL,
+      profile_theme JSON NULL,
+      gender VARCHAR(20) NULL,
+      ui_preferences JSON NULL,
+      two_factor_enabled BOOLEAN DEFAULT FALSE,
+      two_factor_secret VARCHAR(255) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY unique_email_tenant (email, tenant_id),
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
@@ -354,6 +365,30 @@ async function migrate() {
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // Fix: adiciona tenant_id ao unique key de clinical_tools se ainda não existe
+  try {
+    // Verifica se o índice antigo (sem tenant_id) existe
+    const [idxRows] = await conn.query(`
+      SELECT INDEX_NAME FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'clinical_tools'
+      AND INDEX_NAME = 'unique_scope_tool'
+    `);
+    if (idxRows.length > 0) {
+      // Remove o índice antigo e cria novo com tenant_id
+      await conn.query(`ALTER TABLE clinical_tools DROP INDEX unique_scope_tool`);
+      await conn.query(`ALTER TABLE clinical_tools ADD UNIQUE KEY uq_ct_tenant_scope_tool (tenant_id, scope_key, tool_type)`);
+      console.log('   ✓ clinical_tools: unique key atualizado para incluir tenant_id');
+    }
+  } catch (e) {
+    console.warn('   clinical_tools unique key patch:', e.message);
+  }
+
+  // Fix: patient_id e professional_id podem ser nullable
+  try {
+    await conn.query(`ALTER TABLE clinical_tools MODIFY COLUMN patient_id INT DEFAULT 0`);
+    await conn.query(`ALTER TABLE clinical_tools MODIFY COLUMN professional_id INT DEFAULT NULL`);
+  } catch (e) { /* já OK */ }
 
   // ---- CASE STUDIES ----
   await conn.query(`

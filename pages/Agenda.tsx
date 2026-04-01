@@ -227,6 +227,14 @@ export const Agenda: React.FC = () => {
     return parsed as WorkScheduleDay[];
   }, [profileData]);
 
+  const profileClosedDates = useMemo(() => {
+    const raw = profileData?.closed_dates;
+    if (!raw) return [];
+    const parsed = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed as { date: string; label: string }[];
+  }, [profileData]);
+
   const startHour = useMemo(() => {
     const activeStarts = workSchedule
       .filter(d => d.active)
@@ -1707,6 +1715,7 @@ export const Agenda: React.FC = () => {
                 endHour={endHour}
                 skippedHours={skippedHours}
                 workSchedule={workSchedule}
+                closedDates={profileClosedDates}
             />
         )}
       </div>

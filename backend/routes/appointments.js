@@ -545,6 +545,88 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
         const currentEnd = new Date(currentStart.getTime() + duration * 60000);
         const formattedEnd = currentEnd.toISOString().slice(0, 19).replace('T', ' ');
 
+        // ── Validação de agenda e datas bloqueadas do profissional ──────────────
+        if (finalProfessionalId) {
+            const [profRows] = await db.query(
+                'SELECT schedule, closed_dates FROM users WHERE id = ? AND tenant_id = ? LIMIT 1',
+                [finalProfessionalId, req.user.tenant_id]
+            );
+            if (profRows.length > 0) {
+                const profSchedule = typeof profRows[0].schedule === 'string'
+                    ? JSON.parse(profRows[0].schedule) : (profRows[0].schedule || null);
+                const profClosedDates = typeof profRows[0].closed_dates === 'string'
+                    ? JSON.parse(profRows[0].closed_dates) : (profRows[0].closed_dates || null);
+
+                const apptDate = new Date(formattedStart);
+                const dateStr = apptDate.toISOString().slice(0, 10); // YYYY-MM-DD
+
+                // 1) Verificar se a data está na lista de datas fechadas
+                if (Array.isArray(profClosedDates) && profClosedDates.length > 0) {
+                    const blocked = profClosedDates.find(d => d.date === dateStr);
+                    if (blocked) {
+                        if (freq) {
+                            // Recorrência: pula silenciosamente o dia bloqueado
+                            console.log(`[schedule] Pulando ${dateStr} — data bloqueada: ${blocked.label || 'folga'}`);
+                            continue;
+                        }
+                        return res.status(422).json({
+                            error: 'blocked_date',
+                            message: `O profissional está indisponível em ${dateStr}${blocked.label ? ' (' + blocked.label + ')' : ''}.`,
+                        });
+                    }
+                }
+
+                // 2) Verificar se o dia da semana está ativo na agenda
+                if (Array.isArray(profSchedule) && profSchedule.length > 0) {
+                    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+                    const dayKey = dayNames[apptDate.getDay()];
+                    const dayConfig = profSchedule.find(d => d.dayKey === dayKey);
+
+                    if (dayConfig && !dayConfig.active) {
+                        if (freq) {
+                            console.log(`[schedule] Pulando ${dateStr} — dia ${dayKey} inativo na agenda`);
+                            continue;
+                        }
+                        return res.status(422).json({
+                            error: 'day_inactive',
+                            message: `O profissional não atende às ${dayKey === 'sunday' ? 'domingos' : dayKey === 'saturday' ? 'sábados' : 'esse dia da semana'}.`,
+                        });
+                    }
+
+                    // 3) Verificar se o horário está dentro do expediente
+                    if (dayConfig && dayConfig.active && dayConfig.start && dayConfig.end) {
+                        const apptHHMM = apptDate.toTimeString().slice(0, 5); // HH:MM
+                        if (apptHHMM < dayConfig.start || apptHHMM >= dayConfig.end) {
+                            if (freq) {
+                                console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — fora do expediente ${dayConfig.start}-${dayConfig.end}`);
+                                continue;
+                            }
+                            return res.status(422).json({
+                                error: 'outside_hours',
+                                message: `Horário fora do expediente. O profissional atende das ${dayConfig.start} às ${dayConfig.end}.`,
+                            });
+                        }
+
+                        // 4) Verificar se o horário não está em intervalo (break)
+                        if (Array.isArray(dayConfig.breaks)) {
+                            for (const brk of dayConfig.breaks) {
+                                if (brk.start && brk.end && apptHHMM >= brk.start && apptHHMM < brk.end) {
+                                    if (freq) {
+                                        console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — em intervalo ${brk.start}-${brk.end}`);
+                                        continue;
+                                    }
+                                    return res.status(422).json({
+                                        error: 'break_time',
+                                        message: `Horário em período de intervalo (${brk.start}–${brk.end}).`,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Checagem de conflito de horário: mesmo profissional com período sobreposto
         // APENAS para agendamentos ÚNICOS (sem recorrência).
         // Para recorrência, o usuário escolheu explicitamente essa agenda e espera

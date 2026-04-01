@@ -62,86 +62,135 @@ router.get('/form', authMiddleware, async (req, res) => {
 });
 
 // GET /disc — lista avaliações DISC do tenant
+// Agrega dados de clinical_tools (disc-evaluative) + form_responses (formulários legados)
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const { patient_id } = req.query;
+    const results = [];
 
-    // Descobre o form_id do DISC para este tenant
-    // Tenta pelo título com DISC, depois pelo título padrão do DEFAULT_FORMS, depois pela estrutura (bloco D/I/S/C)
-    let discFormId = null;
-    const [byTitle] = await db.query(
-      `SELECT id FROM forms WHERE tenant_id = ? AND (title LIKE '%DISC%' OR title LIKE '%Autoconhecimento Comportamental%') ORDER BY id ASC LIMIT 1`,
-      [req.user.tenant_id]
-    );
-    if (byTitle.length) {
-      discFormId = byTitle[0].id;
-    } else {
-      // Fallback: procura form com questão tendo "block" nos campos JSON
-      const [allForms] = await db.query(
-        `SELECT id, fields FROM forms WHERE tenant_id = ? AND fields LIKE '%"block"%' LIMIT 1`,
+    // ── Fonte 1: clinical_tools (disc-evaluative) ─────────────────────────
+    // Cada linha tem data = JSON array de resultados individuais com {id, date, answers, scores}
+    try {
+      let ctSql = `
+        SELECT ct.scope_key as patient_id, ct.data, ct.created_at, ct.updated_at,
+               p.name as patient_name
+        FROM clinical_tools ct
+        LEFT JOIN patients p ON CAST(p.id AS CHAR) COLLATE utf8mb4_unicode_ci = ct.scope_key
+        WHERE ct.tenant_id = ? AND ct.tool_type = 'disc-evaluative'
+      `;
+      const ctParams = [req.user.tenant_id];
+      if (patient_id) {
+        ctSql += ' AND ct.scope_key = ?';
+        ctParams.push(patient_id);
+      }
+      const [ctRows] = await db.query(ctSql, ctParams);
+
+      for (const row of ctRows) {
+        let history = [];
+        try {
+          const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+          history = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+        } catch (_) {}
+
+        for (const entry of history) {
+          const answers = entry.answers || {};
+          const scores = entry.scores || computeScores(answers);
+          results.push({
+            id: `ct_${row.patient_id}_${entry.id || entry.date}`,
+            patient_id: row.patient_id,
+            patient_name: row.patient_name || 'Paciente',
+            respondent_name: row.patient_name || null,
+            respondent_email: null,
+            answers,
+            score_total: 0,
+            score_d: scores.score_d ?? scores.D ?? 0,
+            score_i: scores.score_i ?? scores.I ?? 0,
+            score_s: scores.score_s ?? scores.S ?? 0,
+            score_c: scores.score_c ?? scores.C ?? 0,
+            aurora_analysis: entry.analysis || null,
+            notes: null,
+            created_at: entry.date || row.updated_at || row.created_at,
+          });
+        }
+      }
+    } catch (ctErr) {
+      console.warn('GET /disc clinical_tools error:', ctErr.message);
+    }
+
+    // ── Fonte 2: form_responses (formulários legados com título DISC) ──────
+    try {
+      let discFormId = null;
+      const [byTitle] = await db.query(
+        `SELECT id FROM forms WHERE tenant_id = ? AND (title LIKE '%DISC%' OR title LIKE '%Autoconhecimento Comportamental%') ORDER BY id ASC LIMIT 1`,
         [req.user.tenant_id]
       );
-      if (allForms.length) discFormId = allForms[0].id;
-    }
-    if (!discFormId) return res.json([]);
-
-    let sql = `
-      SELECT fr.id, fr.patient_id, fr.respondent_name, fr.respondent_email,
-             fr.data, fr.score, fr.created_at,
-             p.name as patient_name
-      FROM form_responses fr
-      LEFT JOIN patients p ON p.id = fr.patient_id
-      WHERE fr.form_id = ?
-    `;
-    const params = [discFormId];
-
-    if (patient_id) {
-      sql += ' AND fr.patient_id = ?';
-      params.push(patient_id);
-    }
-
-    sql += ' ORDER BY fr.created_at DESC';
-
-    const [rows] = await db.query(sql, params);
-
-    // Busca análises Aurora separadamente (tabela pode não existir ainda)
-    const analysisMap = {};
-    try {
-      if (rows.length > 0) {
-        const ids = rows.map(r => r.id);
-        const [daRows] = await db.query(
-          `SELECT form_response_id, aurora_analysis, notes FROM disc_analysis WHERE form_response_id IN (?)`,
-          [ids]
+      if (byTitle.length) {
+        discFormId = byTitle[0].id;
+      } else {
+        const [byBlock] = await db.query(
+          `SELECT id FROM forms WHERE tenant_id = ? AND fields LIKE '%"block"%' LIMIT 1`,
+          [req.user.tenant_id]
         );
-        daRows.forEach(da => { analysisMap[da.form_response_id] = da; });
+        if (byBlock.length) discFormId = byBlock[0].id;
       }
-    } catch (_) {}
 
-    const results = rows.map(row => {
-      let answers = {};
-      try {
-        const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
-        answers = parsed?.answers || parsed || {};
-      } catch (_) {}
-      const scores = computeScores(answers);
-      const da = analysisMap[row.id] || {};
-      return {
-        id: row.id,
-        patient_id: row.patient_id,
-        patient_name: row.patient_name || row.respondent_name || 'Anônimo',
-        respondent_name: row.respondent_name,
-        respondent_email: row.respondent_email,
-        answers,
-        score_total: row.score || 0,
-        score_d: scores.score_d,
-        score_i: scores.score_i,
-        score_s: scores.score_s,
-        score_c: scores.score_c,
-        aurora_analysis: da.aurora_analysis || null,
-        notes: da.notes || null,
-        created_at: row.created_at,
-      };
-    });
+      if (discFormId) {
+        let frSql = `
+          SELECT fr.id, fr.patient_id, fr.respondent_name, fr.respondent_email,
+                 fr.data, fr.score, fr.created_at, p.name as patient_name
+          FROM form_responses fr
+          LEFT JOIN patients p ON p.id = fr.patient_id
+          WHERE fr.form_id = ?
+        `;
+        const frParams = [discFormId];
+        if (patient_id) { frSql += ' AND fr.patient_id = ?'; frParams.push(patient_id); }
+        frSql += ' ORDER BY fr.created_at DESC';
+        const [frRows] = await db.query(frSql, frParams);
+
+        const analysisMap = {};
+        if (frRows.length > 0) {
+          try {
+            const ids = frRows.map(r => r.id);
+            const [daRows] = await db.query(
+              `SELECT form_response_id, aurora_analysis, notes FROM disc_analysis WHERE form_response_id IN (?)`,
+              [ids]
+            );
+            daRows.forEach(da => { analysisMap[da.form_response_id] = da; });
+          } catch (_) {}
+        }
+
+        for (const row of frRows) {
+          let answers = {};
+          try {
+            const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+            answers = parsed?.answers || parsed || {};
+          } catch (_) {}
+          const scores = computeScores(answers);
+          const da = analysisMap[row.id] || {};
+          results.push({
+            id: row.id,
+            patient_id: row.patient_id,
+            patient_name: row.patient_name || row.respondent_name || 'Anônimo',
+            respondent_name: row.respondent_name,
+            respondent_email: row.respondent_email,
+            answers,
+            score_total: row.score || 0,
+            score_d: scores.score_d,
+            score_i: scores.score_i,
+            score_s: scores.score_s,
+            score_c: scores.score_c,
+            aurora_analysis: da.aurora_analysis || null,
+            notes: da.notes || null,
+            created_at: row.created_at,
+          });
+        }
+      }
+    } catch (frErr) {
+      console.warn('GET /disc form_responses error:', frErr.message);
+    }
+
+    // Ordena por data desc
+    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     res.json(results);
   } catch (err) {

@@ -88,6 +88,7 @@ export interface AgendaPlannerProps {
   hideStats?: boolean;
   workSchedule?: WorkScheduleDay[];
   skippedHours?: number[];
+  closedDates?: { date: string; label: string }[];
 }
 
 type NormalizedEvent = AgendaPlannerEvent & {
@@ -353,6 +354,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
   hideStats,
   workSchedule,
   skippedHours = [],
+  closedDates = [],
 }) => {
   const [hoveredSlot, setHoveredSlot] = useState<{
     dayIndex: number;
@@ -676,12 +678,20 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                   >
                     {visibleDays.map((day) => {
                       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                      const dayIso = [
+                        day.getFullYear(),
+                        String(day.getMonth() + 1).padStart(2, '0'),
+                        String(day.getDate()).padStart(2, '0'),
+                      ].join('-');
+                      const closedEntry = closedDates.find(c => c.date === dayIso);
                       return (
                       <div
                         key={day.toISOString()}
                         className={cx(
                           'flex min-w-[128px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-2',
-                          isSameDay(day, new Date())
+                          closedEntry
+                            ? 'bg-rose-50'
+                            : isSameDay(day, new Date())
                             ? 'bg-indigo-50'
                             : isWeekend
                             ? 'bg-slate-100'
@@ -690,7 +700,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       >
                         <span className={cx(
                           'text-[10px] font-bold uppercase tracking-[0.18em]',
-                          isWeekend ? 'text-slate-400' : 'text-slate-400'
+                          closedEntry ? 'text-rose-400' : isWeekend ? 'text-slate-400' : 'text-slate-400'
                         )}>
                           {day
                             .toLocaleDateString(locale, { weekday: 'short' })
@@ -699,13 +709,20 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         <span
                           className={cx(
                             'mt-1 text-[17px] font-bold tracking-tight',
-                            isSameDay(day, new Date())
+                            closedEntry
+                              ? 'text-rose-500'
+                              : isSameDay(day, new Date())
                               ? 'text-indigo-600'
                               : isWeekend ? 'text-slate-400' : 'text-slate-800'
                           )}
                         >
                           {day.getDate()}
                         </span>
+                        {closedEntry && (
+                          <span className="mt-1 rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-rose-500 leading-tight max-w-full truncate">
+                            {closedEntry.label || 'Fechado'}
+                          </span>
+                        )}
                       </div>
                       );
                     })}
@@ -743,6 +760,13 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       };
                       const schedDay = workSchedule?.find((s: WorkScheduleDay) => s.dayKey === dayKeyMap[day.getDay()]);
                       const schedInactive = schedDay ? !schedDay.active : false;
+                      const dayIso2 = [
+                        day.getFullYear(),
+                        String(day.getMonth() + 1).padStart(2, '0'),
+                        String(day.getDate()).padStart(2, '0'),
+                      ].join('-');
+                      const isClosed = closedDates.some(c => c.date === dayIso2);
+                      const closedLabel = closedDates.find(c => c.date === dayIso2)?.label || 'Fechado';
                       const schedStartMinutes = schedDay?.active ? parseInt(schedDay.start.split(':')[0]) * 60 + parseInt(schedDay.start.split(':')[1]) : null;
                       const schedEndMinutes = schedDay?.active ? parseInt(schedDay.end.split(':')[0]) * 60 + parseInt(schedDay.end.split(':')[1]) : null;
 
@@ -793,14 +817,24 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           onSlotClick?.(info.slotDate);
                         }}
                       >
+                        {/* overlay dia fechado (closed_dates do perfil) */}
+                        {isClosed && (
+                          <div className="pointer-events-none absolute inset-0 z-[4] flex flex-col items-center justify-center gap-2"
+                            style={{ background: 'rgba(254,226,226,0.55)', backdropFilter: 'blur(1px)' }}>
+                            <Ban size={22} className="text-rose-300" strokeWidth={1.5} />
+                            <span className="rounded-full bg-rose-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-rose-500 text-center max-w-[90%] truncate">
+                              {closedLabel}
+                            </span>
+                          </div>
+                        )}
                         {/* overlay horário fora do expediente */}
-                        {workSchedule && schedInactive && (
+                        {!isClosed && workSchedule && schedInactive && (
                           <div className="pointer-events-none absolute inset-0 z-[3]" style={{ background: 'rgba(148,163,184,0.13)' }} />
                         )}
-                        {workSchedule && !schedInactive && beforeOverlayHeight > 0 && (
+                        {!isClosed && workSchedule && !schedInactive && beforeOverlayHeight > 0 && (
                           <div className="pointer-events-none absolute left-0 right-0 top-0 z-[3]" style={{ height: beforeOverlayHeight, background: 'rgba(148,163,184,0.13)' }} />
                         )}
-                        {workSchedule && !schedInactive && afterOverlayHeight > 0 && (
+                        {!isClosed && workSchedule && !schedInactive && afterOverlayHeight > 0 && (
                           <div className="pointer-events-none absolute left-0 right-0 z-[3]" style={{ top: afterOverlayTop, height: afterOverlayHeight, background: 'rgba(148,163,184,0.13)' }} />
                         )}
 

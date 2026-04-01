@@ -275,31 +275,39 @@ router.get('/:toolType/all', async (req, res) => {
   try {
     const { toolType } = req.params;
     const tid = req.user.tenant_id;
+    // Query base sem join de p1 para evitar problema com patient_id nullable
     const [rows] = await db.query(
       `SELECT ct.scope_key, ct.data, ct.updated_at,
-              p.id as patient_id, p.name as patient_name
+              p2.id as patient_id,
+              p2.name as patient_name
        FROM clinical_tools ct
-       LEFT JOIN patients p ON p.id = ct.patient_id AND p.tenant_id = ?
+       LEFT JOIN patients p2 ON CONVERT(p2.id, CHAR) COLLATE utf8mb4_unicode_ci = ct.scope_key AND p2.tenant_id = ?
        WHERE ct.tenant_id = ? AND ct.tool_type = ?
        ORDER BY ct.updated_at DESC`,
       [tid, tid, toolType]
     );
     const result = rows.map(r => {
       let history = [];
-      try { history = JSON.parse(r.data || '[]'); } catch {}
-      const last = Array.isArray(history) ? history[history.length - 1] : (typeof history === 'object' ? history : null);
+      try {
+        const parsed = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+        history = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+      } catch {}
+      const last = history.length > 0 ? history[history.length - 1] : null;
       return {
         patient_id: r.patient_id || r.scope_key,
         patient_name: r.patient_name || `Paciente ${r.scope_key}`,
         updated_at: r.updated_at,
-        sessions: Array.isArray(history) ? history.length : (history ? 1 : 0),
+        sessions: history.length,
         last_scores: last?.scores || last?.score || null,
         last_date: last?.date || last?.created_at || r.updated_at,
-        history: Array.isArray(history) ? history : [history].filter(Boolean),
+        history,
       };
     });
     res.json(result);
-  } catch (err) { console.error(err); res.status(500).json({ error: `Erro ao buscar dados de ${req.params.toolType}` }); }
+  } catch (err) {
+    console.error(`[clinical-tools] GET /${req.params.toolType}/all ERROR:`, err.message, err.stack);
+    res.status(500).json({ error: `Erro ao buscar dados de ${req.params.toolType}`, detail: err.message });
+  }
 });
 
 router.get('/dass-all', async (req, res) => {

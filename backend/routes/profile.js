@@ -17,6 +17,7 @@ const ensureColumns = async () => {
     "ALTER TABLE users ADD COLUMN clinic_logo_url VARCHAR(500) NULL",
     "ALTER TABLE users ADD COLUMN cover_url VARCHAR(500) NULL",
     "ALTER TABLE users ADD COLUMN schedule JSON NULL",
+    "ALTER TABLE users ADD COLUMN closed_dates JSON NULL",
     "ALTER TABLE users ADD COLUMN specialty VARCHAR(255) NULL",
     "ALTER TABLE users ADD COLUMN crp VARCHAR(50) NULL",
     "ALTER TABLE users ADD COLUMN phone VARCHAR(255) NULL",
@@ -48,7 +49,7 @@ router.get('/me', async (req, res) => {
     const [rows] = await db.query(
       `SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.specialty, u.crp, u.phone, 
               u.avatar_url, u.bio, u.company_name, u.address, u.clinic_logo_url, u.cover_url, 
-              u.schedule, u.active, u.permissions as user_permissions,
+              u.schedule, u.closed_dates, u.active, u.permissions as user_permissions,
               u.ui_preferences, u.forms_archived, u.forms_favorites,
               u.two_factor_enabled, u.public_slug, u.social_links, u.public_profile_enabled, u.profile_theme,
               u.gender,
@@ -65,7 +66,7 @@ router.get('/me', async (req, res) => {
     const u = rows[0];
     
     // Parse JSON fields
-    const jsonFields = ['schedule', 'ui_preferences', 'forms_archived', 'forms_favorites', 'social_links', 'profile_theme'];
+    const jsonFields = ['schedule', 'closed_dates', 'ui_preferences', 'forms_archived', 'forms_favorites', 'social_links', 'profile_theme'];
     jsonFields.forEach(f => {
       if (u[f] && typeof u[f] === 'string') {
         try { u[f] = JSON.parse(u[f]); } catch { u[f] = f.includes('forms') ? [] : null; }
@@ -106,7 +107,7 @@ router.put('/me', async (req, res) => {
   try {
     const { 
       name, email, phone, crp, specialty, company_name, address, bio, 
-      avatar_url, clinic_logo_url, cover_url, schedule,
+      avatar_url, clinic_logo_url, cover_url, schedule, closed_dates,
       public_slug, social_links, public_profile_enabled, profile_theme,
       gender
     } = req.body;
@@ -125,6 +126,7 @@ router.put('/me', async (req, res) => {
         clinic_logo_url = ?,
         cover_url = ?,
         schedule = ?,
+        closed_dates = ?,
         public_slug = ?,
         social_links = ?,
         public_profile_enabled = ?,
@@ -134,7 +136,8 @@ router.put('/me', async (req, res) => {
       [
         name, email, phone, crp, specialty, company_name || null, address || null, bio || null,
         avatar_url, clinic_logo_url || null, cover_url || null,
-        schedule ? JSON.stringify(schedule) : null,
+        Array.isArray(schedule) ? JSON.stringify(schedule) : null,
+        Array.isArray(closed_dates) ? JSON.stringify(closed_dates) : null,
         public_slug || null,
         social_links ? JSON.stringify(social_links) : null,
         public_profile_enabled || false,
@@ -146,14 +149,14 @@ router.put('/me', async (req, res) => {
 
     const [rows] = await db.query(
       `SELECT id, name, email, role, phone, crp, specialty, avatar_url, bio, 
-              company_name, address, clinic_logo_url, cover_url, schedule,
+              company_name, address, clinic_logo_url, cover_url, schedule, closed_dates,
               public_slug, social_links, public_profile_enabled, profile_theme, gender
        FROM users WHERE id = ?`,
       [req.user.id]
     );
     const u = rows[0];
 
-    const jsonFields = ['schedule', 'social_links', 'profile_theme'];
+    const jsonFields = ['schedule', 'closed_dates', 'social_links', 'profile_theme'];
     jsonFields.forEach(f => {
       if (u[f] && typeof u[f] === 'string') {
         try { u[f] = JSON.parse(u[f]); } catch { u[f] = null; }

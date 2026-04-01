@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getStaticUrl } from '../../services/api';
-import {
-  CheckCircle,
-  Activity,
-  ArrowRight,
-  ShieldCheck,
-  Info,
-  Sparkles
-} from 'lucide-react';
+import { CheckCircle, ArrowRight, ShieldCheck, Activity } from 'lucide-react';
 
 const BDI_ITEMS = [
   { id: 1, text: "Em relação à tristeza:" },
@@ -34,6 +27,13 @@ const BDI_ITEMS = [
   { id: 21, text: "Em relação à perda de interesse em sexo:" },
 ];
 
+const SCALE_OPTS = [
+  { v: 0, l: 'Nada' },
+  { v: 1, l: 'Leve' },
+  { v: 2, l: 'Moderado' },
+  { v: 3, l: 'Grave' },
+];
+
 export const BDIPublic: React.FC = () => {
   const [searchParams] = useSearchParams();
   const patientId = searchParams.get('p');
@@ -52,94 +52,54 @@ export const BDIPublic: React.FC = () => {
   }, [professionalId]);
 
   useEffect(() => {
+    const profName = professional?.name || 'Psicólogo(a)';
+    document.title = professional ? `BDI-II | ${profName}` : 'BDI-II | PsiFlux';
     if (professional) {
-      const profName = professional.name || 'Psicólogo(a)';
-      const specialty = professional.specialty || 'Psicologia';
-      const crp = professional.crp ? ` (${professional.crp})` : '';
-      const fullTitle = `BDI-II | ${profName} ${crp}`;
-
-      document.title = fullTitle;
-
-      const description = `Inventário de Depressão de Beck (BDI-II) solicitado por ${profName} (${specialty}). Sua saúde mental em foco.`;
-
       const setMeta = (attr: string, key: string, content: string) => {
         let el = document.querySelector(`meta[${attr}="${key}"]`);
-        if (!el) {
-          el = document.createElement('meta');
-          el.setAttribute(attr, key);
-          document.head.appendChild(el);
-        }
+        if (!el) { el = document.createElement('meta'); el.setAttribute(attr, key); document.head.appendChild(el); }
         el.setAttribute('content', content);
       };
-
-      setMeta('name', 'description', description);
-      setMeta('property', 'og:title', fullTitle);
-      setMeta('property', 'og:description', description);
-      setMeta('property', 'og:type', 'website');
-      setMeta('property', 'og:site_name', 'PsiFlux Clinical');
-      if (professional.clinic_logo_url) {
-        setMeta('property', 'og:image', getStaticUrl(professional.clinic_logo_url));
-        setMeta('property', 'og:image:alt', fullTitle);
-        setMeta('property', 'og:image:width', '1200');
-        setMeta('property', 'og:image:height', '630');
-      }
-    } else {
-      document.title = "BDI-II | PsiFlux";
+      setMeta('name', 'description', `Inventário BDI-II solicitado por ${profName}`);
+      setMeta('property', 'og:title', `BDI-II | ${profName}`);
+      if (professional.clinic_logo_url) setMeta('property', 'og:image', getStaticUrl(professional.clinic_logo_url));
     }
   }, [professional]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (Object.keys(answers).length < 21) {
-      alert('Por favor, responda todas as questões.');
-      return;
-    }
-
+    if (Object.keys(answers).length < 21) { alert('Por favor, responda todas as questões.'); return; }
     setLoading(true);
     try {
       const total = Object.values(answers).reduce((a: number, b: number) => a + b, 0);
-      const finalScores = { total };
-
       const uParam = professionalId ? `?u=${professionalId}` : '';
       const resp = await api.get<any[]>(`/public-profile/bdi-ii/${patientId}${uParam}`);
       const currentHistory = Array.isArray(resp) ? resp : [];
-
-      const newResult = {
-        id: Date.now(),
-        date: new Date().toISOString(),
-        answers,
-        scores: finalScores,
-        origin: 'external'
-      };
-
       await api.post(`/public-profile/bdi-ii/${patientId}${uParam}`, {
-        data: [...currentHistory, newResult]
+        data: [...currentHistory, { id: Date.now(), date: new Date().toISOString(), answers, scores: { total }, origin: 'external' }]
       });
-
       setSubmitted(true);
-    } catch (err) {
-      setError('Ocorreu um erro ao enviar suas respostas. Tente novamente.');
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError('Erro ao enviar. Tente novamente.'); }
+    finally { setLoading(false); }
   };
+
+  const answered = Object.keys(answers).length;
+  const progress = Math.round((answered / 21) * 100);
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
-        <div className="bg-white rounded-[4rem] shadow-2xl p-16 max-w-lg w-full space-y-10 animate-in fade-in zoom-in duration-700">
-          <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto border border-rose-100 shadow-inner">
-            <CheckCircle className="text-rose-500" size={48} />
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-sm w-full text-center space-y-5">
+          <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto">
+            <CheckCircle className="text-rose-500" size={32} />
           </div>
-          <div className="space-y-4 text-center">
-            <h2 className="text-4xl font-black text-slate-800 tracking-tight leading-none uppercase italic">Concluído!</h2>
-            <p className="text-base text-slate-500 font-bold leading-relaxed italic opacity-80">
-              Suas respostas foram encaminhadas com segurança ao seu psicólogo(a). Ele(a) discutirá os resultados com você na próxima sessão.
-            </p>
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Concluído!</h2>
+            <p className="text-sm text-slate-500 mt-2 leading-relaxed">Suas respostas foram encaminhadas com segurança. O profissional discutirá os resultados na próxima sessão.</p>
           </div>
-          <div className="pt-8 border-t border-slate-50 flex items-center justify-center gap-3">
-             <ShieldCheck size={18} className="text-slate-300" />
-             <span className="text-[11px] font-black text-slate-300 uppercase tracking-[0.3em]">Criptografia PsiFlux 256-bit</span>
+          <div className="flex items-center justify-center gap-2 pt-2 opacity-40">
+            <ShieldCheck size={13} className="text-slate-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocolo PsiFlux</span>
           </div>
         </div>
       </div>
@@ -147,144 +107,94 @@ export const BDIPublic: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafaff] font-sans pb-24 selection:bg-rose-100 italic-text-none">
-      <div className="bg-gradient-to-br from-rose-700 via-rose-600 to-slate-800 text-white py-10 md:py-20 px-6 shadow-2xl relative overflow-hidden">
-         <div className="absolute top-0 right-0 p-12 opacity-[0.05] pointer-events-none rotate-12 scale-125">
-            <Activity size={320} />
-         </div>
-         <div className="absolute -top-24 -left-20 w-96 h-96 bg-white/5 rounded-full blur-[120px] pointer-events-none" />
-
-         <div className="max-w-3xl mx-auto space-y-8 relative z-10 animate-in fade-in slide-in-from-top-4 duration-700 text-center md:text-left">
-            <div className="flex items-center gap-3 bg-white/10 w-fit px-5 py-2.5 rounded-full border border-white/20 backdrop-blur-md mx-auto md:mx-0 shadow-xl">
-               <Sparkles size={18} className="text-rose-200" />
-               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-rose-50">Protocolo Beck — Depressão</span>
-            </div>
-
-            <div className="space-y-4">
-              <h1 className="text-4xl md:text-8xl font-black tracking-tighter leading-none uppercase italic transform -skew-x-2 drop-shadow-2xl">BDI-II</h1>
-              <p className="text-rose-100 font-medium text-lg md:text-2xl leading-relaxed italic opacity-90 max-w-2xl mx-auto md:mx-0">
-                Avaliação padronizada de sintomas depressivos.
-              </p>
-            </div>
-
-            {professional && (
-              <div className="pt-3 md:pt-8 flex flex-row items-center gap-3 md:gap-6 group">
-                 <div className="relative">
-                    <div className="absolute -inset-2 bg-gradient-to-tr from-white/30 to-white/10 rounded-[2.2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    {professional.clinic_logo_url ? (
-                      <img
-                        src={getStaticUrl(professional.clinic_logo_url)}
-                        alt={professional.company_name || professional.name}
-                        className="w-12 h-12 md:w-24 md:h-24 rounded-2xl md:rounded-[2.2rem] bg-white border-4 md:border-8 border-white/20 shadow-xl object-contain p-1 md:p-2 relative z-10"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 md:w-20 md:h-20 rounded-xl md:rounded-[1.8rem] bg-white/20 border-2 border-white/30 flex items-center justify-center font-black text-xl md:text-3xl relative z-10">
-                          {professional.name?.[0]}
-                      </div>
-                    )}
-                 </div>
-
-                 <div className="text-left">
-                    <p className="text-rose-200 font-bold uppercase tracking-widest text-[9px] mb-0.5 opacity-70">Psicólogo(a) Responsável</p>
-                    <p className="font-black text-base md:text-4xl tracking-tight leading-tight">{professional.name}</p>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      {professional.specialty && (
-                        <span className="text-[10px] md:text-[12px] font-bold text-rose-50/90 bg-white/10 px-2 md:px-4 py-1 md:py-1.5 rounded-full border border-white/10 whitespace-nowrap">{professional.specialty}</span>
-                      )}
-                      {professional.crp && (
-                        <span className="text-[10px] md:text-[12px] font-black bg-slate-950/40 px-2 md:px-4 py-1 md:py-1.5 rounded-full border border-white/10 text-white leading-none">
-                          CRP {professional.crp}
-                        </span>
-                      )}
-                    </div>
-                 </div>
+    <div className="min-h-screen bg-[#fafaff] font-sans pb-8">
+      <div className="bg-gradient-to-br from-rose-700 via-rose-600 to-slate-800 text-white px-5 pt-8 pb-16 relative overflow-hidden">
+        <div className="absolute top-0 right-0 opacity-[0.05] pointer-events-none rotate-12"><Activity size={260} /></div>
+        <div className="absolute -top-20 -left-16 w-72 h-72 bg-white/5 rounded-full blur-[80px] pointer-events-none" />
+        <div className="max-w-2xl mx-auto relative z-10 space-y-5">
+          <div className="flex items-center gap-2 bg-white/10 w-fit px-4 py-2 rounded-full border border-white/20 backdrop-blur-md">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-100">Protocolo Beck — Depressão</span>
+          </div>
+          <div>
+            <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none uppercase italic drop-shadow-lg">BDI-II</h1>
+            <p className="text-rose-200 text-sm sm:text-base mt-2 font-medium">Inventário de Depressão de Beck</p>
+          </div>
+          {professional && (
+            <div className="flex items-center gap-3 bg-white/10 rounded-2xl px-4 py-3 border border-white/10 backdrop-blur-sm">
+              {professional.clinic_logo_url ? (
+                <img src={getStaticUrl(professional.clinic_logo_url)} alt={professional.company_name || professional.name} className="w-12 h-12 rounded-2xl bg-white object-contain p-1 shrink-0 shadow-lg" />
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center font-black text-lg shrink-0">{professional.name?.[0]}</div>
+              )}
+              <div className="min-w-0">
+                <p className="text-rose-200 text-[9px] font-black uppercase tracking-widest opacity-70">Psicólogo(a) Responsável</p>
+                <p className="font-black text-base leading-tight truncate">{professional.name}</p>
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  {professional.specialty && <span className="text-[10px] font-bold text-rose-100/80 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">{professional.specialty}</span>}
+                  {professional.crp && <span className="text-[10px] font-black bg-slate-950/40 px-2 py-0.5 rounded-full border border-white/10">CRP {professional.crp}</span>}
+                </div>
               </div>
-            )}
-         </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-3 md:px-4 mt-0 md:-mt-12 space-y-3 md:space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-         <div className="bg-white rounded-2xl border border-slate-100 p-4 md:p-12 shadow-lg md:shadow-[0_40px_100px_-20px_rgba(30,41,59,0.08)] space-y-4 md:space-y-8 relative z-20 overflow-hidden">
-            <div className="flex items-center gap-3 text-rose-600">
-               <div className="w-9 h-9 md:w-16 md:h-16 bg-rose-50 rounded-xl md:rounded-[1.8rem] flex items-center justify-center border border-rose-100/30 shrink-0">
-                  <Info size={18} className="md:hidden" />
-                  <Info size={32} className="hidden md:block" />
-               </div>
-               <div>
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none">Guia Clínico</h3>
-                  <p className="text-base md:text-2xl font-black text-rose-950 uppercase italic tracking-tight">Instruções de Resposta</p>
-               </div>
-            </div>
-            <p className="text-sm md:text-base text-slate-500 leading-relaxed font-medium">
-               Selecione o quanto cada afirmação se aplicou a você <span className="text-rose-600 font-bold italic underline decoration-rose-200 underline-offset-2">durante as últimas duas semanas</span>.
-            </p>
-            <div className="grid grid-cols-4 gap-2 md:gap-4">
-               {[
-                 { v: 0, l: 'Nada' },
-                 { v: 1, l: 'Leve' },
-                 { v: 2, l: 'Moderado' },
-                 { v: 3, l: 'Grave' }
-               ].map(opt => (
-                 <div key={opt.v} className="bg-slate-50 py-3 md:p-6 rounded-xl md:rounded-[1.5rem] border border-slate-100 text-center flex flex-col items-center justify-center gap-1">
-                    <p className="text-rose-600 font-black text-xl md:text-3xl leading-none">{opt.v}</p>
-                    <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase leading-tight">{opt.l}</p>
-                 </div>
-               ))}
-            </div>
-         </div>
-
-         <form onSubmit={handleSubmit} className="space-y-3 md:space-y-6">
-            {BDI_ITEMS.map((item, idx) => (
-              <div key={item.id} className={`bg-white rounded-2xl md:rounded-[3rem] border-2 p-4 md:p-10 shadow-sm md:shadow-[0_15px_50px_-15px_rgba(30,41,59,0.06)] space-y-3 md:space-y-10 transition-all duration-300 ${
-                answers[item.id] !== undefined ? 'border-rose-100' : 'border-transparent'
-              }`}>
-                 <div className="flex items-start gap-3">
-                    <span className="shrink-0 w-7 h-7 md:w-14 md:h-14 rounded-xl md:rounded-[1.8rem] bg-slate-100 flex items-center justify-center text-xs md:text-sm font-black text-slate-400 mt-0.5">
-                       {String(idx + 1).padStart(2, '0')}
-                    </span>
-                    <p className="text-base md:text-2xl font-bold md:font-black text-slate-800 leading-snug pt-0.5">
-                      {item.text}
-                    </p>
-                 </div>
-
-                 <div className="grid grid-cols-4 gap-2 md:gap-4">
-                    {[0, 1, 2, 3].map(val => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setAnswers({ ...answers, [item.id]: val })}
-                        className={`h-12 md:h-24 rounded-xl md:rounded-[1.8rem] text-lg md:text-xl font-black transition-all duration-200 border-2 ${
-                          answers[item.id] === val
-                          ? 'bg-rose-600 text-white border-rose-600 shadow-lg shadow-rose-200 scale-[1.04]'
-                          : 'bg-slate-50 text-slate-400 border-slate-100 active:bg-rose-50 active:text-rose-600'
-                        }`}
-                      >
-                         {val}
-                      </button>
-                    ))}
-                 </div>
+      <div className="max-w-2xl mx-auto px-4 -mt-8 space-y-3">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 relative z-10">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Instruções</p>
+          <p className="text-sm text-slate-600 leading-relaxed">Para cada item, selecione a opção que melhor descreve como você se sentiu <strong className="text-rose-600">nas últimas duas semanas</strong>.</p>
+          <div className="grid grid-cols-4 gap-2 mt-3">
+            {SCALE_OPTS.map(o => (
+              <div key={o.v} className="bg-rose-50 rounded-xl py-2 text-center">
+                <p className="text-rose-600 font-black text-base">{o.v}</p>
+                <p className="text-[9px] font-bold text-rose-400 leading-tight">{o.l}</p>
               </div>
             ))}
+          </div>
+        </div>
 
-            <div className="pt-2 md:pt-12">
-               <button
-                 type="submit"
-                 disabled={loading}
-                 className="w-full bg-rose-600 text-white rounded-2xl md:rounded-[3rem] py-4 md:py-12 font-black uppercase tracking-widest text-sm md:text-lg shadow-lg shadow-rose-200 transition-all disabled:opacity-50 flex items-center justify-center gap-3 active:scale-[0.98]"
-               >
-                  {loading ? 'Enviando...' : (
-                    <>
-                      Finalizar Avaliação <ArrowRight size={18} />
-                    </>
-                  )}
-               </button>
-               {error && <p className="text-rose-500 text-center mt-4 text-sm font-bold">{error}</p>}
-               <div className="flex items-center justify-center gap-2 mt-6 opacity-30">
-                  <ShieldCheck size={14} className="text-rose-400" />
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Protocolo de Sigilo PsiFlux</p>
-               </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-slate-500">{answered} de 21 respondidas</span>
+            <span className="text-xs font-black text-rose-600">{progress}%</span>
+          </div>
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-rose-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-2">
+          {BDI_ITEMS.map((item, idx) => (
+            <div key={item.id} className={`bg-white rounded-2xl border transition-all duration-200 p-4 ${answers[item.id] !== undefined ? 'border-rose-200 shadow-sm' : 'border-slate-100'}`}>
+              <div className="flex items-start gap-3 mb-3">
+                <span className="shrink-0 w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 mt-0.5">{String(idx + 1).padStart(2, '0')}</span>
+                <p className="text-sm font-semibold text-slate-800 leading-snug flex-1">{item.text}</p>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {SCALE_OPTS.map(opt => (
+                  <button key={opt.v} type="button" onClick={() => setAnswers({ ...answers, [item.id]: opt.v })}
+                    className={`h-11 rounded-xl font-black text-sm transition-all border-2 flex flex-col items-center justify-center gap-0.5 ${
+                      answers[item.id] === opt.v ? 'bg-rose-600 text-white border-rose-600 shadow-md scale-[1.02]' : 'bg-slate-50 text-slate-400 border-slate-100 active:bg-rose-50'
+                    }`}>
+                    <span>{opt.v}</span><span className="text-[8px] font-bold opacity-70">{opt.l}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-         </form>
+          ))}
+          <div className="pt-2 pb-4">
+            <button type="submit" disabled={loading || answered < 21}
+              className="w-full bg-rose-600 text-white rounded-2xl py-4 font-black uppercase tracking-widest text-sm shadow-lg shadow-rose-200 transition-all disabled:opacity-40 flex items-center justify-center gap-2 active:scale-[0.98]">
+              {loading ? 'Enviando...' : <><span>Finalizar Avaliação</span><ArrowRight size={16} /></>}
+            </button>
+            {answered < 21 && !loading && <p className="text-center text-xs text-slate-400 mt-2">Responda todas as {21 - answered} questões restantes</p>}
+            {error && <p className="text-rose-500 text-center mt-3 text-xs font-bold">{error}</p>}
+            <div className="flex items-center justify-center gap-1.5 mt-4 opacity-30">
+              <ShieldCheck size={12} className="text-slate-400" />
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protocolo de Sigilo PsiFlux</p>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   );

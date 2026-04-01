@@ -23,7 +23,7 @@ import {
   ExternalLink,
   ChevronRight,
   Info,
-  Calendar,
+  Calendar as CalendarIcon,
   Lock,
   Layout,
   Plus,
@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { Calendar as AvailabilityCalendar } from '../components/UI/Calendar';
 
 type DayKey =
   | 'monday'
@@ -56,6 +57,70 @@ type ScheduleDay = {
   end: string;
   breaks: BreakPeriod[];
 };
+
+type ClosedDate = {
+  date: string;
+  label: string;
+};
+
+type ClosedDatePreset = ClosedDate & {
+  buttonLabel: string;
+};
+
+const DEFAULT_SCHEDULE: ScheduleDay[] = [
+  { dayKey: 'monday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'tuesday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'wednesday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'thursday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'friday', active: true, start: '08:00', end: '17:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'saturday', active: false, start: '09:00', end: '13:00', breaks: [] },
+  { dayKey: 'sunday', active: false, start: '', end: '', breaks: [] },
+];
+
+const SATURDAY_SCHEDULE: ScheduleDay[] = [
+  { dayKey: 'monday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'tuesday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'wednesday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'thursday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'friday', active: true, start: '08:00', end: '17:00', breaks: [{ start: '12:00', end: '13:00' }] },
+  { dayKey: 'saturday', active: true, start: '09:00', end: '13:00', breaks: [] },
+  { dayKey: 'sunday', active: false, start: '', end: '', breaks: [] },
+];
+
+const cloneSchedule = (days: ScheduleDay[]) =>
+  days.map((day) => ({
+    ...day,
+    breaks: day.breaks.map((item) => ({ ...item })),
+  }));
+
+const sortClosedDates = (items: ClosedDate[]) =>
+  [...items].sort((a, b) => a.date.localeCompare(b.date));
+
+const toIsoDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return year + '-' + month + '-' + day;
+};
+
+const formatClosedDate = (date: string) => {
+  const [year, month, day] = date.split('-').map(Number);
+  if (!year || !month || !day) return date;
+  return new Date(year, month - 1, day).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+const buildHolidayPresets = (year: number): ClosedDatePreset[] => [
+  { date: year + '-01-01', label: 'Ano Novo', buttonLabel: 'Ano Novo ' + year },
+  { date: year + '-04-21', label: 'Tiradentes', buttonLabel: 'Tiradentes ' + year },
+  { date: year + '-05-01', label: 'Dia do Trabalho', buttonLabel: 'Dia do Trabalho ' + year },
+  { date: year + '-09-07', label: 'Independencia', buttonLabel: 'Independencia ' + year },
+  { date: year + '-11-02', label: 'Finados', buttonLabel: 'Finados ' + year },
+  { date: year + '-12-25', label: 'Natal', buttonLabel: 'Natal ' + year },
+];
 
 export const Profile: React.FC = () => {
   const { t } = useLanguage();
@@ -135,15 +200,8 @@ export const Profile: React.FC = () => {
     { key: 'faq',          label: 'Liste 3 dúvidas frequentes dos seus pacientes (uma por linha).',         placeholder: 'Ex:\nQual o valor da sessão?\nVocê atende online?\nPreciso de encaminhamento?' },
   ];
 
-  const [schedule, setSchedule] = useState<ScheduleDay[]>([
-    { dayKey: 'monday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
-    { dayKey: 'tuesday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
-    { dayKey: 'wednesday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
-    { dayKey: 'thursday', active: true, start: '08:00', end: '18:00', breaks: [{ start: '12:00', end: '13:00' }] },
-    { dayKey: 'friday', active: true, start: '08:00', end: '17:00', breaks: [{ start: '12:00', end: '13:00' }] },
-    { dayKey: 'saturday', active: false, start: '09:00', end: '13:00', breaks: [] },
-    { dayKey: 'sunday', active: false, start: '', end: '', breaks: [] },
-  ]);
+  const [schedule, setSchedule] = useState<ScheduleDay[]>(() => cloneSchedule(DEFAULT_SCHEDULE));
+  const [closedDates, setClosedDates] = useState<ClosedDate[]>([]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -202,13 +260,30 @@ export const Profile: React.FC = () => {
         if (data?.schedule) {
           const scheduleData = typeof data.schedule === 'string' ? JSON.parse(data.schedule) : data.schedule;
           if (Array.isArray(scheduleData)) {
-            // Migrate old lunchStart/lunchEnd format to breaks array
             const migrated = scheduleData.map((d: any) => ({
               ...d,
               breaks: d.breaks ?? (d.lunchStart ? [{ start: d.lunchStart, end: d.lunchEnd }] : []),
             }));
             setSchedule(migrated as ScheduleDay[]);
           }
+        }
+
+        if (data?.closed_dates) {
+          const closedDatesData = typeof data.closed_dates === 'string' ? JSON.parse(data.closed_dates) : data.closed_dates;
+          if (Array.isArray(closedDatesData)) {
+            setClosedDates(
+              sortClosedDates(
+                closedDatesData
+                  .filter((item: any) => item && item.date)
+                  .map((item: any) => ({
+                    date: String(item.date),
+                    label: String(item.label || 'Folga'),
+                  }))
+              )
+            );
+          }
+        } else {
+          setClosedDates([]);
         }
       } catch (err) {
         console.error("Erro ao carregar perfil:", err);
@@ -225,6 +300,39 @@ export const Profile: React.FC = () => {
     const b = parts[parts.length - 1]?.[0] ?? '';
     return (a + b).toUpperCase();
   }, [user.name]);
+
+  const todayIso = useMemo(() => toIsoDate(new Date()), []);
+
+  const activeDaysCount = useMemo(
+    () => schedule.filter((day) => day.active).length,
+    [schedule]
+  );
+
+  const scheduleRangeLabel = useMemo(() => {
+    const activeDays = schedule.filter((day) => day.active && day.start && day.end);
+    if (activeDays.length === 0) return 'Fechado';
+
+    const starts = activeDays.map((day) => day.start).sort();
+    const ends = activeDays.map((day) => day.end).sort();
+    return starts[0] + ' - ' + ends[ends.length - 1];
+  }, [schedule]);
+
+  const sortedClosedDates = useMemo(
+    () => sortClosedDates(closedDates),
+    [closedDates]
+  );
+
+  const nextClosedDate = useMemo(
+    () => sortedClosedDates.find((item) => item.date >= todayIso) || sortedClosedDates[0] || null,
+    [sortedClosedDates, todayIso]
+  );
+
+  const holidayPresets = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return [...buildHolidayPresets(currentYear), ...buildHolidayPresets(currentYear + 1)]
+      .filter((item) => item.date >= todayIso)
+      .slice(0, 8);
+  }, [todayIso]);
 
   const onAvatarPick = async (file?: File | null) => {
     if (!file) return;
@@ -292,6 +400,54 @@ export const Profile: React.FC = () => {
   const copyDayToAll = (index: number) => {
     const src = schedule[index];
     setSchedule(prev => prev.map((d, i) => i === index ? d : { ...d, start: src.start, end: src.end, breaks: src.breaks.map(b => ({ ...b })) }));
+  };
+
+  const applySchedulePreset = (preset: ScheduleDay[]) => {
+    setSchedule(cloneSchedule(preset));
+  };
+
+  const clearBreaks = () => {
+    setSchedule((prev) => prev.map((day) => ({ ...day, breaks: [] })));
+  };
+
+  const toggleClosedDate = (date: string) => {
+    setClosedDates((prev) => {
+      const exists = prev.some((item) => item.date === date);
+      if (exists) return prev.filter((item) => item.date !== date);
+      return sortClosedDates([...prev, { date, label: 'Folga' }]);
+    });
+  };
+
+  const updateClosedDate = (date: string, patch: Partial<ClosedDate>) => {
+    setClosedDates((prev) =>
+      sortClosedDates(
+        prev.map((item) =>
+          item.date === date
+            ? { ...item, ...patch }
+            : item
+        )
+      )
+    );
+  };
+
+  const addClosedDatePreset = (preset: ClosedDate) => {
+    setClosedDates((prev) => {
+      const exists = prev.some((item) => item.date === preset.date);
+      if (exists) {
+        return sortClosedDates(
+          prev.map((item) =>
+            item.date === preset.date && (!item.label || item.label === 'Folga')
+              ? { ...item, label: preset.label }
+              : item
+          )
+        );
+      }
+      return sortClosedDates([...prev, preset]);
+    });
+  };
+
+  const clearClosedDates = () => {
+    setClosedDates([]);
   };
 
   const handleAuroraGenerate = async () => {
@@ -384,6 +540,7 @@ Gere o seguinte JSON:
         clinic_logo_url: user.clinicLogoUrl,
         cover_url: user.coverUrl,
         schedule,
+        closed_dates: closedDates,
         public_slug: user.public_slug,
         public_profile_enabled: user.public_profile_enabled,
         social_links: user.social_links,
@@ -518,7 +675,7 @@ Gere o seguinte JSON:
             <div className="flex items-center gap-2 mt-8 border-t border-slate-100 pt-6 overflow-x-auto no-scrollbar">
               {[
                 { id: 'info', label: 'Dados Pessoais', icon: <User size={16} /> },
-                { id: 'schedule', label: 'Minha Agenda', icon: <Calendar size={16} /> },
+                { id: 'schedule', label: 'Minha Agenda', icon: <CalendarIcon size={16} /> },
                 { id: 'clinic', label: 'Dados da Clínica', icon: <Building2 size={16} /> },
                 { id: 'external', label: 'Página Externa', icon: <Globe size={16} /> },
               ].map(tab => (
@@ -587,20 +744,183 @@ Gere o seguinte JSON:
             )}
 
             {activeTab === 'schedule' && (
-              <Card title="Horários de Atendimento" icon={<Clock className="text-emerald-500" />} subtitle="Configure sua disponibilidade semanal para agendamentos online e presenciais.">
-                <div className="space-y-3">
-                  {schedule.map((day, idx) => (
-                    <ScheduleRow
-                      key={day.dayKey}
-                      day={day}
-                      t={t}
-                      onToggle={() => toggleDay(idx)}
-                      onUpdate={p => updateDay(idx, p)}
-                      onCopyToAll={() => copyDayToAll(idx)}
-                    />
-                  ))}
+              <div className="space-y-6">
+                {/* Stats Strip */}
+                <div className="grid grid-cols-3 gap-3">
+                  <ScheduleInsightCard
+                    icon={<CalendarIcon size={18} />}
+                    label="Dias ativos"
+                    value={activeDaysCount + '/7'}
+                    hint="Dias com atendimento"
+                    tone="indigo"
+                  />
+                  <ScheduleInsightCard
+                    icon={<Clock size={18} />}
+                    label="Janela base"
+                    value={scheduleRangeLabel}
+                    hint="Abertura — encerramento"
+                    tone="emerald"
+                  />
+                  <ScheduleInsightCard
+                    icon={<Lock size={18} />}
+                    label="Bloqueios"
+                    value={String(sortedClosedDates.length)}
+                    hint={nextClosedDate ? 'Prox: ' + nextClosedDate.date.slice(5).split('-').reverse().join('/') : 'Nenhum ainda'}
+                    tone="amber"
+                  />
                 </div>
-              </Card>
+
+                {/* Preset Banner */}
+                <div className="flex flex-col gap-3 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-600">Templates rápidos</p>
+                    <p className="mt-0.5 text-sm font-black text-slate-700">Aplique um padrão de horário de uma vez</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => applySchedulePreset(DEFAULT_SCHEDULE)}
+                      className="rounded-2xl border border-indigo-200 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95">
+                      Seg – Sex
+                    </button>
+                    <button onClick={() => applySchedulePreset(SATURDAY_SCHEDULE)}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95">
+                      Seg – Sáb
+                    </button>
+                    <button onClick={clearBreaks}
+                      className="rounded-2xl border border-rose-100 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-rose-500 transition-all hover:bg-rose-50 active:scale-95">
+                      Sem intervalos
+                    </button>
+                  </div>
+                </div>
+
+                {/* Weekly Schedule */}
+                <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                  <div className="mb-5 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-black text-slate-800">Rotina semanal</h4>
+                      <p className="text-xs font-bold text-slate-400">Defina horários e intervalos por dia da semana</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-600 border border-emerald-100">
+                      {activeDaysCount} dia{activeDaysCount !== 1 ? 's' : ''} ativo{activeDaysCount !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {schedule.map((day, idx) => (
+                      <ScheduleRow
+                        key={day.dayKey}
+                        day={day}
+                        t={t}
+                        onToggle={() => toggleDay(idx)}
+                        onUpdate={p => updateDay(idx, p)}
+                        onCopyToAll={() => copyDayToAll(idx)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Blocked Dates Section */}
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  {/* Calendar Picker */}
+                  <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-black text-slate-800">Dias bloqueados</h4>
+                        <p className="text-xs font-bold leading-relaxed text-slate-400">
+                          Clique em um dia para bloquear ou liberar. Reflete na agenda.
+                        </p>
+                      </div>
+                      <button
+                        onClick={clearClosedDates}
+                        disabled={sortedClosedDates.length === 0}
+                        className={sortedClosedDates.length === 0
+                          ? 'shrink-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-300 cursor-not-allowed'
+                          : 'shrink-0 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-600 transition-all hover:bg-rose-100 active:scale-95'}>
+                        Limpar tudo
+                      </button>
+                    </div>
+                    <AvailabilityCalendar
+                      blockedDates={sortedClosedDates.map((item) => item.date)}
+                      onDateToggle={toggleClosedDate}
+                    />
+
+                    {/* Holiday presets */}
+                    <div className="mt-4 border-t border-slate-100 pt-4">
+                      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Feriados rápidos</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {holidayPresets.map((preset) => {
+                          const active = sortedClosedDates.some((item) => item.date === preset.date);
+                          return (
+                            <button
+                              key={preset.date}
+                              onClick={() => addClosedDatePreset({ date: preset.date, label: preset.label })}
+                              className={active
+                                ? 'rounded-full border border-indigo-300 bg-indigo-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm transition-all'
+                                : 'rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600'}>
+                              {preset.buttonLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Blocked dates list */}
+                  <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm flex flex-col">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-black text-slate-800">Lista de bloqueios</h4>
+                        <p className="text-xs font-bold text-slate-400">Nomeie cada bloqueio para identificação</p>
+                      </div>
+                      {sortedClosedDates.length > 0 && (
+                        <span className="shrink-0 rounded-full bg-amber-50 border border-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-600">
+                          {sortedClosedDates.length} bloq.
+                        </span>
+                      )}
+                    </div>
+
+                    {sortedClosedDates.length === 0 ? (
+                      <div className="flex flex-1 flex-col items-center justify-center rounded-[1.6rem] border-2 border-dashed border-slate-100 bg-slate-50/60 px-6 py-10 text-center">
+                        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-300">
+                          <CalendarIcon size={24} />
+                        </div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Nenhum bloqueio</p>
+                        <p className="mt-1.5 text-xs font-bold text-slate-400">Use o calendário ao lado para bloquear dias</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 overflow-y-auto max-h-[480px] pr-1">
+                        {sortedClosedDates.map((item) => {
+                          const isPast = item.date < todayIso;
+                          return (
+                            <div key={item.date}
+                              className={`group flex items-center gap-3 rounded-2xl border p-3 transition-all ${isPast ? 'border-slate-100 bg-slate-50/70 opacity-60' : 'border-rose-100 bg-rose-50/40 hover:border-rose-200'}`}>
+                              {/* Date badge */}
+                              <div className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl font-black leading-none ${isPast ? 'bg-slate-200 text-slate-500' : 'bg-rose-500 text-white shadow-md shadow-rose-100'}`}>
+                                <span className="text-[11px] uppercase tracking-wide">{['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][parseInt(item.date.split('-')[1]) - 1]}</span>
+                                <span className="text-lg leading-tight">{item.date.split('-')[2]}</span>
+                              </div>
+                              {/* Input */}
+                              <div className="min-w-0 flex-1">
+                                <input
+                                  type="text"
+                                  value={item.label}
+                                  onChange={e => updateClosedDate(item.date, { label: e.target.value })}
+                                  className="w-full bg-transparent text-sm font-black text-slate-800 outline-none placeholder:text-slate-300 focus:placeholder:opacity-0"
+                                  placeholder="Motivo (Natal, Férias...)"
+                                />
+                                <p className="text-[10px] font-bold text-slate-400">{formatClosedDate(item.date)}{isPast ? ' · passado' : ''}</p>
+                              </div>
+                              {/* Remove */}
+                              <button onClick={() => toggleClosedDate(item.date)}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-rose-100 hover:text-rose-600">
+                                <X size={14} strokeWidth={3} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
 
             {activeTab === 'external' && (
@@ -1229,7 +1549,8 @@ Gere o seguinte JSON:
                <div className="space-y-4">
                  <CheckItem label="Foto de perfil de alta qualidade" checked={!!user.avatarUrl} />
                  <CheckItem label="Biografia detalhada" checked={user.bio.length > 50} />
-                 <CheckItem label="Agenda de horários configurada" checked={schedule.some(d => d.active)} />
+                 <CheckItem label="Agenda de horarios configurada" checked={schedule.some(d => d.active)} />
+                 <CheckItem label="Folgas e datas especiais definidas" checked={sortedClosedDates.length > 0} />
                  <CheckItem label="Endereço da clínica preenchido" checked={!!user.address} />
                </div>
             </div>
@@ -1422,109 +1743,127 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({ day, t, onToggle, onUpdate, o
   const addBreak = () => {
     onUpdate({ breaks: [...day.breaks, { start: '12:00', end: '13:00' }] });
   };
+
   const removeBreak = (i: number) => {
     onUpdate({ breaks: day.breaks.filter((_, idx) => idx !== i) });
   };
+
   const updateBreak = (i: number, field: 'start' | 'end', v: string) => {
     onUpdate({ breaks: day.breaks.map((b, idx) => idx === i ? { ...b, [field]: v } : b) });
   };
 
+  const breakSummary = day.breaks.length === 0
+    ? 'Sem intervalos configurados'
+    : day.breaks.length === 1
+      ? '1 intervalo configurado'
+      : day.breaks.length + ' intervalos configurados';
+
+  const summary = day.active
+    ? 'Das ' + (day.start || '--:--') + ' as ' + (day.end || '--:--') + ' - ' + breakSummary
+    : 'Dia fechado para atendimento';
+
   return (
-    <div className={`p-4 rounded-[2rem] border transition-all ${
-      day.active
-      ? 'bg-white border-slate-100 shadow-md shadow-slate-100/50'
-      : 'bg-slate-50/50 border-transparent grayscale opacity-50'
-    }`}>
-      {/* Top row: day label + work hours + actions */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
-        {/* Day Label & Work Entry Group */}
-        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-          {/* Day toggle & name */}
-          <div className="flex items-center gap-3 min-w-[140px]">
+    <div className={day.active ? 'overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-r from-white via-white to-emerald-50/70 p-4 shadow-[0_18px_35px_rgba(15,23,42,0.05)] transition-all' : 'overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-50/90 p-4 transition-all'}>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+          <div className="flex min-w-0 items-start gap-4">
             <button
               onClick={onToggle}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 ${
-                day.active 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                : 'bg-slate-200 text-slate-400'
-              }`}
+              className={day.active ? 'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-100 transition-all hover:bg-emerald-600' : 'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm transition-all hover:bg-slate-100'}
             >
-              <ChevronRight size={16} className={`${day.active ? 'rotate-90' : ''} transition-transform`} />
+              <ChevronRight size={18} className={day.active ? 'rotate-90 transition-transform' : 'transition-transform'} />
             </button>
-            <span className="text-sm font-black text-slate-700 uppercase tracking-tighter truncate">{t(`days.${day.dayKey}`)}</span>
-          </div>
 
-          {/* Work hours */}
-          <div className="flex items-center gap-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Trabalho:</span>
-            <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-200/50 shadow-inner">
-              <TimeInput value={day.start} onChange={v => onUpdate({ start: v })} disabled={!day.active} />
-              <span className="text-slate-300 font-bold">/</span>
-              <TimeInput value={day.end} onChange={v => onUpdate({ end: v })} disabled={!day.active} />
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-black uppercase tracking-tight text-slate-800">{t('days.' + day.dayKey)}</p>
+                <span className={day.active ? 'inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700' : 'inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500'}>
+                  {day.active ? 'Disponivel' : 'Fechado'}
+                </span>
+              </div>
+              <p className="text-xs font-bold text-slate-500">{summary}</p>
             </div>
           </div>
-        </div>
 
-        {/* Spacer for desktop only */}
-        <div className="hidden lg:block flex-1" />
+          <div className="hidden xl:block xl:flex-1" />
 
-        {/* Actions section */}
-        <div className="flex items-center gap-2 w-full lg:w-auto justify-between sm:justify-end">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {day.active && (
               <button
                 onClick={addBreak}
+                className="rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-emerald-600 transition-all hover:border-emerald-200 hover:bg-emerald-50"
                 title="Adicionar intervalo"
-                className="flex items-center gap-1.5 text-[10px] font-black px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all whitespace-nowrap active:scale-95"
               >
-                <Plus size={12} strokeWidth={3} /> <span className="hidden sm:inline">INTERVALO</span><span className="sm:hidden">+ INT</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Plus size={12} strokeWidth={3} /> Intervalo
+                </span>
               </button>
             )}
+
             <button
               onClick={onCopyToAll}
-              title="Repetir para todos os dias"
-              className="flex items-center gap-1.5 text-[10px] font-black px-3 py-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-all whitespace-nowrap active:scale-95"
+              className="rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-indigo-600 transition-all hover:border-indigo-200 hover:bg-indigo-50"
+              title="Repetir este horario para os demais dias"
             >
-              <Copy size={12} strokeWidth={3} /> <span className="hidden sm:inline">REPETIR</span><span className="sm:hidden">COPIAR</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Copy size={12} strokeWidth={3} /> Repetir dia
+              </span>
+            </button>
+
+            <button
+              onClick={onToggle}
+              className={day.active ? 'rounded-2xl border border-slate-900 bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-slate-800' : 'rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-slate-300 hover:bg-slate-50'}
+            >
+              {day.active ? 'Marcar fechado' : 'Liberar dia'}
             </button>
           </div>
-          
-          <button
-            onClick={onToggle}
-            className={`text-[10px] font-black px-4 py-2.5 rounded-xl border transition-all whitespace-nowrap active:scale-95 ${
-              day.active 
-              ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' 
-              : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            {day.active ? 'DISPONÍVEL' : 'FECHADO'}
-          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="rounded-[1.6rem] border border-white bg-white/90 p-4 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Horario base</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 sm:flex-nowrap">
+              <TimeInput value={day.start} onChange={v => onUpdate({ start: v })} disabled={!day.active} />
+              <span className="px-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">ate</span>
+              <TimeInput value={day.end} onChange={v => onUpdate({ end: v })} disabled={!day.active} />
+            </div>
+          </div>
+
+          <div className="rounded-[1.6rem] border border-white bg-white/90 p-4 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Intervalos do dia</p>
+            <p className="mt-3 text-sm font-bold text-slate-500">{day.active ? breakSummary : 'Ative o dia para configurar pausas ou almoco.'}</p>
+          </div>
         </div>
       </div>
 
-      {/* Breaks list */}
       {day.active && day.breaks.length > 0 && (
-        <div className="mt-4 lg:pl-[140px] flex flex-col gap-3 pt-4 lg:pt-0 border-t lg:border-none border-slate-50">
+        <div className="mt-4 space-y-3 border-t border-emerald-100/80 pt-4">
           {day.breaks.map((b, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-3 animate-slideDownFade">
-              <div className="flex items-center gap-2 min-w-[100px]">
-                <Clock size={12} className="text-slate-400" />
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {day.breaks.length > 1 ? `Break ${i + 1}` : 'Intervalo'} :
-                </span>
+            <div key={i} className="flex flex-col gap-3 rounded-[1.5rem] border border-white bg-white/90 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                  <Clock size={14} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                    {day.breaks.length > 1 ? 'Intervalo ' + String(i + 1) : 'Intervalo'}
+                  </p>
+                  <p className="text-xs font-bold text-slate-500">Defina inicio e fim da pausa.</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-200/50 shadow-inner">
+
+              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
                 <TimeInput value={b.start} onChange={v => updateBreak(i, 'start', v)} disabled={!day.active} />
-                <span className="text-slate-300 font-bold">/</span>
+                <span className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">ate</span>
                 <TimeInput value={b.end} onChange={v => updateBreak(i, 'end', v)} disabled={!day.active} />
+                <button
+                  onClick={() => removeBreak(i)}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-500 transition-all hover:bg-rose-600 hover:text-white"
+                  title="Remover intervalo"
+                >
+                  <X size={15} strokeWidth={3} />
+                </button>
               </div>
-              <button
-                onClick={() => removeBreak(i)}
-                className="w-8 h-8 rounded-xl bg-red-50 text-red-500 hover:bg-red-600 hover:text-white flex items-center justify-center transition-all group lg:ml-2 active:scale-90"
-                title="Remover intervalo"
-              >
-                <X size={14} strokeWidth={3} className="transition-transform group-hover:rotate-90" />
-              </button>
             </div>
           ))}
         </div>
@@ -1532,6 +1871,50 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({ day, t, onToggle, onUpdate, o
     </div>
   );
 };
+
+function ScheduleInsightCard({
+  icon,
+  label,
+  value,
+  hint,
+  tone = 'indigo',
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+  tone?: 'indigo' | 'emerald' | 'amber';
+}) {
+  const toneMap = {
+    indigo: {
+      wrap: 'bg-indigo-100 text-indigo-600',
+      value: 'text-indigo-700',
+    },
+    emerald: {
+      wrap: 'bg-emerald-100 text-emerald-600',
+      value: 'text-emerald-700',
+    },
+    amber: {
+      wrap: 'bg-amber-100 text-amber-600',
+      value: 'text-amber-700',
+    },
+  } as const;
+
+  const styles = toneMap[tone];
+
+  return (
+    <div className="rounded-[1.8rem] border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className={'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ' + styles.wrap}>{icon}</div>
+        <div className="min-w-0 space-y-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
+          <p className={'truncate text-lg font-black tracking-tight ' + styles.value}>{value}</p>
+          <p className="text-xs font-bold leading-relaxed text-slate-500">{hint}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function TimeInput({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
   return (
