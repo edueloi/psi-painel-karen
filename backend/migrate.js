@@ -737,7 +737,8 @@ async function migrate() {
     "ALTER TABLE forms ADD COLUMN hash VARCHAR(100) UNIQUE",
     "ALTER TABLE appointments ADD COLUMN session_fraction DECIMAL(3,2) DEFAULT 1.00",
     "ALTER TABLE users ADD COLUMN cpf VARCHAR(20) NULL",
-    "ALTER TABLE users ADD COLUMN cnpj VARCHAR(20) NULL"
+    "ALTER TABLE users ADD COLUMN cnpj VARCHAR(20) NULL",
+    "ALTER TABLE appointments MODIFY COLUMN status ENUM('scheduled','confirmed','completed','cancelled','no_show','rescheduled','falta_justificada') DEFAULT 'scheduled'"
   ];
 
   // ---- USER SESSIONS ----

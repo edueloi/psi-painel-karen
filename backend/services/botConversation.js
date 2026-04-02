@@ -222,6 +222,21 @@ function todayInSP() {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
 }
 
+/** Verifica se uma data DD/MM/AAAA já passou (comparado ao dia de hoje em SP) */
+function isPastDate(dateStr) {
+  const [dd, mm, yyyy] = dateStr.split('/').map(Number);
+  const todaySP = todayInSP(); // YYYY-MM-DD
+  const inputISO = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+  return inputISO < todaySP;
+}
+
+/** Verifica se data+hora DD/MM/AAAA + HH:MM já passou (comparado ao momento atual em SP) */
+function isPastDateTime(dateStr, timeStr) {
+  const dt = parseBrDateTime(dateStr, timeStr);
+  if (!dt) return false;
+  return dt.getTime() < Date.now();
+}
+
 /** Valida formato DD/MM/AAAA */
 function isValidDateStr(str) {
   if (!/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return false;
@@ -880,6 +895,10 @@ async function handleReagendar_Data(tenantId, message, session, text) {
     await sendMessage(tenantId, message.from, `❌ Formato inválido. Use DD/MM/AAAA (ex: 15/04/2026):`);
     return;
   }
+  if (isPastDate(text)) {
+    await sendMessage(tenantId, message.from, `❌ Essa data já passou. Informe uma data futura:`);
+    return;
+  }
   session.data.reagendar_novaData = text;
   session.step = 'prof_reagendar_hora';
   await sendMessage(tenantId, message.from, `🕒 Informe o novo horário (ex: 14:30):`);
@@ -888,6 +907,10 @@ async function handleReagendar_Data(tenantId, message, session, text) {
 async function handleReagendar_Hora(tenantId, message, session, text) {
   if (!isValidTimeStr(text)) {
     await sendMessage(tenantId, message.from, `❌ Formato inválido. Use HH:MM (ex: 14:30):`);
+    return;
+  }
+  if (isPastDateTime(session.data.reagendar_novaData, text)) {
+    await sendMessage(tenantId, message.from, `❌ Esse horário já passou. Informe um horário futuro:`);
     return;
   }
   session.data.reagendar_novaHora = text;
@@ -929,10 +952,12 @@ async function handleReagendar_Confirma(tenantId, message, session, text) {
     const novaData = session.data.reagendar_novaData;
     const novaHora = session.data.reagendar_novaHora;
 
-    // Calcula duração original
+    // Calcula duração original (fallback 60min se end_time ausente)
     const startOrig = new Date(apt.start_time);
-    const endOrig = new Date(apt.end_time);
-    const durMs = endOrig.getTime() - startOrig.getTime();
+    const endOrig = apt.end_time ? new Date(apt.end_time) : null;
+    const durMs = (endOrig && !isNaN(endOrig.getTime()))
+      ? endOrig.getTime() - startOrig.getTime()
+      : (apt.duration_minutes || 60) * 60 * 1000;
 
     const novoStart = parseBrDateTime(novaData, novaHora);
     if (!novoStart) {
@@ -942,12 +967,15 @@ async function handleReagendar_Confirma(tenantId, message, session, text) {
     }
     const novoEnd = new Date(novoStart.getTime() + durMs);
 
-    await db.query(
+    const aptTenantId = apt.tenant_id || prof.tenant_id;
+    console.log(`[Bot] Reagendando apt.id=${apt.id} tenant=${aptTenantId} de ${apt.start_time} para ${toMysqlDateTime(novoStart)}`);
+    const [upd] = await db.query(
       `UPDATE appointments
        SET start_time = ?, end_time = ?, status = 'rescheduled'
        WHERE id = ? AND tenant_id = ?`,
-      [toMysqlDateTime(novoStart), toMysqlDateTime(novoEnd), apt.id, apt.tenant_id]
+      [toMysqlDateTime(novoStart), toMysqlDateTime(novoEnd), apt.id, aptTenantId]
     );
+    if (!upd.affectedRows) throw new Error(`Nenhum agendamento atualizado (id=${apt.id} tenant=${aptTenantId})`);
 
     session.lastAppointments = [];
     session.data = {};
@@ -1214,6 +1242,10 @@ async function handleAgendar_Data(tenantId, message, session, text) {
     await sendMessage(tenantId, message.from, `❌ Formato inválido. Use DD/MM/AAAA (ex: 15/04/2026):`);
     return;
   }
+  if (isPastDate(text)) {
+    await sendMessage(tenantId, message.from, `❌ Essa data já passou. Informe uma data futura:`);
+    return;
+  }
   session.data.agendar_data = text;
   session.step = 'prof_agendar_hora';
   await sendMessage(tenantId, message.from, `🕒 Informe o horário (ex: 14:30):`);
@@ -1222,6 +1254,10 @@ async function handleAgendar_Data(tenantId, message, session, text) {
 async function handleAgendar_Hora(tenantId, message, session, text) {
   if (!isValidTimeStr(text)) {
     await sendMessage(tenantId, message.from, `❌ Formato inválido. Use HH:MM (ex: 14:30):`);
+    return;
+  }
+  if (isPastDateTime(session.data.agendar_data, text)) {
+    await sendMessage(tenantId, message.from, `❌ Esse horário já passou. Informe um horário futuro:`);
     return;
   }
   session.data.agendar_hora = text;
