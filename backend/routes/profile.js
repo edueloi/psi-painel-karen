@@ -30,6 +30,8 @@ const ensureColumns = async () => {
     "ALTER TABLE users ADD COLUMN public_profile_enabled BOOLEAN DEFAULT FALSE",
     "ALTER TABLE users ADD COLUMN profile_theme JSON NULL",
     "ALTER TABLE users ADD COLUMN gender VARCHAR(20) NULL",
+    "ALTER TABLE users ADD COLUMN cpf VARCHAR(20) NULL",
+    "ALTER TABLE users ADD COLUMN cnpj VARCHAR(20) NULL",
   ];
   for (const sql of extras) {
     try { 
@@ -47,12 +49,12 @@ ensureColumns();
 router.get('/me', async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.specialty, u.crp, u.phone, 
-              u.avatar_url, u.bio, u.company_name, u.address, u.clinic_logo_url, u.cover_url, 
+      `SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.specialty, u.crp, u.phone,
+              u.avatar_url, u.bio, u.company_name, u.address, u.clinic_logo_url, u.cover_url,
               u.schedule, u.closed_dates, u.active, u.permissions as user_permissions,
               u.ui_preferences, u.forms_archived, u.forms_favorites,
               u.two_factor_enabled, u.public_slug, u.social_links, u.public_profile_enabled, u.profile_theme,
-              u.gender,
+              u.gender, u.cpf, u.cnpj,
               p.permissions as profile_permissions, p.slug as profile_slug,
               pl.features as plan_features
        FROM users u 
@@ -105,11 +107,11 @@ router.get('/me', async (req, res) => {
 // PUT /profile/me
 router.put('/me', async (req, res) => {
   try {
-    const { 
-      name, email, phone, crp, specialty, company_name, address, bio, 
+    const {
+      name, email, phone, crp, specialty, company_name, address, bio,
       avatar_url, clinic_logo_url, cover_url, schedule, closed_dates,
       public_slug, social_links, public_profile_enabled, profile_theme,
-      gender
+      gender, cpf, cnpj
     } = req.body;
 
     await db.query(
@@ -131,7 +133,9 @@ router.put('/me', async (req, res) => {
         social_links = ?,
         public_profile_enabled = ?,
         profile_theme = ?,
-        gender = ?
+        gender = ?,
+        cpf = ?,
+        cnpj = ?
        WHERE id = ?`,
       [
         name, email, phone, crp, specialty, company_name || null, address || null, bio || null,
@@ -143,14 +147,17 @@ router.put('/me', async (req, res) => {
         public_profile_enabled || false,
         profile_theme ? JSON.stringify(profile_theme) : null,
         gender || 'other',
+        cpf || null,
+        cnpj || null,
         req.user.id
       ]
     );
 
     const [rows] = await db.query(
-      `SELECT id, name, email, role, phone, crp, specialty, avatar_url, bio, 
+      `SELECT id, name, email, role, phone, crp, specialty, avatar_url, bio,
               company_name, address, clinic_logo_url, cover_url, schedule, closed_dates,
-              public_slug, social_links, public_profile_enabled, profile_theme, gender
+              public_slug, social_links, public_profile_enabled, profile_theme, gender,
+              cpf, cnpj
        FROM users WHERE id = ?`,
       [req.user.id]
     );

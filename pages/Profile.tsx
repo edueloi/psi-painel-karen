@@ -170,7 +170,9 @@ export const Profile: React.FC = () => {
       step_2_title: '', step_2_desc: '',
       step_3_title: '', step_3_desc: '',
     },
-    gender: 'female' as 'male' | 'female' | 'other'
+    gender: 'female' as 'male' | 'female' | 'other',
+    cpf: '',
+    cnpj: '',
   });
 
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
@@ -253,7 +255,9 @@ export const Profile: React.FC = () => {
               step_3_title: data.profile_theme?.step_3_title || '',
               step_3_desc: data.profile_theme?.step_3_desc || '',
             },
-            gender: data.gender || 'female'
+            gender: data.gender || 'female',
+            cpf: data.cpf || '',
+            cnpj: data.cnpj || '',
           });
         }
 
@@ -546,6 +550,8 @@ Gere o seguinte JSON:
         social_links: user.social_links,
         profile_theme: user.profile_theme,
         gender: user.gender,
+        cpf: user.cpf,
+        cnpj: user.cnpj,
       });
 
       setSaveStatus('saved');
@@ -724,6 +730,35 @@ Gere o seguinte JSON:
                         }} 
                       />
                       <ProfileInput label="Especialidade" icon={<Stethoscope size={16} />} value={user.specialty} onChange={v => setUser(p => ({ ...p, specialty: v }))} />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ProfileInput
+                        label="CPF"
+                        icon={<Shield size={16} />}
+                        value={user.cpf}
+                        onChange={v => {
+                          let val = v.replace(/\D/g, '');
+                          if (val.length > 11) val = val.slice(0, 11);
+                          if (val.length > 9) val = `${val.slice(0,3)}.${val.slice(3,6)}.${val.slice(6,9)}-${val.slice(9)}`;
+                          else if (val.length > 6) val = `${val.slice(0,3)}.${val.slice(3,6)}.${val.slice(6)}`;
+                          else if (val.length > 3) val = `${val.slice(0,3)}.${val.slice(3)}`;
+                          setUser(p => ({ ...p, cpf: val }));
+                        }}
+                      />
+                      <ProfileInput
+                        label="CNPJ"
+                        icon={<Building2 size={16} />}
+                        value={user.cnpj}
+                        onChange={v => {
+                          let val = v.replace(/\D/g, '');
+                          if (val.length > 14) val = val.slice(0, 14);
+                          if (val.length > 12) val = `${val.slice(0,2)}.${val.slice(2,5)}.${val.slice(5,8)}/${val.slice(8,12)}-${val.slice(12)}`;
+                          else if (val.length > 8) val = `${val.slice(0,2)}.${val.slice(2,5)}.${val.slice(5,8)}/${val.slice(8)}`;
+                          else if (val.length > 5) val = `${val.slice(0,2)}.${val.slice(2,5)}.${val.slice(5)}`;
+                          else if (val.length > 2) val = `${val.slice(0,2)}.${val.slice(2)}`;
+                          setUser(p => ({ ...p, cnpj: val }));
+                        }}
+                      />
                     </div>
                     <div>
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Breve Biografia / Perfil</label>
