@@ -64,21 +64,22 @@ class NotificationService {
   }
 
   /**
-   * Processa as mensagens pendentes na fila
+   * Processa as mensagens pendentes na fila, agrupadas por tenant.
+   * Cada tenant é processado em paralelo — um tenant com bot offline não bloqueia os outros.
    */
   async processQueue() {
     if (this.isProcessing) return;
     this.isProcessing = true;
 
     try {
-      // Busca até 10 mensagens pendentes por vez (com delay de 3s entre envios = ~30s por rodada)
+      // Busca até 50 mensagens pendentes por vez, agrupadas por tenant
       const [pending] = await db.query(
         `SELECT * FROM notification_queue
          WHERE status = 'pending'
            AND (scheduled_at IS NULL OR scheduled_at <= NOW())
            AND attempts < max_attempts
-         ORDER BY created_at ASC
-         LIMIT 10`
+         ORDER BY tenant_id ASC, created_at ASC
+         LIMIT 50`
       );
 
       if (pending.length === 0) {
@@ -86,58 +87,72 @@ class NotificationService {
         return;
       }
 
-      console.log(`[NotificationQueue] Processando ${pending.length} mensagens...`);
-
+      // Agrupa mensagens por tenant
+      const byTenant = {};
       for (const item of pending) {
-        try {
-          // CANCELAMENTO AUTOMÁTICO SE EXPIRADO (Ex: aviso de consulta enviada após a consulta)
-          if (item.expires_at && new Date(item.expires_at) < new Date()) {
-            await db.query("UPDATE notification_queue SET status = 'canceled', last_error = 'Expirada' WHERE id = ?", [item.id]);
-            console.log(`[NotificationQueue] Mensagem ${item.id} expirada e cancelada.`);
-            continue; // expirada não precisa de delay
-          }
-
-          // Tenta enviar via wppService
-          const result = await wppService.sendReminder(item.tenant_id, item.recipient_phone, item.content);
-          
-          if (result === true) {
-            // Sucesso
-            await db.query(
-              'UPDATE notification_queue SET status = ?, sent_at = NOW(), attempts = attempts + 1 WHERE id = ?',
-              ['sent', item.id]
-            );
-          } else {
-            // Erro retornado pelo serviço (ex: bot desconectado)
-            const errorMsg = typeof result === 'string' ? result : 'Erro desconhecido no envio';
-            await db.query(
-              'UPDATE notification_queue SET attempts = attempts + 1, last_error = ? WHERE id = ?',
-              [errorMsg, item.id]
-            );
-
-            // Se excedeu o máximo de tentativas, marca como erro definitivo
-            if (item.attempts + 1 >= item.max_attempts) {
-              await db.query('UPDATE notification_queue SET status = ? WHERE id = ?', ['error', item.id]);
-            }
-          }
-
-          // Aguarda 3 segundos antes do próximo envio para não sobrecarregar o WhatsApp
-          await sleep(3000);
-
-        } catch (err) {
-          console.error(`[NotificationQueue] Erro crítico ao processar item ${item.id}:`, err.message);
-          await db.query(
-            'UPDATE notification_queue SET attempts = attempts + 1, last_error = ? WHERE id = ?',
-            [err.message, item.id]
-          );
-          if (item.attempts + 1 >= item.max_attempts) {
-            await db.query('UPDATE notification_queue SET status = ? WHERE id = ?', ['error', item.id]);
-          }
-        }
+        if (!byTenant[item.tenant_id]) byTenant[item.tenant_id] = [];
+        byTenant[item.tenant_id].push(item);
       }
+
+      const tenantIds = Object.keys(byTenant);
+      console.log(`[NotificationQueue] ${pending.length} mensagens em ${tenantIds.length} tenant(s)...`);
+
+      // Processa cada tenant em paralelo (sem bloquear uns aos outros)
+      await Promise.all(tenantIds.map(tenantId => this._processTenantQueue(byTenant[tenantId])));
+
     } catch (err) {
       console.error('❌ Erro global no processamento da fila de notificações:', err.message);
     } finally {
       this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Processa a sub-fila de um único tenant em sequência (com delay entre envios)
+   */
+  async _processTenantQueue(items) {
+    for (const item of items) {
+      try {
+        // CANCELAMENTO AUTOMÁTICO SE EXPIRADO
+        if (item.expires_at && new Date(item.expires_at) < new Date()) {
+          await db.query("UPDATE notification_queue SET status = 'canceled', last_error = 'Expirada' WHERE id = ?", [item.id]);
+          console.log(`[NotificationQueue] Mensagem ${item.id} (tenant ${item.tenant_id}) expirada e cancelada.`);
+          continue;
+        }
+
+        const result = await wppService.sendReminder(item.tenant_id, item.recipient_phone, item.content);
+
+        if (result === true) {
+          await db.query(
+            'UPDATE notification_queue SET status = ?, sent_at = NOW(), attempts = attempts + 1 WHERE id = ?',
+            ['sent', item.id]
+          );
+          console.log(`[NotificationQueue] ✅ Enviado id=${item.id} tenant=${item.tenant_id}`);
+        } else {
+          const errorMsg = typeof result === 'string' ? result : 'Erro desconhecido no envio';
+          const newAttempts = item.attempts + 1;
+          const newStatus = newAttempts >= item.max_attempts ? 'error' : 'pending';
+          await db.query(
+            'UPDATE notification_queue SET status = ?, attempts = ?, last_error = ? WHERE id = ?',
+            [newStatus, newAttempts, errorMsg, item.id]
+          );
+          if (newStatus === 'error') {
+            console.log(`[NotificationQueue] ❌ Falha definitiva id=${item.id} tenant=${item.tenant_id}: ${errorMsg}`);
+          }
+        }
+
+        // Delay entre envios do mesmo tenant para não sobrecarregar o WhatsApp
+        await sleep(3000);
+
+      } catch (err) {
+        console.error(`[NotificationQueue] Erro crítico ao processar item ${item.id}:`, err.message);
+        const newAttempts = item.attempts + 1;
+        const newStatus = newAttempts >= item.max_attempts ? 'error' : 'pending';
+        await db.query(
+          'UPDATE notification_queue SET status = ?, attempts = ?, last_error = ? WHERE id = ?',
+          [newStatus, newAttempts, err.message, item.id]
+        );
+      }
     }
   }
 }

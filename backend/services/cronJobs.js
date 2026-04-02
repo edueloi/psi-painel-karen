@@ -251,7 +251,7 @@ async function checkAppointmentReminders() {
         const profPrefs      = getPrefs(apt);
         const reminderMinutes = profPrefs.appointment_reminder_minutes || 60;
 
-        if (diffMinutes >= reminderMinutes - 10 && diffMinutes <= reminderMinutes + 10 && !apt.whatsapp_reminder_professional_sent) {
+        if (diffMinutes >= reminderMinutes - 25 && diffMinutes <= reminderMinutes + 25 && !apt.whatsapp_reminder_professional_sent) {
           const timeStr = fmtTime(apt.start_time);
           const label   = reminderMinutes === 30 ? '30min' : '1h';
 
@@ -292,19 +292,29 @@ async function checkAppointmentReminders() {
     console.error('❌ Erro no job de lembrete profissional:', err.message);
   }
 }
-async function checkDailyTasks() {
+// Verifica se o horário atual está dentro de uma janela de ±3 minutos do horário alvo
+function isWithinWindow(now, targetTimeStr) {
+  const [h, m] = targetTimeStr.split(':').map(Number);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const targetMinutes = h * 60 + m;
+  return Math.abs(nowMinutes - targetMinutes) <= 3;
+}
+
+// Cache para evitar disparo duplo no mesmo dia (key: `tenantId:type:date`)
+const _dailyFired = new Set();
+
+async function checkDailyTasks() {
   try {
     const now = new Date();
-    const currentHourStr = fmtTime(now); 
+    // Converte para horário de São Paulo para comparações corretas
+    const nowSP = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const todayStr = nowSP.toISOString().slice(0, 10);
+    const month = nowSP.getMonth() + 1;
+    const day   = nowSP.getDate();
 
     const [tenants] = await db.query(`SELECT id, whatsapp_status, whatsapp_preferences FROM tenants WHERE active = 1`);
     const [saRows] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
     const masterTenantId = saRows[0]?.tenant_id;
-    
-    const today = new Date();
-    const month = today.getMonth() + 1;
-    const day   = today.getDate();
-    const todayStr = now.toISOString().slice(0, 10);
 
     for (const t of tenants) {
       const prefs = typeof t.whatsapp_preferences === 'string' ? JSON.parse(t.whatsapp_preferences || '{}') : (t.whatsapp_preferences || {});
@@ -312,7 +322,9 @@ async function checkAppointmentReminders() {
       const payTime = prefs.payment_time || "10:00";
 
       // 1. ANIVERSARIANTES
-      if (currentHourStr === bdayTime) {
+      const bdayKey = `${t.id}:bday:${todayStr}`;
+      if (isWithinWindow(nowSP, bdayTime) && !_dailyFired.has(bdayKey)) {
+        _dailyFired.add(bdayKey);
         const [patients] = await db.query(`
           SELECT id, name, full_name, birth_date, whatsapp, phone
           FROM patients
@@ -360,7 +372,9 @@ async function checkAppointmentReminders() {
       }
 
       // 2. PAGAMENTOS VENCENDO HOJE
-      if (currentHourStr === payTime) {
+      const payKey = `${t.id}:pay:${todayStr}`;
+      if (isWithinWindow(nowSP, payTime) && !_dailyFired.has(payKey)) {
+        _dailyFired.add(payKey);
         if (await isBotConnected(t.id) && t.id != masterTenantId && prefs.payment_enabled !== false) {
           const [payments] = await db.query(`
             SELECT f.id, f.amount, p.name as patient_name, p.whatsapp, p.phone
@@ -393,6 +407,16 @@ async function checkAppointmentReminders() {
     console.error('❌ Erro no job de Tarefas Diárias:', err.message);
   }
 }
+
+// Limpa o cache de disparos diários à meia-noite para não acumular memória
+const _midnight = new Date();
+_midnight.setHours(0, 0, 0, 0);
+setInterval(() => {
+  const nowKey = new Date().toISOString().slice(0, 10);
+  for (const key of _dailyFired) {
+    if (!key.endsWith(nowKey)) _dailyFired.delete(key);
+  }
+}, 60 * 60 * 1000); // limpa a cada hora
 
 // ─── JOB 3: Relatório semanal (toda segunda-feira, 7h) ────────────────────
 async function sendWeeklyReport() {
