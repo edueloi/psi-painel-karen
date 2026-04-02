@@ -169,12 +169,26 @@ class WhatsAppManager {
       );
 
       console.log(`✅ WhatsApp Tenant ${tenantId} Conectado: ${data.phone}`);
-      
-      // Ping pong — garante que não acumula listeners em reconexões
+
+      // Identifica se este é o master bot (tenant do super_admin)
+      let isMasterBot = false;
+      try {
+        const [saRows] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
+        isMasterBot = saRows[0]?.tenant_id == tenantId;
+      } catch(e) {}
+
+      // Garante que não acumula listeners em reconexões
       if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners('message');
       data.client.onMessage((message) => {
+        // Ping-pong de diagnóstico
         if (message.body === 'ping') {
           data.client.sendText(message.from, 'pong');
+          return;
+        }
+        // Bot conversacional: só no master bot, só mensagens individuais (não grupos/broadcast)
+        if (isMasterBot && !message.isGroupMsg && message.from !== 'status@broadcast') {
+          const { handleMessage } = require('./botConversation');
+          handleMessage(tenantId, message, data.client).catch(e => console.error('[MasterBot]', e.message));
         }
       });
 
