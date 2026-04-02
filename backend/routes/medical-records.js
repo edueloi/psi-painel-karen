@@ -27,10 +27,16 @@ const parseJson = (val) => {
    Suporta filtros: patient_id, professional_id, status, date_from, date_to, record_type
 ────────────────────────────────────────────────────────── */
 // Garante coluna shared_with na tabela (migration segura)
+let _sharedWithReady = false;
 async function ensureSharedWith() {
+  if (_sharedWithReady) return;
   try {
-    await db.query("ALTER TABLE medical_records ADD COLUMN shared_with JSON NULL DEFAULT NULL");
-  } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') console.warn('shared_with:', e.message); }
+    const [cols] = await db.query("SHOW COLUMNS FROM medical_records LIKE 'shared_with'");
+    if (cols.length === 0) {
+      await db.query("ALTER TABLE medical_records ADD COLUMN shared_with JSON NULL DEFAULT NULL");
+    }
+    _sharedWithReady = true;
+  } catch (e) { console.warn('shared_with:', e.message); }
 }
 ensureSharedWith();
 
