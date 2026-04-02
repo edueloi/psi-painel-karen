@@ -180,9 +180,13 @@ class WhatsAppManager {
         console.error('[WPP] Erro ao verificar master bot:', e.message);
       }
 
-      // Garante que não acumula listeners em reconexões
-      try { if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners(); } catch(e) {}
+      // Usa um token único por sessão para evitar processar mensagens de listeners antigos
+      const sessionToken = Date.now();
+      data.sessionToken = sessionToken;
+
       data.client.onMessage((message) => {
+        // Descarta se esta sessão foi substituída por uma mais nova
+        if (data.sessionToken !== sessionToken) return;
         // Ping-pong de diagnóstico
         if (message.body === 'ping') {
           data.client.sendText(message.from, 'pong');
