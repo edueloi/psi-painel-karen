@@ -29,7 +29,10 @@ export type AgendaPlannerEventStatus =
   | 'confirmed'
   | 'completed'
   | 'cancelled'
-  | 'no-show';
+  | 'no-show'
+  | 'no_show'
+  | 'rescheduled'
+  | 'falta_justificada';
 
 export interface AgendaPlannerEvent {
   id: string | number;
@@ -136,15 +139,15 @@ const typeMeta: Record<
   },
 };
 
-const statusMeta: Record<
-  AgendaPlannerEventStatus,
-  { label: string; dot: string }
-> = {
-  scheduled: { label: 'Agendado', dot: 'bg-slate-400' },
-  confirmed: { label: 'Confirmado', dot: 'bg-emerald-500' },
-  completed: { label: 'Realizado', dot: 'bg-indigo-500' },
-  cancelled: { label: 'Cancelado', dot: 'bg-rose-500' },
-  'no-show': { label: 'Faltou', dot: 'bg-amber-500' },
+const statusMeta: Record<AgendaPlannerEventStatus, { label: string; dot: string }> = {
+  scheduled:         { label: 'Agendado',         dot: 'bg-slate-400' },
+  confirmed:         { label: 'Confirmado',        dot: 'bg-emerald-500' },
+  completed:         { label: 'Realizado',         dot: 'bg-indigo-500' },
+  cancelled:         { label: 'Cancelado',         dot: 'bg-rose-500' },
+  'no-show':         { label: 'Faltou',            dot: 'bg-amber-500' },
+  no_show:           { label: 'Faltou',            dot: 'bg-amber-500' },
+  rescheduled:       { label: 'Reagendado',        dot: 'bg-violet-500' },
+  falta_justificada: { label: 'Falta Justificada', dot: 'bg-orange-400' },
 };
 
 const startOfDay = (date: Date) =>

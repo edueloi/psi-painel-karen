@@ -328,14 +328,16 @@ export const Agenda: React.FC = () => {
       },
   } as const;
 
-  const statusMeta = {
-      scheduled: { label: 'Agendado', chip: 'bg-slate-100/60 text-slate-500 border-slate-200/40', dot: 'bg-slate-400' },
-      confirmed: { label: 'Confirmado', chip: 'bg-emerald-50/60 text-emerald-700 border-emerald-100/60', dot: 'bg-emerald-500' },
-      completed: { label: 'Realizado', chip: 'bg-indigo-50/60 text-indigo-700 border-indigo-100/60', dot: 'bg-indigo-500' },
-      cancelled: { label: 'Cancelado', chip: 'bg-rose-50/60 text-rose-700 border-rose-100/60', dot: 'bg-rose-500' },
-      'no-show': { label: 'Faltou', chip: 'bg-amber-50/60 text-amber-700 border-amber-100/60', dot: 'bg-amber-500' },
-      rescheduled: { label: 'Reagendado', chip: 'bg-violet-50/60 text-violet-700 border-violet-100/60', dot: 'bg-violet-500' },
-  } as const;
+  const statusMeta: Record<string, { label: string; chip: string; dot: string }> = {
+      scheduled:         { label: 'Agendado',          chip: 'bg-slate-100/60 text-slate-500 border-slate-200/40',   dot: 'bg-slate-400' },
+      confirmed:         { label: 'Confirmado',         chip: 'bg-emerald-50/60 text-emerald-700 border-emerald-100/60', dot: 'bg-emerald-500' },
+      completed:         { label: 'Realizado',          chip: 'bg-indigo-50/60 text-indigo-700 border-indigo-100/60',  dot: 'bg-indigo-500' },
+      cancelled:         { label: 'Cancelado',          chip: 'bg-rose-50/60 text-rose-700 border-rose-100/60',        dot: 'bg-rose-500' },
+      'no-show':         { label: 'Faltou',             chip: 'bg-amber-50/60 text-amber-700 border-amber-100/60',     dot: 'bg-amber-500' },
+      no_show:           { label: 'Faltou',             chip: 'bg-amber-50/60 text-amber-700 border-amber-100/60',     dot: 'bg-amber-500' },
+      rescheduled:       { label: 'Reagendado',         chip: 'bg-violet-50/60 text-violet-700 border-violet-100/60',  dot: 'bg-violet-500' },
+      falta_justificada: { label: 'Falta Justificada',  chip: 'bg-orange-50/60 text-orange-700 border-orange-100/60', dot: 'bg-orange-400' },
+  };
 
   const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const isSameDay = (a: Date, b: Date) => startOfDay(a).getTime() === startOfDay(b).getTime();
@@ -400,8 +402,12 @@ export const Agenda: React.FC = () => {
             // Clamp duration entre 5min e 480min (8h) para nunca gerar card gigante
             const dur = Math.min(Math.max(Number(a.duration_minutes) || 50, 5), 480);
             const end = new Date(start.getTime() + dur * 60000);
-            // Normaliza status: banco usa no_show, frontend usa no-show
-            const rawStatus = (a.status || 'scheduled').replace('no_show', 'no-show');
+            // Normaliza status do banco para o frontend
+            const knownStatuses = ['scheduled','confirmed','completed','cancelled','no-show','rescheduled','falta_justificada'];
+            const rawStatus = (() => {
+              const s = (a.status || 'scheduled').replace('no_show', 'no-show');
+              return knownStatuses.includes(s) ? s : 'scheduled';
+            })();
             return {
                 ...a,
                 start,
