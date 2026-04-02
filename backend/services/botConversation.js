@@ -145,9 +145,12 @@ function getGreeting() {
   return 'Boa noite';
 }
 
-/** Normaliza número de telefone para chave de sessão (apenas dígitos, sem @c.us) */
+/** Normaliza número de telefone para chave de sessão (preserva formato @lid ou extrai dígitos) */
 function formatPhone(raw) {
-  return String(raw || '').replace('@c.us', '').replace(/\D/g, '');
+  const s = String(raw || '');
+  // @lid é o novo formato do WhatsApp — usa o ID completo como chave de sessão
+  if (s.includes('@lid')) return s;
+  return s.replace('@c.us', '').replace(/\D/g, '');
 }
 
 /** Converte Date → horário BR formatado HH:MM */
@@ -496,8 +499,14 @@ async function sendMessage(tenantId, to, text) {
     if (!wpp) return;
     const data = wpp.getTenantData(tenantId);
     if (!data || !data.client || data.status !== 'connected') return;
-    const phone = String(to).replace(/\D/g, '');
-    const dest = phone.includes('@c.us') ? to : `${phone}@c.us`;
+    // Usa o ID original se já tem @lid ou @c.us, senão converte para @c.us
+    let dest;
+    if (String(to).includes('@')) {
+      dest = to; // preserva @lid ou @c.us original
+    } else {
+      const phone = String(to).replace(/\D/g, '');
+      dest = `${phone}@c.us`;
+    }
     await data.client.sendText(dest, text);
   } catch (e) {
     console.error('[Bot] Erro ao enviar mensagem:', e.message);
