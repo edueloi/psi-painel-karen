@@ -147,8 +147,8 @@ router.put('/me', async (req, res) => {
         public_profile_enabled || false,
         profile_theme ? JSON.stringify(profile_theme) : null,
         gender || 'other',
-        cpf || null,
-        cnpj || null,
+        cpf ? cpf.replace(/\D/g, '') : null,
+        cnpj ? cnpj.replace(/\D/g, '') : null,
         req.user.id
       ]
     );
