@@ -77,13 +77,13 @@ async function getPatientFileInfo(tenant_id, patient_id) {
   if (!patient_id) return { category: 'Geral', description: null };
   try {
     const [rows] = await db.query(
-      'SELECT name, cpf, cpf_cnpj FROM patients WHERE id = ? AND tenant_id = ?',
+      'SELECT name, cpf FROM patients WHERE id = ? AND tenant_id = ?',
       [patient_id, tenant_id]
     );
     if (rows.length === 0) return { category: 'Geral', description: null };
     const p = rows[0];
     const fullName = p.name || 'Paciente';
-    const cpf = p.cpf || p.cpf_cnpj || null;
+    const cpf = p.cpf || null;
     
     // Formata Nome: Primeiro_Ultimo (ex: Luan_Santos)
     const parts = fullName.split(' ').filter(Boolean);

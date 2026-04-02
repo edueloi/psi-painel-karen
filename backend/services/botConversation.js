@@ -41,7 +41,7 @@ async function interpretIntent(userText, menuContext) {
 
   const menuMap = menuContext === 'profissional'
     ? `1=Ver agenda de hoje, 2=Ver agenda do mês, 3=Próximos agendamentos, 4=Reagendar paciente, 5=Alterar status de agendamento, 6=Agendar paciente, 7=Ver horários disponíveis, 0=Sair`
-    : `1=Sou profissional (acessar sistema), 2=Sou paciente`;
+    : `0=Encerrar atendimento/sair, 1=Sou profissional (acessar sistema), 2=Sou paciente`;
 
   try {
     const resp = await openai.chat.completions.create({
@@ -257,10 +257,12 @@ function fmtPhoneDisplay(phone) {
 function menuPrincipal() {
   const greeting = getGreeting();
   return (
-    `${greeting}! Sou o assistente virtual PsiFlux. 👋\n` +
-    `Como posso te ajudar?\n\n` +
-    `1️⃣ Sou profissional\n` +
-    `2️⃣ Sou paciente`
+    `${greeting}! 😊 Bem-vindo(a) ao atendimento virtual *PsiFlux*.\n\n` +
+    `Sou o assistente virtual e estou aqui para ajudar você. Por favor, me diga como posso te atender:\n\n` +
+    `1️⃣ *Sou profissional* — acessar minha agenda e gerenciar atendimentos\n` +
+    `2️⃣ *Sou paciente* — consultar ou agendar minha consulta\n\n` +
+    `0️⃣ *Encerrar* — finalizar o atendimento\n\n` +
+    `_Digite o número da opção desejada ou descreva o que precisa._`
   );
 }
 
@@ -370,13 +372,13 @@ async function getServicos(tenantId) {
 async function searchPacientes(tenantId, termo) {
   const like = `%${termo}%`;
   const [rows] = await db.query(
-    `SELECT id, name, full_name, phone, whatsapp
+    `SELECT id, name, phone, whatsapp
      FROM patients
      WHERE tenant_id = ?
-       AND (name LIKE ? OR full_name LIKE ?)
+       AND name LIKE ?
      ORDER BY name ASC
      LIMIT 10`,
-    [tenantId, like, like]
+    [tenantId, like]
   );
   return rows;
 }
@@ -658,8 +660,8 @@ async function handleMenuPrincipal(tenantId, message, session, text) {
   // Tenta interpretar número direto primeiro
   let option = text;
 
-  // Se não é 1 ou 2, tenta IA
-  if (option !== '1' && option !== '2') {
+  // Se não é 0, 1 ou 2, tenta IA
+  if (option !== '0' && option !== '1' && option !== '2') {
     const ai = await interpretIntent(text, 'principal');
     if (ai.option) {
       option = ai.option;
@@ -670,16 +672,25 @@ async function handleMenuPrincipal(tenantId, message, session, text) {
     }
   }
 
-  if (option === '1') {
+  if (option === '0') {
+    sessions.delete(message.from.toString().includes('@') ? message.from : formatPhone(message.from));
+    const greeting = getGreeting();
+    await sendMessage(tenantId, message.from,
+      `${greeting}! 😊 Atendimento encerrado. Até a próxima!\n\n` +
+      `Se precisar de mais ajuda, é só me chamar aqui novamente.`
+    );
+  } else if (option === '1') {
     session.step = 'prof_pede_doc';
     await sendMessage(tenantId, message.from,
-      `Por favor, informe seu CPF ou CNPJ (somente números):`
+      `Ótimo! 👨‍⚕️ Para acessar sua área profissional, preciso verificar sua identidade.\n\n` +
+      `Por favor, informe seu *CPF ou CNPJ* (somente números):`
     );
   } else if (option === '2') {
     session.step = 'menu';
     await sendMessage(tenantId, message.from,
-      `🔜 Em breve você poderá consultar seus agendamentos por aqui!\n` +
-      `Por favor, entre em contato com seu profissional.\n\n` +
+      `Olá, paciente! 😊\n\n` +
+      `🔜 Em breve você poderá consultar e gerenciar seus agendamentos diretamente por aqui!\n\n` +
+      `Por enquanto, para agendar ou tirar dúvidas, entre em contato direto com seu profissional de saúde.\n\n` +
       `0️⃣ Voltar ao menu`
     );
   } else {
@@ -1127,7 +1138,7 @@ async function handleAgendar_Nome(tenantId, message, session, text) {
     let msg = `Qual paciente?\n\n`;
     pacientes.forEach((p, i) => {
       const phone = fmtPhoneDisplay(p.phone || p.whatsapp || '');
-      msg += `${i + 1}. ${p.name || p.full_name}${phone ? ` — ${phone}` : ''}\n`;
+      msg += `${i + 1}. ${p.name}${phone ? ` — ${phone}` : ''}\n`;
     });
     session.step = 'prof_agendar_escolhe_paciente';
     await sendMessage(tenantId, message.from, msg);

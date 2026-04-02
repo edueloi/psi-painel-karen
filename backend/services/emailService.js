@@ -102,11 +102,11 @@ function templateAppointmentReminder({ patientName, time, date, type, modality, 
 function templateBirthdayReminder(patients) {
   const rows = patients.map(p => {
     const phone = (p.whatsapp || p.phone || '').replace(/\D/g, '');
-    const msg = encodeURIComponent(`Olá ${p.name || p.full_name}, parabéns pelo seu aniversário! 🎉 Desejo muita saúde e realizações. Um grande abraço!`);
+    const msg = encodeURIComponent(`Olá ${p.name}, parabéns pelo seu aniversário! 🎉 Desejo muita saúde e realizações. Um grande abraço!`);
     const waLink = phone ? `<a href="https://wa.me/${phone}?text=${msg}" style="display:inline-block;padding:6px 14px;background:#22c55e;color:#fff;border-radius:8px;font-size:11px;font-weight:900;text-decoration:none;">WhatsApp</a>` : '';
     const age = p.birth_date ? (new Date().getFullYear() - new Date(p.birth_date).getFullYear()) : '';
     return `<tr>
-      <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;font-weight:700;color:#1e293b;">🎂 ${p.name || p.full_name}</td>
+      <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;font-weight:700;color:#1e293b;">🎂 ${p.name}</td>
       <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#64748b;">${age ? age + ' anos' : ''}</td>
       <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;">${waLink}</td>
     </tr>`;

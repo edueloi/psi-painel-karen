@@ -326,7 +326,7 @@ async function checkDailyTasks() {
       if (isWithinWindow(nowSP, bdayTime) && !_dailyFired.has(bdayKey)) {
         _dailyFired.add(bdayKey);
         const [patients] = await db.query(`
-          SELECT id, name, full_name, birth_date, whatsapp, phone
+          SELECT id, name, birth_date, whatsapp, phone
           FROM patients
           WHERE tenant_id = ? AND MONTH(birth_date) = ? AND DAY(birth_date) = ? AND status = 'ativo'
         `, [t.id, month, day]);
@@ -335,7 +335,7 @@ async function checkDailyTasks() {
           // --- ALERTA SISTEMA E E-MAIL ---
           const users = await getTenantUsers(t.id);
           const html  = templates.birthdayReminder(patients);
-          const names = patients.map(p => p.name || p.full_name).filter(Boolean).join(', ');
+          const names = patients.map(p => p.name).filter(Boolean).join(', ');
 
           await db.query(
             'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
@@ -357,7 +357,7 @@ async function checkDailyTasks() {
               
               const defaultMsg = `🎂 *Feliz Aniversário!*\n\nOlá, *{patient_name}*!\nA equipe deseja a você um excelente dia repleto de alegrias e muita paz!`;
               let msg = prefs.birthday_msg || defaultMsg;
-              msg = msg.replace(/\{patient_name\}/g, p.name || p.full_name || 'Paciente');
+              msg = msg.replace(/\{patient_name\}/g, p.name || 'Paciente');
 
               await notificationService.enqueue({
                 tenant_id: t.id,

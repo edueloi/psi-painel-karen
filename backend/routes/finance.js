@@ -583,6 +583,7 @@ router.delete('/session-types/:id', async (req, res) => {
 router.get('/comandas', async (req, res) => {
   try {
     await withSchema();
+    await withFinanceSchema();
     const { status } = req.query;
     let query = `
       SELECT c.*, p.name as patient_name, u.name as professional_name
