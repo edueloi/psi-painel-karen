@@ -175,10 +175,13 @@ class WhatsAppManager {
       try {
         const [saRows] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
         isMasterBot = saRows[0]?.tenant_id == tenantId;
-      } catch(e) {}
+        console.log(`[WPP] Tenant ${tenantId} isMasterBot=${isMasterBot}`);
+      } catch(e) {
+        console.error('[WPP] Erro ao verificar master bot:', e.message);
+      }
 
       // Garante que não acumula listeners em reconexões
-      if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners('message');
+      try { if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners(); } catch(e) {}
       data.client.onMessage((message) => {
         // Ping-pong de diagnóstico
         if (message.body === 'ping') {
@@ -186,7 +189,8 @@ class WhatsAppManager {
           return;
         }
         // Bot conversacional: só no master bot, só mensagens individuais (não grupos/broadcast)
-        if (isMasterBot && !message.isGroupMsg && message.from !== 'status@broadcast') {
+        if (isMasterBot && !message.isGroupMsg && message.chatId !== 'status@broadcast' && message.from !== 'status@broadcast') {
+          console.log(`[MasterBot] Mensagem recebida de ${message.from}: ${(message.body||'').substring(0,50)}`);
           const { handleMessage } = require('./botConversation');
           handleMessage(tenantId, message, data.client).catch(e => console.error('[MasterBot]', e.message));
         }
