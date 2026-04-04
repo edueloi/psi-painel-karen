@@ -1164,7 +1164,7 @@ export const Patients: React.FC = () => {
       {/* Form Wizard Modal */}
       {isWizardOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white flex flex-col">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white flex flex-col">
             <PatientFormWizard
               initialData={editingPatient || {}}
               onSave={handleSavePatient}

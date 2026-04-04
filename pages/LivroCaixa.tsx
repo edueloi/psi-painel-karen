@@ -8,7 +8,7 @@ import {
   User, AlertCircle, Loader2, Download, Upload, DollarSign,
   Calendar, CreditCard, Filter, LayoutGrid, List,
   Sparkles,
-  Edit2
+  Edit2, Pin, PinOff,
 } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
@@ -470,6 +470,7 @@ const exportPDF = async (data: Transaction[], summary: { income: number; expense
 export const LivroCaixa: React.FC = () => {
   const { pushToast } = useToast();
   const { preferences, updatePreference } = useUserPreferences();
+  const stickyStats = preferences.livroCaixa.stickyStats ?? false;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { hasPermission, isAdmin } = useAuth();
@@ -496,7 +497,7 @@ export const LivroCaixa: React.FC = () => {
   const [searchQuery, setSearchQuery]   = useState('');
   const [flowFilter, setFlowFilter]     = useState<'all' | 'income' | 'expense'>('all');
   const [sortKey, setSortKey]           = useState<string>(() => localStorage.getItem('lc_sort_key') ?? 'date');
-  const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>(() => (localStorage.getItem('lc_sort_order') as 'asc' | 'desc') ?? 'asc');
+  const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>(() => (localStorage.getItem('lc_sort_order') as 'asc' | 'desc') ?? 'desc');
   const [currentPage, setCurrentPage]   = useState(1);
   const itemsPerPage = preferences.livroCaixa.itemsPerPage;
 
@@ -1558,6 +1559,9 @@ export const LivroCaixa: React.FC = () => {
             }
         />
 
+        {/* KPI + Search — sticky wrapper */}
+        <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-3 bg-slate-50/95 backdrop-blur-md pt-3 pb-3 -mx-6 px-6 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-3'}>
+
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
@@ -1610,26 +1614,38 @@ export const LivroCaixa: React.FC = () => {
               className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-slate-100 bg-slate-50 text-sm font-bold text-slate-700 outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:font-normal placeholder:text-slate-400"
             />
           </div>
-          <div className="flex items-center gap-3 bg-slate-100 p-1.5 rounded-2xl">
-            {[
-              { value: 'all',     label: 'Todos os Fluxos' },
-              { value: 'income',  label: 'Entradas' },
-              { value: 'expense', label: 'Saídas' },
-            ].map(f => (
-              <button
-                key={f.value}
-                onClick={() => setFlowFilter(f.value as any)}
-                className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                  flowFilter === f.value
-                    ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <Filter size={10} /> {f.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 bg-slate-100 p-1.5 rounded-2xl">
+              {[
+                { value: 'all',     label: 'Todos os Fluxos' },
+                { value: 'income',  label: 'Entradas' },
+                { value: 'expense', label: 'Saídas' },
+              ].map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => setFlowFilter(f.value as any)}
+                  className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                    flowFilter === f.value
+                      ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Filter size={10} /> {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Botão fixar barra */}
+            <button
+              onClick={() => updatePreference('livroCaixa', { stickyStats: !stickyStats })}
+              title={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
+              className={`p-1.5 rounded-xl border transition-all ${stickyStats ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-300'}`}
+            >
+              {stickyStats ? <Pin size={13} /> : <PinOff size={13} />}
+            </button>
           </div>
         </div>
+        </div>{/* end sticky wrapper */}
 
         {/* Bulk action bar */}
         {selectedTxIds.size > 0 && (

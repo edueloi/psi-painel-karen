@@ -261,6 +261,7 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
       LEFT JOIN patients p ON p.id = t.patient_id
       LEFT JOIN comandas c ON c.id = t.comanda_id
       WHERE t.tenant_id = ?
+        AND t.comanda_id IS NULL
     `;
     const params = [req.user.tenant_id];
 
@@ -268,7 +269,6 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
     if (category) { query += ' AND t.category = ?'; params.push(category); }
     if (start) { query += ' AND t.date >= ?'; params.push(start); }
     if (end) { query += ' AND t.date <= ?'; params.push(end); }
-    if (comanda_id) { query += ' AND t.comanda_id = ?'; params.push(comanda_id); }
 
     query += ' ORDER BY t.date DESC';
 
@@ -290,26 +290,26 @@ router.get('/summary', authMiddleware, checkPermission('view_financial_reports')
     const y = year || now.getFullYear();
 
     const [incomeData] = await db.query(
-      `SELECT 
+      `SELECT
          COALESCE(SUM(CASE WHEN status IN ('paid', 'confirmed') THEN amount ELSE 0 END), 0) as paid,
          COALESCE(SUM(CASE WHEN status IN ('pending', 'waiting', 'overdue') THEN amount ELSE 0 END), 0) as pending
-       FROM financial_transactions 
-       WHERE tenant_id = ? AND type = 'income' AND MONTH(date) = ? AND YEAR(date) = ?`,
+       FROM financial_transactions
+       WHERE tenant_id = ? AND type = 'income' AND comanda_id IS NULL AND MONTH(date) = ? AND YEAR(date) = ?`,
       [req.user.tenant_id, m, y]
     );
 
     const [expenseData] = await db.query(
-      `SELECT 
+      `SELECT
          COALESCE(SUM(CASE WHEN status IN ('paid', 'confirmed') THEN amount ELSE 0 END), 0) as paid,
          COALESCE(SUM(CASE WHEN status IN ('pending', 'waiting', 'overdue') THEN amount ELSE 0 END), 0) as pending
-       FROM financial_transactions 
-       WHERE tenant_id = ? AND type = 'expense' AND MONTH(date) = ? AND YEAR(date) = ?`,
+       FROM financial_transactions
+       WHERE tenant_id = ? AND type = 'expense' AND comanda_id IS NULL AND MONTH(date) = ? AND YEAR(date) = ?`,
       [req.user.tenant_id, m, y]
     );
 
     const [counts] = await db.query(
-      `SELECT COUNT(*) as total FROM financial_transactions 
-       WHERE tenant_id = ? AND MONTH(date) = ? AND YEAR(date) = ?`,
+      `SELECT COUNT(*) as total FROM financial_transactions
+       WHERE tenant_id = ? AND comanda_id IS NULL AND MONTH(date) = ? AND YEAR(date) = ?`,
       [req.user.tenant_id, m, y]
     );
 

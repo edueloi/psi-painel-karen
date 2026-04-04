@@ -9,11 +9,12 @@ import {
     ArrowUpRight, Info,
     Edit3, Download, Upload, FileDown, FileUp,
     Activity,
-    AlignLeft, MessageSquare, Send, Stethoscope, Tag,
+    AlignLeft, MessageSquare, Send, Stethoscope, Tag, Pin, PinOff,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
@@ -141,6 +142,8 @@ export const Agenda: React.FC = () => {
   const [applyToSeries, setApplyToSeries] = useState(false);
   const [deleteSeries, setDeleteSeries] = useState(false);
   const { pushToast } = useToast();
+  const { preferences, updatePreference } = useUserPreferences();
+  const stickyStats = preferences.agenda.stickyStats ?? false;
 
   // ── Edit scope modal (which sessions to apply changes to) ──
   const [isScopeModalOpen, setIsScopeModalOpen] = useState(false);
@@ -1472,8 +1475,11 @@ export const Agenda: React.FC = () => {
         }
       />
 
-      {/* STATS BAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* STATS + FILTERS — wrapper sticky opcional */}
+      <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-3 bg-slate-50/95 backdrop-blur-md pt-3 pb-3 -mx-6 px-6 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-3'}>
+
+        {/* STATS BAR */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-indigo-50/30 p-5 rounded-[2rem] border border-indigo-100 shadow-sm flex items-center gap-4 group hover:bg-white hover:border-indigo-200 transition-all">
               <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center border border-indigo-500 shadow-lg shadow-indigo-200 group-hover:scale-110 transition-all">
                   <CalendarRange size={22} />
@@ -1501,7 +1507,7 @@ export const Agenda: React.FC = () => {
                   <p className="text-xl font-black text-slate-800">{stats.onlineCount}</p>
               </div>
           </div>
-      </div>
+        </div>
 
       {/* FILTERS & NAVIGATION BAR */}
       <div className="bg-gradient-to-r from-white to-indigo-50/40 px-4 py-3 rounded-[2.5rem] border border-indigo-100/50 shadow-sm flex flex-wrap gap-2 items-center justify-between">
@@ -1538,8 +1544,18 @@ export const Agenda: React.FC = () => {
                   <option value="">Profissional</option>
                   {professionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
               </select>
+
+              {/* Botão fixar barra */}
+              <button
+                onClick={() => updatePreference('agenda', { stickyStats: !stickyStats })}
+                title={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
+                className={`p-1.5 rounded-xl border transition-all ${stickyStats ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300'}`}
+              >
+                {stickyStats ? <Pin size={13} /> : <PinOff size={13} />}
+              </button>
           </div>
       </div>
+      </div>{/* end sticky wrapper */}
 
       {/* CALENDAR CONTENT */}
       <div className="bg-white rounded-[2.5rem] border border-indigo-100/60 shadow-xl shadow-indigo-500/5 overflow-hidden animate-fadeIn relative">

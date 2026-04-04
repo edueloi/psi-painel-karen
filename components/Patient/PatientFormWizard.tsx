@@ -551,8 +551,8 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   />
                   {formData.spouse_phone && formData.spouse_phone.replace(/\D/g,'').length >= 10 && (
                     <button type="button" onClick={() => openWhatsApp(formData.spouse_phone || '')}
-                      className="px-3 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors flex items-center gap-1 text-xs font-semibold">
-                      <Phone size={14}/> WA
+                      className="px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors flex items-center gap-1.5 text-xs font-bold whitespace-nowrap">
+                      <Phone size={14}/> WhatsApp
                     </button>
                   )}
                 </div>

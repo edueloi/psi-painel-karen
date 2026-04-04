@@ -17,6 +17,7 @@ export interface UserPreferences {
   };
   agenda: {
     viewMode: 'day' | 'week' | 'month';
+    stickyStats: boolean;
   };
   caseStudies: {
     viewMode: 'grid' | 'list';
@@ -42,6 +43,7 @@ export interface UserPreferences {
   };
   livroCaixa: {
     itemsPerPage: number;
+    stickyStats: boolean;
   };
   clinicalTools: {
     orderedIds: string[];
@@ -65,6 +67,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   },
   agenda: {
     viewMode: 'week',
+    stickyStats: false,
   },
   caseStudies: {
     viewMode: 'grid',
@@ -90,6 +93,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   },
   livroCaixa: {
     itemsPerPage: 15,
+    stickyStats: false,
   },
   clinicalTools: {
     orderedIds: [],
