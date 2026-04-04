@@ -248,8 +248,10 @@ export const Patients: React.FC = () => {
         children_count: data.children_count || 0,
         minor_children_count: data.minor_children_count || 0,
         spouse_name: data.spouse_name || null,
+        spouse_phone: data.spouse_phone || null,
         family_contact: data.family_contact || null,
         emergency_contact: data.emergency_contact || null,
+        emergency_contacts: data.emergency_contacts ? JSON.stringify(data.emergency_contacts) : null,
         address: data.street
           ? `${data.street}${data.house_number ? ', ' + data.house_number : ''}${data.neighborhood ? ' - ' + data.neighborhood : ''}`
           : null,

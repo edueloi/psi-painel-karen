@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Patient, MaritalStatus, EducationLevel } from '../../types';
-import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, X, Loader2, Camera } from 'lucide-react';
+import { Patient, MaritalStatus, EducationLevel, EmergencyContact } from '../../types';
+import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, Users, CreditCard, FileText, X, Loader2, Camera, Plus, Trash2, Phone } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { API_BASE_URL } from '../../services/api';
 import { DatePicker } from '../UI/DatePicker';
@@ -135,6 +135,12 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       has_children: !!(initialData.has_children || initialData.children_count || initialData.minor_children_count),
       is_payer: initialData.is_payer ?? true,
       needs_reimbursement: initialData.needs_reimbursement ?? (initialData as any).needsReimbursement ?? false,
+      emergency_contacts: (() => {
+        const raw = (initialData as any).emergency_contacts;
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        try { return JSON.parse(raw); } catch { return []; }
+      })(),
     };
   });
 
@@ -470,12 +476,28 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
           </div>
         );
 
-      case 3: // Família
+      case 3: { // Família
+        const emergencyContacts: EmergencyContact[] = formData.emergency_contacts || [];
+        const addEmergencyContact = () => {
+          const newContact: EmergencyContact = { id: Date.now().toString(), name: '', phone: '', relationship: '' };
+          updateField('emergency_contacts', [...emergencyContacts, newContact]);
+        };
+        const removeEmergencyContact = (id: string) => {
+          updateField('emergency_contacts', emergencyContacts.filter(c => c.id !== id));
+        };
+        const updateEmergencyContact = (id: string, field: keyof EmergencyContact, value: string) => {
+          updateField('emergency_contacts', emergencyContacts.map(c => c.id === id ? { ...c, [field]: value } : c));
+        };
+        const openWhatsApp = (phone: string) => {
+          const digits = phone.replace(/\D/g, '');
+          if (digits.length >= 10) window.open(`https://wa.me/55${digits}`, '_blank');
+        };
         return (
           <div className="space-y-6 animate-fadeIn">
+            {/* Filhos */}
             <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 id="has_children"
                 className="h-5 w-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
                 checked={formData.has_children || false}
@@ -483,13 +505,13 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               />
               <label htmlFor="has_children" className="text-xs font-semibold text-slate-600">{t('wizard.hasChildren')}</label>
             </div>
-            
+
             {formData.has_children && (
               <div className="grid grid-cols-2 gap-4 pl-8">
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-500 uppercase">{t('wizard.childrenTotal')}</label>
-                    <input 
-                    type="number" 
+                    <input
+                    type="number"
                     className="w-full p-2 border border-slate-300 rounded-lg"
                     value={formData.children_count || 0}
                     onChange={e => updateField('children_count', parseInt(e.target.value))}
@@ -497,8 +519,8 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 </div>
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-500 uppercase">{t('wizard.childrenMinors')}</label>
-                    <input 
-                    type="number" 
+                    <input
+                    type="number"
                     className="w-full p-2 border border-slate-300 rounded-lg"
                     value={formData.minor_children_count || 0}
                     onChange={e => updateField('minor_children_count', parseInt(e.target.value))}
@@ -506,26 +528,114 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 </div>
               </div>
             )}
-            
+
+            {/* Cônjuge / Parceiro */}
             <div className="border-t border-slate-200 pt-4">
-              <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Heart size={16} className="text-rose-500"/> {t('wizard.spouseData')}</h4>
+              <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <Heart size={16} className="text-rose-500"/> {t('wizard.spouseData')}
+              </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input 
+                <input
                   type="text" placeholder={t('wizard.spouseName')}
-                  className="p-2.5 border border-slate-300 rounded-xl outline-none"
+                  className="p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
                   value={formData.spouse_name || ''}
                   onChange={e => updateField('spouse_name', e.target.value)}
                 />
-                <input 
-                  type="text" placeholder={t('wizard.familyContact')}
-                  className="p-2.5 border border-slate-300 rounded-xl outline-none"
-                  value={formData.family_contact || ''}
-                  onChange={e => updateField('family_contact', e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text" placeholder={t('wizard.spousePhone')}
+                    className="flex-1 p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                    value={formData.spouse_phone || ''}
+                    onChange={e => updateField('spouse_phone', mkP(e.target.value))}
+                    maxLength={15}
+                  />
+                  {formData.spouse_phone && formData.spouse_phone.replace(/\D/g,'').length >= 10 && (
+                    <button type="button" onClick={() => openWhatsApp(formData.spouse_phone || '')}
+                      className="px-3 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors flex items-center gap-1 text-xs font-semibold">
+                      <Phone size={14}/> WA
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Contatos de Emergência */}
+            <div className="border-t border-slate-200 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Users size={16} className="text-indigo-500"/> {t('wizard.emergencyContacts')}
+                </h4>
+                <button type="button" onClick={addEmergencyContact}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
+                  <Plus size={13}/> {t('wizard.addContact')}
+                </button>
+              </div>
+
+              {emergencyContacts.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  {t('wizard.noEmergencyContacts')}
+                </p>
+              )}
+
+              <div className="space-y-3">
+                {emergencyContacts.map((contact, idx) => (
+                  <div key={contact.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-500 uppercase">{t('wizard.contact')} {idx + 1}</span>
+                      <button type="button" onClick={() => removeEmergencyContact(contact.id)}
+                        className="text-rose-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-colors">
+                        <Trash2 size={14}/>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input
+                        type="text" placeholder={t('wizard.contactName')}
+                        className="p-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                        value={contact.name}
+                        onChange={e => updateEmergencyContact(contact.id, 'name', e.target.value)}
+                      />
+                      <select
+                        className="p-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white"
+                        value={contact.relationship}
+                        onChange={e => updateEmergencyContact(contact.id, 'relationship', e.target.value)}
+                      >
+                        <option value="">{t('wizard.relationship')}</option>
+                        <option value="conjuge">{t('wizard.rel.conjuge')}</option>
+                        <option value="mae">{t('wizard.rel.mae')}</option>
+                        <option value="pai">{t('wizard.rel.pai')}</option>
+                        <option value="filho">{t('wizard.rel.filho')}</option>
+                        <option value="filha">{t('wizard.rel.filha')}</option>
+                        <option value="irmao">{t('wizard.rel.irmao')}</option>
+                        <option value="irma">{t('wizard.rel.irma')}</option>
+                        <option value="avo">{t('wizard.rel.avo')}</option>
+                        <option value="tio">{t('wizard.rel.tio')}</option>
+                        <option value="primo">{t('wizard.rel.primo')}</option>
+                        <option value="amigo">{t('wizard.rel.amigo')}</option>
+                        <option value="outro">{t('wizard.rel.outro')}</option>
+                      </select>
+                      <div className="flex gap-2">
+                        <input
+                          type="text" placeholder={t('wizard.contactPhone')}
+                          className="flex-1 p-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                          value={contact.phone}
+                          onChange={e => updateEmergencyContact(contact.id, 'phone', mkP(e.target.value))}
+                          maxLength={15}
+                        />
+                        {contact.phone && contact.phone.replace(/\D/g,'').length >= 10 && (
+                          <button type="button" onClick={() => openWhatsApp(contact.phone)}
+                            className="px-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold">
+                            <Phone size={13}/> WA
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         );
+      } // end case 3
 
       case 4: // Financeiro
         return (

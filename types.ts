@@ -1,5 +1,12 @@
 
 // Ajustado para strings minúsculas conforme padrão do seu banco de dados
+
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  relationship: string;
+}
 export enum UserRole {
   SUPER_ADMIN = 'super_admin',
   ADMIN = 'admin',
@@ -179,8 +186,10 @@ export interface Patient {
   children_count?: number;
   minor_children_count?: number;
   spouse_name?: string;
+  spouse_phone?: string;
   family_contact?: string;
   emergency_contact?: string;
+  emergency_contacts?: EmergencyContact[];
   // Pagador / Responsável Financeiro
   is_payer?: boolean;
   payer_name?: string;
