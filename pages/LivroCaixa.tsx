@@ -1324,6 +1324,8 @@ export const LivroCaixa: React.FC = () => {
         title="Arquivo Financeiro"
         subtitle="GESTÃO DE PERÍODOS CONSOLIDADOS"
         containerClassName="mb-0"
+        showBackButton
+        onBackClick={() => navigate(-1)}
         actions={
           <div className="flex items-center gap-2">
             {/* Year selector */}

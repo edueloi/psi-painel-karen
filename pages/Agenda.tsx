@@ -1558,7 +1558,7 @@ export const Agenda: React.FC = () => {
       </div>{/* end sticky wrapper */}
 
       {/* CALENDAR CONTENT */}
-      <div className="bg-white rounded-[2.5rem] border border-indigo-100/60 shadow-xl shadow-indigo-500/5 overflow-hidden animate-fadeIn relative">
+      <div className="bg-white rounded-[2.5rem] border border-indigo-100/60 shadow-xl shadow-indigo-500/5 animate-fadeIn relative" style={{overflow: view === 'month' ? 'auto' : 'hidden', maxHeight: view === 'month' ? 'calc(100vh - 88px - 40px)' : undefined}}>
         {isLoading ? (
             <div className="flex flex-col h-full animate-pulse">
                 {/* Header Skeleton */}
@@ -1593,7 +1593,7 @@ export const Agenda: React.FC = () => {
                 </div>
             </div>
         ) : view === 'month' ? (
-            <div className="flex flex-col h-full bg-slate-50/50 rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-2xl shadow-indigo-100/20">
+            <div className="flex flex-col h-full bg-slate-50/50 rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-indigo-100/20">
                 <div className="grid grid-cols-7 border-b border-slate-100 bg-indigo-50/30 backdrop-blur-md sticky top-0 z-20">
                     {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map((day, idx) => {
                         const isWknd = idx === 0 || idx === 6;
