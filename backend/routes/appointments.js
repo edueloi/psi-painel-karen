@@ -641,7 +641,8 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                  LEFT JOIN users u ON u.id = a.professional_id
                  WHERE a.tenant_id       = ?
                    AND a.professional_id = ?
-                   AND a.status NOT IN ('cancelled')
+                   AND a.status NOT IN ('cancelled', 'no_show')
+                   AND a.end_time IS NOT NULL
                    AND a.start_time < ?
                    AND a.end_time   > ?
                  ORDER BY a.start_time

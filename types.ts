@@ -429,7 +429,7 @@ export interface ServicePackage {
 export type ComandaStatus = 'open' | 'closed' | 'cancelled';
 
 export interface ComandaItem {
-  id: string;
+  id?: string;
   serviceId?: string;
   serviceName?: string;
   service_id?: string | number;

@@ -53,7 +53,7 @@ type EditableItem = {
   price: number;
 };
 
-type EditableComanda = Partial<Comanda> & {
+type EditableComanda = Omit<Partial<Comanda>, 'items'> & {
   patientId?: string;
   patientSearch?: string;
   professionalId?: string;
@@ -835,7 +835,11 @@ export const Comandas: React.FC = () => {
     newDate: string
   ) => {
     try {
-      await api.put(`/appointments/${appointmentId}`, { start_time: newDate });
+      // datetime-local input retorna horário local (ex: "2026-04-15T15:00").
+      // O backend interpreta strings sem timezone como UTC, então precisamos
+      // converter explicitamente para ISO UTC antes de enviar.
+      const utcDate = new Date(newDate).toISOString();
+      await api.put(`/appointments/${appointmentId}`, { start_time: utcDate });
       
       const res = await api.get<Comanda[]>('/finance/comandas');
       const latestComandas = res || [];
@@ -1769,7 +1773,7 @@ export const Comandas: React.FC = () => {
                     onChange={(val) =>
                       setEditingComanda({
                         ...editingComanda,
-                        startDate: val,
+                        startDate: val ?? undefined,
                       })
                     }
                   />
