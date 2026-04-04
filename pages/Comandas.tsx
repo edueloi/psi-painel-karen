@@ -68,6 +68,7 @@ type EditableComanda = Omit<Partial<Comanda>, 'items'> & {
   discount_value?: number;
   packageId?: string;
   items?: EditableItem[];
+  syncToLivrocaixa?: boolean;
 };
 
 const lineInputClass =
@@ -285,6 +286,7 @@ export const Comandas: React.FC = () => {
     discount_type: 'fixed',
     discount_value: 0,
     packageId: '',
+    syncToLivrocaixa: false,
   });
 
   const fetchData = async () => {
@@ -615,6 +617,7 @@ export const Comandas: React.FC = () => {
         packageId: String((comanda as any).package_id || (comanda as any).packageId || ''),
         items,
         sessions_total: Number((comanda as any).sessions_total || 1),
+        syncToLivrocaixa: Boolean((comanda as any).sync_to_livrocaixa),
       });
 
       setModalTab(isPackage ? 'pacote' : 'avulsa');
@@ -673,6 +676,7 @@ export const Comandas: React.FC = () => {
         package_id: isPackage && editingComanda.packageId ? String(editingComanda.packageId) : null,
         items: itemsPayload,
         skip_appointment: isPackage,
+        sync_to_livrocaixa: editingComanda.syncToLivrocaixa ? 1 : 0,
       };
 
       if (editingComanda.id) {
@@ -1735,6 +1739,43 @@ export const Comandas: React.FC = () => {
                   });
                 }}
               />
+            </div>
+
+            {/* Vincular ao Livro Caixa */}
+            <div
+              className={`flex items-center justify-between rounded-2xl border px-4 py-3 transition cursor-pointer ${
+                editingComanda.syncToLivrocaixa
+                  ? 'border-emerald-300 bg-emerald-50'
+                  : 'border-slate-200 bg-slate-50'
+              }`}
+              onClick={() =>
+                setEditingComanda({
+                  ...editingComanda,
+                  syncToLivrocaixa: !editingComanda.syncToLivrocaixa,
+                })
+              }
+            >
+              <div className="flex flex-col">
+                <span className={`text-sm font-semibold ${editingComanda.syncToLivrocaixa ? 'text-emerald-700' : 'text-slate-700'}`}>
+                  Vincular ao Livro Caixa
+                </span>
+                <span className="text-xs text-slate-500 mt-0.5">
+                  {editingComanda.syncToLivrocaixa
+                    ? 'Esta comanda aparecerá no Livro Caixa (pendente até ser paga)'
+                    : 'Ativar para registrar esta comanda no Livro Caixa'}
+                </span>
+              </div>
+              <div
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 ${
+                  editingComanda.syncToLivrocaixa ? 'bg-emerald-500' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform duration-200 ${
+                    editingComanda.syncToLivrocaixa ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </div>
             </div>
 
             {modalTab === 'avulsa' ? (

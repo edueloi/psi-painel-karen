@@ -53,6 +53,8 @@ async function ensureSchema() {
     'ALTER TABLE comandas ADD COLUMN paid_value DECIMAL(10,2) NULL DEFAULT 0',
     'ALTER TABLE comandas ADD COLUMN items LONGTEXT NULL',
     'ALTER TABLE comandas ADD COLUMN notes TEXT NULL',
+    'ALTER TABLE comandas ADD COLUMN sync_to_livrocaixa TINYINT(1) DEFAULT 0',
+    'ALTER TABLE comandas ADD COLUMN livrocaixa_tx_id INT NULL',
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) console.warn('Schema Warning:', e.message); }
@@ -158,6 +160,31 @@ router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_pa
       ]
     );
 
+    // Se comanda tem sync_to_livrocaixa, atualizar/criar lançamento no livro caixa (sem comanda_id)
+    const [cmdRow] = await db.query(
+      'SELECT sync_to_livrocaixa, livrocaixa_tx_id, description, patient_id FROM comandas WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (cmdRow.length > 0 && cmdRow[0].sync_to_livrocaixa) {
+      const txId = cmdRow[0].livrocaixa_tx_id;
+      if (txId) {
+        // Atualizar transaction existente: valor pago acumulado e status pago
+        await db.query(
+          `UPDATE financial_transactions SET amount = ?, status = 'paid', date = ? WHERE id = ? AND tenant_id = ?`,
+          [totalPaid, payDate, txId, req.user.tenant_id]
+        );
+      } else {
+        // Criar nova transaction no livro caixa
+        const [newTx] = await db.query(
+          `INSERT INTO financial_transactions
+             (tenant_id, type, category, description, amount, date, patient_id, payment_method, status)
+           VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'paid')`,
+          [req.user.tenant_id, cmdRow[0].description || 'Consulta', totalPaid, payDate, cmdRow[0].patient_id || null, payMethod]
+        );
+        await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [newTx.insertId, req.params.id]);
+      }
+    }
+
     res.status(201).json({ id: result.insertId, amount: parseFloat(amount), payment_date: payDate, payment_method: payMethod, totalPaid, status: newStatus });
   } catch (err) {
     console.error('Erro ao registrar pagamento:', err);
@@ -240,6 +267,26 @@ router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermissi
       'UPDATE comandas SET paid_value = ? WHERE id = ? AND tenant_id = ?',
       [totalPaid, req.params.id, req.user.tenant_id]
     );
+
+    // Se sync_to_livrocaixa, atualizar lançamento no livro caixa
+    const [cmdRow2] = await db.query(
+      'SELECT sync_to_livrocaixa, livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (cmdRow2.length > 0 && cmdRow2[0].sync_to_livrocaixa && cmdRow2[0].livrocaixa_tx_id) {
+      if (totalPaid > 0) {
+        await db.query(
+          `UPDATE financial_transactions SET amount = ?, status = 'paid' WHERE id = ? AND tenant_id = ?`,
+          [totalPaid, cmdRow2[0].livrocaixa_tx_id, req.user.tenant_id]
+        );
+      } else {
+        // Sem pagamentos → volta para pendente com valor total da comanda
+        await db.query(
+          `UPDATE financial_transactions SET amount = ?, status = 'pending' WHERE id = ? AND tenant_id = ?`,
+          [comandaTotal, cmdRow2[0].livrocaixa_tx_id, req.user.tenant_id]
+        );
+      }
+    }
 
     res.json({ success: true, totalPaid });
   } catch (err) {
@@ -932,10 +979,10 @@ router.post('/comandas/import', authMiddleware, checkPermission('manage_payments
 router.post('/comandas', async (req, res) => {
   try {
     await withSchema();
-    const { 
-      patient_id, professional_id, items, notes, 
+    const {
+      patient_id, professional_id, items, notes,
       payment_method, discount, start_date, duration_minutes, receipt_code,
-      discount_type, discount_value, sessions_total, package_id
+      discount_type, discount_value, sessions_total, package_id, sync_to_livrocaixa
     } = req.body;
 
     const itemsArr = items || [];
@@ -954,25 +1001,40 @@ router.post('/comandas', async (req, res) => {
     // Sessions count calculation from items if sessions_total not explicitly provided
     const sessions_from_items = itemsArr.reduce((sum, item) => sum + (parseInt(item.qty) || 0), 0);
 
+    const syncLC = sync_to_livrocaixa ? 1 : 0;
+
     const [result] = await db.query(
       `INSERT INTO comandas (
-        tenant_id, patient_id, professional_id, description, total, discount, 
-        items, notes, payment_method, start_date, duration_minutes, status, 
-        receipt_code, discount_type, discount_value, total_net, sessions_total, package_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        tenant_id, patient_id, professional_id, description, total, discount,
+        items, notes, payment_method, start_date, duration_minutes, status,
+        receipt_code, discount_type, discount_value, total_net, sessions_total, package_id,
+        sync_to_livrocaixa
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.user.tenant_id, patient_id || null, professional_id || null, 
+        req.user.tenant_id, patient_id || null, professional_id || null,
         req.body.description || 'Consulta/Serviço',
-        total, dValue, JSON.stringify(itemsArr), notes || null, 
+        total, dValue, JSON.stringify(itemsArr), notes || null,
         payment_method || null, start_date || null, duration_minutes || 60,
-        req.body.status || 'open', receipt_code || null, 
+        req.body.status || 'open', receipt_code || null,
         dType, dValue, total, (sessions_total || sessions_from_items || 1),
-        package_id || null
+        package_id || null, syncLC
       ]
     );
 
     const comandaId = result.insertId;
-    // Agendamentos só são criados via Agenda — comanda não cria appointments automaticamente
+
+    // Se sync_to_livrocaixa, criar lançamento pendente no livro caixa
+    if (syncLC) {
+      const desc = req.body.description || 'Consulta/Serviço';
+      const txDate = (start_date || new Date().toISOString()).slice(0, 10);
+      const [txResult] = await db.query(
+        `INSERT INTO financial_transactions
+           (tenant_id, type, category, description, amount, date, patient_id, payment_method, status)
+         VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'pending')`,
+        [req.user.tenant_id, desc, total, txDate, patient_id || null, payment_method || 'Pix']
+      );
+      await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [txResult.insertId, comandaId]);
+    }
 
     const [comanda] = await db.query('SELECT * FROM comandas WHERE id = ?', [comandaId]);
     const c = comanda[0];
@@ -988,11 +1050,11 @@ router.post('/comandas', async (req, res) => {
 router.put('/comandas/:id', async (req, res) => {
     try {
         await withSchema();
-        const { 
-            patient_id, professional_id, description, status, items, 
+        const {
+            patient_id, professional_id, description, status, items,
             notes, payment_method, start_date, duration_minutes,
             sessions_total, sessions_used, paid_value, receipt_code,
-            discount_type, discount_value, package_id
+            discount_type, discount_value, package_id, sync_to_livrocaixa
         } = req.body;
 
         const itemsArr = items || [];
@@ -1008,13 +1070,23 @@ router.put('/comandas/:id', async (req, res) => {
         }
         total = Math.max(0, total);
 
+        // Ler estado atual da comanda para gerenciar sync
+        const [currentCmd] = await db.query(
+            'SELECT sync_to_livrocaixa, livrocaixa_tx_id, paid_value as current_paid FROM comandas WHERE id = ? AND tenant_id = ?',
+            [req.params.id, req.user.tenant_id]
+        );
+        const currentSync = currentCmd[0]?.sync_to_livrocaixa;
+        const currentLcTxId = currentCmd[0]?.livrocaixa_tx_id;
+        const newSync = sync_to_livrocaixa !== undefined ? (sync_to_livrocaixa ? 1 : 0) : currentSync;
+
         await db.query(
-            `UPDATE comandas SET 
-                patient_id = ?, professional_id = ?, description = ?, status = ?, 
-                total = ?, items = ?, notes = ?, payment_method = ?, 
-                start_date = ?, duration_minutes = ? ,
+            `UPDATE comandas SET
+                patient_id = ?, professional_id = ?, description = ?, status = ?,
+                total = ?, items = ?, notes = ?, payment_method = ?,
+                start_date = ?, duration_minutes = ?,
                 sessions_total = ?, sessions_used = ?, paid_value = ?, receipt_code = ?,
-                discount_type = ?, discount_value = ?, total_net = ?, package_id = ?
+                discount_type = ?, discount_value = ?, total_net = ?, package_id = ?,
+                sync_to_livrocaixa = ?
             WHERE id = ? AND tenant_id = ?`,
             [
                 patient_id || null, professional_id || null, description || '', status || 'open',
@@ -1023,9 +1095,38 @@ router.put('/comandas/:id', async (req, res) => {
                 sessions_total || 0, sessions_used || 0,
                 paid_value || 0, receipt_code || null,
                 dType, dValue, total, package_id || null,
+                newSync,
                 req.params.id, req.user.tenant_id
             ]
         );
+
+        // Gerenciar lançamento no livro caixa
+        const currentPaid = parseFloat(paid_value || 0);
+        if (newSync && !currentLcTxId) {
+            // Ativar sync: criar lançamento pendente
+            const txStatus = currentPaid > 0 ? 'paid' : 'pending';
+            const txAmount = currentPaid > 0 ? currentPaid : total;
+            const txDate = (start_date || new Date().toISOString()).slice(0, 10);
+            const [newTx] = await db.query(
+                `INSERT INTO financial_transactions
+                   (tenant_id, type, category, description, amount, date, patient_id, payment_method, status)
+                 VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, ?)`,
+                [req.user.tenant_id, description || 'Consulta', txAmount, txDate, patient_id || null, payment_method || 'Pix', txStatus]
+            );
+            await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [newTx.insertId, req.params.id]);
+        } else if (!newSync && currentLcTxId) {
+            // Desativar sync: remover lançamento do livro caixa
+            await db.query('DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?', [currentLcTxId, req.user.tenant_id]);
+            await db.query('UPDATE comandas SET livrocaixa_tx_id = NULL WHERE id = ?', [req.params.id]);
+        } else if (newSync && currentLcTxId) {
+            // Sync ativo: manter sincronizado com valor atual
+            const txStatus2 = currentPaid > 0 ? 'paid' : 'pending';
+            const txAmount2 = currentPaid > 0 ? currentPaid : total;
+            await db.query(
+                `UPDATE financial_transactions SET description = ?, amount = ?, status = ?, patient_id = ? WHERE id = ? AND tenant_id = ?`,
+                [description || 'Consulta', txAmount2, txStatus2, patient_id || null, currentLcTxId, req.user.tenant_id]
+            );
+        }
 
         // Se o status mudou para 'closed', gera lançamento financeiro
         if (status === 'closed') {
@@ -1077,16 +1178,24 @@ router.delete('/comandas/:id', async (req, res) => {
 
     // 2. Buscar transação financeira vinculada antes de deletar a comanda
     const [comandas] = await db.query(
-      'SELECT financial_transaction_id FROM comandas WHERE id = ? AND tenant_id = ?',
+      'SELECT financial_transaction_id, livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?',
       [comandaId, tenantId]
     );
 
-    if (comandas.length > 0 && comandas[0].financial_transaction_id) {
-       // Deletar a transação financeira principal vinculada (gerada quando fechada)
-       await db.query(
-         'DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?',
-         [comandas[0].financial_transaction_id, tenantId]
-       );
+    if (comandas.length > 0) {
+      if (comandas[0].financial_transaction_id) {
+        await db.query(
+          'DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+          [comandas[0].financial_transaction_id, tenantId]
+        );
+      }
+      // Deletar lançamento do livro caixa vinculado (sync_to_livrocaixa)
+      if (comandas[0].livrocaixa_tx_id) {
+        await db.query(
+          'DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+          [comandas[0].livrocaixa_tx_id, tenantId]
+        );
+      }
     }
 
     // 3. Deletar todos os pagamentos parciais vinculados a esta comanda
