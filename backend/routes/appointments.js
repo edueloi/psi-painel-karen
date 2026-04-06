@@ -557,8 +557,9 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                 const profClosedDates = typeof profRows[0].closed_dates === 'string'
                     ? JSON.parse(profRows[0].closed_dates) : (profRows[0].closed_dates || null);
 
-                const apptDate = new Date(formattedStart);
-                const dateStr = apptDate.toISOString().slice(0, 10); // YYYY-MM-DD
+                // Fix: Usar currentStart diretamente e garantir o fuso de São Paulo nas validações
+                const apptDate = currentStart;
+                const dateStr = apptDate.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // YYYY-MM-DD
 
                 // 1) Verificar se a data está na lista de datas fechadas
                 if (Array.isArray(profClosedDates) && profClosedDates.length > 0) {
@@ -578,8 +579,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
 
                 // 2) Verificar se o dia da semana está ativo na agenda
                 if (Array.isArray(profSchedule) && profSchedule.length > 0) {
-                    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-                    const dayKey = dayNames[apptDate.getDay()];
+                    const dayKey = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'America/Sao_Paulo' }).format(apptDate).toLowerCase();
                     const dayConfig = profSchedule.find(d => d.dayKey === dayKey);
 
                     if (dayConfig && !dayConfig.active) {
@@ -595,7 +595,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
 
                     // 3) Verificar se o horário está dentro do expediente
                     if (dayConfig && dayConfig.active && dayConfig.start && dayConfig.end) {
-                        const apptHHMM = apptDate.toTimeString().slice(0, 5); // HH:MM
+                        const apptHHMM = apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' });
                         if (apptHHMM < dayConfig.start || apptHHMM >= dayConfig.end) {
                             if (freq) {
                                 console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — fora do expediente ${dayConfig.start}-${dayConfig.end}`);

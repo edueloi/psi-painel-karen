@@ -1,0 +1,201 @@
+[
+  {
+    "id": 1,
+    "name": "Administrador",
+    "schedule": [
+      {
+        "end": "23:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "14:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "monday",
+        "lunchEnd": "14:00",
+        "lunchStart": "12:00"
+      },
+      {
+        "end": "23:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "14:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "tuesday",
+        "lunchEnd": "14:00",
+        "lunchStart": "12:00"
+      },
+      {
+        "end": "23:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "14:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "wednesday",
+        "lunchEnd": "14:00",
+        "lunchStart": "12:00"
+      },
+      {
+        "end": "23:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "14:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "thursday",
+        "lunchEnd": "13:00",
+        "lunchStart": "12:00"
+      },
+      {
+        "end": "23:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "14:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "friday",
+        "lunchEnd": "13:00",
+        "lunchStart": "12:00"
+      },
+      {
+        "end": "23:00",
+        "start": "08:00",
+        "active": false,
+        "breaks": [
+          {
+            "end": "14:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "saturday",
+        "lunchEnd": "",
+        "lunchStart": ""
+      },
+      {
+        "end": "23:00",
+        "start": "08:00",
+        "active": false,
+        "breaks": [
+          {
+            "end": "14:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "sunday",
+        "lunchEnd": "",
+        "lunchStart": ""
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Super Admin",
+    "schedule": null
+  },
+  {
+    "id": 3,
+    "name": "tete",
+    "schedule": null
+  },
+  {
+    "id": 4,
+    "name": "Ricardo teste ",
+    "schedule": null
+  },
+  {
+    "id": 6,
+    "name": "teste",
+    "schedule": [
+      {
+        "end": "18:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "13:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "monday"
+      },
+      {
+        "end": "18:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "13:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "tuesday"
+      },
+      {
+        "end": "18:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "13:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "wednesday"
+      },
+      {
+        "end": "18:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "13:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "thursday"
+      },
+      {
+        "end": "17:00",
+        "start": "08:00",
+        "active": true,
+        "breaks": [
+          {
+            "end": "13:00",
+            "start": "12:00"
+          }
+        ],
+        "dayKey": "friday"
+      },
+      {
+        "end": "13:00",
+        "start": "09:00",
+        "active": false,
+        "breaks": [],
+        "dayKey": "saturday"
+      },
+      {
+        "end": "",
+        "start": "",
+        "active": false,
+        "breaks": [],
+        "dayKey": "sunday"
+      }
+    ]
+  }
+]
