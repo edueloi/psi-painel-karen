@@ -579,7 +579,7 @@ router.delete('/:id', authMiddleware, checkPermission('manage_payments'), async 
         const sessionsTotal = parseInt(comandaRow[0].sessions_total || 1);
         const sessionsUsed = parseInt(comandaRow[0].sessions_used || 0);
         const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
-        await db.query('UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?', [totalPaid, newStatus, comandaId, req.user.tenant_id]);
+        await db.query('UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?', [totalPaid, newStatus, finalCid, req.user.tenant_id]);
       }
     }
 
