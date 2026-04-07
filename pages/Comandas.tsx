@@ -38,6 +38,8 @@ import {
   Download,
   ChevronDown,
   XCircle,
+  UserCheck,
+  List,
 } from 'lucide-react';
 
 type ComandaTab = 'avulsa' | 'pacote';
@@ -617,6 +619,7 @@ export const Comandas: React.FC = () => {
         packageId: String((comanda as any).package_id || (comanda as any).packageId || ''),
         items,
         sessions_total: Number((comanda as any).sessions_total || 1),
+        sessions_used: Number((comanda as any).sessions_used || 0),
         syncToLivrocaixa: Boolean((comanda as any).sync_to_livrocaixa),
       });
 
@@ -671,6 +674,7 @@ export const Comandas: React.FC = () => {
         discount_type: editingComanda.discount_type || 'fixed',
         discount_value: Number(editingComanda.discount_value || 0),
         sessions_total: Number(editingComanda.sessions_total || 1),
+        sessions_used: Number(editingComanda.sessions_used || 0),
         status: editingComanda.status || 'open',
         start_date: editingComanda.startDate,
         package_id: isPackage && editingComanda.packageId ? String(editingComanda.packageId) : null,
@@ -834,6 +838,33 @@ export const Comandas: React.FC = () => {
     }
   };
  
+  const handleIncrementSessions = async (comanda: Comanda) => {
+    try {
+      const currentUsed = Number(comanda.sessions_used || 0);
+      const total = Number(comanda.sessions_total || 1);
+      if (currentUsed >= total && !window.confirm('Este pacote já está completo. Deseja adicionar uma sessão extra?')) {
+        return;
+      }
+
+      await api.put(`/finance/comandas/${comanda.id}`, {
+        ...comanda,
+        sessions_used: currentUsed + 1
+      });
+
+      pushToast('success', 'Atendimento registrado!');
+      await fetchData();
+      
+      if (historyComanda && String(historyComanda.id) === String(comanda.id)) {
+        const refreshed = await api.get<Comanda[]>('/finance/comandas');
+        const updated = refreshed.find((c) => String(c.id) === String(comanda.id));
+        if (updated) setHistoryComanda(updated);
+      }
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Erro ao registrar atendimento.');
+    }
+  };
+
   const handleUpdateAppointmentDate = async (
     appointmentId: string | number,
     newDate: string
@@ -870,6 +901,7 @@ export const Comandas: React.FC = () => {
         payment_date: newPayment.date,
         payment_method: newPayment.method,
         receipt_code: newPayment.receiptCode,
+        source: 'comanda',
       };
 
       if (newPayment.id) {
@@ -1578,11 +1610,10 @@ export const Comandas: React.FC = () => {
                   header: 'Sessões',
                   render: (c: any) => (
                     <div className="flex flex-col">
-                      <span className={cx(
-                        "font-medium text-sm",
+                      <span className={`font-medium text-sm ${
                         (c.appointments?.length || 0) > (c.sessions_total || 0) ? 'text-red-600' :
                         (c.appointments?.length || 0) === (c.sessions_total || 0) ? 'text-emerald-600' : 'text-slate-700'
-                      )}>
+                      }`}>
                         {c.sessions_used || 0} / {c.sessions_total || 1}
                       </span>
                       {(c.appointments?.length || 0) > (c.sessions_total || 0) && (
@@ -1614,12 +1645,24 @@ export const Comandas: React.FC = () => {
                   render: (c: any) => (
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       {hasPermission('manage_payments') && (
-                        <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenModal(c)} title="Editar">
-                          <Edit3 size={14} />
-                        </Button>
+                        <>
+                          <Button 
+                            variant="soft" 
+                            size="xs" 
+                            iconOnly 
+                            onClick={() => handleIncrementSessions(c)} 
+                            title="Marcar Realizado (+1)"
+                            className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                          >
+                            <UserCheck size={14} />
+                          </Button>
+                          <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenModal(c)} title="Editar">
+                            <Edit3 size={14} />
+                          </Button>
+                        </>
                       )}
                       <Button variant="soft" size="xs" iconOnly onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }} title="Histórico">
-                        <CheckCircle2 size={14} />
+                        <List size={14} />
                       </Button>
                       {hasPermission('manage_payments') && (
                         <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteConfirmId(String(c.id))} title="Excluir">
@@ -1834,18 +1877,32 @@ export const Comandas: React.FC = () => {
                   className={compactInputClass}
                 />
 
-                <Input
-                  label="Número de Atendimentos"
-                  type="number"
-                  min={1}
-                  value={editingComanda.sessions_total || 1}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      sessions_total: Math.max(1, Number(e.target.value || 1)),
-                    })
-                  }
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Nº Atendimentos Total"
+                    type="number"
+                    min={1}
+                    value={editingComanda.sessions_total || 1}
+                    onChange={(e) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        sessions_total: Math.max(1, Number(e.target.value || 1)),
+                      })
+                    }
+                  />
+                  <Input
+                    label="Sessões Realizadas"
+                    type="number"
+                    min={0}
+                    value={editingComanda.sessions_used || 0}
+                    onChange={(e) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        sessions_used: Math.max(0, Number(e.target.value || 0)),
+                      })
+                    }
+                  />
+                </div>
 
                 <Select
                   label="Profissional"
@@ -1892,6 +1949,33 @@ export const Comandas: React.FC = () => {
                   }}
                   placeholder="Selecione um cliente..."
                 />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Nº Atendimentos Total"
+                      type="number"
+                      min={1}
+                      value={editingComanda.sessions_total || 1}
+                      onChange={(e) =>
+                        setEditingComanda({
+                          ...editingComanda,
+                          sessions_total: Math.max(1, Number(e.target.value || 1)),
+                        })
+                      }
+                    />
+                    <Input
+                      label="Sessões Realizadas"
+                      type="number"
+                      min={0}
+                      value={editingComanda.sessions_used || 0}
+                      onChange={(e) =>
+                        setEditingComanda({
+                          ...editingComanda,
+                          sessions_used: Math.max(0, Number(e.target.value || 0)),
+                        })
+                      }
+                    />
+                  </div>
 
                 <Select
                   label="Profissional"
@@ -2106,6 +2190,14 @@ export const Comandas: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => handleIncrementSessions(historyComanda)}
+            title="Marcar Realizado (+1)"
+            className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-600 transition hover:bg-emerald-100"
+          >
+            <UserCheck size={14} />
+            <span>REALIZADO</span>
+          </button>
           {hasPermission('manage_invoice_issuer') && (
             <button
               onClick={handleGenerateReceipt}
@@ -2229,7 +2321,13 @@ export const Comandas: React.FC = () => {
                       {formatCurrency(Number(tx.amount || 0))}
                     </p>
                     <p className="text-[11px] text-slate-400 truncate">
-                      {tx.date ? new Date(tx.date).toLocaleDateString('pt-BR') : '—'} · {tx.payment_method || '—'} · <span className="text-indigo-500 font-semibold">Livro Caixa</span>
+                      {tx.payment_date ? new Date(tx.payment_date).toLocaleDateString('pt-BR') : '—'} 
+                      {tx.created_at ? ` às ${new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''} 
+                      · {tx.payment_method || '—'} 
+                      {tx.created_by_name ? ` · Por ${tx.created_by_name}` : ''}
+                      · <span className={tx.source === 'Agenda' ? 'text-blue-500 font-semibold' : tx.source === 'direct' ? 'text-emerald-500 font-semibold' : 'text-indigo-500 font-semibold'}>
+                          {tx.source === 'Agenda' ? 'Agenda' : tx.source === 'direct' ? 'Comanda' : 'Livro Caixa'}
+                        </span>
                     </p>
                   </div>
                 </div>

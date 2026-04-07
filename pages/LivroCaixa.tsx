@@ -7,8 +7,9 @@ import {
   Edit3, Trash2, RefreshCw, CheckCircle2, Clock, X, FileText,
   User, AlertCircle, Loader2, Download, Upload, DollarSign,
   Calendar, CreditCard, Filter, LayoutGrid, List,
-  Sparkles,
+  Sparkles, ShoppingBag,
   Edit2, Pin, PinOff,
+  Check,
 } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
@@ -522,6 +523,7 @@ export const LivroCaixa: React.FC = () => {
   const [exceedConfirmData, setExceedConfirmData] = useState<{ amount: number, base: number } | null>(null);
   const [duplicateConfirmData, setDuplicateConfirmData] = useState<{ patientName: string; amount: number } | null>(null);
   const [isSaving, setIsSaving]           = useState(false);
+  const [selectedTxForDetails, setSelectedTxForDetails] = useState<Transaction | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -554,7 +556,15 @@ export const LivroCaixa: React.FC = () => {
   const [txDueDate, setTxDueDate]         = useState<string | null>(null);
 
   // ── Patients combobox ─────────────────────────────────────────────────────────
-  const [patients, setPatients] = useState<Array<{id: number; name: string; cpf: string}>>([]);
+  const [patients, setPatients] = useState<Array<{
+    id: number; 
+    name: string; 
+    cpf: string;
+    is_payer?: boolean;
+    payer_name?: string;
+    payer_cpf?: string;
+    payer_phone?: string;
+  }>>([]);
   const [patientQuery, setPatientQuery] = useState('');
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
   const patientRef = useRef<HTMLDivElement>(null);
@@ -726,6 +736,20 @@ export const LivroCaixa: React.FC = () => {
       setIsLoadingDetail(false);
     }
   }, [selectedMonth, pushToast]);
+
+  const handleQuickPay = async (tx: Transaction) => {
+    try {
+      setIsSaving(true);
+      await api.put(`/finance/${tx.id}`, { ...tx, status: 'paid', date: new Date().toISOString().split('T')[0] });
+      pushToast('success', 'Lançamento marcado como PAGO', `O status de "${tx.description}" foi atualizado.`);
+      fetchDetail();
+      if (selectedTxForDetails?.id === tx.id) setSelectedTxForDetails(null);
+    } catch {
+      pushToast('error', 'Erro ao atualizar status');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (view === 'detail' && selectedMonth) fetchDetail();
@@ -1015,6 +1039,7 @@ export const LivroCaixa: React.FC = () => {
         observation: txObservation || null, status: txStatus,
         due_date: txDueDate || null,
         comanda_id: txSelectedComandaId || undefined,
+        source: 'livrocaixa',
       };
       if (editingTx) {
         await api.put(`/finance/${editingTx.id}`, payload);
@@ -1214,6 +1239,11 @@ export const LivroCaixa: React.FC = () => {
                 <CreditCard size={9} /> {METHOD_LABEL[tx.payment_method] ?? tx.payment_method}
               </span>
             )}
+            {tx.comanda_id && (
+              <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 flex items-center gap-1">
+                <ShoppingBag size={9} /> Comanda #{tx.comanda_id}
+              </span>
+            )}
           </div>
         </div>
       ),
@@ -1299,37 +1329,49 @@ export const LivroCaixa: React.FC = () => {
     },
     {
       header: '',
+      headerClassName: 'w-[180px] text-right',
       render: (tx) => (
-        <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center justify-end gap-1.5 min-w-[150px]">
           {tx.comanda_id && (
             <button
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); openHistory(tx.comanda_id!); }}
-              title="Ver histórico da comanda"
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-all"
+              title="Histórico da Comanda"
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-500 hover:bg-white hover:border-indigo-300 hover:shadow-sm transition-all"
             >
-              <Clock size={13} />
+              <ShoppingBag size={14} />
+            </button>
+          )}
+          {hasPermission('manage_payments') && tx.status !== 'paid' && tx.status !== 'confirmed' && (
+            <button
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickPay(tx); }}
+              title="Efetivar Pagamento Agora"
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:shadow-lg shadow-emerald-200 transition-all"
+            >
+              <Check size={14} />
             </button>
           )}
           {hasPermission('manage_payments') && (
             <>
               <button
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); openEditTx(tx); }}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-amber-500 hover:bg-slate-50 transition-all"
+                title="Editar Lançamento"
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-amber-500 hover:border-amber-200 hover:shadow-sm transition-all"
               >
-                <Edit3 size={13} />
+                <Edit3 size={14} />
               </button>
               <button
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleRepeat(tx.id); }}
-                title="Reprocessar para o próximo mês"
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-emerald-500 hover:bg-slate-50 transition-all"
+                title="Repetir no Próximo Mês"
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:shadow-sm transition-all"
               >
-                <RefreshCw size={13} />
+                <RefreshCw size={14} />
               </button>
               <button
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteConfirmId(tx.id); }}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-slate-50 transition-all"
+                title="Excluir Lançamento"
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 hover:shadow-sm transition-all"
               >
-                <Trash2 size={13} />
+                <Trash2 size={14} />
               </button>
             </>
           )}
@@ -1730,7 +1772,8 @@ export const LivroCaixa: React.FC = () => {
                 emptyMessage="Nenhum lançamento encontrado para este período."
                 sortKey={sortKey}
                 sortOrder={sortOrder}
-                onSort={handleSort}
+                 onSort={handleSort}
+                onRowClick={(tx) => setSelectedTxForDetails(tx)}
               />
               {filtered.length > 0 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-white rounded-b-2xl">
@@ -2676,6 +2719,143 @@ export const LivroCaixa: React.FC = () => {
         </div>
       </Modal>
 
+      {/* ── Transaction Details Drawer ────────────────────────────────────────── */}
+      <ActionDrawer
+        isOpen={selectedTxForDetails !== null}
+        onClose={() => setSelectedTxForDetails(null)}
+        title="Detalhes do Lançamento"
+        subtitle={selectedTxForDetails?.description?.toUpperCase() || 'RESUMO DA TRANSAÇÃO'}
+        size="md"
+      >
+        {selectedTxForDetails && (
+          <div className="p-6 space-y-8 animate-fadeIn font-sans">
+            {/* Header / Info Badge */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Referência Financeira</p>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-2xl ${selectedTxForDetails.type === 'income' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-500 border border-rose-100'}`}>
+                    {selectedTxForDetails.type === 'income' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                  </div>
+                  <div>
+                     <h3 className="text-xl font-black text-slate-800 leading-none">{selectedTxForDetails.description || selectedTxForDetails.category}</h3>
+                     <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{selectedTxForDetails.category}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                {(() => {
+                  const status = getStatus(selectedTxForDetails);
+                  const info = STATUS_INFO[status] || STATUS_INFO.pending;
+                  const Icon = info.icon;
+                  return (
+                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-xl border text-[10px] font-black uppercase tracking-widest ${info.color}`}>
+                      <Icon size={10} />
+                      {info.label}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Price Box */}
+            <div className="p-6 rounded-[2rem] bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
+                  <Wallet size={120} />
+               </div>
+               <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 leading-none">VALOR REGISTRADO</p>
+               <h2 className={`text-4xl font-black ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                 {selectedTxForDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTxForDetails.amount)}
+               </h2>
+               {selectedTxForDetails.comanda_id && (
+                  <div className="mt-2 text-[10px] font-bold text-indigo-500 italic">
+                     Vinculado à Comanda #{selectedTxForDetails.comanda_id}
+                  </div>
+               )}
+            </div>
+
+            {/* Grid Infos */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+                <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Data do Fluxo</p>
+                <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.date)}</p>
+              </div>
+              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+                <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><CreditCard size={12} /> Forma de Pagto</p>
+                <p className="text-sm font-black text-slate-700">{METHOD_LABEL[selectedTxForDetails.payment_method] || selectedTxForDetails.payment_method || '—'}</p>
+              </div>
+            </div>
+
+            {/* Patient/Payer Section */}
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-5">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-3">Envolvidos na Transação</p>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center border border-slate-100 shrink-0">
+                  <User size={20} />
+                </div>
+                <div>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Pagador Original</p>
+                   <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || 'Não identificado'}</p>
+                   {selectedTxForDetails.payer_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.payer_cpf)}</p>}
+                </div>
+              </div>
+
+              {selectedTxForDetails.beneficiary_name && (
+                <div className="flex items-start gap-4 pt-4 border-t border-slate-50">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center border border-indigo-100 shrink-0">
+                    <User size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1.5">Paciente Beneficiário</p>
+                    <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name}</p>
+                    {selectedTxForDetails.beneficiary_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.beneficiary_cpf)}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Observations */}
+            {selectedTxForDetails.observation && (
+              <div className="bg-amber-50/50 p-6 rounded-[2rem] border border-amber-100/50">
+                 <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2"><FileText size={12}/> Observações</p>
+                 <p className="text-sm font-medium text-amber-700/80 leading-relaxed italic">{selectedTxForDetails.observation}</p>
+              </div>
+            )}
+
+            {/* Footer Actions in Drawer */}
+            <div className="pt-6 border-t border-slate-100 grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <button
+                onClick={() => { setSelectedTxForDetails(null); openEditTx(selectedTxForDetails); }}
+                className="flex items-center justify-center gap-2 h-12 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 font-black text-[10px] uppercase tracking-widest transition-all"
+              >
+                <Edit2 size={15} /> Editar Dados
+              </button>
+              
+              {selectedTxForDetails.comanda_id && (
+                <button
+                  onClick={() => {
+                    setSelectedTxForDetails(null);
+                    navigate('/finance/comandas', { state: { openComandaId: String(selectedTxForDetails.comanda_id) } });
+                  }}
+                  className="flex items-center justify-center gap-2 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-100 font-black text-[10px] uppercase tracking-widest transition-all"
+                >
+                  <ShoppingBag size={15} /> Abrir Comanda
+                </button>
+              )}
+
+              {selectedTxForDetails.status !== 'paid' && selectedTxForDetails.status !== 'confirmed' && (
+                <button
+                  onClick={() => handleQuickPay(selectedTxForDetails)}
+                  className="flex items-center justify-center gap-2 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-100 transition-all col-span-2 lg:col-span-1"
+                >
+                  <Check size={16} /> Efetivar Pagto
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </ActionDrawer>
     </div>
   );
 };

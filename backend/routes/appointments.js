@@ -20,6 +20,8 @@ async function ensureSchema() {
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN reschedule_reason TEXT NULL' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN whatsapp_reminder_professional_sent TINYINT(1) DEFAULT 0' },
     { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN session_fraction DECIMAL(3,2) DEFAULT 1.00' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN sync_to_livrocaixa TINYINT(1) DEFAULT 0' },
+    { table: 'appointments', sql: 'ALTER TABLE appointments ADD COLUMN livrocaixa_tx_id INT NULL' },
     { table: 'services', sql: 'ALTER TABLE services ADD COLUMN category VARCHAR(100) NULL' },
     // Comandas table schema
     { table: 'comandas', sql: `
@@ -667,8 +669,9 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
           `INSERT INTO appointments (
             tenant_id, patient_id, professional_id, service_id, package_id, title,
             start_time, end_time, status, notes, color,
-            modality, type, duration_minutes, meeting_url, recurrence_rule, comanda_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            modality, type, duration_minutes, meeting_url, recurrence_rule, comanda_id,
+            sync_to_livrocaixa
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.user.tenant_id,
             finalPatientId,
@@ -686,11 +689,83 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
             duration,
             meeting_url || null,
             freq ? JSON.stringify({ freq, interval, count, until }) : null,
-            comanda_id || null
+            comanda_id || null,
+            req.body.sync_to_livrocaixa ? 1 : 0
           ]
         );
-        createdIds.push(result.insertId);
-        console.log(`[recurrence] i=${i} → INSERIDO id=${result.insertId} em ${formattedStart}`);
+        const appId = result.insertId;
+        createdIds.push(appId);
+
+        // Se sync_to_livrocaixa, criar lançamento no livro caixa
+        if (req.body.sync_to_livrocaixa && type !== 'bloqueio') {
+          try {
+            // Buscar valor do serviço ou padrão
+            let amount = 0;
+            if (service_id) {
+              const [sRows] = await db.query('SELECT price FROM services WHERE id = ?', [service_id]);
+              if (sRows.length > 0) amount = parseFloat(sRows[0].price);
+            } else if (package_id) {
+              const [pRows] = await db.query('SELECT totalPrice FROM packages WHERE id = ?', [package_id]);
+              if (pRows.length > 0) amount = parseFloat(pRows[0].totalPrice);
+            }
+
+            // Se for pacote e recorrência, lançar no livro caixa apenas no primeiro (i=0)
+            // Se não for pacote mas for recorrência, o usuário pode querer lançar todos (pagamento por sessão)
+            if (package_id && freq && i > 0) {
+              // pula lançamentos subsequentes para pacotes recorrentes (cobrança única)
+              console.log(`[finance] Pulando sync i=${i} para pacote id=${package_id} (cobrança única no i=0)`);
+            } else {
+              // Buscar dados do paciente para popular pagador/beneficiário
+              let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
+              if (finalPatientId) {
+                const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [finalPatientId]);
+                if (pRows.length > 0) {
+                  const p = pRows[0];
+                  pName = p.name;
+                  pCpf = p.cpf;
+                  isPayPatient = p.is_payer !== 0 ? 1 : 0;
+                  if (!isPayPatient) {
+                    payName = p.payer_name || p.name;
+                    payCpf = p.payer_cpf || p.cpf;
+                  } else {
+                    payName = p.name;
+                    payCpf = p.cpf;
+                  }
+                }
+              }
+
+              // Descrição amigável com frequência
+              const freqLabels = { 'DAILY': 'Diário', 'WEEKLY': 'Semanal', 'MONTHLY': 'Mensal', 'CUSTOM': 'Personalizado' };
+              const freqLabel = freqLabels[freq] || '';
+              const txDescription = (title || 'Agendamento') + 
+                                  (freq ? ` (${freqLabel} ${i+1}/${count})` : '') +
+                                  (package_id ? ' [Pacote]' : '');
+
+              const [txRes] = await db.query(
+                `INSERT INTO financial_transactions
+                   (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+                    payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, comanda_id, appointment_id, created_by, source)
+                 VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, 'Pix', 'pending', ?, ?, ?, ?, ?, ?, ?, 'Agenda')`,
+                [
+                  req.user.tenant_id, 
+                  txDescription, 
+                  amount, 
+                  formattedStart.slice(0, 10), 
+                  finalPatientId || null,
+                  payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
+                  comanda_id || null,
+                  appId,
+                  req.user.id
+                ]
+              );
+              await db.query('UPDATE appointments SET livrocaixa_tx_id = ? WHERE id = ?', [txRes.insertId, appId]);
+            }
+          } catch (txErr) {
+            console.error('Erro ao sincronizar agendamento com livro caixa:', txErr);
+          }
+        }
+
+        console.log(`[recurrence] i=${i} → INSERIDO id=${appId} em ${formattedStart}`);
     }
 
     console.log(`[recurrence] RESULTADO: ${createdIds.length} agendamentos criados/atualizados — ids=[${createdIds.join(',')}]`);
@@ -896,7 +971,9 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
         meeting_url = ?,
         reschedule_reason = ?,
         comanda_id = ?,
-        session_fraction = COALESCE(?, session_fraction)
+        session_fraction = COALESCE(?, session_fraction),
+        sync_to_livrocaixa = ?,
+        livrocaixa_tx_id = COALESCE(?, livrocaixa_tx_id)
        WHERE id = ? AND tenant_id = ?`,
       [
         patient_id || null,
@@ -916,10 +993,117 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
         reschedule_reason || null,
         finalComandaId,
         finalFraction,
+        req.body.sync_to_livrocaixa ? 1 : 0,
+        null, // No override for tx_id here usually
         req.params.id,
         req.user.tenant_id
       ]
     );
+
+    // Gerenciar sync no livro caixa
+    const [currentApt] = await db.query('SELECT sync_to_livrocaixa, livrocaixa_tx_id FROM appointments WHERE id = ?', [req.params.id]);
+    const currentSync = currentApt[0]?.sync_to_livrocaixa;
+    const currentLcTxId = currentApt[0]?.livrocaixa_tx_id;
+    const newSync = req.body.sync_to_livrocaixa !== undefined ? (req.body.sync_to_livrocaixa ? 1 : 0) : currentSync;
+
+    if (newSync && !currentLcTxId && type !== 'bloqueio') {
+        // Ativar sync: criar lançamento
+        try {
+            // Preço do serviço ou pacote
+            let amount = 0;
+            if (service_id) {
+                const [sRows] = await db.query('SELECT price FROM services WHERE id = ?', [service_id]);
+                if (sRows.length > 0) amount = parseFloat(sRows[0].price);
+            } else if (package_id) {
+                const [pRows] = await db.query('SELECT totalPrice FROM packages WHERE id = ?', [package_id]);
+                if (pRows.length > 0) amount = parseFloat(pRows[0].totalPrice);
+            }
+
+            // Buscar dados do paciente para popular pagador/beneficiário
+            let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
+            const pId = patient_id || (existing[0] ? existing[0].patient_id : null);
+            if (pId) {
+                const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [pId]);
+                if (pRows.length > 0) {
+                    const p = pRows[0];
+                    pName = p.name;
+                    pCpf = p.cpf;
+                    isPayPatient = p.is_payer !== 0 ? 1 : 0;
+                    if (!isPayPatient) {
+                        payName = p.payer_name || p.name;
+                        payCpf = p.payer_cpf || p.cpf;
+                    } else {
+                        payName = p.name;
+                        payCpf = p.cpf;
+                    }
+                }
+            }
+
+            const [txRes] = await db.query(
+                `INSERT INTO financial_transactions
+                   (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+                    payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, comanda_id, appointment_id, created_by, source)
+                 VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, 'Pix', 'pending', ?, ?, ?, ?, ?, ?, ?, 'Agenda')`,
+                [
+                    req.user.tenant_id, title || 'Agendamento', amount, 
+                    (formattedStart || (existing[0] && existing[0].old_start) || new Date().toISOString()).slice(0, 10), 
+                    pId || null, payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
+                    finalComandaId, req.params.id,
+                    req.user.id
+                ]
+            );
+            await db.query('UPDATE appointments SET livrocaixa_tx_id = ? WHERE id = ?', [txRes.insertId, req.params.id]);
+        } catch (e) { console.error('Erro ao ativar sync agendamento:', e); }
+    } else if (!newSync && currentLcTxId) {
+        // Desativar sync: remover
+        await db.query('DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?', [currentLcTxId, req.user.tenant_id]);
+        await db.query('UPDATE appointments SET livrocaixa_tx_id = NULL WHERE id = ?', [req.params.id]);
+    } else if (newSync && currentLcTxId) {
+        // Sync ativo: atualizar
+        try {
+            let amount = 0;
+            if (service_id) {
+                const [sRows] = await db.query('SELECT price FROM services WHERE id = ?', [service_id]);
+                if (sRows.length > 0) amount = parseFloat(sRows[0].price);
+            } else if (package_id) {
+                const [pRows] = await db.query('SELECT totalPrice FROM packages WHERE id = ?', [package_id]);
+                if (pRows.length > 0) amount = parseFloat(pRows[0].totalPrice);
+            }
+            // Buscar dados do paciente para popular pagador/beneficiário
+            let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
+            const pId = patient_id || (existing[0] ? existing[0].patient_id : null);
+            if (pId) {
+                const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [pId]);
+                if (pRows.length > 0) {
+                    const p = pRows[0];
+                    pName = p.name;
+                    pCpf = p.cpf;
+                    isPayPatient = p.is_payer !== 0 ? 1 : 0;
+                    if (!isPayPatient) {
+                        payName = p.payer_name || p.name;
+                        payCpf = p.payer_cpf || p.cpf;
+                    } else {
+                        payName = p.name;
+                        payCpf = p.cpf;
+                    }
+                }
+            }
+            await db.query(
+                `UPDATE financial_transactions SET 
+                    description = ?, amount = ?, date = ?, patient_id = ?,
+                    payer_name = ?, payer_cpf = ?, beneficiary_name = ?, beneficiary_cpf = ?,
+                    comanda_id = ?, appointment_id = ?, source = 'Agenda'
+                 WHERE id = ? AND tenant_id = ?`,
+                [
+                    title || 'Agendamento', amount, 
+                    (formattedStart || (existing[0] && existing[0].old_start) || new Date().toISOString()).slice(0, 10), 
+                    pId || null, payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
+                    finalComandaId, req.params.id,
+                    currentLcTxId, req.user.tenant_id
+                ]
+            );
+        } catch (e) { console.error('Erro ao atualizar sync agendamento:', e); }
+    }
 
     // Faltou e Realizado consomem sessão; Cancelado e Agendado não
     const CONSUMING_PUT = ['completed', 'no_show'];
@@ -961,6 +1145,10 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
 // DELETE /appointments/:id
 router.delete('/:id', checkPermission('delete_appointment'), async (req, res) => {
   try {
+    const [aptRows] = await db.query('SELECT livrocaixa_tx_id FROM appointments WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    if (aptRows.length > 0 && aptRows[0].livrocaixa_tx_id) {
+       await db.query('DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?', [aptRows[0].livrocaixa_tx_id, req.user.tenant_id]);
+    }
     const [result] = await db.query(
       'DELETE FROM appointments WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]

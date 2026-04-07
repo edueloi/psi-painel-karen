@@ -214,7 +214,8 @@ export const Agenda: React.FC = () => {
       recurrence_explicitly_none: false,
       is_all_day: false,
       reschedule_reason: '',
-      comanda_id: ''
+      comanda_id: '',
+      sync_to_livrocaixa: false
   });
 
 
@@ -1114,7 +1115,8 @@ export const Agenda: React.FC = () => {
         meeting_url: '',
         recurrence_enabled: false,
         reschedule_reason: '',
-        comanda_id: ''
+        comanda_id: '',
+        sync_to_livrocaixa: false
     });
     setIsModalOpen(true);
   };
@@ -1133,7 +1135,8 @@ export const Agenda: React.FC = () => {
         _originalDate: toLocalISO(apt.start),
         psychologist_id: apt.professional_id || apt.psychologist_id,
         reschedule_reason: apt.reschedule_reason || '',
-        comanda_id: apt.comanda_id || ''
+        comanda_id: apt.comanda_id || '',
+        service_id: apt.package_id ? `pkg_${apt.package_id}` : (apt.service_id || '')
     });
     setIsDetailModalOpen(false);
     setIsModalOpen(true);
@@ -1253,7 +1256,8 @@ export const Agenda: React.FC = () => {
         end_time:   endUTC,   // sempre envia end_time correto (duração pode ter mudado sem mudar o horário)
         professional_id: formData.psychologist_id || formData.professional_id,
         service_id: isPackage ? null : cleanServiceId,
-        package_id: isPackage ? cleanServiceId : null
+        package_id: isPackage ? cleanServiceId : null,
+        sync_to_livrocaixa: formData.sync_to_livrocaixa ? 1 : 0
     };
 
     // Se é edição com comanda, verifica se há sessões irmãs
@@ -1993,6 +1997,19 @@ export const Agenda: React.FC = () => {
                                     <AlertCircle size={10} /> Sessão cancelada será contabilizada na comanda
                                   </p>
                                 )}
+                                
+                                <div className="mt-2 flex items-center gap-2 px-1">
+                                    <input
+                                        type="checkbox"
+                                        id="sync_to_livrocaixa_apt"
+                                        checked={!!formData.sync_to_livrocaixa}
+                                        onChange={e => setFormData({...formData, sync_to_livrocaixa: e.target.checked})}
+                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <label htmlFor="sync_to_livrocaixa_apt" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none">
+                                        Lançar no Livro Caixa
+                                    </label>
+                                </div>
                             </div>
                         </div>
                        )}

@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import React from 'react';
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(' ');
@@ -10,6 +11,8 @@ interface PageHeaderProps {
   containerClassName?: string;
   maxWidth?: string;
   iconGradient?: string;
+  showBackButton?: boolean;
+  onBackClick?: () => void;
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
@@ -20,6 +23,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   containerClassName = "mb-6",
   maxWidth = "max-w-[1600px]",
   iconGradient = "from-primary-600 to-violet-600",
+  showBackButton = false,
+  onBackClick,
 }) => {
   return (
     <div className={cx(
@@ -28,11 +33,21 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     )}>
       <div className={cx("mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6", maxWidth)}>
         <div className="flex items-center gap-4">
+          {showBackButton && (
+            <button
+              onClick={onBackClick}
+              className="mr-2 p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-primary-600 hover:border-primary-100 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
           <div className={cx(
             "w-12 h-12 bg-gradient-to-br rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-100 shrink-0 transition-all hover:scale-105 duration-300",
             iconGradient
           )}>
-            {React.cloneElement(icon as React.ReactElement, { size: 24 })}
+            {React.isValidElement(icon) 
+              ? React.cloneElement(icon as React.ReactElement<{size?: number}>, { size: 24 })
+              : icon}
           </div>
           <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight leading-tight uppercase truncate">

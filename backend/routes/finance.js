@@ -20,6 +20,9 @@ async function ensureFinanceColumns() {
     "ALTER TABLE financial_transactions ADD COLUMN receipt_status ENUM('pending','issued') DEFAULT 'pending'",
     "ALTER TABLE financial_transactions ADD COLUMN receipt_code VARCHAR(100) NULL",
     "ALTER TABLE financial_transactions ADD COLUMN comanda_id INT NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN appointment_id INT NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN created_by INT NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN source VARCHAR(50) DEFAULT 'direct'",
     "ALTER TABLE financial_transactions MODIFY COLUMN status VARCHAR(50) DEFAULT 'paid'",
     `CREATE TABLE IF NOT EXISTS session_types (
       id VARCHAR(50) PRIMARY KEY,
@@ -89,10 +92,12 @@ router.get('/comandas/:id/payments', async (req, res) => {
   try {
     await withSchema();
     const [rows] = await db.query(
-      `SELECT id, amount, date as payment_date, payment_method, observation as notes 
-       FROM financial_transactions 
-       WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'
-       ORDER BY date DESC, created_at DESC`,
+      `SELECT t.id, t.amount, t.date as payment_date, t.payment_method, t.observation as notes, 
+              t.created_at as created_at, t.source, u.name as created_by_name
+       FROM financial_transactions t
+       LEFT JOIN users u ON u.id = t.created_by
+       WHERE t.comanda_id = ? AND t.tenant_id = ? AND t.type = 'income' AND t.status != 'cancelled'
+       ORDER BY t.created_at DESC`,
       [req.params.id, req.user.tenant_id]
     );
     res.json(rows);
@@ -303,12 +308,13 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
 
     let query = `
       SELECT t.*, p.name as patient_name,
+             COALESCE(t.comanda_id, c.id) as comanda_id,
              c.total as comanda_total, c.paid_value as comanda_paid_value, c.status as comanda_status
       FROM financial_transactions t
       LEFT JOIN patients p ON p.id = t.patient_id
-      LEFT JOIN comandas c ON c.id = t.comanda_id
+      LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.livrocaixa_tx_id = t.id)
       WHERE t.tenant_id = ?
-        AND t.comanda_id IS NULL
+        AND (t.comanda_id IS NULL OR c.livrocaixa_tx_id = t.id)
     `;
     const params = [req.user.tenant_id];
 
@@ -338,26 +344,35 @@ router.get('/summary', authMiddleware, checkPermission('view_financial_reports')
 
     const [incomeData] = await db.query(
       `SELECT
-         COALESCE(SUM(CASE WHEN status IN ('paid', 'confirmed') THEN amount ELSE 0 END), 0) as paid,
-         COALESCE(SUM(CASE WHEN status IN ('pending', 'waiting', 'overdue') THEN amount ELSE 0 END), 0) as pending
-       FROM financial_transactions
-       WHERE tenant_id = ? AND type = 'income' AND comanda_id IS NULL AND MONTH(date) = ? AND YEAR(date) = ?`,
-      [req.user.tenant_id, m, y]
+         COALESCE(SUM(CASE WHEN t.status IN ('paid', 'confirmed') THEN t.amount ELSE 0 END), 0) as paid,
+         COALESCE(SUM(CASE WHEN t.status IN ('pending', 'waiting', 'overdue') THEN t.amount ELSE 0 END), 0) as pending
+        FROM financial_transactions t
+        LEFT JOIN comandas c ON c.livrocaixa_tx_id = t.id
+        WHERE t.tenant_id = ? AND t.type = 'income' 
+          AND (t.comanda_id IS NULL OR c.livrocaixa_tx_id = t.id)
+          AND MONTH(t.date) = ? AND YEAR(t.date) = ?`,
+       [req.user.tenant_id, m, y]
     );
 
     const [expenseData] = await db.query(
       `SELECT
-         COALESCE(SUM(CASE WHEN status IN ('paid', 'confirmed') THEN amount ELSE 0 END), 0) as paid,
-         COALESCE(SUM(CASE WHEN status IN ('pending', 'waiting', 'overdue') THEN amount ELSE 0 END), 0) as pending
-       FROM financial_transactions
-       WHERE tenant_id = ? AND type = 'expense' AND comanda_id IS NULL AND MONTH(date) = ? AND YEAR(date) = ?`,
-      [req.user.tenant_id, m, y]
+         COALESCE(SUM(CASE WHEN t.status IN ('paid', 'confirmed') THEN t.amount ELSE 0 END), 0) as paid,
+         COALESCE(SUM(CASE WHEN t.status IN ('pending', 'waiting', 'overdue') THEN t.amount ELSE 0 END), 0) as pending
+        FROM financial_transactions t
+        LEFT JOIN comandas c ON c.livrocaixa_tx_id = t.id
+        WHERE t.tenant_id = ? AND t.type = 'expense' 
+          AND (t.comanda_id IS NULL OR c.livrocaixa_tx_id = t.id)
+          AND MONTH(t.date) = ? AND YEAR(t.date) = ?`,
+       [req.user.tenant_id, m, y]
     );
 
     const [counts] = await db.query(
-      `SELECT COUNT(*) as total FROM financial_transactions
-       WHERE tenant_id = ? AND comanda_id IS NULL AND MONTH(date) = ? AND YEAR(date) = ?`,
-      [req.user.tenant_id, m, y]
+       `SELECT COUNT(*) as total FROM financial_transactions t
+        LEFT JOIN comandas c ON c.livrocaixa_tx_id = t.id
+        WHERE t.tenant_id = ? 
+          AND (t.comanda_id IS NULL OR c.livrocaixa_tx_id = t.id)
+          AND MONTH(t.date) = ? AND YEAR(t.date) = ?`,
+       [req.user.tenant_id, m, y]
     );
 
     const totalIncome = parseFloat(incomeData[0].paid);
@@ -398,14 +413,14 @@ router.post('/', authMiddleware, checkPermission('manage_payments'), async (req,
     const [result] = await db.query(
       `INSERT INTO financial_transactions
         (tenant_id, type, category, description, amount, date, patient_id, appointment_id, payment_method, status,
-         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation, comanda_id, due_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation, comanda_id, due_date, created_by, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, type, category || null, description || null,
         amount, date, patient_id || null, appointment_id || null,
         payment_method || null, status || 'paid',
         payer_name || null, beneficiary_name || null, payer_cpf || null, beneficiary_cpf || null, observation || null,
-        comanda_id || null, req.body.due_date || null
+        comanda_id || null, req.body.due_date || null, req.user.id, req.body.source || 'direct'
       ]
     );
 
@@ -481,17 +496,27 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
     );
 
     const updateComanda = async (cid) => {
-      if (!cid) return;
-      const [txSum] = await db.query(`SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`, [cid, req.user.tenant_id]);
+      let finalCid = cid;
+      if (!finalCid) {
+        const [linkedCmd] = await db.query('SELECT id FROM comandas WHERE livrocaixa_tx_id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+        if (linkedCmd.length > 0) finalCid = linkedCmd[0].id;
+      }
+      if (!finalCid) return;
+      const [txSum] = await db.query(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
+         WHERE (comanda_id = ? OR id IN (SELECT livrocaixa_tx_id FROM comandas WHERE id = ?)) 
+           AND tenant_id = ? AND type = 'income' AND status IN ('paid', 'confirmed')`, 
+        [finalCid, finalCid, req.user.tenant_id]
+      );
       const totalPaid = parseFloat(txSum[0].total);
       
-      const [comandaRow] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?', [cid, req.user.tenant_id]);
+      const [comandaRow] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?', [finalCid, req.user.tenant_id]);
       if (comandaRow.length > 0) {
         const comandaTotal = parseFloat(comandaRow[0].total || 0);
         const sessionsTotal = parseInt(comandaRow[0].sessions_total || 1);
         const sessionsUsed = parseInt(comandaRow[0].sessions_used || 0);
         const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
-        await db.query('UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?', [totalPaid, newStatus, cid, req.user.tenant_id]);
+        await db.query('UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?', [totalPaid, newStatus, finalCid, req.user.tenant_id]);
       }
     };
 
@@ -536,11 +561,19 @@ router.delete('/:id', authMiddleware, checkPermission('manage_payments'), async 
 
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Transação não encontrada' });
 
-    if (comandaId) {
-      const [txSum] = await db.query(`SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`, [comandaId, req.user.tenant_id]);
+    let finalCid = comandaId;
+    if (!finalCid) {
+      const [linkedCmd] = await db.query('SELECT id FROM comandas WHERE livrocaixa_tx_id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+      if (linkedCmd.length > 0) finalCid = linkedCmd[0].id;
+    }
+
+    if (finalCid) {
+      const [txSum] = await db.query(`SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
+        WHERE (comanda_id = ? OR id IN (SELECT livrocaixa_tx_id FROM comandas WHERE id = ?)) 
+          AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`, [finalCid, finalCid, req.user.tenant_id]);
       const totalPaid = parseFloat(txSum[0].total);
       
-      const [comandaRow] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?', [comandaId, req.user.tenant_id]);
+      const [comandaRow] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?', [finalCid, req.user.tenant_id]);
       if (comandaRow.length > 0) {
         const comandaTotal = parseFloat(comandaRow[0].total || 0);
         const sessionsTotal = parseInt(comandaRow[0].sessions_total || 1);
@@ -1027,11 +1060,39 @@ router.post('/comandas', async (req, res) => {
     if (syncLC) {
       const desc = req.body.description || 'Consulta/Serviço';
       const txDate = (start_date || new Date().toISOString()).slice(0, 10);
+      const [pRowsName] = patient_id ? await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]) : [[]];
+      const patientName = pRowsName[0]?.name || '';
+      const txDescription = (req.body.description || 'Comanda') + (patientName ? ` - ${patientName}` : '');
+      
+      // Buscar dados do paciente para popular pagador/beneficiário
+      let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
+      if (patient_id) {
+        const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [patient_id]);
+        if (pRows.length > 0) {
+          const p = pRows[0];
+          pName = p.name;
+          pCpf = p.cpf;
+          isPayPatient = p.is_payer !== 0 ? 1 : 0;
+          if (!isPayPatient) {
+            payName = p.payer_name || p.name;
+            payCpf = p.payer_cpf || p.cpf;
+          } else {
+            payName = p.name;
+            payCpf = p.cpf;
+          }
+        }
+      }
+
       const [txResult] = await db.query(
         `INSERT INTO financial_transactions
-           (tenant_id, type, category, description, amount, date, patient_id, payment_method, status)
-         VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'pending')`,
-        [req.user.tenant_id, desc, total, txDate, patient_id || null, payment_method || 'Pix']
+           (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+            payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, comanda_id)
+         VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
+        [
+          req.user.tenant_id, txDescription, total, txDate, patient_id || null, payment_method || 'Pix',
+          payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
+          comandaId
+        ]
       );
       await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [txResult.insertId, comandaId]);
     }
@@ -1107,11 +1168,39 @@ router.put('/comandas/:id', async (req, res) => {
             const txStatus = currentPaid > 0 ? 'paid' : 'pending';
             const txAmount = currentPaid > 0 ? currentPaid : total;
             const txDate = (start_date || new Date().toISOString()).slice(0, 10);
+            const [pRowsName2] = patient_id ? await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]) : [[]];
+            const patientName2 = pRowsName2[0]?.name || '';
+            const txDescriptionNew = (description || 'Comanda') + (patientName2 ? ` - ${patientName2}` : '');
+
+            // Buscar dados do paciente para popular pagador/beneficiário
+            let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
+            if (patient_id) {
+                const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [patient_id]);
+                if (pRows.length > 0) {
+                    const p = pRows[0];
+                    pName = p.name;
+                    pCpf = p.cpf;
+                    isPayPatient = p.is_payer !== 0 ? 1 : 0;
+                    if (!isPayPatient) {
+                        payName = p.payer_name || p.name;
+                        payCpf = p.payer_cpf || p.cpf;
+                    } else {
+                        payName = p.name;
+                        payCpf = p.cpf;
+                    }
+                }
+            }
+
             const [newTx] = await db.query(
                 `INSERT INTO financial_transactions
-                   (tenant_id, type, category, description, amount, date, patient_id, payment_method, status)
-                 VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, ?)`,
-                [req.user.tenant_id, description || 'Consulta', txAmount, txDate, patient_id || null, payment_method || 'Pix', txStatus]
+                   (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+                    payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, comanda_id)
+                 VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    req.user.tenant_id, txDescriptionNew, txAmount, txDate, patient_id || null, payment_method || 'Pix', txStatus,
+                    payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
+                    req.params.id
+                ]
             );
             await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [newTx.insertId, req.params.id]);
         } else if (!newSync && currentLcTxId) {
@@ -1122,9 +1211,42 @@ router.put('/comandas/:id', async (req, res) => {
             // Sync ativo: manter sincronizado com valor atual
             const txStatus2 = currentPaid > 0 ? 'paid' : 'pending';
             const txAmount2 = currentPaid > 0 ? currentPaid : total;
+            const txDate2 = (start_date || new Date().toISOString()).slice(0, 10);
+            const [pRowsName3] = patient_id ? await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]) : [[]];
+            const patientName3 = pRowsName3[0]?.name || '';
+            const txDescriptionUpd = (description || 'Comanda') + (patientName3 ? ` - ${patientName3}` : '');
+            
+            // Buscar dados do paciente para popular pagador/beneficiário
+            let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
+            if (patient_id) {
+                const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [patient_id]);
+                if (pRows.length > 0) {
+                    const p = pRows[0];
+                    pName = p.name;
+                    pCpf = p.cpf;
+                    isPayPatient = p.is_payer !== 0 ? 1 : 0;
+                    if (!isPayPatient) {
+                        payName = p.payer_name || p.name;
+                        payCpf = p.payer_cpf || p.cpf;
+                    } else {
+                        payName = p.name;
+                        payCpf = p.cpf;
+                    }
+                }
+            }
+
             await db.query(
-                `UPDATE financial_transactions SET description = ?, amount = ?, status = ?, patient_id = ? WHERE id = ? AND tenant_id = ?`,
-                [description || 'Consulta', txAmount2, txStatus2, patient_id || null, currentLcTxId, req.user.tenant_id]
+                `UPDATE financial_transactions SET 
+                    description = ?, amount = ?, date = ?, status = ?, patient_id = ?,
+                    payer_name = ?, payer_cpf = ?, beneficiary_name = ?, beneficiary_cpf = ?,
+                    comanda_id = ?
+                 WHERE id = ? AND tenant_id = ?`,
+                [
+                    txDescriptionUpd, txAmount2, txDate2, txStatus2, patient_id || null, 
+                    payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
+                    req.params.id,
+                    currentLcTxId, req.user.tenant_id
+                ]
             );
         }
 
