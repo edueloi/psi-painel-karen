@@ -287,6 +287,21 @@ export const Comandas: React.FC = () => {
     }
   };
 
+  const handleReopenComanda = async () => {
+    if (!historyComanda) return;
+    try {
+      await api.put(`/finance/comandas/${historyComanda.id}`, { status: 'open' });
+      pushToast('success', 'Comanda reaberta com sucesso!');
+      
+      const refreshed = await api.get<Comanda[]>('/finance/comandas');
+      const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));
+      if (updated) setHistoryComanda(updated);
+      await fetchData();
+    } catch {
+      pushToast('error', 'Erro ao reabrir a comanda');
+    }
+  };
+
 
 
   const formatCurrency = (value: number) =>
@@ -319,8 +334,13 @@ export const Comandas: React.FC = () => {
   const getComandaTotal = (c: any) =>
     Number(c?.totalValue || c?.total || 0) || 0;
 
-  const getComandaPaid = (c: any) => 
-    Number(c?.paidValue || c?.paid_value || 0) || 0;
+  const getComandaPaid = (c: any) => {
+    const val = Number(c?.paidValue || c?.paid_value || 0) || 0;
+    if (val === 0 && c?.payments?.length > 0) {
+      return c.payments.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
+    }
+    return val;
+  };
 
   const getComandaPending = (c: any) =>
     Math.max(0, getComandaTotal(c) - getComandaPaid(c));
@@ -2779,6 +2799,14 @@ export const Comandas: React.FC = () => {
             className="mt-2 w-full rounded-lg bg-rose-500 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600"
           >
             Finalizar Manualmente
+          </button>
+        )}
+        {historyComanda.status === 'closed' && (
+          <button
+            onClick={handleReopenComanda}
+            className="mt-2 w-full rounded-lg bg-indigo-500 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-600"
+          >
+            Reabrir Comanda
           </button>
         )}
       </div>

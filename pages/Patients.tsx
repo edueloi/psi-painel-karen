@@ -330,6 +330,7 @@ export const Patients: React.FC = () => {
 
       await api.put(`/patients/${patient.id}`, payload);
       await fetchPatients();
+      pushToast('success', newStatus === 'active' ? 'Paciente ativado com sucesso!' : 'Paciente inativado com sucesso!');
     } catch (err: any) {
       console.error(err);
       pushToast('error', 'Erro ao mudar status: ' + (err.message || 'Erro interno'));

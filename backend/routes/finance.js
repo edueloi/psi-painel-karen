@@ -153,8 +153,8 @@ router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_pa
     const newStatus = (totalPaid >= comandaTotal && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
 
     await db.query(
-      'UPDATE comandas SET paid_value = ? WHERE id = ? AND tenant_id = ?',
-      [totalPaid, req.params.id, req.user.tenant_id]
+      'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
+      [totalPaid, newStatus, req.params.id, req.user.tenant_id]
     );
 
     // Criar lançamento financeiro vinculado para aparecer no Financeiro e Melhores Clientes
@@ -240,8 +240,8 @@ router.put('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission(
     const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
 
     await db.query(
-      'UPDATE comandas SET paid_value = ? WHERE id = ? AND tenant_id = ?',
-      [totalPaid, req.params.id, req.user.tenant_id]
+      'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
+      [totalPaid, newStatus, req.params.id, req.user.tenant_id]
     );
 
     res.json({ success: true, totalPaid, status: newStatus });
@@ -277,8 +277,8 @@ router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermissi
     const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
 
     await db.query(
-      'UPDATE comandas SET paid_value = ? WHERE id = ? AND tenant_id = ?',
-      [totalPaid, req.params.id, req.user.tenant_id]
+      'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
+      [totalPaid, newStatus, req.params.id, req.user.tenant_id]
     );
 
     // Se sync_to_livrocaixa, atualizar lançamento no livro caixa
@@ -1185,6 +1185,9 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
            total = subtotal - dValue;
         }
         total = Math.max(0, total);
+        const sTotal = Number(sessions_total || 0);
+        const sUsed = Number(sessions_used || 0);
+        const pValue = parseFloat(paid_value || 0);
 
         // Ler estado atual da comanda para gerenciar sync
         const [currentCmd] = await db.query(
@@ -1205,11 +1208,12 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
                 sync_to_livrocaixa = ?
             WHERE id = ? AND tenant_id = ?`,
             [
-                patient_id || null, professional_id || null, description || '', status || 'open',
+                patient_id || null, professional_id || null, description || '', 
+                status || ( (pValue >= total && pValue > 0 && sUsed >= sTotal) ? 'closed' : 'open' ),
                 total, JSON.stringify(itemsArr), notes || null, payment_method || null,
                 start_date || null, duration_minutes || 60,
-                sessions_total || 0, sessions_used || 0,
-                paid_value || 0, receipt_code || null,
+                sTotal, sUsed,
+                pValue, receipt_code || null,
                 dType, dValue, total, package_id || null,
                 newSync,
                 req.params.id, req.user.tenant_id
@@ -1577,3 +1581,4 @@ router.get('/analytics/performance', async (req, res) => {
 });
 
 module.exports = router;
+
