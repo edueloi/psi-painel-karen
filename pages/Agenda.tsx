@@ -10,6 +10,7 @@ import {
     Edit3, Download, Upload, FileDown, FileUp,
     Activity,
     AlignLeft, MessageSquare, Send, Stethoscope, Tag, Pin, PinOff,
+    BookOpen,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,6 +39,7 @@ type EditableComanda = Partial<Appointment> & {
   id?: string;
   patientId?: string;
   patientSearch?: string;
+  patientLocked?: boolean;
   professionalId?: string;
   startDate?: string;
   totalValue?: number;
@@ -68,22 +70,34 @@ const iconButtonClass =
 const TypeButton: React.FC<{
   active: boolean;
   label: string;
+  icon?: React.ReactNode;
+  description?: string;
   onClick: () => void;
-}> = ({ active, label, onClick }) => {
+}> = ({ active, label, icon, description, onClick }) => {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 text-sm text-slate-700"
+      className={`flex items-start gap-4 p-4 rounded-3xl border-2 text-left transition-all w-full flex-1 ${
+        active
+          ? 'border-indigo-500 bg-indigo-50/50 shadow-md shadow-indigo-100/50'
+          : 'border-slate-100 bg-white hover:border-indigo-200 hover:bg-slate-50'
+      }`}
     >
-      <span
-        className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${
-          active ? 'border-primary-600' : 'border-slate-300'
-        }`}
-      >
-        {active && <span className="h-2.5 w-2.5 rounded-full bg-primary-600" />}
-      </span>
-      <span>{label}</span>
+      {icon && (
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${active ? 'bg-indigo-500 text-white shadow-inner' : 'bg-slate-100 text-slate-500'}`}>
+          {icon}
+        </div>
+      )}
+      <div className="flex-1">
+        <div className={`font-black text-sm tracking-wide uppercase ${active ? 'text-indigo-900' : 'text-slate-700'}`}>{label}</div>
+        {description && <div className={`text-xs mt-1 font-medium ${active ? 'text-indigo-600/80' : 'text-slate-500'}`}>{description}</div>}
+      </div>
+      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all mt-1.5 ${
+          active ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+      }`}>
+        {active && <Check size={12} className="text-white" strokeWidth={4} />}
+      </div>
     </button>
   );
 };
@@ -187,7 +201,7 @@ export const Agenda: React.FC = () => {
   const [relatedApts, setRelatedApts] = useState<Appointment[]>([]);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState<(string | number)[]>([]);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const [editingAptId, setEditingAptId] = useState<number | null>(null);
+  const [editingAptId, setEditingAptId] = useState<string | number | null>(null);
   const [editAptValues, setEditAptValues] = useState<{ date: string; time: string }>({ date: '', time: '' });
 
   const [formData, setFormData] = useState<any>({
@@ -306,7 +320,7 @@ export const Agenda: React.FC = () => {
     return Array.from(lunchHours).filter(h => !hoursWithApts.has(h));
   }, [workSchedule, appointments, currentDate]);
 
-  const hourHeight = 70;
+  const hourHeight = 68;
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
   const typeMeta = {
@@ -1315,6 +1329,7 @@ export const Agenda: React.FC = () => {
         comanda_id: c.id,
         service_id: targetServiceId,
         duration_minutes: targetDuration,
+        sync_to_livrocaixa: c.sync_to_livrocaixa ? true : prev.sync_to_livrocaixa,
         recurrence_explicitly_none: false
     }));
   };
@@ -1374,7 +1389,7 @@ export const Agenda: React.FC = () => {
     setIsNewComandaModalOpen(true);
     setModalTab(packageId ? 'pacote' : 'avulsa');
     setEditingComanda({
-      status: 'open',
+      status: 'open' as any,
       items,
       totalValue,
       paidValue: 0,
@@ -1383,34 +1398,52 @@ export const Agenda: React.FC = () => {
       patientSearch: patientName,
       professionalId: String(professionalId),
       startDate: comandaDate,
-      sessions_total: sessionsTotal,
-      discount_type: pkgDiscountType,
-      discount_value: pkgDiscountValue,
-      packageId,
-      patientLocked: false,
-      syncToLivrocaixa: false,
-    });
+      sessions_used: 0,
+       sessions_total: sessionsTotal,
+       discount_type: pkgDiscountType,
+       discount_value: pkgDiscountValue,
+       packageId,
+       patientLocked: false,
+       syncToLivrocaixa: true,
+     });
   };
 
-  const handleCreateComanda = async () => {
+   const handleCreateComanda = async () => {
     if (!editingComanda || !editingComanda.patientId) {
       pushToast('error', 'Selecione um paciente primeiro.');
       return;
     }
 
+    if (editingComanda.syncToLivrocaixa && editingComanda.startDate) {
+      let locked = [];
+      try {
+        locked = JSON.parse(localStorage.getItem('lc_locked_months') || '[]');
+      } catch (e) {}
+
+      const [y, m] = editingComanda.startDate.split('-');
+      const monthKey = `${y}-${parseInt(m, 10)}`;
+
+      if (Array.isArray(locked) && (locked.includes(editingComanda.startDate.slice(0, 7)) || locked.includes(monthKey))) {
+        pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período foi fechado. Para adicionar algo ou editar mude o botão de "FECHADO" para "ABERTO" no período selecionado.');
+        return;
+      }
+    }
+
+    setIsSaving(true);
     try {
       const payload = {
         patient_id: editingComanda.patientId,
         professional_id: editingComanda.professionalId,
         description: editingComanda.description || (modalTab === 'pacote' ? 'Pacote' : 'Sessão'),
-        status: 'open',
+        status: editingComanda.status || 'open',
         total_value: modalNetTotal,
         start_date: editingComanda.startDate,
         sessions_total: Number(editingComanda.sessions_total || 1),
+        sessions_used: Number(editingComanda.sessions_used || 0),
         discount_type: editingComanda.discount_type,
         discount_value: editingComanda.discount_value,
         package_id: editingComanda.packageId || null,
-        skip_appointment: true, // agendamentos são criados separadamente pela Agenda
+        skip_appointment: true, 
         items: modalTab === 'pacote' && editingComanda.items?.length
           ? editingComanda.items.map(item => ({
               name: item.name,
@@ -1423,18 +1456,27 @@ export const Agenda: React.FC = () => {
               price: editingComanda.totalValue || 0,
               qty: 1
             }],
-        notes: 'Criado via Agenda',
+        notes: editingComanda.id ? editingComanda.notes : 'Criado via Agenda',
         sync_to_livrocaixa: editingComanda.syncToLivrocaixa ? 1 : 0,
       };
 
-      const result = await api.post<any>('/finance/comandas', payload);
-      setPatientComandas((prev) => [result, ...prev]);
-      setFormData((prev) => ({ ...prev, comanda_id: result.id }));
+      if (editingComanda.id) {
+        await api.put(`/finance/comandas/${editingComanda.id}`, payload);
+        pushToast('success', 'Comanda atualizada!');
+      } else {
+        const result = await api.post<any>('/finance/comandas', payload);
+        setPatientComandas((prev) => [result, ...prev]);
+        setFormData((prev) => ({ ...prev, comanda_id: result.id }));
+        pushToast('success', 'Comanda criada e vinculada!');
+      }
+      
       setIsNewComandaModalOpen(false);
-      pushToast('success', 'Comanda criada e vinculada!');
+      fetchData();
     } catch (err) {
       console.error(err);
-      pushToast('error', 'Erro ao criar comanda.');
+      pushToast('error', `Erro ao ${editingComanda.id ? 'atualizar' : 'criar'} comanda.`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1619,57 +1661,77 @@ export const Agenda: React.FC = () => {
                         return (
                             <div
                                 key={day.toISOString()}
-                                className={`min-h-[140px] p-2 border-b border-r border-slate-200/70 transition-all group relative
+                                className={`min-h-[110px] p-1.5 border-b border-r border-slate-200/70 transition-all group relative
                                     ${!inMonth ? 'bg-slate-100/60 opacity-50' : isWeekend ? 'bg-slate-100/80' : 'bg-white'}
                                     hover:bg-indigo-50/20 cursor-alias
                                 `}
                                 onClick={() => inMonth && openNewModal(day)}
                             >
-                                <div className="flex justify-between items-start mb-3 px-1 sticky top-14">
-                                    <span className={`text-[12px] font-black transition-all ${isToday ? 'h-7 w-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center shadow-lg shadow-indigo-400 ring-2 ring-indigo-50' : inMonth ? 'text-slate-800' : 'text-slate-300'}`}>
+                                <div className="flex justify-between items-start mb-1.5 px-0.5">
+                                    <span className={`text-[11px] font-black transition-all ${isToday ? 'h-6 w-6 bg-indigo-600 text-white rounded-md flex items-center justify-center shadow-md shadow-indigo-400 ring-2 ring-indigo-50' : inMonth ? 'text-slate-800' : 'text-slate-300'}`}>
                                         {day.getDate()}
                                     </span>
                                     {dayApts.length > 0 && (
-                                        <div className="flex gap-0.5">
-                                            {Array.from(new Set(dayApts.map(a => a.type)) as Set<AppointmentType>).map(type => (
-                                                <div key={type} className={`w-1 h-1 rounded-full ${typeMeta[type].dot}`}></div>
-                                            ))}
-                                        </div>
+                                        <span className="text-[8px] font-black text-slate-400 bg-slate-100 px-1 py-px rounded">{dayApts.length}</span>
                                     )}
                                 </div>
-                                <div className="space-y-1.5 relative">
-                                    {dayApts.slice(0, 4).map(apt => (
-                                        <button
-                                            key={apt.id}
-                                            onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }}
-                                            className={`w-full text-left px-2 py-1 rounded-xl border text-[8px] font-bold truncate transition-all hover:scale-[1.02] active:scale-95 shadow-sm overflow-hidden flex items-center gap-1.5 group/item ${typeMeta[apt.type].event}`}
-                                        >
-                                            <div className={`w-0.5 h-3 rounded-full ${typeMeta[apt.type].solid}`}></div>
-                                            <span className="truncate flex-1">{apt.patient_name || apt.title}</span>
-
-                                            {/* Package / Recurrence Indicator */}
-                                            {apt.comanda_id && (
-                                                <div className="flex items-center gap-0.5 bg-indigo-50/50 px-1 rounded text-[7px] text-indigo-500 font-black shrink-0 border border-indigo-100/50">
-                                                    <Package size={8} />
-                                                    {apt.recurrence_index ? `${apt.recurrence_index}/${apt.recurrence_count}` : 'PK'}
+                                <div className="space-y-0.5 relative">
+                                    {dayApts.slice(0, 3).map(apt => {
+                                        const srv = services.find(s => String(s.id) === String(apt.service_id));
+                                        const srvName = srv?.name || '';
+                                        const aptTime = apt.start ? new Date(apt.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                        const aptEndTime = apt.end ? new Date(apt.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                        const stMeta = statusMeta[apt.status || 'scheduled'] || statusMeta.scheduled;
+                                        return (
+                                        <div key={apt.id} className="relative group/tip">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }}
+                                                className={`w-full text-left px-1.5 py-0.5 rounded-lg border text-[7px] font-bold truncate transition-all hover:shadow-md active:scale-95 overflow-hidden flex items-center gap-1 ${typeMeta[apt.type].event}`}
+                                            >
+                                                <span className={`w-1 h-2.5 rounded-full shrink-0 ${stMeta.dot}`} />
+                                                <span className="text-[7px] font-black text-slate-400 tabular-nums shrink-0">{aptTime}</span>
+                                                <span className="truncate flex-1">{apt.patient_name || apt.title}</span>
+                                            </button>
+                                            {/* Tooltip on hover */}
+                                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-50 pointer-events-none opacity-0 group-hover/tip:opacity-100 scale-95 group-hover/tip:scale-100 transition-all duration-150 origin-bottom">
+                                                <div className="relative bg-slate-900/95 backdrop-blur-xl text-white rounded-xl px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.4)] min-w-[180px] max-w-[250px] space-y-1 border border-white/10">
+                                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 rotate-45 border-b border-r border-white/10" />
+                                                    <p className="text-[8px] uppercase tracking-[0.15em] font-black text-slate-500">
+                                                        {day.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                                    </p>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className={cx('w-1.5 h-1.5 rounded-full', stMeta.dot)} />
+                                                        <span className="text-[11px] font-black tabular-nums" style={{ color: typeMeta[apt.type].solid === 'bg-indigo-600' ? '#818cf8' : '#f59e0b' }}>
+                                                            {aptTime} <span className="text-white/30">→</span> {aptEndTime}
+                                                        </span>
+                                                    </div>
+                                                    <p className="font-black text-[11px] text-white leading-tight truncate">{apt.patient_name || apt.title}</p>
+                                                    {srvName && <p className="text-[9px] text-slate-400 font-semibold truncate">{srvName}</p>}
+                                                    <div className="flex items-center gap-1.5 pt-1 border-t border-white/10">
+                                                        <span className="text-[8px] font-bold text-slate-300">{stMeta.label}</span>
+                                                        {apt.modality && (
+                                                            <span className={`text-[7px] font-black uppercase ml-auto px-1 py-px rounded-full ${apt.modality === 'online' ? 'text-cyan-300 bg-cyan-500/15' : 'text-slate-400 bg-slate-500/15'}`}>
+                                                                {apt.modality === 'online' ? 'Online' : 'Presencial'}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
-
-                                            {apt.modality === 'online' && <Video size={9} className="text-indigo-400 shrink-0"/>}
-                                        </button>
-                                    ))}
-                                    {dayApts.length > 4 && (
+                                            </div>
+                                        </div>
+                                        );
+                                    })}
+                                    {dayApts.length > 3 && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setCurrentDate(day); setView('day'); }}
-                                            className="w-full py-1 text-[8px] font-black text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/50 rounded-lg transition-colors border border-indigo-100/50 uppercase tracking-widest text-center"
+                                            className="w-full py-0.5 text-[7px] font-black text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/50 rounded-md transition-colors border border-indigo-100/50 uppercase tracking-widest text-center"
                                         >
-                                            + {dayApts.length - 4} mais
+                                            + {dayApts.length - 3} mais
                                         </button>
                                     )}
                                 </div>
                                 {hasPermission('create_appointment') && (
-                                    <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0 text-indigo-600 bg-white shadow-xl border border-indigo-50 p-1.5 rounded-lg z-10 shrink-0">
-                                        <Plus size={12} />
+                                    <div className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all translate-y-1 group-hover:translate-y-0 text-indigo-600 bg-white shadow-lg border border-indigo-50 p-1 rounded-md z-10 shrink-0">
+                                        <Plus size={10} />
                                     </div>
                                 )}
                             </div>
@@ -1792,31 +1854,51 @@ export const Agenda: React.FC = () => {
           }
       >
           <div className="space-y-8 py-2">
-              {/* TYPE SELECTOR */}
-              <div className="bg-slate-50 p-1.5 rounded-xl flex flex-col sm:flex-row border border-slate-200/50 shadow-sm gap-1">
+              {/* TYPE SELECTOR (MODERN CARDS) */}
+              <div className="flex flex-col sm:flex-row gap-3">
                    {[
-                       { id: 'consulta', label: 'Consulta', icon: <Briefcase size={14}/>, color: 'text-indigo-600 bg-white shadow-sm border-indigo-100' },
-                       { id: 'pessoal', label: 'Evento Pessoal', icon: <UserIcon size={14}/>, color: 'text-amber-500 bg-white shadow-sm border-amber-100' },
-                       { id: 'bloqueio', label: 'Bloqueio Agenda', icon: <Ban size={14}/>, color: 'text-slate-900 bg-white shadow-sm border-slate-300' }
-                   ].map(t => (
-                       <button
-                         key={t.id}
-                         type="button"
-                         onClick={() => setFormData({...formData, type: t.id})}
-                         className={`flex-1 py-1.5 px-4 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 border border-transparent ${formData.type === t.id ? t.color : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/30'}`}
-                       >
-                           {t.icon}
-                           {t.label}
-                       </button>
-                   ))}
-               </div>
+                       { id: 'consulta', label: 'Consulta', icon: <Briefcase size={20}/>, desc: 'Sessão clínica', color: 'indigo' },
+                       { id: 'pessoal', label: 'Evento Pessoal', icon: <UserIcon size={20}/>, desc: 'Compromisso', color: 'amber' },
+                       { id: 'bloqueio', label: 'Bloqueio', icon: <Ban size={20}/>, desc: 'Horário indisponível', color: 'slate' }
+                   ].map(t => {
+                       const active = formData.type === t.id;
+                       const colorClass = t.color === 'indigo' ? 'indigo' : t.color === 'amber' ? 'amber' : 'slate';
+                       return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setFormData({...formData, type: t.id})}
+                          className={`flex-1 flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
+                            active
+                              ? `border-${colorClass}-500 bg-${colorClass}-50/50 shadow-sm shadow-${colorClass}-100/50`
+                              : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                            active ? `bg-${colorClass}-500 text-white` : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {t.icon}
+                          </div>
+                          <div>
+                            <div className={`text-[11px] font-black uppercase tracking-wider ${active ? `text-${colorClass}-900` : 'text-slate-700'}`}>{t.label}</div>
+                            <div className="text-[10px] text-slate-400 font-medium mt-0.5">{t.desc}</div>
+                          </div>
+                          <div className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                            active ? `border-${colorClass}-600 bg-${colorClass}-600` : 'border-slate-200'
+                          }`}>
+                            {active && <Check size={10} className="text-white" strokeWidth={4} />}
+                          </div>
+                        </button>
+                       );
+                   })}
+              </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* LEFT COLUMN: IDENTIFICATION */}
-                  <div className="space-y-6">
-                      <div className="flex items-center gap-2 mb-2">
+                  <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm space-y-6">
+                      <div className="flex items-center gap-2.5 mb-2">
                           <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Identificação</h4>
+                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.15em]">Identificação</h4>
                       </div>
 
                       {formData.type === 'consulta' ? (
@@ -1838,49 +1920,57 @@ export const Agenda: React.FC = () => {
                           {formData.patient_id && !isNaN(parseInt(formData.patient_id)) && (
                             <div className="animate-fadeIn">
                                 {formData.comanda_id ? (
-                                    <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 flex items-center justify-between group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-white rounded-lg shadow-sm border border-indigo-200 text-indigo-500">
-                                                <DollarSign size={16} />
+                                    <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between group shadow-sm transition-all hover:bg-indigo-50">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-indigo-500 shadow-sm border border-indigo-200">
+                                                <DollarSign size={20} />
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1">Comanda Vinculada</p>
-                                                <p className="text-xs font-bold text-slate-700">
+                                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1.5">Comanda Vinculada</p>
+                                                <p className="text-sm font-black text-slate-800">
                                                     {patientComandas.find(c => c.id === formData.comanda_id)?.description || 'Carregando...'}
                                                 </p>
                                                 {patientComandas.find(c => c.id === formData.comanda_id)?.sync_to_livrocaixa ? (
-                                                  <p className="text-[10px] text-emerald-600 font-medium mt-0.5">Vinculada ao Livro Caixa</p>
+                                                  <div className="flex items-center gap-1.5 mt-1">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-wide">Vinculada ao Livro Caixa</p>
+                                                  </div>
                                                 ) : null}
                                             </div>
                                         </div>
                                         <button
                                             type="button"
                                             onClick={() => setFormData({...formData, comanda_id: ''})}
-                                            className="text-[10px] font-bold text-indigo-400 hover:text-rose-500 uppercase tracking-widest transition-colors opacity-0 group-hover:opacity-100 mr-2"
+                                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-400 hover:text-rose-600 hover:border-rose-100 uppercase tracking-widest transition-all opacity-0 group-hover:opacity-100 shadow-sm"
                                         >
-                                            Remover Comanda
+                                            Trocar
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-4">
                                         {patientComandas.length > 0 ? (
-                                            <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-200/50">
-                                                <div className="flex items-center gap-2 mb-3 text-orange-600">
-                                                    <Info size={14} />
-                                                    <p className="text-[10px] font-bold uppercase tracking-wider">Comanda aberta disponível. Vincule abaixo:</p>
+                                            <div className="bg-white border-2 border-dashed border-slate-200 p-5 rounded-3xl transition-all hover:border-indigo-300 group/link">
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Comandas abertas detectadas</p>
                                                 </div>
-                                                <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                                                <div className="grid grid-cols-1 gap-2.5 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
                                                     {patientComandas.map(c => (
                                                         <button
                                                             key={c.id}
                                                             type="button"
                                                             onClick={() => handleSelectComanda(c)}
-                                                            className="w-full flex items-center justify-between p-2.5 bg-white hover:bg-orange-50 border border-slate-100 hover:border-orange-200 rounded-lg transition-all group shadow-sm"
+                                                            className="w-full flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-white border border-slate-100 hover:border-indigo-200 rounded-2xl transition-all group shadow-xs active:scale-[0.98]"
                                                         >
-                                                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide group-hover:text-orange-600 transition-colors">{c.description}</span>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] font-medium text-slate-400">{c.sessions_used}/{c.sessions_total} sessões</span>
-                                                                <ChevronRight size={14} className="text-orange-400 group-hover:translate-x-0.5 transition-transform" />
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-100 text-slate-400 group-hover:text-indigo-500 group-hover:border-indigo-100 transition-colors shadow-sm">
+                                                                    <DollarSign size={14} />
+                                                                </div>
+                                                                <span className="text-xs font-black text-slate-700 uppercase tracking-wide group-hover:text-indigo-700 transition-colors">{c.description}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-[10px] font-bold text-slate-400 bg-slate-100/50 px-2 py-0.5 rounded-full">{c.sessions_used}/{c.sessions_total} sessões</span>
+                                                                <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
                                                             </div>
                                                         </button>
                                                     ))}
@@ -1888,19 +1978,21 @@ export const Agenda: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={openNewComandaModal}
-                                                    className="w-full mt-3 py-2 border border-orange-200 rounded-lg text-[10px] font-bold text-orange-600 hover:bg-orange-100/50 transition-all uppercase tracking-widest"
+                                                    className="w-full mt-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-indigo-600 hover:bg-slate-50 hover:border-indigo-200 transition-all uppercase tracking-[0.2em] shadow-sm flex items-center justify-center gap-2"
                                                 >
+                                                    <Plus size={14} />
                                                     CRIAR NOVA COMANDA
                                                 </button>
                                             </div>
                                         ) : (
-                                            <div className="flex justify-end">
+                                            <div className="flex justify-start">
                                                 <button
                                                     type="button"
                                                     onClick={openNewComandaModal}
-                                                    className="px-3 py-1.5 border border-orange-200 rounded-lg text-[10px] font-bold text-orange-600 hover:bg-orange-50 transition-all uppercase tracking-wider shadow-sm"
+                                                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all shadow-sm"
                                                 >
-                                                    NOVA COMANDA
+                                                    <Plus size={14} />
+                                                    NÃO POSSUI COMANDA? CRIAR NOVA AGORA
                                                 </button>
                                             </div>
                                         )}
@@ -1910,12 +2002,24 @@ export const Agenda: React.FC = () => {
                           )}
 
                           <div className="space-y-2 pt-2">
-                               <Select
+                          <div className="space-y-2 pt-2">
+                               <Combobox
                                  label="Serviço ou Pacote"
-                                 icon={<Package size={18} className="text-emerald-400" />}
+                                 placeholder="Pesquisar serviço ou pacote..."
+                                 options={[
+                                     ...services.map(s => ({
+                                         id: String(s.id),
+                                         label: s.name,
+                                         description: `Serviço Individual • ${formatCurrency(s.price)}`
+                                     })),
+                                     ...packages.map(p => ({
+                                         id: `pkg_${p.id}`,
+                                         label: p.name,
+                                         description: `Pacote • ${p.items?.length || 0} sessões • ${formatCurrency(p.totalPrice)}`
+                                     }))
+                                 ]}
                                  value={formData.service_id || ''}
-                                 onChange={e => {
-                                   const val = e.target.value;
+                                 onChange={val => {
                                    const isPkg = val.startsWith('pkg_');
                                    const id = isPkg ? val.replace('pkg_', '') : val;
 
@@ -1934,15 +2038,8 @@ export const Agenda: React.FC = () => {
 
                                    setFormData({...formData, service_id: val, duration_minutes: duration});
                                  }}
-                               >
-                                   <option value="">Selecionar...</option>
-                                   <optgroup label="Serviços Individuais">
-                                     {services.map(s => <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>)}
-                                   </optgroup>
-                                   <optgroup label="Pacotes">
-                                     {packages.map(p => <option key={`pkg_${p.id}`} value={`pkg_${p.id}`}>{p.name} - {formatCurrency(p.totalPrice)} ({p.items?.length || 0} itens)</option>)}
-                                   </optgroup>
-                               </Select>
+                               />
+                          </div>
                           </div>
                         </>
                       ) : (
@@ -1950,7 +2047,6 @@ export const Agenda: React.FC = () => {
                             <Input
                               label="Título do Evento / Motivo do Bloqueio"
                               placeholder="Ex: Supervisão Clínica ou Almoço"
-                              icon={<Activity size={18} className="text-amber-400" />}
                               value={formData.title || ''}
                               onChange={e => setFormData({...formData, title: e.target.value})}
                             />
@@ -1958,68 +2054,92 @@ export const Agenda: React.FC = () => {
                       )}
 
                       {formData.type === 'consulta' && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">Modalidade</label>
-                                <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200/60">
-                                    <button
-                                      type="button"
-                                      onClick={() => setFormData({...formData, modality: 'presencial'})}
-                                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
-                                    >
-                                      Presencial
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setFormData({...formData, modality: 'online'})}
-                                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
-                                    >
-                                      Online
-                                    </button>
+                          <div className="space-y-4">
+                            <div className="space-y-4">
+                                <div className="space-y-1.5 flex-1">
+                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Modalidade</label>
+                                    <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 w-full sm:w-2/3">
+                                        <button
+                                          type="button"
+                                          onClick={() => setFormData({...formData, modality: 'presencial'})}
+                                          className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
+                                        >
+                                          Presencial
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setFormData({...formData, modality: 'online'})}
+                                          className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
+                                        >
+                                          Online
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="space-y-1.5">
-                                <Select
-                                  label="Status"
-                                  value={formData.status}
-                                  onChange={e => setFormData({...formData, status: e.target.value})}
-                                >
-                                    {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                                </Select>
-                                {formData.status === 'no-show' && (
-                                  <p className="text-[10px] font-bold text-amber-600 ml-1 flex items-center gap-1">
-                                    <AlertCircle size={10} /> Preencha as Observações abaixo — campo obrigatório para "Faltou"
-                                  </p>
-                                )}
-                                {formData.status === 'cancelled' && (
-                                  <p className="text-[10px] font-bold text-rose-500 ml-1 flex items-center gap-1">
-                                    <AlertCircle size={10} /> Sessão cancelada será contabilizada na comanda
-                                  </p>
-                                )}
-                                
-                                <div className="mt-2 flex items-center gap-2 px-1">
-                                    <input
-                                        type="checkbox"
-                                        id="sync_to_livrocaixa_apt"
-                                        checked={!!formData.sync_to_livrocaixa}
-                                        onChange={e => setFormData({...formData, sync_to_livrocaixa: e.target.checked})}
-                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                <div className="space-y-1.5 flex-1">
+                                    <Combobox
+                                      label="Status do Atendimento"
+                                      placeholder="Definir status..."
+                                      options={Object.entries(statusMeta).map(([k, v]) => ({
+                                          id: k,
+                                          label: v.label,
+                                          description: `Status: ${v.label}`
+                                      }))}
+                                      value={formData.status}
+                                      onChange={val => setFormData({...formData, status: val})}
                                     />
-                                    <label htmlFor="sync_to_livrocaixa_apt" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none">
-                                        Lançar no Livro Caixa
-                                    </label>
                                 </div>
                             </div>
-                        </div>
+                            
+                            {formData.status === 'no-show' && (
+                              <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100 animate-fadeIn">
+                                <AlertCircle size={14} className="text-amber-500 shrink-0" />
+                                <p className="text-[10px] font-bold text-amber-700 leading-tight">Preencha o motivo da falta no campo Observações abaixo.</p>
+                              </div>
+                            )}
+                            {formData.status === 'cancelled' && (
+                              <div className="flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100 animate-fadeIn">
+                                <AlertCircle size={14} className="text-rose-500 shrink-0" />
+                                <p className="text-[10px] font-bold text-rose-700 leading-tight">Sessão cancelada será contabilizada na comanda.</p>
+                              </div>
+                            )}
+
+                            {!(formData.comanda_id && patientComandas.find(c => String(c.id) === String(formData.comanda_id))?.sync_to_livrocaixa) && (
+                              <div 
+                                onClick={() => setFormData({...formData, sync_to_livrocaixa: !formData.sync_to_livrocaixa})}
+                                className={`mt-2 p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
+                                    formData.sync_to_livrocaixa 
+                                        ? 'bg-emerald-50/50 border-emerald-200' 
+                                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                                }`}
+                              >
+                                  <div className="flex items-center gap-3">
+                                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                                          formData.sync_to_livrocaixa ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-200 text-slate-500'
+                                      }`}>
+                                          <BookOpen size={18} />
+                                      </div>
+                                      <div>
+                                          <p className={`text-[11px] font-black uppercase tracking-widest ${formData.sync_to_livrocaixa ? 'text-emerald-700' : 'text-slate-600'}`}>Lançar no Livro Caixa</p>
+                                          <p className="text-[10px] text-slate-400 font-medium">Sincronizar este valor com o financeiro</p>
+                                      </div>
+                                  </div>
+                                  <div 
+                                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 transition-colors duration-200 ease-in-out ${formData.sync_to_livrocaixa ? 'bg-emerald-500 border-emerald-500' : 'bg-slate-300 border-slate-300'}`}
+                                  >
+                                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-[2px] ${formData.sync_to_livrocaixa ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+                                  </div>
+                              </div>
+                            )}
+                          </div>
                        )}
                   </div>
 
                   {/* RIGHT COLUMN: TIME & RECURRENCE */}
-                  <div className="space-y-6">
-                      <div className="flex items-center gap-2 mb-2">
+                  <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm space-y-6">
+                      <div className="flex items-center gap-2.5 mb-2">
                           <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Horário e Repetição</h4>
+                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.15em]">Horário e Repetição</h4>
                       </div>
 
                       {formData.id ? (
@@ -2054,33 +2174,39 @@ export const Agenda: React.FC = () => {
                         </div>
                       ) : (
                         /* ── MODO CRIAÇÃO: campos editáveis normalmente ── */
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data</label>
-                            <DatePicker
-                              value={formData.appointment_date.slice(0, 10)}
-                              onChange={val => val && setFormData({...formData, appointment_date: `${val}T${formData.appointment_date.slice(11, 16)}`})}
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Hora</label>
-                            <div className="relative group">
-                              <Clock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
-                              <input
-                                type="time"
-                                value={formData.appointment_date.slice(11, 16)}
-                                onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
-                                className="h-10 w-full rounded-xl border border-slate-300 pl-8 pr-2 text-xs font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-white"
-                              />
+                        <div className="space-y-4">
+                          <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1 min-w-0">
+                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Data</label>
+                                <DatePicker
+                                  value={formData.appointment_date.slice(0, 10)}
+                                  onChange={val => val && setFormData({...formData, appointment_date: `${val}T${formData.appointment_date.slice(11, 16)}`})}
+                                />
+                            </div>
+                            <div className="w-full sm:w-1/2">
+                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Hora</label>
+                                <div className="relative group">
+                                  <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                                  <input
+                                    type="time"
+                                    value={formData.appointment_date.slice(11, 16)}
+                                    onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
+                                    className="h-11 w-full rounded-2xl border border-slate-200 pl-9 pr-3 text-sm font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-slate-50/30 hover:bg-white"
+                                  />
+                                </div>
                             </div>
                           </div>
-                          <Input
-                            label="Duração (min)"
-                            type="number"
-                            icon={<Layers size={16} className="text-slate-400" />}
-                            value={formData.duration_minutes}
-                            onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
-                          />
+                          
+                          <div className="w-full">
+                              <Input
+                                  label="Duração do Atendimento (Minutos)"
+                                  type="number"
+                                  placeholder="Ex: 50"
+                                  value={formData.duration_minutes}
+                                  onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
+                                  className="!h-11 !rounded-2xl"
+                              />
+                          </div>
                         </div>
                       )}
 
@@ -2196,6 +2322,7 @@ export const Agenda: React.FC = () => {
                   </div>
               )}
 
+              {/* OBSERVATIONS SECTION (MODERN CARD) */}
               {(() => {
                 const isAbsence = formData.status === 'no-show';
                 const isCancelled = formData.status === 'cancelled';
@@ -2205,33 +2332,36 @@ export const Agenda: React.FC = () => {
                   ? 'Motivo da Falta'
                   : isCancelled
                   ? 'Motivo do Cancelamento'
-                  : 'Observações e Histórico';
-                const notesColor = needsReason ? 'bg-rose-500' : 'bg-slate-400';
+                  : 'Prontuário e Observações';
+                const notesColor = needsReason ? 'bg-rose-500' : 'bg-indigo-500';
                 const borderClass = needsReason && notesEmpty
                   ? '!border-rose-400 focus:!border-rose-600'
                   : 'border-slate-200';
+                
                 return (
-                  <div className="space-y-3">
-                      <div className="flex items-center gap-2 ml-1">
+                  <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2.5 ml-1">
                           <div className={`w-1.5 h-4 ${notesColor} rounded-full`}></div>
-                          <h4 className={`text-xs font-bold uppercase tracking-wider ${needsReason ? 'text-rose-600' : 'text-slate-800'}`}>
+                          <h4 className={`text-[11px] font-black uppercase tracking-[0.15em] ${needsReason ? 'text-rose-600' : 'text-slate-800'}`}>
                             {notesLabel}{needsReason && <span className="text-rose-500 ml-1">*</span>}
                           </h4>
                       </div>
                       <TextArea
+                        label=""
                         placeholder={isAbsence
-                          ? 'Descreva o motivo da falta...'
+                          ? 'Descreva detalhadamente o motivo da ausência do paciente...'
                           : isCancelled
-                          ? 'Descreva o motivo do cancelamento...'
-                          : 'Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes...'}
+                          ? 'Por que o atendimento foi removido ou cancelado?'
+                          : 'Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes que serão replicados no prontuário...'}
                         value={formData.notes || ''}
                         onChange={e => setFormData({...formData, notes: e.target.value})}
-                        className={`min-h-[100px] !rounded-xl shadow-sm ${borderClass}`}
+                        className={`min-h-[120px] !rounded-[24px] shadow-sm !bg-slate-50/30 !p-5 focus:!bg-white transition-all text-sm leading-relaxed ${borderClass}`}
                       />
                       {needsReason && notesEmpty && (
-                        <p className="text-[10px] font-bold text-rose-500 ml-1 flex items-center gap-1">
-                          <AlertCircle size={10} /> Campo obrigatório para registrar {isAbsence ? 'falta' : 'cancelamento'}
-                        </p>
+                        <div className="flex items-center gap-2 px-2 py-2 bg-rose-50 rounded-xl border border-rose-100 animate-fadeIn">
+                          <AlertCircle size={14} className="text-rose-500 shrink-0" />
+                          <p className="text-[10px] font-black text-rose-600 uppercase tracking-wide">Campo obrigatório para registro de {isAbsence ? 'falta' : 'cancelamento'}</p>
+                        </div>
                       )}
                   </div>
                 );
@@ -2241,6 +2371,7 @@ export const Agenda: React.FC = () => {
                 <div className="bg-amber-50/30 p-5 rounded-3xl border border-dashed border-amber-200/50 flex flex-col gap-3">
                     <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest ml-1">Motivo da Alteração / Reagendamento</p>
                     <TextArea
+                        label="Motivo"
                         placeholder="Por que este atendimento foi alterado? (Opcional)"
                         value={formData.reschedule_reason || ''}
                         onChange={e => setFormData({...formData, reschedule_reason: e.target.value})}
@@ -2253,7 +2384,7 @@ export const Agenda: React.FC = () => {
 
       {/* DELETE CONFIRM */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
            <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn overflow-hidden flex flex-col max-h-[90vh]">
               <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-lg shadow-rose-500/10 shrink-0">
                 <Trash2 size={32} />
@@ -2453,7 +2584,6 @@ export const Agenda: React.FC = () => {
           <Input
             label="Horário"
             type="time"
-            icon={<Clock size={16} className="text-slate-400" />}
             value={tempDateTime.time}
             onChange={e => setTempDateTime(prev => ({ ...prev, time: e.target.value }))}
           />
@@ -2511,7 +2641,6 @@ export const Agenda: React.FC = () => {
           <Input
             label="Horário de Término"
             type="time"
-            icon={<Clock size={16} className="text-slate-400" />}
             value={tempEndTime}
             onChange={e => setTempEndTime(e.target.value)}
           />
@@ -2646,7 +2775,7 @@ export const Agenda: React.FC = () => {
         onClose={() => setIsNewComandaModalOpen(false)}
         title={editingComanda?.id ? 'Editando Comanda' : 'Criando Comanda'}
         maxWidth="max-w-3xl"
-        footer={
+        footer={(
           <div className="flex w-full items-center justify-between">
             <Button
               onClick={() => setIsNewComandaModalOpen(false)}
@@ -2659,22 +2788,42 @@ export const Agenda: React.FC = () => {
             <Button
               onClick={handleCreateComanda}
               variant="primary"
-              isLoading={isLoading}
-              loadingText={editingComanda?.id ? 'SALVANDO...' : 'CRIANDO...'}
+              isLoading={isSaving}
             >
-              CRIAR COMANDA
+              {editingComanda?.id ? 'SALVAR' : 'CRIAR'}
             </Button>
           </div>
-        }
+        )}
       >
-        {editingComanda && (
-          <div className="space-y-5 py-1">
-            <div className="flex flex-wrap items-center gap-6">
-              <div className="text-sm text-slate-600">Tipo:</div>
+        {editingComanda && (() => {
+          let isLocked = false;
+          try {
+            const lockedArr = JSON.parse(localStorage.getItem('lc_locked_months') || '[]');
+            if (editingComanda.startDate) {
+              const [y, m] = editingComanda.startDate.split('-');
+              const monthKey = `${y}-${parseInt(m, 10)}`;
+              isLocked = Array.isArray(lockedArr) && (lockedArr.includes(editingComanda.startDate.slice(0, 7)) || lockedArr.includes(monthKey));
+            }
+          } catch (e) {}
 
+          return (
+          <div className="space-y-6 pt-2 pb-6 px-1">
+            {isLocked && editingComanda.syncToLivrocaixa && (
+              <div className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-100 rounded-3xl text-rose-700 animate-pulse">
+                <AlertCircle size={24} className="shrink-0" />
+                <div className="flex-1">
+                  <p className="font-black text-xs uppercase tracking-wider mb-0.5">Livro Caixa Fechado</p>
+                  <p className="text-xs font-semibold leading-relaxed">Este período está bloqueado para novas movimentações. Mude o status do mês para "ABERTO" no Livro Caixa para realizar alterações ou desative a sincronização.</p>
+                </div>
+              </div>
+            )}
+            {/* TYPE SELECTOR (CARDS) */}
+            <div className="flex flex-col sm:flex-row gap-4">
               <TypeButton
                 active={modalTab === 'avulsa'}
-                label="Comanda Normal"
+                label="Comanda Avulsa"
+                description="Serviço único formatado"
+                icon={<FileText size={20} />}
                 onClick={() => {
                   setModalTab('avulsa');
                   setEditingComanda({
@@ -2688,7 +2837,9 @@ export const Agenda: React.FC = () => {
 
               <TypeButton
                 active={modalTab === 'pacote'}
-                label="Comanda Pacote"
+                label="Protocolo de Pacote"
+                description="Controle múltiplo de sessões"
+                icon={<Package size={20} />}
                 onClick={() => {
                   setModalTab('pacote');
                   setEditingComanda({
@@ -2706,12 +2857,23 @@ export const Agenda: React.FC = () => {
               />
             </div>
 
-            {/* Vincular ao Livro Caixa */}
+            {/* VINCULAR AO LIVRO CAIXA */}
+            {editingComanda.id && editingComanda.syncToLivrocaixa ? (
+              <div className="flex items-center gap-4 p-5 bg-emerald-50 text-emerald-700 rounded-3xl border border-emerald-100/50 shadow-inner">
+                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-200">
+                    <CheckCircle2 size={24} />
+                 </div>
+                 <div>
+                    <p className="font-black text-[13px] uppercase tracking-widest">Vinculado ao Livro Caixa</p>
+                    <p className="text-xs font-medium opacity-80 mt-0.5">Esta comanda já reflete no saldo financeiro</p>
+                 </div>
+              </div>
+            ) : (
             <div
-              className={`flex items-center justify-between rounded-2xl border px-4 py-3 transition cursor-pointer ${
+              className={`group flex items-center justify-between rounded-3xl border-2 px-6 py-5 transition-all cursor-pointer ${
                 editingComanda.syncToLivrocaixa
-                  ? 'border-emerald-300 bg-emerald-50'
-                  : 'border-slate-200 bg-slate-50'
+                  ? 'border-emerald-500 bg-gradient-to-r from-emerald-50 to-emerald-100/50 shadow-md shadow-emerald-100/40'
+                  : 'border-slate-100 bg-slate-50 hover:bg-slate-100 hover:border-slate-200'
               }`}
               onClick={() =>
                 setEditingComanda({
@@ -2720,31 +2882,49 @@ export const Agenda: React.FC = () => {
                 })
               }
             >
-              <div className="flex flex-col">
-                <span className={`text-sm font-semibold ${editingComanda.syncToLivrocaixa ? 'text-emerald-700' : 'text-slate-700'}`}>
-                  Vincular ao Livro Caixa
-                </span>
-                <span className="text-xs text-slate-500 mt-0.5">
-                  {editingComanda.syncToLivrocaixa
-                    ? 'Esta comanda aparecerá no Livro Caixa (pendente até ser paga)'
-                    : 'Ativar para registrar esta comanda no Livro Caixa'}
-                </span>
+              <div className="flex items-center gap-4">
+                <div className={`flex w-12 h-12 rounded-2xl items-center justify-center shrink-0 transition-colors ${
+                  editingComanda.syncToLivrocaixa ? 'bg-emerald-500 text-white' : 'bg-white block border border-slate-200 text-slate-400'
+                }`}>
+                  <BookOpen size={22} />
+                </div>
+                <div className="flex flex-col">
+                  <span className={`text-[13px] font-black tracking-wide uppercase ${editingComanda.syncToLivrocaixa ? 'text-emerald-900' : 'text-slate-700'}`}>
+                    Sincronizar no Livro Caixa
+                  </span>
+                  <span className={`text-sm mt-0.5 font-medium ${editingComanda.syncToLivrocaixa ? 'text-emerald-700/80' : 'text-slate-500'}`}>
+                    {editingComanda.syncToLivrocaixa
+                      ? 'Ativo - O saldo será espelhado no financeiro instantaneamente'
+                      : 'Inativo - Criar comanda de forma isolada'}
+                  </span>
+                </div>
               </div>
               <div
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 ${
-                  editingComanda.syncToLivrocaixa ? 'bg-emerald-500' : 'bg-slate-300'
+                className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ease-in-out cursor-pointer ${
+                  editingComanda.syncToLivrocaixa
+                    ? 'border-emerald-500 bg-emerald-500'
+                    : 'border-slate-300 bg-slate-200'
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform duration-200 ${
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
                     editingComanda.syncToLivrocaixa ? 'translate-x-5' : 'translate-x-0.5'
                   }`}
                 />
               </div>
             </div>
+            )}
+
+            {/* DADOS DA COMANDA */}
+            <div className="bg-slate-50/50 border border-slate-100 rounded-[28px] p-6 shadow-sm">
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+                Detalhes do Lançamento
+              </h3>
 
             {modalTab === 'avulsa' ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Input
                   label="Descrição"
                   value={editingComanda.description || ''}
@@ -2754,12 +2934,12 @@ export const Agenda: React.FC = () => {
                       description: e.target.value,
                     })
                   }
-                  placeholder="Ex: Sessão de Psicologia, Avaliação, etc"
+                  placeholder="Ex: Sessão de Terapia Analítica..."
                   containerClassName="md:col-span-2"
                 />
 
                 <Combobox
-                  label="Cliente"
+                  label="Paciente"
                   options={patients.filter((p: any) => p.status === 'ativo' || p.status === 'active').map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
                   value={editingComanda.patientId || ''}
                   onChange={(id, label) => {
@@ -2769,48 +2949,81 @@ export const Agenda: React.FC = () => {
                       patientSearch: label || '',
                     });
                   }}
-                  placeholder="Selecione um cliente..."
-                  disabled={!!editingComanda.patientLocked}
+                  placeholder="Buscar pelo nome..."
                 />
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+                  <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
                   <DatePicker
                     value={editingComanda.startDate || ''}
                     onChange={(val) =>
                       setEditingComanda({
                         ...editingComanda,
-                        startDate: val,
+                        startDate: val ?? undefined,
                       })
                     }
                   />
                 </div>
 
-                <Input
-                  label="Valor Total"
-                  type="text"
-                  value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      totalValue: parseMonetaryValue(e.target.value),
-                    })
-                  }
-                  prefix="R$"
-                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-slate-600">Valor Total (R$)</label>
+                  <input
+                    type="text"
+                    value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
+                    onChange={(e) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        totalValue: parseMonetaryValue(e.target.value),
+                      })
+                    }
+                    className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                  />
+                </div>
 
-                <Input
-                  label="Número de Atendimentos"
-                  type="number"
-                  min={1}
-                  value={editingComanda.sessions_total || 1}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      sessions_total: Math.max(1, Number(e.target.value || 1)),
-                    })
-                  }
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-semibold text-slate-600">Total Sessões</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingComanda({
+                          ...editingComanda,
+                          sessions_total: val === '' ? ('' as any) : Number(val),
+                        });
+                      }}
+                       onKeyDown={(e) => {
+                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-semibold text-slate-600">Realizadas</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingComanda({
+                          ...editingComanda,
+                          sessions_used: val === '' ? ('' as any) : Number(val),
+                        });
+                      }}
+                       onKeyDown={(e) => {
+                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                    />
+                  </div>
+                </div>
 
                 <Select
                   label="Profissional"
@@ -2821,6 +3034,7 @@ export const Agenda: React.FC = () => {
                       professionalId: e.target.value,
                     })
                   }
+                  containerClassName="md:col-span-2"
                 >
                   <option value="">Selecione um profissional</option>
                   {professionals.map((p: any) => (
@@ -2831,11 +3045,12 @@ export const Agenda: React.FC = () => {
                 </Select>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Select
-                  label="Pacote"
+                  label="Pacote Base (Opcional)"
                   value={editingComanda.packageId || ''}
                   onChange={(e) => handleSelectPackage(e.target.value)}
+                  containerClassName="md:col-span-2"
                 >
                   <option value="">Selecione uma definição de pacote</option>
                   {packages.map((pkg) => (
@@ -2846,7 +3061,7 @@ export const Agenda: React.FC = () => {
                 </Select>
 
                 <Combobox
-                  label="Cliente"
+                  label="Paciente"
                   options={patients.filter((p: any) => p.status === 'ativo' || p.status === 'active').map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
                   value={editingComanda.patientId || ''}
                   onChange={(id, label) => {
@@ -2856,9 +3071,66 @@ export const Agenda: React.FC = () => {
                       patientSearch: label || '',
                     });
                   }}
-                  placeholder="Selecione um cliente..."
-                  disabled={!!editingComanda.patientLocked}
+                  placeholder="Buscar pelo nome..."
                 />
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
+                  <DatePicker
+                    value={editingComanda.startDate || ''}
+                    onChange={(val) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        startDate: val ?? undefined,
+                      })
+                    }
+                  />
+                </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[12px] font-semibold text-slate-600">Total Sessões</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditingComanda({
+                            ...editingComanda,
+                            sessions_total: val === '' ? ('' as any) : Number(val),
+                          });
+                        }}
+                         onKeyDown={(e) => {
+                          if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                            e.preventDefault();
+                          }
+                        }}
+                        className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[12px] font-semibold text-slate-600">Realizadas</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditingComanda({
+                            ...editingComanda,
+                            sessions_used: val === '' ? ('' as any) : Number(val),
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                            e.preventDefault();
+                          }
+                        }}
+                        className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                      />
+                    </div>
+                  </div>
 
                 <Select
                   label="Profissional"
@@ -2878,22 +3150,26 @@ export const Agenda: React.FC = () => {
                   ))}
                 </Select>
 
-                <div className="pt-1">
-                  <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-slate-600">
-                    Itens:
+                <div className="pt-2 md:col-span-2">
+                  <div className="mb-4 flex items-center gap-2">
+                    <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
+                    <span className="text-sm font-black uppercase tracking-widest text-slate-800">
+                      Serviços do Pacote
+                    </span>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-12 gap-3 text-[12px] text-slate-500">
-                      <div className="col-span-6">Serviço</div>
-                      <div className="col-span-2">Qtd</div>
-                      <div className="col-span-3">Preço</div>
+                  <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                    <div className="hidden md:grid grid-cols-12 gap-3 text-[11px] font-bold text-slate-400 tracking-wider">
+                      <div className="col-span-6 uppercase">Serviço</div>
+                      <div className="col-span-2 uppercase">Qtd</div>
+                      <div className="col-span-3 uppercase">Preço</div>
                       <div className="col-span-1" />
                     </div>
 
                     {(editingComanda.items || []).map((item, index) => (
-                      <div key={index} className="grid grid-cols-12 items-end gap-3">
-                        <div className="col-span-6">
+                      <div key={index} className="grid grid-cols-1 md:grid-cols-12 items-end gap-3 p-3 md:p-0 bg-slate-50 md:bg-transparent rounded-xl border md:border-0 border-slate-200">
+                        <div className="md:col-span-6">
+                          <label className="md:hidden block text-[11px] font-bold text-slate-400 tracking-wider mb-1">SERVIÇO</label>
                           <Select
                             label=""
                             value={item.serviceId || ''}
@@ -2905,6 +3181,7 @@ export const Agenda: React.FC = () => {
                               )
                             }
                             size="sm"
+                            containerClassName="!mb-0"
                           >
                             <option value="">Selecione</option>
                             {services.map((service) => (
@@ -2934,9 +3211,9 @@ export const Agenda: React.FC = () => {
                             type="text"
                             value={formatCurrencyInput(Number(item.price || 0))}
                             onChange={(e) =>
-                              updatePackageItem(index, {
-                                price: parseMonetaryValue(e.target.value),
-                              })
+                                updatePackageItem(index, {
+                                  price: parseMonetaryValue(e.target.value),
+                                })
                             }
                             className={lineInputClass}
                           />
@@ -2960,27 +3237,27 @@ export const Agenda: React.FC = () => {
                   <button
                     type="button"
                     onClick={addPackageItem}
-                    className="mt-3 w-full rounded-md border border-indigo-400 py-2.5 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50"
+                    className="mt-4 w-full rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 py-3.5 text-sm font-bold tracking-wide text-indigo-600 transition-all hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 flex items-center justify-center gap-2"
                   >
-                    ADICIONAR ITEM
+                    + Adicionar Serviço
                   </button>
                 </div>
               </div>
             )}
 
-            <div className="flex justify-end pt-2">
-              <div className="w-full max-w-[290px] space-y-3">
-                <div className="flex items-center justify-between text-sm text-slate-600">
-                  <span>Valor Total:</span>
-                  <strong className="font-semibold text-slate-800">
+            <div className="mt-8 pt-6 border-t border-slate-200/60 flex flex-col items-end">
+              <div className="w-full max-w-[340px] bg-slate-100/50 rounded-3xl p-5 border border-slate-100 shadow-inner">
+                <div className="flex items-center justify-between text-[13px] font-semibold text-slate-500 mb-3">
+                  <span>Valor Original:</span>
+                  <strong className="text-slate-700">
                     {formatCurrency(modalGrossTotal)}
                   </strong>
                 </div>
 
-                <div className="grid grid-cols-[1fr_auto_82px] items-center gap-2">
-                  <span className="text-sm text-slate-600">Desconto:</span>
+                <div className="grid grid-cols-[1fr_auto_96px] items-center gap-3 mb-4">
+                  <span className="text-[13px] font-semibold text-slate-500">Descontos:</span>
 
-                  <div className="inline-flex overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                  <div className="inline-flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <button
                       type="button"
                       onClick={() =>
@@ -2989,10 +3266,10 @@ export const Agenda: React.FC = () => {
                           discount_type: 'percentage',
                         })
                       }
-                      className={`px-3 py-2 text-xs font-semibold ${
+                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${
                         editingComanda.discount_type === 'percentage'
-                          ? 'bg-slate-200 text-slate-800'
-                          : 'text-slate-500'
+                          ? 'bg-indigo-500 text-white'
+                          : 'text-slate-500 hover:bg-slate-50'
                       }`}
                     >
                       %
@@ -3005,10 +3282,10 @@ export const Agenda: React.FC = () => {
                           discount_type: 'fixed',
                         })
                       }
-                      className={`px-3 py-2 text-xs font-semibold ${
+                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors border-l border-slate-100 ${
                         editingComanda.discount_type === 'fixed'
-                          ? 'bg-slate-200 text-slate-800'
-                          : 'text-slate-500'
+                          ? 'bg-indigo-500 text-white'
+                          : 'text-slate-500 hover:bg-slate-50'
                       }`}
                     >
                       R$
@@ -3018,25 +3295,29 @@ export const Agenda: React.FC = () => {
                   <input
                     value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
                     onChange={(e) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        discount_value: parseMonetaryValue(e.target.value),
-                      })
+                        setEditingComanda({
+                          ...editingComanda,
+                          discount_value: parseMonetaryValue(e.target.value),
+                        })
                     }
-                    className="h-9 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-indigo-500"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-right shadow-sm"
                   />
                 </div>
 
-                <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600">
-                  <span>Total Líquido:</span>
-                  <strong className="text-lg font-bold text-slate-800">
+                <div className="flex items-center justify-between bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100 mt-2">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Total a Pagar</span>
+                  <strong className="text-[22px] font-black text-indigo-600">
                     {formatCurrency(modalNetTotal)}
                   </strong>
                 </div>
               </div>
             </div>
+
+            </div> {/* fechar dados da comanda */}
+
           </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* APPOINTMENT DETAIL MODAL */}
@@ -3102,52 +3383,52 @@ export const Agenda: React.FC = () => {
         };
 
         return (
-          <Modal isOpen={isDetailModalOpen} onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} title="" maxWidth="max-w-[655px]" hideCloseButton>
+          <Modal isOpen={isDetailModalOpen} onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} title="" maxWidth="max-w-lg" hideCloseButton>
             <div className="pb-2 -mt-2">
 
               {/* ── HERO HEADER ── */}
-              <div className="relative rounded-2xl overflow-hidden mb-5 px-5 pt-5 pb-4" style={{ background: `linear-gradient(135deg, ${accentColor}18 0%, ${accentColor}08 100%)`, border: `1px solid ${accentColor}25` }}>
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-lg font-black shadow-lg shrink-0" style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}>
+              <div className="relative rounded-2xl overflow-hidden mb-4 px-4 pt-4 pb-3" style={{ background: `linear-gradient(135deg, ${accentColor}18 0%, ${accentColor}08 100%)`, border: `1px solid ${accentColor}25` }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-base font-black shadow-lg shrink-0" style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}>
                     {initials}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-base font-black text-slate-900 truncate">{apt.patient_name || apt.title || 'Paciente'}</h2>
-                    {patient?.phone && <p className="text-xs font-semibold text-slate-500 mt-0.5">{patient.phone}</p>}
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
-                        <Clock size={11} />
+                    <h2 className="text-sm font-black text-slate-900 truncate">{apt.patient_name || apt.title || 'Paciente'}</h2>
+                    {patient?.phone && <p className="text-[11px] font-semibold text-slate-500 mt-0.5">{patient.phone}</p>}
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
+                        <Clock size={10} />
                         {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {apt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      <span className="text-[11px] font-bold text-slate-500 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
+                      <span className="text-[10px] font-bold text-slate-500 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
                         {apt.start.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'short' })}
                       </span>
                       {apt.recurrence_index && (
-                        <span className="text-[11px] font-black bg-white/80 px-2 py-0.5 rounded-full border border-white/50" style={{ color: accentColor }}>
+                        <span className="text-[10px] font-black bg-white/80 px-2 py-0.5 rounded-full border border-white/50" style={{ color: accentColor }}>
                           {apt.recurrence_index}/{apt.recurrence_count}
                         </span>
                       )}
                     </div>
                   </div>
-                  <button onClick={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl bg-white/60 text-slate-400 hover:bg-white hover:text-slate-600 transition-all border border-white/50">
-                    <X size={15} />
+                  <button onClick={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/60 text-slate-400 hover:bg-white hover:text-slate-600 transition-all border border-white/50">
+                    <X size={14} />
                   </button>
                 </div>
               </div>
 
               {/* ── INFO PILLS ── */}
-              <div className="flex flex-wrap gap-2 px-1 mb-5">
+              <div className="flex flex-wrap gap-1.5 px-1 mb-4">
                 {(srv || pkg) && (
-                  <div className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-                    <Stethoscope size={13} className="text-indigo-500 shrink-0" />
-                    <span className="text-[12px] font-semibold text-slate-700 truncate max-w-[160px]">{srv?.name || pkg?.name || 'Serviço'}</span>
-                    {srv && <span className="text-[11px] font-bold text-slate-400 ml-1">{formatCurrency(srv.price)}</span>}
+                  <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+                    <Stethoscope size={12} className="text-indigo-500 shrink-0" />
+                    <span className="text-[11px] font-semibold text-slate-700 truncate max-w-[140px]">{srv?.name || pkg?.name || 'Serviço'}</span>
+                    {srv && <span className="text-[10px] font-bold text-slate-400 ml-0.5">{formatCurrency(srv.price)}</span>}
                   </div>
                 )}
                 {apt.modality && (
-                  <div className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-                    {apt.modality === 'online' ? <Video size={13} className="text-indigo-500" /> : <MapPin size={13} className="text-slate-400" />}
-                    <span className="text-[12px] font-semibold text-slate-600 capitalize">{apt.modality}</span>
+                  <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+                    {apt.modality === 'online' ? <Video size={12} className="text-indigo-500" /> : <MapPin size={12} className="text-slate-400" />}
+                    <span className="text-[11px] font-semibold text-slate-600 capitalize">{apt.modality}</span>
                   </div>
                 )}
                 {cmnd && (
@@ -3164,30 +3445,70 @@ export const Agenda: React.FC = () => {
                       }
                     } catch { /* use existing data */ }
                     setIsComandaManagerOpen(true);
-                  }} className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 hover:bg-emerald-100 transition-colors">
-                    <DollarSign size={13} className="text-emerald-600 shrink-0" />
-                    <span className="text-[12px] font-semibold text-emerald-700">{formatCurrency(cmnd.paidValue || 0)}</span>
-                    <span className="text-[10px] text-emerald-500 font-bold">pago</span>
+                  }} className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 hover:bg-emerald-100 transition-colors">
+                    <DollarSign size={12} className="text-emerald-600 shrink-0" />
+                    <span className="text-[11px] font-semibold text-emerald-700">{formatCurrency(cmnd.paidValue || 0)}</span>
+                    <span className="text-[9px] text-emerald-500 font-bold">pago</span>
                     {((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0)) > 0 && (
-                      <><span className="text-emerald-300 mx-0.5">·</span><span className="text-[12px] font-semibold text-rose-500">{formatCurrency((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0))}</span><span className="text-[10px] text-rose-400 font-bold">dev</span></>
+                      <><span className="text-emerald-300 mx-0.5">·</span><span className="text-[11px] font-semibold text-rose-500">{formatCurrency((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0))}</span><span className="text-[9px] text-rose-400 font-bold">dev</span></>
                     )}
-                    <ChevronRight size={11} className="text-emerald-400 ml-0.5" />
+                    <ChevronRight size={10} className="text-emerald-400 ml-0.5" />
                   </button>
                 )}
               </div>
 
               {/* ── OBSERVAÇÕES ── */}
               {apt.notes && (
-                <div className="mx-1 mb-4 bg-slate-50 rounded-xl border border-slate-100 px-3 py-2.5">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Observações</p>
-                  <p className="text-[12px] text-slate-600 leading-relaxed">{apt.notes}</p>
+                <div className="mx-1 mb-3 bg-slate-50 rounded-xl border border-slate-100 px-3 py-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Observações</p>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">{apt.notes}</p>
                 </div>
               )}
 
+              {/* ── PRÓXIMOS ATENDIMENTOS DO PACIENTE ── */}
+              {apt.patient_id && (() => {
+                const now = new Date();
+                const upcomingApts = appointments
+                  .filter(a => String(a.patient_id) === String(apt.patient_id) && String(a.id) !== String(apt.id) && new Date(a.start) >= now)
+                  .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+                  .slice(0, 5);
+                if (upcomingApts.length === 0) return null;
+                return (
+                  <div className="mx-1 mb-3">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                      <CalendarDays size={10} />
+                      Próximos atendimentos ({upcomingApts.length})
+                    </p>
+                    <div className="space-y-1 max-h-[120px] overflow-y-auto custom-scrollbar">
+                      {upcomingApts.map(ua => {
+                        const uaDate = new Date(ua.start);
+                        const uaSrv = services.find(s => String(s.id) === String(ua.service_id));
+                        const uaStatus = statusMeta[ua.status || 'scheduled'] || statusMeta.scheduled;
+                        return (
+                          <button
+                            key={ua.id}
+                            onClick={() => { setSelectedApt(ua); setCurrentDate(uaDate); }}
+                            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100 hover:bg-indigo-50 hover:border-indigo-100 transition-all text-left group"
+                          >
+                            <div className={cx('w-1 h-4 rounded-full shrink-0', uaStatus.dot)} />
+                            <span className="text-[10px] font-black text-slate-500 tabular-nums shrink-0 w-[70px]">
+                              {uaDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {uaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-600 truncate flex-1">{uaSrv?.name || 'Consulta'}</span>
+                            <span className={cx('text-[8px] font-black px-1.5 py-0.5 rounded-full border shrink-0', uaStatus.chip)}>{uaStatus.label}</span>
+                            <ChevronRight size={10} className="text-slate-300 group-hover:text-indigo-400 transition-colors shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* ── QUICK STATUS ── */}
-              <div className="px-1 mb-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Atualizar Status</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="px-1 mb-3">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Atualizar Status</p>
+                <div className="flex flex-wrap gap-1.5">
                   {quickStatuses.map(s => (
                     <button
                       key={s.key}
@@ -3203,7 +3524,7 @@ export const Agenda: React.FC = () => {
                           });
                         }
                       }}
-                      className={cx('text-[11px] font-black px-3 py-1.5 rounded-xl border transition-all', currentStatus === s.key ? s.active : s.color)}
+                      className={cx('text-[10px] font-black px-2.5 py-1 rounded-lg border transition-all', currentStatus === s.key ? s.active : s.color)}
                     >
                       {s.label}
                     </button>
@@ -3212,9 +3533,9 @@ export const Agenda: React.FC = () => {
 
                 {/* Reschedule specific fields */}
                 {detailQuickStatus === 'rescheduled' && (
-                  <div className="mt-4 grid grid-cols-2 gap-3 animate-fadeIn">
+                  <div className="mt-3 grid grid-cols-2 gap-2 animate-fadeIn">
                     <div>
-                      <label className="text-[10px] font-black text-violet-500 uppercase tracking-widest block mb-1.5 ml-1">Nova Data</label>
+                      <label className="text-[9px] font-black text-violet-500 uppercase tracking-widest block mb-1 ml-1">Nova Data</label>
                       <DatePicker
                         value={detailRescheduleDateTime.date}
                         onChange={val => setDetailRescheduleDateTime(prev => ({ ...prev, date: val }))}
@@ -3222,14 +3543,14 @@ export const Agenda: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black text-violet-500 uppercase tracking-widest block mb-1.5 ml-1">Novo Horário</label>
+                      <label className="text-[9px] font-black text-violet-500 uppercase tracking-widest block mb-1 ml-1">Novo Horário</label>
                       <div className="relative">
-                        <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" />
+                        <Clock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" />
                         <input
                           type="time"
                           value={detailRescheduleDateTime.time}
                           onChange={e => setDetailRescheduleDateTime(prev => ({ ...prev, time: e.target.value }))}
-                          className="w-full rounded-xl border border-violet-200 pl-9 pr-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 transition-colors bg-violet-50/20"
+                          className="w-full rounded-xl border border-violet-200 pl-8 pr-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 transition-colors bg-violet-50/20"
                         />
                       </div>
                     </div>
@@ -3238,9 +3559,9 @@ export const Agenda: React.FC = () => {
 
                 {/* Notes required when faltou/cancelado/reagendado */}
                 {detailQuickStatus && needsNotes && (
-                  <div className="mt-3">
-                    <label className={cx('text-[10px] font-black uppercase tracking-widest mb-1.5 block', currentStatus === 'rescheduled' ? 'text-violet-500' : 'text-rose-500')}>
-                      {currentStatus === 'no-show' ? 'Motivo da Falta *' : currentStatus === 'rescheduled' ? 'Observação / Motivo do Reagendamento *' : 'Motivo do Cancelamento *'}
+                  <div className="mt-2">
+                    <label className={cx('text-[9px] font-black uppercase tracking-widest mb-1 block', currentStatus === 'rescheduled' ? 'text-violet-500' : 'text-rose-500')}>
+                      {currentStatus === 'no-show' ? 'Motivo da Falta *' : currentStatus === 'rescheduled' ? 'Observação / Motivo *' : 'Motivo do Cancelamento *'}
                     </label>
                     <textarea
                       value={detailQuickNotes}
@@ -3259,7 +3580,7 @@ export const Agenda: React.FC = () => {
                 {hasPermission('confirm_appointment') && detailQuickStatus && detailQuickStatus !== (apt.status || 'scheduled') && (
                   <button
                     onClick={handleQuickSave}
-                    className="mt-3 w-full py-2.5 rounded-xl text-[12px] font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98]"
+                    className="mt-2 w-full py-2 rounded-xl text-[11px] font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98]"
                     style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}
                   >
                     Confirmar alteração para "{quickStatuses.find(s => s.key === detailQuickStatus)?.label}"
@@ -3268,83 +3589,38 @@ export const Agenda: React.FC = () => {
               </div>
 
               {/* ── ACTION BAR ── */}
-              <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 pt-3 border-t border-slate-100">
                 {patient?.phone && (
                   <button onClick={() => window.open(`https://wa.me/${patient.phone!.replace(/\D/g, '')}`, '_blank')}
-                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
-                    <MessageSquare size={16} className="text-emerald-600" />
-                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">WhatsApp</span>
+                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
+                    <MessageSquare size={15} className="text-emerald-600" />
+                    <span className="text-[8px] font-black text-emerald-600 uppercase tracking-wider">WhatsApp</span>
                   </button>
                 )}
                 <button 
                    onClick={() => navigate(`/records?patient_id=${apt.patient_id}&appointment_id=${apt.id}`)}
-                   className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all"
+                   className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all"
                 >
-                  <Stethoscope size={16} className="text-indigo-600" />
-                  <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Prontuário</span>
+                  <Stethoscope size={15} className="text-indigo-600" />
+                  <span className="text-[8px] font-black text-indigo-600 uppercase tracking-wider">Prontuário</span>
                 </button>
                 <button onClick={handleGenerateReceipt}
-                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all">
-                  <FileText size={16} className="text-slate-500" />
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recibo</span>
+                  className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all">
+                  <FileText size={15} className="text-slate-500" />
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Recibo</span>
                 </button>
-                {apt.comanda_id && (
-                  <button onClick={async () => {
-                    try {
-                      const res = await api.get<any[]>('/finance/comandas');
-                      const all = Array.isArray(res) ? res : [];
-                      const foundCmnd = all.find(c => String(c.id) === String(apt.comanda_id));
-
-                      if (!foundCmnd) {
-                        pushToast('error', 'Comanda não encontrada no sistema.');
-                        return;
-                      }
-
-                      setPatientComandas(prev => {
-                        const filtered = prev.filter(c => String(c.id) !== String(apt.comanda_id));
-                        return [...filtered, foundCmnd];
-                      });
-                      setIsComandaManagerOpen(true);
-                    } catch (e) {
-                      pushToast('error', 'Erro ao carregar dados financeiros.');
-                    }
-                  }}
-                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
-                    <DollarSign size={16} className="text-emerald-600" />
-                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Gestão</span>
-                  </button>
-                )}
-                {hasPermission('edit_appointment') && apt.comanda_id && (
-                  <button onClick={() => {
-                    const aptDate = new Date(apt.start);
-                    const dateStr = aptDate.toISOString().slice(0,10);
-                    const timeStr = aptDate.toTimeString().slice(0,5);
-                    setDetailRescheduleDateTime({ date: dateStr, time: timeStr });
-                    const siblings = appointments.filter(a =>
-                      a.comanda_id && String(a.comanda_id) === String(apt.comanda_id) && String(a.id) !== String(apt.id)
-                    );
-                    setDetailRescheduleScopeIds(new Set([String(apt.id)]));
-                    setScopeRelatedApts(siblings);
-                    setIsDetailRescheduleOpen(true);
-                    setIsDetailModalOpen(false);
-                  }}
-                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-all">
-                    <Clock size={16} className="text-violet-600" />
-                    <span className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Editar Horário</span>
-                  </button>
-                )}
                 {hasPermission('edit_appointment') && (
                   <button onClick={() => { if (apt) openEditModal(apt); setIsDetailModalOpen(false); }}
-                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all">
-                    <Edit3 size={16} className="text-indigo-600" />
-                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Editar</span>
+                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all">
+                    <Edit3 size={15} className="text-indigo-600" />
+                    <span className="text-[8px] font-black text-indigo-600 uppercase tracking-wider">Editar</span>
                   </button>
                 )}
                 {hasPermission('delete_appointment') && (
                   <button onClick={() => { if (apt) setSelectedDeleteIds([apt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); }}
-                    className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all">
-                    <Trash2 size={16} className="text-rose-500" />
-                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Deletar</span>
+                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all">
+                    <Trash2 size={15} className="text-rose-500" />
+                    <span className="text-[8px] font-black text-rose-500 uppercase tracking-wider">Deletar</span>
                   </button>
                 )}
               </div>
@@ -3654,7 +3930,8 @@ export const Agenda: React.FC = () => {
                            ...cmnd,
                            patientId: String(cmnd.patient_id),
                            professionalId: String(cmnd.professional_id),
-                           items: cmnd.items?.map((it: any) => ({ ...it, serviceId: it.service_id }))
+                           items: cmnd.items?.map((it: any) => ({ ...it, serviceId: it.service_id })),
+                           syncToLivrocaixa: cmnd.sync_to_livrocaixa ? true : false,
                         });
                         setModalTab(cmnd.package_id ? 'pacote' : 'avulsa');
                         setIsNewComandaModalOpen(true);
@@ -4081,3 +4358,5 @@ export const Agenda: React.FC = () => {
     </div>
   );
 };
+
+export default Agenda;

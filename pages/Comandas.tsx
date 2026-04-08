@@ -33,6 +33,7 @@ import {
   List as ListIcon,
   CreditCard,
   Check,
+  BookOpen,
   Package,
   Upload,
   Download,
@@ -88,22 +89,34 @@ const iconButtonClass =
 const TypeButton: React.FC<{
   active: boolean;
   label: string;
+  icon?: React.ReactNode;
+  description?: string;
   onClick: () => void;
-}> = ({ active, label, onClick }) => {
+}> = ({ active, label, icon, description, onClick }) => {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 text-sm text-slate-700"
+      className={`flex items-start gap-4 p-4 rounded-3xl border-2 text-left transition-all w-full flex-1 ${
+        active
+          ? 'border-indigo-500 bg-indigo-50/50 shadow-md shadow-indigo-100/50'
+          : 'border-slate-100 bg-white hover:border-indigo-200 hover:bg-slate-50'
+      }`}
     >
-      <span
-        className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${
-          active ? 'border-primary-600' : 'border-slate-500'
-        }`}
-      >
-        {active && <span className="h-2.5 w-2.5 rounded-full bg-primary-600" />}
-      </span>
-      <span>{label}</span>
+      {icon && (
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${active ? 'bg-indigo-500 text-white shadow-inner' : 'bg-slate-100 text-slate-500'}`}>
+          {icon}
+        </div>
+      )}
+      <div className="flex-1">
+        <div className={`font-black text-sm tracking-wide uppercase ${active ? 'text-indigo-900' : 'text-slate-700'}`}>{label}</div>
+        {description && <div className={`text-xs mt-1 font-medium ${active ? 'text-indigo-600/80' : 'text-slate-500'}`}>{description}</div>}
+      </div>
+      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all mt-1.5 ${
+          active ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+      }`}>
+        {active && <Check size={12} className="text-white" strokeWidth={4} />}
+      </div>
     </button>
   );
 };
@@ -228,6 +241,28 @@ export const Comandas: React.FC = () => {
     receiptCode: '',
     comandaId: ''
   });
+
+  const [isQuickAppointmentModalOpen, setIsQuickAppointmentModalOpen] = useState(false);
+  const [quickAppointmentComanda, setQuickAppointmentComanda] = useState<Comanda | null>(null);
+  const [quickAppointmentData, setQuickAppointmentData] = useState({
+    date: new Date().toISOString().slice(0, 16),
+    status: 'completed'
+  });
+
+  const [isForceCloseConfirmOpen, setIsForceCloseConfirmOpen] = useState(false);
+
+  const handleConfirmForceClose = async () => {
+    if (!historyComanda) return;
+    try {
+      await api.put(`/finance/comandas/${historyComanda.id}/force-close`, {});
+      pushToast('success', 'Comanda finalizada com sucesso!');
+      setIsForceCloseConfirmOpen(false);
+      setIsHistoryOpen(false);
+      await fetchData();
+    } catch {
+      pushToast('error', 'Erro ao finalizar a comanda');
+    }
+  };
 
 
 
@@ -638,6 +673,21 @@ export const Comandas: React.FC = () => {
       return;
     }
 
+    if (editingComanda.syncToLivrocaixa && editingComanda.startDate) {
+      let locked = [];
+      try {
+        locked = JSON.parse(localStorage.getItem('lc_locked_months') || '[]');
+      } catch (e) {}
+
+      const [y, m] = editingComanda.startDate.split('-');
+      const monthKey = `${y}-${parseInt(m, 10)}`;
+
+      if (Array.isArray(locked) && (locked.includes(editingComanda.startDate.slice(0, 7)) || locked.includes(monthKey))) {
+        pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período foi fechado. Para adicionar algo ou editar mude o botão de "FECHADO" para "ABERTO" no período selecionado.');
+        return;
+      }
+    }
+
     try {
       const isPackage = modalTab === 'pacote';
 
@@ -838,31 +888,57 @@ export const Comandas: React.FC = () => {
     }
   };
  
-  const handleIncrementSessions = async (comanda: Comanda) => {
+  const handleSaveQuickAppointment = async () => {
+    if (!quickAppointmentComanda) return;
     try {
-      const currentUsed = Number(comanda.sessions_used || 0);
-      const total = Number(comanda.sessions_total || 1);
-      if (currentUsed >= total && !window.confirm('Este pacote já está completo. Deseja adicionar uma sessão extra?')) {
-        return;
-      }
-
-      await api.put(`/finance/comandas/${comanda.id}`, {
-        ...comanda,
-        sessions_used: currentUsed + 1
+      await api.post('/appointments', {
+        patient_id: quickAppointmentComanda.patient_id,
+        comanda_id: quickAppointmentComanda.id,
+        professional_id: quickAppointmentComanda.professional_id || null,
+        title: `Sessão - ${quickAppointmentComanda.patient_name || quickAppointmentComanda.patientName || 'Paciente'}`,
+        start_time: quickAppointmentData.date,
+        duration_minutes: quickAppointmentComanda.duration_minutes || 60,
+        status: quickAppointmentData.status,
+        ignore_schedule_rules: true
       });
 
       pushToast('success', 'Atendimento registrado!');
+      setIsQuickAppointmentModalOpen(false);
       await fetchData();
       
-      if (historyComanda && String(historyComanda.id) === String(comanda.id)) {
+      if (historyComanda && String(historyComanda.id) === String(quickAppointmentComanda.id)) {
         const refreshed = await api.get<Comanda[]>('/finance/comandas');
-        const updated = refreshed.find((c) => String(c.id) === String(comanda.id));
+        const updated = refreshed.find((c) => String(c.id) === String(quickAppointmentComanda.id));
         if (updated) setHistoryComanda(updated);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      pushToast('error', 'Erro ao registrar atendimento.');
+      const isConflict = error.response?.status === 409 || error.response?.data?.error === 'conflict';
+      const msg = error.response?.data?.message;
+      
+      if (isConflict) {
+        pushToast('error', 'Conflito de Horário', 'Já existe um agendamento bloqueando este horário para o profissional escolhido.');
+      } else if (msg) {
+        pushToast('error', 'Não foi possível', msg);
+      } else {
+        pushToast('error', 'Erro ao registrar atendimento.');
+      }
     }
+  };
+
+  const handleIncrementSessions = (comanda: Comanda) => {
+    const currentUsed = Number(comanda.sessions_used || 0);
+    const total = Number(comanda.sessions_total || 1);
+    if (currentUsed >= total && !window.confirm('Este pacote já está completo. Deseja registrar uma sessão extra?')) {
+      return;
+    }
+    
+    setQuickAppointmentComanda(comanda);
+    setQuickAppointmentData({
+      date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+      status: 'completed'
+    });
+    setIsQuickAppointmentModalOpen(true);
   };
 
   const handleUpdateAppointmentDate = async (
@@ -1611,12 +1687,12 @@ export const Comandas: React.FC = () => {
                   render: (c: any) => (
                     <div className="flex flex-col">
                       <span className={`font-medium text-sm ${
-                        (c.appointments?.length || 0) > (c.sessions_total || 0) ? 'text-red-600' :
-                        (c.appointments?.length || 0) === (c.sessions_total || 0) ? 'text-emerald-600' : 'text-slate-700'
+                        (Number(c.sessions_used || 0)) > (Number(c.sessions_total || 0)) ? 'text-red-600' :
+                        (Number(c.sessions_used || 0)) === (Number(c.sessions_total || 0)) ? 'text-emerald-600' : 'text-slate-700'
                       }`}>
                         {c.sessions_used || 0} / {c.sessions_total || 1}
                       </span>
-                      {(c.appointments?.length || 0) > (c.sessions_total || 0) && (
+                      {(Number(c.sessions_used || 0)) > (Number(c.sessions_total || 0)) && (
                         <span className="text-[10px] text-red-500 font-bold uppercase">Excedido</span>
                       )}
                     </div>
@@ -1746,13 +1822,14 @@ export const Comandas: React.FC = () => {
         }
       >
         {editingComanda && (
-          <div className="space-y-5 py-1">
-            <div className="flex flex-wrap items-center gap-6">
-              <div className="text-sm text-slate-600">Tipo:</div>
-
+          <div className="space-y-6 pt-2 pb-6 px-1">
+            {/* TYPE SELECTOR (CARDS) */}
+            <div className="flex flex-col sm:flex-row gap-4">
               <TypeButton
                 active={modalTab === 'avulsa'}
-                label="Comanda Normal"
+                label="Comanda Avulsa"
+                description="Serviço único formatado"
+                icon={<FileText size={20} />}
                 onClick={() => {
                   setModalTab('avulsa');
                   setEditingComanda({
@@ -1766,7 +1843,9 @@ export const Comandas: React.FC = () => {
 
               <TypeButton
                 active={modalTab === 'pacote'}
-                label="Comanda Pacote"
+                label="Protocolo de Pacote"
+                description="Controle múltiplo de sessões"
+                icon={<Package size={20} />}
                 onClick={() => {
                   setModalTab('pacote');
                   setEditingComanda({
@@ -1784,12 +1863,12 @@ export const Comandas: React.FC = () => {
               />
             </div>
 
-            {/* Vincular ao Livro Caixa */}
+            {/* VINCULAR AO LIVRO CAIXA */}
             <div
-              className={`flex items-center justify-between rounded-2xl border px-4 py-3 transition cursor-pointer ${
+              className={`group flex items-center justify-between rounded-3xl border-2 px-6 py-5 transition-all cursor-pointer ${
                 editingComanda.syncToLivrocaixa
-                  ? 'border-emerald-300 bg-emerald-50'
-                  : 'border-slate-200 bg-slate-50'
+                  ? 'border-emerald-500 bg-gradient-to-r from-emerald-50 to-emerald-100/50 shadow-md shadow-emerald-100/40'
+                  : 'border-slate-100 bg-slate-50 hover:bg-slate-100 hover:border-slate-200'
               }`}
               onClick={() =>
                 setEditingComanda({
@@ -1798,31 +1877,48 @@ export const Comandas: React.FC = () => {
                 })
               }
             >
-              <div className="flex flex-col">
-                <span className={`text-sm font-semibold ${editingComanda.syncToLivrocaixa ? 'text-emerald-700' : 'text-slate-700'}`}>
-                  Vincular ao Livro Caixa
-                </span>
-                <span className="text-xs text-slate-500 mt-0.5">
-                  {editingComanda.syncToLivrocaixa
-                    ? 'Esta comanda aparecerá no Livro Caixa (pendente até ser paga)'
-                    : 'Ativar para registrar esta comanda no Livro Caixa'}
-                </span>
+              <div className="flex items-center gap-4">
+                <div className={`flex w-12 h-12 rounded-2xl items-center justify-center shrink-0 transition-colors ${
+                  editingComanda.syncToLivrocaixa ? 'bg-emerald-500 text-white' : 'bg-white block border border-slate-200 text-slate-400'
+                }`}>
+                  <BookOpen size={22} />
+                </div>
+                <div className="flex flex-col">
+                  <span className={`text-[13px] font-black tracking-wide uppercase ${editingComanda.syncToLivrocaixa ? 'text-emerald-900' : 'text-slate-700'}`}>
+                    Sincronizar no Livro Caixa
+                  </span>
+                  <span className={`text-sm mt-0.5 font-medium ${editingComanda.syncToLivrocaixa ? 'text-emerald-700/80' : 'text-slate-500'}`}>
+                    {editingComanda.syncToLivrocaixa
+                      ? 'Ativo - O saldo será espelhado no financeiro instantaneamente'
+                      : 'Inativo - Criar comanda de forma isolada'}
+                  </span>
+                </div>
               </div>
               <div
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 ${
-                  editingComanda.syncToLivrocaixa ? 'bg-emerald-500' : 'bg-slate-300'
+                className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ease-in-out cursor-pointer ${
+                  editingComanda.syncToLivrocaixa
+                    ? 'border-emerald-500 bg-emerald-500'
+                    : 'border-slate-300 bg-slate-200'
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform duration-200 ${
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
                     editingComanda.syncToLivrocaixa ? 'translate-x-5' : 'translate-x-0.5'
                   }`}
                 />
               </div>
             </div>
 
+            {/* DADOS DA COMANDA */}
+            <div className="bg-slate-50/50 border border-slate-100 rounded-[28px] p-6 shadow-sm">
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+                Detalhes do Lançamento
+              </h3>
+
             {modalTab === 'avulsa' ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Input
                   label="Descrição"
                   value={editingComanda.description || ''}
@@ -1832,12 +1928,12 @@ export const Comandas: React.FC = () => {
                       description: e.target.value,
                     })
                   }
-                  placeholder="Ex: Sessão de Psicologia, Avaliação, etc"
+                  placeholder="Ex: Sessão de Terapia Analítica..."
                   containerClassName="md:col-span-2"
                 />
 
                 <Combobox
-                  label="Cliente"
+                  label="Paciente"
                   options={activePatients.map((p: any) => ({ id: p.id, label: normalizePatientName(p) }))}
                   value={editingComanda.patientId || ''}
                   onChange={(id, label) => {
@@ -1847,11 +1943,11 @@ export const Comandas: React.FC = () => {
                       patientSearch: label || '',
                     });
                   }}
-                  placeholder="Selecione um cliente..."
+                  placeholder="Buscar pelo nome..."
                 />
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+                  <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
                   <DatePicker
                     value={editingComanda.startDate || ''}
                     onChange={(val) =>
@@ -1863,45 +1959,66 @@ export const Comandas: React.FC = () => {
                   />
                 </div>
 
-                <input
-                  type="text"
-                  value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
-                  onChange={(e) =>
-                    handleMonetaryChange(e.target.value, (v) => 
-                      setEditingComanda({
-                        ...editingComanda,
-                        totalValue: parseMonetaryValue(v),
-                      })
-                    )
-                  }
-                  className={compactInputClass}
-                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-slate-600">Valor Total (R$)</label>
+                  <input
+                    type="text"
+                    value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
+                    onChange={(e) =>
+                      handleMonetaryChange(e.target.value, (v) => 
+                        setEditingComanda({
+                          ...editingComanda,
+                          totalValue: parseMonetaryValue(v),
+                        })
+                      )
+                    }
+                    className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                  />
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Nº Atendimentos Total"
-                    type="number"
-                    min={1}
-                    value={editingComanda.sessions_total || 1}
-                    onChange={(e) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        sessions_total: Math.max(1, Number(e.target.value || 1)),
-                      })
-                    }
-                  />
-                  <Input
-                    label="Sessões Realizadas"
-                    type="number"
-                    min={0}
-                    value={editingComanda.sessions_used || 0}
-                    onChange={(e) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        sessions_used: Math.max(0, Number(e.target.value || 0)),
-                      })
-                    }
-                  />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-semibold text-slate-600">Total Sessões</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingComanda({
+                          ...editingComanda,
+                          sessions_total: val === '' ? ('' as any) : Number(val),
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-semibold text-slate-600">Realizadas</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingComanda({
+                          ...editingComanda,
+                          sessions_used: val === '' ? ('' as any) : Number(val),
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                    />
+                  </div>
                 </div>
 
                 <Select
@@ -1913,6 +2030,7 @@ export const Comandas: React.FC = () => {
                       professionalId: e.target.value,
                     })
                   }
+                  containerClassName="md:col-span-2"
                 >
                   {professionals.map((p: any) => (
                     <option key={p.id} value={String(p.id)}>
@@ -1922,11 +2040,12 @@ export const Comandas: React.FC = () => {
                 </Select>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Select
-                  label="Pacote"
+                  label="Pacote Base (Opcional)"
                   value={editingComanda.packageId || ''}
                   onChange={(e) => handleSelectPackage(e.target.value)}
+                  containerClassName="md:col-span-2"
                 >
                   <option value="">Selecione uma definição de pacote</option>
                   {packages.map((pkg) => (
@@ -1937,7 +2056,7 @@ export const Comandas: React.FC = () => {
                 </Select>
 
                 <Combobox
-                  label="Cliente"
+                  label="Paciente"
                   options={patients.map((p: any) => ({ id: p.id, label: normalizePatientName(p) }))}
                   value={editingComanda.patientId || ''}
                   onChange={(id, label) => {
@@ -1947,34 +2066,65 @@ export const Comandas: React.FC = () => {
                       patientSearch: label || '',
                     });
                   }}
-                  placeholder="Selecione um cliente..."
+                  placeholder="Buscar pelo nome..."
                 />
 
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
+                  <DatePicker
+                    value={editingComanda.startDate || ''}
+                    onChange={(val) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        startDate: val ?? undefined,
+                      })
+                    }
+                  />
+                </div>
+
                   <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      label="Nº Atendimentos Total"
-                      type="number"
-                      min={1}
-                      value={editingComanda.sessions_total || 1}
-                      onChange={(e) =>
-                        setEditingComanda({
-                          ...editingComanda,
-                          sessions_total: Math.max(1, Number(e.target.value || 1)),
-                        })
-                      }
-                    />
-                    <Input
-                      label="Sessões Realizadas"
-                      type="number"
-                      min={0}
-                      value={editingComanda.sessions_used || 0}
-                      onChange={(e) =>
-                        setEditingComanda({
-                          ...editingComanda,
-                          sessions_used: Math.max(0, Number(e.target.value || 0)),
-                        })
-                      }
-                    />
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[12px] font-semibold text-slate-600">Total Sessões</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditingComanda({
+                            ...editingComanda,
+                            sessions_total: val === '' ? ('' as any) : Number(val),
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                            e.preventDefault();
+                          }
+                        }}
+                        className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[12px] font-semibold text-slate-600">Realizadas</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditingComanda({
+                            ...editingComanda,
+                            sessions_used: val === '' ? ('' as any) : Number(val),
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                            e.preventDefault();
+                          }
+                        }}
+                        className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                      />
+                    </div>
                   </div>
 
                 <Select
@@ -1994,22 +2144,26 @@ export const Comandas: React.FC = () => {
                   ))}
                 </Select>
 
-                <div className="pt-1">
-                  <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-slate-600">
-                    Itens:
+                <div className="pt-2 md:col-span-2">
+                  <div className="mb-4 flex items-center gap-2">
+                    <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
+                    <span className="text-sm font-black uppercase tracking-widest text-slate-800">
+                      Serviços do Pacote
+                    </span>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-12 gap-3 text-[12px] text-slate-500">
-                      <div className="col-span-6">Serviço</div>
-                      <div className="col-span-2">Qtd</div>
-                      <div className="col-span-3">Preço</div>
+                  <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                    <div className="hidden md:grid grid-cols-12 gap-3 text-[11px] font-bold text-slate-400 tracking-wider">
+                      <div className="col-span-6 uppercase">Serviço</div>
+                      <div className="col-span-2 uppercase">Qtd</div>
+                      <div className="col-span-3 uppercase">Preço</div>
                       <div className="col-span-1" />
                     </div>
 
                     {(editingComanda.items || []).map((item, index) => (
-                      <div key={index} className="grid grid-cols-12 items-end gap-3">
-                        <div className="col-span-6">
+                      <div key={index} className="grid grid-cols-1 md:grid-cols-12 items-end gap-3 p-3 md:p-0 bg-slate-50 md:bg-transparent rounded-xl border md:border-0 border-slate-200">
+                        <div className="md:col-span-6">
+                          <label className="md:hidden block text-[11px] font-bold text-slate-400 tracking-wider mb-1">SERVIÇO</label>
                           <Select
                             label=""
                             value={item.serviceId || ''}
@@ -2021,6 +2175,7 @@ export const Comandas: React.FC = () => {
                               )
                             }
                             size="sm"
+                            containerClassName="!mb-0"
                           >
                             <option value="">Selecione</option>
                             {services.map((service) => (
@@ -2078,27 +2233,27 @@ export const Comandas: React.FC = () => {
                   <button
                     type="button"
                     onClick={addPackageItem}
-                    className="mt-3 w-full rounded-md border border-primary-400 py-2.5 text-sm font-semibold text-primary-600 transition hover:bg-primary-50"
+                    className="mt-4 w-full rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 py-3.5 text-sm font-bold tracking-wide text-indigo-600 transition-all hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 flex items-center justify-center gap-2"
                   >
-                    ADICIONAR ITEM
+                    + Adicionar Serviço
                   </button>
                 </div>
               </div>
             )}
 
-            <div className="flex justify-end pt-2">
-              <div className="w-full max-w-[290px] space-y-3">
-                <div className="flex items-center justify-between text-sm text-slate-600">
-                  <span>Valor Total:</span>
-                  <strong className="font-semibold text-slate-800">
+            <div className="mt-8 pt-6 border-t border-slate-200/60 flex flex-col items-end">
+              <div className="w-full max-w-[340px] bg-slate-100/50 rounded-3xl p-5 border border-slate-100 shadow-inner">
+                <div className="flex items-center justify-between text-[13px] font-semibold text-slate-500 mb-3">
+                  <span>Valor Original:</span>
+                  <strong className="text-slate-700">
                     {formatCurrency(modalGrossTotal)}
                   </strong>
                 </div>
 
-                <div className="grid grid-cols-[1fr_auto_82px] items-center gap-2">
-                  <span className="text-sm text-slate-600">Desconto:</span>
+                <div className="grid grid-cols-[1fr_auto_96px] items-center gap-3 mb-4">
+                  <span className="text-[13px] font-semibold text-slate-500">Descontos:</span>
 
-                  <div className="inline-flex overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                  <div className="inline-flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <button
                       type="button"
                       onClick={() =>
@@ -2107,10 +2262,10 @@ export const Comandas: React.FC = () => {
                           discount_type: 'percentage',
                         })
                       }
-                      className={`px-3 py-2 text-xs font-semibold ${
+                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${
                         editingComanda.discount_type === 'percentage'
-                          ? 'bg-slate-200 text-slate-800'
-                          : 'text-slate-500'
+                          ? 'bg-indigo-500 text-white'
+                          : 'text-slate-500 hover:bg-slate-50'
                       }`}
                     >
                       %
@@ -2123,10 +2278,10 @@ export const Comandas: React.FC = () => {
                           discount_type: 'fixed',
                         })
                       }
-                      className={`px-3 py-2 text-xs font-semibold ${
+                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors border-l border-slate-100 ${
                         editingComanda.discount_type === 'fixed'
-                          ? 'bg-slate-200 text-slate-800'
-                          : 'text-slate-500'
+                          ? 'bg-indigo-500 text-white'
+                          : 'text-slate-500 hover:bg-slate-50'
                       }`}
                     >
                       R$
@@ -2143,18 +2298,21 @@ export const Comandas: React.FC = () => {
                         })
                       )
                     }
-                    className="h-9 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-primary-500"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-right shadow-sm"
                   />
                 </div>
 
-                <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600">
-                  <span>Total Líquido:</span>
-                  <strong className="text-lg font-bold text-slate-800">
+                <div className="flex items-center justify-between bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100 mt-2">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Total a Pagar</span>
+                  <strong className="text-[22px] font-black text-indigo-600">
                     {formatCurrency(modalNetTotal)}
                   </strong>
                 </div>
               </div>
             </div>
+
+            </div> {/* fechar dados da comanda */}
+
           </div>
         )}
       </Modal>
@@ -2519,6 +2677,15 @@ export const Comandas: React.FC = () => {
             className="mt-3 w-full rounded-lg bg-white py-1.5 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
           >
             + Novo pagamento
+          </button>
+        )}
+        
+        {historyComanda.status !== 'closed' && (
+          <button
+            onClick={() => setIsForceCloseConfirmOpen(true)}
+            className="mt-2 w-full rounded-lg bg-rose-500 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600"
+          >
+            Finalizar Manualmente
           </button>
         )}
       </div>
@@ -2886,6 +3053,61 @@ export const Comandas: React.FC = () => {
               )}
             </div>
           )}
+        </div>
+      </Modal>
+      <Modal
+        isOpen={isQuickAppointmentModalOpen}
+        onClose={() => setIsQuickAppointmentModalOpen(false)}
+        title="Registrar Atendimento"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Data e Horário"
+            type="datetime-local"
+            value={quickAppointmentData.date}
+            onChange={(e) => setQuickAppointmentData({ ...quickAppointmentData, date: e.target.value })}
+          />
+          <Select
+            label="Status Inicial"
+            value={quickAppointmentData.status}
+            onChange={(e) => setQuickAppointmentData({ ...quickAppointmentData, status: e.target.value })}
+          >
+            <option value="completed">Realizado</option>
+            <option value="scheduled">Agendado</option>
+            <option value="no_show">Faltou</option>
+            <option value="confirmed">Confirmado</option>
+          </Select>
+          <div className="pt-2">
+            <Button className="w-full" onClick={handleSaveQuickAppointment}>
+              Salvar Atendimento
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isForceCloseConfirmOpen}
+        onClose={() => setIsForceCloseConfirmOpen(false)}
+        title="Finalizar Comanda Manualmente"
+        maxWidth="md"
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsForceCloseConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={handleConfirmForceClose}>
+              Finalizar Comanda
+            </Button>
+          </div>
+        }
+      >
+        <div className="py-2 text-slate-600">
+          <p className="mb-2">
+            Tem certeza que deseja finalizar esta comanda manualmente?
+          </p>
+          <p className="text-sm font-semibold text-rose-600">
+            Independente do saldo ou devedor ou do número de sessões utilizadas, ela constará como concluída e finalizada.
+          </p>
         </div>
       </Modal>
     </div>

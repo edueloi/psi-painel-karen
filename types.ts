@@ -20,6 +20,8 @@ export interface User {
   email: string;
   role: 'super_admin' | 'admin' | 'profissional' | 'secretario';
   avatar?: string;
+  crp?: string;
+  cpf?: string;
 }
 
 // --- SUPER ADMIN TYPES ---

@@ -88,7 +88,7 @@ async function withSchema() {
 }
 
 // GET /finance/comandas/:id/payments - Histórico de pagamentos de uma comanda
-router.get('/comandas/:id/payments', async (req, res) => {
+router.get('/comandas/:id/payments', authMiddleware, async (req, res) => {
   try {
     await withSchema();
     const [rows] = await db.query(
@@ -322,6 +322,7 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
     if (category) { query += ' AND t.category = ?'; params.push(category); }
     if (start) { query += ' AND t.date >= ?'; params.push(start); }
     if (end) { query += ' AND t.date <= ?'; params.push(end); }
+    if (comanda_id) { query += ' AND t.comanda_id = ?'; params.push(comanda_id); }
 
     query += ' ORDER BY t.date DESC';
 
@@ -660,7 +661,7 @@ router.delete('/session-types/:id', async (req, res) => {
 });
 
 // GET /finance/comandas
-router.get('/comandas', async (req, res) => {
+router.get('/comandas', authMiddleware, async (req, res) => {
   try {
     await withSchema();
     await withFinanceSchema();
@@ -730,7 +731,7 @@ router.get('/comandas', async (req, res) => {
 });
 
 // GET /finance/comandas/patient/:patientId - Busca comandas abertas de um paciente específico
-router.get('/comandas/patient/:patientId', async (req, res) => {
+router.get('/comandas/patient/:patientId', authMiddleware, async (req, res) => {
     try {
         await withSchema();
         const { patientId } = req.params;
@@ -1108,7 +1109,7 @@ router.post('/comandas', async (req, res) => {
 });
 
 // PUT /finance/comandas/:id
-router.put('/comandas/:id', async (req, res) => {
+router.put('/comandas/:id', authMiddleware, async (req, res) => {
     try {
         await withSchema();
         const {
@@ -1285,8 +1286,26 @@ router.put('/comandas/:id', async (req, res) => {
     }
 });
 
+// PUT /finance/comandas/:id/force-close
+router.put('/comandas/:id/force-close', authMiddleware, async (req, res) => {
+    try {
+        await withSchema();
+        const { id } = req.params;
+        const tenant_id = req.user.tenant_id;
+        
+        await db.query(
+            'UPDATE comandas SET status = ? WHERE id = ? AND tenant_id = ?',
+            ['closed', id, tenant_id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Erro ao forçar fechamento da comanda:', err);
+        res.status(500).json({ error: 'Erro ao forçar fechamento da comanda', details: err.message });
+    }
+});
+
 // DELETE /finance/comandas/:id
-router.delete('/comandas/:id', async (req, res) => {
+router.delete('/comandas/:id', authMiddleware, async (req, res) => {
   try {
     await withSchema();
     const comandaId = req.params.id;

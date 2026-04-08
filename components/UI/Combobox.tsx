@@ -93,11 +93,10 @@ export const Combobox: React.FC<ComboboxProps> = ({
   const normQ = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
   const filteredOptions = useMemo(() => {
-    const normalizedQuery = normQ(query.trim());
+    const normalizedQuery = normQ((query || '').trim());
 
     // Se o valor da query for EXATAMENTE igual ao selecionado, mostramos todas as opções
-    // Isso resolve o problema de o usuário clicar e não ver as outras opções.
-    const isShowingSelected = !multiple && selectedOptions.length > 0 && query === selectedOptions[0].label;
+    const isShowingSelected = !multiple && selectedOptions.length > 0 && query === selectedOptions[0]?.label;
 
     if (!normalizedQuery || isShowingSelected) return options;
 
@@ -188,7 +187,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
     setQuery(nextValue);
     setIsOpen(true);
     if (!multiple) {
-      const exactMatch = options.find((option) => normQ(option.label) === normQ(nextValue.trim()));
+      const exactMatch = options.find((option) => normQ(option.label) === normQ((nextValue || '').trim()));
       if (exactMatch) {
         onChange(exactMatch.id, exactMatch.label);
       } else if (allowCustom) {
@@ -218,8 +217,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
         handleSelect(filteredOptions[highlightedIndex]);
         return;
       }
-      if (allowCustom && query.trim() && onCustomAdd) {
-        onCustomAdd(query.trim());
+      if (allowCustom && (query || '').trim() && onCustomAdd) {
+        onCustomAdd((query || '').trim());
         setIsOpen(multiple);
       }
       return;
@@ -232,7 +231,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
     }
   };
 
-  const showAddCustom = allowCustom && query.trim() && filteredOptions.length === 0 && typeof onCustomAdd === 'function';
+  const showAddCustom = allowCustom && (query || '').trim() && filteredOptions.length === 0 && typeof onCustomAdd === 'function';
 
   const dropdownList = isOpen ? createPortal(
     <div 
@@ -276,11 +275,11 @@ export const Combobox: React.FC<ComboboxProps> = ({
             );
           })
         ) : showAddCustom ? (
-          <button type="button" onClick={() => { onCustomAdd?.(query.trim()); if (!multiple) setIsOpen(false); }} className={cx('flex w-full items-center gap-3 text-left text-violet-700 transition hover:bg-violet-50', size === 'sm' ? 'rounded-lg px-3 py-3' : 'rounded-xl px-4 py-4')}>
+          <button type="button" onClick={() => { onCustomAdd?.((query || '').trim()); if (!multiple) setIsOpen(false); }} className={cx('flex w-full items-center gap-3 text-left text-violet-700 transition hover:bg-violet-50', size === 'sm' ? 'rounded-lg px-3 py-3' : 'rounded-xl px-4 py-4')}>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600"><UserPlus size={15} /></div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Não encontrado</p>
-              <p className="text-sm font-bold">Adicionar "{query.trim()}"</p>
+              <p className="text-sm font-bold">Adicionar "{(query || '').trim()}"</p>
             </div>
           </button>
         ) : (
@@ -333,7 +332,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
                 ref={inputRef}
                 type="text"
                 disabled={disabled}
-                value={query}
+                value={query || ''}
                 placeholder={selectedOptions.length > 0 && multiple ? '' : placeholder}
                 onFocus={openDropdown}
                 onClick={openDropdown}

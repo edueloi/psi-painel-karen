@@ -548,7 +548,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
         const formattedEnd = currentEnd.toISOString().slice(0, 19).replace('T', ' ');
 
         // ── Validação de agenda e datas bloqueadas do profissional ──────────────
-        if (finalProfessionalId) {
+        if (finalProfessionalId && !req.body.ignore_schedule_rules) {
             const [profRows] = await db.query(
                 'SELECT schedule, closed_dates FROM users WHERE id = ? AND tenant_id = ? LIMIT 1',
                 [finalProfessionalId, req.user.tenant_id]
@@ -888,6 +888,19 @@ router.put('/:id/status', checkPermission('confirm_appointment'), async (req, re
             [comandaId, req.user.tenant_id]
           );
         }
+        
+        const [cmdCheck] = await db.query(
+          'SELECT total, paid_value, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?',
+          [comandaId, req.user.tenant_id]
+        );
+        if (cmdCheck.length > 0) {
+          const comandaTotal = parseFloat(cmdCheck[0].total || 0);
+          const totalPaid = parseFloat(cmdCheck[0].paid_value || 0);
+          const sessionsTotal = parseInt(cmdCheck[0].sessions_total || 1);
+          const sessionsUsed = parseInt(cmdCheck[0].sessions_used || 0);
+          const newStatus = (totalPaid >= comandaTotal && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
+          await db.query('UPDATE comandas SET status = ? WHERE id = ? AND tenant_id = ?', [newStatus, comandaId, req.user.tenant_id]);
+        }
       } catch (e) { /* ignora se comanda não existe */ }
     }
 
@@ -999,6 +1012,31 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
         req.user.tenant_id
       ]
     );
+
+    // Sync sessions_used if status changed
+    const CONSUMING = ['completed', 'no_show', 'confirmed', 'realizado'];
+    const prevStatus = existing[0].old_status;
+    const oldComanda = existing[0].old_comanda;
+
+    if (dbStatus !== prevStatus) {
+      const nowConsuming = CONSUMING.includes(dbStatus);
+      const wasConsuming = CONSUMING.includes(prevStatus);
+      
+      const updateComanda = async (cid, delta) => {
+        try {
+          await db.query(
+            'UPDATE comandas SET sessions_used = GREATEST(sessions_used + ?, 0) WHERE id = ? AND tenant_id = ?',
+            [delta, cid, req.user.tenant_id]
+          );
+        } catch (e) {}
+      };
+
+      if (nowConsuming && !wasConsuming && finalComandaId) {
+        await updateComanda(finalComandaId, 1);
+      } else if (!nowConsuming && wasConsuming && oldComanda) {
+        await updateComanda(oldComanda, -1);
+      }
+    }
 
     // Gerenciar sync no livro caixa
     const [currentApt] = await db.query('SELECT sync_to_livrocaixa, livrocaixa_tx_id FROM appointments WHERE id = ?', [req.params.id]);
@@ -1122,6 +1160,19 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
             'UPDATE comandas SET sessions_used = GREATEST(sessions_used - 1, 0) WHERE id = ? AND tenant_id = ?',
             [finalComandaId, req.user.tenant_id]
           );
+        }
+        
+        const [cmdCheck] = await db.query(
+          'SELECT total, paid_value, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?',
+          [finalComandaId, req.user.tenant_id]
+        );
+        if (cmdCheck.length > 0) {
+          const comandaTotal = parseFloat(cmdCheck[0].total || 0);
+          const totalPaid = parseFloat(cmdCheck[0].paid_value || 0);
+          const sessionsTotal = parseInt(cmdCheck[0].sessions_total || 1);
+          const sessionsUsed = parseInt(cmdCheck[0].sessions_used || 0);
+          const newStatus = (totalPaid >= comandaTotal && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
+          await db.query('UPDATE comandas SET status = ? WHERE id = ? AND tenant_id = ?', [newStatus, finalComandaId, req.user.tenant_id]);
         }
       } catch (e) { /* ignora */ }
     }

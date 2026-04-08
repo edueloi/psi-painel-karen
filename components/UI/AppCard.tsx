@@ -43,7 +43,7 @@ interface CardSection {
 
 interface AppCardProps {
   title?: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   description?: string;
   imageUrl?: string;
   avatarText?: string;

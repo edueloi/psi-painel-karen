@@ -10,6 +10,7 @@ import {
   Sparkles, ShoppingBag,
   Edit2, Pin, PinOff,
   Check,
+  Lock as LockIcon, Unlock as UnlockIcon,
 } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
@@ -481,6 +482,34 @@ export const LivroCaixa: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<{ month: number; year: number } | null>(null);
   const [selectedYear, setSelectedYear]   = useState(new Date().getFullYear());
 
+  const [lockedMonths, setLockedMonths] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('lc_locked_months') || '[]'); } catch { return []; }
+  });
+
+  const toggleLockMonth = (monthKey: string) => {
+    setLockedMonths(prev => {
+      const next = prev.includes(monthKey) ? prev.filter(k => k !== monthKey) : [...prev, monthKey];
+      localStorage.setItem('lc_locked_months', JSON.stringify(next));
+      if (next.includes(monthKey)) {
+        pushToast('success', 'Período Fechado', 'O Livro Caixa deste mês foi trancado (somente leitura).');
+      } else {
+        pushToast('success', 'Período Aberto', 'O Livro Caixa deste mês foi destrancado para edições.');
+      }
+      return next;
+    });
+  };
+
+  const currentMonthKey = selectedMonth ? `${selectedMonth.year}-${selectedMonth.month}` : '';
+  const isMonthLocked = lockedMonths.includes(currentMonthKey);
+
+  const checkLock = () => {
+    if (currentMonthKey && isMonthLocked) {
+      pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período foi fechado. Para adicionar algo ou editar mude o botão de "FECHADO" para "ABERTO" no período selecionado.');
+      return false;
+    }
+    return true;
+  };
+
   // ── Archive layout (grid/list) persisted to localStorage ─────────────────────
   const [archiveLayout, setArchiveLayout] = useState<'grid' | 'list'>(() =>
     (localStorage.getItem('livrocaixa_layout') as 'grid' | 'list') || 'grid'
@@ -738,6 +767,7 @@ export const LivroCaixa: React.FC = () => {
   }, [selectedMonth, pushToast]);
 
   const handleQuickPay = async (tx: Transaction) => {
+    if (!checkLock()) return;
     try {
       setIsSaving(true);
       await api.put(`/finance/${tx.id}`, { ...tx, status: 'paid', date: new Date().toISOString().split('T')[0] });
@@ -772,6 +802,10 @@ export const LivroCaixa: React.FC = () => {
 
   const handleDeleteMonth = async () => {
     if (!deleteMonthConfirm) return;
+    if (lockedMonths.includes(`${deleteMonthConfirm.year}-${deleteMonthConfirm.month}`)) {
+      pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período está fechado e não pode ser excluído.');
+      return;
+    }
     try {
       await api.delete(`/finance/month/${deleteMonthConfirm.year}/${deleteMonthConfirm.month}`);
       pushToast('success', 'Mês excluído', 'Todos os lançamentos do mês foram removidos.');
@@ -931,6 +965,7 @@ export const LivroCaixa: React.FC = () => {
   };
 
   const handleImport = async () => {
+    if (!checkLock()) return;
     if (!previewRows.length) return;
     setIsImporting(true);
     try {
@@ -1000,6 +1035,7 @@ export const LivroCaixa: React.FC = () => {
   };
 
   const openEditTx = (tx: Transaction) => {
+    if (!checkLock()) return;
     setEditingTx(tx);
     setTxSelectedComandaId(tx.comanda_id ? String(tx.comanda_id) : '');
     setTxType(tx.type);
@@ -1048,7 +1084,12 @@ export const LivroCaixa: React.FC = () => {
         await api.post('/finance', payload);
         pushToast('success', 'Lançamento criado!');
       }
-      setIsNewTxOpen(false); resetForm(); fetchDetail();
+      setIsNewTxOpen(false); resetForm(); 
+      if (view === 'archive') {
+        fetchArchive();
+      } else {
+        fetchDetail();
+      }
     } catch (err: any) {
       pushToast('error', err.message || 'Erro ao salvar lançamento');
     } finally {
@@ -1060,6 +1101,12 @@ export const LivroCaixa: React.FC = () => {
     const parsedAmount = parseDisplayAmount(txAmount);
     if (!txAmount || parsedAmount <= 0) { pushToast('error', 'Informe um valor válido'); return; }
     if (!txDate) { pushToast('error', 'Informe a data'); return; }
+
+    const [y, m] = txDate.split('-');
+    if (lockedMonths.includes(`${Number(y)}-${Number(m)}`)) {
+      pushToast('error', 'LIVRO CAIXA FECHADO', 'O período da data selecionada está fechado. Destranque-o para adicionar um lançamento.');
+      return;
+    }
 
     if (txSelectedComandaId && txBaseAmount) {
       const parsedBase = parseDisplayAmount(txBaseAmount);
@@ -1094,6 +1141,7 @@ export const LivroCaixa: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
+    if (!checkLock()) return;
     try {
       await api.delete(`/finance/${id}`);
       pushToast('success', 'Lançamento removido');
@@ -1102,6 +1150,7 @@ export const LivroCaixa: React.FC = () => {
   };
 
   const handleRepeat = async (id: number) => {
+    if (!checkLock()) return;
     try {
       await api.post(`/finance/repeat/${id}`, {});
       pushToast('success', 'Reprocessado com sucesso!', 'Lançamento copiado para o próximo mês.');
@@ -1143,10 +1192,10 @@ export const LivroCaixa: React.FC = () => {
   };
 
   const handleBulkDelete = () => {
+    if (!checkLock()) return;
     if (!selectedTxIds.size) return;
     
-    // Calculate stats from selected items
-    const selectedTxs = transactions.filter(t => selectedTxIds.has(String(t.id)));
+    const selectedTxs = filtered.filter(tx => selectedTxIds.has(String(tx.id)));
     const stats = selectedTxs.reduce((acc, curr) => {
       const amt = Number(curr.amount);
       if (curr.type === 'income') {
@@ -1164,6 +1213,7 @@ export const LivroCaixa: React.FC = () => {
   };
 
   const handleBulkRepeat = async () => {
+    if (!checkLock()) return;
     if (!selectedTxIds.size) return;
     setIsBulkProcessing(true);
     try {
@@ -1389,8 +1439,6 @@ export const LivroCaixa: React.FC = () => {
         title="Arquivo Financeiro"
         subtitle="GESTÃO DE PERÍODOS CONSOLIDADOS"
         containerClassName="mb-0"
-        showBackButton
-        onBackClick={() => navigate(-1)}
         actions={
           <div className="flex items-center gap-2">
             {/* Year selector */}
@@ -1436,11 +1484,7 @@ export const LivroCaixa: React.FC = () => {
             </button>
 
             <button
-              onClick={() => {
-                const now = new Date();
-                openDetail(now.getMonth() + 1, now.getFullYear());
-                setTimeout(() => openNewTx(), 80);
-              }}
+              onClick={() => openNewTx()}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-10 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
             >
               <Plus size={16} /> Novo Lançamento
@@ -1467,14 +1511,26 @@ export const LivroCaixa: React.FC = () => {
             <AppCard
               key={`${ms.year}-${ms.month}`}
               title={ms.label}
-              subtitle="CONSOLIDADO"
+              subtitle={
+                lockedMonths.includes(`${ms.year}-${ms.month}`) ? (
+                  <span className="text-rose-500 font-extrabold bg-rose-50 px-1.5 py-0.5 rounded text-[10px]">FECHADO</span>
+                ) : (
+                  <span className="text-emerald-500 font-extrabold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]">ABERTO</span>
+                )
+              }
               avatarIcon={<BookOpen size={20} />}
               topActions={[
                 {
                   label: 'Excluir mês',
                   icon: <Trash2 size={13} />,
                   variant: 'danger',
-                  onClick: () => setDeleteMonthConfirm(ms),
+                  onClick: () => {
+                    if (lockedMonths.includes(`${ms.year}-${ms.month}`)) {
+                      pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período está fechado e não pode ser excluído.');
+                      return;
+                    }
+                    setDeleteMonthConfirm(ms);
+                  },
                 },
               ]}
               stats={[
@@ -1504,7 +1560,13 @@ export const LivroCaixa: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-black text-slate-800 text-sm">{ms.label}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Consolidado</p>
+                    <div className="text-[10px] font-bold uppercase tracking-widest mt-1">
+                      {lockedMonths.includes(`${ms.year}-${ms.month}`) ? (
+                        <span className="text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded">Fechado</span>
+                      ) : (
+                        <span className="text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded">Aberto</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ),
@@ -1546,7 +1608,14 @@ export const LivroCaixa: React.FC = () => {
                     Abrir
                   </button>
                   <button
-                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteMonthConfirm(ms); }}
+                    onClick={(e: React.MouseEvent) => { 
+                      e.stopPropagation(); 
+                      if (lockedMonths.includes(`${ms.year}-${ms.month}`)) {
+                        pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período está fechado e não pode ser excluído.');
+                        return;
+                      }
+                      setDeleteMonthConfirm(ms); 
+                    }}
                     className="p-1.5 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
                   >
                     <Trash2 size={14} />
@@ -1604,6 +1673,20 @@ export const LivroCaixa: React.FC = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Lock toggle button */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => toggleLockMonth(currentMonthKey)}
+                        className={`flex items-center gap-2 px-4 h-10 border rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${
+                          isMonthLocked 
+                            ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100 hover:border-rose-300' 
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300'
+                        }`}
+                      >
+                        {isMonthLocked ? <><LockIcon size={14} /> Fechado</> : <><UnlockIcon size={14} /> Aberto</>}
+                      </button>
+                    )}
 
                     {hasPermission('view_financial_reports') && (
                       <button

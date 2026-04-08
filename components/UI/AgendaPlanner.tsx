@@ -106,8 +106,8 @@ type PositionedEvent = NormalizedEvent & {
   colCount: number;
 };
 
-const HEADER_HEIGHT = 68;
-const TIME_COL_WIDTH = 72;
+const HEADER_HEIGHT = 56;
+const TIME_COL_WIDTH = 56;
 const COLLAPSE_HEIGHT = 0; // Horários pulados agora são totalmente escondidos (0px)
 
 const typeMeta: Record<
@@ -323,7 +323,7 @@ const layoutDayEvents = (
         positioned.push({
           ...event,
           top,
-          height: Math.max(rawHeight, 36),
+          height: Math.max(rawHeight, 28),
           col: colIndex,
           colCount,
         });
@@ -344,7 +344,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
   locale = 'pt-BR',
   startHour = 6,
   endHour = 22,
-  hourHeight = 74,
+  hourHeight = 68,
   slotMinutes = 60,
   className,
   showTasksPanel = true,
@@ -362,9 +362,12 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
   const [hoveredSlot, setHoveredSlot] = useState<{
     dayIndex: number;
     top: number;
+    rawTop: number;
     label: string;
+    rawLabel: string;
     slotDate: Date;
   } | null>(null);
+  const [hoveredEvent, setHoveredEvent] = useState<string | number | null>(null);
 
   const normalizedEvents = useMemo(
     () => events.map(normalizeEvent),
@@ -457,7 +460,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
     const realMinutes = topToMinutes(y, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT);
     
     // Snap para os intervalos (30 ou 60 min)
-    let snappedMinutes = Math.round(realMinutes / slotMinutes) * slotMinutes;
+    let snappedMinutes = Math.floor(realMinutes / slotMinutes) * slotMinutes;
     
     // Se o horário resultante cair em uma hora escondida, pular para o próximo ou anterior visível
     const resHour = Math.floor(snappedMinutes / 60);
@@ -494,10 +497,18 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
 
     const timeStr = `${String(slotHour).padStart(2, '0')}:${String(slotMinute).padStart(2, '0')}`;
     const dayStr = slotDate.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    
+    // Calcula o horário exato baseado na posição do mouse (sem snap)
+    const rawClamped = clamp(realMinutes, startHour * 60, endHour * 60);
+    const rawHour = Math.floor(rawClamped / 60);
+    const rawMinute = Math.floor(rawClamped % 60);
+    const rawTimeStr = `${String(rawHour).padStart(2, '0')}:${String(rawMinute).padStart(2, '0')}`;
+
     return {
       top,
       slotDate,
       label: `${dayStr} · ${timeStr}`,
+      rawLabel: `${dayStr} · ${rawTimeStr}`,
     };
   };
 
@@ -638,9 +649,9 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
           showTasksPanel ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px]' : 'grid-cols-1'
         )}
       >
-        <div className="overflow-hidden rounded-[34px] border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
           <div className="overflow-auto custom-scrollbar">
-            <div className="min-w-[960px]">
+            <div className="min-w-[420px]">
               <div className="flex">
                 {/* Coluna do horário */}
                 <div
@@ -662,10 +673,10 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                     ) : (
                       <div
                         key={hour}
-                        className="relative flex justify-center border-b border-slate-100/90"
+                        className="relative flex justify-center border-b border-slate-200/60"
                         style={{ height: hourHeight }}
                       >
-                        <span className="absolute top-2 text-[11px] font-bold tabular-nums tracking-wide text-slate-400">
+                        <span className="absolute top-1.5 text-[10px] font-bold tabular-nums tracking-wide text-slate-400">
                           {formatHourLabel(hour)}
                         </span>
                       </div>
@@ -691,7 +702,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       <div
                         key={day.toISOString()}
                         className={cx(
-                          'flex min-w-[128px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-2',
+                          'flex min-w-[80px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-1',
                           closedEntry
                             ? 'bg-rose-50'
                             : isSameDay(day, new Date())
@@ -702,7 +713,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         )}
                       >
                         <span className={cx(
-                          'text-[10px] font-bold uppercase tracking-[0.18em]',
+                          'text-[9px] font-bold uppercase tracking-[0.18em]',
                           closedEntry ? 'text-rose-400' : isWeekend ? 'text-slate-400' : 'text-slate-400'
                         )}>
                           {day
@@ -711,7 +722,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         </span>
                         <span
                           className={cx(
-                            'mt-1 text-[17px] font-bold tracking-tight',
+                            'text-[15px] font-bold tracking-tight',
                             closedEntry
                               ? 'text-rose-500'
                               : isSameDay(day, new Date())
@@ -745,11 +756,11 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         ) : (
                           <div
                             key={hour}
-                            className="relative w-full border-b border-slate-100/90"
+                            className="relative w-full border-b border-slate-200/60"
                             style={{ height: hourHeight }}
                           >
-                            {/* Linha de meia hora (30 min) mais visível */}
-                            <div className="absolute left-0 right-0 top-1/2 border-b border-dashed border-slate-200/80" />
+                            {/* Linha sutil de meia hora */}
+                            <div className="absolute left-0 right-0 top-1/2 border-b border-dotted border-slate-100/50" />
                           </div>
                         );
                       })}
@@ -802,15 +813,20 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       <div
                         key={day.toISOString()}
                         className={cx(
-                          'relative min-w-[128px] flex-1 border-r border-slate-200 transition cursor-crosshair',
-                          isSameDay(day, new Date()) ? 'bg-indigo-50/30' : isWeekend ? 'bg-slate-100' : 'bg-white'
+                          'relative min-w-[80px] flex-1 border-r border-slate-200 transition cursor-crosshair',
+                          isWeekend && !isSameDay(day, new Date()) ? 'bg-slate-100' : 'bg-transparent'
                         )}
+                        style={isSameDay(day, new Date()) ? { backgroundColor: 'color-mix(in srgb, var(--c-100) 35%, transparent)' } : undefined}
                         onMouseMove={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const rawY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
                           const info = getSlotInfo(e.clientY, e.currentTarget, day);
                           setHoveredSlot({
                             dayIndex,
                             top: info.top,
+                            rawTop: rawY,
                             label: info.label,
+                            rawLabel: info.rawLabel,
                             slotDate: info.slotDate,
                           });
                         }}
@@ -841,41 +857,52 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           <div className="pointer-events-none absolute left-0 right-0 z-[3]" style={{ top: afterOverlayTop, height: afterOverlayHeight, background: 'rgba(148,163,184,0.13)' }} />
                         )}
 
-                        {/* hover slot afundado */}
-                        {hoveredSlot?.dayIndex === dayIndex && (
+                        {/* ── hover slot estilo GlowCut ── */}
+                        {hoveredSlot?.dayIndex === dayIndex && !hoveredEvent && (
                           <>
-                            {/* bloco afundado no slot de 30min */}
+                            {/* Caixa afundada com borda dashed + "+" centralizado na cor do tema */}
                             <div
-                              className="pointer-events-none absolute left-0 right-0 z-[5] rounded-sm"
+                              className="pointer-events-none absolute z-[6] flex items-center justify-center rounded-xl"
                               style={{
-                                top: hoveredSlot.top,
-                                height: hourHeight / 2,
-                                background: 'rgba(99,102,241,0.07)',
-                                boxShadow: 'inset 0 2px 6px rgba(99,102,241,0.13), inset 0 -1px 3px rgba(99,102,241,0.08)',
-                                borderTop: '1.5px solid rgba(99,102,241,0.25)',
+                                top: hoveredSlot.top + 2,
+                                left: 3,
+                                right: 3,
+                                height: hourHeight - 4,
+                                border: '2px dashed var(--c-400)',
+                                background: 'var(--c-50)',
                               }}
-                            />
-                            {/* linha + label do horário */}
-                            {/* Balão de horário premium no lado esquerdo com SETA */}
-                            <div
-                              className="pointer-events-none absolute left-0 right-0 z-30"
-                              style={{ top: hoveredSlot.top }}
                             >
-                              <div className="relative flex items-center w-full">
-                                <div className="absolute -left-[85px] flex flex-col items-center bg-indigo-600 text-white px-3 py-1.5 rounded-xl shadow-[0_20px_50px_rgba(99,102,241,0.3)] animate-bounceIn min-w-[80px] border border-white/30">
-                                  {/* Seta do balão */}
-                                  <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-2 bg-indigo-600 rotate-45 border-t border-r border-white/30"></div>
-                                  
-                                  <span className="text-[13px] font-black leading-none tabular-nums drop-shadow-sm">
-                                    {hoveredSlot.label.split(' · ')[1]}
-                                  </span>
-                                  <span className="text-[8px] font-black uppercase tracking-wider opacity-90 mt-1.5 flex items-center gap-1.5">
-                                    <div className="w-1 h-1 rounded-full bg-indigo-200 animate-pulse"></div>
-                                    {hoveredSlot.label.split(' · ')[0]}
-                                  </span>
+                              <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center shadow-md"
+                                style={{ background: 'var(--c-500)' }}
+                              >
+                                <Plus size={14} className="text-white" strokeWidth={3} />
+                              </div>
+                            </div>
+
+                            {/* Tooltip dark flutuando acima do slot */}
+                            <div
+                              className="pointer-events-none absolute left-1/2 z-30"
+                              style={{
+                                top: hoveredSlot.top - 46,
+                                transform: 'translateX(-50%)',
+                              }}
+                            >
+                              <div className="relative flex items-center gap-2 bg-zinc-900 text-white text-[11px] font-black rounded-xl px-3 py-2 shadow-2xl whitespace-nowrap">
+                                <div
+                                  className="w-5 h-5 shrink-0 rounded-full flex items-center justify-center"
+                                  style={{ background: 'var(--c-500)' }}
+                                >
+                                  <Plus size={10} className="text-white" strokeWidth={3} />
                                 </div>
-                                <div className="h-[2px] w-full bg-indigo-600/60 shadow-[0_0_12px_rgba(99,102,241,0.4)]" />
-                                <div className="absolute -left-1 w-2.5 h-2.5 bg-indigo-600 rounded-full border-2 border-white shadow-md transition-transform scale-125" />
+                                {(() => {
+                                  const parts = hoveredSlot.label.split(' · ');
+                                  const datePart = parts[0]?.replace(',', '').trim() ?? '';
+                                  const timePart = parts[1]?.slice(0, 5) ?? '';
+                                  return `${datePart} • ${timePart}`;
+                                })()}
+                                {/* seta para baixo */}
+                                <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-zinc-900 rotate-45" />
                               </div>
                             </div>
                           </>
@@ -932,115 +959,169 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           const widthPercent = 100 / event.colCount;
 
                           return (
-                            <button
+                            /* Wrapper: controla posição + tooltip (overflow-visible) */
+                            <div
                               key={event.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEventClick?.(event);
-                              }}
-                              className="absolute z-[12] overflow-hidden rounded-2xl border text-left shadow-sm transition-all duration-150 hover:z-[14] hover:scale-[1.01] hover:shadow-lg active:scale-[0.995]"
+                              className="absolute z-[12] group/card"
                               style={{
                                 top: event.top,
-                                left: `calc(${leftPercent}% + 6px)`,
-                                width: `calc(${widthPercent}% - 12px)`,
+                                left: `calc(${leftPercent}% + 4px)`,
+                                width: `calc(${widthPercent}% - 8px)`,
                                 height: event.height,
-                                background:
-                                  event.type === 'bloqueio'
-                                    ? 'linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%)'
-                                    : hexToRgba(accent, 0.10),
-                                borderColor:
-                                  event.type === 'bloqueio'
-                                    ? '#cbd5e1'
-                                    : hexToRgba(accent, 0.28),
-                                color: event.type === 'bloqueio' ? '#334155' : '#1e293b',
-                                boxShadow:
-                                  event.type === 'bloqueio'
-                                    ? '0 6px 20px rgba(15,23,42,0.05)'
-                                    : `0 10px 24px ${hexToRgba(accent, 0.12)}`,
                               }}
+                              onMouseEnter={() => setHoveredEvent(event.id)}
+                              onMouseLeave={() => setHoveredEvent(null)}
                             >
-                              <div
-                                className="absolute bottom-0 left-0 top-0 w-1.5"
-                                style={{ backgroundColor: accent }}
-                              />
-
-                              <div className="flex h-full flex-col p-2 pl-3">
-                                {/* Header: Time, Sequence, Status */}
-                                <div className="mb-0.5 flex items-center justify-between gap-1 leading-none">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="truncate text-[10px] font-black uppercase tracking-wider text-slate-500/80">
-                                      {event.startDate.toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      })}
-                                    </span>
-                                    {(event.recurrenceIndex !== undefined && event.recurrenceCount !== undefined) && (
-                                      <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black text-indigo-600 border border-indigo-100/50">
-                                        {event.recurrenceIndex}/{event.recurrenceCount}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div className="flex shrink-0 items-center gap-2">
-                                    <div className="flex items-center gap-1">
-                                      {event.modality === 'online' ? (
-                                        <>
-                                          <Video size={10} style={{ color: '#0891b2' }} />
-                                          <span className="text-[8px] font-black uppercase text-cyan-600/90 tracking-tighter">Online</span>
-                                        </>
-                                      ) : event.modality === 'presencial' ? (
-                                        <>
-                                          <MapPin size={10} className="text-slate-400" />
-                                          <span className="text-[8px] font-black uppercase text-slate-400/90 tracking-tighter">Presencial</span>
-                                        </>
-                                      ) : null}
-                                    </div>
-                                    <div className="flex items-center gap-1 bg-white/40 px-1.5 py-0.5 rounded-full border border-slate-200/50">
-                                      <span className={cx('h-1 w-1 rounded-full', status.dot)} />
-                                      <span className="text-[8px] font-black uppercase text-slate-500 tracking-tighter whitespace-nowrap">
-                                        {status.label}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Title: Patient Name */}
-                                <p className="truncate text-[12px] font-black leading-tight text-slate-900 uppercase tracking-tight py-0.5">
-                                  {event.title}
-                                </p>
-
-                                {/* Service/Package & Comanda */}
-                                {(event.serviceName || event.comandaId) && (
-                                  <div className="flex items-center gap-1.5 truncate text-[9px] font-bold text-slate-500 leading-none">
-                                    {event.comandaId && (
-                                      <div className="flex items-center gap-0.5 px-1 py-0.5 bg-emerald-50 text-emerald-600 rounded">
-                                        <DollarSign size={8} />
-                                        <Package size={8} />
-                                      </div>
-                                    )}
-                                    <span className="truncate opacity-80">
-                                      {event.serviceName || event.subtitle || 'Consulta'}
-                                    </span>
-                                  </div>
-                                )}
-
-                                {event.height > 60 && event.description && (
-                                  <p className="mt-1 line-clamp-1 text-[9px] leading-relaxed text-slate-400 font-medium">
-                                    {event.description}
+                              {/* ── Tooltip Premium Glassmorphic ── */}
+                              <div className={cx(
+                                'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none transition-all duration-200 origin-bottom',
+                                hoveredEvent === event.id ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-1'
+                              )}>
+                                <div className="relative bg-slate-900/95 backdrop-blur-xl text-white rounded-2xl px-4 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.4)] min-w-[210px] max-w-[280px] space-y-2 border border-white/10 ring-1 ring-white/5">
+                                  {/* Seta */}
+                                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900/95 rotate-45 border-b border-r border-white/10" />
+                                  {/* Dia completo */}
+                                  <p className="text-[8px] uppercase tracking-[0.2em] font-black text-slate-400">
+                                    {event.startDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })}
                                   </p>
-                                )}
-
-                                <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400/70 uppercase tracking-widest">
-                                    {meta.icon}
-                                    {event.height > 80 ? meta.label : ''}
-                                  </span>
-                                  {event.comandaId && event.recurrenceIndex === undefined && (
-                                    <span className="text-[8px] font-black bg-indigo-50/50 px-1.5 py-0.5 rounded text-indigo-400 uppercase border border-indigo-100/30">Comanda</span>
+                                  {/* Horário */}
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accent }} />
+                                    <p className="text-[13px] font-black tabular-nums tracking-tight" style={{ color: accent }}>
+                                      {event.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      <span className="text-white/40 mx-1">→</span>
+                                      {event.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                    <span className="text-[9px] text-slate-500 font-bold ml-auto">{durationMinutes}min</span>
+                                  </div>
+                                  {/* Nome */}
+                                  <p className="font-black text-[13px] text-white leading-tight truncate">{event.title}</p>
+                                  {/* Serviço */}
+                                  {event.serviceName && (
+                                    <p className="text-[10px] text-slate-400 font-semibold truncate">{event.serviceName}</p>
                                   )}
+                                  {/* Sessão */}
+                                  {event.recurrenceIndex !== undefined && event.recurrenceCount !== undefined && (
+                                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase" style={{ backgroundColor: `${accent}20`, color: accent }}>
+                                      Sessão {event.recurrenceIndex}/{event.recurrenceCount}
+                                    </div>
+                                  )}
+                                  {/* Footer */}
+                                  <div className="flex items-center gap-2 pt-1.5 border-t border-white/10">
+                                    <div className={cx('w-1.5 h-1.5 rounded-full shrink-0', status.dot)} />
+                                    <span className="text-slate-300 text-[9px] font-bold">{status.label}</span>
+                                    {event.modality && (
+                                      <span className={cx(
+                                        'text-[8px] font-black uppercase ml-auto px-1.5 py-0.5 rounded-full',
+                                        event.modality === 'online' ? 'text-cyan-300 bg-cyan-500/15' : 'text-slate-400 bg-slate-500/15'
+                                      )}>
+                                        {event.modality === 'online' ? '● Online' : '● Presencial'}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </button>
+
+                              {/* ── Card do agendamento (overflow-hidden separado) ── */}
+                              <button
+                                className="absolute inset-0 overflow-hidden rounded-xl border text-left shadow-sm transition-all duration-150 hover:z-[14] hover:shadow-lg active:scale-[0.995] w-full"
+                                style={{
+                                  background:
+                                    event.type === 'bloqueio'
+                                      ? 'linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%)'
+                                      : hexToRgba(accent, 0.10),
+                                  borderColor:
+                                    event.type === 'bloqueio'
+                                      ? '#cbd5e1'
+                                      : hexToRgba(accent, 0.28),
+                                  color: event.type === 'bloqueio' ? '#334155' : '#1e293b',
+                                  boxShadow:
+                                    event.type === 'bloqueio'
+                                      ? '0 6px 20px rgba(15,23,42,0.05)'
+                                      : `0 10px 24px ${hexToRgba(accent, 0.12)}`,
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEventClick?.(event);
+                                }}
+                              >
+                                <div
+                                  className="absolute bottom-0 left-0 top-0 w-1"
+                                  style={{ backgroundColor: accent }}
+                                />
+
+                                <div className="flex h-full flex-col px-1.5 py-0.5 pl-2.5">
+                                  {/* Row 1: Time + Session + Status dot */}
+                                  <div className="flex items-center justify-between gap-1 leading-none">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className="text-[9px] font-black tabular-nums text-slate-500/80">
+                                        {event.startDate.toLocaleTimeString([], {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })}
+                                      </span>
+                                      {(event.recurrenceIndex !== undefined && event.recurrenceCount !== undefined) && (
+                                        <span className="rounded-sm bg-indigo-50 px-1 py-px text-[7px] font-black text-indigo-600 border border-indigo-100/50 leading-none">
+                                          {event.recurrenceIndex}/{event.recurrenceCount}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-1">
+                                      <div className="flex items-center gap-0.5 leading-none">
+                                        {event.modality === 'online' ? (
+                                          <>
+                                            <Video size={8} style={{ color: '#0891b2' }} />
+                                            <span className="text-[7px] font-black text-cyan-600 uppercase">On</span>
+                                          </>
+                                        ) : event.modality === 'presencial' ? (
+                                          <>
+                                            <MapPin size={8} className="text-slate-400" />
+                                            <span className="text-[7px] font-black text-slate-400 uppercase">Pre</span>
+                                          </>
+                                        ) : null}
+                                      </div>
+                                      <div className={cx('h-1.5 w-1.5 rounded-full shrink-0', status.dot)} />
+                                    </div>
+                                  </div>
+
+                                  {/* Row 2: Patient Name */}
+                                  <p className="truncate text-[10px] font-black leading-tight text-slate-900 tracking-tight">
+                                    {event.title}
+                                  </p>
+
+                                  {/* Row 3: Service */}
+                                  {event.serviceName && (
+                                    <p className="truncate text-[8px] font-semibold text-slate-500/80 leading-none">
+                                      {event.serviceName}
+                                    </p>
+                                  )}
+
+                                  {event.height > 50 && event.description && (
+                                    <p className="line-clamp-1 text-[7px] leading-relaxed text-slate-400 font-medium">
+                                      {event.description}
+                                    </p>
+                                  )}
+
+                                  {/* Footer: Status label + icon */}
+                                  {event.height > 40 && (
+                                    <div className="mt-auto flex items-center justify-between gap-1 pt-px">
+                                      <div className="flex items-center gap-1">
+                                        <span className={cx('h-1 w-1 rounded-full', status.dot)} />
+                                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">{status.label}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        {event.comandaId && (
+                                          <span className="text-[7px] font-black bg-emerald-50/60 px-1 py-px rounded text-emerald-500 border border-emerald-100/30">$</span>
+                                        )}
+                                        <span className="inline-flex items-center text-[8px] text-slate-400/50">
+                                          {meta.icon}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            </div>
                           );
                         })}
                       </div>
