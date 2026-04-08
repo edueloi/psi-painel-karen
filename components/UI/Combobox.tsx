@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Check, UserPlus, ChevronDown, X } from 'lucide-react';
+import { getStaticUrl } from '../../services/api';
 
 interface Option {
   id: string | number;
   label: string;
+  description?: string;
+  avatar?: string;
 }
 
 interface ComboboxProps {
@@ -259,16 +262,41 @@ export const Combobox: React.FC<ComboboxProps> = ({
             const isSelected = selectedOptions.some(o => o.id === option.id);
             const isHighlighted = index === highlightedIndex;
             return (
-              <button key={option.id} type="button" data-index={index} onClick={() => handleSelect(option)} className={cx('flex w-full items-center justify-between text-left transition', ui.itemPadding, size === 'sm' ? 'rounded-lg' : 'rounded-xl', isSelected ? 'bg-violet-50 text-violet-700' : isHighlighted ? 'bg-slate-50 text-slate-800' : 'text-slate-700 hover:bg-slate-50')}>
-                <div className="min-w-0 pr-2">
-                  <p className={cx('truncate font-bold', ui.itemTitle)}>{option.label}</p>
-                  {isSelected && (
-                    <p className={cx('mt-0.5 font-bold uppercase tracking-wide text-violet-500', ui.itemMeta)}>
-                      {multiple ? 'Ativado' : 'Selecionado'}
-                    </p>
+              <button 
+                key={option.id} 
+                type="button" 
+                data-index={index} 
+                onClick={() => handleSelect(option)} 
+                className={cx(
+                  'flex w-full items-center justify-between text-left transition group', 
+                  ui.itemPadding, 
+                  size === 'sm' ? 'rounded-lg' : 'rounded-xl', 
+                  isSelected ? 'bg-indigo-50 text-indigo-700' : isHighlighted ? 'bg-slate-50 text-slate-800' : 'text-slate-700 hover:bg-slate-50'
+                )}
+              >
+                <div className="flex items-center gap-3 min-w-0 pr-2">
+                  {option.avatar && (
+                    <img 
+                      src={getStaticUrl(option.avatar)} 
+                      alt="" 
+                      className="h-8 w-8 rounded-lg object-cover border border-slate-200 shadow-sm"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
                   )}
+                  <div className="min-w-0">
+                    <p className={cx('truncate font-bold', ui.itemTitle)}>{option.label}</p>
+                    {option.description ? (
+                      <p className={cx('mt-0.5 font-medium text-slate-400 truncate', ui.itemMeta)}>
+                        {option.description}
+                      </p>
+                    ) : isSelected && (
+                      <p className={cx('mt-0.5 font-bold uppercase tracking-wide text-indigo-500', ui.itemMeta)}>
+                        {multiple ? 'Ativado' : 'Selecionado'}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className={cx('ml-2 flex shrink-0 items-center justify-center rounded-lg border transition', ui.checkSize, isSelected ? 'border-violet-600 bg-violet-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-100')}>
+                <div className={cx('ml-2 flex shrink-0 items-center justify-center rounded-lg border transition', ui.checkSize, isSelected ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-100 group-hover:border-slate-300')}>
                   <Check size={12} strokeWidth={4} />
                 </div>
               </button>
