@@ -2468,8 +2468,60 @@ export const Comandas: React.FC = () => {
 
         {managerTab === 'pagamentos' && (
           <div className="divide-y divide-slate-100">
-            {comandaLivroCaixaTx.map((tx: any) => (
-              <div key={`lc-${tx.id}`} className="flex items-center justify-between px-3 py-2.5 bg-indigo-50/50 group">
+            {/* PAGAMENTOS DIRETOS DA COMANDA */}
+            {(historyComanda as any).payments?.map((payment: any) => (
+              <div key={`direct-${payment.id}`} className="flex items-center justify-between px-3 py-2.5 bg-white group hover:bg-slate-50">
+                <div className="flex items-center gap-2 max-w-[calc(100%-80px)]">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                    <Check size={13} />
+                  </div>
+                  <div className="truncate">
+                    <p className="text-sm font-semibold text-slate-800">
+                      {formatCurrency(Number(payment.amount || 0))}
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate">
+                      {payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('pt-BR') : '—'} 
+                      · {payment.payment_method || '—'} 
+                      · <span className="text-emerald-500 font-semibold italic">Comanda</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => {
+                        setNewPayment({
+                          value: formatCurrencyInput(Number(payment.amount || 0)) || '0,00',
+                          date: payment.payment_date ? new Date(payment.payment_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+                          method: payment.payment_method || 'Pix',
+                          receiptCode: payment.receipt_code || '',
+                          comandaId: String(historyComanda?.id),
+                          id: String(payment.id)
+                        });
+                        setIsAddPaymentModalOpen(true);
+                      }} 
+                      className="p-1 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-200" title="Editar">
+                      <Edit3 size={12} />
+                    </button>
+                    <button onClick={() => {
+                        if (window.confirm('Tem certeza que deseja excluir este pagamento?')) {
+                          handleDeletePayment(payment.id);
+                        }
+                      }} 
+                      className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-200" title="Excluir">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 group-hover:hidden">Recebido</span>
+                </div>
+              </div>
+            ))}
+
+            {/* TRANSAÇÕES DO LIVRO CAIXA (Sincronizadas ou lançadas externamente) */}
+            {comandaLivroCaixaTx.filter(tx => 
+              // Evita duplicar se o pagamento já estiver na lista de pagamentos diretos
+              !(historyComanda as any).payments?.some((p: any) => String(p.livro_caixa_id) === String(tx.id) || String(p.id) === String(tx.payment_id))
+            ).map((tx: any) => (
+              <div key={`lc-${tx.id}`} className="flex items-center justify-between px-3 py-2.5 bg-indigo-50/30 group hover:bg-indigo-50/60">
                 <div className="flex items-center gap-2 max-w-[calc(100%-80px)]">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
                     <Check size={13} />
@@ -2479,19 +2531,17 @@ export const Comandas: React.FC = () => {
                       {formatCurrency(Number(tx.amount || 0))}
                     </p>
                     <p className="text-[11px] text-slate-400 truncate">
-                      {tx.payment_date ? new Date(tx.payment_date).toLocaleDateString('pt-BR') : '—'} 
+                      {tx.payment_date || tx.date ? new Date(tx.payment_date || tx.date).toLocaleDateString('pt-BR') : '—'} 
                       {tx.created_at ? ` às ${new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''} 
                       · {tx.payment_method || '—'} 
-                      {tx.created_by_name ? ` · Por ${tx.created_by_name}` : ''}
-                      · <span className={tx.source === 'Agenda' ? 'text-blue-500 font-semibold' : tx.source === 'direct' ? 'text-emerald-500 font-semibold' : 'text-indigo-500 font-semibold'}>
-                          {tx.source === 'Agenda' ? 'Agenda' : tx.source === 'direct' ? 'Comanda' : 'Livro Caixa'}
+                      · <span className={tx.source === 'Agenda' ? 'text-blue-500 font-semibold' : 'text-indigo-500 font-semibold'}>
+                          {tx.source === 'Agenda' ? 'Agenda' : 'Livro Caixa'}
                         </span>
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-indigo-400 group-hover:hidden">Recebido</span>
-                  <div className="hidden group-hover:flex items-center gap-1">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => {
                         setNewPayment({
                           value: formatCurrencyInput(Number(tx.amount || 0)) || '0,00',
@@ -2503,7 +2553,7 @@ export const Comandas: React.FC = () => {
                         });
                         setIsAddPaymentModalOpen(true);
                       }} 
-                      className="p-1 rounded bg-indigo-100 text-indigo-600 hover:bg-indigo-200" title="Editar pagamento">
+                      className="p-1 rounded bg-indigo-100 text-indigo-600 hover:bg-indigo-200" title="Editar">
                       <Edit3 size={12} />
                     </button>
                     <button onClick={() => {
@@ -2511,13 +2561,15 @@ export const Comandas: React.FC = () => {
                           handleDeletePayment(tx.id);
                         }
                       }} 
-                      className="p-1 rounded bg-rose-100 text-rose-600 hover:bg-rose-200" title="Excluir pagamento">
+                      className="p-1 rounded bg-rose-100 text-rose-600 hover:bg-rose-200" title="Excluir">
                       <Trash2 size={12} />
                     </button>
                   </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 group-hover:hidden">Sincronizado</span>
                 </div>
               </div>
             ))}
+
             {(!(historyComanda as any).payments || (historyComanda as any).payments.length === 0) &&
               comandaLivroCaixaTx.length === 0 && (
               <div className="flex min-h-[120px] items-center justify-center text-xs text-slate-400">
