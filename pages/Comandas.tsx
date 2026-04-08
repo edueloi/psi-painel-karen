@@ -136,9 +136,32 @@ const Field: React.FC<{
 
 export const Comandas: React.FC = () => {
   const location = useLocation();
-  const { preferences, updatePreference } = useUserPreferences();
+  const safeDate = (dateStr: string | Date | null | undefined): Date | null => {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+    const datePart = String(dateStr).slice(0, 10);
+    const d = new Date(datePart + 'T12:00:00');
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '—';
+    const d = safeDate(dateStr);
+    if (!d) return '—';
+    return d.toLocaleDateString('pt-BR');
+  };
+
+  const getLocalDateISO = (date?: Date) => {
+    const d = date || new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const { preferences, updatePreference, lockedMonths } = useUserPreferences();
   const { pushToast } = useToast();
-  const { hasPermission } = useAuth();
+  const { hasPermission, isAdmin } = useAuth();
 
   const [activePatients, setActivePatients] = useState<Patient[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -159,12 +182,10 @@ export const Comandas: React.FC = () => {
     preferences?.comandas?.dateRangeFilter || 'month'
   );
   const [closedDateFrom, setClosedDateFrom] = useState<string | null>(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    return getLocalDateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   });
   const [closedDateTo, setClosedDateTo] = useState<string | null>(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    return getLocalDateISO(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
   });
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -236,7 +257,7 @@ export const Comandas: React.FC = () => {
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
   const [newPayment, setNewPayment] = useState<{ id?: string, value: string, date: string, method: string, receiptCode: string, comandaId: string }>({
     value: '',
-    date: new Date().toISOString().slice(0, 10),
+    date: getLocalDateISO(),
     method: 'Pix',
     receiptCode: '',
     comandaId: ''
@@ -250,6 +271,8 @@ export const Comandas: React.FC = () => {
   });
 
   const [isForceCloseConfirmOpen, setIsForceCloseConfirmOpen] = useState(false);
+  const [isDeletePaymentModalOpen, setIsDeletePaymentModalOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
 
   const handleConfirmForceClose = async () => {
     if (!historyComanda) return;
@@ -674,16 +697,11 @@ export const Comandas: React.FC = () => {
     }
 
     if (editingComanda.syncToLivrocaixa && editingComanda.startDate) {
-      let locked = [];
-      try {
-        locked = JSON.parse(localStorage.getItem('lc_locked_months') || '[]');
-      } catch (e) {}
-
       const [y, m] = editingComanda.startDate.split('-');
       const monthKey = `${y}-${parseInt(m, 10)}`;
 
-      if (Array.isArray(locked) && (locked.includes(editingComanda.startDate.slice(0, 7)) || locked.includes(monthKey))) {
-        pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período foi fechado. Para adicionar algo ou editar mude o botão de "FECHADO" para "ABERTO" no período selecionado.');
+      if (lockedMonths.includes(editingComanda.startDate.slice(0, 7)) || lockedMonths.includes(monthKey)) {
+        pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período foi fechado. Não é possível salvar comandas sincronizadas neste mês.');
         return;
       }
     }
@@ -971,6 +989,16 @@ export const Comandas: React.FC = () => {
   const handleSavePayment = async () => {
     if (!historyComanda) return;
 
+    // Check if month is locked
+    if (historyComanda.sync_to_livrocaixa && newPayment.date) {
+      const [y, m] = newPayment.date.split('-');
+      const monthKey = `${y}-${parseInt(m, 10)}`;
+      if (lockedMonths.includes(newPayment.date.slice(0, 7)) || lockedMonths.includes(monthKey)) {
+        pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período foi fechado. Não é possível lançar pagamentos em comandas sincronizadas.');
+        return;
+      }
+    }
+
     try {
       const payload = {
         amount: parseMonetaryValue(newPayment.value),
@@ -990,7 +1018,7 @@ export const Comandas: React.FC = () => {
       setIsAddPaymentModalOpen(false);
       setNewPayment({
         value: '',
-        date: new Date().toISOString().slice(0, 10),
+        date: getLocalDateISO(),
         method: 'Pix',
         receiptCode: '',
         comandaId: ''
@@ -1015,11 +1043,24 @@ export const Comandas: React.FC = () => {
     }
   };
 
-  const handleDeletePayment = async (paymentId: string | number) => {
+  const handleDeletePayment = async (payment: any) => {
     if (!historyComanda) return;
+
+    // Check if month is locked
+    if (historyComanda.sync_to_livrocaixa) {
+      const pDate = payment.payment_date || payment.date;
+      if (pDate) {
+        const [y, m] = pDate.split('-');
+        const monthKey = `${y}-${parseInt(m, 10)}`;
+        if (lockedMonths.includes(pDate.slice(0, 7)) || lockedMonths.includes(monthKey)) {
+          pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período foi fechado. Não é possível excluir pagamentos de comandas sincronizadas.');
+          return;
+        }
+      }
+    }
     
     try {
-      await api.delete(`/finance/comandas/${historyComanda.id}/payments/${paymentId}`);
+      await api.delete(`/finance/comandas/${historyComanda.id}/payments/${payment.id}`);
       pushToast('success', 'Pagamento excluído com sucesso!');
       
       await fetchData();
@@ -1033,6 +1074,8 @@ export const Comandas: React.FC = () => {
         (tx: any) => String(tx.comanda_id) === String(historyComanda.id)
       );
       setComandaLivroCaixaTx(linked);
+      setIsDeletePaymentModalOpen(false);
+      setPaymentToDelete(null);
     } catch (err: any) {
       pushToast('error', err?.response?.data?.error || 'Erro ao excluir pagamento.');
     }
@@ -1042,7 +1085,7 @@ export const Comandas: React.FC = () => {
     const rows = filteredComandas as any[];
     const headers = ['ID', 'Descrição', 'Cliente', 'Data', 'N. Atendimentos', 'Total', 'Recebido', 'Pendente', 'Status'];
     const fmtMoney = (v: number) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`;
-    const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '';
+    const fmtDate = (d: string) => formatDate(d);
 
     const lines = [
       headers.join(';'),
@@ -2480,7 +2523,7 @@ export const Comandas: React.FC = () => {
                       {formatCurrency(Number(payment.amount || 0))}
                     </p>
                     <p className="text-[11px] text-slate-400 truncate">
-                      {payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('pt-BR') : '—'} 
+                      {payment.payment_date ? formatDate(payment.payment_date) : '—'} 
                       · {payment.payment_method || '—'} 
                       · <span className="text-emerald-500 font-semibold italic">Comanda</span>
                     </p>
@@ -2491,7 +2534,7 @@ export const Comandas: React.FC = () => {
                     <button onClick={() => {
                         setNewPayment({
                           value: formatCurrencyInput(Number(payment.amount || 0)) || '0,00',
-                          date: payment.payment_date ? new Date(payment.payment_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+                          date: payment.payment_date ? payment.payment_date.slice(0, 10) : getLocalDateISO(),
                           method: payment.payment_method || 'Pix',
                           receiptCode: payment.receipt_code || '',
                           comandaId: String(historyComanda?.id),
@@ -2503,9 +2546,8 @@ export const Comandas: React.FC = () => {
                       <Edit3 size={12} />
                     </button>
                     <button onClick={() => {
-                        if (window.confirm('Tem certeza que deseja excluir este pagamento?')) {
-                          handleDeletePayment(payment.id);
-                        }
+                        setPaymentToDelete(payment);
+                        setIsDeletePaymentModalOpen(true);
                       }} 
                       className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-200" title="Excluir">
                       <Trash2 size={12} />
@@ -2531,7 +2573,7 @@ export const Comandas: React.FC = () => {
                       {formatCurrency(Number(tx.amount || 0))}
                     </p>
                     <p className="text-[11px] text-slate-400 truncate">
-                      {tx.payment_date || tx.date ? new Date(tx.payment_date || tx.date).toLocaleDateString('pt-BR') : '—'} 
+                      {tx.payment_date || tx.date ? formatDate(tx.payment_date || tx.date) : '—'} 
                       {tx.created_at ? ` às ${new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''} 
                       · {tx.payment_method || '—'} 
                       · <span className={tx.source === 'Agenda' ? 'text-blue-500 font-semibold' : 'text-indigo-500 font-semibold'}>
@@ -2545,7 +2587,7 @@ export const Comandas: React.FC = () => {
                     <button onClick={() => {
                         setNewPayment({
                           value: formatCurrencyInput(Number(tx.amount || 0)) || '0,00',
-                          date: tx.date ? new Date(tx.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+                          date: tx.date ? tx.date.slice(0, 10) : getLocalDateISO(),
                           method: tx.payment_method || 'Pix',
                           receiptCode: tx.receipt_code || '',
                           comandaId: String(historyComanda?.id),
@@ -2557,9 +2599,8 @@ export const Comandas: React.FC = () => {
                       <Edit3 size={12} />
                     </button>
                     <button onClick={() => {
-                        if (window.confirm('Tem certeza que deseja remover este pagamento do livro caixa?')) {
-                          handleDeletePayment(tx.id);
-                        }
+                        setPaymentToDelete(tx);
+                        setIsDeletePaymentModalOpen(true);
                       }} 
                       className="p-1 rounded bg-rose-100 text-rose-600 hover:bg-rose-200" title="Excluir">
                       <Trash2 size={12} />
@@ -3160,6 +3201,41 @@ export const Comandas: React.FC = () => {
           <p className="text-sm font-semibold text-rose-600">
             Independente do saldo ou devedor ou do número de sessões utilizadas, ela constará como concluída e finalizada.
           </p>
+        </div>
+      </Modal>
+      <Modal
+        isOpen={isDeletePaymentModalOpen}
+        onClose={() => setIsDeletePaymentModalOpen(false)}
+        title="Excluir Pagamento"
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full justify-end gap-2 px-1">
+            <Button variant="outline" size="sm" onClick={() => setIsDeletePaymentModalOpen(false)}>
+              CANCELAR
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => handleDeletePayment(paymentToDelete)}
+              leftIcon={<Trash2 size={14} />}
+            >
+              EXCLUIR PAGAMENTO
+            </Button>
+          </div>
+        }
+      >
+        <div className="py-2 text-slate-600">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 mb-4">
+             <AlertTriangle size={28} />
+          </div>
+          <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">Confirmar Exclusão</h3>
+          <p className="text-sm font-semibold text-slate-500 leading-relaxed">
+            Você está prestes a excluir este registro de pagamento no valor de <span className="text-rose-600 underline font-black">{formatCurrency(paymentToDelete?.amount || 0)}</span>. Esta ação removerá o lançamento do financeiro e não pode ser desfeita.
+          </p>
+          <div className="mt-4 p-3 bg-rose-50 border border-rose-100 rounded-2xl">
+            <p className="text-[10px] font-black uppercase tracking-widest text-rose-700">Atenção</p>
+            <p className="text-xs font-bold text-rose-600">Se esta comanda estiver vinculada ao Livro Caixa, a transação correspondente também será removida ou atualizada.</p>
+          </div>
         </div>
       </Modal>
     </div>

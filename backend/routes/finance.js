@@ -32,6 +32,14 @@ async function ensureFinanceColumns() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    `CREATE TABLE IF NOT EXISTS finance_locked_months (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      month_key VARCHAR(10) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_tenant_month (tenant_id, month_key),
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column') && !e.message.includes('already exists')) console.warn('Finance schema warning:', e.message); }
@@ -394,6 +402,52 @@ router.get('/summary', authMiddleware, checkPermission('view_financial_reports')
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar resumo' });
+  }
+});
+
+// GET /finance/locked-months - Listar meses fechados
+router.get('/locked-months', authMiddleware, async (req, res) => {
+  try {
+    await withFinanceSchema();
+    const [rows] = await db.query(
+      'SELECT month_key FROM finance_locked_months WHERE tenant_id = ?',
+      [req.user.tenant_id]
+    );
+    res.json(rows.map(r => r.month_key));
+  } catch (err) {
+    console.error('Erro ao buscar meses fechados:', err);
+    res.status(500).json({ error: 'Erro ao buscar meses fechados' });
+  }
+});
+
+// POST /finance/locked-months/toggle - Alternar fechamento de mês
+router.post('/locked-months/toggle', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  try {
+    await withFinanceSchema();
+    const { month_key } = req.body;
+    if (!month_key) return res.status(400).json({ error: 'Chave do mês é obrigatória' });
+
+    const [existing] = await db.query(
+      'SELECT id FROM finance_locked_months WHERE tenant_id = ? AND month_key = ?',
+      [req.user.tenant_id, month_key]
+    );
+
+    if (existing.length > 0) {
+      await db.query(
+        'DELETE FROM finance_locked_months WHERE tenant_id = ? AND month_key = ?',
+        [req.user.tenant_id, month_key]
+      );
+      res.json({ locked: false, month_key });
+    } else {
+      await db.query(
+        'INSERT INTO finance_locked_months (tenant_id, month_key) VALUES (?, ?)',
+        [req.user.tenant_id, month_key]
+      );
+      res.json({ locked: true, month_key });
+    }
+  } catch (err) {
+    console.error('Erro ao alternar fechamento de mês:', err);
+    res.status(500).json({ error: 'Erro ao alternar fechamento de mês' });
   }
 });
 

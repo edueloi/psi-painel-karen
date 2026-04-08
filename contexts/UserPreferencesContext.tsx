@@ -130,6 +130,9 @@ interface UserPreferencesContextType {
   setFormsArchived: (ids: string[]) => void;
   formsFavorites: string[];
   setFormsFavorites: (ids: string[]) => void;
+  lockedMonths: string[];
+  refreshLockedMonths: () => void;
+  toggleLockMonth: (monthKey: string) => Promise<void>;
 }
 
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
@@ -141,6 +144,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [formsArchived, setFormsArchivedState] = useState<string[]>([]);
   const [formsFavorites, setFormsFavoritesState] = useState<string[]>([]);
+  const [lockedMonths, setLockedMonths] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   // debounce timer ref so we don't spam the API on every keystroke
@@ -183,7 +187,21 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
         setLoaded(true);
       }
     };
+    const loadLocks = async () => {
+      if (!isAuthenticated) {
+        setLockedMonths([]);
+        return;
+      }
+      try {
+        const rows = await api.get<string[]>('/finance/locked-months');
+        setLockedMonths(rows || []);
+      } catch {
+        setLockedMonths([]);
+      }
+    };
+
     load();
+    loadLocks();
   }, [isAuthenticated]);
 
 
@@ -226,10 +244,33 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
     if (loaded) persistToBackend(preferences, formsArchived, ids);
   };
 
+  const toggleLockMonth = async (monthKey: string) => {
+    try {
+      const res = await api.post<{ locked: boolean }>('/finance/locked-months/toggle', { month_key: monthKey });
+      setLockedMonths(prev => 
+        res.locked ? [...prev, monthKey] : prev.filter(k => k !== monthKey)
+      );
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const refreshLockedMonths = async () => {
+    try {
+      const rows = await api.get<string[]>('/finance/locked-months');
+      setLockedMonths(rows || []);
+    } catch {}
+  };
+
   if (!loaded) return null;
 
   return (
-    <UserPreferencesContext.Provider value={{ preferences, updatePreference, formsArchived, setFormsArchived, formsFavorites, setFormsFavorites }}>
+    <UserPreferencesContext.Provider value={{ 
+      preferences, updatePreference, 
+      formsArchived, setFormsArchived, 
+      formsFavorites, setFormsFavorites,
+      lockedMonths, refreshLockedMonths, toggleLockMonth
+    }}>
       {children}
     </UserPreferencesContext.Provider>
   );

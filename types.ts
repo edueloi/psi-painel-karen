@@ -491,6 +491,8 @@ export interface Comanda {
   notes?: string;
   payment_method?: string;
   receipt_code?: string;
+  sync_to_livrocaixa?: boolean;
+  syncToLivrocaixa?: boolean;
 }
 
 export type ProductType = 'physical' | 'digital';

@@ -482,21 +482,20 @@ export const LivroCaixa: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<{ month: number; year: number } | null>(null);
   const [selectedYear, setSelectedYear]   = useState(new Date().getFullYear());
 
-  const [lockedMonths, setLockedMonths] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('lc_locked_months') || '[]'); } catch { return []; }
-  });
+  const { lockedMonths, toggleLockMonth } = useUserPreferences();
 
-  const toggleLockMonth = (monthKey: string) => {
-    setLockedMonths(prev => {
-      const next = prev.includes(monthKey) ? prev.filter(k => k !== monthKey) : [...prev, monthKey];
-      localStorage.setItem('lc_locked_months', JSON.stringify(next));
-      if (next.includes(monthKey)) {
-        pushToast('success', 'Período Fechado', 'O Livro Caixa deste mês foi trancado (somente leitura).');
+  const handleToggleLock = async (monthKey: string) => {
+    try {
+      await toggleLockMonth(monthKey);
+      const isNowLocked = !lockedMonths.includes(monthKey);
+      if (isNowLocked) {
+        pushToast('success', 'Período Fechado', 'O Livro Caixa deste mês foi trancado para todos os usuários.');
       } else {
-        pushToast('success', 'Período Aberto', 'O Livro Caixa deste mês foi destrancado para edições.');
+        pushToast('success', 'Período Aberto', 'O Livro Caixa deste mês foi destrancado.');
       }
-      return next;
-    });
+    } catch (err) {
+      pushToast('error', 'Erro ao alterar status do mês');
+    }
   };
 
   const currentMonthKey = selectedMonth ? `${selectedMonth.year}-${selectedMonth.month}` : '';
@@ -1677,7 +1676,7 @@ export const LivroCaixa: React.FC = () => {
                     {/* Lock toggle button */}
                     {isAdmin && (
                       <button
-                        onClick={() => toggleLockMonth(currentMonthKey)}
+                        onClick={() => handleToggleLock(currentMonthKey)}
                         className={`flex items-center gap-2 px-4 h-10 border rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${
                           isMonthLocked 
                             ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100 hover:border-rose-300' 

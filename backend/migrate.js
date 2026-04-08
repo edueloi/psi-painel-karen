@@ -561,6 +561,18 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // ---- MESES FECHADOS DO LIVRO CAIXA ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS finance_locked_months (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      month_key VARCHAR(10) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_tenant_month (tenant_id, month_key),
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // ---- SISTEMA DE ALERTAS ----
   await conn.query(`
     CREATE TABLE IF NOT EXISTS system_alerts (

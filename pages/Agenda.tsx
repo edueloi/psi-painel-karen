@@ -157,7 +157,27 @@ export const Agenda: React.FC = () => {
   const [applyToSeries, setApplyToSeries] = useState(false);
   const [deleteSeries, setDeleteSeries] = useState(false);
   const { pushToast } = useToast();
-  const { preferences, updatePreference } = useUserPreferences();
+  const { preferences, updatePreference, lockedMonths } = useUserPreferences();
+  const safeDate = (dateStr: string | Date | null | undefined): Date | null => {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+    const datePart = String(dateStr).slice(0, 10);
+    const d = new Date(datePart + 'T12:00:00');
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '—';
+    const d = safeDate(dateStr);
+    if (!d) return '—';
+    return d.toLocaleDateString('pt-BR');
+  };
+  const getLocalDateISO = (date?: Date) => {
+    const d = date || new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   const stickyStats = preferences.agenda.stickyStats ?? false;
 
   // ── Edit scope modal (which sessions to apply changes to) ──
@@ -890,7 +910,7 @@ export const Agenda: React.FC = () => {
 
         pushToast('success', newPayment.id ? 'Pagamento atualizado com sucesso!' : 'Pagamento registrado com sucesso!');
         setIsAddPaymentModalOpen(false);
-        setNewPayment({ value: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', receiptCode: '', comandaId: '' });
+        setNewPayment({ value: '', date: getLocalDateISO(), method: 'Pix', receiptCode: '', comandaId: '' });
 
         // Recarregar dados
         fetchData();
@@ -1350,8 +1370,8 @@ export const Agenda: React.FC = () => {
     const professionalId = selectedApt?.psychologist_id || formData.psychologist_id || profileData?.id || '';
 
     const comandaDate = selectedApt?.start
-      ? new Date(selectedApt.start).toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0];
+      ? getLocalDateISO(new Date(selectedApt.start))
+      : getLocalDateISO();
 
     const val = formData.service_id;
     let description = '';
@@ -1415,15 +1435,10 @@ export const Agenda: React.FC = () => {
     }
 
     if (editingComanda.syncToLivrocaixa && editingComanda.startDate) {
-      let locked = [];
-      try {
-        locked = JSON.parse(localStorage.getItem('lc_locked_months') || '[]');
-      } catch (e) {}
-
       const [y, m] = editingComanda.startDate.split('-');
       const monthKey = `${y}-${parseInt(m, 10)}`;
 
-      if (Array.isArray(locked) && (locked.includes(editingComanda.startDate.slice(0, 7)) || locked.includes(monthKey))) {
+      if (lockedMonths.includes(editingComanda.startDate.slice(0, 7)) || lockedMonths.includes(monthKey)) {
         pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período foi fechado. Para adicionar algo ou editar mude o botão de "FECHADO" para "ABERTO" no período selecionado.');
         return;
       }
@@ -2797,14 +2812,11 @@ export const Agenda: React.FC = () => {
       >
         {editingComanda && (() => {
           let isLocked = false;
-          try {
-            const lockedArr = JSON.parse(localStorage.getItem('lc_locked_months') || '[]');
-            if (editingComanda.startDate) {
-              const [y, m] = editingComanda.startDate.split('-');
-              const monthKey = `${y}-${parseInt(m, 10)}`;
-              isLocked = Array.isArray(lockedArr) && (lockedArr.includes(editingComanda.startDate.slice(0, 7)) || lockedArr.includes(monthKey));
-            }
-          } catch (e) {}
+          if (editingComanda.startDate) {
+            const [y, m] = editingComanda.startDate.split('-');
+            const monthKey = `${y}-${parseInt(m, 10)}`;
+            isLocked = lockedMonths.includes(editingComanda.startDate.slice(0, 7)) || lockedMonths.includes(monthKey);
+          }
 
           return (
           <div className="space-y-6 pt-2 pb-6 px-1">
@@ -4133,7 +4145,7 @@ export const Agenda: React.FC = () => {
                                 {formatCurrency(Number(payment.amount || 0))}
                               </p>
                               <p className="text-xs text-slate-400">
-                                {new Date(payment.payment_date).toLocaleDateString('pt-BR')} •{' '}
+                                {payment.payment_date ? formatDate(payment.payment_date) : '—'} •{' '}
                                 {payment.payment_method}
                                 {payment.receipt_code ? ` • #${payment.receipt_code}` : ''}
                               </p>
@@ -4147,7 +4159,7 @@ export const Agenda: React.FC = () => {
                                   setNewPayment({
                                     id: String(payment.id),
                                     value: formatCurrencyInput(Number(payment.amount || 0)),
-                                    date: payment.payment_date ? new Date(payment.payment_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+                                    date: payment.payment_date ? payment.payment_date.slice(0, 10) : getLocalDateISO(),
                                     method: payment.payment_method || 'Pix',
                                     receiptCode: payment.receipt_code || '',
                                     comandaId: String(cmnd.id),
