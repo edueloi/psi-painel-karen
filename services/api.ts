@@ -103,9 +103,11 @@ export const api: Api = {
         const err: any = new Error(message);
         if (data?.conflict) {
           err.conflict = true;
+          err.conflict_id = data.conflict_id;
           err.prof_name = data.prof_name;
           err.start_time = data.start_time;
           err.end_time = data.end_time;
+          console.warn('[conflict] id do agendamento conflitante:', data.conflict_id, 'start:', data.start_time, 'end:', data.end_time);
         }
         throw err;
       }

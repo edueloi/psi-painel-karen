@@ -1275,7 +1275,15 @@ export const Agenda: React.FC = () => {
     const isPackage = String(formData.service_id).startsWith('pkg_');
     const cleanServiceId = isPackage ? formData.service_id.replace('pkg_', '') : formData.service_id;
     const dateChanged = !formData._originalDate || formData.appointment_date !== formData._originalDate;
-    const localToUtc = (str: string) => str ? new Date(str).toISOString() : null;
+    // Interpreta str como horário LOCAL (não UTC) e converte para ISO UTC
+    // new Date("YYYY-MM-DDTHH:mm") é ambíguo no spec — Chrome trata como UTC, não local
+    const localToUtc = (str: string) => {
+      if (!str) return null;
+      const [datePart, timePart = '00:00'] = str.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, min] = timePart.split(':').map(Number);
+      return new Date(year, month - 1, day, hour, min).toISOString();
+    };
 
     // Sempre calcular end_time a partir do start + duração para garantir que
     // mudanças de duração (sem mudar o horário) também persistam corretamente

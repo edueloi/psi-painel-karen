@@ -634,6 +634,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
         // Para recorrência, o usuário escolheu explicitamente essa agenda e espera
         // que TODAS as N sessões sejam criadas — conflitos podem ser resolvidos depois.
         if (finalProfessionalId && !freq) {
+            console.log(`[conflict-check] tenant=${req.user.tenant_id} prof=${finalProfessionalId} start=${formattedStart} end=${formattedEnd}`);
             const [conflicts] = await db.query(
                 `SELECT a.id,
                         u.name AS prof_name,
@@ -651,6 +652,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                  LIMIT 1`,
                 [req.user.tenant_id, finalProfessionalId, formattedEnd, formattedStart]
             );
+            console.log(`[conflict-check] resultado: ${conflicts.length} conflito(s)`, conflicts.length > 0 ? JSON.stringify(conflicts[0]) : '');
             if (conflicts.length > 0) {
                 // Agendamento único — retorna erro ao invés de salvar
                 const c = conflicts[0];
@@ -658,6 +660,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                 return res.status(409).json({
                     error: 'conflict',
                     conflict: true,
+                    conflict_id: c.id,
                     prof_name: c.prof_name || 'O profissional',
                     start_time: toISO(c.raw_start),
                     end_time: toISO(c.raw_end),
