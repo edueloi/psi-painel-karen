@@ -2626,8 +2626,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const selectedPatient = useMemo(() => patients.find(p => String(p.id) === selectedPatientId), [patients, selectedPatientId]);
 
   const filteredPatients = useMemo(() => patients.filter(p =>
-    (p.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.cpf || '').includes(search)
+    (p.status === 'active' || !p.status) &&
+    ((p.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (p.cpf || '').includes(search))
   ), [patients, search]);
 
   const patientRecords = useMemo(() => records.filter(r => String(r.patient_id) === String(selectedPatientId)).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [records, selectedPatientId]);
@@ -3089,49 +3090,17 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             </div>
           )}
 
-          {/* Charts */}
-          {stats && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {stats.byMonth?.length > 0 && (
-                <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4">Registros por Mês</h3>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={stats.byMonth}>
-                      <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 700 }}/>
-                      <YAxis tick={{ fontSize: 11 }}/>
-                      <Tooltip/>
-                      <Bar dataKey="count" fill="#4f46e5" radius={[6, 6, 0, 0]}/>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-              {stats.byType?.length > 0 && (
-                <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4">Por Tipo</h3>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie data={stats.byType} dataKey="count" nameKey="record_type" cx="50%" cy="50%" outerRadius={70} label={({ record_type }) => TYPE_LABELS[record_type] || record_type}>
-                        {stats.byType.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>)}
-                      </Pie>
-                      <Tooltip/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Grid de pacientes ou Últimos Registros */}
           <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center bg-slate-100 p-1 rounded-xl w-fit">
-                <button onClick={() => setShowLatestRecords(false)} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${!showLatestRecords ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Pacientes</button>
-                <button onClick={() => setShowLatestRecords(true)} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${showLatestRecords ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Últimos Registros</button>
-              </div>
               <div className="relative w-full sm:w-72">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
                 <input className="w-full h-10 pl-9 pr-4 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none focus:border-indigo-300 font-medium"
                   placeholder={showLatestRecords ? "Buscar no histórico..." : "Buscar paciente..."} value={search} onChange={e => setSearch(e.target.value)}/>
+              </div>
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl w-fit">
+                <button onClick={() => setShowLatestRecords(false)} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${!showLatestRecords ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Pacientes</button>
+                <button onClick={() => setShowLatestRecords(true)} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${showLatestRecords ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Últimos Registros</button>
               </div>
             </div>
 
