@@ -12,7 +12,7 @@ import { GridTable } from '../components/UI/GridTable';
 import { PageHeader } from '../components/UI/PageHeader';
 import {
   Search, Plus, FileText, Calendar, Clock, Activity, BarChart2,
-  Trash2, Eye, Edit3, CheckCircle2, ChevronRight, Loader2,
+  Trash2, Eye, EyeOff, Edit3, CheckCircle2, ChevronRight, Loader2,
   Sparkles, Lock, LockOpen, AlertTriangle, Save, Shield,
   X, ArrowLeft, Layers, User, Download, RotateCcw, Tag,
   History, BookOpen, Filter, Share2, Users, Send, Copy, ExternalLink,
@@ -144,6 +144,7 @@ const PasswordModal: React.FC<{ title: string; onConfirm: (p: string) => Promise
   const [pw, setPw] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [showPw, setShowPw] = useState(false);
 
   const submit = async () => {
     if (!pw) { setErr('Digite sua senha'); return; }
@@ -172,15 +173,25 @@ const PasswordModal: React.FC<{ title: string; onConfirm: (p: string) => Promise
       <div className="space-y-4">
         <div className="flex flex-col gap-1.5 pt-2">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Senha do sistema</label>
-          <input 
-            type="password" 
-            autoFocus 
-            value={pw} 
-            onChange={e => setPw(e.target.value)} 
-            onKeyDown={e => e.key === 'Enter' && submit()}
-            className="w-full h-12 px-4 rounded-xl border border-slate-100 bg-slate-50 font-bold outline-none focus:border-indigo-300 focus:bg-white transition-all text-sm placeholder:text-slate-300 shadow-inner" 
-            placeholder="••••••••" 
-          />
+          <div className="relative">
+            <input
+              type={showPw ? 'text' : 'password'}
+              autoFocus
+              value={pw}
+              onChange={e => setPw(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submit()}
+              className="w-full h-12 px-4 pr-12 rounded-xl border border-slate-100 bg-slate-50 font-bold outline-none focus:border-indigo-300 focus:bg-white transition-all text-sm placeholder:text-slate-300 shadow-inner"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              tabIndex={-1}
+            >
+              {showPw ? <EyeOff size={18}/> : <Eye size={18}/>}
+            </button>
+          </div>
         </div>
         {err && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-100 animate-shake">

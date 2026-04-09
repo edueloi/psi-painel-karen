@@ -469,10 +469,10 @@ router.post('/:id/approve', authMiddleware, async (req, res) => {
     if (!password) return res.status(400).json({ error: 'Senha obrigatória para aprovação' });
 
     // Verificar senha
-    const [[user]] = await db.query('SELECT password_hash FROM users WHERE id = ? AND tenant_id = ?', [req.user.id, req.user.tenant_id]);
+    const [[user]] = await db.query('SELECT password FROM users WHERE id = ? AND tenant_id = ?', [req.user.id, req.user.tenant_id]);
     if (!user) return res.status(401).json({ error: 'Usuário não encontrado' });
 
-    const valid = await bcrypt.compare(password, user.password_hash);
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ error: 'Senha incorreta' });
 
     const [existing] = await db.query('SELECT id FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
