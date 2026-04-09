@@ -40,6 +40,13 @@ async function ensureSharedWith() {
 }
 ensureSharedWith();
 
+// Garante que file_type em medical_record_attachments suporta mime types longos
+(async () => {
+  try {
+    await db.query("ALTER TABLE medical_record_attachments MODIFY COLUMN file_type VARCHAR(255) NULL");
+  } catch (e) { /* já correto */ }
+})();
+
 router.get('/', authMiddleware, checkPermission('view_medical_records'), async (req, res) => {
   try {
     const { patient_id, professional_id, status, date_from, date_to, record_type, my_records } = req.query;
@@ -334,16 +341,16 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
     const tagsStr = tags ? JSON.stringify(Array.isArray(tags) ? tags : []) : null;
 
     const [result] = await db.query(
-      `INSERT INTO medical_records 
+      `INSERT INTO medical_records
        (tenant_id, patient_id, professional_id, appointment_id,
         content, restricted_content, draft_content, ai_organized_content,
-        record_type, type, title, status, ai_status, tags,
+        record_type, title, status, ai_status, tags,
         start_time, end_time, appointment_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, patient_id, req.user.id, appointment_id || null,
         content || null, restricted_content || null, draft_content || null, ai_organized_content || null,
-        record_type || 'Evolucao', record_type || 'Evolucao', title || null,
+        record_type || 'Evolucao', title || null,
         status || 'Rascunho', ai_status || 'pending', tagsStr,
         start_time || null, end_time || null, appointment_type || 'individual'
       ]
@@ -402,7 +409,6 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
         restricted_content = COALESCE(?, restricted_content),
         draft_content = COALESCE(?, draft_content),
         ai_organized_content = COALESCE(?, ai_organized_content),
-        type = COALESCE(?, type),
         record_type = COALESCE(?, record_type),
         title = COALESCE(?, title),
         status = COALESCE(?, status),
@@ -416,7 +422,7 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
        WHERE id = ?`,
       [
         content ?? null, restricted_content ?? null, draft_content ?? null, ai_organized_content ?? null,
-        record_type ?? null, record_type ?? null, title ?? null,
+        record_type ?? null, title ?? null,
         status ?? null, ai_status ?? null, tagsStr ?? null,
         start_time ?? null, end_time ?? null, appointment_type ?? null,
         nextVersion, req.params.id

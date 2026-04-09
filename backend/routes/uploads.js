@@ -6,9 +6,21 @@ const path = require('path');
 const fs = require('fs');
 
 // Garante que a tabela uploads existe e todas as colunas necessárias existem
+// Usa SHOW COLUMNS para compatibilidade com MySQL 5.7+
+async function addColIfMissing(table, col, def) {
+  try {
+    const [rows] = await db.query(`SHOW COLUMNS FROM \`${table}\` LIKE '${col}'`);
+    if (rows.length === 0) {
+      await db.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${col}\` ${def}`);
+      console.log(`[uploads] coluna ${col} adicionada em ${table}`);
+    }
+  } catch (e) {
+    console.error(`[uploads] erro ao garantir coluna ${col}:`, e.message);
+  }
+}
+
 (async () => {
   try {
-    // Tabela base
     await db.query(`
       CREATE TABLE IF NOT EXISTS uploads (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -25,31 +37,30 @@ const fs = require('fs');
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
-    // Garante colunas de compatibilidade que o código usa no INSERT
-    const cols = [
-      { name: 'uploaded_by', def: 'INT NULL' },
-      { name: 'filename', def: 'VARCHAR(255) NULL' },
-      { name: 'original_name', def: 'VARCHAR(255) NULL' },
-      { name: 'url', def: 'VARCHAR(500) NULL' },
-      { name: 'mime_type', def: 'VARCHAR(100) NULL' },
-      { name: 'size', def: 'INT NULL' },
-      { name: 'status', def: "VARCHAR(20) DEFAULT 'uploaded'" },
-      { name: 'description', def: 'TEXT NULL' }
-    ];
-    for (const col of cols) {
-      await db.query(`ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`).catch(() => {});
-    }
+    await addColIfMissing('uploads', 'uploaded_by', 'INT NULL');
+    await addColIfMissing('uploads', 'filename', 'VARCHAR(255) NULL');
+    await addColIfMissing('uploads', 'original_name', 'VARCHAR(255) NULL');
+    await addColIfMissing('uploads', 'url', 'LONGTEXT NULL');
+    await addColIfMissing('uploads', 'mime_type', 'VARCHAR(100) NULL');
+    await addColIfMissing('uploads', 'size', 'INT NULL');
+    await addColIfMissing('uploads', 'status', "VARCHAR(20) DEFAULT 'uploaded'");
+    await addColIfMissing('uploads', 'description', 'TEXT NULL');
+
     await db.query(`ALTER TABLE uploads MODIFY COLUMN tenant_id INT NULL`).catch(() => {});
     await db.query(`ALTER TABLE uploads MODIFY COLUMN file_url LONGTEXT NULL`).catch(() => {});
-    await db.query(`ALTER TABLE uploads MODIFY COLUMN url LONGTEXT NULL`).catch(() => {});
   } catch (err) {
-    console.error('Erro ao configurar tabela uploads:', err.message);
+    console.error('[uploads] Erro ao configurar tabela:', err.message);
   }
 })();
 
 // Garante que o diretório de uploads existe na inicialização
 const UPLOAD_DIR = path.join(__dirname, '../public/uploads');
-try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch (_) {}
+try {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  console.log('[uploads] diretório:', UPLOAD_DIR);
+} catch (e) {
+  console.error('[uploads] ERRO ao criar diretório de uploads:', e.message);
+}
 
 // Configuração do Multer para salvamento em disco
 const storage = multer.diskStorage({
@@ -152,7 +163,7 @@ router.post('/', (req, res, next) => {
       date: new Date()
     });
   } catch (err) {
-    console.error('Erro no upload:', err.sqlMessage || err.message);
+    console.error('Erro no upload (detalhado):', err);
     res.status(500).json({ error: 'Erro ao fazer upload', detail: err.sqlMessage || err.message });
   }
 });

@@ -98,7 +98,7 @@ export const api: Api = {
         const rawPreview = typeof data?.raw === 'string'
           ? data.raw.replace(/\s+/g, ' ').trim().slice(0, 140)
           : '';
-        const message = data?.error
+        const message = (data?.error ? (data.detail ? `${data.error}: ${data.detail}` : data.error) : null)
           || (rawPreview ? `Erro ${response.status}: resposta nao-JSON do servidor (${rawPreview})` : `Erro ${response.status}: ${response.statusText}`);
         const err: any = new Error(message);
         if (data?.conflict) {
