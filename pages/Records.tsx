@@ -2625,9 +2625,10 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
   const selectedPatient = useMemo(() => patients.find(p => String(p.id) === selectedPatientId), [patients, selectedPatientId]);
 
+  const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const filteredPatients = useMemo(() => patients.filter(p =>
     (p.status === 'active' || !p.status) &&
-    ((p.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (normalize(p.full_name || '').includes(normalize(search)) ||
     (p.cpf || '').includes(search))
   ), [patients, search]);
 
