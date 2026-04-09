@@ -85,7 +85,7 @@ import logoUrl from './images/logo-psiflux.png';
 import logoDarkUrl from './images/logopsiflux-para-fundo-escuro.png';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 
-const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutos
+const INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 120 minutos
 const WARNING_BEFORE_MS = 5 * 60 * 1000;       // aviso 5 min antes
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {

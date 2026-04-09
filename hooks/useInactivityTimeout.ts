@@ -12,12 +12,12 @@ const ACTIVITY_EVENTS = [
 ] as const;
 
 /**
- * Desloga o usuário após `timeoutMs` de inatividade (padrão: 60 minutos).
+ * Desloga o usuário após `timeoutMs` de inatividade (padrão: 120 minutos).
  * O timer é resetado a cada interação do usuário com a página.
  */
 export function useInactivityTimeout(
   onLogout: () => void,
-  timeoutMs: number = 60 * 60 * 1000 // 60 minutos
+  timeoutMs: number = 2 * 60 * 60 * 1000 // 120 minutos
 ) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoutRef = useRef(onLogout);

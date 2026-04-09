@@ -17,12 +17,12 @@ import {
   X, ArrowLeft, Layers, User, Download, RotateCcw, Tag,
   History, BookOpen, Filter, Share2, Users, Send, Copy, ExternalLink,
   ClipboardCheck, RefreshCw, MessageSquare, Brain, CheckCheck,
-  LinkIcon, Bell, Info,
+  LinkIcon, Bell, Info, TrendingUp, CalendarDays,
   Settings
 } from 'lucide-react';
 import { DatePicker } from '../components/UI/DatePicker';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
@@ -1530,6 +1530,38 @@ const RecordEditor: React.FC<{
     } finally { setSaving(false); }
   };
 
+  // Ao fechar sem salvar: salva automaticamente como rascunho se houver conteúdo
+  const handleClose = async () => {
+    const hasContent = recordType === 'Plano'
+      ? (theraPlan.summary || theraPlan.approach || theraPlan.goals?.length)
+      : (draft.trim() || privateNotes.trim());
+    const isApproved = status === 'Aprovado';
+    if (!patientId || !hasContent || isApproved) { onClose(); return; }
+    try {
+      const body = {
+        patient_id: patientId,
+        title,
+        record_type: recordType,
+        appointment_type: appointmentType,
+        created_at: sessionDate,
+        start_time: startTime,
+        end_time: endTime,
+        status: 'Rascunho',
+        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        draft_content: recordType === 'Plano' ? (theraPlan.summary || '') : draft,
+        restricted_content: privateNotes,
+        ai_organized_content: recordType === 'Plano' ? JSON.stringify(theraPlan) : (organized ? JSON.stringify(organized) : null),
+        content: recordType === 'Plano' ? `Plano Terapêutico — ${theraPlan.approach} | ${theraPlan.summary || ''}` : (organized ? Object.values(organized).join('\n\n') : draft),
+        attachments
+      };
+      if (record?.id) { await api.put(`/medical-records/${record.id}`, body); }
+      else { await api.post('/medical-records', body); }
+      pushToast('info', 'Rascunho salvo automaticamente.');
+      onSave();
+    } catch { /* silencioso */ }
+    onClose();
+  };
+
   const approve = async (pw: string) => {
     if (!record?.id) { await save('Aprovado'); return; }
     await api.post(`/medical-records/${record.id}/approve`, { password: pw });
@@ -1551,13 +1583,13 @@ const RecordEditor: React.FC<{
   return (
     <Modal
       isOpen={true}
-      onClose={onClose}
+      onClose={handleClose}
       title={recordType === 'Plano' ? (mode === 'new' ? 'Plano Terapêutico' : 'Editar Plano') : (mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro')}
       subtitle={title}
       maxWidth={recordType === 'Plano' ? '5xl' : 'full'}
       footer={recordType === 'Plano' ? (
         <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="ghost" onClick={onClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
+          <Button variant="ghost" onClick={handleClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
           <Button onClick={() => save()} isLoading={saving} variant="primary" className="h-9 sm:h-10 px-5 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-emerald-200 bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
             <Save size={14}/> Salvar Plano
           </Button>
@@ -1580,7 +1612,7 @@ const RecordEditor: React.FC<{
            </div>
            {/* Actions */}
            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={onClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
+              <Button variant="ghost" onClick={handleClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
               <Button onClick={() => save()} isLoading={saving} variant="primary" className="flex-1 sm:flex-none h-9 sm:h-10 px-4 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-indigo-200">
                 <Save size={14}/> <span className="hidden xs:inline">Salvar</span> Rascunho
               </Button>
@@ -2639,16 +2671,37 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     const byType: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
     const byMonth: Record<string, number> = {};
+    let totalDuration = 0;
+    let durationCount = 0;
     patientRecords.forEach(r => {
-      byType[TYPE_LABELS[r.record_type] || r.record_type] = (byType[r.record_type] || 0) + 1;
-      byStatus[r.status || 'Rascunho'] = (byStatus[r.status] || 0) + 1;
-      const m = new Date(r.created_at).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      const typeLabel = TYPE_LABELS[r.record_type] || r.record_type;
+      byType[typeLabel] = (byType[typeLabel] || 0) + 1;
+      const statusKey = r.status || 'Rascunho';
+      byStatus[statusKey] = (byStatus[statusKey] || 0) + 1;
+      const m = new Date(r.created_at + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
       byMonth[m] = (byMonth[m] || 0) + 1;
+      if (r.start_time && r.end_time) {
+        const [sh, sm] = r.start_time.split(':').map(Number);
+        const [eh, em] = r.end_time.split(':').map(Number);
+        const mins = (eh * 60 + em) - (sh * 60 + sm);
+        if (mins > 0) { totalDuration += mins; durationCount++; }
+      }
     });
+    const sorted = [...patientRecords].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const firstDate = sorted[0]?.created_at;
+    const lastDate = sorted[sorted.length - 1]?.created_at;
+    const avgPerMonth = byMonth ? (patientRecords.length / Math.max(Object.keys(byMonth).length, 1)).toFixed(1) : '—';
+    const approvedCount = byStatus['Aprovado'] || 0;
+    const approvalRate = Math.round((approvedCount / patientRecords.length) * 100);
+    const avgDuration = durationCount > 0 ? Math.round(totalDuration / durationCount) : null;
+    const STATUS_ORDER = ['Aprovado', 'Revisado', 'Rascunho'];
     return {
-      byType: Object.entries(byType).map(([name, value]) => ({ name, value })),
-      byStatus: Object.entries(byStatus).map(([name, value]) => ({ name, value })),
-      byMonth: Object.entries(byMonth).map(([name, count]) => ({ name, count }))
+      byType: Object.entries(byType).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
+      byStatus: STATUS_ORDER.map(s => ({ name: s, value: byStatus[s] || 0 })).filter(s => s.value > 0).concat(
+        Object.entries(byStatus).filter(([k]) => !STATUS_ORDER.includes(k)).map(([name, value]) => ({ name, value }))
+      ),
+      byMonth: Object.entries(byMonth).map(([name, count]) => ({ name, count })),
+      stats: { avgPerMonth, approvalRate, avgDuration, firstDate, lastDate, total: patientRecords.length }
     };
   }, [patientRecords]);
 
@@ -3533,39 +3586,133 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
           {/* Análise */}
           {activeTab === 'analysis' && analysisData && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-fadeIn">
-              <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-                <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4">Evolução por Mês</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={analysisData.byMonth}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700 }}/>
-                    <YAxis tick={{ fontSize: 11 }}/>
-                    <Tooltip/>
-                    <Bar dataKey="count" fill="#4f46e5" radius={[6, 6, 0, 0]}/>
-                  </BarChart>
-                </ResponsiveContainer>
+            <div className="space-y-4 animate-fadeIn">
+              {/* KPI row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  {
+                    label: 'Média / mês',
+                    value: analysisData.stats.avgPerMonth,
+                    sub: 'registros por mês',
+                    icon: <TrendingUp size={15}/>,
+                    color: 'indigo',
+                  },
+                  {
+                    label: 'Taxa de aprovação',
+                    value: `${analysisData.stats.approvalRate}%`,
+                    sub: `${analysisData.byStatus.find(s => s.name === 'Aprovado')?.value ?? 0} de ${analysisData.stats.total} aprovados`,
+                    icon: <CheckCircle2 size={15}/>,
+                    color: 'emerald',
+                  },
+                  {
+                    label: 'Duração média',
+                    value: analysisData.stats.avgDuration ? `${analysisData.stats.avgDuration} min` : '—',
+                    sub: analysisData.stats.avgDuration ? 'por sessão registrada' : 'sem horários registrados',
+                    icon: <Clock size={15}/>,
+                    color: 'violet',
+                  },
+                  {
+                    label: 'Período',
+                    value: analysisData.stats.firstDate ? fmtDate(analysisData.stats.firstDate) : '—',
+                    sub: analysisData.stats.lastDate && analysisData.stats.firstDate !== analysisData.stats.lastDate ? `até ${fmtDate(analysisData.stats.lastDate)}` : 'único registro',
+                    icon: <CalendarDays size={15}/>,
+                    color: 'amber',
+                  },
+                ].map(k => (
+                  <div key={k.label} className={`bg-white rounded-[20px] border border-${k.color}-100 p-4 shadow-sm`}>
+                    <div className={`w-8 h-8 rounded-xl bg-${k.color}-50 text-${k.color}-600 flex items-center justify-center mb-3`}>{k.icon}</div>
+                    <div className="text-xl font-black text-slate-800 leading-none mb-1">{k.value}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{k.label}</div>
+                    <div className="text-[9px] font-medium text-slate-300 mt-0.5 truncate">{k.sub}</div>
+                  </div>
+                ))}
               </div>
-              <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-                <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4">Status dos Registros</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie data={analysisData.byStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name }) => name}>
-                      {analysisData.byStatus.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>)}
-                    </Pie>
-                    <Tooltip/>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="lg:col-span-2 bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-                <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4">Por Tipo de Registro</h3>
-                <div className="flex flex-wrap gap-3">
-                  {analysisData.byType.map((t, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
-                      <div className="w-3 h-3 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
-                      <span className="font-black text-slate-700 text-sm">{t.name}</span>
-                      <span className="text-xs font-bold text-slate-400">{t.value}</span>
+
+              {/* Charts row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Evolução por mês — ocupa 2 colunas */}
+                <div className="lg:col-span-2 bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Registros por Mês</h3>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Frequência de atendimentos ao longo do tempo</p>
                     </div>
-                  ))}
+                  </div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={analysisData.byMonth} barSize={32}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} axisLine={false} tickLine={false}/>
+                      <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false}/>
+                      <Tooltip
+                        contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', fontSize: 12, fontWeight: 700 }}
+                        formatter={(v: any) => [v, 'Registros']}
+                        cursor={{ fill: '#f1f5f9', radius: 8 }}
+                      />
+                      <Bar dataKey="count" fill="#4f46e5" radius={[8, 8, 0, 0]}/>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Status donut */}
+                <div className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm flex flex-col">
+                  <div className="mb-4">
+                    <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Status</h3>
+                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">Distribuição atual dos registros</p>
+                  </div>
+                  <div className="flex-1 flex flex-col justify-center">
+                    <ResponsiveContainer width="100%" height={160}>
+                      <PieChart>
+                        <Pie data={analysisData.byStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3}>
+                          {analysisData.byStatus.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>)}
+                        </Pie>
+                        <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', fontSize: 12, fontWeight: 700 }}/>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-col gap-2 mt-2">
+                      {analysisData.byStatus.map((s, i) => (
+                        <div key={s.name} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
+                            <span className="text-[11px] font-bold text-slate-600">{s.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-black text-slate-800">{s.value}</span>
+                            <span className="text-[9px] font-bold text-slate-300">{Math.round((s.value / analysisData.stats.total) * 100)}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tipo de registro — barra horizontal proporcional */}
+              <div className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm">
+                <div className="mb-4">
+                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Tipos de Registro</h3>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">Distribuição por categoria de prontuário</p>
+                </div>
+                <div className="space-y-3">
+                  {analysisData.byType.map((t, i) => {
+                    const pct = Math.round((t.value / analysisData.stats.total) * 100);
+                    return (
+                      <div key={t.name}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
+                            <span className="text-[11px] font-black text-slate-700">{t.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-black text-slate-800">{t.value}</span>
+                            <span className="text-[9px] font-bold text-slate-400 w-8 text-right">{pct}%</span>
+                          </div>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: PIE_COLORS[i % PIE_COLORS.length] }}/>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
