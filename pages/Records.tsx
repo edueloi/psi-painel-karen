@@ -645,17 +645,27 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
                 <Layers size={14} className="text-indigo-500"/> Anexos
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {record.attachments.map((att: any, idx: number) => (
-                  <a key={idx} href={getStaticUrl(att.file_url || att.url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors group">
-                     <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
-                       <FileText size={18} className="text-indigo-500" />
-                     </div>
-                     <div className="truncate">
-                       <p className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors">{att.file_name}</p>
-                       <p className="text-[10px] text-slate-400 font-medium">{att.file_size ? (att.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'Tamanho desconhecido'}</p>
-                     </div>
-                  </a>
-                ))}
+                {record.attachments.map((att: any, idx: number) => {
+                  const isImage = att.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.file_name || '');
+                  const url = getStaticUrl(att.file_url || att.url);
+                  return (
+                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors group">
+                      {isImage ? (
+                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-200 group-hover:border-indigo-300 transition-colors">
+                          <img src={url} alt={att.file_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                          <FileText size={18} className="text-indigo-500" />
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <p className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors">{att.file_name}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{att.file_size ? (att.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'Tamanho desconhecido'}</p>
+                      </div>
+                    </a>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1801,17 +1811,30 @@ const RecordEditor: React.FC<{
               
               {attachments.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                  {attachments.map((att, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                       <div className="flex items-center gap-3 overflow-hidden">
-                          <FileText size={18} className="text-indigo-500" />
+                  {attachments.map((att, idx) => {
+                    const isImage = att.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.file_name || '');
+                    const url = getStaticUrl(att.file_url || att.url);
+                    return (
+                      <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 overflow-hidden group flex-1 min-w-0">
+                          {isImage ? (
+                            <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                              <img src={url} alt={att.file_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                              <FileText size={18} className="text-indigo-500" />
+                            </div>
+                          )}
                           <div className="truncate">
-                            <p className="text-xs font-bold text-slate-700 truncate">{att.file_name}</p>
+                            <p className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors">{att.file_name}</p>
+                            {att.file_size ? <p className="text-[10px] text-slate-400">{(att.file_size / 1024 / 1024).toFixed(2)} MB</p> : null}
                           </div>
-                       </div>
-                       <button onClick={() => removeAttachment(idx)} className="text-rose-500 hover:text-rose-700"><Trash2 size={14} /></button>
-                    </div>
-                  ))}
+                        </a>
+                        <button onClick={() => removeAttachment(idx)} className="text-rose-500 hover:text-rose-700 ml-2 shrink-0"><Trash2 size={14} /></button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

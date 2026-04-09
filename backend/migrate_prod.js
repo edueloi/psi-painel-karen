@@ -42,6 +42,26 @@ async function migrate() {
       console.warn('⚠️ Tabela alerts não encontrada ou erro, ignorando...');
     }
 
+    // 3. Tabela de anexos de prontuários
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS medical_record_attachments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          record_id INT NOT NULL,
+          file_name VARCHAR(255),
+          file_url VARCHAR(500),
+          file_type VARCHAR(100),
+          file_size INT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_mrat_record (record_id),
+          FOREIGN KEY (record_id) REFERENCES medical_records(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+      console.log('✅ Tabela medical_record_attachments criada/verificada.');
+    } catch (e) {
+      console.warn('⚠️ Erro ao criar medical_record_attachments:', e.message);
+    }
+
     console.log('🏁 Migração concluída com sucesso!');
   } catch (err) {
     console.error('❌ Erro na migração:', err.message);
