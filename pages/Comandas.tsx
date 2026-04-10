@@ -465,16 +465,18 @@ export const Comandas: React.FC = () => {
     setSelectedIds(new Set());
   }, [searchTerm, statusFilter, closedDateFrom, closedDateTo, itemsPerPage]);
 
-  // Fetch livro caixa transactions linked to the open comanda
+  // Fetch livro caixa transaction linked to the open comanda (via livrocaixa_tx_id)
   useEffect(() => {
     if (!historyComanda) { setComandaLivroCaixaTx([]); return; }
-    api.get<any[]>('/finance', { comanda_id: String(historyComanda.id) }).then((all: any[]) => {
+    const lcTxId = (historyComanda as any).livrocaixa_tx_id;
+    if (!lcTxId) { setComandaLivroCaixaTx([]); return; }
+    api.get<any[]>('/finance').then((all: any[]) => {
       const linked = (Array.isArray(all) ? all : []).filter(
-        (tx: any) => String(tx.comanda_id) === String(historyComanda.id)
+        (tx: any) => String(tx.id) === String(lcTxId)
       );
       setComandaLivroCaixaTx(linked);
     }).catch(() => setComandaLivroCaixaTx([]));
-  }, [historyComanda?.id]);
+  }, [historyComanda?.id, (historyComanda as any)?.livrocaixa_tx_id]);
 
   const totalPages = Math.max(1, Math.ceil(filteredComandas.length / itemsPerPage));
   const currentComandas = useMemo(() => {
@@ -1050,12 +1052,17 @@ export const Comandas: React.FC = () => {
       const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));
       if (updated) setHistoryComanda(updated);
       
-      // Update livro caixa state as well
-      const allTx = await api.get<any[]>('/finance', { comanda_id: String(historyComanda.id) });
-      const linked = (Array.isArray(allTx) ? allTx : []).filter(
-        (tx: any) => String(tx.comanda_id) === String(historyComanda.id)
-      );
-      setComandaLivroCaixaTx(linked);
+      // Update livro caixa state: busca pelo livrocaixa_tx_id da comanda atualizada
+      const lcTxId = (updated as any)?.livrocaixa_tx_id;
+      if (lcTxId) {
+        const allTx = await api.get<any[]>('/finance');
+        const linked = (Array.isArray(allTx) ? allTx : []).filter(
+          (tx: any) => String(tx.id) === String(lcTxId)
+        );
+        setComandaLivroCaixaTx(linked);
+      } else {
+        setComandaLivroCaixaTx([]);
+      }
 
     } catch (error) {
       console.error(error);
@@ -1089,11 +1096,16 @@ export const Comandas: React.FC = () => {
       const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));
       if (updated) setHistoryComanda(updated);
       
-      const allTx = await api.get<any[]>('/finance', { comanda_id: String(historyComanda.id) });
-      const linked = (Array.isArray(allTx) ? allTx : []).filter(
-        (tx: any) => String(tx.comanda_id) === String(historyComanda.id)
-      );
-      setComandaLivroCaixaTx(linked);
+      const lcTxId2 = (updated as any)?.livrocaixa_tx_id;
+      if (lcTxId2) {
+        const allTx = await api.get<any[]>('/finance');
+        const linked = (Array.isArray(allTx) ? allTx : []).filter(
+          (tx: any) => String(tx.id) === String(lcTxId2)
+        );
+        setComandaLivroCaixaTx(linked);
+      } else {
+        setComandaLivroCaixaTx([]);
+      }
       setIsDeletePaymentModalOpen(false);
       setPaymentToDelete(null);
     } catch (err: any) {

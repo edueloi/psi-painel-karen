@@ -11,6 +11,8 @@ import {
   Edit2, Pin, PinOff,
   Check,
   Lock as LockIcon, Unlock as UnlockIcon,
+  Receipt, CircleDashed,
+  CalendarCheck, CalendarClock, UserCheck,
 } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
@@ -49,6 +51,11 @@ interface Transaction {
   comanda_total?: number;
   comanda_paid_value?: number;
   comanda_status?: string;
+  // Receita Saúde receipt control
+  rs_receipt_issued?: boolean | number;
+  rs_receipt_issued_at?: string | null;
+  rs_receipt_issued_by?: number | null;
+  rs_receipt_note?: string | null;
 }
 
 interface MonthSummary {
@@ -82,6 +89,16 @@ const CATEGORIES_EXPENSE = [
   'Aluguel/Sublocação', 'Marketing/Anúncios', 'Impostos/CRP', 'Software/Sistemas',
   'Educação/Livros', 'Material de Escritório', 'Outros',
 ];
+
+// Categorias de receita clínica elegíveis para Receita Saúde
+const RS_ELIGIBLE_CATEGORIES = new Set([
+  'Geral', 'Sessão Individual', 'Pacote de Sessões', 'Avaliação', 'Supervisão',
+]);
+
+const isRsEligible = (tx: { type: string; category?: string; patient_name?: string; payer_name?: string; beneficiary_name?: string }) =>
+  tx.type === 'income' &&
+  RS_ELIGIBLE_CATEGORIES.has(tx.category || '') &&
+  !!(tx.patient_name || tx.beneficiary_name || tx.payer_name);
 
 const MONTH_NAMES = [
   'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
@@ -611,6 +628,25 @@ export const LivroCaixa: React.FC = () => {
   const [txDiscountType, setTxDiscountType] = useState<'fixed' | 'percentage'>('fixed');
   const serviceRef = useRef<HTMLDivElement>(null);
 
+  // ── Package Sessions (Drawer detail) ─────────────────────────────────────────
+  interface PkgSession { id: number; date: string | null; time: string | null; status: string; professional_name: string | null; modality: string | null; notes: string | null; }
+  interface PkgSessionsData { eligible: boolean; reason?: string; comanda?: { id: number; description: string | null; sessions_total: number | null; sessions_used: number | null; }; completed: PkgSession[]; upcoming: PkgSession[]; no_show: PkgSession[]; cancelled: PkgSession[]; }
+  const [pkgSessions, setPkgSessions] = useState<PkgSessionsData | null>(null);
+  const [pkgSessionsLoading, setPkgSessionsLoading] = useState(false);
+
+  const fetchPkgSessions = async (txId: number) => {
+    setPkgSessions(null);
+    setPkgSessionsLoading(true);
+    try {
+      const data = await api.get<PkgSessionsData>(`/finance/${txId}/package-sessions`);
+      setPkgSessions(data);
+    } catch {
+      setPkgSessions(null);
+    } finally {
+      setPkgSessionsLoading(false);
+    }
+  };
+
   // ── History Drawer ────────────────────────────────────────────────────────────
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [historyData, setHistoryData] = useState<{comanda?: any; payments?: any[]} | null>(null);
@@ -630,6 +666,25 @@ export const LivroCaixa: React.FC = () => {
       pushToast('error', 'Erro ao carregar histórico');
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  // ── Receita Saúde receipt control ────────────────────────────────────────────
+  const [rsFilter, setRsFilter] = useState<'all' | 'issued' | 'pending' | 'na'>('all');
+  const [rsConfirm, setRsConfirm] = useState<{ tx: Transaction; newValue: boolean } | null>(null);
+  const [rsLoading, setRsLoading] = useState<number | null>(null);
+
+  const handleToggleRsReceipt = async (tx: Transaction, newValue: boolean) => {
+    setRsLoading(tx.id);
+    try {
+      const updated = await api.patch<Transaction>(`/finance/${tx.id}/rs-receipt`, { issued: newValue });
+      setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, ...updated } : t));
+      pushToast('success', newValue ? 'Recibo marcado como emitido' : 'Recibo desmarcado');
+    } catch (e: any) {
+      pushToast('error', e?.response?.data?.error || 'Erro ao atualizar recibo');
+    } finally {
+      setRsLoading(null);
+      setRsConfirm(null);
     }
   };
 
@@ -824,6 +879,14 @@ export const LivroCaixa: React.FC = () => {
   const filtered = transactions
     .filter((tx) => {
       if (flowFilter !== 'all' && tx.type !== flowFilter) return false;
+      if (rsFilter !== 'all') {
+        const eligible = isRsEligible(tx);
+        if (rsFilter === 'na' && eligible) return false;
+        if (rsFilter === 'na' && !eligible) return true;
+        if (!eligible) return false;
+        if (rsFilter === 'issued' && !tx.rs_receipt_issued) return false;
+        if (rsFilter === 'pending' && tx.rs_receipt_issued) return false;
+      }
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         return (
@@ -858,7 +921,7 @@ export const LivroCaixa: React.FC = () => {
     });
 
   // Reset page on filter/search change
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, flowFilter, selectedMonth]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, flowFilter, rsFilter, selectedMonth]);
 
   const monthLabel = selectedMonth
     ? `${MONTH_NAMES[selectedMonth.month - 1]}-${selectedMonth.year}`
@@ -1377,6 +1440,47 @@ export const LivroCaixa: React.FC = () => {
       ),
     },
     {
+      header: 'Recibo RS',
+      headerClassName: 'text-center w-[90px]',
+      render: (tx) => {
+        const eligible = isRsEligible(tx);
+        const issued = !!tx.rs_receipt_issued;
+        const isLoading = rsLoading === tx.id;
+
+        if (!eligible) {
+          return (
+            <div className="flex justify-center">
+              <span title="Este lançamento não se aplica a recibo Receita Saúde" className="text-slate-200 cursor-default select-none text-lg leading-none">—</span>
+            </div>
+          );
+        }
+
+        const tooltip = issued
+          ? `Recibo emitido${tx.rs_receipt_issued_at ? ` em ${new Date(tx.rs_receipt_issued_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}${tx.rs_receipt_note ? `\n${tx.rs_receipt_note}` : ''}`
+          : 'Recibo Receita Saúde ainda não emitido';
+
+        return (
+          <div className="flex justify-center">
+            {isLoading ? (
+              <Loader2 size={18} className="animate-spin text-slate-300" />
+            ) : (
+              <button
+                title={tooltip}
+                onClick={(e) => { e.stopPropagation(); setRsConfirm({ tx, newValue: !issued }); }}
+                className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all ${
+                  issued
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'
+                    : 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100'
+                }`}
+              >
+                {issued ? <Receipt size={14} /> : <CircleDashed size={14} />}
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       header: '',
       headerClassName: 'w-[180px] text-right',
       render: (tx) => (
@@ -1763,7 +1867,8 @@ export const LivroCaixa: React.FC = () => {
               className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-slate-100 bg-slate-50 text-sm font-bold text-slate-700 outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:font-normal placeholder:text-slate-400"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Filtro de fluxo */}
             <div className="flex items-center gap-3 bg-slate-100 p-1.5 rounded-2xl">
               {[
                 { value: 'all',     label: 'Todos os Fluxos' },
@@ -1780,6 +1885,34 @@ export const LivroCaixa: React.FC = () => {
                   }`}
                 >
                   <Filter size={10} /> {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Filtro Receita Saúde */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-2xl">
+              <Receipt size={10} className="text-slate-400 ml-1 shrink-0" />
+              {[
+                { value: 'all',     label: 'Todos' },
+                { value: 'pending', label: 'Pendente' },
+                { value: 'issued',  label: 'Emitido' },
+                { value: 'na',      label: 'N/A' },
+              ].map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => setRsFilter(f.value as any)}
+                  title={f.value === 'pending' ? 'Recibo ainda não emitido' : f.value === 'issued' ? 'Recibo já emitido' : f.value === 'na' ? 'Não se aplica' : 'Todos os lançamentos'}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    rsFilter === f.value
+                      ? f.value === 'pending'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : f.value === 'issued'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {f.label}
                 </button>
               ))}
             </div>
@@ -1855,7 +1988,7 @@ export const LivroCaixa: React.FC = () => {
                 sortKey={sortKey}
                 sortOrder={sortOrder}
                  onSort={handleSort}
-                onRowClick={(tx) => setSelectedTxForDetails(tx)}
+                onRowClick={(tx) => { setSelectedTxForDetails(tx); fetchPkgSessions(tx.id); }}
               />
               {filtered.length > 0 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-white rounded-b-2xl">
@@ -2587,6 +2720,55 @@ export const LivroCaixa: React.FC = () => {
         </div>
       </Modal>
 
+      {/* ── RS Receipt Confirm Modal ────────────────────────────────────────── */}
+      <Modal
+        isOpen={rsConfirm !== null}
+        onClose={() => setRsConfirm(null)}
+        title={rsConfirm?.newValue ? 'Marcar recibo como emitido' : 'Desmarcar recibo'}
+        maxWidth="sm"
+        footer={
+          <>
+            <button
+              onClick={() => setRsConfirm(null)}
+              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => rsConfirm && handleToggleRsReceipt(rsConfirm.tx, rsConfirm.newValue)}
+              className={`px-8 py-3 rounded-2xl text-[10px] font-black text-white shadow-xl transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 ${
+                rsConfirm?.newValue ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-100' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-100'
+              }`}
+            >
+              <Receipt size={14} /> Confirmar
+            </button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4 py-2">
+          <div className={`flex items-start gap-4 p-4 rounded-2xl border ${rsConfirm?.newValue ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+            <Receipt size={22} className={rsConfirm?.newValue ? 'text-emerald-500 shrink-0' : 'text-amber-500 shrink-0'} />
+            <div>
+              <p className={`text-sm font-black uppercase tracking-wider mb-1 ${rsConfirm?.newValue ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {rsConfirm?.newValue ? 'Confirmar emissão do recibo' : 'Desmarcar recibo emitido'}
+              </p>
+              <p className="text-sm font-bold text-slate-600 leading-snug">
+                {rsConfirm?.newValue
+                  ? 'Confirme que o recibo do Receita Saúde deste lançamento já foi emitido no portal.'
+                  : 'Deseja marcar este lançamento como recibo ainda não emitido?'}
+              </p>
+            </div>
+          </div>
+          {rsConfirm?.tx && (
+            <div className="px-4 py-3 rounded-2xl border-2 border-slate-100 bg-slate-50/50">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lançamento:</p>
+              <p className="text-sm font-black text-slate-700">{rsConfirm.tx.description}</p>
+              <p className="text-[10px] font-bold text-slate-400">{rsConfirm.tx.patient_name || rsConfirm.tx.payer_name} · {formatCurrency(rsConfirm.tx.amount)}</p>
+            </div>
+          )}
+        </div>
+      </Modal>
+
       {/* ── Aura Contábil Chat ───────────────────────────────────────────────── */}
       <AuraContabil isOpen={isAuraContabilOpen} onClose={() => setIsAuraContabilOpen(false)} />
 
@@ -2804,7 +2986,7 @@ export const LivroCaixa: React.FC = () => {
       {/* ── Transaction Details Drawer ────────────────────────────────────────── */}
       <ActionDrawer
         isOpen={selectedTxForDetails !== null}
-        onClose={() => setSelectedTxForDetails(null)}
+        onClose={() => { setSelectedTxForDetails(null); setPkgSessions(null); }}
         title="Detalhes do Lançamento"
         subtitle={selectedTxForDetails?.description?.toUpperCase() || 'RESUMO DA TRANSAÇÃO'}
         size="md"
@@ -2904,6 +3086,138 @@ export const LivroCaixa: React.FC = () => {
                  <p className="text-sm font-medium text-amber-700/80 leading-relaxed italic">{selectedTxForDetails.observation}</p>
               </div>
             )}
+
+            {/* ── Sessões do Pacote ───────────────────────────────────────────── */}
+            {pkgSessionsLoading && (
+              <div className="flex items-center gap-3 py-4 px-5 rounded-[2rem] bg-slate-50 border border-slate-100">
+                <Loader2 size={16} className="animate-spin text-slate-400 shrink-0" />
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Carregando sessões do pacote...</span>
+              </div>
+            )}
+
+            {!pkgSessionsLoading && pkgSessions?.eligible && (() => {
+              const { comanda, completed, upcoming, no_show } = pkgSessions;
+              const total = comanda?.sessions_total ?? null;
+              const done  = completed.length;
+              const pct   = total ? Math.round((done / total) * 100) : null;
+
+              const fmtDate = (d: string | null) => d
+                ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : '—';
+
+              return (
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                  {/* Header da seção */}
+                  <div className="px-5 pt-5 pb-4 border-b border-slate-50">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <p className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        <CalendarCheck size={13} className="text-indigo-500" />
+                        Sessões realizadas neste pacote
+                      </p>
+                      {total && (
+                        <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border ${
+                          done >= total ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                        }`}>
+                          {done}/{total} sessões
+                        </span>
+                      )}
+                    </div>
+                    {/* Barra de progresso */}
+                    {total && (
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${done >= total ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                          style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
+                        />
+                      </div>
+                    )}
+                    {comanda?.description && (
+                      <p className="text-[10px] font-bold text-slate-400 mt-2 truncate">{comanda.description}</p>
+                    )}
+                  </div>
+
+                  {/* Lista de sessões concluídas */}
+                  <div className="divide-y divide-slate-50">
+                    {completed.length === 0 ? (
+                      <div className="px-5 py-6 text-center">
+                        <CalendarClock size={28} className="text-slate-200 mx-auto mb-2" />
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                          Nenhum atendimento realizado ainda para este pacote.
+                        </p>
+                      </div>
+                    ) : (
+                      completed.map((s) => (
+                        <div key={s.id} className="flex items-center gap-3 px-5 py-3">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                            <UserCheck size={13} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-slate-700">
+                              {fmtDate(s.date)}{s.time ? ` às ${s.time}` : ''}
+                            </p>
+                            {s.professional_name && (
+                              <p className="text-[9px] font-bold text-slate-400 truncate">{s.professional_name}</p>
+                            )}
+                          </div>
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
+                            Realizado
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Faltas */}
+                  {no_show.length > 0 && (
+                    <div className="border-t border-slate-50">
+                      <p className="px-5 pt-3 pb-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">Faltas ({no_show.length})</p>
+                      {no_show.map((s) => (
+                        <div key={s.id} className="flex items-center gap-3 px-5 py-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 text-rose-400 flex items-center justify-center shrink-0">
+                            <X size={12} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-slate-600">
+                              {fmtDate(s.date)}{s.time ? ` às ${s.time}` : ''}
+                            </p>
+                          </div>
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0">
+                            Faltou
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Próximas sessões */}
+                  {upcoming.length > 0 && (
+                    <div className="border-t border-slate-50">
+                      <p className="px-5 pt-3 pb-1 text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <CalendarClock size={10} /> Próximas agendadas ({upcoming.length})
+                      </p>
+                      {upcoming.map((s) => (
+                        <div key={s.id} className="flex items-center gap-3 px-5 py-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-400 flex items-center justify-center shrink-0">
+                            <CalendarClock size={13} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-slate-600">
+                              {fmtDate(s.date)}{s.time ? ` às ${s.time}` : ''}
+                            </p>
+                            {s.professional_name && (
+                              <p className="text-[9px] font-bold text-slate-400 truncate">{s.professional_name}</p>
+                            )}
+                          </div>
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+                            {s.status === 'confirmed' ? 'Confirmado' : 'Agendado'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Footer Actions in Drawer */}
             <div className="pt-6 border-t border-slate-100 grid grid-cols-2 lg:grid-cols-3 gap-3">

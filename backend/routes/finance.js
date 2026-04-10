@@ -24,6 +24,11 @@ async function ensureFinanceColumns() {
     "ALTER TABLE financial_transactions ADD COLUMN created_by INT NULL",
     "ALTER TABLE financial_transactions ADD COLUMN source VARCHAR(50) DEFAULT 'direct'",
     "ALTER TABLE financial_transactions MODIFY COLUMN status VARCHAR(50) DEFAULT 'paid'",
+    // ── Receita Saúde receipt control ──
+    "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_issued TINYINT(1) NOT NULL DEFAULT 0",
+    "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_issued_at TIMESTAMP NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_issued_by INT NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_note VARCHAR(255) NULL",
     `CREATE TABLE IF NOT EXISTS session_types (
       id VARCHAR(50) PRIMARY KEY,
       tenant_id INT NOT NULL,
@@ -99,14 +104,29 @@ async function withSchema() {
 router.get('/comandas/:id/payments', authMiddleware, async (req, res) => {
   try {
     await withSchema();
+    // Busca primeiro de comanda_payments (fonte primária após refatoração)
+    const [cpRows] = await db.query(
+      `SELECT id, amount, payment_date, payment_method, notes, created_at, NULL as source, NULL as created_by_name
+       FROM comanda_payments
+       WHERE comanda_id = ? AND tenant_id = ?
+       ORDER BY created_at DESC`,
+      [req.params.id, req.user.tenant_id]
+    );
+
+    // Se não houver registros em comanda_payments, faz fallback para financial_transactions (dados legados)
+    if (cpRows.length > 0) {
+      return res.json(cpRows);
+    }
+
     const [rows] = await db.query(
-      `SELECT t.id, t.amount, t.date as payment_date, t.payment_method, t.observation as notes, 
-              t.created_at as created_at, t.source, u.name as created_by_name
+      `SELECT t.id, t.amount, t.date as payment_date, t.payment_method, t.observation as notes,
+              t.created_at, t.source, u.name as created_by_name
        FROM financial_transactions t
        LEFT JOIN users u ON u.id = t.created_by
        WHERE t.comanda_id = ? AND t.tenant_id = ? AND t.type = 'income' AND t.status != 'cancelled'
+         AND t.id != COALESCE((SELECT livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ? LIMIT 1), -1)
        ORDER BY t.created_at DESC`,
-      [req.params.id, req.user.tenant_id]
+      [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id]
     );
     res.json(rows);
   } catch (err) {
@@ -135,12 +155,13 @@ router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_pa
       [req.user.tenant_id, req.params.id, parseFloat(amount), payDate, payMethod, receipt_code || null, notes || null]
     );
 
-    // Atualizar paid_value acumulado na comanda lendo apenas de financial_transactions
+    // Calcular paid_value acumulado a partir dos pagamentos individuais registrados (comanda_payments)
     const [payments] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
+      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?`,
       [req.params.id, req.user.tenant_id]
     );
-    const totalPaid = parseFloat(payments[0].total) + parseFloat(amount); // Somamos com o amount atual pois o INSERT no financial_transactions ocorre mais abaixo
+    // O INSERT do comanda_payment acima já foi feito, então payments[0].total já inclui o valor atual
+    const totalPaid = parseFloat(payments[0].total);
 
     const [comanda] = await db.query(
       'SELECT total, patient_id, professional_id, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?',
@@ -155,22 +176,6 @@ router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_pa
     await db.query(
       'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
       [totalPaid, newStatus, req.params.id, req.user.tenant_id]
-    );
-
-    // Criar lançamento financeiro vinculado para aparecer no Financeiro e Melhores Clientes
-    await db.query(
-      `INSERT INTO financial_transactions
-         (tenant_id, type, category, description, amount, date, patient_id, comanda_id, payment_method, status)
-       VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, ?, 'paid')`,
-      [
-        req.user.tenant_id,
-        `Pagamento comanda #${req.params.id}${receipt_code ? ` - ${receipt_code}` : ''}`,
-        parseFloat(amount),
-        payDate,
-        comanda[0]?.patient_id || null,
-        req.params.id,
-        payMethod,
-      ]
     );
 
     // Se comanda tem sync_to_livrocaixa, atualizar/criar lançamento no livro caixa (sem comanda_id)
@@ -218,17 +223,17 @@ router.put('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission(
     const payDate = payment_date || new Date().toISOString().slice(0, 10);
     const payMethod = payment_method || 'Pix';
 
-    // Atualizar transação financeira (que é onde o GET de pagamentos busca)
+    // Atualizar pagamento individual em comanda_payments (fonte única de verdade)
     await db.query(
-      `UPDATE financial_transactions 
-       SET amount = ?, date = ?, payment_method = ?, observation = ? 
+      `UPDATE comanda_payments
+       SET amount = ?, payment_date = ?, payment_method = ?, notes = ?
        WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
       [parseFloat(amount), payDate, payMethod, notes || null, req.params.paymentId, req.params.id, req.user.tenant_id]
     );
 
-    // Recalcular paid_value com base na tabela financeira unificada
+    // Recalcular paid_value a partir de comanda_payments (fonte única de verdade)
     const [payments] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
+      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?`,
       [req.params.id, req.user.tenant_id]
     );
     const totalPaid = parseFloat(payments[0].total);
@@ -244,6 +249,19 @@ router.put('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission(
       [totalPaid, newStatus, req.params.id, req.user.tenant_id]
     );
 
+    // Atualizar lançamento livro caixa se sync ativo
+    const [cmdRowUpd] = await db.query(
+      'SELECT sync_to_livrocaixa, livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?',
+      [req.params.id, req.user.tenant_id]
+    );
+    if (cmdRowUpd.length > 0 && cmdRowUpd[0].sync_to_livrocaixa && cmdRowUpd[0].livrocaixa_tx_id) {
+      const txStatusUpd = totalPaid > 0 ? 'paid' : 'pending';
+      await db.query(
+        `UPDATE financial_transactions SET amount = ?, status = ?, date = ? WHERE id = ? AND tenant_id = ?`,
+        [totalPaid, txStatusUpd, payDate, cmdRowUpd[0].livrocaixa_tx_id, req.user.tenant_id]
+      );
+    }
+
     res.json({ success: true, totalPaid, status: newStatus });
   } catch (err) {
     console.error('Erro ao atualizar pagamento:', err);
@@ -256,15 +274,15 @@ router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermissi
   try {
     await withSchema();
 
-    // Como o pagamento agora reflete unicamente o lançamento principal, excluímos direto dele.
+    // Exclui o pagamento individual de comanda_payments
     await db.query(
-      `DELETE FROM financial_transactions WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
+      `DELETE FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
       [req.params.paymentId, req.params.id, req.user.tenant_id]
     );
 
-    // Recalcular paid_value com base na tabela financeira unificada
+    // Recalcular paid_value a partir de comanda_payments
     const [payments] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
+      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?`,
       [req.params.id, req.user.tenant_id]
     );
     const totalPaid = parseFloat(payments[0].total);
@@ -317,7 +335,8 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
     let query = `
       SELECT t.*, p.name as patient_name,
              COALESCE(t.comanda_id, c.id) as comanda_id,
-             c.total as comanda_total, c.paid_value as comanda_paid_value, c.status as comanda_status
+             c.total as comanda_total, c.paid_value as comanda_paid_value, c.status as comanda_status,
+             t.rs_receipt_issued, t.rs_receipt_issued_at, t.rs_receipt_issued_by, t.rs_receipt_note
       FROM financial_transactions t
       LEFT JOIN patients p ON p.id = t.patient_id
       LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.livrocaixa_tx_id = t.id)
@@ -678,6 +697,126 @@ router.post('/repeat/:id', authMiddleware, checkPermission('manage_payments'), a
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao repetir lançamento' });
+  }
+});
+
+// GET /finance/:id/package-sessions - Sessões realizadas do pacote vinculado ao lançamento
+router.get('/:id/package-sessions', authMiddleware, async (req, res) => {
+  try {
+    await withFinanceSchema();
+    const tid = req.user.tenant_id;
+    const { id } = req.params;
+
+    // Busca o lançamento e o comanda_id vinculado
+    const [txRows] = await db.query(
+      `SELECT t.id, t.type, t.category, t.patient_id, t.comanda_id,
+              COALESCE(c2.id, t.comanda_id) as resolved_comanda_id,
+              c2.sessions_total, c2.sessions_used, c2.description as comanda_description,
+              c2.patient_id as comanda_patient_id
+       FROM financial_transactions t
+       LEFT JOIN comandas c ON c.livrocaixa_tx_id = t.id
+       LEFT JOIN comandas c2 ON c2.id = COALESCE(t.comanda_id, c.id)
+       WHERE t.id = ? AND t.tenant_id = ?`,
+      [id, tid]
+    );
+
+    if (!txRows.length) return res.status(404).json({ error: 'Lançamento não encontrado' });
+
+    const tx = txRows[0];
+    const comandaId = tx.resolved_comanda_id;
+
+    if (!comandaId) {
+      return res.json({ eligible: false, reason: 'no_comanda' });
+    }
+
+    // Categoria elegível para pacote de sessões
+    const PKG_CATEGORIES = ['Pacote de Sessões', 'Sessão Individual', 'Geral', 'Avaliação'];
+    if (tx.type !== 'income' || !PKG_CATEGORIES.includes(tx.category)) {
+      return res.json({ eligible: false, reason: 'not_package' });
+    }
+
+    // Busca agendamentos vinculados a esta comanda
+    const [appointments] = await db.query(
+      `SELECT a.id, a.start_time, a.status, a.notes, a.modality,
+              u.name as professional_name
+       FROM appointments a
+       LEFT JOIN users u ON u.id = a.professional_id
+       WHERE a.comanda_id = ? AND a.tenant_id = ?
+       ORDER BY a.start_time ASC`,
+      [comandaId, tid]
+    );
+
+    const completed   = appointments.filter(a => a.status === 'completed');
+    const upcoming    = appointments.filter(a => ['scheduled', 'confirmed'].includes(a.status));
+    const noShow      = appointments.filter(a => a.status === 'no_show');
+    const cancelled   = appointments.filter(a => a.status === 'cancelled');
+
+    const fmt = (a) => ({
+      id: a.id,
+      date: a.start_time ? new Date(a.start_time).toISOString().split('T')[0] : null,
+      time: a.start_time ? new Date(a.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : null,
+      status: a.status,
+      notes: a.notes || null,
+      modality: a.modality || null,
+      professional_name: a.professional_name || null,
+    });
+
+    res.json({
+      eligible: true,
+      comanda: {
+        id: comandaId,
+        description: tx.comanda_description || null,
+        sessions_total: tx.sessions_total || null,
+        sessions_used: tx.sessions_used || null,
+      },
+      completed:  completed.map(fmt),
+      upcoming:   upcoming.map(fmt),
+      no_show:    noShow.map(fmt),
+      cancelled:  cancelled.map(fmt),
+    });
+  } catch (err) {
+    console.error('Erro ao buscar sessões do pacote:', err);
+    res.status(500).json({ error: 'Erro ao buscar sessões do pacote' });
+  }
+});
+
+// PATCH /finance/:id/rs-receipt - Marca/desmarca recibo Receita Saúde
+router.patch('/:id/rs-receipt', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  try {
+    await withFinanceSchema();
+    const tid = req.user.tenant_id;
+    const { id } = req.params;
+    const { issued, note } = req.body; // issued: boolean
+
+    const [rows] = await db.query(
+      'SELECT id, type, patient_id, category FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+      [id, tid]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Lançamento não encontrado' });
+
+    const tx = rows[0];
+    // Só elegíveis: entrada com paciente vinculado
+    if (tx.type !== 'income' || !tx.patient_id) {
+      return res.status(400).json({ error: 'Este lançamento não é elegível para recibo Receita Saúde' });
+    }
+
+    const issuedBool = issued ? 1 : 0;
+    const issuedAt   = issued ? new Date() : null;
+    const issuedBy   = issued ? (req.user.id || null) : null;
+    const receiptNote = note || null;
+
+    await db.query(
+      `UPDATE financial_transactions
+         SET rs_receipt_issued = ?, rs_receipt_issued_at = ?, rs_receipt_issued_by = ?, rs_receipt_note = ?
+       WHERE id = ? AND tenant_id = ?`,
+      [issuedBool, issuedAt, issuedBy, receiptNote, id, tid]
+    );
+
+    const [updated] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [id]);
+    res.json(updated[0]);
+  } catch (err) {
+    console.error('Erro ao atualizar recibo RS:', err);
+    res.status(500).json({ error: 'Erro ao atualizar status do recibo' });
   }
 });
 
@@ -1070,11 +1209,12 @@ router.post('/comandas', async (req, res) => {
     const {
       patient_id, professional_id, items, notes,
       payment_method, discount, start_date, duration_minutes, receipt_code,
-      discount_type, discount_value, sessions_total, package_id, sync_to_livrocaixa
+      discount_type, discount_value, sessions_total, package_id, sync_to_livrocaixa,
+      total_value, gross_total_value, paid_value: bodyPaidValue
     } = req.body;
 
     const itemsArr = items || [];
-    const subtotal = itemsArr.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+    const subtotal = itemsArr.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.qty || 1)), 0);
     const dType = discount_type || 'fixed';
     const dValue = parseFloat(discount_value || 0);
 
@@ -1085,6 +1225,11 @@ router.post('/comandas', async (req, res) => {
        total = subtotal - dValue;
     }
     total = Math.max(0, total);
+
+    // Se o cálculo por items resultou em 0 mas o frontend enviou total_value, usa-o como fallback
+    if (total === 0 && total_value && Number(total_value) > 0) {
+      total = Number(total_value);
+    }
 
     // Sessions count calculation from items if sessions_total not explicitly provided
     const sessions_from_items = itemsArr.reduce((sum, item) => sum + (parseInt(item.qty) || 0), 0);
@@ -1138,15 +1283,21 @@ router.post('/comandas', async (req, res) => {
         }
       }
 
+      // Se já veio com paid_value, usa como amount e marca como pago
+      const initialPaid = parseFloat(bodyPaidValue || 0);
+      const txAmount  = initialPaid > 0 ? initialPaid : total;
+      const txStatus  = initialPaid > 0 ? 'paid' : 'pending';
+      const txCategory = req.body.category || 'Pacote de Sessões';
+
       const [txResult] = await db.query(
         `INSERT INTO financial_transactions
            (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
-            payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, comanda_id)
-         VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
+            payer_name, payer_cpf, beneficiary_name, beneficiary_cpf)
+         VALUES (?, 'income', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          req.user.tenant_id, txDescription, total, txDate, patient_id || null, payment_method || 'Pix',
-          payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
-          comandaId
+          req.user.tenant_id, txCategory, txDescription, txAmount, txDate,
+          patient_id || null, payment_method || 'Pix', txStatus,
+          payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf
         ]
       );
       await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [txResult.insertId, comandaId]);
@@ -1185,6 +1336,12 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
            total = subtotal - dValue;
         }
         total = Math.max(0, total);
+
+        // Fallback: se items zerados mas frontend enviou total_value, usa-o
+        const bodyTotalValue = req.body.total_value;
+        if (total === 0 && bodyTotalValue && Number(bodyTotalValue) > 0) {
+          total = Number(bodyTotalValue);
+        }
         const sTotal = Number(sessions_total || 0);
         const sUsed = Number(sessions_used || 0);
         const pValue = parseFloat(paid_value || 0);
@@ -1250,15 +1407,15 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
                 }
             }
 
+            const txCategoryNew = req.body.category || (package_id ? 'Pacote de Sessões' : 'Sessão Individual');
             const [newTx] = await db.query(
                 `INSERT INTO financial_transactions
                    (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
-                    payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, comanda_id)
-                 VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    payer_name, payer_cpf, beneficiary_name, beneficiary_cpf)
+                 VALUES (?, 'income', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    req.user.tenant_id, txDescriptionNew, txAmount, txDate, patient_id || null, payment_method || 'Pix', txStatus,
-                    payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
-                    req.params.id
+                    req.user.tenant_id, txCategoryNew, txDescriptionNew, txAmount, txDate, patient_id || null, payment_method || 'Pix', txStatus,
+                    payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf
                 ]
             );
             await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [newTx.insertId, req.params.id]);
@@ -1295,15 +1452,13 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
             }
 
             await db.query(
-                `UPDATE financial_transactions SET 
+                `UPDATE financial_transactions SET
                     description = ?, amount = ?, date = ?, status = ?, patient_id = ?,
-                    payer_name = ?, payer_cpf = ?, beneficiary_name = ?, beneficiary_cpf = ?,
-                    comanda_id = ?
+                    payer_name = ?, payer_cpf = ?, beneficiary_name = ?, beneficiary_cpf = ?
                  WHERE id = ? AND tenant_id = ?`,
                 [
-                    txDescriptionUpd, txAmount2, txDate2, txStatus2, patient_id || null, 
+                    txDescriptionUpd, txAmount2, txDate2, txStatus2, patient_id || null,
                     payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
-                    req.params.id,
                     currentLcTxId, req.user.tenant_id
                 ]
             );

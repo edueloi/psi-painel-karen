@@ -493,6 +493,7 @@ export interface Comanda {
   receipt_code?: string;
   sync_to_livrocaixa?: boolean;
   syncToLivrocaixa?: boolean;
+  livrocaixa_tx_id?: number | null;
 }
 
 export type ProductType = 'physical' | 'digital';
