@@ -274,18 +274,36 @@ router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermissi
   try {
     await withSchema();
 
-    // Exclui o pagamento individual de comanda_payments
-    await db.query(
+    // Exclui o pagamento individual de comanda_payments (fonte primária)
+    const [deleteResult] = await db.query(
       `DELETE FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
       [req.params.paymentId, req.params.id, req.user.tenant_id]
     );
 
-    // Recalcular paid_value a partir de comanda_payments
-    const [payments] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?`,
+    // Se não deletou de comanda_payments, tenta deletar de financial_transactions (dados legados)
+    if (deleteResult.affectedRows === 0) {
+      await db.query(
+        `DELETE FROM financial_transactions WHERE id = ? AND comanda_id = ? AND tenant_id = ? AND type = 'income'`,
+        [req.params.paymentId, req.params.id, req.user.tenant_id]
+      );
+    }
+
+    // Recalcular paid_value — fonte primária: comanda_payments
+    const [cpPayments] = await db.query(
+      `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?`,
       [req.params.id, req.user.tenant_id]
     );
-    const totalPaid = parseFloat(payments[0].total);
+    let totalPaid = parseFloat(cpPayments[0].total);
+
+    // Se não há registros em comanda_payments, recalcular a partir de financial_transactions (legado)
+    if (parseInt(cpPayments[0].cnt) === 0) {
+      const [ftPayments] = await db.query(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions
+         WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
+        [req.params.id, req.user.tenant_id]
+      );
+      totalPaid = parseFloat(ftPayments[0].total);
+    }
 
     const [comanda] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ?', [req.params.id]);
     const comandaTotal = parseFloat(comanda[0]?.total || 0);
@@ -893,15 +911,28 @@ router.get('/comandas', authMiddleware, async (req, res) => {
         
         c.sessions_used = usedCount;
         
-        // Pagamentos vinculados
-        const [pymtData] = await db.query(
-          `SELECT id, amount, date as payment_date, payment_method, observation as notes, receipt_code
-           FROM financial_transactions 
-           WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'
-           ORDER BY date DESC, created_at DESC`,
+        // Pagamentos vinculados — fonte primária: comanda_payments
+        const [cpData] = await db.query(
+          `SELECT id, amount, payment_date, payment_method, notes, receipt_code
+           FROM comanda_payments
+           WHERE comanda_id = ? AND tenant_id = ?
+           ORDER BY created_at DESC`,
           [c.id, req.user.tenant_id]
         );
-        c.payments = pymtData;
+
+        if (cpData.length > 0) {
+          c.payments = cpData;
+        } else {
+          // Fallback: dados legados em financial_transactions
+          const [pymtData] = await db.query(
+            `SELECT id, amount, date as payment_date, payment_method, observation as notes, receipt_code
+             FROM financial_transactions
+             WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'
+             ORDER BY date DESC, created_at DESC`,
+            [c.id, req.user.tenant_id]
+          );
+          c.payments = pymtData;
+        }
         c.paidValue = parseFloat(c.paid_value || 0);
 
         // Sincroniza sessions_used no banco
