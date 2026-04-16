@@ -556,6 +556,13 @@ export const LivroCaixa: React.FC = () => {
     localStorage.setItem('lc_sort_order', next);
   };
 
+  // ── Modal de pagamento rápido ─────────────────────────────────────────────────
+  const [quickPayTx, setQuickPayTx] = useState<Transaction | null>(null);
+  const [quickPayValue, setQuickPayValue] = useState('');
+  const [quickPayDate, setQuickPayDate] = useState('');
+  const [quickPayMethod, setQuickPayMethod] = useState('Pix');
+  const [quickPayReceipt, setQuickPayReceipt] = useState('');
+
   // ── Modals ────────────────────────────────────────────────────────────────────
   const [isAuraContabilOpen, setIsAuraContabilOpen] = useState(false);
   const [isImportOpen, setIsImportOpen]   = useState(false);
@@ -820,16 +827,42 @@ export const LivroCaixa: React.FC = () => {
     }
   }, [selectedMonth, pushToast]);
 
-  const handleQuickPay = async (tx: Transaction) => {
+  const handleQuickPay = (tx: Transaction) => {
     if (!checkLock()) return;
+    // Pré-preenche com o valor pendente da transação
+    const pending = tx.comanda_total !== undefined && tx.comanda_paid_value !== undefined
+      ? Math.max(0, Number(tx.comanda_total) - Number(tx.comanda_paid_value))
+      : Number(tx.amount || 0);
+    setQuickPayTx(tx);
+    setQuickPayValue(pending > 0 ? pending.toFixed(2).replace('.', ',') : String(tx.amount || '').replace('.', ','));
+    setQuickPayDate(new Date().toISOString().split('T')[0]);
+    setQuickPayMethod(tx.payment_method || 'Pix');
+    setQuickPayReceipt('');
+  };
+
+  const handleSaveQuickPay = async () => {
+    if (!quickPayTx) return;
+    const amount = parseFloat(quickPayValue.replace(/\./g, '').replace(',', '.'));
+    if (!amount || amount <= 0) {
+      pushToast('error', 'Informe um valor válido.');
+      return;
+    }
     try {
       setIsSaving(true);
-      await api.put(`/finance/${tx.id}`, { ...tx, status: 'paid', date: new Date().toISOString().split('T')[0] });
-      pushToast('success', 'Lançamento marcado como PAGO', `O status de "${tx.description}" foi atualizado.`);
+      await api.put(`/finance/${quickPayTx.id}`, {
+        ...quickPayTx,
+        status: 'paid',
+        amount,
+        date: quickPayDate,
+        payment_method: quickPayMethod,
+        observation: quickPayReceipt || quickPayTx.observation,
+      });
+      pushToast('success', 'Pagamento efetuado!', `"${quickPayTx.description}" marcado como PAGO.`);
+      setQuickPayTx(null);
       fetchDetail();
-      if (selectedTxForDetails?.id === tx.id) setSelectedTxForDetails(null);
+      if (selectedTxForDetails?.id === quickPayTx.id) setSelectedTxForDetails(null);
     } catch {
-      pushToast('error', 'Erro ao atualizar status');
+      pushToast('error', 'Erro ao efetivar pagamento');
     } finally {
       setIsSaving(false);
     }
@@ -2665,6 +2698,80 @@ export const LivroCaixa: React.FC = () => {
                 Tem certeza que deseja lançar novamente? Pode ser um lançamento duplicado.
               </p>
             </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Modal Efetivar Pagamento ─────────────────────────────────────────────── */}
+      <Modal
+        isOpen={!!quickPayTx}
+        onClose={() => setQuickPayTx(null)}
+        title="Lançar Novo Pagamento"
+        maxWidth="sm"
+        footer={
+          <div className="flex w-full items-center justify-end gap-3">
+            <button
+              onClick={() => setQuickPayTx(null)}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSaveQuickPay}
+              disabled={isSaving}
+              className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              Efetivar pagamento
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Valor do pagamento</label>
+            <input
+              value={quickPayValue}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^\d,]/g, '');
+                setQuickPayValue(raw);
+              }}
+              placeholder="0,00"
+              className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+              <DatePicker
+                value={quickPayDate}
+                onChange={(val) => setQuickPayDate(val || '')}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Método</label>
+              <select
+                value={quickPayMethod}
+                onChange={(e) => setQuickPayMethod(e.target.value)}
+                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none"
+              >
+                <option value="Pix">Pix</option>
+                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                <option value="Débito">Débito</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Boleto">Boleto</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Código de transação / comprovante</label>
+            <input
+              value={quickPayReceipt}
+              onChange={(e) => setQuickPayReceipt(e.target.value)}
+              placeholder="Ex: 123ABC..."
+              className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+            />
           </div>
         </div>
       </Modal>
