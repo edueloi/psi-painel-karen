@@ -72,6 +72,7 @@ type EditableComanda = Omit<Partial<Comanda>, 'items'> & {
   packageId?: string;
   items?: EditableItem[];
   syncToLivrocaixa?: boolean;
+  livrocaixaDate?: string;
 };
 
 const lineInputClass =
@@ -363,6 +364,7 @@ export const Comandas: React.FC = () => {
     discount_value: 0,
     packageId: '',
     syncToLivrocaixa: false,
+    livrocaixaDate: new Date().toISOString().slice(0, 10),
   });
 
   const fetchData = async () => {
@@ -697,6 +699,11 @@ export const Comandas: React.FC = () => {
         sessions_total: Number((comanda as any).sessions_total || 1),
         sessions_used: Number((comanda as any).sessions_used || 0),
         syncToLivrocaixa: Boolean((comanda as any).sync_to_livrocaixa),
+        livrocaixaDate: String(
+          (comanda as any).livrocaixa_date ||
+          (comanda as any).start_date ||
+          new Date().toISOString()
+        ).slice(0, 10),
       });
 
       setModalTab(isPackage ? 'pacote' : 'avulsa');
@@ -767,6 +774,7 @@ export const Comandas: React.FC = () => {
         items: itemsPayload,
         skip_appointment: isPackage,
         sync_to_livrocaixa: editingComanda.syncToLivrocaixa ? 1 : 0,
+        livrocaixa_date: editingComanda.syncToLivrocaixa ? (editingComanda.livrocaixaDate || editingComanda.startDate) : undefined,
       };
 
       if (editingComanda.id) {
@@ -1980,6 +1988,26 @@ export const Comandas: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* DATA DO LANÇAMENTO NO LIVRO CAIXA */}
+            {editingComanda.syncToLivrocaixa && (
+              <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-5 py-3.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                  <BookOpen size={16} />
+                </div>
+                <div className="flex flex-1 flex-col gap-1">
+                  <label className="text-[11px] font-black uppercase tracking-wide text-emerald-700">
+                    Data do lançamento no Livro Caixa
+                  </label>
+                  <DatePicker
+                    value={editingComanda.livrocaixaDate || editingComanda.startDate || ''}
+                    onChange={(val) =>
+                      setEditingComanda({ ...editingComanda, livrocaixaDate: val ?? undefined })
+                    }
+                  />
+                </div>
+              </div>
+            )}
 
             {/* DADOS DA COMANDA */}
             <div className="bg-slate-50/50 border border-slate-100 rounded-[28px] p-6 shadow-sm">

@@ -71,6 +71,7 @@ async function ensureSchema() {
     'ALTER TABLE comandas ADD COLUMN notes TEXT NULL',
     'ALTER TABLE comandas ADD COLUMN sync_to_livrocaixa TINYINT(1) DEFAULT 0',
     'ALTER TABLE comandas ADD COLUMN livrocaixa_tx_id INT NULL',
+    'ALTER TABLE comandas ADD COLUMN livrocaixa_date DATE NULL',
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) console.warn('Schema Warning:', e.message); }
@@ -1241,7 +1242,7 @@ router.post('/comandas', async (req, res) => {
       patient_id, professional_id, items, notes,
       payment_method, discount, start_date, duration_minutes, receipt_code,
       discount_type, discount_value, sessions_total, package_id, sync_to_livrocaixa,
-      total_value, gross_total_value, paid_value: bodyPaidValue
+      total_value, gross_total_value, paid_value: bodyPaidValue, livrocaixa_date
     } = req.body;
 
     const itemsArr = items || [];
@@ -1267,13 +1268,15 @@ router.post('/comandas', async (req, res) => {
 
     const syncLC = sync_to_livrocaixa ? 1 : 0;
 
+    const lcDate = livrocaixa_date || start_date || new Date().toISOString().slice(0, 10);
+
     const [result] = await db.query(
       `INSERT INTO comandas (
         tenant_id, patient_id, professional_id, description, total, discount,
         items, notes, payment_method, start_date, duration_minutes, status,
         receipt_code, discount_type, discount_value, total_net, sessions_total, package_id,
-        sync_to_livrocaixa
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sync_to_livrocaixa, livrocaixa_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, patient_id || null, professional_id || null,
         req.body.description || 'Consulta/Serviço',
@@ -1281,7 +1284,7 @@ router.post('/comandas', async (req, res) => {
         payment_method || null, start_date || null, duration_minutes || 60,
         req.body.status || 'open', receipt_code || null,
         dType, dValue, total, (sessions_total || sessions_from_items || 1),
-        package_id || null, syncLC
+        package_id || null, syncLC, syncLC ? lcDate : null
       ]
     );
 
@@ -1290,7 +1293,7 @@ router.post('/comandas', async (req, res) => {
     // Se sync_to_livrocaixa, criar lançamento pendente no livro caixa
     if (syncLC) {
       const desc = req.body.description || 'Consulta/Serviço';
-      const txDate = (start_date || new Date().toISOString()).slice(0, 10);
+      const txDate = lcDate;
       const [pRowsName] = patient_id ? await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]) : [[]];
       const patientName = pRowsName[0]?.name || '';
       const txDescription = (req.body.description || 'Comanda') + (patientName ? ` - ${patientName}` : '');
@@ -1352,7 +1355,7 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
             patient_id, professional_id, description, status, items,
             notes, payment_method, start_date, duration_minutes,
             sessions_total, sessions_used, paid_value, receipt_code,
-            discount_type, discount_value, package_id, sync_to_livrocaixa
+            discount_type, discount_value, package_id, sync_to_livrocaixa, livrocaixa_date
         } = req.body;
 
         const itemsArr = items || [];
@@ -1386,6 +1389,8 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
         const currentLcTxId = currentCmd[0]?.livrocaixa_tx_id;
         const newSync = sync_to_livrocaixa !== undefined ? (sync_to_livrocaixa ? 1 : 0) : currentSync;
 
+        const lcDatePut = livrocaixa_date || start_date || new Date().toISOString().slice(0, 10);
+
         await db.query(
             `UPDATE comandas SET
                 patient_id = ?, professional_id = ?, description = ?, status = ?,
@@ -1393,17 +1398,17 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
                 start_date = ?, duration_minutes = ?,
                 sessions_total = ?, sessions_used = ?, paid_value = ?, receipt_code = ?,
                 discount_type = ?, discount_value = ?, total_net = ?, package_id = ?,
-                sync_to_livrocaixa = ?
+                sync_to_livrocaixa = ?, livrocaixa_date = ?
             WHERE id = ? AND tenant_id = ?`,
             [
-                patient_id || null, professional_id || null, description || '', 
+                patient_id || null, professional_id || null, description || '',
                 status || ( (pValue >= total && pValue > 0 && sUsed >= sTotal) ? 'closed' : 'open' ),
                 total, JSON.stringify(itemsArr), notes || null, payment_method || null,
                 start_date || null, duration_minutes || 60,
                 sTotal, sUsed,
                 pValue, receipt_code || null,
                 dType, dValue, total, package_id || null,
-                newSync,
+                newSync, newSync ? lcDatePut : null,
                 req.params.id, req.user.tenant_id
             ]
         );
@@ -1414,7 +1419,7 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
             // Ativar sync: criar lançamento pendente
             const txStatus = currentPaid > 0 ? 'paid' : 'pending';
             const txAmount = currentPaid > 0 ? currentPaid : total;
-            const txDate = (start_date || new Date().toISOString()).slice(0, 10);
+            const txDate = lcDatePut;
             const [pRowsName2] = patient_id ? await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]) : [[]];
             const patientName2 = pRowsName2[0]?.name || '';
             const txDescriptionNew = (description || 'Comanda') + (patientName2 ? ` - ${patientName2}` : '');
@@ -1458,7 +1463,7 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
             // Sync ativo: manter sincronizado com valor atual
             const txStatus2 = currentPaid > 0 ? 'paid' : 'pending';
             const txAmount2 = currentPaid > 0 ? currentPaid : total;
-            const txDate2 = (start_date || new Date().toISOString()).slice(0, 10);
+            const txDate2 = lcDatePut;
             const [pRowsName3] = patient_id ? await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]) : [[]];
             const patientName3 = pRowsName3[0]?.name || '';
             const txDescriptionUpd = (description || 'Comanda') + (patientName3 ? ` - ${patientName3}` : '');
