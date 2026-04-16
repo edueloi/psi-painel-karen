@@ -335,11 +335,7 @@ export const Comandas: React.FC = () => {
     Number(c?.totalValue || c?.total || 0) || 0;
 
   const getComandaPaid = (c: any) => {
-    const val = Number(c?.paidValue || c?.paid_value || 0) || 0;
-    if (val === 0 && c?.payments?.length > 0) {
-      return c.payments.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
-    }
-    return val;
+    return Number(c?.paidValue ?? c?.paid_value ?? 0) || 0;
   };
 
   const getComandaPending = (c: any) =>
