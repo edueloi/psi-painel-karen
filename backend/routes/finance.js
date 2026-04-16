@@ -360,7 +360,11 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
       LEFT JOIN patients p ON p.id = t.patient_id
       LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.livrocaixa_tx_id = t.id)
       WHERE t.tenant_id = ?
-        AND (t.comanda_id IS NULL OR c.livrocaixa_tx_id = t.id)
+        AND (
+          t.comanda_id IS NULL
+          OR c.livrocaixa_tx_id = t.id
+          OR t.source = 'livrocaixa'
+        )
     `;
     const params = [req.user.tenant_id];
 
