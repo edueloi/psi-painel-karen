@@ -41,6 +41,7 @@ import {
   XCircle,
   UserCheck,
   List,
+  ExternalLink,
 } from 'lucide-react';
 
 type ComandaTab = 'avulsa' | 'pacote';
@@ -2614,58 +2615,35 @@ export const Comandas: React.FC = () => {
               </div>
             ))}
 
-            {/* TRANSAÇÕES DO LIVRO CAIXA (Sincronizadas ou lançadas externamente) */}
-            {comandaLivroCaixaTx.filter(tx => 
-              // Evita duplicar se o pagamento já estiver na lista de pagamentos diretos
-              !(historyComanda as any).payments?.some((p: any) => String(p.livro_caixa_id) === String(tx.id) || String(p.id) === String(tx.payment_id))
-            ).map((tx: any) => (
-              <div key={`lc-${tx.id}`} className="flex items-center justify-between px-3 py-2.5 bg-indigo-50/30 group hover:bg-indigo-50/60">
-                <div className="flex items-center gap-2 max-w-[calc(100%-80px)]">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-                    <Check size={13} />
-                  </div>
-                  <div className="truncate">
-                    <p className="text-sm font-semibold text-slate-800">
-                      {formatCurrency(Number(tx.amount || 0))}
-                    </p>
-                    <p className="text-[11px] text-slate-400 truncate">
-                      {tx.payment_date || tx.date ? formatDate(tx.payment_date || tx.date) : '—'} 
-                      {tx.created_at ? ` às ${new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''} 
-                      · {tx.payment_method || '—'} 
-                      · <span className={tx.source === 'Agenda' ? 'text-blue-500 font-semibold' : 'text-indigo-500 font-semibold'}>
-                          {tx.source === 'Agenda' ? 'Agenda' : 'Livro Caixa'}
-                        </span>
-                    </p>
-                  </div>
+            {/* SINCRONIZADO NO LIVRO CAIXA — apenas informativo */}
+            {comandaLivroCaixaTx.length > 0 && (historyComanda as any).sync_to_livrocaixa && (
+              <a
+                href="/livro-caixa"
+                className="flex items-center gap-3 px-3 py-3 bg-indigo-50/60 border-t border-indigo-100 hover:bg-indigo-100/60 transition-colors cursor-pointer no-underline"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-white">
+                  <BookOpen size={14} />
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => {
-                        setNewPayment({
-                          value: formatCurrencyInput(Number(tx.amount || 0)) || '0,00',
-                          date: tx.date ? tx.date.slice(0, 10) : getLocalDateISO(),
-                          method: tx.payment_method || 'Pix',
-                          receiptCode: tx.receipt_code || '',
-                          comandaId: String(historyComanda?.id),
-                          id: String(tx.id)
-                        });
-                        setIsAddPaymentModalOpen(true);
-                      }} 
-                      className="p-1 rounded bg-indigo-100 text-indigo-600 hover:bg-indigo-200" title="Editar">
-                      <Edit3 size={12} />
-                    </button>
-                    <button onClick={() => {
-                        setPaymentToDelete(tx);
-                        setIsDeletePaymentModalOpen(true);
-                      }} 
-                      className="p-1 rounded bg-rose-100 text-rose-600 hover:bg-rose-200" title="Excluir">
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 group-hover:hidden">Sincronizado</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-indigo-700">
+                    Sincronizado no Livro Caixa
+                  </p>
+                  <p className="text-[11px] text-indigo-500 truncate">
+                    {comandaLivroCaixaTx[0]?.date || comandaLivroCaixaTx[0]?.payment_date
+                      ? formatDate(comandaLivroCaixaTx[0].date || comandaLivroCaixaTx[0].payment_date)
+                      : '—'}
+                    {' · '}
+                    {comandaLivroCaixaTx[0]?.payment_method || 'Pix'}
+                    {' · '}
+                    {formatCurrency(Number(comandaLivroCaixaTx[0]?.amount || 0))}
+                  </p>
                 </div>
-              </div>
-            ))}
+                <div className="flex items-center gap-1 text-indigo-400 shrink-0">
+                  <span className="text-[10px] font-bold">Ver no Livro Caixa</span>
+                  <ExternalLink size={11} />
+                </div>
+              </a>
+            )}
 
             {(!(historyComanda as any).payments || (historyComanda as any).payments.length === 0) &&
               comandaLivroCaixaTx.length === 0 && (
