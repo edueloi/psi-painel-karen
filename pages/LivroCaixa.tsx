@@ -2316,8 +2316,10 @@ export const LivroCaixa: React.FC = () => {
                             .filter((c: any) => {
                               const isPatient = String(c.patient_id || c.patientId || '') === String(p.id);
                               const isOpen = c.status === 'open';
-                              const noPaid = Number(c.paidValue || c.paid_value || 0) === 0;
-                              return isPatient && isOpen && noPaid;
+                              const totalVal = Number(c.totalValue || c.total || 0);
+                              const paidVal = Number(c.paidValue || c.paid_value || 0);
+                              const hasPending = totalVal > paidVal;
+                              return isPatient && isOpen && hasPending;
                             })
                             .map((c: any) => {
                               const items: any[] = c.items || [];
@@ -2328,8 +2330,8 @@ export const LivroCaixa: React.FC = () => {
                               return {
                                 id: String(c.id),
                                 description: descLabel,
-                                totalValue: Number(c.totalValue || c.total_liquid || c.total || 0),
-                                paidValue: 0,
+                                totalValue: Number(c.totalValue || c.total || 0),
+                                paidValue: Number(c.paidValue || c.paid_value || 0),
                                 status: c.status,
                               };
                             });
