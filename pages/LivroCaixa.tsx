@@ -22,7 +22,7 @@ import { Button } from '../components/UI/Button';
 import { DatePicker } from '../components/UI/DatePicker';
 import { GridTable, Column } from '../components/UI/GridTable';
 import { AppCard } from '../components/UI/AppCard';
-import { api } from '../services/api';
+import { api, API_BASE_URL } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
@@ -56,6 +56,7 @@ interface Transaction {
   rs_receipt_issued_at?: string | null;
   rs_receipt_issued_by?: number | null;
   rs_receipt_note?: string | null;
+  rs_receipt_file?: string | null;
 }
 
 interface MonthSummary {
@@ -680,18 +681,56 @@ export const LivroCaixa: React.FC = () => {
   const [rsFilter, setRsFilter] = useState<'all' | 'issued' | 'pending' | 'na'>('all');
   const [rsConfirm, setRsConfirm] = useState<{ tx: Transaction; newValue: boolean } | null>(null);
   const [rsLoading, setRsLoading] = useState<number | null>(null);
+  const [rsNote, setRsNote] = useState('');
+  const [rsFile, setRsFile] = useState<File | null>(null);
+  const [rsFileDeleting, setRsFileDeleting] = useState(false);
+  const rsFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleToggleRsReceipt = async (tx: Transaction, newValue: boolean) => {
     setRsLoading(tx.id);
     try {
-      const updated = await api.patch<Transaction>(`/finance/${tx.id}/rs-receipt`, { issued: newValue });
-      setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, ...updated } : t));
+      const updated = await api.patch<Transaction>(`/finance/${tx.id}/rs-receipt`, {
+        issued: newValue,
+        ...(newValue && rsNote.trim() ? { note: rsNote.trim() } : {}),
+      });
+      let finalTx = { ...tx, ...updated };
+
+      // Upload file if provided
+      if (newValue && rsFile) {
+        try {
+          const form = new FormData();
+          form.append('file', rsFile);
+          const uploaded = await api.post<Transaction>(`/finance/${tx.id}/rs-receipt/upload`, form);
+          finalTx = { ...finalTx, ...uploaded };
+        } catch {
+          pushToast('error', 'Recibo marcado, mas falha no envio do arquivo');
+        }
+      }
+
+      setTransactions(prev => prev.map(t => t.id === tx.id ? finalTx : t));
       pushToast('success', newValue ? 'Recibo marcado como emitido' : 'Recibo desmarcado');
     } catch (e: any) {
       pushToast('error', e?.response?.data?.error || 'Erro ao atualizar recibo');
     } finally {
       setRsLoading(null);
       setRsConfirm(null);
+      setRsNote('');
+      setRsFile(null);
+    }
+  };
+
+  const handleDeleteRsFile = async (tx: Transaction) => {
+    setRsFileDeleting(true);
+    try {
+      const updated = await api.delete<Transaction>(`/finance/${tx.id}/rs-receipt/file`);
+      setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, ...updated } : t));
+      // Also update rsConfirm tx reference
+      setRsConfirm(prev => prev ? { ...prev, tx: { ...prev.tx, rs_receipt_file: null } } : prev);
+      pushToast('success', 'Arquivo removido');
+    } catch (e: any) {
+      pushToast('error', e?.response?.data?.error || 'Erro ao remover arquivo');
+    } finally {
+      setRsFileDeleting(false);
     }
   };
 
@@ -2832,13 +2871,13 @@ export const LivroCaixa: React.FC = () => {
       {/* ── RS Receipt Confirm Modal ────────────────────────────────────────── */}
       <Modal
         isOpen={rsConfirm !== null}
-        onClose={() => setRsConfirm(null)}
+        onClose={() => { setRsConfirm(null); setRsNote(''); setRsFile(null); }}
         title={rsConfirm?.newValue ? 'Marcar recibo como emitido' : 'Desmarcar recibo'}
         maxWidth="sm"
         footer={
           <>
             <button
-              onClick={() => setRsConfirm(null)}
+              onClick={() => { setRsConfirm(null); setRsNote(''); setRsFile(null); }}
               className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
             >
               Cancelar
@@ -2868,12 +2907,102 @@ export const LivroCaixa: React.FC = () => {
               </p>
             </div>
           </div>
+
           {rsConfirm?.tx && (
             <div className="px-4 py-3 rounded-2xl border-2 border-slate-100 bg-slate-50/50">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lançamento:</p>
               <p className="text-sm font-black text-slate-700">{rsConfirm.tx.description}</p>
               <p className="text-[10px] font-bold text-slate-400">{rsConfirm.tx.patient_name || rsConfirm.tx.payer_name} · {formatCurrency(rsConfirm.tx.amount)}</p>
             </div>
+          )}
+
+          {/* Show existing receipt info when already issued */}
+          {rsConfirm?.tx?.rs_receipt_issued && (
+            <div className="px-4 py-3 rounded-2xl border-2 border-emerald-100 bg-emerald-50/40">
+              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">Recibo emitido</p>
+              {rsConfirm.tx.rs_receipt_issued_at && (
+                <p className="text-xs font-bold text-slate-500 mb-1">
+                  Data: {new Date(rsConfirm.tx.rs_receipt_issued_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+              {rsConfirm.tx.rs_receipt_note && (
+                <p className="text-xs text-slate-600 italic">{rsConfirm.tx.rs_receipt_note}</p>
+              )}
+
+              {/* Existing file */}
+              {rsConfirm.tx.rs_receipt_file && (
+                <div className="flex items-center gap-2 mt-2">
+                  <FileText size={14} className="text-emerald-500 shrink-0" />
+                  <a
+                    href={`${API_BASE_URL}/uploads-static/${rsConfirm.tx.rs_receipt_file}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-emerald-600 hover:underline truncate max-w-[180px]"
+                  >
+                    {rsConfirm.tx.rs_receipt_file.split('/').pop()}
+                  </a>
+                  <button
+                    onClick={() => rsConfirm && handleDeleteRsFile(rsConfirm.tx)}
+                    disabled={rsFileDeleting}
+                    title="Remover arquivo"
+                    className="ml-auto w-7 h-7 flex items-center justify-center rounded-xl bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-100 transition-all shrink-0"
+                  >
+                    {rsFileDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Fields shown only when marking as issued */}
+          {rsConfirm?.newValue && (
+            <>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Observação (opcional)</label>
+                <textarea
+                  value={rsNote}
+                  onChange={e => setRsNote(e.target.value)}
+                  placeholder="Ex: Recibo nº 00123 emitido no portal Receita Saúde"
+                  rows={2}
+                  className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-emerald-400 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Anexar recibo (opcional)</label>
+                <input
+                  ref={rsFileInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={e => setRsFile(e.target.files?.[0] || null)}
+                />
+                {rsFile ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-emerald-200 bg-emerald-50">
+                    <FileText size={14} className="text-emerald-500 shrink-0" />
+                    <span className="text-xs font-bold text-emerald-700 truncate flex-1">{rsFile.name}</span>
+                    <button
+                      onClick={() => { setRsFile(null); if (rsFileInputRef.current) rsFileInputRef.current.value = ''; }}
+                      className="text-rose-400 hover:text-rose-600 transition-colors shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => rsFileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 border-dashed border-slate-200 text-xs font-bold text-slate-400 hover:border-emerald-300 hover:text-emerald-500 hover:bg-emerald-50 transition-all"
+                  >
+                    <Upload size={14} /> Selecionar arquivo (PDF, JPG, PNG)
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* File management when already issued (no file yet) */}
+          {rsConfirm?.tx?.rs_receipt_issued && !rsConfirm?.newValue && !rsConfirm?.tx?.rs_receipt_file && (
+            <p className="text-[11px] text-slate-400 text-center">Nenhum arquivo anexado</p>
           )}
         </div>
       </Modal>

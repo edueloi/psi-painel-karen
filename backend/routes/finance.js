@@ -29,6 +29,7 @@ async function ensureFinanceColumns() {
     "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_issued_at TIMESTAMP NULL",
     "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_issued_by INT NULL",
     "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_note VARCHAR(255) NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_file VARCHAR(500) NULL",
     `CREATE TABLE IF NOT EXISTS session_types (
       id VARCHAR(50) PRIMARY KEY,
       tenant_id INT NOT NULL,
@@ -355,7 +356,7 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
       SELECT t.*, p.name as patient_name,
              COALESCE(t.comanda_id, c.id) as comanda_id,
              c.total as comanda_total, c.paid_value as comanda_paid_value, c.status as comanda_status,
-             t.rs_receipt_issued, t.rs_receipt_issued_at, t.rs_receipt_issued_by, t.rs_receipt_note
+             t.rs_receipt_issued, t.rs_receipt_issued_at, t.rs_receipt_issued_by, t.rs_receipt_note, t.rs_receipt_file
       FROM financial_transactions t
       LEFT JOIN patients p ON p.id = t.patient_id
       LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.livrocaixa_tx_id = t.id)
@@ -841,16 +842,15 @@ router.patch('/:id/rs-receipt', authMiddleware, checkPermission('manage_payments
     await withFinanceSchema();
     const tid = req.user.tenant_id;
     const { id } = req.params;
-    const { issued, note } = req.body; // issued: boolean
+    const { issued, note } = req.body;
 
     const [rows] = await db.query(
-      'SELECT id, type, patient_id, category FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+      'SELECT id, type, patient_id, rs_receipt_file FROM financial_transactions WHERE id = ? AND tenant_id = ?',
       [id, tid]
     );
     if (!rows.length) return res.status(404).json({ error: 'Lançamento não encontrado' });
 
     const tx = rows[0];
-    // Só elegíveis: entrada com paciente vinculado
     if (tx.type !== 'income' || !tx.patient_id) {
       return res.status(400).json({ error: 'Este lançamento não é elegível para recibo Receita Saúde' });
     }
@@ -860,11 +860,21 @@ router.patch('/:id/rs-receipt', authMiddleware, checkPermission('manage_payments
     const issuedBy   = issued ? (req.user.id || null) : null;
     const receiptNote = note || null;
 
+    // Se desmarcando, remove arquivo se existir
+    let fileToKeep = tx.rs_receipt_file;
+    if (!issued && tx.rs_receipt_file) {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../public/uploads', tx.rs_receipt_file);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      fileToKeep = null;
+    }
+
     await db.query(
       `UPDATE financial_transactions
-         SET rs_receipt_issued = ?, rs_receipt_issued_at = ?, rs_receipt_issued_by = ?, rs_receipt_note = ?
+         SET rs_receipt_issued = ?, rs_receipt_issued_at = ?, rs_receipt_issued_by = ?, rs_receipt_note = ?, rs_receipt_file = ?
        WHERE id = ? AND tenant_id = ?`,
-      [issuedBool, issuedAt, issuedBy, receiptNote, id, tid]
+      [issuedBool, issuedAt, issuedBy, receiptNote, fileToKeep, id, tid]
     );
 
     const [updated] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [id]);
@@ -872,6 +882,82 @@ router.patch('/:id/rs-receipt', authMiddleware, checkPermission('manage_payments
   } catch (err) {
     console.error('Erro ao atualizar recibo RS:', err);
     res.status(500).json({ error: 'Erro ao atualizar status do recibo' });
+  }
+});
+
+// POST /finance/:id/rs-receipt/upload - Upload do arquivo do recibo
+router.post('/:id/rs-receipt/upload', authMiddleware, checkPermission('manage_payments'), uploadMemory.single('file'), async (req, res) => {
+  try {
+    await withFinanceSchema();
+    const { id } = req.params;
+    const tid = req.user.tenant_id;
+
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+    const [rows] = await db.query(
+      'SELECT id, rs_receipt_file FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+      [id, tid]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Lançamento não encontrado' });
+
+    const fs = require('fs');
+    const path = require('path');
+    const uploadDir = path.join(__dirname, '../public/uploads');
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+    // Remove arquivo anterior se existir
+    if (rows[0].rs_receipt_file) {
+      const oldPath = path.join(uploadDir, rows[0].rs_receipt_file);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const ext = req.file.originalname.split('.').pop() || 'pdf';
+    const filename = `rs_receipt_${id}_${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(uploadDir, filename), req.file.buffer);
+
+    await db.query(
+      'UPDATE financial_transactions SET rs_receipt_file = ? WHERE id = ? AND tenant_id = ?',
+      [filename, id, tid]
+    );
+
+    const [updated] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [id]);
+    res.json(updated[0]);
+  } catch (err) {
+    console.error('Erro ao fazer upload do recibo:', err);
+    res.status(500).json({ error: 'Erro ao fazer upload do recibo' });
+  }
+});
+
+// DELETE /finance/:id/rs-receipt/file - Remove arquivo do recibo
+router.delete('/:id/rs-receipt/file', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  try {
+    await withFinanceSchema();
+    const { id } = req.params;
+    const tid = req.user.tenant_id;
+
+    const [rows] = await db.query(
+      'SELECT rs_receipt_file FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+      [id, tid]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Lançamento não encontrado' });
+
+    if (rows[0].rs_receipt_file) {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../public/uploads', rows[0].rs_receipt_file);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    await db.query(
+      'UPDATE financial_transactions SET rs_receipt_file = NULL WHERE id = ? AND tenant_id = ?',
+      [id, tid]
+    );
+
+    const [updated] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [id]);
+    res.json(updated[0]);
+  } catch (err) {
+    console.error('Erro ao remover arquivo do recibo:', err);
+    res.status(500).json({ error: 'Erro ao remover arquivo do recibo' });
   }
 });
 
