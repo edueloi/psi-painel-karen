@@ -13,24 +13,24 @@ import {
   Save,
   X,
   Image as ImageIcon,
-  Trash2,
-  UploadCloud,
-  ChevronRight,
-  Settings,
-  History,
-  CheckCircle2,
-  Briefcase,
-  MapPin,
-  Stethoscope,
   Info,
-  Sparkles
+  Sparkles,
+  Edit3,
+  Settings,
+  CheckCircle2,
+  ChevronRight,
+  Trash2,
+  Briefcase,
+  UploadCloud,
+  History,
+  MapPin,
+  Stethoscope
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
 import { Input, Select, TextArea } from '../components/UI/Input';
 import { PageHeader } from '../components/UI/PageHeader';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
-import { title } from 'process';
 
 type DocCategory = {
   id: string;
@@ -129,6 +129,7 @@ export const DocGenerator: React.FC = () => {
   const [templateSignatureName, setTemplateSignatureName] = useState('');
   const [templateSignatureCrp, setTemplateSignatureCrp] = useState('');
   const [isConfirmSeedModalOpen, setIsConfirmSeedModalOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<DocTemplate | null>(null);
   const [toasts, setToasts] = useState<{ id: number; type: 'success' | 'error'; message: string }[]>([]);
 
   const pushToast = (type: 'success' | 'error', message: string) => {
@@ -453,6 +454,22 @@ export const DocGenerator: React.FC = () => {
     }
   };
 
+  const handleDeleteTemplate = async () => {
+    if (!templateToDelete) return;
+    try {
+      await api.delete(`/doc-generator/doc-templates/${templateToDelete.id}`);
+      setTemplateToDelete(null);
+      if (selectedTemplateId === templateToDelete.id) {
+        setSelectedTemplateId('');
+      }
+      await fetchData();
+      pushToast('success', 'Template excluído com sucesso!');
+    } catch (e) {
+      console.error(e);
+      pushToast('error', 'Erro ao excluir template.');
+    }
+  };
+
   const handleGeneratePdf = async () => {
     if (!selectedTemplateId) return;
     const data = buildData();
@@ -605,23 +622,41 @@ export const DocGenerator: React.FC = () => {
                             </div>
                         )}
                         {filteredTemplates.map(tpl => (
-                            <button
-                                key={tpl.id}
-                                onClick={() => setSelectedTemplateId(tpl.id)}
-                                className={`w-full text-left p-4 rounded-3xl border transition-all flex items-center justify-between group ${
-                                    selectedTemplateId === tpl.id 
-                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                                    : 'bg-white border-slate-100 hover:border-indigo-300 text-slate-600'
-                                }`}
-                            >
-                                <div>
-                                    <p className="text-xs font-black uppercase tracking-tighter leading-none mb-1">{tpl.title}</p>
-                                    <span className={`text-[10px] font-bold ${selectedTemplateId === tpl.id ? 'text-indigo-100' : 'text-slate-400'}`}>
-                                        {tpl.doc_type || 'Geral'}
-                                    </span>
+                            <div key={tpl.id} className="group/item relative">
+                                <button
+                                    onClick={() => setSelectedTemplateId(tpl.id)}
+                                    className={`w-full text-left p-4 rounded-3xl border transition-all flex items-center justify-between group ${
+                                        selectedTemplateId === tpl.id 
+                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                                        : 'bg-white border-slate-100 hover:border-indigo-300 text-slate-600'
+                                    }`}
+                                >
+                                    <div className="pr-16">
+                                        <p className="text-xs font-black uppercase tracking-tighter leading-none mb-1">{tpl.title}</p>
+                                        <span className={`text-[10px] font-bold ${selectedTemplateId === tpl.id ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                            {tpl.doc_type || 'Geral'}
+                                        </span>
+                                    </div>
+                                    <ChevronRight size={16} className={selectedTemplateId === tpl.id ? 'text-white' : 'text-slate-300 group-hover:text-indigo-500'} />
+                                </button>
+                                
+                                <div className="absolute right-10 top-1/2 -translate-y-1/2 flex gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity bg-inherit rounded-xl p-1">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); openTemplateModal(tpl); }}
+                                        className={`p-2 rounded-lg transition-colors ${selectedTemplateId === tpl.id ? 'hover:bg-indigo-500 text-indigo-100' : 'hover:bg-slate-100 text-slate-400 hover:text-indigo-600'}`}
+                                        title="Editar Template"
+                                    >
+                                        <Edit3 size={14} />
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setTemplateToDelete(tpl); }}
+                                        className={`p-2 rounded-lg transition-colors ${selectedTemplateId === tpl.id ? 'hover:bg-indigo-500 text-indigo-100' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-600'}`}
+                                        title="Excluir Template"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
                                 </div>
-                                <ChevronRight size={16} className={selectedTemplateId === tpl.id ? 'text-white' : 'text-slate-300 group-hover:text-indigo-500'} />
-                            </button>
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -1024,6 +1059,41 @@ export const DocGenerator: React.FC = () => {
                 className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
               >
                 <Save size={18}/> SALVAR TEMPLATE
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Template Delete Confirmation Modal */}
+      {templateToDelete && (
+        <Modal 
+          isOpen={!!templateToDelete} 
+          onClose={() => setTemplateToDelete(null)} 
+          title="Excluir Modelo"
+        >
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Deseja excluir este modelo?</h3>
+            <p className="text-sm text-slate-500 mb-8">
+              Você está prestes a excluir o modelo <span className="font-bold text-slate-700">"{templateToDelete.title}"</span>. 
+              Esta ação não pode ser desfeita.
+            </p>
+            
+            <div className="flex justify-center gap-3">
+              <button 
+                onClick={() => setTemplateToDelete(null)}
+                className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+              >
+                CANCELAR
+              </button>
+              <button 
+                onClick={handleDeleteTemplate}
+                className="px-8 py-3 bg-rose-500 text-white rounded-2xl shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95"
+              >
+                SIM, EXCLUIR
               </button>
             </div>
           </div>
