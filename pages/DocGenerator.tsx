@@ -99,7 +99,8 @@ export const DocGenerator: React.FC = () => {
       city: '',
       clinicName: '',
       phone: '',
-      address: ''
+      address: '',
+      email: ''
   });
   const [professionalName, setProfessionalName] = useState('');
   const [professionalCrp, setProfessionalCrp] = useState('');
@@ -183,7 +184,8 @@ export const DocGenerator: React.FC = () => {
               city: (profileData.address || '').split(',').pop()?.trim() || '',
               clinicName: profileData.company_name || '',
               phone: profileData.phone || '',
-              address: profileData.address || ''
+              address: profileData.address || '',
+              email: profileData.email || ''
           });
           setProfessionalName(profileData.name || '');
           setProfessionalCrp(profileData.crp || '');
@@ -358,9 +360,26 @@ export const DocGenerator: React.FC = () => {
         span[contenteditable="false"] svg { display: none !important; }
       </style>
       <div style="font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px 60px; line-height: 1.5; background: white; min-height: 29.7cm; width: 21cm; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.05); position: relative; box-sizing: border-box; display: flex; flex-direction: column;">
-        <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 40px;">
-           ${hLogo ? `<img src="${hLogo}" style="max-height: 100px; max-width: 220px; margin-bottom: 20px; object-fit: contain;" />` : ''}
-           <div style="height: 2px; width: 60px; background: #6366f1; border-radius: 2px; margin: 10px 0; opacity: 0.6;"></div>
+        
+        <!-- HEADER -->
+        <div style="display: flex; align-items: center; margin-bottom: 40px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px;">
+           ${hLogo ? `<div style="flex-shrink: 0; margin-right: 30px;"><img src="${hLogo}" style="max-height: 90px; max-width: 180px; object-fit: contain;" /></div>` : ''}
+           
+           <div style="flex: 1; text-align: center;">
+              <h1 style="margin: 0; font-size: 14pt; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em;">${professionalData.name}</h1>
+              <p style="margin: 2px 0; font-size: 9pt; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.1em;">${professionalData.specialty || 'Profissional'} • ${professionalData.crp || ''}</p>
+              
+              <div style="margin-top: 8px; font-size: 8pt; color: #64748b; line-height: 1.4;">
+                ${professionalData.address ? `<div>${professionalData.address}</div>` : ''}
+                <div>
+                  ${professionalData.phone ? `<span style="margin-right: 10px;">Tel: ${professionalData.phone}</span>` : ''}
+                  ${professionalData.email ? `<span>Email: ${professionalData.email}</span>` : ''}
+                </div>
+              </div>
+           </div>
+
+           <!-- Balancer for centering -->
+           ${hLogo ? `<div style="width: 180px; flex-shrink: 0; margin-left: 30px; opacity: 0;"></div>` : ''}
         </div>
 
         <div style="flex: 1; font-size: 11.5pt; text-align: justify; color: #334155; letter-spacing: -0.01em;">
@@ -373,16 +392,7 @@ export const DocGenerator: React.FC = () => {
             <p style="margin: 0; font-size: 8.5pt; color: #64748b; font-weight: 600;">${selectedArea.toUpperCase()}: ${sCrp}</p>
         </div>
 
-        ${fLogo 
-            ? `<div style="margin-top: 40px; text-align: center;"><img src="${fLogo}" style="max-height: 60px; max-width: 80%; object-fit: contain;" /></div>` 
-            : `<div style="margin-top: auto; padding-top: 20px; text-align: center; border-top: 1px solid #f1f5f9;">
-                <p style="margin: 0; font-size: 8pt; color: #94a3b8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;">${professionalData.clinicName || professionalData.name}</p>
-                <p style="margin: 4px 0 0 0; font-size: 7.5pt; color: #94a3b8; line-height: 1.4;">
-                  ${professionalData.address ? `<span>${professionalData.address}</span>` : ''}
-                  ${professionalData.phone ? `<span style="margin-left: 8px; padding-left: 8px; border-left: 1px solid #e2e8f0;">${professionalData.phone}</span>` : ''}
-                </p>
-              </div>`
-        }
+        ${fLogo ? `<div style="margin-top: 40px; text-align: center;"><img src="${fLogo}" style="max-height: 60px; max-width: 80%; object-fit: contain;" /></div>` : ''}
       </div>
     `;
   };
