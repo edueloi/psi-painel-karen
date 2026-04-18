@@ -279,15 +279,16 @@ export const DocGenerator: React.FC = () => {
     setUploadingTarget(target);
     try {
         const formData = new FormData();
-        formData.append(target === 'header' ? 'logo' : 'footer', file); // Adjust to whatever endpoint expects
+        formData.append('file', file);
+        formData.append('category', 'Papel Timbrado');
+        formData.append('title', target === 'header' ? 'Logo Cabeçalho' : 'Logo Rodapé');
         
-        // Simpler: use the profile logo endpoint as a shortcut or the general bucket
-        const endpoint = target === 'header' ? '/profile/logo' : '/profile/logo'; // Reusing for now
-        const resp = await api.request<any>(endpoint, {
+        const resp = await api.request<any>('/uploads', {
             method: 'POST',
             body: formData
         });
-        const url = getStaticUrl(resp.logo_url || resp.file_url);
+        
+        const url = getStaticUrl(resp.file_url || resp.url);
         if (target === 'header') setLogoUrl(url);
         else setFooterLogoUrl(url);
     } catch (e) {
