@@ -43,7 +43,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   const insertVariable = (variable: string, label: string) => {
-    const html = `&nbsp;<span contenteditable="false" class="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-black tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-100 select-all mx-1 align-baseline cursor-default"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg> ${variable}</span>&nbsp;`;
+    const html = `&nbsp;<span contenteditable="false" class="doc-variable">${variable}</span>&nbsp;`;
     
     editorRef.current?.focus();
     document.execCommand('insertHTML', false, html);
@@ -140,6 +140,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         .prose p { margin-top: 0.5em; margin-bottom: 0.5em; }
         .prose ul { list-style-type: disc; padding-left: 2rem; }
         .prose ol { list-style-type: decimal; padding-left: 2rem; }
+        .doc-variable {
+          background-color: #f8fafc;
+          color: #475569;
+          border: 1px solid #e2e8f0;
+          padding: 0 4px;
+          border-radius: 4px;
+          font-weight: 600;
+          cursor: default;
+          user-select: all;
+        }
+        .doc-variable:hover {
+          background-color: #f1f5f9;
+          border-color: #cbd5e1;
+        }
       `}</style>
     </div>
   );

@@ -338,21 +338,37 @@ export const DocGenerator: React.FC = () => {
     const sCrp = selectedTemplate?.signature_crp || professionalCrp;
 
     return `
-      <div style="font-family: 'Inter', sans-serif; color: #1e293b; padding: 60px 80px; line-height: 1.6; background: white; min-height: 29.7cm; width: 21cm; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.05); position: relative; box-sizing: border-box;">
-        <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 60px;">
-           ${hLogo ? `<img src="${hLogo}" style="max-height: 120px; max-width: 250px; margin-bottom: 25px; object-fit: contain;" />` : ''}
-           <div style="height: 3px; width: 80px; background: #6366f1; border-radius: 4px; margin: 15px 0;"></div>
+      <style>
+        span[contenteditable="false"] { 
+          background: transparent !important; 
+          color: inherit !important; 
+          border: none !important; 
+          padding: 0 !important; 
+          margin: 0 !important; 
+          font-size: inherit !important; 
+          font-weight: inherit !important;
+          display: inline !important;
+          vertical-align: baseline !important;
+        }
+        span[contenteditable="false"] svg { display: none !important; }
+      </style>
+      <div style="font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px 60px; line-height: 1.5; background: white; min-height: 29.7cm; width: 21cm; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.05); position: relative; box-sizing: border-box; display: flex; flex-direction: column;">
+        <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 40px;">
+           ${hLogo ? `<img src="${hLogo}" style="max-height: 100px; max-width: 220px; margin-bottom: 20px; object-fit: contain;" />` : ''}
+           <div style="height: 2px; width: 60px; background: #6366f1; border-radius: 2px; margin: 10px 0; opacity: 0.6;"></div>
         </div>
 
-        <div style="min-height: 600px; white-space: pre-wrap; font-size: 11pt; text-align: justify; color: #334155; letter-spacing: -0.01em;">${body}</div>
-
-        <div style="margin-top: 80px; display: flex; flex-direction: column; align-items: center; text-align: center;">
-            <div style="width: 280px; border-top: 1px solid #e2e8f0; margin-bottom: 12px;"></div>
-            <p style="font-weight: 800; margin: 0; font-size: 10.5pt; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em;">${sName}</p>
-            <p style="margin: 0; font-size: 9pt; color: #64748b; font-weight: 600;">${selectedArea.toUpperCase()}: ${sCrp}</p>
+        <div style="flex: 1; font-size: 11.5pt; text-align: justify; color: #334155; letter-spacing: -0.01em;">
+          <div class="document-content">${body}</div>
         </div>
 
-        ${fLogo ? `<div style="position: absolute; bottom: 60px; left: 0; right: 0; text-align: center;"><img src="${fLogo}" style="max-height: 80px; max-width: 80%; object-fit: contain;" /></div>` : ''}
+        <div style="margin-top: 60px; display: flex; flex-direction: column; align-items: center; text-align: center; page-break-inside: avoid;">
+            <div style="width: 240px; border-top: 1px solid #cbd5e1; margin-bottom: 10px;"></div>
+            <p style="font-weight: 800; margin: 0; font-size: 10pt; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em;">${sName}</p>
+            <p style="margin: 0; font-size: 8.5pt; color: #64748b; font-weight: 600;">${selectedArea.toUpperCase()}: ${sCrp}</p>
+        </div>
+
+        ${fLogo ? `<div style="margin-top: 40px; text-align: center;"><img src="${fLogo}" style="max-height: 60px; max-width: 80%; object-fit: contain;" /></div>` : ''}
       </div>
     `;
   };
