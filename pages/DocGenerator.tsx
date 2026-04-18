@@ -361,25 +361,22 @@ export const DocGenerator: React.FC = () => {
       </style>
       <div style="font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px 60px; line-height: 1.5; background: white; min-height: 29.7cm; width: 21cm; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.05); position: relative; box-sizing: border-box; display: flex; flex-direction: column;">
         
-        <!-- HEADER -->
-        <div style="display: flex; align-items: center; margin-bottom: 40px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px;">
-           ${hLogo ? `<div style="flex-shrink: 0; margin-right: 30px;"><img src="${hLogo}" style="max-height: 90px; max-width: 180px; object-fit: contain;" /></div>` : ''}
+        <!-- HEADER: CLINIC STYLE -->
+        <div style="display: flex; align-items: center; margin-bottom: 50px; border-bottom: 3px solid #6366f1; padding-bottom: 30px;">
+           ${hLogo ? `<div style="flex-shrink: 0; margin-right: 35px; display: flex; align-items: center; justify-content: center; width: 120px; height: 120px; background: #f8fafc; border-radius: 20px;"><img src="${hLogo}" style="max-height: 100px; max-width: 100px; object-fit: contain;" /></div>` : ''}
            
-           <div style="flex: 1; text-align: center;">
-              <h1 style="margin: 0; font-size: 14pt; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em;">${professionalData.name}</h1>
-              <p style="margin: 2px 0; font-size: 9pt; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.1em;">${professionalData.specialty || 'Profissional'} • ${professionalData.crp || ''}</p>
+           <div style="flex: 1; ${hLogo ? 'border-left: 1px solid #e2e8f0; padding-left: 35px;' : ''} display: flex; flex-direction: column; justify-content: center;">
+              <h1 style="margin: 0; font-size: 18pt; font-weight: 900; color: #0f172a; letter-spacing: -0.02em; line-height: 1.1;">${professionalData.name}</h1>
+              <p style="margin: 6px 0; font-size: 10pt; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.15em;">${professionalData.specialty || 'Profissional'} <span style="margin: 0 8px; color: #cbd5e1; font-weight: 300;">|</span> CRP ${professionalData.crp || ''}</p>
               
-              <div style="margin-top: 8px; font-size: 8pt; color: #64748b; line-height: 1.4;">
-                ${professionalData.address ? `<div>${professionalData.address}</div>` : ''}
-                <div>
-                  ${professionalData.phone ? `<span style="margin-right: 10px;">Tel: ${professionalData.phone}</span>` : ''}
-                  ${professionalData.email ? `<span>Email: ${professionalData.email}</span>` : ''}
+              <div style="margin-top: 12px; font-size: 8.5pt; color: #64748b; line-height: 1.6; font-weight: 500;">
+                ${professionalData.address ? `<div style="display: flex; align-items: center; gap: 6px;">${professionalData.address}</div>` : ''}
+                <div style="display: flex; gap: 15px; margin-top: 2px;">
+                  ${professionalData.phone ? `<span><b>Tel:</b> ${professionalData.phone}</span>` : ''}
+                  ${professionalData.email ? `<span><b>Email:</b> ${professionalData.email}</span>` : ''}
                 </div>
               </div>
            </div>
-
-           <!-- Balancer for centering -->
-           ${hLogo ? `<div style="width: 180px; flex-shrink: 0; margin-left: 30px; opacity: 0;"></div>` : ''}
         </div>
 
         <div style="flex: 1; font-size: 11.5pt; text-align: justify; color: #334155; letter-spacing: -0.01em;">
