@@ -222,9 +222,22 @@ export const DocGenerator: React.FC = () => {
             tpls = tpls.filter(t => String(t.category_id || '') === String(selectedCategoryId));
         } else {
             tpls = tpls.filter(t => {
+                // Se não tiver categoria, mostra por padrão ou se o título bater
+                if (!t.category_id) return true;
+                
                 const cat = categories.find(c => String(c.id) === String(t.category_id));
                 const catName = cat?.name.toLowerCase() || '';
-                return catName.includes(areaLabel) || t.title.toLowerCase().includes(areaLabel) || catName.includes('relatórios');
+                const title = t.title.toLowerCase();
+                
+                return catName.includes(areaLabel) || 
+                       title.includes(areaLabel) || 
+                       catName.includes('relatórios') || 
+                       catName.includes('encaminhamento') || 
+                       catName.includes('financeiro') || 
+                       catName.includes('oficiais') ||
+                       title.includes('encaminhamento') ||
+                       title.includes('recibo') ||
+                       title.includes('atestado');
             });
         }
     } else if (selectedCategoryId) {
@@ -236,7 +249,14 @@ export const DocGenerator: React.FC = () => {
   const filteredCategories = useMemo(() => {
     if (!selectedArea) return categories;
     const areaLabel = selectedArea.toLowerCase();
-    return categories.filter(c => c.name.toLowerCase().includes(areaLabel) || c.name.toLowerCase().includes('relatórios'));
+    return categories.filter(c => {
+      const name = c.name.toLowerCase();
+      return name.includes(areaLabel) || 
+             name.includes('relatórios') || 
+             name.includes('encaminhamento') || 
+             name.includes('financeiro') || 
+             name.includes('oficiais');
+    });
   }, [categories, selectedArea]);
 
   const selectedTemplate = useMemo(
@@ -417,13 +437,19 @@ export const DocGenerator: React.FC = () => {
     try {
       if (editingTemplateId) {
         await api.put(`/doc-generator/doc-templates/${editingTemplateId}`, payload);
+        pushToast('success', 'Template atualizado com sucesso!');
       } else {
-        await api.post('/doc-generator/doc-templates', payload);
+        const resp = await api.post<any>('/doc-generator/doc-templates', payload);
+        if (resp && resp.id) {
+          setSelectedTemplateId(String(resp.id));
+        }
+        pushToast('success', 'Novo template criado com sucesso!');
       }
       setIsTemplateModalOpen(false);
       await fetchData();
     } catch (e) {
       console.error(e);
+      pushToast('error', 'Erro ao salvar o template.');
     }
   };
 
@@ -448,6 +474,8 @@ export const DocGenerator: React.FC = () => {
         rendered_html: html
       });
 
+      pushToast('success', 'Documento gerado e salvo no histórico!');
+
       const win = window.open('', '_blank');
       if (!win) return;
       win.document.write(`
@@ -470,6 +498,7 @@ export const DocGenerator: React.FC = () => {
       setTimeout(() => win.print(), 500);
     } catch (e) {
       console.error(e);
+      pushToast('error', 'Erro ao gerar ou salvar o documento.');
     }
   };
 
@@ -610,7 +639,7 @@ export const DocGenerator: React.FC = () => {
                 <div className="space-y-5">
                     <Select 
                       label="Paciente"
-                      icon={<User size={16} />}
+                      leftIcon={<User size={16} />}
                       value={selectedPatientId}
                       onChange={(e) => {
                           setSelectedPatientId(e.target.value);
@@ -696,13 +725,13 @@ export const DocGenerator: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <Input 
                               label="Nome do Profissional"
-                              icon={<Briefcase size={16} />}
+                              leftIcon={<Briefcase size={16} />}
                               value={professionalName}
                               onChange={e => setProfessionalName(e.target.value)}
                             />
                             <Input 
                               label={`Registro (${selectedArea === 'psicologia' ? 'CRP' : selectedArea === 'medicina' ? 'CRM' : selectedArea === 'psicopedagogia' ? 'ABPp' : selectedArea === 'enfermagem' ? 'COREN' : 'CREFITO'})`}
-                              icon={<CheckCircle2 size={16} />}
+                              leftIcon={<CheckCircle2 size={16} />}
                               value={professionalCrp}
                               onChange={e => setProfessionalCrp(e.target.value)}
                             />
@@ -844,6 +873,8 @@ export const DocGenerator: React.FC = () => {
           <div className="space-y-6">
             <div className="flex gap-2">
               <Input 
+                label="Nova Categoria"
+                hideLabel
                 placeholder="Nova Categoria" 
                 value={newCategoryName} 
                 onChange={e => setNewCategoryName(e.target.value)} 
@@ -921,13 +952,22 @@ export const DocGenerator: React.FC = () => {
           maxWidth="max-w-4xl"
         >
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input 
                 label="Título do Documento" 
                 value={templateTitle} 
                 onChange={e => setTemplateTitle(e.target.value)} 
                 placeholder="Ex: Laudo Psicológico" 
+                containerClassName="md:col-span-1"
               />
+              <Select 
+                label="Categoria" 
+                value={templateCategoryId} 
+                onChange={e => setTemplateCategoryId(e.target.value)}
+              >
+                <option value="">Sem Categoria</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
               <Select 
                 label="Tipo de Documento" 
                 value={templateDocType} 
@@ -935,6 +975,7 @@ export const DocGenerator: React.FC = () => {
               >
                 <option value="atestado">Atestado</option>
                 <option value="declaracao">Declaração</option>
+                <option value="encaminhamento">Encaminhamento</option>
                 <option value="recibo">Recibo</option>
                 <option value="prontuario">Prontuário</option>
                 <option value="ficha">Ficha de Anamnese</option>

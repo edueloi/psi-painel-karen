@@ -189,8 +189,9 @@ router.post('/doc-templates/:id/render', async (req, res) => {
     };
 
     Object.keys(replacements).forEach(key => {
-      const regex = new RegExp(key, 'g');
-      rendered = rendered.replace(regex, replacements[key]);
+      if (replacements[key] !== undefined && replacements[key] !== null) {
+        rendered = rendered.split(key).join(String(replacements[key]));
+      }
     });
 
     res.json({ rendered_html: rendered });
