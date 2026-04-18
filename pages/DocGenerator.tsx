@@ -97,7 +97,9 @@ export const DocGenerator: React.FC = () => {
       specialty: '',
       clinicLogo: '',
       city: '',
-      clinicName: ''
+      clinicName: '',
+      phone: '',
+      address: ''
   });
   const [professionalName, setProfessionalName] = useState('');
   const [professionalCrp, setProfessionalCrp] = useState('');
@@ -179,7 +181,9 @@ export const DocGenerator: React.FC = () => {
               specialty: profileData.specialty || '',
               clinicLogo: profileData.clinic_logo_url || '',
               city: (profileData.address || '').split(',').pop()?.trim() || '',
-              clinicName: profileData.company_name || ''
+              clinicName: profileData.company_name || '',
+              phone: profileData.phone || '',
+              address: profileData.address || ''
           });
           setProfessionalName(profileData.name || '');
           setProfessionalCrp(profileData.crp || '');
@@ -369,7 +373,16 @@ export const DocGenerator: React.FC = () => {
             <p style="margin: 0; font-size: 8.5pt; color: #64748b; font-weight: 600;">${selectedArea.toUpperCase()}: ${sCrp}</p>
         </div>
 
-        ${fLogo ? `<div style="margin-top: 40px; text-align: center;"><img src="${fLogo}" style="max-height: 60px; max-width: 80%; object-fit: contain;" /></div>` : ''}
+        ${fLogo 
+            ? `<div style="margin-top: 40px; text-align: center;"><img src="${fLogo}" style="max-height: 60px; max-width: 80%; object-fit: contain;" /></div>` 
+            : `<div style="margin-top: auto; padding-top: 20px; text-align: center; border-top: 1px solid #f1f5f9;">
+                <p style="margin: 0; font-size: 8pt; color: #94a3b8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;">${professionalData.clinicName || professionalData.name}</p>
+                <p style="margin: 4px 0 0 0; font-size: 7.5pt; color: #94a3b8; line-height: 1.4;">
+                  ${professionalData.address ? `<span>${professionalData.address}</span>` : ''}
+                  ${professionalData.phone ? `<span style="margin-left: 8px; padding-left: 8px; border-left: 1px solid #e2e8f0;">${professionalData.phone}</span>` : ''}
+                </p>
+              </div>`
+        }
       </div>
     `;
   };
