@@ -169,6 +169,7 @@ export const Profile: React.FC = () => {
       step_1_title: '', step_1_desc: '',
       step_2_title: '', step_2_desc: '',
       step_3_title: '', step_3_desc: '',
+      trajectory_url: '',
     },
     gender: 'female' as 'male' | 'female' | 'other',
     cpf: '',
@@ -254,6 +255,7 @@ export const Profile: React.FC = () => {
               step_2_desc: data.profile_theme?.step_2_desc || '',
               step_3_title: data.profile_theme?.step_3_title || '',
               step_3_desc: data.profile_theme?.step_3_desc || '',
+              trajectory_url: data.profile_theme?.trajectory_url || '',
             },
             gender: data.gender || 'female',
             cpf: data.cpf || '',
@@ -390,6 +392,27 @@ export const Profile: React.FC = () => {
       }
     } catch (err) {
       console.error("Erro ao subir capa:", err);
+    }
+  };
+
+  const onTrajectoryPick = async (file?: File | null) => {
+    if (!file) return;
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const data = await api.request<any>('/profile/trajectory-image', {
+        method: 'POST',
+        body: fd,
+      });
+      const newUrl = data.trajectory_url || '';
+      if (newUrl) {
+        setUser(prev => ({ 
+          ...prev, 
+          profile_theme: { ...prev.profile_theme, trajectory_url: newUrl } 
+        }));
+      }
+    } catch (err) {
+      console.error("Erro ao subir imagem da trajetória:", err);
     }
   };
 
@@ -1137,6 +1160,58 @@ Gere o seguinte JSON:
                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
                              placeholder="Ex: Especialidades focadas no seu desenvolvimento..."
                            />
+                        </div>
+                      </div>
+
+                      {/* Foto da Trajetória */}
+                      <div className="pt-8 border-t border-slate-100 mb-8">
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="w-1.5 h-6 rounded-full bg-indigo-500"></div>
+                            <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Foto da Trajetória / Bio</h4>
+                        </div>
+                        <div className="flex flex-col md:flex-row gap-6 items-start">
+                          <div 
+                            className="relative w-full md:w-64 h-64 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden"
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = 'image/*';
+                              input.onchange = e => onTrajectoryPick((e.target as HTMLInputElement).files?.[0]);
+                              input.click();
+                            }}
+                          >
+                             {user.profile_theme.trajectory_url ? (
+                               <img src={getStaticUrl(user.profile_theme.trajectory_url)} alt="Trajetória" className="w-full h-full object-cover" />
+                             ) : (
+                               <div className="text-center p-6">
+                                 <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3 text-slate-300 group-hover:text-indigo-500 transition-all">
+                                   <Camera size={24} />
+                                 </div>
+                                 <p className="text-[10px] font-black text-slate-400">ANEXAR FOTO DA TRAJETÓRIA</p>
+                               </div>
+                             )}
+                             <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-all flex items-center justify-center">
+                                <div className="p-3 bg-white rounded-2xl shadow-xl scale-0 group-hover:scale-100 transition-all">
+                                  <Camera size={20} className="text-indigo-600" />
+                                </div>
+                             </div>
+                          </div>
+                          <div className="flex-1 space-y-4">
+                            <p className="text-xs font-bold text-slate-500 leading-relaxed">
+                              Esta foto aparecerá na seção "Trajetória Profissional" da sua página pública. 
+                              Recomendamos uma foto do seu consultório ou uma foto sua em ambiente profissional.
+                            </p>
+                            <div className="flex gap-2">
+                              {user.profile_theme.trajectory_url && (
+                                <button 
+                                  onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, trajectory_url: '' } }))}
+                                  className="px-4 py-2 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-100 transition-all"
+                                >
+                                  Remover Foto
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
 

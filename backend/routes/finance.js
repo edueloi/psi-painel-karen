@@ -2036,4 +2036,8 @@ router.get('/analytics/performance', async (req, res) => {
   }
 });
 
+// Inicializar migrações do banco de dados para este módulo
+ensureFinanceColumns();
+ensureSchema();
+
 module.exports = router;

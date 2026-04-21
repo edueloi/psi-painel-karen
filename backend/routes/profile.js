@@ -360,6 +360,40 @@ router.post('/cover', async (req, res) => {
   }
 });
 
+// POST /profile/trajectory-image — Upload da imagem da trajetória
+router.post('/trajectory-image', async (req, res) => {
+  try {
+    const multerTrajectory = require('multer')({
+      storage: require('multer').diskStorage({
+        destination: (req2, file, cb) => {
+          const dir = require('path').join(__dirname, '../public/uploads/trajectory');
+          require('fs').mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req2, file, cb) => {
+          cb(null, `trajectory-${req.user.id}-${Date.now()}${require('path').extname(file.originalname)}`);
+        }
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (req2, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Apenas imagens são permitidas'));
+      }
+    }).single('image');
+
+    multerTrajectory(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+      const trajectory_url = `/uploads-static/trajectory/${req.file.filename}`;
+      res.json({ trajectory_url });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao fazer upload da imagem da trajetória' });
+  }
+});
+
 // ── TWO FACTOR AUTHENTICATION (2FA) ──────────────────────────────────────────
 
 // POST /profile/2fa/setup — Gera o segredo e o QR Code

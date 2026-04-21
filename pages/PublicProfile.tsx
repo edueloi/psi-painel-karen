@@ -58,6 +58,7 @@ interface PublicProfileData {
   company_name: string;
   social_links: SocialLink[];
   profile_theme?: {
+    public_name?: string;
     primaryColor?: string;
     layout?: string;
     hero_title?: string;
@@ -71,6 +72,20 @@ interface PublicProfileData {
     show_map?: boolean;
     show_trajectory?: boolean;
     show_specialties?: boolean;
+    trajectory_url?: string;
+    prop_1_title?: string;
+    prop_1_desc?: string;
+    prop_2_title?: string;
+    prop_2_desc?: string;
+    prop_3_title?: string;
+    prop_3_desc?: string;
+    steps_title?: string;
+    step_1_title?: string;
+    step_1_desc?: string;
+    step_2_title?: string;
+    step_2_desc?: string;
+    step_3_title?: string;
+    step_3_desc?: string;
   };
   schedule?: ScheduleDay[] | string;
   gender?: string;
@@ -112,6 +127,27 @@ const FAQItem: React.FC<{ question: string; answer: string; theme: any }> = ({ q
       </div>
     </div>
   );
+};
+
+const normalizeSocialUrl = (platform: string, url: string) => {
+  if (!url) return '#';
+  if (url.startsWith('http')) return url;
+  
+  const clean = url.startsWith('@') ? url.slice(1) : url;
+  
+  switch (platform.toLowerCase()) {
+    case 'instagram': return `https://instagram.com/${clean}`;
+    case 'facebook':  return `https://facebook.com/${clean}`;
+    case 'linkedin':  return `https://linkedin.com/in/${clean}`;
+    case 'tiktok':    return `https://tiktok.com/@${clean}`;
+    case 'youtube':   return `https://youtube.com/@${clean}`;
+    case 'threads':   return `https://threads.net/@${clean}`;
+    case 'whatsapp': {
+      const phone = url.replace(/\D/g, '');
+      return `https://wa.me/55${phone}`;
+    }
+    default: return url.includes('.') ? `https://${url}` : url;
+  }
 };
 
 export const PublicProfile: React.FC = () => {
@@ -421,7 +457,14 @@ export const PublicProfile: React.FC = () => {
                  </div>
                  <div className={`${themeColors.section} p-4 rounded-[4rem] group`}>
                     <div className="relative rounded-[3.5rem] overflow-hidden aspect-square">
-                       <img src="https://images.unsplash.com/photo-1573497620053-ea5310f94a17?auto=format&fit=crop&q=80&w=1000" alt="Consultório" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 opacity-90" />
+                       <img 
+                         src={data.profile_theme?.trajectory_url 
+                           ? getStaticUrl(data.profile_theme.trajectory_url) 
+                           : "https://images.unsplash.com/photo-1573497620053-ea5310f94a17?auto=format&fit=crop&q=80&w=1000"
+                         } 
+                         alt="Consultório" 
+                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 opacity-90" 
+                       />
                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                        <div className="absolute bottom-10 left-10 right-10 p-6 border border-white/20 backdrop-blur-md rounded-2xl text-white">
                           <p className="text-base font-medium italic">"O autoconhecimento é o início de toda sabedoria. Conhecer a si mesmo é o fim da ilusão e o começo da clareza."</p>
@@ -589,7 +632,7 @@ export const PublicProfile: React.FC = () => {
                   {/* Social Links Mini Grid */}
                   <div className="grid grid-cols-2 gap-4">
                      {data.social_links.filter(l => l.platform.toLowerCase() !== 'whatsapp').slice(0, 4).map((link, i) => (
-                        <a key={i} href={link.url} target="_blank" rel="noreferrer" className={`${themeColors.section} p-8 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 hover:-translate-y-1 transition-all text-center border border-slate-100/50 shadow-sm group`}>
+                        <a key={i} href={normalizeSocialUrl(link.platform, link.url)} target="_blank" rel="noreferrer" className={`${themeColors.section} p-8 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 hover:-translate-y-1 transition-all text-center border border-slate-100/50 shadow-sm group`}>
                            <div className="text-indigo-600 group-hover:scale-110 transition-transform"><SocialIcon platform={link.platform} size={24} /></div>
                            <span className="text-[9px] font-black uppercase tracking-widest opacity-50">{link.platform}</span>
                         </a>
@@ -612,7 +655,7 @@ export const PublicProfile: React.FC = () => {
                <p className={`text-lg leading-relaxed ${themeColors.subtext} font-medium`}>Elevando o padrão do atendimento clínico. Tecnologia e cuidado humano para sua jornada de bem-estar.</p>
                <div className="flex items-center justify-center lg:justify-start gap-6">
                   {data.social_links.map((l, i) => (
-                    <a key={i} href={l.url} className={`p-4 rounded-2xl border ${themeColors.header} hover:bg-slate-50 hover:scale-110 transition-all text-indigo-600 shadow-sm`}><SocialIcon platform={l.platform} size={20} /></a>
+                    <a key={i} href={normalizeSocialUrl(l.platform, l.url)} target="_blank" rel="noreferrer" className={`p-4 rounded-2xl border ${themeColors.header} hover:bg-slate-50 hover:scale-110 transition-all text-indigo-600 shadow-sm`}><SocialIcon platform={l.platform} size={20} /></a>
                   ))}
                </div>
             </div>
