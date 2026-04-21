@@ -6,7 +6,7 @@ const db = require('../db');
 router.get('/:slug', async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT name, specialty, crp, bio, phone, email, public_slug,
+      `SELECT name, specialty, crp, bio, phone, email, public_slug, address,
               avatar_url, cover_url, clinic_logo_url, company_name, 
               social_links, profile_theme, schedule, closed_dates, gender
        FROM users 
