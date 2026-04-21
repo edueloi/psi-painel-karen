@@ -361,7 +361,7 @@ export const PublicProfile: React.FC = () => {
                  <CheckCircle2 size={12} /> Profissional da Saúde Verificado
                </div>
                
-               <h1 className="text-5xl lg:text-8xl font-black leading-[1] tracking-tight animate-[slideUpFade_0.7s_ease-out_0.1s_both]">
+               <h1 className="text-3xl sm:text-5xl lg:text-8xl font-black leading-[1] tracking-tight animate-[slideUpFade_0.7s_ease-out_0.1s_both]">
                  {data.profile_theme?.hero_title || 'Apoio Psicológico de Confiança.'}
                </h1>
                
@@ -440,17 +440,17 @@ export const PublicProfile: React.FC = () => {
               <section id="sobre" className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
                  <div className="space-y-8">
                     <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase tracking-widest">Trajetória Profissional</div>
-                    <h2 className={`text-4xl lg:text-5xl font-black tracking-tight ${themeColors.text}`}>Entendendo os caminhos da alma humana.</h2>
+                    <h2 className={`text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight ${themeColors.text}`}>Entendendo os caminhos da alma humana.</h2>
                     <div className={`text-lg leading-[2] whitespace-pre-wrap ${themeColors.subtext}`}>
                        {data.bio || 'Profissional dedicado ao acolhimento psicológico e transformação humana.'}
                     </div>
                     <div className="grid grid-cols-2 gap-8 pt-4">
                        <div>
-                          <p className="text-4xl font-black text-indigo-500">{data.profile_theme?.patients_count || '+100'}</p>
+                          <p className="text-2xl sm:text-4xl font-black text-indigo-500">{data.profile_theme?.patients_count || '+100'}</p>
                           <p className={`text-[10px] font-black uppercase tracking-widest mt-2 ${themeColors.subtext}`}>Vidas Transformadas</p>
                        </div>
                        <div>
-                          <p className="text-4xl font-black text-indigo-500">{data.profile_theme?.experience_years || '8+'}</p>
+                          <p className="text-2xl sm:text-4xl font-black text-indigo-500">{data.profile_theme?.experience_years || '8+'}</p>
                           <p className={`text-[10px] font-black uppercase tracking-widest mt-2 ${themeColors.subtext}`}>Anos de Experiência</p>
                        </div>
                     </div>
@@ -478,7 +478,7 @@ export const PublicProfile: React.FC = () => {
             {data.profile_theme?.show_specialties !== false && (
               <section id="especialidades" className="space-y-16">
                  <div className="text-center space-y-4">
-                    <h2 className={`text-4xl lg:text-6xl font-black tracking-tight ${themeColors.text}`}>Áreas de Atuação</h2>
+                    <h2 className={`text-3xl sm:text-4xl lg:text-6xl font-black tracking-tight ${themeColors.text}`}>Áreas de Atuação</h2>
                     <p className={`text-xl max-w-2xl mx-auto opacity-70 ${themeColors.subtext}`}>
                       {data.profile_theme?.specialties_summary || 'Especialidades focadas no seu desenvolvimento pessoal e emocional.'}
                     </p>
@@ -629,15 +629,6 @@ export const PublicProfile: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Social Links Mini Grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                     {data.social_links.filter(l => l.platform.toLowerCase() !== 'whatsapp').slice(0, 4).map((link, i) => (
-                        <a key={i} href={normalizeSocialUrl(link.platform, link.url)} target="_blank" rel="noreferrer" className={`${themeColors.section} p-8 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 hover:-translate-y-1 transition-all text-center border border-slate-100/50 shadow-sm group`}>
-                           <div className="text-indigo-600 group-hover:scale-110 transition-transform"><SocialIcon platform={link.platform} size={24} /></div>
-                           <span className="text-[9px] font-black uppercase tracking-widest opacity-50">{link.platform}</span>
-                        </a>
-                     ))}
-                  </div>
                </div>
             </section>
 
