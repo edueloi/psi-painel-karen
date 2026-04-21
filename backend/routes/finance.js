@@ -184,12 +184,20 @@ router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_pa
     }
     const comanda = comandaRows[0];
 
-    // 3. Calcular paid_value acumulado
-    const [payments] = await conn.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'`,
-      [req.params.id, req.user.tenant_id]
+    // 3. Calcular paid_value acumulado (moderno + legado)
+    const [sumRes] = await conn.query(
+      `SELECT (
+        SELECT COALESCE(SUM(amount), 0) FROM comanda_payments 
+        WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'
+      ) + (
+        SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
+        WHERE comanda_id = ? AND origin_payment_id IS NULL 
+          AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          AND id != COALESCE((SELECT livrocaixa_tx_id FROM comandas WHERE id = ?), -1)
+      ) as total`,
+      [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id, req.params.id]
     );
-    const totalPaid = parseFloat(payments[0].total);
+    const totalPaid = parseFloat(sumRes[0].total);
 
     const comandaTotal = parseFloat(comanda.total || 0);
     const sessionsTotal = parseInt(comanda.sessions_total || 1);
@@ -291,12 +299,20 @@ router.put('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission(
       [parseFloat(amount), payDate, payMethod, notes || null, payStatus, payer_id || null, req.params.paymentId, req.params.id, req.user.tenant_id]
     );
 
-    // 2. Recalcular paid_value
-    const [payments] = await conn.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'`,
-      [req.params.id, req.user.tenant_id]
+    // 2. Recalcular paid_value (moderno + legado)
+    const [sumRes] = await conn.query(
+      `SELECT (
+        SELECT COALESCE(SUM(amount), 0) FROM comanda_payments 
+        WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'
+      ) + (
+        SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
+        WHERE comanda_id = ? AND origin_payment_id IS NULL 
+          AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          AND id != COALESCE((SELECT livrocaixa_tx_id FROM comandas WHERE id = ?), -1)
+      ) as total`,
+      [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id, req.params.id]
     );
-    const totalPaid = parseFloat(payments[0].total);
+    const totalPaid = parseFloat(sumRes[0].total);
 
     const [comandaRows] = await conn.query('SELECT total, sessions_total, sessions_used, sync_to_livrocaixa, livrocaixa_tx_id, description, patient_id FROM comandas WHERE id = ?', [req.params.id]);
     const comanda = comandaRows[0];
@@ -370,25 +386,42 @@ router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermissi
     await conn.beginTransaction();
     await withSchema();
 
-    // 1. Excluir o pagamento individual
-    await conn.query(
+    // 1. Tentar excluir de comanda_payments (sistema novo)
+    const [delRes] = await conn.query(
       `DELETE FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
       [req.params.paymentId, req.params.id, req.user.tenant_id]
     );
 
-    // 2. Excluir o lançamento vinculado no livro caixa
-    await conn.query(
-      `DELETE FROM financial_transactions 
-       WHERE origin_module = 'COMANDA' AND origin_payment_id = ? AND tenant_id = ?`,
-      [req.params.paymentId, req.user.tenant_id]
-    );
+    if (delRes.affectedRows > 0) {
+      // 2. Excluir o lançamento vinculado no livro caixa (via origin_payment_id)
+      await conn.query(
+        `DELETE FROM financial_transactions 
+         WHERE origin_module = 'COMANDA' AND origin_payment_id = ? AND tenant_id = ?`,
+        [req.params.paymentId, req.user.tenant_id]
+      );
+    } else {
+      // 3. Sistema legado: tentar excluir diretamente de financial_transactions
+      await conn.query(
+        `DELETE FROM financial_transactions 
+         WHERE id = ? AND comanda_id = ? AND tenant_id = ? AND type = 'income' AND source != 'comanda_forecast'`,
+        [req.params.paymentId, req.params.id, req.user.tenant_id]
+      );
+    }
 
-    // 3. Recalcular paid_value
-    const [cpPayments] = await conn.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'`,
-      [req.params.id, req.user.tenant_id]
+    // 3. Recalcular paid_value (moderno + legado)
+    const [sumRes] = await conn.query(
+      `SELECT (
+        SELECT COALESCE(SUM(amount), 0) FROM comanda_payments 
+        WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'
+      ) + (
+        SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
+        WHERE comanda_id = ? AND origin_payment_id IS NULL 
+          AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          AND id != COALESCE((SELECT livrocaixa_tx_id FROM comandas WHERE id = ?), -1)
+      ) as total`,
+      [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id, req.params.id]
     );
-    let totalPaid = parseFloat(cpPayments[0].total);
+    const totalPaid = parseFloat(sumRes[0].total);
 
     const [comandaRows] = await conn.query('SELECT total, sessions_total, sessions_used, sync_to_livrocaixa, livrocaixa_tx_id, description, patient_id, livrocaixa_date FROM comandas WHERE id = ?', [req.params.id]);
     const comanda = comandaRows[0];
