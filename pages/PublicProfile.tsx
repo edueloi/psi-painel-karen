@@ -234,6 +234,20 @@ export const PublicProfile: React.FC = () => {
     return () => { document.querySelector('#ld-json-person')?.remove(); };
   }, [data]);
 
+  // Scroll Reveal Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, [data]);
+
   const primaryColor = data?.profile_theme?.primaryColor || '#4F46E5';
   const layout = data?.profile_theme?.layout || 'modern';
 
@@ -416,7 +430,11 @@ export const PublicProfile: React.FC = () => {
          </div>
       </section>
 
-      <main className={`relative z-10 ${layout === 'vibrant' ? 'bg-black/20' : layout === 'dark' ? 'bg-slate-900' : 'bg-[#F9FAFB]'} pt-24 pb-48`}>
+      <main className={`relative z-10 ${layout === 'vibrant' ? 'bg-black/20' : layout === 'dark' ? 'bg-slate-900' : 'bg-[#F9FAFB]'} pt-24 pb-48 overflow-hidden`}>
+         {/* Animated Background Glows */}
+         <div className="bg-blob w-[600px] h-[600px] bg-indigo-500 top-0 -left-100 animate-float-slow" />
+         <div className="bg-blob w-[400px] h-[400px] bg-fuchsia-500 bottom-1/2 -right-40 animate-float-slow" style={{ animationDelay: '-5s' }} />
+         <div className="bg-blob w-[500px] h-[500px] bg-blue-400 bottom-0 left-1/2 animate-float-slow" style={{ animationDelay: '-10s' }} />
          
          {/* Value Propositions */}
          <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 mb-32 -mt-40 relative z-20 props-grid">
@@ -425,7 +443,7 @@ export const PublicProfile: React.FC = () => {
               { icon: <Shield className="text-rose-500" />, title: data.profile_theme?.prop_2_title || 'Sigilo Absoluto', desc: data.profile_theme?.prop_2_desc || 'Espaço seguro e ético dentro das normas do conselho federal.' },
               { icon: <Heart className="text-fuchsia-500" />, title: data.profile_theme?.prop_3_title || 'Atendimento Humano', desc: data.profile_theme?.prop_3_desc || 'Foco na sua singularidade e em uma escuta sem julgamentos.' },
             ].map((prop, i) => (
-              <div key={i} className={`${themeColors.section} p-10 rounded-[3rem] shadow-xl hover:-translate-y-2 transition-all duration-500 prop-card`}>
+              <div key={i} className={`${themeColors.section} p-10 rounded-[3rem] shadow-xl hover:-translate-y-2 transition-all duration-500 prop-card reveal reveal-delay-${i+1}`}>
                 <div className="w-16 h-16 rounded-[2rem] bg-current/5 flex items-center justify-center mb-6">{prop.icon}</div>
                 <h3 className={`text-xl font-black mb-4 tracking-tight ${themeColors.text}`}>{prop.title}</h3>
                 <p className={`leading-relaxed ${themeColors.subtext}`}>{prop.desc}</p>
@@ -437,7 +455,7 @@ export const PublicProfile: React.FC = () => {
             
             {/* About & Bio */}
             {data.profile_theme?.show_trajectory !== false && (
-              <section id="sobre" className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+              <section id="sobre" className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center reveal">
                  <div className="space-y-8">
                     <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase tracking-widest">Trajetória Profissional</div>
                     <h2 className={`text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight ${themeColors.text}`}>Entendendo os caminhos da alma humana.</h2>
@@ -476,7 +494,7 @@ export const PublicProfile: React.FC = () => {
 
             {/* Specialty Cards */}
             {data.profile_theme?.show_specialties !== false && (
-              <section id="especialidades" className="space-y-16">
+              <section id="especialidades" className="space-y-16 reveal">
                  <div className="text-center space-y-4">
                     <h2 className={`text-3xl sm:text-4xl lg:text-6xl font-black tracking-tight ${themeColors.text}`}>Áreas de Atuação</h2>
                     <p className={`text-xl max-w-2xl mx-auto opacity-70 ${themeColors.subtext}`}>
@@ -549,7 +567,7 @@ export const PublicProfile: React.FC = () => {
 
             {/* FAQ Area */}
             {data.profile_theme?.show_faq !== false && (data.profile_theme as any)?.faq?.length > 0 && (
-              <section id="faq" className="max-w-4xl mx-auto space-y-12">
+              <section id="faq" className="max-w-4xl mx-auto space-y-12 reveal">
                  <div className="text-center space-y-2">
                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">FAQ</span>
                     <h2 className={`text-4xl lg:text-5xl font-black tracking-tight ${themeColors.text}`}>Dúvidas Frequentes</h2>
@@ -563,7 +581,7 @@ export const PublicProfile: React.FC = () => {
             )}
 
             {/* Location & Contact Grid */}
-            <section id="contato" className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            <section id="contato" className="grid grid-cols-1 lg:grid-cols-12 gap-12 reveal">
                <div className="lg:col-span-8 space-y-6">
                   {data.profile_theme?.show_map !== false && (
                     <div className={`${themeColors.section} p-10 h-full rounded-[4rem] group relative overflow-hidden border border-slate-100/50`}>
@@ -709,8 +727,38 @@ export const PublicProfile: React.FC = () => {
           animation: float 4s ease-in-out infinite;
         }
 
+        .reveal {
+          opacity: 0;
+          transform: translateY(30px);
+          transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal.is-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.2s; }
+        .reveal-delay-3 { transition-delay: 0.3s; }
+        
+        .bg-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px);
+          z-index: 0;
+          opacity: 0.15;
+          pointer-events: none;
+        }
+
+        @keyframes floatSlow {
+          0%, 100% { transform: translate(0, 0); }
+          33% { transform: translate(30px, -50px); }
+          66% { transform: translate(-20px, 20px); }
+        }
+        .animate-float-slow {
+          animation: floatSlow 15s ease-in-out infinite;
+        }
+
         @media (max-width: 768px) {
-           h1 { font-size: 3rem !important; line-height: 1 !important; }
            .hero-container { padding-top: 120px !important; padding-bottom: 40px !important; }
            .props-grid { margin-top: -80px !important; padding-left: 16px !important; padding-right: 16px !important; gap: 16px !important; }
            .prop-card { padding: 32px !important; border-radius: 2rem !important; }
