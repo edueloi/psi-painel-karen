@@ -574,7 +574,7 @@ export const PublicProfile: React.FC = () => {
                        <p className={`text-lg font-bold mb-8 max-w-md ${themeColors.text}`}>{data.address || 'Consultório em localização estratégica de fácil acesso.'}</p>
                        <div className="aspect-[16/9] lg:aspect-[21/9] rounded-[2.5rem] overflow-hidden bg-slate-100 border border-slate-200 shadow-inner relative">
                           <iframe 
-                            src={`https://www.google.com/maps/embed/v1/place?key=MAPS_API_KEY&q=${encodeURIComponent(data.address || 'São Paulo, Brasil')}`} 
+                            src={`https://maps.google.com/maps?q=${encodeURIComponent(data.address || 'São Paulo, Brasil')}&t=&z=15&ie=UTF8&iwloc=&output=embed`} 
                             width="100%" height="100%" frameBorder="0" style={{ border: 0 }} allowFullScreen={true} aria-hidden={false} tabIndex={0}
                             title="mapa"
                           />
