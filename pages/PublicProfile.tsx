@@ -437,7 +437,7 @@ export const PublicProfile: React.FC = () => {
          <div className="bg-blob w-[500px] h-[500px] bg-blue-400 bottom-0 left-1/2 animate-float-slow" style={{ animationDelay: '-10s' }} />
          
          {/* Value Propositions */}
-         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 mb-32 -mt-40 relative z-20 props-grid">
+         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 mb-32 relative z-20 props-grid">
             {[
               { icon: <Target className="text-indigo-500" />, title: data.profile_theme?.prop_1_title || 'Abordagem Focada', desc: data.profile_theme?.prop_1_desc || 'Metodologias comprovadas para resultados sólidos e bem-estar.' },
               { icon: <Shield className="text-rose-500" />, title: data.profile_theme?.prop_2_title || 'Sigilo Absoluto', desc: data.profile_theme?.prop_2_desc || 'Espaço seguro e ético dentro das normas do conselho federal.' },
