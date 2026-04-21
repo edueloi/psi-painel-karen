@@ -293,8 +293,11 @@ export const Comandas: React.FC = () => {
   const handleReopenComanda = async () => {
     if (!historyComanda) return;
     try {
-      await api.put(`/finance/comandas/${historyComanda.id}`, { status: 'open' });
+      await api.put(`/finance/comandas/${historyComanda.id}/reopen`, {});
       pushToast('success', 'Comanda reaberta com sucesso!');
+      
+      // Mudar filtro para 'open' para que o usuário veja a comanda reaberta
+      setStatusFilter('open');
       
       const refreshed = await api.get<Comanda[]>('/finance/comandas');
       const updated = refreshed.find((c) => String(c.id) === String(historyComanda.id));

@@ -1818,6 +1818,24 @@ router.put('/comandas/:id/force-close', authMiddleware, async (req, res) => {
     }
 });
 
+// PUT /finance/comandas/:id/reopen
+router.put('/comandas/:id/reopen', authMiddleware, async (req, res) => {
+    try {
+        await withSchema();
+        const { id } = req.params;
+        const tenant_id = req.user.tenant_id;
+        
+        await db.query(
+            'UPDATE comandas SET status = ? WHERE id = ? AND tenant_id = ?',
+            ['open', id, tenant_id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao reabrir comanda' });
+    }
+});
+
 // DELETE /finance/comandas/:id
 router.delete('/comandas/:id', authMiddleware, async (req, res) => {
   try {
