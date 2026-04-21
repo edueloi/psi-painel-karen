@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api, getStaticUrl, API_BASE_URL } from '../services/api';
 import { Comanda, Patient, Service } from '../types';
 import { Modal } from '../components/UI/Modal';
@@ -138,6 +138,7 @@ const Field: React.FC<{
 
 export const Comandas: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const safeDate = (dateStr: string | Date | null | undefined): Date | null => {
     if (!dateStr) return null;
     if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
@@ -2586,32 +2587,46 @@ export const Comandas: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => {
-                        setNewPayment({
-                          value: formatCurrencyInput(Number(payment.amount || 0)) || '0,00',
-                          date: payment.payment_date ? payment.payment_date.slice(0, 10) : getLocalDateISO(),
-                          method: payment.payment_method || 'Pix',
-                          receiptCode: payment.receipt_code || '',
-                          comandaId: String(historyComanda?.id),
-                          id: String(payment.id)
-                        });
-                        setIsAddPaymentModalOpen(true);
-                      }} 
-                      className="p-1 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-200" title="Editar">
-                      <Edit3 size={12} />
-                    </button>
-                    <button onClick={() => {
-                        setPaymentToDelete(payment);
-                        setIsDeletePaymentModalOpen(true);
-                      }} 
-                      className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-200" title="Excluir">
-                      <Trash2 size={12} />
-                    </button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {payment.financial_transaction_id && (
+                        <button
+                          onClick={() => {
+                            const date = new Date(payment.payment_date || new Date());
+                            const m = date.getMonth() + 1;
+                            const y = date.getFullYear();
+                            navigate(`/livro-caixa?month=${m}&year=${y}`);
+                          }}
+                          className="p-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-200"
+                          title="Ver no Livro Caixa"
+                        >
+                          <BookOpen size={12} />
+                        </button>
+                      )}
+                      <button onClick={() => {
+                          setNewPayment({
+                            value: formatCurrencyInput(Number(payment.amount || 0)) || '0,00',
+                            date: payment.payment_date ? payment.payment_date.slice(0, 10) : getLocalDateISO(),
+                            method: payment.payment_method || 'Pix',
+                            receiptCode: payment.receipt_code || '',
+                            comandaId: String(historyComanda?.id),
+                            id: String(payment.id)
+                          });
+                          setIsAddPaymentModalOpen(true);
+                        }} 
+                        className="p-1 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-200" title="Editar">
+                        <Edit3 size={12} />
+                      </button>
+                      <button onClick={() => {
+                          setPaymentToDelete(payment);
+                          setIsDeletePaymentModalOpen(true);
+                        }} 
+                        className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-200" title="Excluir">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 group-hover:hidden">Recebido</span>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 group-hover:hidden">Recebido</span>
-                </div>
               </div>
             ))}
 

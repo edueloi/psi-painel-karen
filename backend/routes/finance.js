@@ -24,6 +24,9 @@ async function ensureFinanceColumns() {
     "ALTER TABLE financial_transactions ADD COLUMN created_by INT NULL",
     "ALTER TABLE financial_transactions ADD COLUMN source VARCHAR(50) DEFAULT 'direct'",
     "ALTER TABLE financial_transactions MODIFY COLUMN status VARCHAR(50) DEFAULT 'paid'",
+    "ALTER TABLE financial_transactions ADD COLUMN origin_module VARCHAR(50) NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN origin_id INT NULL",
+    "ALTER TABLE financial_transactions ADD COLUMN origin_payment_id INT NULL",
     // ── Receita Saúde receipt control ──
     "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_issued TINYINT(1) NOT NULL DEFAULT 0",
     "ALTER TABLE financial_transactions ADD COLUMN rs_receipt_issued_at TIMESTAMP NULL",
@@ -88,11 +91,16 @@ async function ensureSchema() {
         amount DECIMAL(10,2) NOT NULL DEFAULT 0,
         payment_date DATE NOT NULL,
         payment_method VARCHAR(50) DEFAULT 'Pix',
+        status VARCHAR(50) DEFAULT 'paid',
+        payer_id INT NULL,
         receipt_code VARCHAR(100) NULL,
         notes TEXT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Garantir que status e payer_id existam em comanda_payments
+    try { await db.query('ALTER TABLE comanda_payments ADD COLUMN status VARCHAR(50) DEFAULT "paid"'); } catch (e) {}
+    try { await db.query('ALTER TABLE comanda_payments ADD COLUMN payer_id INT NULL'); } catch (e) {}
   } catch (e) {
     if (!e.message.includes('already exists')) console.warn('comanda_payments table warning:', e.message);
   }
@@ -108,10 +116,12 @@ router.get('/comandas/:id/payments', authMiddleware, async (req, res) => {
     await withSchema();
     // Busca primeiro de comanda_payments (fonte primária após refatoração)
     const [cpRows] = await db.query(
-      `SELECT id, amount, payment_date, payment_method, notes, created_at, NULL as source, NULL as created_by_name
-       FROM comanda_payments
-       WHERE comanda_id = ? AND tenant_id = ?
-       ORDER BY created_at DESC`,
+      `SELECT cp.id, cp.amount, cp.payment_date, cp.payment_method, cp.notes, cp.created_at, cp.status, cp.payer_id,
+              t.id as financial_transaction_id, NULL as source, NULL as created_by_name
+       FROM comanda_payments cp
+       LEFT JOIN financial_transactions t ON (t.origin_payment_id = cp.id AND t.origin_module = 'COMANDA')
+       WHERE cp.comanda_id = ? AND cp.tenant_id = ?
+       ORDER BY cp.created_at DESC`,
       [req.params.id, req.user.tenant_id]
     );
 
@@ -130,219 +140,309 @@ router.get('/comandas/:id/payments', authMiddleware, async (req, res) => {
        ORDER BY t.created_at DESC`,
       [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id]
     );
+
     res.json(rows);
   } catch (err) {
     console.error('Erro ao buscar pagamentos:', err);
-    res.status(500).json({ error: 'Erro ao buscar pagamentos', details: err.message });
+    res.status(500).json({ error: 'Erro ao buscar pagamentos' });
   }
 });
 
 // POST /finance/comandas/:id/payments - Registrar novo pagamento
 router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
     await withSchema();
-    const { amount, payment_date, payment_method, receipt_code, notes } = req.body;
+    const { amount, payment_date, payment_method, receipt_code, notes, status, payer_id } = req.body;
 
     if (!amount || parseFloat(amount) <= 0) {
+      await conn.rollback();
       return res.status(400).json({ error: 'Valor inválido' });
     }
 
     const payDate = payment_date || new Date().toISOString().slice(0, 10);
     const payMethod = payment_method || 'Pix';
+    const payStatus = status || 'paid';
 
-    // Inserir pagamento individual
-    const [result] = await db.query(
-      `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method, receipt_code, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [req.user.tenant_id, req.params.id, parseFloat(amount), payDate, payMethod, receipt_code || null, notes || null]
+    // 1. Inserir pagamento individual
+    const [result] = await conn.query(
+      `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method, status, payer_id, receipt_code, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.tenant_id, req.params.id, parseFloat(amount), payDate, payMethod, payStatus, payer_id || null, receipt_code || null, notes || null]
     );
+    const paymentId = result.insertId;
 
-    // Calcular paid_value acumulado a partir dos pagamentos individuais registrados (comanda_payments)
-    const [payments] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?`,
+    // 2. Buscar dados da comanda
+    const [comandaRows] = await conn.query(
+      'SELECT total, patient_id, professional_id, sessions_total, sessions_used, sync_to_livrocaixa, livrocaixa_tx_id, description FROM comandas WHERE id = ? AND tenant_id = ?',
       [req.params.id, req.user.tenant_id]
     );
-    // O INSERT do comanda_payment acima já foi feito, então payments[0].total já inclui o valor atual
+    if (comandaRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Comanda não encontrada' });
+    }
+    const comanda = comandaRows[0];
+
+    // 3. Calcular paid_value acumulado
+    const [payments] = await conn.query(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'`,
+      [req.params.id, req.user.tenant_id]
+    );
     const totalPaid = parseFloat(payments[0].total);
 
-    const [comanda] = await db.query(
-      'SELECT total, patient_id, professional_id, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?',
-      [req.params.id, req.user.tenant_id]
-    );
-    const comandaTotal = parseFloat(comanda[0]?.total || 0);
-    const sessionsTotal = parseInt(comanda[0]?.sessions_total || 1);
-    const sessionsUsed = parseInt(comanda[0]?.sessions_used || 0);
-    // Comanda só fecha quando TODAS as sessões foram usadas E o valor total foi pago
+    const comandaTotal = parseFloat(comanda.total || 0);
+    const sessionsTotal = parseInt(comanda.sessions_total || 1);
+    const sessionsUsed = parseInt(comanda.sessions_used || 0);
     const newStatus = (totalPaid >= comandaTotal && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
 
-    await db.query(
+    await conn.query(
       'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
       [totalPaid, newStatus, req.params.id, req.user.tenant_id]
     );
 
-    // Se comanda tem sync_to_livrocaixa, atualizar/criar lançamento no livro caixa (sem comanda_id)
-    const [cmdRow] = await db.query(
-      'SELECT sync_to_livrocaixa, livrocaixa_tx_id, description, patient_id FROM comandas WHERE id = ? AND tenant_id = ?',
-      [req.params.id, req.user.tenant_id]
-    );
-    if (cmdRow.length > 0 && cmdRow[0].sync_to_livrocaixa) {
-      const txId = cmdRow[0].livrocaixa_tx_id;
-      if (txId) {
-        // Atualizar transaction existente: valor pago acumulado e status pago
-        await db.query(
-          `UPDATE financial_transactions SET amount = ?, status = 'paid', date = ? WHERE id = ? AND tenant_id = ?`,
-          [totalPaid, payDate, txId, req.user.tenant_id]
-        );
-      } else {
-        // Criar nova transaction no livro caixa
-        const [newTx] = await db.query(
-          `INSERT INTO financial_transactions
-             (tenant_id, type, category, description, amount, date, patient_id, payment_method, status)
-           VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'paid')`,
-          [req.user.tenant_id, cmdRow[0].description || 'Consulta', totalPaid, payDate, cmdRow[0].patient_id || null, payMethod]
-        );
-        await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [newTx.insertId, req.params.id]);
+    // 4. Sincronização com Livro Caixa
+    if (comanda.sync_to_livrocaixa) {
+      // 4.1 Criar lançamento individual para este pagamento
+      const txDescription = `Pagamento Comanda #${req.params.id} - ${comanda.description || 'Consulta'}`;
+      
+      // Buscar dados do paciente para o lançamento financeiro
+      let pName = null, pCpf = null, payName = null, payCpf = null;
+      if (comanda.patient_id) {
+        const [pRows] = await conn.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [comanda.patient_id]);
+        if (pRows.length > 0) {
+          const p = pRows[0];
+          pName = p.name;
+          pCpf = p.cpf;
+          if (p.is_payer === 0) {
+            payName = p.payer_name || p.name;
+            payCpf = p.payer_cpf || p.cpf;
+          } else {
+            payName = p.name;
+            payCpf = p.cpf;
+          }
+        }
+      }
+
+      await conn.query(
+        `INSERT INTO financial_transactions
+           (tenant_id, type, category, description, amount, date, patient_id, payment_method, status, 
+            origin_module, origin_id, origin_payment_id, source, payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, created_by)
+         VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, ?, 'COMANDA', ?, ?, 'comanda_payment', ?, ?, ?, ?, ?)`,
+        [
+          req.user.tenant_id, txDescription, parseFloat(amount), payDate, comanda.patient_id || null, payMethod, 
+          payStatus === 'paid' ? 'paid' : 'pending',
+          req.params.id, paymentId, payName, payCpf, pName, pCpf, req.user.id
+        ]
+      );
+
+      // 4.2 Atualizar lançamento principal (Previsão do Saldo Devedor)
+      const remainingBalance = Math.max(0, comandaTotal - totalPaid);
+      const mainTxId = comanda.livrocaixa_tx_id;
+
+      if (mainTxId) {
+        if (remainingBalance > 0) {
+          await conn.query(
+            `UPDATE financial_transactions SET amount = ?, status = 'pending' WHERE id = ? AND tenant_id = ?`,
+            [remainingBalance, mainTxId, req.user.tenant_id]
+          );
+        } else {
+          // Se não há mais saldo devedor, podemos ou zerar ou deletar o lançamento de previsão
+          // Deletar parece mais limpo para o livro caixa não ficar cheio de zeros
+          await conn.query(`DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?`, [mainTxId, req.user.tenant_id]);
+          await conn.query(`UPDATE comandas SET livrocaixa_tx_id = NULL WHERE id = ?`, [req.params.id]);
+        }
       }
     }
 
-    res.status(201).json({ id: result.insertId, amount: parseFloat(amount), payment_date: payDate, payment_method: payMethod, totalPaid, status: newStatus });
+    await conn.commit();
+    res.status(201).json({ id: paymentId, amount: parseFloat(amount), payment_date: payDate, payment_method: payMethod, totalPaid, status: newStatus });
   } catch (err) {
+    await conn.rollback();
     console.error('Erro ao registrar pagamento:', err);
     res.status(500).json({ error: 'Erro ao registrar pagamento', details: err.message });
+  } finally {
+    conn.release();
   }
 });
 
 // PUT /finance/comandas/:id/payments/:paymentId - Atualizar pagamento
 router.put('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
     await withSchema();
-    const { amount, payment_date, payment_method, receipt_code, notes } = req.body;
+    const { amount, payment_date, payment_method, receipt_code, notes, status, payer_id } = req.body;
 
     if (!amount || parseFloat(amount) <= 0) {
+      await conn.rollback();
       return res.status(400).json({ error: 'Valor inválido' });
     }
 
     const payDate = payment_date || new Date().toISOString().slice(0, 10);
     const payMethod = payment_method || 'Pix';
+    const payStatus = status || 'paid';
 
-    // Atualizar pagamento individual em comanda_payments (fonte única de verdade)
-    await db.query(
+    // 1. Atualizar pagamento individual
+    await conn.query(
       `UPDATE comanda_payments
-       SET amount = ?, payment_date = ?, payment_method = ?, notes = ?
+       SET amount = ?, payment_date = ?, payment_method = ?, notes = ?, status = ?, payer_id = ?
        WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
-      [parseFloat(amount), payDate, payMethod, notes || null, req.params.paymentId, req.params.id, req.user.tenant_id]
+      [parseFloat(amount), payDate, payMethod, notes || null, payStatus, payer_id || null, req.params.paymentId, req.params.id, req.user.tenant_id]
     );
 
-    // Recalcular paid_value a partir de comanda_payments (fonte única de verdade)
-    const [payments] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?`,
+    // 2. Recalcular paid_value
+    const [payments] = await conn.query(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'`,
       [req.params.id, req.user.tenant_id]
     );
     const totalPaid = parseFloat(payments[0].total);
 
-    const [comanda] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ?', [req.params.id]);
-    const comandaTotal = parseFloat(comanda[0]?.total || 0);
-    const sessionsTotal = parseInt(comanda[0]?.sessions_total || 1);
-    const sessionsUsed = parseInt(comanda[0]?.sessions_used || 0);
+    const [comandaRows] = await conn.query('SELECT total, sessions_total, sessions_used, sync_to_livrocaixa, livrocaixa_tx_id, description, patient_id FROM comandas WHERE id = ?', [req.params.id]);
+    const comanda = comandaRows[0];
+    if (!comanda) {
+        await conn.rollback();
+        return res.status(404).json({ error: 'Comanda não encontrada' });
+    }
+    
+    const comandaTotal = parseFloat(comanda.total || 0);
+    const sessionsTotal = parseInt(comanda.sessions_total || 1);
+    const sessionsUsed = parseInt(comanda.sessions_used || 0);
     const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
 
-    await db.query(
+    await conn.query(
       'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
       [totalPaid, newStatus, req.params.id, req.user.tenant_id]
     );
 
-    // Atualizar lançamento livro caixa se sync ativo
-    const [cmdRowUpd] = await db.query(
-      'SELECT sync_to_livrocaixa, livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?',
-      [req.params.id, req.user.tenant_id]
-    );
-    if (cmdRowUpd.length > 0 && cmdRowUpd[0].sync_to_livrocaixa && cmdRowUpd[0].livrocaixa_tx_id) {
-      const txStatusUpd = totalPaid > 0 ? 'paid' : 'pending';
-      await db.query(
-        `UPDATE financial_transactions SET amount = ?, status = ?, date = ? WHERE id = ? AND tenant_id = ?`,
-        [totalPaid, txStatusUpd, payDate, cmdRowUpd[0].livrocaixa_tx_id, req.user.tenant_id]
+    // 3. Atualizar lançamento no livro caixa
+    if (comanda.sync_to_livrocaixa) {
+      // 3.1 Atualizar o lançamento vinculado a este pagamento
+      await conn.query(
+        `UPDATE financial_transactions 
+         SET amount = ?, date = ?, payment_method = ?, status = ? 
+         WHERE origin_module = 'COMANDA' AND origin_payment_id = ? AND tenant_id = ?`,
+        [parseFloat(amount), payDate, payMethod, payStatus === 'paid' ? 'paid' : 'pending', req.params.paymentId, req.user.tenant_id]
       );
+
+      // 3.2 Atualizar o lançamento principal (forecast)
+      const remainingBalance = Math.max(0, comandaTotal - totalPaid);
+      const mainTxId = comanda.livrocaixa_tx_id;
+
+      if (mainTxId) {
+        if (remainingBalance > 0) {
+          await conn.query(
+            `UPDATE financial_transactions SET amount = ?, status = 'pending' WHERE id = ? AND tenant_id = ?`,
+            [remainingBalance, mainTxId, req.user.tenant_id]
+          );
+        } else {
+          await conn.query(`DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?`, [mainTxId, req.user.tenant_id]);
+          await conn.query(`UPDATE comandas SET livrocaixa_tx_id = NULL WHERE id = ?`, [req.params.id]);
+        }
+      } else if (remainingBalance > 0) {
+        // Se não tinha lançamento principal mas agora tem saldo devedor, cria
+        const txDescription = `Saldo Comanda #${req.params.id} - ${comanda.description || 'Consulta'}`;
+        const [txResult] = await conn.query(
+            `INSERT INTO financial_transactions
+               (tenant_id, type, category, description, amount, date, patient_id, payment_method, status, origin_module, origin_id, source, created_by)
+             VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, 'Pix', 'pending', 'COMANDA', ?, 'comanda_forecast', ?)`,
+            [req.user.tenant_id, txDescription, remainingBalance, comanda.livrocaixa_date || payDate, comanda.patient_id, req.params.id, req.user.id]
+        );
+        await conn.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [txResult.insertId, req.params.id]);
+      }
     }
 
+    await conn.commit();
     res.json({ success: true, totalPaid, status: newStatus });
   } catch (err) {
+    await conn.rollback();
     console.error('Erro ao atualizar pagamento:', err);
     res.status(500).json({ error: 'Erro ao atualizar pagamento' });
+  } finally {
+    conn.release();
   }
 });
 
 // DELETE /finance/comandas/:id/payments/:paymentId - Remover pagamento
 router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
     await withSchema();
 
-    // Exclui o pagamento individual de comanda_payments (fonte primária)
-    const [deleteResult] = await db.query(
+    // 1. Excluir o pagamento individual
+    await conn.query(
       `DELETE FROM comanda_payments WHERE id = ? AND comanda_id = ? AND tenant_id = ?`,
       [req.params.paymentId, req.params.id, req.user.tenant_id]
     );
 
-    // Se não deletou de comanda_payments, tenta deletar de financial_transactions (dados legados)
-    if (deleteResult.affectedRows === 0) {
-      await db.query(
-        `DELETE FROM financial_transactions WHERE id = ? AND comanda_id = ? AND tenant_id = ? AND type = 'income'`,
-        [req.params.paymentId, req.params.id, req.user.tenant_id]
-      );
-    }
+    // 2. Excluir o lançamento vinculado no livro caixa
+    await conn.query(
+      `DELETE FROM financial_transactions 
+       WHERE origin_module = 'COMANDA' AND origin_payment_id = ? AND tenant_id = ?`,
+      [req.params.paymentId, req.user.tenant_id]
+    );
 
-    // Recalcular paid_value — fonte primária: comanda_payments
-    const [cpPayments] = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?`,
+    // 3. Recalcular paid_value
+    const [cpPayments] = await conn.query(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ? AND status != 'cancelled'`,
       [req.params.id, req.user.tenant_id]
     );
     let totalPaid = parseFloat(cpPayments[0].total);
 
-    // Se não há registros em comanda_payments, recalcular a partir de financial_transactions (legado)
-    if (parseInt(cpPayments[0].cnt) === 0) {
-      const [ftPayments] = await db.query(
-        `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions
-         WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
-        [req.params.id, req.user.tenant_id]
-      );
-      totalPaid = parseFloat(ftPayments[0].total);
+    const [comandaRows] = await conn.query('SELECT total, sessions_total, sessions_used, sync_to_livrocaixa, livrocaixa_tx_id, description, patient_id, livrocaixa_date FROM comandas WHERE id = ?', [req.params.id]);
+    const comanda = comandaRows[0];
+    if (!comanda) {
+        await conn.rollback();
+        return res.status(404).json({ error: 'Comanda não encontrada' });
     }
 
-    const [comanda] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ?', [req.params.id]);
-    const comandaTotal = parseFloat(comanda[0]?.total || 0);
-    const sessionsTotal = parseInt(comanda[0]?.sessions_total || 1);
-    const sessionsUsed = parseInt(comanda[0]?.sessions_used || 0);
-    // Comanda só fecha quando TODAS as sessões foram usadas E o valor total foi pago
+    const comandaTotal = parseFloat(comanda.total || 0);
+    const sessionsTotal = parseInt(comanda.sessions_total || 1);
+    const sessionsUsed = parseInt(comanda.sessions_used || 0);
     const newStatus = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
 
-    await db.query(
+    await conn.query(
       'UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?',
       [totalPaid, newStatus, req.params.id, req.user.tenant_id]
     );
 
-    // Se sync_to_livrocaixa, atualizar lançamento no livro caixa
-    const [cmdRow2] = await db.query(
-      'SELECT sync_to_livrocaixa, livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?',
-      [req.params.id, req.user.tenant_id]
-    );
-    if (cmdRow2.length > 0 && cmdRow2[0].sync_to_livrocaixa && cmdRow2[0].livrocaixa_tx_id) {
-      if (totalPaid > 0) {
-        await db.query(
-          `UPDATE financial_transactions SET amount = ?, status = 'paid' WHERE id = ? AND tenant_id = ?`,
-          [totalPaid, cmdRow2[0].livrocaixa_tx_id, req.user.tenant_id]
+    // 4. Atualizar lançamento principal (forecast)
+    if (comanda.sync_to_livrocaixa) {
+      const remainingBalance = Math.max(0, comandaTotal - totalPaid);
+      const mainTxId = comanda.livrocaixa_tx_id;
+
+      if (mainTxId) {
+        if (remainingBalance > 0) {
+          await conn.query(
+            `UPDATE financial_transactions SET amount = ?, status = 'pending' WHERE id = ? AND tenant_id = ?`,
+            [remainingBalance, mainTxId, req.user.tenant_id]
+          );
+        } else {
+          await conn.query(`DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?`, [mainTxId, req.user.tenant_id]);
+          await conn.query(`UPDATE comandas SET livrocaixa_tx_id = NULL WHERE id = ?`, [req.params.id]);
+        }
+      } else if (remainingBalance > 0) {
+        // Criar previsão se não houver
+        const txDescription = `Saldo Comanda #${req.params.id} - ${comanda.description || 'Consulta'}`;
+        const [txResult] = await conn.query(
+            `INSERT INTO financial_transactions
+               (tenant_id, type, category, description, amount, date, patient_id, payment_method, status, origin_module, origin_id, source, created_by)
+             VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, 'Pix', 'pending', 'COMANDA', ?, 'comanda_forecast', ?)`,
+            [req.user.tenant_id, txDescription, remainingBalance, comanda.livrocaixa_date || new Date().toISOString().slice(0, 10), comanda.patient_id, req.params.id, req.user.id]
         );
-      } else {
-        // Sem pagamentos → volta para pendente com valor total da comanda
-        await db.query(
-          `UPDATE financial_transactions SET amount = ?, status = 'pending' WHERE id = ? AND tenant_id = ?`,
-          [comandaTotal, cmdRow2[0].livrocaixa_tx_id, req.user.tenant_id]
-        );
+        await conn.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [txResult.insertId, req.params.id]);
       }
     }
 
+    await conn.commit();
     res.json({ success: true, totalPaid });
   } catch (err) {
+    await conn.rollback();
     console.error('Erro ao remover pagamento:', err);
     res.status(500).json({ error: 'Erro ao remover pagamento' });
+  } finally {
+    conn.release();
   }
 });
 
@@ -354,15 +454,16 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
 
     let query = `
       SELECT t.*, p.name as patient_name,
-             COALESCE(t.comanda_id, c.id) as comanda_id,
+             COALESCE(t.comanda_id, t.origin_id, c.id) as comanda_id,
              c.total as comanda_total, c.paid_value as comanda_paid_value, c.status as comanda_status,
              t.rs_receipt_issued, t.rs_receipt_issued_at, t.rs_receipt_issued_by, t.rs_receipt_note, t.rs_receipt_file
       FROM financial_transactions t
       LEFT JOIN patients p ON p.id = t.patient_id
-      LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.livrocaixa_tx_id = t.id)
+      LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.id = t.origin_id OR c.livrocaixa_tx_id = t.id)
       WHERE t.tenant_id = ?
         AND (
-          t.comanda_id IS NULL
+          t.origin_module IS NOT NULL
+          OR t.comanda_id IS NULL
           OR c.livrocaixa_tx_id = t.id
           OR t.source = 'livrocaixa'
         )
@@ -373,9 +474,13 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
     if (category) { query += ' AND t.category = ?'; params.push(category); }
     if (start) { query += ' AND t.date >= ?'; params.push(start); }
     if (end) { query += ' AND t.date <= ?'; params.push(end); }
-    if (comanda_id) { query += ' AND t.comanda_id = ?'; params.push(comanda_id); }
+    if (comanda_id) { query += ' AND (t.comanda_id = ? OR t.origin_id = ?)'; params.push(comanda_id, comanda_id); }
 
-    query += ' ORDER BY t.date DESC';
+    // Ordenação conforme regra do Livro Caixa:
+    // 1. payment_date (t.date) quando houver
+    // 2. due_date
+    // 3. created_at como desempate
+    query += ' ORDER BY COALESCE(t.date, t.due_date, t.created_at) DESC, t.id DESC';
 
     const [transactions] = await db.query(query, params);
     res.json(transactions);
@@ -538,17 +643,17 @@ router.post('/', authMiddleware, checkPermission('manage_payments'), async (req,
         );
       }
 
-      // Recalcula paid_value: soma comanda_payments + financial_transactions com comanda_id
-      const [cpSum] = await db.query(
-        'SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?',
-        [comanda_id, req.user.tenant_id]
+      // Recalcula paid_value: soma comanda_payments + financial_transactions legados (sem origin_payment_id)
+      const [sumRes] = await db.query(
+        `SELECT (
+          SELECT COALESCE(SUM(amount), 0) FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?
+        ) + (
+          SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
+          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+        ) as total`,
+        [comanda_id, req.user.tenant_id, comanda_id, req.user.tenant_id]
       );
-      const [ftSum] = await db.query(
-        `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions
-         WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
-        [comanda_id, req.user.tenant_id]
-      );
-      const totalPaid = parseFloat(cpSum[0].total) + parseFloat(ftSum[0].total);
+      const totalPaid = parseFloat(sumRes[0].total);
 
       if (cmdCheck.length > 0) {
         const comandaTotal = parseFloat(cmdCheck[0].total || 0);
@@ -628,17 +733,17 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
         );
       }
 
-      // Recalcula paid_value: comanda_payments + financial_transactions com comanda_id
-      const [cpSum] = await db.query(
-        'SELECT COALESCE(SUM(amount), 0) as total FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?',
-        [finalCid, req.user.tenant_id]
+      // Recalcula paid_value: comanda_payments + financial_transactions legados (sem origin_payment_id)
+      const [sumRes] = await db.query(
+        `SELECT (
+          SELECT COALESCE(SUM(amount), 0) FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?
+        ) + (
+          SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
+          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+        ) as total`,
+        [finalCid, req.user.tenant_id, finalCid, req.user.tenant_id]
       );
-      const [ftSum] = await db.query(
-        `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions
-         WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`,
-        [finalCid, req.user.tenant_id]
-      );
-      const totalPaid = parseFloat(cpSum[0].total) + parseFloat(ftSum[0].total);
+      const totalPaid = parseFloat(sumRes[0].total);
 
       const rowData = cmdCheck.length > 0 ? cmdCheck[0] : null;
       if (rowData) {
@@ -698,10 +803,16 @@ router.delete('/:id', authMiddleware, checkPermission('manage_payments'), async 
     }
 
     if (finalCid) {
-      const [txSum] = await db.query(`SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions 
-        WHERE (comanda_id = ? OR id IN (SELECT livrocaixa_tx_id FROM comandas WHERE id = ?)) 
-          AND tenant_id = ? AND type = 'income' AND status != 'cancelled'`, [finalCid, finalCid, req.user.tenant_id]);
-      const totalPaid = parseFloat(txSum[0].total);
+      const [sumRes] = await db.query(
+        `SELECT (
+          SELECT COALESCE(SUM(amount), 0) FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?
+        ) + (
+          SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
+          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+        ) as total`,
+        [finalCid, req.user.tenant_id, finalCid, req.user.tenant_id]
+      );
+      const totalPaid = parseFloat(sumRes[0].total);
       
       const [comandaRow] = await db.query('SELECT total, sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?', [finalCid, req.user.tenant_id]);
       if (comandaRow.length > 0) {
@@ -1036,10 +1147,12 @@ router.get('/comandas', authMiddleware, async (req, res) => {
         
         // Pagamentos vinculados — fonte primária: comanda_payments
         const [cpData] = await db.query(
-          `SELECT id, amount, payment_date, payment_method, notes, receipt_code
-           FROM comanda_payments
-           WHERE comanda_id = ? AND tenant_id = ?
-           ORDER BY created_at DESC`,
+          `SELECT cp.id, cp.amount, cp.payment_date, cp.payment_method, cp.notes, cp.receipt_code, cp.status, cp.payer_id,
+                  t.id as financial_transaction_id
+           FROM comanda_payments cp
+           LEFT JOIN financial_transactions t ON (t.origin_payment_id = cp.id AND t.origin_module = 'COMANDA')
+           WHERE cp.comanda_id = ? AND cp.tenant_id = ?
+           ORDER BY cp.created_at DESC`,
           [c.id, req.user.tenant_id]
         );
 
@@ -1048,7 +1161,7 @@ router.get('/comandas', authMiddleware, async (req, res) => {
         } else {
           // Fallback: dados legados em financial_transactions
           const [pymtData] = await db.query(
-            `SELECT id, amount, date as payment_date, payment_method, observation as notes, receipt_code
+            `SELECT id, amount, date as payment_date, payment_method, observation as notes, receipt_code, status
              FROM financial_transactions
              WHERE comanda_id = ? AND tenant_id = ? AND type = 'income' AND status != 'cancelled'
              ORDER BY date DESC, created_at DESC`,
@@ -1327,20 +1440,32 @@ router.post('/comandas/import', authMiddleware, checkPermission('manage_payments
 
         // Se há valor pago, cria pagamento e lançamento financeiro
         if (paidVal > 0) {
-          await db.query(
-            `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method)
-             VALUES (?, ?, ?, ?, 'Importado')`,
+          const [payResult] = await db.query(
+            `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method, status, notes)
+             VALUES (?, ?, ?, ?, 'Importado', 'paid', 'Importado via planilha')`,
             [tenantId, comandaId, paidVal, parsedDate || new Date().toISOString().slice(0,10)]
           );
           await db.query(
             `INSERT INTO financial_transactions
-               (tenant_id, type, category, description, amount, date, patient_id, comanda_id, payment_method, status)
-             VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'Importado', 'paid')`,
+               (tenant_id, type, category, description, amount, date, patient_id, origin_id, origin_payment_id, origin_module, payment_method, status, source)
+             VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, ?, 'COMANDA', 'Importado', 'paid', 'comanda_payment')`,
             [tenantId, `Pagamento comanda importada - ${client_name}`,
              paidVal,
              parsedDate || new Date().toISOString().slice(0,10),
-             patientId, comandaId]
+             patientId, comandaId, payResult.insertId]
           );
+        }
+
+        // Se houver saldo devedor e sync ativo, criar previsão
+        const remaining = totalVal - paidVal;
+        if (remaining > 0) {
+            const [txRes] = await db.query(
+                `INSERT INTO financial_transactions
+                   (tenant_id, type, category, description, amount, date, patient_id, origin_id, origin_module, payment_method, status, source)
+                 VALUES (?, 'income', 'Consulta', ?, ?, ?, ?, ?, 'COMANDA', 'Importado', 'pending', 'comanda_forecast')`,
+                [tenantId, `Saldo comanda importada - ${client_name}`, remaining, parsedDate || new Date().toISOString().slice(0,10), patientId, comandaId]
+            );
+            await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [txRes.insertId, comandaId]);
         }
 
         results.created++;
@@ -1441,22 +1566,48 @@ router.post('/comandas', async (req, res) => {
 
       // Se já veio com paid_value, usa como amount e marca como pago
       const initialPaid = parseFloat(bodyPaidValue || 0);
-      const txAmount  = initialPaid > 0 ? initialPaid : total;
-      const txStatus  = initialPaid > 0 ? 'paid' : 'pending';
+      const txStatus  = 'pending'; // Comanda forecast é sempre pendente (o saldo devedor)
+      const txAmount  = Math.max(0, total - initialPaid);
       const txCategory = req.body.category || 'Pacote de Sessões';
 
-      const [txResult] = await db.query(
-        `INSERT INTO financial_transactions
-           (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
-            payer_name, payer_cpf, beneficiary_name, beneficiary_cpf)
-         VALUES (?, 'income', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          req.user.tenant_id, txCategory, txDescription, txAmount, txDate,
-          patient_id || null, payment_method || 'Pix', txStatus,
-          payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf
-        ]
-      );
-      await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [txResult.insertId, comandaId]);
+      if (initialPaid > 0) {
+        // Criar o registro de pagamento inicial se houver
+        const [payRes] = await db.query(
+          `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method, status)
+           VALUES (?, ?, ?, ?, ?, 'paid')`,
+          [req.user.tenant_id, comandaId, initialPaid, lcDate, payment_method || 'Pix']
+        );
+        // Criar lançamento realizado no livro caixa
+        await db.query(
+          `INSERT INTO financial_transactions
+             (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+              payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, origin_module, origin_id, origin_payment_id, source, created_by)
+           VALUES (?, 'income', ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, 'COMANDA', ?, ?, 'comanda_payment', ?)`,
+          [
+            req.user.tenant_id, txCategory, txDescription + ' (Pagamento Inicial)', initialPaid, lcDate,
+            patient_id || null, payment_method || 'Pix',
+            payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
+            comandaId, payRes.insertId, req.user.id
+          ]
+        );
+      }
+
+      if (txAmount > 0) {
+        // Criar lançamento de previsão (forecast) no livro caixa
+        const [txResult] = await db.query(
+          `INSERT INTO financial_transactions
+             (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+              payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, origin_module, origin_id, source, created_by)
+           VALUES (?, 'income', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMANDA', ?, 'comanda_forecast', ?)`,
+          [
+            req.user.tenant_id, txCategory, txDescription, txAmount, txDate,
+            patient_id || null, payment_method || 'Pix', txStatus,
+            payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
+            comandaId, req.user.id
+          ]
+        );
+        await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [txResult.insertId, comandaId]);
+      }
     }
 
     const [comanda] = await db.query('SELECT * FROM comandas WHERE id = ?', [comandaId]);
@@ -1538,9 +1689,7 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
         // Gerenciar lançamento no livro caixa
         const currentPaid = parseFloat(paid_value || 0);
         if (newSync && !currentLcTxId) {
-            // Ativar sync: criar lançamento pendente
-            const txStatus = currentPaid > 0 ? 'paid' : 'pending';
-            const txAmount = currentPaid > 0 ? currentPaid : total;
+            // Ativar sync: criar lançamento pendente para o saldo e realizados para os pagamentos
             const txDate = lcDatePut;
             const [pRowsName2] = patient_id ? await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]) : [[]];
             const patientName2 = pRowsName2[0]?.name || '';
@@ -1566,60 +1715,54 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
             }
 
             const txCategoryNew = req.body.category || (package_id ? 'Pacote de Sessões' : 'Sessão Individual');
-            const [newTx] = await db.query(
-                `INSERT INTO financial_transactions
-                   (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
-                    payer_name, payer_cpf, beneficiary_name, beneficiary_cpf)
-                 VALUES (?, 'income', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    req.user.tenant_id, txCategoryNew, txDescriptionNew, txAmount, txDate, patient_id || null, payment_method || 'Pix', txStatus,
-                    payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf
-                ]
-            );
-            await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [newTx.insertId, req.params.id]);
+            
+            // 1. Criar transações para os pagamentos já existentes na comanda_payments
+            const [existingPayments] = await db.query('SELECT * FROM comanda_payments WHERE comanda_id = ? AND status != "cancelled"', [req.params.id]);
+            for (const pay of existingPayments) {
+                await db.query(
+                    `INSERT INTO financial_transactions
+                       (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+                        payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, origin_module, origin_id, origin_payment_id, source)
+                     VALUES (?, 'income', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMANDA', ?, ?, 'comanda_payment')`,
+                    [
+                        req.user.tenant_id, txCategoryNew, txDescriptionNew + ' (Pagamento)', pay.amount, pay.payment_date, patient_id || null, pay.payment_method || 'Pix', pay.status === 'paid' ? 'paid' : 'pending',
+                        payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf, req.params.id, pay.id
+                    ]
+                );
+            }
+
+            // 2. Criar previsão (forecast) para o saldo restante
+            const remaining = Math.max(0, total - currentPaid);
+            if (remaining > 0) {
+                const [newTx] = await db.query(
+                    `INSERT INTO financial_transactions
+                       (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+                        payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, origin_module, origin_id, source)
+                     VALUES (?, 'income', ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 'COMANDA', ?, 'comanda_forecast')`,
+                    [
+                        req.user.tenant_id, txCategoryNew, txDescriptionNew, remaining, txDate, patient_id || null, payment_method || 'Pix',
+                        payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf, req.params.id
+                    ]
+                );
+                await db.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ?', [newTx.insertId, req.params.id]);
+            }
         } else if (!newSync && currentLcTxId) {
-            // Desativar sync: remover lançamento do livro caixa
+            // Desativar sync: remover lançamentos do livro caixa vinculados a esta comanda
+            await db.query('DELETE FROM financial_transactions WHERE origin_id = ? AND origin_module = "COMANDA" AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
             await db.query('DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?', [currentLcTxId, req.user.tenant_id]);
             await db.query('UPDATE comandas SET livrocaixa_tx_id = NULL WHERE id = ?', [req.params.id]);
         } else if (newSync && currentLcTxId) {
-            // Sync ativo: manter sincronizado com valor atual
-            const txStatus2 = currentPaid > 0 ? 'paid' : 'pending';
-            const txAmount2 = currentPaid > 0 ? currentPaid : total;
-            const txDate2 = lcDatePut;
-            const [pRowsName3] = patient_id ? await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]) : [[]];
-            const patientName3 = pRowsName3[0]?.name || '';
-            const txDescriptionUpd = (description || 'Comanda') + (patientName3 ? ` - ${patientName3}` : '');
-            
-            // Buscar dados do paciente para popular pagador/beneficiário
-            let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
-            if (patient_id) {
-                const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [patient_id]);
-                if (pRows.length > 0) {
-                    const p = pRows[0];
-                    pName = p.name;
-                    pCpf = p.cpf;
-                    isPayPatient = p.is_payer !== 0 ? 1 : 0;
-                    if (!isPayPatient) {
-                        payName = p.payer_name || p.name;
-                        payCpf = p.payer_cpf || p.cpf;
-                    } else {
-                        payName = p.name;
-                        payCpf = p.cpf;
-                    }
-                }
+            // Sync ativo: atualizar o lançamento de previsão
+            const remaining = Math.max(0, total - currentPaid);
+            if (remaining > 0) {
+                await db.query(
+                    `UPDATE financial_transactions SET amount = ?, date = ?, status = 'pending' WHERE id = ? AND tenant_id = ?`,
+                    [remaining, lcDatePut, currentLcTxId, req.user.tenant_id]
+                );
+            } else {
+                await db.query('DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?', [currentLcTxId, req.user.tenant_id]);
+                await db.query('UPDATE comandas SET livrocaixa_tx_id = NULL WHERE id = ?', [req.params.id]);
             }
-
-            await db.query(
-                `UPDATE financial_transactions SET
-                    description = ?, amount = ?, date = ?, status = ?, patient_id = ?,
-                    payer_name = ?, payer_cpf = ?, beneficiary_name = ?, beneficiary_cpf = ?
-                 WHERE id = ? AND tenant_id = ?`,
-                [
-                    txDescriptionUpd, txAmount2, txDate2, txStatus2, patient_id || null,
-                    payName, payCpf, isPayPatient ? null : pName, isPayPatient ? null : pCpf,
-                    currentLcTxId, req.user.tenant_id
-                ]
-            );
         }
 
         // Se o status mudou para 'closed', gera lançamento financeiro
@@ -1894,4 +2037,3 @@ router.get('/analytics/performance', async (req, res) => {
 });
 
 module.exports = router;
-

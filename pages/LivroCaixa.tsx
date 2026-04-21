@@ -13,6 +13,7 @@ import {
   Lock as LockIcon, Unlock as UnlockIcon,
   Receipt, CircleDashed,
   CalendarCheck, CalendarClock, UserCheck,
+  ExternalLink,
 } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
@@ -1477,37 +1478,31 @@ export const LivroCaixa: React.FC = () => {
       render: (tx) => (
         <div className="text-right flex flex-col items-end">
           <p className={`text-base font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
-            {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.comanda_id && tx.comanda_paid_value !== undefined ? Number(tx.comanda_paid_value) : tx.amount)}
+            {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
           </p>
           
           <div className="flex flex-col items-end">
-          {/* Status Badge */}
-          <div className="flex items-center justify-end mt-1">
-            {(() => {
-              const status = getStatus(tx);
-              const info = STATUS_INFO[status] || STATUS_INFO.pending;
-              const Icon = info.icon;
-              return (
-                <div title={info.label} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-widest ${info.color}`}>
-                  <Icon size={9} />
-                  {info.label}
-                </div>
-              );
-            })()}
-          </div>
+            {/* Status Badge */}
+            <div className="flex items-center justify-end mt-1">
+              {(() => {
+                const status = getStatus(tx);
+                const info = STATUS_INFO[status] || STATUS_INFO.pending;
+                const Icon = info.icon;
+                return (
+                  <div title={info.label} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-widest ${info.color}`}>
+                    <Icon size={9} />
+                    {info.label}
+                  </div>
+                );
+              })()}
+            </div>
 
-            {tx.comanda_id && (
+            {tx.comanda_id && tx.comanda_total !== undefined && (
               <span className="text-[10px] font-bold text-slate-400 mt-1 leading-none italic">
-                (Desta entrada: {formatCurrency(tx.amount)})
+                (Comanda total: {formatCurrency(tx.comanda_total)})
               </span>
             )}
           </div>
-
-          {tx.comanda_id && tx.comanda_total !== undefined && tx.comanda_paid_value !== undefined && (
-            <span className="text-[10px] font-bold text-slate-400 mt-1 leading-none italic">
-              (Total da comanda: {formatCurrency(tx.comanda_total)})
-            </span>
-          )}
         </div>
       ),
     },
@@ -1558,13 +1553,25 @@ export const LivroCaixa: React.FC = () => {
       render: (tx) => (
         <div className="flex items-center justify-end gap-1.5 min-w-[150px]">
           {tx.comanda_id && (
-            <button
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); openHistory(tx.comanda_id!); }}
-              title="Histórico da Comanda"
-              className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-500 hover:bg-white hover:border-indigo-300 hover:shadow-sm transition-all"
-            >
-              <ShoppingBag size={14} />
-            </button>
+            <>
+              <button
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); openHistory(tx.comanda_id!); }}
+                title="Histórico Rápido da Comanda"
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-500 hover:bg-white hover:border-indigo-300 hover:shadow-sm transition-all"
+              >
+                <ShoppingBag size={14} />
+              </button>
+              <button
+                onClick={(e: React.MouseEvent) => { 
+                  e.stopPropagation(); 
+                  navigate('/comandas', { state: { openComandaId: tx.comanda_id } });
+                }}
+                title="Abrir no Módulo de Comandas"
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all"
+              >
+                <ExternalLink size={14} />
+              </button>
+            </>
           )}
           {hasPermission('manage_payments') && tx.status !== 'paid' && tx.status !== 'confirmed' && (
             <button
