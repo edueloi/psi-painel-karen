@@ -598,29 +598,40 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                     // 3) Verificar se o horário está dentro do expediente
                     if (dayConfig && dayConfig.active && dayConfig.start && dayConfig.end) {
                         const apptHHMM = apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' });
-                        if (apptHHMM < dayConfig.start || apptHHMM >= dayConfig.end) {
+                        const endHHMM = currentEnd.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' });
+                        
+                        const schedStart = dayConfig.start.substring(0, 5);
+                        const schedEnd = dayConfig.end.substring(0, 5);
+
+                        if (apptHHMM < schedStart || endHHMM > schedEnd) {
                             if (freq) {
-                                console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — fora do expediente ${dayConfig.start}-${dayConfig.end}`);
+                                console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — fora do expediente ${schedStart}-${schedEnd}`);
                                 continue;
                             }
                             return res.status(422).json({
                                 error: 'outside_hours',
-                                message: `Horário fora do expediente. O profissional atende das ${dayConfig.start} às ${dayConfig.end}.`,
+                                message: `Horário fora do expediente. O profissional atende das ${schedStart} às ${schedEnd}.`,
                             });
                         }
 
                         // 4) Verificar se o horário não está em intervalo (break)
                         if (Array.isArray(dayConfig.breaks)) {
                             for (const brk of dayConfig.breaks) {
-                                if (brk.start && brk.end && apptHHMM >= brk.start && apptHHMM < brk.end) {
-                                    if (freq) {
-                                        console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — em intervalo ${brk.start}-${brk.end}`);
-                                        continue;
+                                if (brk.start && brk.end) {
+                                    const bStart = brk.start.substring(0, 5);
+                                    const bEnd = brk.end.substring(0, 5);
+
+                                    // Checagem de sobreposição: (InícioApt < FimBreak) AND (FimApt > InícioBreak)
+                                    if (apptHHMM < bEnd && endHHMM > bStart) {
+                                        if (freq) {
+                                            console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — sobrepõe intervalo ${bStart}-${bEnd}`);
+                                            continue;
+                                        }
+                                        return res.status(422).json({
+                                            error: 'break_time',
+                                            message: `Horário em período de intervalo (${bStart}–${bEnd}).`,
+                                        });
                                     }
-                                    return res.status(422).json({
-                                        error: 'break_time',
-                                        message: `Horário em período de intervalo (${brk.start}–${brk.end}).`,
-                                    });
                                 }
                             }
                         }
