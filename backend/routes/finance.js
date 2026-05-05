@@ -989,13 +989,14 @@ router.patch('/:id/rs-receipt', authMiddleware, checkPermission('manage_payments
     const { issued, note } = req.body;
 
     const [rows] = await db.query(
-      'SELECT id, type, patient_id, rs_receipt_file FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+      'SELECT id, type, patient_id, payer_name, beneficiary_name, rs_receipt_file FROM financial_transactions WHERE id = ? AND tenant_id = ?',
       [id, tid]
     );
     if (!rows.length) return res.status(404).json({ error: 'Lançamento não encontrado' });
 
     const tx = rows[0];
-    if (tx.type !== 'income' || !tx.patient_id) {
+    // Elegível se for receita E tiver paciente vinculado OU nome de pagador/beneficiário
+    if (tx.type !== 'income' || (!tx.patient_id && !tx.payer_name && !tx.beneficiary_name)) {
       return res.status(400).json({ error: 'Este lançamento não é elegível para recibo Receita Saúde' });
     }
 
