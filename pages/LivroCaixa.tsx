@@ -92,14 +92,9 @@ const CATEGORIES_EXPENSE = [
   'Educação/Livros', 'Material de Escritório', 'Outros',
 ];
 
-// Categorias de receita clínica elegíveis para Receita Saúde
-const RS_ELIGIBLE_CATEGORIES = new Set([
-  'Geral', 'Sessão Individual', 'Pacote de Sessões', 'Avaliação', 'Supervisão',
-]);
-
+// Receita Saúde: qualquer receita com paciente/pagador é elegível
 const isRsEligible = (tx: { type: string; category?: string; patient_name?: string; payer_name?: string; beneficiary_name?: string }) =>
   tx.type === 'income' &&
-  RS_ELIGIBLE_CATEGORIES.has(tx.category || '') &&
   !!(tx.patient_name || tx.beneficiary_name || tx.payer_name);
 
 const MONTH_NAMES = [
