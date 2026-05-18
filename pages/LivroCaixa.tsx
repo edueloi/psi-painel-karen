@@ -15,14 +15,21 @@ import {
   CalendarCheck, CalendarClock, UserCheck,
   ExternalLink,
 } from 'lucide-react';
-import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import { Modal } from '../components/UI/Modal';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { Input, Select, Textarea } from '../components/UI/Input';
-import { Button } from '../components/UI/Button';
+import { Button, IconButton } from '../components/UI/Button';
 import { DatePicker } from '../components/UI/DatePicker';
 import { GridTable, Column } from '../components/UI/GridTable';
 import { AppCard } from '../components/UI/AppCard';
+import { StatCard } from '../components/UI/StatCard';
+import { Pagination } from '../components/UI/Pagination';
+import { EmptyState } from '../components/UI/EmptyState';
+import {
+  FilterLine, FilterLineSection, FilterLineItem,
+  FilterLineSearch, FilterLineSegmented, FilterLineViewToggle,
+} from '../components/UI/FilterLine';
 import { api, API_BASE_URL } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -1610,65 +1617,36 @@ export const LivroCaixa: React.FC = () => {
   // ─── Render Archive ───────────────────────────────────────────────────────────
 
   const renderArchive = () => (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
-      <PageHeader
-        icon={<BookOpen />}
+    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+      <SectionTitle
+        icon={BookOpen}
         title="Arquivo Financeiro"
-        subtitle="GESTÃO DE PERÍODOS CONSOLIDADOS"
-        containerClassName="mb-0"
-        actions={
-          <div className="flex items-center gap-2">
+        description="Gestão de períodos consolidados"
+        action={
+          <div className="flex flex-wrap items-center gap-2">
             {/* Year selector */}
-            <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-10">
-              <button
-                onClick={() => setSelectedYear(y => y - 1)}
-                className="p-1 hover:bg-white/10 rounded-lg transition-all"
-              >
+            <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-9">
+              <button onClick={() => setSelectedYear(y => y - 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
                 <ChevronLeft size={14} />
               </button>
               <span className="mx-2">{selectedYear}</span>
-              <button
-                onClick={() => setSelectedYear(y => y + 1)}
-                className="p-1 hover:bg-white/10 rounded-lg transition-all"
-              >
+              <button onClick={() => setSelectedYear(y => y + 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
                 <ChevronRight size={14} />
               </button>
             </div>
-
-            {/* Grid/List toggle */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 h-10">
-              <button
-                onClick={() => { if (archiveLayout !== 'grid') toggleArchiveLayout(); }}
-                title="Visualização em grade"
-                className={`p-2 rounded-lg transition-all ${archiveLayout === 'grid' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <LayoutGrid size={14} />
-              </button>
-              <button
-                onClick={() => { if (archiveLayout !== 'list') toggleArchiveLayout(); }}
-                title="Visualização em lista"
-                className={`p-2 rounded-lg transition-all ${archiveLayout === 'list' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <List size={14} />
-              </button>
-            </div>
-
-            <button
-              onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}
-              className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
-            >
-              <Upload size={14} /> Importar
-            </button>
-
-            <button
-              onClick={() => openNewTx()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-10 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
-            >
-              <Plus size={16} /> Novo Lançamento
-            </button>
+            <FilterLineViewToggle value={archiveLayout} onChange={v => { setArchiveLayout(v as 'grid' | 'list'); localStorage.setItem('livrocaixa_layout', v as string); }} gridValue="grid" listValue="list" />
+            <Button variant="outline" size="sm" iconLeft={<Upload size={14} />}
+              onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}>
+              Importar
+            </Button>
+            <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()}>
+              Novo Lançamento
+            </Button>
           </div>
         }
       />
+
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
 
       {/* Month Cards */}
       {isLoadingArchive ? (
@@ -1677,11 +1655,12 @@ export const LivroCaixa: React.FC = () => {
           <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-40">Carregando Períodos...</span>
         </div>
       ) : monthSummaries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-          <BookOpen size={56} className="mb-4 opacity-20" />
-          <p className="font-black text-lg">Nenhum lançamento em {selectedYear}</p>
-          <p className="text-sm mt-2 font-bold opacity-60">Clique em "Novo Lançamento" para começar</p>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title={`Nenhum lançamento em ${selectedYear}`}
+          description='Clique em "Novo Lançamento" para começar'
+          action={<Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()}>Novo Lançamento</Button>}
+        />
       ) : archiveLayout === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {monthSummaries.map((ms) => (
@@ -1803,7 +1782,9 @@ export const LivroCaixa: React.FC = () => {
           ]}
         />
       )}
-    </div>
+
+      </div>{/* end padding wrapper */}
+    </PageWrapper>
   );
 
   // ─── Render Detail ────────────────────────────────────────────────────────────
@@ -1814,228 +1795,134 @@ export const LivroCaixa: React.FC = () => {
       : '';
 
     return (
-      <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
-        <PageHeader
-            icon={<BookOpen />}
-            title="Livro Caixa"
-            subtitle={displayMonth}
-            containerClassName="mb-0"
-            showBackButton
-            onBackClick={() => goToArchive()}
-            actions={
-                <div className="flex items-center gap-2">
-                    {/* Export dropdown */}
-                    <div className="relative" ref={exportRef}>
-                      <button
-                        onClick={() => setShowExportMenu(v => !v)}
-                        className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
-                      >
-                        <Download size={14} /> Exportar
-                      </button>
-                      {showExportMenu && (
-                        <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-                          {[
-                            { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
-                            { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
-                            { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
-                          ].map(item => (
-                            <button
-                              key={item.label}
-                              onClick={item.action}
-                              className="w-full text-left px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-colors"
-                            >
-                              {item.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+      <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+        <SectionTitle
+          icon={BookOpen}
+          title="Livro Caixa"
+          description={displayMonth}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => goToArchive()}>
+                Voltar
+              </Button>
 
-                    {/* Lock toggle button */}
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleToggleLock(currentMonthKey)}
-                        className={`flex items-center gap-2 px-4 h-10 border rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${
-                          isMonthLocked 
-                            ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100 hover:border-rose-300' 
-                            : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300'
-                        }`}
-                      >
-                        {isMonthLocked ? <><LockIcon size={14} /> Fechado</> : <><UnlockIcon size={14} /> Aberto</>}
+              {/* Export dropdown */}
+              <div className="relative" ref={exportRef}>
+                <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={() => setShowExportMenu(v => !v)}>
+                  Exportar
+                </Button>
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden" onMouseLeave={() => setShowExportMenu(false)}>
+                    {[
+                      { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
+                      { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
+                      { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
+                    ].map(item => (
+                      <button key={item.label} onClick={item.action}
+                        className="w-full text-left px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-colors">
+                        {item.label}
                       </button>
-                    )}
-
-                    {hasPermission('view_financial_reports') && (
-                      <button
-                        onClick={() => setIsImportOpen(true)}
-                        className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all shadow-sm"
-                      >
-                        <Upload size={14} /> Importar
-                      </button>
-                    )}
-
-                    {hasPermission('manage_payments') && (
-                      <button
-                        onClick={() => { handleOpenNewTxFromArchive(); }}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-10 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
-                      >
-                        <Plus size={16} /> Novo
-                      </button>
-                    )}
+                    ))}
                   </div>
-            }
+                )}
+              </div>
+
+              {isAdmin && (
+                <Button
+                  variant={isMonthLocked ? 'danger' : 'success'}
+                  size="sm"
+                  iconLeft={isMonthLocked ? <LockIcon size={14} /> : <UnlockIcon size={14} />}
+                  onClick={() => handleToggleLock(currentMonthKey)}
+                >
+                  {isMonthLocked ? 'Fechado' : 'Aberto'}
+                </Button>
+              )}
+
+              {hasPermission('view_financial_reports') && (
+                <Button variant="outline" size="sm" iconLeft={<Upload size={14} />} onClick={() => setIsImportOpen(true)}>
+                  Importar
+                </Button>
+              )}
+
+              {hasPermission('manage_payments') && (
+                <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenNewTxFromArchive()}>
+                  Novo
+                </Button>
+              )}
+            </div>
+          }
         />
 
+        <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
+
         {/* KPI + Search — sticky wrapper */}
-        <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-3 bg-slate-50/95 backdrop-blur-md pt-3 pb-3 -mx-6 px-6 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-3'}>
+        <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-4 bg-slate-50/95 backdrop-blur-md pt-3 pb-3 -mx-3 sm:-mx-5 lg:-mx-6 xl:-mx-8 px-3 sm:px-5 lg:px-6 xl:px-8 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-4'}>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
-            <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-              <TrendingUp size={22} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Entradas (Pagos)</p>
-              <p className="text-xl font-black text-slate-800">{formatCurrency(summary.income)}</p>
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-rose-200 transition-all">
-            <div className="h-12 w-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 group-hover:bg-rose-500 group-hover:text-white transition-all">
-              <TrendingDown size={22} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Saídas (Pagos)</p>
-              <p className="text-xl font-black text-slate-800">{formatCurrency(summary.expense)}</p>
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
-            <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-600 group-hover:text-white transition-all">
-              <Clock size={22} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Total Pendente</p>
-              <p className="text-xl font-black text-slate-800">{formatCurrency(summary.pending)}</p>
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-slate-300 transition-all">
-            <div className="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center border border-slate-200 group-hover:bg-slate-900 group-hover:text-white transition-all">
-              <Wallet size={22} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Saldo Líquido</p>
-              <p className="text-xl font-black text-slate-800">{formatCurrency(summary.balance)}</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard title="Entradas" value={formatCurrency(summary.income)} icon={TrendingUp} color="success" delay={0} />
+          <StatCard title="Saídas" value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" delay={1} />
+          <StatCard title="Pendente" value={formatCurrency(summary.pending)} icon={Clock} color="warning" delay={2} />
+          <StatCard title="Saldo Líquido" value={formatCurrency(summary.balance)} icon={Wallet} color={summary.balance >= 0 ? 'info' : 'danger'} delay={3} />
         </div>
 
-        {/* Search & Filter bar */}
-        <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar nos lançamentos..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-slate-100 bg-slate-50 text-sm font-bold text-slate-700 outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:font-normal placeholder:text-slate-400"
-            />
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Filtro de fluxo */}
-            <div className="flex items-center gap-3 bg-slate-100 p-1.5 rounded-2xl">
-              {[
-                { value: 'all',     label: 'Todos os Fluxos' },
+        {/* Filtros */}
+        <FilterLine>
+          <FilterLineSection grow>
+            <FilterLineItem grow minWidth={240}>
+              <FilterLineSearch value={searchQuery} onChange={setSearchQuery} placeholder="Buscar nos lançamentos..." />
+            </FilterLineItem>
+          </FilterLineSection>
+          <FilterLineSection align="right">
+            <FilterLineSegmented
+              value={flowFilter}
+              onChange={v => setFlowFilter(v as 'all' | 'income' | 'expense')}
+              options={[
+                { value: 'all',     label: 'Todos' },
                 { value: 'income',  label: 'Entradas' },
                 { value: 'expense', label: 'Saídas' },
-              ].map(f => (
-                <button
-                  key={f.value}
-                  onClick={() => setFlowFilter(f.value as any)}
-                  className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                    flowFilter === f.value
-                      ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  <Filter size={10} /> {f.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Filtro Receita Saúde */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-2xl">
-              <Receipt size={10} className="text-slate-400 ml-1 shrink-0" />
-              {[
-                { value: 'all',     label: 'Todos' },
+              ]}
+            />
+            <FilterLineSegmented
+              value={rsFilter}
+              onChange={v => setRsFilter(v as 'all' | 'issued' | 'pending' | 'na')}
+              options={[
+                { value: 'all',     label: 'RS: Todos' },
                 { value: 'pending', label: 'Pendente' },
                 { value: 'issued',  label: 'Emitido' },
                 { value: 'na',      label: 'N/A' },
-              ].map(f => (
-                <button
-                  key={f.value}
-                  onClick={() => setRsFilter(f.value as any)}
-                  title={f.value === 'pending' ? 'Recibo ainda não emitido' : f.value === 'issued' ? 'Recibo já emitido' : f.value === 'na' ? 'Não se aplica' : 'Todos os lançamentos'}
-                  className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    rsFilter === f.value
-                      ? f.value === 'pending'
-                        ? 'bg-amber-500 text-white shadow-sm'
-                        : f.value === 'issued'
-                        ? 'bg-emerald-500 text-white shadow-sm'
-                        : 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Botão fixar barra */}
-            <button
-              onClick={() => updatePreference('livroCaixa', { stickyStats: !stickyStats })}
+              ]}
+              size="sm"
+            />
+            <IconButton
+              variant={stickyStats ? 'success' : 'outline'}
+              size="sm"
               title={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
-              className={`p-1.5 rounded-xl border transition-all ${stickyStats ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-300'}`}
+              onClick={() => updatePreference('livroCaixa', { stickyStats: !stickyStats })}
             >
               {stickyStats ? <Pin size={13} /> : <PinOff size={13} />}
-            </button>
-          </div>
-        </div>
+            </IconButton>
+          </FilterLineSection>
+        </FilterLine>
         </div>{/* end sticky wrapper */}
 
         {/* Bulk action bar */}
         {selectedTxIds.size > 0 && (
-          <div className="flex items-center gap-3 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl">
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
-              {selectedTxIds.size} selecionado(s)
-            </span>
-            <div className="flex-1" />
-            {hasPermission('manage_payments') && (
-              <>
-                <button
-                  onClick={handleBulkRepeat}
-                  disabled={isBulkProcessing}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-emerald-500 transition-all disabled:opacity-50"
-                >
-                  <RefreshCw size={13} />
-                  Reprocessar selecionados
-                </button>
-                <button
-                  onClick={handleBulkDelete}
-                  disabled={isBulkProcessing}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-rose-500 transition-all disabled:opacity-50"
-                >
-                  <Trash2 size={13} />
-                  Excluir selecionados
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => setSelectedTxIds(new Set())}
-              className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-all"
-            >
-              <X size={14} />
-            </button>
+          <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3">
+            <span className="text-sm font-semibold text-amber-800">{selectedTxIds.size} selecionado(s)</span>
+            <div className="flex gap-2">
+              {hasPermission('manage_payments') && (
+                <>
+                  <Button variant="outline" size="sm" iconLeft={<RefreshCw size={13} />} onClick={handleBulkRepeat} loading={isBulkProcessing}>
+                    Reprocessar
+                  </Button>
+                  <Button variant="danger" size="sm" iconLeft={<Trash2 size={13} />} onClick={handleBulkDelete} loading={isBulkProcessing}>
+                    Excluir selecionados
+                  </Button>
+                </>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => setSelectedTxIds(new Set())}>Cancelar</Button>
+            </div>
           </div>
         )}
 
@@ -2065,46 +1952,21 @@ export const LivroCaixa: React.FC = () => {
                 onRowClick={(tx) => { setSelectedTxForDetails(tx); fetchPkgSessions(tx.id); }}
               />
               {filtered.length > 0 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-white rounded-b-2xl">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Linhas por página:</span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                        updatePreference('livroCaixa', { itemsPerPage: Number(e.target.value) });
-                        setCurrentPage(1);
-                      }}
-                      className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-600 bg-white focus:outline-none"
-                    >
-                      {[10, 15, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                    <span className="text-xs text-slate-400">{filtered.length} total</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium text-slate-500">Página {safePage} de {totalPages}</span>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
-                        disabled={safePage === 1}
-                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-40 transition-all"
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
-                        disabled={safePage === totalPages}
-                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-40 transition-all"
-                      >
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <Pagination
+                  total={filtered.length}
+                  page={safePage}
+                  pageSize={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(size) => { updatePreference('livroCaixa', { itemsPerPage: size }); setCurrentPage(1); }}
+                  showPageSizeSelector
+                />
               )}
             </>
           );
         })()}
-      </div>
+
+        </div>{/* end padding wrapper */}
+      </PageWrapper>
     );
   };
 
@@ -2123,37 +1985,25 @@ export const LivroCaixa: React.FC = () => {
         isOpen={isImportOpen}
         onClose={() => { setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); setImportStep('input'); }}
         title={importStep === 'preview' ? 'Pré-análise da Importação' : 'Importar Lançamentos'}
-        subtitle={importStep === 'preview' ? `${previewRows.length} LANÇAMENTO(S) IDENTIFICADO(S)` : 'SINCRONIZAÇÃO EM LOTE'}
-        maxWidth="lg"
+        size="lg"
         footer={
-          <>
-            <button
-              onClick={() => {
-                if (importStep === 'preview') { setImportStep('input'); setPreviewRows([]); }
-                else { setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); }
-              }}
-              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
-            >
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => {
+              if (importStep === 'preview') { setImportStep('input'); setPreviewRows([]); }
+              else { setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); }
+            }}>
               {importStep === 'preview' ? '← Voltar' : 'Cancelar'}
-            </button>
+            </Button>
             {importStep === 'input' ? (
-              <button
-                onClick={handlePreview}
-                className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-slate-900 hover:bg-slate-800 shadow-xl transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2"
-              >
-                <Search size={14} /> Pré-visualizar
-              </button>
+              <Button variant="secondary" iconLeft={<Search size={14} />} onClick={handlePreview}>
+                Pré-visualizar
+              </Button>
             ) : (
-              <button
-                onClick={handleImport}
-                disabled={isImporting}
-                className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-60"
-              >
-                {isImporting && <Loader2 size={14} className="animate-spin" />}
-                <CheckCircle2 size={14} /> Confirmar Importação
-              </button>
+              <Button variant="success" iconLeft={<CheckCircle2 size={14} />} onClick={handleImport} loading={isImporting}>
+                Confirmar Importação
+              </Button>
             )}
-          </>
+          </div>
         }
       >
         {importStep === 'input' ? (
@@ -2263,30 +2113,20 @@ export const LivroCaixa: React.FC = () => {
         isOpen={isNewTxOpen}
         onClose={() => { setIsNewTxOpen(false); resetForm(); }}
         title={editingTx ? 'Revisar Lançamento' : 'Novo Lançamento'}
-        subtitle={txType === 'income' ? 'CREDITAR EM CAIXA' : 'DEBITAR EM CAIXA'}
-        maxWidth="2xl"
+        size="2xl"
         footer={
-          <>
-            <button
-              onClick={() => { setIsNewTxOpen(false); resetForm(); }}
-              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => { setIsNewTxOpen(false); resetForm(); }}>Cancelar</Button>
+            <Button
+              variant={txType === 'income' ? 'success' : 'danger'}
+              iconLeft={<CheckCircle2 size={14} />}
               onClick={handleSaveTx}
+              loading={isSaving}
               disabled={isSaving}
-              className={`px-8 py-3 rounded-2xl text-[10px] font-black text-white shadow-xl transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-60 ${
-                txType === 'income'
-                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100'
-                  : 'bg-rose-500 hover:bg-rose-600 shadow-rose-100'
-              }`}
             >
-              {isSaving && <Loader2 size={14} className="animate-spin" />}
-              <CheckCircle2 size={15} />
               {editingTx ? 'Salvar Alterações' : 'Confirmar'}
-            </button>
-          </>
+            </Button>
+          </div>
         }
       >
         <div className="space-y-5">
@@ -2662,23 +2502,14 @@ export const LivroCaixa: React.FC = () => {
         isOpen={exceedConfirmData !== null}
         onClose={() => setExceedConfirmData(null)}
         title="Lançamento Excedente"
-        maxWidth="lg"
+        size="lg"
         footer={
-          <>
-            <button
-              onClick={() => setExceedConfirmData(null)}
-              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={executeSaveTx}
-              disabled={isSaving}
-              className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-amber-500 hover:bg-amber-600 shadow-xl shadow-amber-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-60"
-            >
-              <CheckCircle2 size={14} /> Confirmar Lançamento
-            </button>
-          </>
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => setExceedConfirmData(null)}>Cancelar</Button>
+            <Button variant="secondary" iconLeft={<CheckCircle2 size={14} />} onClick={executeSaveTx} loading={isSaving} disabled={isSaving}>
+              Confirmar Lançamento
+            </Button>
+          </div>
         }
       >
         <div className="flex flex-col gap-4 py-3">
@@ -2703,23 +2534,14 @@ export const LivroCaixa: React.FC = () => {
         isOpen={duplicateConfirmData !== null}
         onClose={() => setDuplicateConfirmData(null)}
         title="Lançamento Duplicado?"
-        maxWidth="sm"
+        size="sm"
         footer={
-          <>
-            <button
-              onClick={() => setDuplicateConfirmData(null)}
-              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => { setDuplicateConfirmData(null); executeSaveTx(); }}
-              disabled={isSaving}
-              className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-amber-500 hover:bg-amber-600 shadow-xl shadow-amber-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-60"
-            >
-              <CheckCircle2 size={14} /> Sim, Lançar Mesmo Assim
-            </button>
-          </>
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => setDuplicateConfirmData(null)}>Cancelar</Button>
+            <Button variant="secondary" iconLeft={<CheckCircle2 size={14} />} onClick={() => { setDuplicateConfirmData(null); executeSaveTx(); }} loading={isSaving} disabled={isSaving}>
+              Sim, Lançar Mesmo Assim
+            </Button>
+          </div>
         }
       >
         <div className="flex flex-col gap-4 py-3">
@@ -2748,22 +2570,13 @@ export const LivroCaixa: React.FC = () => {
         isOpen={!!quickPayTx}
         onClose={() => setQuickPayTx(null)}
         title="Lançar Novo Pagamento"
-        maxWidth="sm"
+        size="sm"
         footer={
-          <div className="flex w-full items-center justify-end gap-3">
-            <button
-              onClick={() => setQuickPayTx(null)}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSaveQuickPay}
-              disabled={isSaving}
-              className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-            >
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => setQuickPayTx(null)}>Cancelar</Button>
+            <Button variant="success" onClick={handleSaveQuickPay} loading={isSaving} disabled={isSaving}>
               Efetivar pagamento
-            </button>
+            </Button>
           </div>
         }
       >
@@ -2822,22 +2635,14 @@ export const LivroCaixa: React.FC = () => {
         isOpen={deleteConfirmId !== null}
         onClose={() => setDeleteConfirmId(null)}
         title="Confirmar Exclusão"
-        maxWidth="sm"
+        size="sm"
         footer={
-          <>
-            <button
-              onClick={() => setDeleteConfirmId(null)}
-              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
-              className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2"
-            >
-              <Trash2 size={14} /> Excluir permanentemente
-            </button>
-          </>
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>Cancelar</Button>
+            <Button variant="danger" iconLeft={<Trash2 size={14} />} onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>
+              Excluir permanentemente
+            </Button>
+          </div>
         }
       >
         <div className="flex flex-col gap-4 py-2">
@@ -2875,24 +2680,18 @@ export const LivroCaixa: React.FC = () => {
         isOpen={rsConfirm !== null}
         onClose={() => { setRsConfirm(null); setRsNote(''); setRsFile(null); }}
         title={rsConfirm?.newValue ? 'Marcar recibo como emitido' : 'Desmarcar recibo'}
-        maxWidth="sm"
+        size="sm"
         footer={
-          <>
-            <button
-              onClick={() => { setRsConfirm(null); setRsNote(''); setRsFile(null); }}
-              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => { setRsConfirm(null); setRsNote(''); setRsFile(null); }}>Cancelar</Button>
+            <Button
+              variant={rsConfirm?.newValue ? 'success' : 'secondary'}
+              iconLeft={<Receipt size={14} />}
               onClick={() => rsConfirm && handleToggleRsReceipt(rsConfirm.tx, rsConfirm.newValue)}
-              className={`px-8 py-3 rounded-2xl text-[10px] font-black text-white shadow-xl transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 ${
-                rsConfirm?.newValue ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-100' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-100'
-              }`}
             >
-              <Receipt size={14} /> Confirmar
-            </button>
-          </>
+              Confirmar
+            </Button>
+          </div>
         }
       >
         <div className="flex flex-col gap-4 py-2">
@@ -3017,7 +2816,7 @@ export const LivroCaixa: React.FC = () => {
         isOpen={deleteMonthConfirm !== null}
         onClose={() => setDeleteMonthConfirm(null)}
         title="Excluir Mês Inteiro"
-        maxWidth="sm"
+        size="sm"
         footer={
           <>
             <button
@@ -3166,23 +2965,14 @@ export const LivroCaixa: React.FC = () => {
         isOpen={isBulkDeleteConfirmOpen}
         onClose={() => setIsBulkDeleteConfirmOpen(false)}
         title="Excluir Selecionados"
-        maxWidth="sm"
+        size="sm"
         footer={
-          <>
-            <button
-              onClick={() => setIsBulkDeleteConfirmOpen(false)}
-              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={executeBulkDelete}
-              disabled={isBulkProcessing}
-              className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
-            >
-              <Trash2 size={14} /> Sim, excluir selecionados
-            </button>
-          </>
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancelar</Button>
+            <Button variant="danger" iconLeft={<Trash2 size={14} />} onClick={executeBulkDelete} loading={isBulkProcessing} disabled={isBulkProcessing}>
+              Sim, excluir selecionados
+            </Button>
+          </div>
         }
       >
         <div className="flex flex-col gap-5 py-3">

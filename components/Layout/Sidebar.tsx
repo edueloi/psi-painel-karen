@@ -99,11 +99,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
     <>
       {/* Overlay mobile */}
       <div
-        className={`fixed inset-0 bg-slate-900/60 z-40 lg:hidden backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-slate-900/60 z-[105] lg:hidden backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
-      <aside className={`fixed top-0 left-0 z-50 h-full w-[256px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:translate-x-0 lg:shadow-lg ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed top-0 left-0 z-[110] h-full w-[256px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:translate-x-0 lg:z-auto lg:shadow-lg ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
 
         {/* Logo */}
         <div className={`h-[88px] flex items-center px-5 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
