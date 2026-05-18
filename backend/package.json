@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:bot": "node bot.js",
     "dev": "node --watch index.js",
+    "dev:bot": "node --watch bot.js",
     "patch-db": "node patch_database.js",
     "reset-db": "node reset_database.js"
   },
