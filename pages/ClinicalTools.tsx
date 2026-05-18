@@ -11,10 +11,11 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { Modal } from '../components/UI/Modal';
-import { Button } from '../components/UI/Button';
+import { Button, IconButton } from '../components/UI/Button';
+import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSearch } from '../components/UI/FilterLine';
 import { GripVertical, Eye, EyeOff } from 'lucide-react';
 
 interface Tool {
@@ -310,49 +311,51 @@ export const ClinicalTools: React.FC = () => {
   const toolsForCustomizer = currentOrder.map(id => tools.find(t => t.id === id)!).filter(Boolean);
 
   return (
-    <div className="mx-auto max-w-[1600px] px-4 md:px-6 pt-6 pb-24 animate-fadeIn space-y-8 md:space-y-12">
-      <PageHeader
-        icon={<Boxes className="text-indigo-600" />}
+    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+
+      <SectionTitle
+        icon={Boxes}
         title="Caixa de Ferramentas Clínica"
-        subtitle="Protocolos e recursos avançados sincronizados com o histórico do seu paciente."
-        showBackButton
-        onBackClick={() => navigate('/')}
-        containerClassName="mb-0"
-        actions={
-          <div className="flex items-center gap-4 flex-wrap">
-              <div className="relative group hidden sm:block">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={16} />
-                  <input 
-                      type="text"
-                      placeholder="Pesquisar módulo..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="pl-12 pr-6 py-2.5 bg-white border border-slate-200 rounded-2xl text-[11px] font-bold w-48 lg:w-80 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
-                  />
-              </div>
-              <button 
-                onClick={() => setIsCustomizerOpen(true)}
-                className="w-10 h-10 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm hover:scale-105 flex items-center justify-center"
-                title="Personalizar layout"
-              >
-                  <SlidersHorizontal size={20} />
-              </button>
-          </div>
+        description="Protocolos e recursos avançados sincronizados com o histórico do seu paciente."
+        action={
+          <IconButton
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCustomizerOpen(true)}
+            title="Personalizar layout"
+          >
+            <SlidersHorizontal size={16} />
+          </IconButton>
         }
       />
 
-      {/* FILTERS */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map(cat => (
-            <button
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
+
+      {/* Busca + Filtros de categoria */}
+      <FilterLine>
+        <FilterLineSection grow>
+          <FilterLineItem grow minWidth={220}>
+            <FilterLineSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Pesquisar módulo..."
+            />
+          </FilterLineItem>
+        </FilterLineSection>
+        <FilterLineSection align="right">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map(cat => (
+              <button
                 key={cat}
                 onClick={() => setFilter(cat)}
-                className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${filter === cat ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
-            >
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${filter === cat ? 'bg-slate-900 text-white border-slate-900 shadow-sm' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
+              >
                 {categoryLabels[cat]}
-            </button>
-        ))}
-      </div>
+              </button>
+            ))}
+          </div>
+        </FilterLineSection>
+      </FilterLine>
 
       {/* TOOLS GRID - 4 cards on laptop (lg), 3 huge cards on larger (2xl) */}
       {displayedTools.length > 0 ? (
@@ -467,13 +470,14 @@ export const ClinicalTools: React.FC = () => {
          </div>
       </div>
 
+      </div>{/* /px-padding */}
+
       {/* CUSTOMIZER MODAL */}
       <Modal
         isOpen={isCustomizerOpen}
         onClose={() => setIsCustomizerOpen(false)}
         title="Escalabilidade do Workspace"
-        subtitle="Organize as ferramentas de acordo com a sua demanda clínica atual."
-        maxWidth="lg"
+        size="lg"
         footer={
             <div className="flex justify-between w-full items-center p-2">
                 <Button variant="ghost" size="sm" onClick={resetPreferences} className="text-slate-400 hover:text-rose-500 font-black uppercase tracking-widest text-[10px]">
@@ -526,6 +530,6 @@ export const ClinicalTools: React.FC = () => {
             })}
         </div>
       </Modal>
-    </div>
+    </PageWrapper>
   );
 };

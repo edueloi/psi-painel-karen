@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { GridTable } from '../components/UI/GridTable';
-import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import {
   Search, Plus, FileText, Calendar, Clock, Activity, BarChart2,
   Trash2, Eye, EyeOff, Edit3, CheckCircle2, ChevronRight, Loader2,
@@ -159,12 +159,11 @@ const PasswordModal: React.FC<{ title: string; onConfirm: (p: string) => Promise
       isOpen={true}
       onClose={onClose}
       title={title}
-      subtitle="Digite sua senha de acesso para confirmar esta operação sensível."
-      maxWidth="sm"
+      size="sm"
       footer={
         <div className="flex gap-3 w-full">
            <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">Cancelar</Button>
-           <Button onClick={submit} isLoading={loading} variant="primary" className="flex-1 uppercase text-xs font-black tracking-widest gap-2">
+           <Button onClick={submit} loading={loading} variant="primary" className="flex-1 uppercase text-xs font-black tracking-widest gap-2">
              <Shield size={16}/> Confirmar
            </Button>
         </div>
@@ -230,8 +229,7 @@ const ExportModal: React.FC<{
       isOpen={true}
       onClose={onClose}
       title="Exportar Documentação"
-      subtitle={`Selecione o formato e conteúdo para: ${patient?.full_name}`}
-      maxWidth="md"
+      size="md"
       footer={
         <div className="flex gap-3 w-full">
            <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">Fechar</Button>
@@ -336,8 +334,7 @@ const RecordTypeSelector: React.FC<{
   patientName?: string;
 }> = ({ onSelect, onClose, patientName }) => (
   <Modal isOpen onClose={onClose} title="Novo Registro Clínico"
-    subtitle={patientName ? `Paciente: ${patientName}` : 'Selecione o tipo de registro'}
-    maxWidth="2xl"
+    size="2xl"
   >
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
       {TYPE_DEFINITIONS.map(t => (
@@ -545,8 +542,7 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
       isOpen={true}
       onClose={onClose}
       title={record.title}
-      subtitle={`${patient?.full_name} — ${fmtDate(record.created_at)}`}
-      maxWidth="3xl"
+      size="2xl"
       footer={
         <div className="flex gap-3 w-full justify-between items-center">
            <div className="flex gap-2">
@@ -736,8 +732,7 @@ const ShareModal: React.FC<{
       isOpen={true}
       onClose={onClose}
       title="Compartilhar Acesso"
-      subtitle={recordTitle}
-      maxWidth="md"
+      size="md"
       footer={<Button variant="ghost" onClick={onClose} className="w-full uppercase text-xs font-black tracking-widest">Concluir</Button>}
     >
       <div className="space-y-6 pt-2">
@@ -787,10 +782,10 @@ const ShareModal: React.FC<{
                 {availableProfessionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
               </select>
               <Button 
-                onClick={share} 
-                disabled={!selectedId || saving} 
-                isLoading={saving}
-                variant="primary" 
+                onClick={share}
+                disabled={!selectedId || saving}
+                loading={saving}
+                variant="primary"
                 className="h-12 px-6 gap-2 shadow-lg shadow-indigo-100"
               >
                 <Plus size={18}/> Conceder
@@ -1259,7 +1254,7 @@ const LinkedToolsSection: React.FC<{
 
       {/* Modal de Parâmetros de Síntese IA */}
       {showSynthesisModal && (
-        <Modal isOpen={true} onClose={() => setShowSynthesisModal(false)} title="Síntese Clínica com IA" subtitle="Formulação de Caso Baseada em Evidências" maxWidth="lg">
+        <Modal isOpen={true} onClose={() => setShowSynthesisModal(false)} title="Síntese Clínica com IA" size="lg">
            <div className="space-y-6">
               <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex items-start gap-3">
                  <Brain size={24} className="text-indigo-600 shrink-0" />
@@ -1300,10 +1295,10 @@ const LinkedToolsSection: React.FC<{
                  >
                     Cancelar
                  </button>
-                 <Button 
-                   onClick={handleGenerateSynthesis} 
-                   isLoading={synthesisLoading} 
-                   variant="primary" 
+                 <Button
+                   onClick={handleGenerateSynthesis}
+                   loading={synthesisLoading}
+                   variant="primary"
                    className="h-11 w-72 bg-indigo-600 hover:bg-indigo-700 text-white uppercase text-[10px] font-black tracking-widest shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
                  >
                     <Brain size={14} /> Iniciar Processamento IA
@@ -1315,7 +1310,7 @@ const LinkedToolsSection: React.FC<{
 
       {/* Modal de Comparação Longitudinal Simples */}
       {comparing && (
-        <Modal isOpen={true} onClose={() => setComparing(null)} title="Análise Longitudinal" subtitle={tools.find(t => t.id === comparing)?.name} maxWidth="lg">
+        <Modal isOpen={true} onClose={() => setComparing(null)} title="Análise Longitudinal" size="lg">
            <div className="space-y-6">
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                  <p className="text-xs text-slate-500 font-medium">Comparando aplicações históricas do instrumento para análise de evolução clínica.</p>
@@ -1344,7 +1339,7 @@ const LinkedToolsSection: React.FC<{
 
       {/* Modal de Detalhes da Fonte */}
       {viewing && (
-        <Modal isOpen={true} onClose={() => setViewing(null)} title="Detalhes da Fonte" subtitle={viewing.name} maxWidth="lg">
+        <Modal isOpen={true} onClose={() => setViewing(null)} title="Detalhes da Fonte" size="lg">
            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
               <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
                  <div className="flex justify-between items-center">
@@ -1585,12 +1580,11 @@ const RecordEditor: React.FC<{
       isOpen={true}
       onClose={handleClose}
       title={recordType === 'Plano' ? (mode === 'new' ? 'Plano Terapêutico' : 'Editar Plano') : (mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro')}
-      subtitle={title}
-      maxWidth={recordType === 'Plano' ? '5xl' : 'full'}
+      size={recordType === 'Plano' ? '2xl' : 'full'}
       footer={recordType === 'Plano' ? (
         <div className="flex items-center justify-end gap-2 w-full">
           <Button variant="ghost" onClick={handleClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
-          <Button onClick={() => save()} isLoading={saving} variant="primary" className="h-9 sm:h-10 px-5 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-emerald-200 bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
+          <Button onClick={() => save()} loading={saving} variant="primary" className="h-9 sm:h-10 px-5 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-emerald-200 bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
             <Save size={14}/> Salvar Plano
           </Button>
         </div>
@@ -1613,7 +1607,7 @@ const RecordEditor: React.FC<{
            {/* Actions */}
            <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={handleClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
-              <Button onClick={() => save()} isLoading={saving} variant="primary" className="flex-1 sm:flex-none h-9 sm:h-10 px-4 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-indigo-200">
+              <Button onClick={() => save()} loading={saving} variant="primary" className="flex-1 sm:flex-none h-9 sm:h-10 px-4 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-indigo-200">
                 <Save size={14}/> <span className="hidden xs:inline">Salvar</span> Rascunho
               </Button>
               <Button onClick={() => setShowApproveModal(true)} variant="primary" className="flex-1 sm:flex-none h-9 sm:h-10 px-4 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-emerald-200 whitespace-nowrap">
@@ -1776,7 +1770,7 @@ const RecordEditor: React.FC<{
                           placeholder="Escreva tudo o que aconteceu na sessão..."
                           minHeight={recordType === 'Avaliacao' ? "550px" : "400px"}
                         />
-                        <Button onClick={organizeWithAI} isLoading={aiLoading} disabled={!draft.trim()} variant="primary"
+                        <Button onClick={organizeWithAI} loading={aiLoading} disabled={!draft.trim()} variant="primary"
                           className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3">
                           {aiLoading ? 'Organizando conteúdo...' : 'Organizar com Inteligência Artificial'}
                         </Button>
@@ -1835,7 +1829,7 @@ const RecordEditor: React.FC<{
                   <Layers size={18} className="text-indigo-500"/>
                   <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Anexos da Evolução</h3>
                 </div>
-                <Button variant="ghost" className="text-xs uppercase tracking-widest bg-white border border-slate-200 hover:border-indigo-300 shadow-sm" onClick={() => fileInputRef.current?.click()} isLoading={uploading}>
+                <Button variant="ghost" className="text-xs uppercase tracking-widest bg-white border border-slate-200 hover:border-indigo-300 shadow-sm" onClick={() => fileInputRef.current?.click()} loading={uploading}>
                   <Plus size={14} /> Anexar Arquivo
                 </Button>
                 <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
@@ -1954,8 +1948,7 @@ const SendAnamnesisModal: React.FC<{
       isOpen
       onClose={onClose}
       title="Enviar Anamnese ao Paciente"
-      subtitle={`Paciente: ${patient.full_name}`}
-      maxWidth="lg"
+      size="lg"
       footer={
         <div className="flex gap-3 w-full">
           <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">
@@ -2277,8 +2270,7 @@ const AnamnesisResponseModal: React.FC<{
       isOpen
       onClose={onClose}
       title="Respostas da Anamnese"
-      subtitle={`Paciente: ${patientName}`}
-      maxWidth="xl"
+      size="xl"
       footer={
         <div className="flex gap-3 w-full flex-wrap">
           <Button variant="ghost" onClick={onClose} className="uppercase text-xs font-black tracking-widest">Fechar</Button>
@@ -3010,14 +3002,12 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-10 animate-fadeIn">
-      <PageHeader
-        icon={<FileText />}
+    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+      <SectionTitle
+        icon={FileText}
         title="Prontuário Clínico"
-        subtitle={view === 'patient' && selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Evoluções, Relatórios e Diagnósticos"}
-        showBackButton={view === 'patient'}
-        onBackClick={() => { setSearchParams({}); setView('grid'); setSelectedPatientId(null); setRecords([]); }}
-        actions={
+        description={view === 'patient' && selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Evoluções, Relatórios e Diagnósticos"}
+        action={
           <div className="flex items-center gap-2">
             {view === 'patient' && (
               <>
@@ -3051,8 +3041,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
               </>
             )}
             {view === 'grid' && (
-              <button 
-                onClick={() => setShowFilters(!showFilters)} 
+              <button
+                onClick={() => setShowFilters(!showFilters)}
                 className={`h-9 px-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showFilters ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
               >
                 <Filter size={14}/> <span className="hidden sm:inline">Filtros</span>
@@ -3061,6 +3051,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           </div>
         }
       />
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
 
       {/* Linha de Filtros de Tipo (Mobile Friendly) */}
       {view === 'patient' && activeTab === 'history' && (
@@ -3720,13 +3711,14 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         </div>
       )}
 
+      </div>
+
       {/* Delete Modal */}
       <Modal
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         title="Excluir Registro?"
-        subtitle="Esta ação é irreversível e o prontuário será removido permanentemente do sistema."
-        maxWidth="sm"
+        size="sm"
         footer={
           <div className="flex gap-3 w-full">
             <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1 uppercase text-xs font-black tracking-widest">Cancelar</Button>
@@ -3760,8 +3752,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         isOpen={!!restrictedModal}
         onClose={() => setRestrictedModal(null)}
         title="Conteúdo Restrito"
-        subtitle="Informações sigilosas de uso exclusivo do profissional responsável."
-        maxWidth="lg"
+        size="lg"
         footer={<Button variant="ghost" onClick={() => setRestrictedModal(null)} className="w-full uppercase text-xs font-black tracking-widest">Fechar Visualização</Button>}
       >
         <div className="space-y-4 pt-2">
@@ -3886,7 +3877,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           isOpen
           onClose={() => setCancelAnamnesisModal(null)}
           title="Cancelar envio de anamnese"
-          maxWidth="sm"
+          size="sm"
           footer={
             <div className="flex gap-3 w-full">
               <Button variant="ghost" onClick={() => setCancelAnamnesisModal(null)} className="flex-1 uppercase text-xs font-black tracking-widest">
@@ -3923,6 +3914,6 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           </div>
         </Modal>
       )}
-    </div>
+    </PageWrapper>
   );
 };
