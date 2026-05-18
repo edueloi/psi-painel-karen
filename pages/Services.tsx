@@ -3,25 +3,15 @@ import { MOCK_SERVICES, MOCK_PACKAGES } from '../constants';
 import { Service, ServicePackage, ServicePackageItem } from '../types';
 import {
   Briefcase,
-  Search,
   Plus,
   Edit3,
   Trash2,
   Clock,
   DollarSign,
-  Tag,
   Package,
   Layers,
-  AlertCircle,
   Download,
   FileUp,
-  FileDown,
-  Palette,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  LayoutGrid,
-  List as ListIcon,
   ChevronDown,
   FileText,
   History,
@@ -39,12 +29,16 @@ import {
   FilterLineItem,
   FilterLineSearch,
   FilterLineSegmented,
+  FilterLineViewToggle,
 } from '../components/UI/FilterLine';
-import { Button } from '../components/UI/Button';
-import { PageHeader } from '../components/UI/PageHeader';
+import { Button, IconButton } from '../components/UI/Button';
 import { StatusAlert } from '../components/UI/StatusAlert';
+import { EmptyState } from '../components/UI/EmptyState';
 import { useToast } from '../contexts/ToastContext';
 import { GridTable } from '../components/UI/GridTable';
+import { StatCard } from '../components/UI/StatCard';
+import { StatGrid, PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
+import { Pagination } from '../components/UI/Pagination';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 
@@ -86,7 +80,7 @@ const CurrencyInput: React.FC<{
       label={label}
       value={displayValue}
       onChange={handleChange}
-      prefix="R$"
+      addonLeft="R$"
       hint={hint}
     />
   );
@@ -264,7 +258,7 @@ export const Services: React.FC = () => {
   const serviceOptions = useMemo(
     () =>
       services.map((service) => ({
-        id: String(service.id),
+        value: String(service.id),
         label: service.name,
       })),
     [services]
@@ -542,7 +536,7 @@ export const Services: React.FC = () => {
           (s.description || '').replace(/;/g, ','),
           s.duration ? `${s.duration} min` : '',
           Number(s.price || 0).toFixed(2).replace('.', ','),
-          s.status || '',
+          (s as any).status || '',
         ].join(';')),
       ];
       const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -558,7 +552,7 @@ export const Services: React.FC = () => {
           ((p as any).description || '').replace(/;/g, ','),
           (p as any).sessions_total || '',
           Number((p as any).price || 0).toFixed(2).replace('.', ','),
-          p.status || '',
+          (p as any).status || '',
         ].join(';')),
       ];
       const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -590,7 +584,7 @@ export const Services: React.FC = () => {
           (s.description || '-').slice(0, 40),
           s.duration ? `${s.duration} min` : '-',
           formatCurrency(Number(s.price || 0)),
-          s.status || '-',
+          (s as any).status || '-',
         ]);
       } else {
         headers = ['Nome', 'Descrição', 'Sessões', 'Preço', 'Status'];
@@ -599,7 +593,7 @@ export const Services: React.FC = () => {
           ((p as any).description || '-').slice(0, 40),
           String((p as any).sessions_total || '-'),
           formatCurrency(Number((p as any).price || 0)),
-          p.status || '-',
+          (p as any).status || '-',
         ]);
       }
 
@@ -771,7 +765,6 @@ export const Services: React.FC = () => {
             <Button
               variant="outline"
               size="xs"
-              iconOnly
               onClick={() => openHistory('service', String(service.id), service.name)}
               title="Histórico"
             >
@@ -781,7 +774,6 @@ export const Services: React.FC = () => {
             <Button
               variant="outline"
               size="xs"
-              iconOnly
               onClick={() => handleOpenServiceModal(service)}
               title="Editar serviço"
             >
@@ -789,9 +781,8 @@ export const Services: React.FC = () => {
             </Button>
 
             <Button
-              variant="softDanger"
+              variant="danger"
               size="xs"
-              iconOnly
               onClick={() => setDeleteId({ id: String(service.id), type: 'service' })}
               title="Excluir serviço"
             >
@@ -889,7 +880,6 @@ export const Services: React.FC = () => {
             <Button
               variant="outline"
               size="xs"
-              iconOnly
               onClick={() => openHistory('package', String(pkg.id), pkg.name)}
               title="Histórico"
             >
@@ -899,7 +889,6 @@ export const Services: React.FC = () => {
             <Button
               variant="outline"
               size="xs"
-              iconOnly
               onClick={() => handleOpenPackageModal(pkg)}
               title="Editar pacote"
             >
@@ -907,9 +896,8 @@ export const Services: React.FC = () => {
             </Button>
 
             <Button
-              variant="softDanger"
+              variant="danger"
               size="xs"
-              iconOnly
               onClick={() => setDeleteId({ id: String(pkg.id), type: 'package' })}
               title="Excluir pacote"
             >
@@ -970,22 +958,19 @@ export const Services: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-[1600px] px-6 pt-6 mb-6">
-        <PageHeader
-          icon={<Briefcase />}
+    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+      <div>
+        <SectionTitle
+          icon={Briefcase}
           title={t('services.title')}
-          subtitle={t('services.management')}
-          containerClassName="mb-0"
-          actions={
+          description={t('services.management')}
+          action={
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                radius="xl"
-                leftIcon={<Download size={14} />}
+                iconLeft={<Download size={14} />}
                 onClick={handleExportTemplate}
-                title="Baixar modelo"
               >
                 Modelo
               </Button>
@@ -994,11 +979,9 @@ export const Services: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  radius="xl"
-                  leftIcon={<Download size={14} />}
-                  rightIcon={<ChevronDown size={12} />}
+                  iconLeft={<Download size={14} />}
+                  iconRight={<ChevronDown size={12} />}
                   onClick={() => setExportMenuOpen(o => !o)}
-                  title={activeTab === 'services' ? 'Exportar serviços' : 'Exportar pacotes'}
                 >
                   Exportar
                 </Button>
@@ -1007,22 +990,13 @@ export const Services: React.FC = () => {
                     className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
                     onMouseLeave={() => setExportMenuOpen(false)}
                   >
-                    <button
-                      onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
+                    <button onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                       <FileText size={14} className="text-emerald-500" /> Exportar CSV
                     </button>
-                    <button
-                      onClick={() => { setExportMenuOpen(false); handleExportData(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
+                    <button onClick={() => { setExportMenuOpen(false); handleExportData(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                       <FileText size={14} className="text-green-600" /> Exportar Excel
                     </button>
-                    <button
-                      onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
+                    <button onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                       <FileText size={14} className="text-red-500" /> Exportar PDF
                     </button>
                   </div>
@@ -1030,35 +1004,17 @@ export const Services: React.FC = () => {
               </div>
 
               <label>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".xlsx, .xls, .csv"
-                  onChange={handleImportFile}
-                />
-                <span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    radius="xl"
-                    leftIcon={<FileUp size={14} />}
-                    as={undefined as any}
-                  >
-                    Importar
-                  </Button>
-                </span>
+                <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} />
+                <Button variant="outline" size="sm" iconLeft={<FileUp size={14} />}>
+                  Importar
+                </Button>
               </label>
 
               <Button
                 variant="primary"
                 size="sm"
-                radius="xl"
-                leftIcon={<Plus size={14} />}
-                onClick={() =>
-                  activeTab === 'services'
-                    ? handleOpenServiceModal()
-                    : handleOpenPackageModal()
-                }
+                iconLeft={<Plus size={14} />}
+                onClick={() => activeTab === 'services' ? handleOpenServiceModal() : handleOpenPackageModal()}
               >
                 {activeTab === 'services' ? t('services.newService') : t('services.newPackage')}
               </Button>
@@ -1067,44 +1023,30 @@ export const Services: React.FC = () => {
         />
       </div>
 
-      <main className="mx-auto max-w-[1600px] space-y-6 px-6 py-6">
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
-                <Briefcase size={20} />
-              </div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Serviços
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-800">{stats.totalServices}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <Package size={20} />
-              </div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Pacotes
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-800">{stats.totalPackages}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-                <DollarSign size={20} />
-              </div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Valor médio
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.avgPrice)}</p>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          <StatCard
+            title="Serviços"
+            value={stats.totalServices}
+            icon={Briefcase}
+            color="default"
+            delay={0}
+          />
+          <StatCard
+            title="Pacotes"
+            value={stats.totalPackages}
+            icon={Package}
+            color="success"
+            delay={1}
+          />
+          <StatCard
+            title="Valor Médio"
+            value={formatCurrency(stats.avgPrice)}
+            icon={DollarSign}
+            color="warning"
+            delay={2}
+          />
         </div>
 
         {/* Filters */}
@@ -1133,29 +1075,12 @@ export const Services: React.FC = () => {
                 { value: 'packages', label: t('services.packages') },
               ]}
             />
-            {/* View toggle */}
-            <div className="flex items-center gap-1 ml-2">
-              <button
-                onClick={() => { setViewMode('cards'); updatePreference('services', { viewMode: 'cards' }); }}
-                className={`p-2 rounded-xl border transition-all ${
-                  viewMode === 'cards'
-                    ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                    : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                <LayoutGrid size={15} />
-              </button>
-              <button
-                onClick={() => { setViewMode('list'); updatePreference('services', { viewMode: 'list' }); }}
-                className={`p-2 rounded-xl border transition-all ${
-                  viewMode === 'list'
-                    ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                    : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                <ListIcon size={15} />
-              </button>
-            </div>
+            <FilterLineViewToggle
+              value={viewMode}
+              onChange={(val) => { setViewMode(val as 'cards' | 'list'); updatePreference('services', { viewMode: val as 'cards' | 'list' }); }}
+              gridValue="cards"
+              listValue="list"
+            />
           </FilterLineSection>
         </FilterLine>
 
@@ -1172,7 +1097,9 @@ export const Services: React.FC = () => {
                   currentItems.map((s) => renderServiceCard(s as Service))
                 )}
                 {!isLoading && filteredServices.length === 0 && (
-                  <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">Nenhum serviço encontrado.</div>
+                  <div className="col-span-full">
+                    <EmptyState icon={Briefcase} title="Nenhum serviço encontrado" description="Crie o primeiro serviço clicando em + Novo Serviço." action={<Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenServiceModal()}>Novo Serviço</Button>} />
+                  </div>
                 )}
               </div>
             ) : (
@@ -1185,7 +1112,9 @@ export const Services: React.FC = () => {
                   currentItems.map((p) => renderPackageCard(p as ServicePackage))
                 )}
                 {!isLoading && filteredPackages.length === 0 && (
-                  <div className="col-span-full rounded-[28px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400">Nenhum pacote encontrado.</div>
+                  <div className="col-span-full">
+                    <EmptyState icon={Package} title="Nenhum pacote encontrado" description="Crie o primeiro pacote clicando em + Novo Pacote." action={<Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenPackageModal()}>Novo Pacote</Button>} />
+                  </div>
                 )}
               </div>
             )}
@@ -1197,7 +1126,7 @@ export const Services: React.FC = () => {
               <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 mb-4 gap-4">
                 <span className="text-sm font-semibold text-amber-800">{selectedIds.size} item(ns) selecionado(s)</span>
                 <div className="flex gap-2">
-                  <Button variant="softDanger" size="sm" leftIcon={<Trash2 size={14} />} onClick={() => setConfirmBulkDelete(true)}>Excluir selecionados</Button>
+                  <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={() => setConfirmBulkDelete(true)}>Excluir selecionados</Button>
                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Cancelar</Button>
                 </div>
               </div>
@@ -1213,6 +1142,35 @@ export const Services: React.FC = () => {
                 onToggleSelectAll={toggleSelectAll}
                 onRowClick={(s) => handleOpenServiceModal(s)}
                 emptyMessage="Nenhum serviço encontrado."
+                getMobileBorderClass={(s) => `border-l-4`}
+                renderMobileItem={(s: Service) => (
+                  <div className="flex flex-col gap-2 w-full min-w-0">
+                    <div className="flex items-start gap-2 w-full min-w-0">
+                      <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: s.color || '#6366f1' }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800 truncate text-sm">{s.name}</div>
+                        <div className="text-[11px] text-slate-400 uppercase tracking-wide">{s.category}</div>
+                      </div>
+                      <div className="text-right shrink-0 ml-auto">
+                        <div className="font-bold text-primary-600 text-sm">{formatCurrency(s.price)}</div>
+                        <div className="text-[11px] text-slate-400">custo: {formatCurrency(s.cost || 0)}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pl-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[11px]">{s.duration} min</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${s.modality === 'online' ? 'bg-emerald-50 text-emerald-700' : s.modality === 'geral' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>
+                          {s.modality === 'online' ? 'Online' : s.modality === 'geral' ? 'Geral' : 'Presencial'}
+                        </span>
+                      </div>
+                      <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <IconButton variant="outline" size="xs" onClick={() => openHistory('service', String(s.id), s.name)}><History size={13} /></IconButton>
+                        <IconButton variant="outline" size="xs" onClick={() => handleOpenServiceModal(s)}><Edit3 size={13} /></IconButton>
+                        <IconButton variant="danger" size="xs" onClick={() => setDeleteId({ id: String(s.id), type: 'service' })}><Trash2 size={13} /></IconButton>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 columns={[
                   {
                     header: 'Serviço',
@@ -1256,13 +1214,13 @@ export const Services: React.FC = () => {
                     headerClassName: 'text-right',
                     render: (s: Service) => (
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="outline" size="xs" iconOnly onClick={() => openHistory('service', String(s.id), s.name)} title="Histórico">
+                        <Button variant="outline" size="xs" onClick={() => openHistory('service', String(s.id), s.name)} title="Histórico">
                           <History size={14} />
                         </Button>
-                        <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenServiceModal(s)} title="Editar">
+                        <Button variant="outline" size="xs" onClick={() => handleOpenServiceModal(s)} title="Editar">
                           <Edit3 size={14} />
                         </Button>
-                        <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteId({ id: String(s.id), type: 'service' })} title="Excluir">
+                        <Button variant="danger" size="xs" onClick={() => setDeleteId({ id: String(s.id), type: 'service' })} title="Excluir">
                           <Trash2 size={14} />
                         </Button>
                       </div>
@@ -1280,6 +1238,37 @@ export const Services: React.FC = () => {
                 onToggleSelectAll={toggleSelectAll}
                 onRowClick={(p) => handleOpenPackageModal(p)}
                 emptyMessage="Nenhum pacote encontrado."
+                renderMobileItem={(p: ServicePackage) => (
+                  <div className="flex flex-col gap-2 w-full min-w-0">
+                    <div className="flex items-start gap-2 w-full min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <Package size={15} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800 truncate text-sm">{p.name}</div>
+                        <div className="text-[11px] text-slate-400">{p.items?.length || 0} itens</div>
+                      </div>
+                      <div className="text-right shrink-0 ml-auto">
+                        <div className="font-bold text-emerald-600 text-sm">{formatCurrency(p.totalPrice || 0)}</div>
+                        <div className="text-[11px] text-emerald-500">{p.discountType === 'percentage' ? `${p.discountValue || 0}% OFF` : `-${formatCurrency(p.discountValue || 0)}`}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pl-10">
+                      <div className="text-xs text-slate-500 space-y-0.5">
+                        {(p.items || []).slice(0, 2).map((item, i) => {
+                          const srv = services.find(s => String(s.id) === String(item.serviceId));
+                          return <div key={i}>{item.quantity}x {srv?.name || 'Serviço'}</div>;
+                        })}
+                        {(p.items || []).length > 2 && <div className="text-slate-400">+{(p.items || []).length - 2} mais</div>}
+                      </div>
+                      <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <IconButton variant="outline" size="xs" onClick={() => openHistory('package', String(p.id), p.name)}><History size={13} /></IconButton>
+                        <IconButton variant="outline" size="xs" onClick={() => handleOpenPackageModal(p)}><Edit3 size={13} /></IconButton>
+                        <IconButton variant="danger" size="xs" onClick={() => setDeleteId({ id: String(p.id), type: 'package' })}><Trash2 size={13} /></IconButton>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 columns={[
                   {
                     header: 'Pacote',
@@ -1325,13 +1314,13 @@ export const Services: React.FC = () => {
                     headerClassName: 'text-right',
                     render: (p: ServicePackage) => (
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="outline" size="xs" iconOnly onClick={() => openHistory('package', String(p.id), p.name)} title="Histórico">
+                        <Button variant="outline" size="xs" onClick={() => openHistory('package', String(p.id), p.name)} title="Histórico">
                           <History size={14} />
                         </Button>
-                        <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenPackageModal(p)} title="Editar">
+                        <Button variant="outline" size="xs" onClick={() => handleOpenPackageModal(p)} title="Editar">
                           <Edit3 size={14} />
                         </Button>
-                        <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteId({ id: String(p.id), type: 'package' })} title="Excluir">
+                        <Button variant="danger" size="xs" onClick={() => setDeleteId({ id: String(p.id), type: 'package' })} title="Excluir">
                           <Trash2 size={14} />
                         </Button>
                       </div>
@@ -1343,43 +1332,25 @@ export const Services: React.FC = () => {
 
             {/* Pagination */}
             {activeList.length > 0 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 p-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <span>Itens por página:</span>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100"
-                  >
-                    {[5, 15, 30, 50].map((limit) => (
-                      <option key={limit} value={limit}>{limit}</option>
-                    ))}
-                  </select>
-                  <span className="text-slate-400">{activeList.length} total</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-500">Página {currentPage} de {totalPages}</span>
-                  <div className="flex gap-1">
-                    <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all">
-                      <ChevronLeft size={16} />
-                    </button>
-                    <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all">
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <Pagination
+                total={activeList.length}
+                page={currentPage}
+                pageSize={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+                showPageSizeSelector
+              />
             )}
           </>
         )}
-      </main>
+      </div>
 
       {/* Modal Serviço */}
       <Modal
         isOpen={isServiceModalOpen}
         onClose={() => setIsServiceModalOpen(false)}
         title={editingService?.id ? 'Editar Serviço' : 'Novo Serviço'}
-        maxWidth="lg"
+        size="lg"
         footer={
           <div className="flex w-full items-center justify-between">
             <Button
@@ -1531,7 +1502,7 @@ export const Services: React.FC = () => {
         isOpen={isPackageModalOpen}
         onClose={() => setIsPackageModalOpen(false)}
         title={editingPackage?.id ? 'Editar Pacote' : 'Novo Pacote'}
-        maxWidth="xl"
+        size="xl"
         footer={
           <div className="flex w-full items-center justify-between">
             <Button
@@ -1573,19 +1544,17 @@ export const Services: React.FC = () => {
 
               <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                 <Combobox
-                  label="Adicionar serviço"
                   options={serviceOptions}
                   value={packageServiceToAdd}
                   onChange={(value) => setPackageServiceToAdd(String(value))}
                   placeholder="Selecione um serviço..."
                   size="sm"
-                  showSelectedBadge={false}
                 />
 
                 <div className="flex items-end">
                   <Button
                     variant="outline"
-                    leftIcon={<Plus size={14} />}
+                    iconLeft={<Plus size={14} />}
                     onClick={handleAddServiceToPackage}
                     disabled={!packageServiceToAdd}
                     fullWidth
@@ -1615,22 +1584,20 @@ export const Services: React.FC = () => {
                         className="rounded-2xl border border-slate-200 bg-white p-4"
                       >
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_110px_150px_auto] md:items-end">
-                          <Select
-                            label="Serviço"
-                            value={String(item.serviceId)}
-                            onChange={(e) => {
-                              const nextItems = [...(editingPackage.items || [])];
-                              nextItems[index].serviceId = e.target.value;
-                              handlePackageItemChange(nextItems);
-                            }}
-                            size="sm"
-                          >
-                            {services.map((serviceOption) => (
-                              <option key={serviceOption.id} value={String(serviceOption.id)}>
-                                {serviceOption.name}
-                              </option>
-                            ))}
-                          </Select>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-0.5">Serviço</label>
+                            <Combobox
+                              options={services.map(s => ({ value: String(s.id), label: s.name }))}
+                              value={String(item.serviceId)}
+                              onChange={(val) => {
+                                const nextItems = [...(editingPackage.items || [])];
+                                nextItems[index].serviceId = Array.isArray(val) ? val[0] : val;
+                                handlePackageItemChange(nextItems);
+                              }}
+                              placeholder="Selecione..."
+                              size="sm"
+                            />
+                          </div>
 
                           <Input
                             label="Quantidade"
@@ -1658,9 +1625,8 @@ export const Services: React.FC = () => {
 
                           <div className="flex items-end justify-end">
                             <Button
-                              variant="softDanger"
+                              variant="danger"
                               size="sm"
-                              iconOnly
                               onClick={() => {
                                 const nextItems = (editingPackage.items || []).filter(
                                   (_, i) => i !== index
@@ -1706,7 +1672,7 @@ export const Services: React.FC = () => {
                     <Input
                       label="Desconto percentual"
                       type="number"
-                      suffix="%"
+                      addonRight="%"
                       value={editingPackage.discountValue || 0}
                       onChange={(e) =>
                         handlePackageDiscountChange(
@@ -1770,7 +1736,7 @@ export const Services: React.FC = () => {
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         title="Excluir item"
-        maxWidth="md"
+        size="md"
         footer={
           <div className="flex w-full items-center justify-between">
             <Button
@@ -1783,7 +1749,7 @@ export const Services: React.FC = () => {
             <Button
               variant="danger"
               onClick={confirmDelete}
-              isLoading={isProcessing}
+              loading={isProcessing}
               disabled={isProcessing}
             >
               Confirmar exclusão
@@ -1807,11 +1773,11 @@ export const Services: React.FC = () => {
         isOpen={confirmBulkDelete}
         onClose={() => setConfirmBulkDelete(false)}
         title="Excluir Selecionados"
-        maxWidth="md"
+        size="md"
         footer={
           <div className="flex w-full items-center justify-between">
             <Button variant="ghost" onClick={() => setConfirmBulkDelete(false)} disabled={isProcessing}>Cancelar</Button>
-            <Button variant="danger" onClick={handleBulkDelete} isLoading={isProcessing} disabled={isProcessing}>
+            <Button variant="danger" onClick={handleBulkDelete} loading={isProcessing} disabled={isProcessing}>
               Confirmar exclusão de {selectedIds.size} item(ns)
             </Button>
           </div>
@@ -1944,6 +1910,6 @@ export const Services: React.FC = () => {
           </div>
         )}
       </ActionDrawer>
-    </div>
+    </PageWrapper>
   );
 };

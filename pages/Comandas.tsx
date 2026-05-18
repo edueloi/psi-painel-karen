@@ -7,7 +7,7 @@ import {
   Button, IconButton,
   Badge, StatCard, StatGrid,
   PageWrapper, SectionTitle,
-  FilterLine, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle, FilterLineDateRange,
+  FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle, FilterLineDateRange,
   GridTable,
 } from '../components/UI';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
@@ -1534,53 +1534,50 @@ export const Comandas: React.FC = () => {
           <StatCard title="Total Recebido" value={formatCurrency(stats.received)} icon={CheckCircle2} color="success" />
         </StatGrid>
 
-        <FilterLine className="mb-6 overflow-x-auto">
-  <div className="flex w-full min-w-max items-end gap-3 flex-nowrap">
-    <div className="min-w-[320px] max-w-[420px] flex-1">
-      <FilterLineSearch
-        value={searchTerm}
-        onChange={setSearchTerm}
-        placeholder="Buscar paciente, descrição ou item..."
-        className="w-full"
-      />
-    </div>
-
-    <div className="shrink-0">
-      <FilterLineDateRange
-        from={closedDateFrom}
-        to={closedDateTo}
-        onFromChange={(val) => setClosedDateFrom(val)}
-        onToChange={(val) => setClosedDateTo(val)}
-        fromLabel="De"
-        toLabel="Até"
-      />
-    </div>
-
-    <div className="shrink-0 ml-auto flex items-center gap-3">
-      <FilterLineSegmented
-        value={statusFilter}
-        onChange={(val) => {
-          setStatusFilter(val as any);
-          updatePreference('comandas', { statusFilter: val });
-        }}
-        options={[
-          { value: 'open', label: 'Em aberto' },
-          { value: 'closed', label: 'Finalizadas' },
-        ]}
-        size="sm"
-      />
-      <FilterLineViewToggle
-        value={viewMode}
-        onChange={(mode) => {
-          setViewMode(mode as any);
-          updatePreference('comandas', { viewMode: mode });
-        }}
-        gridValue="kanban"
-        listValue="list"
-      />
-    </div>
-  </div>
-</FilterLine>
+        <FilterLine className="mb-6">
+          <FilterLineSection grow>
+            <FilterLineItem grow minWidth={260}>
+              <FilterLineSearch
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Buscar paciente, descrição ou item..."
+              />
+            </FilterLineItem>
+            <FilterLineItem>
+              <FilterLineDateRange
+                from={closedDateFrom}
+                to={closedDateTo}
+                onFromChange={(val) => setClosedDateFrom(val)}
+                onToChange={(val) => setClosedDateTo(val)}
+                fromLabel="De"
+                toLabel="Até"
+              />
+            </FilterLineItem>
+          </FilterLineSection>
+          <FilterLineSection align="right">
+            <FilterLineSegmented
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val as any);
+                updatePreference('comandas', { statusFilter: val });
+              }}
+              options={[
+                { value: 'open', label: 'Em aberto' },
+                { value: 'closed', label: 'Finalizadas' },
+              ]}
+              size="sm"
+            />
+            <FilterLineViewToggle
+              value={viewMode}
+              onChange={(mode) => {
+                setViewMode(mode as any);
+                updatePreference('comandas', { viewMode: mode });
+              }}
+              gridValue="kanban"
+              listValue="list"
+            />
+          </FilterLineSection>
+        </FilterLine>
 
         {viewMode === 'kanban' ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -2089,39 +2086,33 @@ export const Comandas: React.FC = () => {
                   </div>
                 </div>
 
-                <Select
-                  label="Profissional"
-                  value={editingComanda.professionalId || ''}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      professionalId: e.target.value,
-                    })
-                  }
-                  wrapperClassName="md:col-span-2"
-                >
-                  {professionals.map((p: any) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.full_name || p.name}
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label className="text-[12px] font-semibold text-slate-600">Profissional</label>
+                  <Combobox
+                    options={professionals.map((p: any) => ({ value: String(p.id), label: p.full_name || p.name }))}
+                    value={editingComanda.professionalId || ''}
+                    onChange={(val) => {
+                      const selectedId = Array.isArray(val) ? val[0] : val;
+                      setEditingComanda({ ...editingComanda, professionalId: selectedId });
+                    }}
+                    placeholder="Buscar profissional..."
+                  />
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Select
-                  label="Pacote Base (Opcional)"
-                  value={editingComanda.packageId || ''}
-                  onChange={(e) => handleSelectPackage(e.target.value)}
-                  wrapperClassName="md:col-span-2"
-                >
-                  <option value="">Selecione uma definição de pacote</option>
-                  {packages.map((pkg) => (
-                    <option key={pkg.id} value={String(pkg.id)}>
-                      {pkg.name}
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label className="text-[12px] font-semibold text-slate-600">Pacote Base (Opcional)</label>
+                  <Combobox
+                    options={packages.map((pkg) => ({ value: String(pkg.id), label: pkg.name }))}
+                    value={editingComanda.packageId || ''}
+                    onChange={(val) => {
+                      const selectedId = Array.isArray(val) ? val[0] : val;
+                      handleSelectPackage(selectedId || '');
+                    }}
+                    placeholder="Selecione uma definição de pacote"
+                  />
+                </div>
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-semibold text-slate-600">Paciente</label>
@@ -2199,22 +2190,18 @@ export const Comandas: React.FC = () => {
                     </div>
                   </div>
 
-                <Select
-                  label="Profissional"
-                  value={editingComanda.professionalId || ''}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      professionalId: e.target.value,
-                    })
-                  }
-                >
-                  {professionals.map((p: any) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.full_name || p.name}
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-slate-600">Profissional</label>
+                  <Combobox
+                    options={professionals.map((p: any) => ({ value: String(p.id), label: p.full_name || p.name }))}
+                    value={editingComanda.professionalId || ''}
+                    onChange={(val) => {
+                      const selectedId = Array.isArray(val) ? val[0] : val;
+                      setEditingComanda({ ...editingComanda, professionalId: selectedId });
+                    }}
+                    placeholder="Buscar profissional..."
+                  />
+                </div>
 
                 <div className="pt-2 md:col-span-2">
                   <div className="mb-4 flex items-center gap-2">
