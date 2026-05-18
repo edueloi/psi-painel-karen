@@ -2,15 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api, getStaticUrl, API_BASE_URL } from '../services/api';
 import { Comanda, Patient, Service } from '../types';
-import { Modal } from '../components/UI/Modal';
-import { DatePicker } from '../components/UI/DatePicker';
-import { Button } from '../components/UI/Button';
-import { Input, Select, Textarea } from '../components/UI/Input';
-import { Combobox } from '../components/UI/Combobox';
-import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle, FilterLineDateRange } from '../components/UI/FilterLine';
+import {
+  Modal, ModalFooter, ConfirmModal,
+  Button, IconButton,
+  Badge, StatCard, StatGrid,
+  PageWrapper, SectionTitle,
+  FilterLine, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle, FilterLineDateRange,
+  GridTable,
+} from '../components/UI';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
-import { GridTable } from '../components/UI/GridTable';
-import { PageHeader } from '../components/UI/PageHeader';
+import { DatePicker } from '../components/UI/DatePicker';
+import { Input, Select } from '../components/UI/Input';
+import { Combobox } from '../components/UI/Combobox';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -86,8 +89,6 @@ const cx = (...classes: Array<string | false | null | undefined>) =>
 const compactInputClass =
   'w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none';
 
-const iconButtonClass =
-  'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-primary-600';
 
 const TypeButton: React.FC<{
   active: boolean;
@@ -1427,97 +1428,84 @@ export const Comandas: React.FC = () => {
   };
 
   const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-        status === 'closed'
-          ? 'bg-emerald-50 text-emerald-700'
-          : 'bg-amber-50 text-amber-700'
-      }`}
-    >
+    <Badge color={status === 'closed' ? 'success' : 'warning'} pill size="sm">
       {status === 'closed' ? 'Pago' : 'Aberto'}
-    </span>
+    </Badge>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <PageWrapper>
+      <SectionTitle
+        title="Gestão de Comandas"
+        description="Controle financeiro, pacotes e sessões"
+        icon={ShoppingBag}
+        divider
+        action={
+          <div className="flex items-center gap-2">
+            {hasPermission('manage_payments') && (
+              <Button
+                onClick={() => { setImportRows([]); setImportResult(null); setIsImportOpen(true); }}
+                iconLeft={<Upload size={16} />}
+                variant="outline"
+              >
+                Importar
+              </Button>
+            )}
 
-
-      <div className="mx-auto max-w-[1600px] px-6 pt-6 mb-6">
-        <PageHeader
-          icon={<ShoppingBag />}
-          title="Gestão de Comandas"
-          subtitle="Controle financeiro, pacotes e sessões"
-          containerClassName="mb-0"
-          actions={
-            <div className="flex items-center gap-2">
-              {hasPermission('manage_payments') && (
+            {/* dropdown exportar */}
+            {hasPermission('view_financial_reports') && (
+              <div className="relative">
                 <Button
-                  onClick={() => { setImportRows([]); setImportResult(null); setIsImportOpen(true); }}
-                  leftIcon={<Upload size={16} />}
+                  onClick={() => setExportMenuOpen(o => !o)}
+                  iconLeft={<Download size={16} />}
+                  iconRight={<ChevronDown size={14} />}
                   variant="outline"
-                  radius="xl"
                 >
-                  Importar
+                  Exportar
                 </Button>
-              )}
-
-              {/* dropdown exportar */}
-              {hasPermission('view_financial_reports') && (
-                <div className="relative">
-                  <Button
-                    onClick={() => setExportMenuOpen(o => !o)}
-                    leftIcon={<Download size={16} />}
-                    rightIcon={<ChevronDown size={14} />}
-                    variant="outline"
-                    radius="xl"
+                {exportMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    onMouseLeave={() => setExportMenuOpen(false)}
                   >
-                    Exportar
-                  </Button>
-                  {exportMenuOpen && (
-                    <div
-                      className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
-                      onMouseLeave={() => setExportMenuOpen(false)}
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                     >
-                      <button
-                        onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                      >
-                        <FileText size={14} className="text-emerald-500" /> Exportar CSV
-                      </button>
-                      <button
-                        onClick={() => { setExportMenuOpen(false); handleExportXLSX(); }}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                      >
-                        <FileText size={14} className="text-green-600" /> Exportar Excel
-                      </button>
-                      <button
-                        onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                      >
-                        <FileText size={14} className="text-red-500" /> Exportar PDF
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                      <FileText size={14} className="text-emerald-500" /> Exportar CSV
+                    </button>
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportXLSX(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-green-600" /> Exportar Excel
+                    </button>
+                    <button
+                      onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText size={14} className="text-red-500" /> Exportar PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
-              {hasPermission('manage_payments') && (
-                <Button
-                  onClick={() => handleOpenModal()}
-                  leftIcon={<Plus size={16} />}
-                  variant="primary"
-                  radius="xl"
-                  className="shadow-lg shadow-primary-200"
-                >
-                  Nova comanda
-                </Button>
-              )}
-            </div>
-          }
-        />
-      </div>
+            {hasPermission('manage_payments') && (
+              <Button
+                onClick={() => handleOpenModal()}
+                iconLeft={<Plus size={16} />}
+                variant="primary"
+                className="shadow-lg shadow-primary-200"
+              >
+                Nova comanda
+              </Button>
+            )}
+          </div>
+        }
+      />
 
-      <main className="mx-auto max-w-[1600px] px-6 py-6">
+      <main className="py-6">
         {openComandasStats.count > 0 && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
             <div className="flex items-center">
@@ -1540,43 +1528,11 @@ export const Comandas: React.FC = () => {
           </div>
         )}
 
-        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-                <FileText size={18} />
-              </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Faturamento Total
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.total)}</p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <Clock size={18} />
-              </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {statusFilter === 'open' ? 'Saldo em Aberto' : 'Total Pendente'}
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-amber-600">{formatCurrency(stats.open)}</p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                <CheckCircle2 size={18} />
-              </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Total Recebido
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-emerald-600">{formatCurrency(stats.received)}</p>
-          </div>
-        </div>
+        <StatGrid cols={3} className="mb-6">
+          <StatCard title="Faturamento Total" value={formatCurrency(stats.total)} icon={FileText} color="info" />
+          <StatCard title={statusFilter === 'open' ? 'Saldo em Aberto' : 'Total Pendente'} value={formatCurrency(stats.open)} icon={Clock} color="warning" />
+          <StatCard title="Total Recebido" value={formatCurrency(stats.received)} icon={CheckCircle2} color="success" />
+        </StatGrid>
 
         <FilterLine className="mb-6 overflow-x-auto">
   <div className="flex w-full min-w-max items-end gap-3 flex-nowrap">
@@ -1653,27 +1609,30 @@ export const Comandas: React.FC = () => {
                   <div className="flex gap-2">
                     {hasPermission('manage_payments') && (
                       <>
-                        <button
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenModal(comanda);
                           }}
-                          className={iconButtonClass}
                           title="Editar"
                         >
                           <Edit3 size={16} />
-                        </button>
+                        </IconButton>
 
-                        <button
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeleteConfirmId(String(comanda.id));
                           }}
-                          className={`${iconButtonClass} hover:bg-red-50 hover:text-red-600`}
                           title="Excluir"
+                          className="hover:bg-red-50 hover:text-red-600"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </IconButton>
                       </>
                     )}
                   </div>
@@ -1731,7 +1690,7 @@ export const Comandas: React.FC = () => {
               <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 mb-4 gap-4">
                 <span className="text-sm font-semibold text-amber-800">{selectedIds.size} comanda{selectedIds.size > 1 ? 's' : ''} selecionada{selectedIds.size > 1 ? 's' : ''}</span>
                 <div className="flex gap-2">
-                  <Button variant="softDanger" size="sm" leftIcon={<Trash2 size={14} />} onClick={() => setConfirmBulkDelete(true)}>
+                  <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={() => setConfirmBulkDelete(true)}>
                     Excluir selecionadas
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Cancelar</Button>
@@ -1807,28 +1766,27 @@ export const Comandas: React.FC = () => {
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       {hasPermission('manage_payments') && (
                         <>
-                          <Button 
-                            variant="soft" 
-                            size="xs" 
-                            iconOnly 
-                            onClick={() => handleIncrementSessions(c)} 
+                          <IconButton
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => handleIncrementSessions(c)}
                             title="Marcar Realizado (+1)"
                             className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
                           >
                             <UserCheck size={14} />
-                          </Button>
-                          <Button variant="outline" size="xs" iconOnly onClick={() => handleOpenModal(c)} title="Editar">
+                          </IconButton>
+                          <IconButton variant="outline" size="xs" onClick={() => handleOpenModal(c)} title="Editar">
                             <Edit3 size={14} />
-                          </Button>
+                          </IconButton>
                         </>
                       )}
-                      <Button variant="soft" size="xs" iconOnly onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }} title="Histórico">
+                      <IconButton variant="ghost" size="xs" onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }} title="Histórico">
                         <List size={14} />
-                      </Button>
+                      </IconButton>
                       {hasPermission('manage_payments') && (
-                        <Button variant="softDanger" size="xs" iconOnly onClick={() => setDeleteConfirmId(String(c.id))} title="Excluir">
+                        <IconButton variant="danger" size="xs" onClick={() => setDeleteConfirmId(String(c.id))} title="Excluir">
                           <Trash2 size={14} />
-                        </Button>
+                        </IconButton>
                       )}
                     </div>
                   )
@@ -1883,9 +1841,10 @@ export const Comandas: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingComanda?.id ? 'Editando Comanda' : 'Criando Comanda'}
-        maxWidth="max-w-3xl"
+        size="2xl"
+        mobileStyle="bottom-sheet"
         footer={
-          <div className="flex w-full items-center justify-between">
+          <ModalFooter align="between">
             <Button
               onClick={() => setIsModalOpen(false)}
               variant="outline"
@@ -1898,12 +1857,11 @@ export const Comandas: React.FC = () => {
               onClick={handleSave}
               disabled={saveDisabled}
               variant="primary"
-              isLoading={isLoading}
-              loadingText={editingComanda?.id ? 'SALVANDO...' : 'CRIANDO...'}
+              loading={isLoading}
             >
-              {editingComanda?.id ? 'SALVAR' : 'CRIAR'}
+              {isLoading ? (editingComanda?.id ? 'SALVANDO...' : 'CRIANDO...') : (editingComanda?.id ? 'SALVAR' : 'CRIAR')}
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         {editingComanda && (
@@ -2024,32 +1982,37 @@ export const Comandas: React.FC = () => {
 
             {modalTab === 'avulsa' ? (
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Input
-                  label="Descrição"
-                  value={editingComanda.description || ''}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Ex: Sessão de Terapia Analítica..."
-                  containerClassName="md:col-span-2"
-                />
+                <div className="md:col-span-2">
+                  <Input
+                    label="Descrição"
+                    value={editingComanda.description || ''}
+                    onChange={(e) =>
+                      setEditingComanda({
+                        ...editingComanda,
+                        description: e.target.value,
+                      })
+                    }
+                    placeholder="Ex: Sessão de Terapia Analítica..."
+                  />
+                </div>
 
-                <Combobox
-                  label="Paciente"
-                  options={activePatients.map((p: any) => ({ id: p.id, label: normalizePatientName(p) }))}
-                  value={editingComanda.patientId || ''}
-                  onChange={(id, label) => {
-                    setEditingComanda({
-                      ...editingComanda,
-                      patientId: String(id),
-                      patientSearch: label || '',
-                    });
-                  }}
-                  placeholder="Buscar pelo nome..."
-                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-slate-600">Paciente</label>
+                  <Combobox
+                    options={activePatients.map((p: any) => ({ value: String(p.id), label: normalizePatientName(p) }))}
+                    value={editingComanda.patientId || ''}
+                    onChange={(val) => {
+                      const selectedId = Array.isArray(val) ? val[0] : val;
+                      const found = activePatients.find((p: any) => String(p.id) === selectedId);
+                      setEditingComanda({
+                        ...editingComanda,
+                        patientId: selectedId,
+                        patientSearch: found ? normalizePatientName(found) : '',
+                      });
+                    }}
+                    placeholder="Buscar pelo nome..."
+                  />
+                </div>
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
@@ -2135,7 +2098,7 @@ export const Comandas: React.FC = () => {
                       professionalId: e.target.value,
                     })
                   }
-                  containerClassName="md:col-span-2"
+                  wrapperClassName="md:col-span-2"
                 >
                   {professionals.map((p: any) => (
                     <option key={p.id} value={String(p.id)}>
@@ -2150,7 +2113,7 @@ export const Comandas: React.FC = () => {
                   label="Pacote Base (Opcional)"
                   value={editingComanda.packageId || ''}
                   onChange={(e) => handleSelectPackage(e.target.value)}
-                  containerClassName="md:col-span-2"
+                  wrapperClassName="md:col-span-2"
                 >
                   <option value="">Selecione uma definição de pacote</option>
                   {packages.map((pkg) => (
@@ -2160,19 +2123,23 @@ export const Comandas: React.FC = () => {
                   ))}
                 </Select>
 
-                <Combobox
-                  label="Paciente"
-                  options={patients.map((p: any) => ({ id: p.id, label: normalizePatientName(p) }))}
-                  value={editingComanda.patientId || ''}
-                  onChange={(id, label) => {
-                    setEditingComanda({
-                      ...editingComanda,
-                      patientId: String(id),
-                      patientSearch: label || '',
-                    });
-                  }}
-                  placeholder="Buscar pelo nome..."
-                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-slate-600">Paciente</label>
+                  <Combobox
+                    options={patients.map((p: any) => ({ value: String(p.id), label: normalizePatientName(p) }))}
+                    value={editingComanda.patientId || ''}
+                    onChange={(val) => {
+                      const selectedId = Array.isArray(val) ? val[0] : val;
+                      const found = patients.find((p: any) => String(p.id) === selectedId);
+                      setEditingComanda({
+                        ...editingComanda,
+                        patientId: selectedId,
+                        patientSearch: found ? normalizePatientName(found) : '',
+                      });
+                    }}
+                    placeholder="Buscar pelo nome..."
+                  />
+                </div>
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
@@ -2280,7 +2247,7 @@ export const Comandas: React.FC = () => {
                               )
                             }
                             size="sm"
-                            containerClassName="!mb-0"
+                            wrapperClassName="!mb-0"
                           >
                             <option value="">Selecione</option>
                             {services.map((service) => (
@@ -2321,15 +2288,14 @@ export const Comandas: React.FC = () => {
                         </div>
 
                         <div className="col-span-1 flex justify-end">
-                          <Button
-                            variant="softDanger"
+                          <IconButton
+                            variant="danger"
                             size="sm"
-                            iconOnly
                             onClick={() => removePackageItem(index)}
                             title="Remover item"
                           >
                             <Trash2 size={14} />
-                          </Button>
+                          </IconButton>
                         </div>
                       </div>
                     ))}
@@ -2453,37 +2419,43 @@ export const Comandas: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button
+          <Button
+            variant="ghost"
+            size="xs"
             onClick={() => handleIncrementSessions(historyComanda)}
             title="Marcar Realizado (+1)"
-            className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-600 transition hover:bg-emerald-100"
+            iconLeft={<UserCheck size={14} />}
+            className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
           >
-            <UserCheck size={14} />
-            <span>REALIZADO</span>
-          </button>
+            REALIZADO
+          </Button>
           {hasPermission('manage_invoice_issuer') && (
-            <button
+            <IconButton
+              variant="ghost"
+              size="sm"
               onClick={handleGenerateReceipt}
               title="Recibo"
-              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             >
               <FileText size={14} />
-            </button>
+            </IconButton>
           )}
-          <button
+          <IconButton
+            variant="ghost"
+            size="sm"
             onClick={() => { setIsHistoryOpen(false); handleOpenModal(historyComanda); }}
             title="Editar"
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           >
             <Edit3 size={14} />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
+            variant="ghost"
+            size="sm"
             onClick={() => { setIsHistoryOpen(false); setDeleteConfirmId(String(historyComanda.id)); }}
             title="Excluir"
-            className="rounded-lg p-1.5 text-rose-300 transition hover:bg-rose-50 hover:text-rose-500"
+            className="text-rose-300 hover:bg-rose-50 hover:text-rose-500"
           >
             <Trash2 size={14} />
-          </button>
+          </IconButton>
         </div>
       </div>
 
@@ -2809,7 +2781,11 @@ export const Comandas: React.FC = () => {
           </div>
         </div>
         {hasPermission('process_payments') && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
+            fullWidth
+            className="mt-3 bg-white text-primary-600 hover:bg-primary-50 border-white"
             onClick={() => {
               setNewPayment({
                 value: formatCurrencyInput(getComandaPending(historyComanda)) || '0,00',
@@ -2820,27 +2796,32 @@ export const Comandas: React.FC = () => {
               });
               setIsAddPaymentModalOpen(true);
             }}
-            className="mt-3 w-full rounded-lg bg-white py-1.5 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
           >
             + Novo pagamento
-          </button>
+          </Button>
         )}
-        
+
         {historyComanda.status !== 'closed' && (
-          <button
+          <Button
+            variant="danger"
+            size="sm"
+            fullWidth
+            className="mt-2"
             onClick={() => setIsForceCloseConfirmOpen(true)}
-            className="mt-2 w-full rounded-lg bg-rose-500 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600"
           >
             Finalizar Manualmente
-          </button>
+          </Button>
         )}
         {historyComanda.status === 'closed' && (
-          <button
+          <Button
+            variant="primary"
+            size="sm"
+            fullWidth
+            className="mt-2 bg-indigo-500 hover:bg-indigo-600"
             onClick={handleReopenComanda}
-            className="mt-2 w-full rounded-lg bg-indigo-500 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-600"
           >
             Reabrir Comanda
-          </button>
+          </Button>
         )}
       </div>
 
@@ -2871,8 +2852,10 @@ export const Comandas: React.FC = () => {
         isOpen={isAddPaymentModalOpen}
         onClose={() => setIsAddPaymentModalOpen(false)}
         title={newPayment.id ? "Editar Pagamento" : "Lançar Novo Pagamento"}
+        size="md"
+        mobileStyle="bottom-sheet"
         footer={
-          <div className="flex w-full items-center justify-end gap-3">
+          <ModalFooter align="right">
             <Button
               onClick={() => setIsAddPaymentModalOpen(false)}
               variant="ghost"
@@ -2887,7 +2870,7 @@ export const Comandas: React.FC = () => {
             >
               Efetivar pagamento
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="space-y-4 py-2">
@@ -2945,90 +2928,47 @@ export const Comandas: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal
+      <ConfirmModal
         isOpen={!!deleteConfirmId}
         onClose={() => setDeleteConfirmId(null)}
+        onConfirm={handleConfirmDelete}
         title="Exclusão de Registro"
-        footer={
-          <div className="flex w-full items-center justify-between">
-            <button
-              onClick={() => setDeleteConfirmId(null)}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
-            >
-              Manter registro
-            </button>
-            <button
-              onClick={handleConfirmDelete}
-              className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
-            >
-              Excluir registro
-            </button>
-          </div>
-        }
-      >
-        <div className="py-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-            <AlertTriangle size={30} />
-          </div>
-          <p className="text-base font-semibold text-slate-800">Atenção</p>
-          <p className="mt-2 text-sm text-slate-500">
-            Esta comanda e seus vínculos financeiros serão removidos permanentemente.
-          </p>
-        </div>
-      </Modal>
+        message="Esta comanda e seus vínculos financeiros serão removidos permanentemente."
+        confirmLabel="Excluir registro"
+        cancelLabel="Manter registro"
+        variant="danger"
+      />
 
       {/* BULK DELETE CONFIRM */}
-      <Modal
+      <ConfirmModal
         isOpen={confirmBulkDelete}
         onClose={() => setConfirmBulkDelete(false)}
+        onConfirm={handleBulkDelete}
         title="Excluir Selecionadas"
-        maxWidth="sm"
-        footer={
-          <div className="flex w-full items-center justify-between">
-            <button
-              onClick={() => setConfirmBulkDelete(false)}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleBulkDelete}
-              className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
-            >
-              Excluir {selectedIds.size} comanda{selectedIds.size > 1 ? 's' : ''}
-            </button>
-          </div>
-        }
-      >
-        <div className="py-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-            <AlertTriangle size={30} />
-          </div>
-          <p className="text-base font-semibold text-slate-800">Atenção</p>
-          <p className="mt-2 text-sm text-slate-500">
-            Você irá excluir permanentemente <strong>{selectedIds.size}</strong> comanda{selectedIds.size > 1 ? 's' : ''}.<br />
-            Esta ação não pode ser desfeita.
-          </p>
-        </div>
-      </Modal>
+        message={<>Você irá excluir permanentemente <strong>{selectedIds.size}</strong> comanda{selectedIds.size > 1 ? 's' : ''}.<br />Esta ação não pode ser desfeita.</>}
+        confirmLabel={`Excluir ${selectedIds.size} comanda${selectedIds.size > 1 ? 's' : ''}`}
+        cancelLabel="Cancelar"
+        variant="danger"
+      />
 
       {/* MODAL DE IMPORTAÇÃO */}
       <Modal
         isOpen={isImportOpen}
         onClose={() => { setIsImportOpen(false); setImportRows([]); setImportResult(null); }}
         title="Importar Comandas"
-        maxWidth="5xl"
+        size="full"
+        mobileStyle="bottom-sheet"
         footer={
           importResult ? (
-            <div className="flex w-full items-center justify-between">
+            <ModalFooter align="between">
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <CheckCircle2 size={16} className="text-emerald-500" />
                 <span><strong className="text-emerald-700">{importResult.created}</strong> importada(s){importResult.errors.length > 0 && <span className="ml-2 text-rose-500">· {importResult.errors.length} erro(s)</span>}</span>
               </div>
-              <button onClick={() => setIsImportOpen(false)} className="rounded-xl bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700">Fechar</button>
-            </div>
+              <Button variant="primary" onClick={() => setIsImportOpen(false)}>Fechar</Button>
+            </ModalFooter>
           ) : importRows.length > 0 ? (
-            <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <ModalFooter align="between">
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                 <span className="font-semibold text-slate-700">{importRows.length} linha(s)</span>
                 <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
@@ -3038,10 +2978,10 @@ export const Comandas: React.FC = () => {
                   {importRows.filter(r => r.sessions_used < r.sessions_total).length} abertas
                 </span>
               </div>
-              <button onClick={handleImport} disabled={importLoading} className="rounded-xl bg-primary-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50">
+              <Button variant="primary" onClick={handleImport} disabled={importLoading} loading={importLoading}>
                 {importLoading ? 'Importando...' : `Importar ${importRows.length} comanda(s)`}
-              </button>
-            </div>
+              </Button>
+            </ModalFooter>
           ) : null
         }
       >
@@ -3213,6 +3153,8 @@ export const Comandas: React.FC = () => {
         isOpen={isQuickAppointmentModalOpen}
         onClose={() => setIsQuickAppointmentModalOpen(false)}
         title="Registrar Atendimento"
+        size="sm"
+        mobileStyle="bottom-sheet"
       >
         <div className="space-y-4">
           <Input
@@ -3232,7 +3174,7 @@ export const Comandas: React.FC = () => {
             <option value="confirmed">Confirmado</option>
           </Select>
           <div className="pt-2">
-            <Button className="w-full" onClick={handleSaveQuickAppointment}>
+            <Button fullWidth variant="primary" onClick={handleSaveQuickAppointment}>
               Salvar Atendimento
             </Button>
           </div>
@@ -3243,16 +3185,17 @@ export const Comandas: React.FC = () => {
         isOpen={isForceCloseConfirmOpen}
         onClose={() => setIsForceCloseConfirmOpen(false)}
         title="Finalizar Comanda Manualmente"
-        maxWidth="md"
+        size="md"
+        mobileStyle="bottom-sheet"
         footer={
-          <div className="flex w-full justify-end gap-2">
+          <ModalFooter align="right">
             <Button variant="outline" onClick={() => setIsForceCloseConfirmOpen(false)}>
               Cancelar
             </Button>
             <Button variant="danger" onClick={handleConfirmForceClose}>
               Finalizar Comanda
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="py-2 text-slate-600">
@@ -3268,9 +3211,10 @@ export const Comandas: React.FC = () => {
         isOpen={isDeletePaymentModalOpen}
         onClose={() => setIsDeletePaymentModalOpen(false)}
         title="Excluir Pagamento"
-        maxWidth="sm"
+        size="sm"
+        mobileStyle="bottom-sheet"
         footer={
-          <div className="flex w-full justify-end gap-2 px-1">
+          <ModalFooter align="right">
             <Button variant="outline" size="sm" onClick={() => setIsDeletePaymentModalOpen(false)}>
               CANCELAR
             </Button>
@@ -3278,11 +3222,11 @@ export const Comandas: React.FC = () => {
               variant="danger"
               size="sm"
               onClick={() => handleDeletePayment(paymentToDelete)}
-              leftIcon={<Trash2 size={14} />}
+              iconLeft={<Trash2 size={14} />}
             >
               EXCLUIR PAGAMENTO
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="py-2 text-slate-600">
@@ -3299,6 +3243,6 @@ export const Comandas: React.FC = () => {
           </div>
         </div>
       </Modal>
-    </div>
+    </PageWrapper>
   );
 };
