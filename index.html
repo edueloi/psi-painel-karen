@@ -3,8 +3,6 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <!-- ── SEO Primary ── -->
     <title>PsiFlux — Sistema para Clínicas de Saúde Mental</title>
     <meta name="description" content="PsiFlux é o sistema completo para psicólogos e clínicas de saúde mental. Agenda inteligente, prontuário digital, teleconsulta, financeiro e IA integrada. Comece grátis por 14 dias." />
@@ -56,9 +54,21 @@
     </script>
 
     <!-- ── Favicon ── -->
-    <link rel="icon" type="image/png" href="/images/logo-psiflux.png" />
-    <link rel="apple-touch-icon" href="/images/logo-psiflux.png" />
+    <link rel="icon" type="image/png" href="/app_psiflux.png" />
+    <link rel="apple-touch-icon" href="/app_psiflux.png" />
     <meta name="theme-color" content="#4f46e5" />
+
+    <!-- ── PWA ── -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="PsiFlux" />
+    <meta name="application-name" content="PsiFlux" />
+    <!-- Bloqueia rotação para retrato em iOS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- Splash screen iOS (fundo branco + logo centralizado via CSS abaixo) -->
+    <link rel="apple-touch-startup-image" href="/app_psiflux.png" />
 
     <!-- Tailwind via CDN (rápido) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -186,6 +196,11 @@
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+      /* Bloqueia rotação em landscape no celular */
+      @media screen and (orientation: landscape) and (max-width: 896px) {
+        html { transform: rotate(-90deg); transform-origin: left top; width: 100vh; height: 100vw; overflow-x: hidden; position: absolute; top: 100%; left: 0; }
+      }
+
       /* Smooth page transitions */
       * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
@@ -209,9 +224,43 @@
 </script>
 </head>
   <body class="bg-slate-50 text-slate-800 antialiased">
+
+    <!-- Splash screen: some antes do React montar -->
+    <div id="pwa-splash" style="
+      position:fixed;inset:0;z-index:9999;
+      background:#ffffff;
+      display:flex;align-items:center;justify-content:center;
+      flex-direction:column;gap:20px;
+      transition:opacity 0.4s ease;
+    ">
+      <img src="/app_psiflux.png" alt="PsiFlux" style="width:120px;height:120px;object-fit:contain;border-radius:24px;" />
+    </div>
+
     <div id="root"></div>
 
     <!-- ENTRY do Vite/React -->
     <script type="module" src="/index.tsx"></script>
+
+    <!-- Remove splash assim que o React montar -->
+    <script>
+      window.__hideSplash = function() {
+        var el = document.getElementById('pwa-splash');
+        if (!el) return;
+        el.style.opacity = '0';
+        setTimeout(function(){ el.remove(); }, 420);
+      };
+      // Fallback: remove após 4s mesmo que o React demore
+      setTimeout(window.__hideSplash, 4000);
+    </script>
+
+    <!-- Registro do Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function(){});
+        });
+      }
+    </script>
+
   </body>
 </html>

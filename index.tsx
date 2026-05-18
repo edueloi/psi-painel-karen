@@ -13,3 +13,8 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Remove splash screen após o React montar
+if (typeof (window as any).__hideSplash === 'function') {
+  (window as any).__hideSplash();
+}
