@@ -1668,12 +1668,16 @@ export const Agenda: React.FC = () => {
                 </div>
             </div>
         ) : view === 'month' ? (
-            <div className="flex flex-col h-full bg-slate-50/50 rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-indigo-100/20">
-                <div className="grid grid-cols-7 border-b border-slate-100 bg-indigo-50/30 backdrop-blur-md sticky top-0 z-20">
-                    {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map((day, idx) => {
+            <div className="flex flex-col h-full bg-white rounded-2xl sm:rounded-[2.5rem] overflow-hidden">
+                <div className="grid grid-cols-7 border-b border-slate-100 bg-indigo-50/40 sticky top-0 z-20">
+                    {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, idx) => {
+                        const fullDay = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'][idx];
                         const isWknd = idx === 0 || idx === 6;
                         return (
-                            <div key={day} className={`py-4 text-center text-[9px] font-black tracking-[0.2em] uppercase ${isWknd ? 'text-slate-400 bg-slate-100/60' : 'text-indigo-400'}`}>{day}</div>
+                            <div key={idx} className={`py-2.5 sm:py-4 text-center uppercase ${isWknd ? 'text-slate-400 bg-slate-50/80' : 'text-indigo-400'}`}>
+                                <span className="sm:hidden text-[10px] font-black tracking-wide">{day}</span>
+                                <span className="hidden sm:block text-[9px] font-black tracking-[0.2em]">{fullDay}</span>
+                            </div>
                         );
                     })}
                 </div>
@@ -1687,18 +1691,18 @@ export const Agenda: React.FC = () => {
                         return (
                             <div
                                 key={day.toISOString()}
-                                className={`min-h-[110px] p-1.5 border-b border-r border-slate-200/70 transition-all group relative
-                                    ${!inMonth ? 'bg-slate-100/60 opacity-50' : isWeekend ? 'bg-slate-100/80' : 'bg-white'}
-                                    hover:bg-indigo-50/20 cursor-alias
+                                className={`min-h-[72px] sm:min-h-[110px] p-1 sm:p-1.5 border-b border-r border-slate-100 transition-all group relative
+                                    ${!inMonth ? 'bg-slate-50 opacity-40' : isWeekend ? 'bg-slate-50/60' : 'bg-white'}
+                                    hover:bg-indigo-50/30 cursor-alias
                                 `}
                                 onClick={() => inMonth && openNewModal(day)}
                             >
-                                <div className="flex justify-between items-start mb-1.5 px-0.5">
-                                    <span className={`text-[11px] font-black transition-all ${isToday ? 'h-6 w-6 bg-indigo-600 text-white rounded-md flex items-center justify-center shadow-md shadow-indigo-400 ring-2 ring-indigo-50' : inMonth ? 'text-slate-800' : 'text-slate-300'}`}>
+                                <div className="flex flex-col items-center sm:flex-row sm:justify-between sm:items-start mb-1 sm:mb-1.5 sm:px-0.5">
+                                    <span className={`text-[10px] sm:text-[11px] font-black transition-all leading-none ${isToday ? 'h-5 w-5 sm:h-6 sm:w-6 bg-indigo-600 text-white rounded-lg sm:rounded-md flex items-center justify-center shadow-md shadow-indigo-400' : inMonth ? 'text-slate-700' : 'text-slate-300'}`}>
                                         {day.getDate()}
                                     </span>
                                     {dayApts.length > 0 && (
-                                        <span className="text-[8px] font-black text-slate-400 bg-slate-100 px-1 py-px rounded">{dayApts.length}</span>
+                                        <span className="text-[7px] sm:text-[8px] font-black text-indigo-500 bg-indigo-50 px-1 py-px rounded mt-0.5 sm:mt-0 sm:bg-slate-100 sm:text-slate-400">{dayApts.length}</span>
                                     )}
                                 </div>
                                 <div className="space-y-0.5 relative">
@@ -1710,9 +1714,17 @@ export const Agenda: React.FC = () => {
                                         const stMeta = statusMeta[apt.status || 'scheduled'] || statusMeta.scheduled;
                                         return (
                                         <div key={apt.id} className="relative group/tip">
+                                            {/* Mobile: bolinha colorida simples */}
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }}
-                                                className={`w-full text-left px-1.5 py-0.5 rounded-lg border text-[7px] font-bold truncate transition-all hover:shadow-md active:scale-95 overflow-hidden flex items-center gap-1 ${typeMeta[apt.type].event}`}
+                                                className={`sm:hidden w-full flex items-center justify-center py-0.5 rounded-md active:scale-95 ${typeMeta[apt.type].event}`}
+                                            >
+                                                <span className={`w-1.5 h-1.5 rounded-full ${stMeta.dot}`} />
+                                            </button>
+                                            {/* Desktop: chip com texto */}
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }}
+                                                className={`hidden sm:flex w-full text-left px-1.5 py-0.5 rounded-lg border text-[7px] font-bold truncate transition-all hover:shadow-md active:scale-95 overflow-hidden items-center gap-1 ${typeMeta[apt.type].event}`}
                                             >
                                                 <span className={`w-1 h-2.5 rounded-full shrink-0 ${stMeta.dot}`} />
                                                 <span className="text-[7px] font-black text-slate-400 tabular-nums shrink-0">{aptTime}</span>
@@ -1751,7 +1763,8 @@ export const Agenda: React.FC = () => {
                                             onClick={(e) => { e.stopPropagation(); setCurrentDate(day); setView('day'); }}
                                             className="w-full py-0.5 text-[7px] font-black text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/50 rounded-md transition-colors border border-indigo-100/50 uppercase tracking-widest text-center"
                                         >
-                                            + {dayApts.length - 3} mais
+                                            <span className="sm:hidden">+{dayApts.length - 3}</span>
+                                            <span className="hidden sm:inline">+ {dayApts.length - 3} mais</span>
                                         </button>
                                     )}
                                 </div>
