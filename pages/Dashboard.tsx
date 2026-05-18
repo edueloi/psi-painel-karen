@@ -1,73 +1,85 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../services/api';
-import { Patient, Appointment } from '../types';
+import { Appointment, Patient } from '../types';
 import {
-  Users,
-  Calendar,
-  Sparkles,
-  Plus,
-  Globe,
-  Music,
-  Link as LinkIcon,
-  Clock,
-  Video,
-  CheckCircle,
-  Loader2,
-  Layers,
-  FileText,
-  Send,
-  TrendingUp,
-  XCircle,
-  UserCheck,
-  Facebook,
-  Instagram,
-  Linkedin,
-  Twitter,
-  Youtube,
-  Github,
-  Mail,
-  Phone,
-  MessageCircle,
-  Briefcase,
-  Book,
-  Coffee,
-  Heart,
-  Settings,
-  Menu,
-  MonitorPlay,
-  FileBarChart,
-  Camera,
-  Image as ImageIcon,
-  Mic,
-  Headphones,
-  Film,
-  MapPin,
-  ShoppingCart,
-  CreditCard,
-  Banknote,
-  Gift,
   Award,
-  Zap,
-  Smile,
-  Star,
-  Shield,
-  Trash2,
+  Banknote,
+  Book,
+  Calendar,
+  Camera,
+  CheckCircle,
   CheckCircle2,
   Circle,
+  Clock,
+  Coffee,
+  CreditCard,
   Eye,
-  EyeOff
+  EyeOff,
+  Facebook,
+  Film,
+  Gift,
+  Github,
+  Globe,
+  Headphones,
+  Heart,
+  Image as ImageIcon,
+  Instagram,
+  Layers,
+  Link as LinkIcon,
+  Linkedin,
+  Loader2,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Mic,
+  MonitorPlay,
+  Music,
+  Phone,
+  Plus,
+  Send,
+  Settings,
+  Shield,
+  ShoppingCart,
+  Smile,
+  Sparkles,
+  Star,
+  Trash2,
+  TrendingUp,
+  Twitter,
+  UserCheck,
+  Users,
+  Video,
+  Youtube,
+  Zap,
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import { AuroraAssistant } from '../components/AI/AuroraAssistant';
-import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
-import { Button } from '../components/UI/Button';
-import { Input } from '../components/UI/Input';
-import { Modal } from '../components/UI/Modal';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  Badge,
+  Button,
+  EmptyState,
+  Input,
+  Modal,
+  ModalFooter,
+  PageWrapper,
+  PanelCard,
+  SectionTitle,
+  StatCard,
+  StatGrid,
+} from '../components/UI';
+import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '../contexts/ToastContext';
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 
 interface Shortcut {
@@ -79,7 +91,148 @@ interface Shortcut {
   isSystem?: boolean;
 }
 
+interface TodoItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 type UpcomingFilter = 'hoje' | 'semana' | 'mes' | 'todos';
+
+type ShortcutIconOption = {
+  id: string;
+  icon: React.ElementType;
+  color: string;
+};
+
+type AppointmentApiResponse = Omit<Appointment, 'start' | 'end'> &
+  Partial<Pick<Appointment, 'start' | 'end'>> & {
+    start?: string | Date;
+    end?: string | Date;
+    start_time?: string | Date;
+    appointment_date?: string | Date;
+  };
+
+const UPCOMING_FILTER_LABELS: Record<UpcomingFilter, string> = {
+  hoje: 'Hoje',
+  semana: 'Semana',
+  mes: 'Mês',
+  todos: 'Todos',
+};
+
+const SHORTCUT_COLOR_OPTIONS = [
+  'bg-slate-500',
+  'bg-slate-800',
+  'bg-red-500',
+  'bg-red-600',
+  'bg-orange-500',
+  'bg-orange-600',
+  'bg-amber-500',
+  'bg-amber-600',
+  'bg-yellow-400',
+  'bg-yellow-500',
+  'bg-lime-500',
+  'bg-lime-600',
+  'bg-green-500',
+  'bg-green-600',
+  'bg-emerald-500',
+  'bg-emerald-600',
+  'bg-teal-500',
+  'bg-teal-600',
+  'bg-cyan-500',
+  'bg-cyan-600',
+  'bg-sky-500',
+  'bg-sky-600',
+  'bg-blue-500',
+  'bg-blue-600',
+  'bg-blue-700',
+  'bg-indigo-500',
+  'bg-indigo-600',
+  'bg-violet-500',
+  'bg-violet-600',
+  'bg-purple-500',
+  'bg-purple-600',
+  'bg-fuchsia-500',
+  'bg-fuchsia-600',
+  'bg-pink-500',
+  'bg-pink-600',
+  'bg-rose-500',
+  'bg-rose-600',
+];
+
+const SHORTCUT_ICON_OPTIONS: ShortcutIconOption[] = [
+  { id: 'link', icon: LinkIcon, color: 'bg-slate-500' },
+  { id: 'globe', icon: Globe, color: 'bg-blue-500' },
+  { id: 'facebook', icon: Facebook, color: 'bg-indigo-600' },
+  { id: 'instagram', icon: Instagram, color: 'bg-pink-600' },
+  { id: 'linkedin', icon: Linkedin, color: 'bg-blue-700' },
+  { id: 'twitter', icon: Twitter, color: 'bg-sky-500' },
+  { id: 'youtube', icon: Youtube, color: 'bg-red-600' },
+  { id: 'github', icon: Github, color: 'bg-slate-800' },
+  { id: 'mail', icon: Mail, color: 'bg-amber-500' },
+  { id: 'phone', icon: Phone, color: 'bg-emerald-600' },
+  { id: 'whatsapp', icon: MessageCircle, color: 'bg-emerald-500' },
+  { id: 'calendar', icon: Calendar, color: 'bg-violet-500' },
+  { id: 'briefcase', icon: Users, color: 'bg-amber-700' },
+  { id: 'book', icon: Book, color: 'bg-indigo-500' },
+  { id: 'video', icon: MonitorPlay, color: 'bg-rose-500' },
+  { id: 'chart', icon: TrendingUp, color: 'bg-teal-500' },
+  { id: 'coffee', icon: Coffee, color: 'bg-amber-600' },
+  { id: 'heart', icon: Heart, color: 'bg-rose-600' },
+  { id: 'star', icon: Star, color: 'bg-yellow-500' },
+  { id: 'shield', icon: Shield, color: 'bg-slate-700' },
+  { id: 'music', icon: Music, color: 'bg-purple-600' },
+  { id: 'camera', icon: Camera, color: 'bg-slate-600' },
+  { id: 'image', icon: ImageIcon, color: 'bg-fuchsia-500' },
+  { id: 'mic', icon: Mic, color: 'bg-indigo-400' },
+  { id: 'headphones', icon: Headphones, color: 'bg-violet-600' },
+  { id: 'film', icon: Film, color: 'bg-red-500' },
+  { id: 'mappin', icon: MapPin, color: 'bg-red-600' },
+  { id: 'cart', icon: ShoppingCart, color: 'bg-orange-500' },
+  { id: 'card', icon: CreditCard, color: 'bg-emerald-600' },
+  { id: 'money', icon: Banknote, color: 'bg-emerald-500' },
+  { id: 'gift', icon: Gift, color: 'bg-pink-500' },
+  { id: 'award', icon: Award, color: 'bg-amber-400' },
+  { id: 'zap', icon: Zap, color: 'bg-yellow-400' },
+  { id: 'smile', icon: Smile, color: 'bg-sky-400' },
+];
+
+const shortcutIconMap = SHORTCUT_ICON_OPTIONS.reduce<Record<string, React.ElementType>>(
+  (acc, option) => {
+    acc[option.id] = option.icon;
+    return acc;
+  },
+  {}
+);
+
+const ratio = (value: number, total: number) => (total === 0 ? 0 : Math.round((value / total) * 100));
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+
+function renderShortcutIcon(iconName: string, size = 18) {
+  const Icon = shortcutIconMap[iconName] || LinkIcon;
+  return <Icon size={size} />;
+}
+
+function renderAppointmentStatus(status?: string) {
+  if (status === 'confirmed') {
+    return <Badge color="success">Confirmado</Badge>;
+  }
+
+  if (status === 'scheduled') {
+    return <Badge color="warning">Agendado</Badge>;
+  }
+
+  if (status === 'completed') {
+    return <Badge color="info">Finalizado</Badge>;
+  }
+
+  return null;
+}
 
 export const Dashboard: React.FC = () => {
   const { t, language } = useLanguage();
@@ -87,26 +240,49 @@ export const Dashboard: React.FC = () => {
   const { pushToast } = useToast();
   const navigate = useNavigate();
 
-  interface TodoItem {
-    id: string;
-    text: string;
-    completed: boolean;
-  }
-
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [upcomingFilter, setUpcomingFilter] = useState<UpcomingFilter>('todos');
-  const [showFinance, setShowFinance] = useState(false); // Widget Financeiro oculto/visivo
+  const [showFinance, setShowFinance] = useState(false);
   const [financeData, setFinanceData] = useState({ current: 0, percentage: 0 });
+  const [isAddShortcutOpen, setIsAddShortcutOpen] = useState(false);
+  const [editingShortcutId, setEditingShortcutId] = useState<string | null>(null);
+  const [newShortcut, setNewShortcut] = useState<Partial<Shortcut>>({
+    title: '',
+    url: '',
+    icon: 'link',
+    color: 'bg-indigo-500',
+  });
+  const [isSavingShortcut, setIsSavingShortcut] = useState(false);
+  const [newTodo, setNewTodo] = useState('');
 
-  const defaultShortcuts: Shortcut[] = [
-    { id: 'crp', title: 'Portal CFP', url: 'https://site.cfp.org.br/', icon: 'globe', color: 'bg-blue-600', isSystem: true },
-    { id: 'spotify', title: 'Playlist Relax', url: 'https://open.spotify.com/genre/focus-page', icon: 'music', color: 'bg-emerald-500', isSystem: true },
-  ];
+  const now = useMemo(() => new Date(), []);
 
-  const customShortcuts = Array.isArray(user?.uiPreferences?.dashboard_shortcuts) 
-    ? user.uiPreferences.dashboard_shortcuts 
+  const defaultShortcuts: Shortcut[] = useMemo(
+    () => [
+      {
+        id: 'crp',
+        title: 'Portal CFP',
+        url: 'https://site.cfp.org.br/',
+        icon: 'globe',
+        color: 'bg-blue-600',
+        isSystem: true,
+      },
+      {
+        id: 'spotify',
+        title: 'Playlist Relax',
+        url: 'https://open.spotify.com/genre/focus-page',
+        icon: 'music',
+        color: 'bg-emerald-500',
+        isSystem: true,
+      },
+    ],
+    []
+  );
+
+  const customShortcuts = Array.isArray(user?.uiPreferences?.dashboard_shortcuts)
+    ? user.uiPreferences.dashboard_shortcuts
     : [];
 
   const todosList: TodoItem[] = Array.isArray(user?.uiPreferences?.dashboard_todos)
@@ -115,65 +291,9 @@ export const Dashboard: React.FC = () => {
 
   const allShortcuts = [...defaultShortcuts, ...customShortcuts];
 
-  const [isAddShortcutOpen, setIsAddShortcutOpen] = useState(false);
-  const [editingShortcutId, setEditingShortcutId] = useState<string | null>(null);
-  const [newShortcut, setNewShortcut] = useState<Partial<Shortcut>>({ title: '', url: '', icon: 'link', color: 'bg-indigo-500' });
-  const [isSavingShortcut, setIsSavingShortcut] = useState(false);
-  
-  const [newTodo, setNewTodo] = useState('');
-
-  const COLOR_OPTIONS = [
-    'bg-slate-500', 'bg-slate-800', 'bg-red-500', 'bg-red-600',
-    'bg-orange-500', 'bg-orange-600', 'bg-amber-500', 'bg-amber-600',
-    'bg-yellow-400', 'bg-yellow-500', 'bg-lime-500', 'bg-lime-600',
-    'bg-green-500', 'bg-green-600', 'bg-emerald-500', 'bg-emerald-600',
-    'bg-teal-500', 'bg-teal-600', 'bg-cyan-500', 'bg-cyan-600',
-    'bg-sky-500', 'bg-sky-600', 'bg-blue-500', 'bg-blue-600', 'bg-blue-700',
-    'bg-indigo-500', 'bg-indigo-600', 'bg-violet-500', 'bg-violet-600',
-    'bg-purple-500', 'bg-purple-600', 'bg-fuchsia-500', 'bg-fuchsia-600',
-    'bg-pink-500', 'bg-pink-600', 'bg-rose-500', 'bg-rose-600'
-  ];
-
-  const ICON_OPTIONS = [
-    { id: 'link', icon: <LinkIcon size={16}/>, color: 'bg-slate-500' },
-    { id: 'globe', icon: <Globe size={16}/>, color: 'bg-blue-500' },
-    { id: 'facebook', icon: <Facebook size={16}/>, color: 'bg-indigo-600' },
-    { id: 'instagram', icon: <Instagram size={16}/>, color: 'bg-pink-600' },
-    { id: 'linkedin', icon: <Linkedin size={16}/>, color: 'bg-blue-700' },
-    { id: 'twitter', icon: <Twitter size={16}/>, color: 'bg-sky-500' },
-    { id: 'youtube', icon: <Youtube size={16}/>, color: 'bg-red-600' },
-    { id: 'github', icon: <Github size={16}/>, color: 'bg-slate-800' },
-    { id: 'mail', icon: <Mail size={16}/>, color: 'bg-amber-500' },
-    { id: 'phone', icon: <Phone size={16}/>, color: 'bg-emerald-600' },
-    { id: 'whatsapp', icon: <MessageCircle size={16}/>, color: 'bg-emerald-500' },
-    { id: 'calendar', icon: <Calendar size={16}/>, color: 'bg-violet-500' },
-    { id: 'briefcase', icon: <Briefcase size={16}/>, color: 'bg-amber-700' },
-    { id: 'book', icon: <Book size={16}/>, color: 'bg-indigo-500' },
-    { id: 'video', icon: <MonitorPlay size={16}/>, color: 'bg-rose-500' },
-    { id: 'chart', icon: <FileBarChart size={16}/>, color: 'bg-teal-500' },
-    { id: 'coffee', icon: <Coffee size={16}/>, color: 'bg-amber-600' },
-    { id: 'heart', icon: <Heart size={16}/>, color: 'bg-rose-600' },
-    { id: 'star', icon: <Star size={16}/>, color: 'bg-yellow-500' },
-    { id: 'shield', icon: <Shield size={16}/>, color: 'bg-slate-700' },
-    { id: 'music', icon: <Music size={16}/>, color: 'bg-purple-600' },
-    { id: 'camera', icon: <Camera size={16}/>, color: 'bg-slate-600' },
-    { id: 'image', icon: <ImageIcon size={16}/>, color: 'bg-fuchsia-500' },
-    { id: 'mic', icon: <Mic size={16}/>, color: 'bg-indigo-400' },
-    { id: 'headphones', icon: <Headphones size={16}/>, color: 'bg-violet-600' },
-    { id: 'film', icon: <Film size={16}/>, color: 'bg-red-500' },
-    { id: 'mappin', icon: <MapPin size={16}/>, color: 'bg-red-600' },
-    { id: 'cart', icon: <ShoppingCart size={16}/>, color: 'bg-orange-500' },
-    { id: 'card', icon: <CreditCard size={16}/>, color: 'bg-emerald-600' },
-    { id: 'money', icon: <Banknote size={16}/>, color: 'bg-emerald-500' },
-    { id: 'gift', icon: <Gift size={16}/>, color: 'bg-pink-500' },
-    { id: 'award', icon: <Award size={16}/>, color: 'bg-amber-400' },
-    { id: 'zap', icon: <Zap size={16}/>, color: 'bg-yellow-400' },
-    { id: 'smile', icon: <Smile size={16}/>, color: 'bg-sky-400' },
-  ];
-
   const fetchData = async () => {
     setIsLoading(true);
-    const now = new Date();
+
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
     const lastMonthDate = new Date(now);
@@ -184,29 +304,47 @@ export const Dashboard: React.FC = () => {
     try {
       const [patientsRes, appointmentsRes, currentSum, lastSum] = await Promise.all([
         api.get<Patient[]>('/patients').catch(() => []),
-        api.get<Appointment[]>('/appointments').catch(() => []),
-        api.get<any>('/finance/summary', { month: currentMonth.toString(), year: currentYear.toString() }).catch(() => null),
-        api.get<any>('/finance/summary', { month: lastMonth.toString(), year: lastMonthYear.toString() }).catch(() => null)
+        api.get<AppointmentApiResponse[]>('/appointments').catch(() => []),
+        api
+          .get<any>('/finance/summary', {
+            month: currentMonth.toString(),
+            year: currentYear.toString(),
+          })
+          .catch(() => null),
+        api
+          .get<any>('/finance/summary', {
+            month: lastMonth.toString(),
+            year: lastMonthYear.toString(),
+          })
+          .catch(() => null),
       ]);
-      setPatients(Array.isArray(patientsRes) ? patientsRes : []);
-      setAppointments((Array.isArray(appointmentsRes) ? appointmentsRes : []).map(a => {
-        const rawStart = a.start_time || a.appointment_date || a.start;
-        const startDate = rawStart ? new Date(rawStart) : new Date(NaN);
-        return {
-          ...a,
-          start: startDate,
-          end: new Date(startDate.getTime() + (a.duration_minutes || 50) * 60000),
-          patient_name: a.patient_name || a.patientName || 'Consulta'
-        };
-      }));
 
-      const currInc = currentSum?.income || 0;
-      const lastInc = lastSum?.income || 0;
-      let pct = 0;
-      if (lastInc > 0) pct = Math.round(((currInc - lastInc) / lastInc) * 100);
-      else if (currInc > 0) pct = 100;
-      
-      setFinanceData({ current: currInc, percentage: pct });
+      setPatients(Array.isArray(patientsRes) ? patientsRes : []);
+      setAppointments(
+        (Array.isArray(appointmentsRes) ? appointmentsRes : []).map((appointment) => {
+          const rawStart = appointment.start_time || appointment.appointment_date || appointment.start;
+          const startDate = rawStart ? new Date(rawStart) : new Date(Number.NaN);
+
+          return {
+            ...appointment,
+            start: startDate,
+            end: new Date(startDate.getTime() + (appointment.duration_minutes || 50) * 60000),
+            patient_name: appointment.patient_name || appointment.patientName || 'Consulta',
+          };
+        })
+      );
+
+      const currentIncome = currentSum?.income || 0;
+      const lastIncome = lastSum?.income || 0;
+
+      let percentage = 0;
+      if (lastIncome > 0) {
+        percentage = Math.round(((currentIncome - lastIncome) / lastIncome) * 100);
+      } else if (currentIncome > 0) {
+        percentage = 100;
+      }
+
+      setFinanceData({ current: currentIncome, percentage });
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -218,120 +356,145 @@ export const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  const now = useMemo(() => new Date(), []);
-
   const startOfDay = useMemo(() => {
-    const d = new Date(now);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    const date = new Date(now);
+    date.setHours(0, 0, 0, 0);
+    return date;
   }, [now]);
 
   const endOfDay = useMemo(() => {
-    const d = new Date(now);
-    d.setHours(23, 59, 59, 999);
-    return d;
+    const date = new Date(now);
+    date.setHours(23, 59, 59, 999);
+    return date;
   }, [now]);
 
   const endOfWeek = useMemo(() => {
-    const d = new Date(startOfDay);
-    d.setDate(d.getDate() + 7);
-    return d;
+    const date = new Date(startOfDay);
+    date.setDate(date.getDate() + 7);
+    return date;
   }, [startOfDay]);
 
-  const startOfMonth = useMemo(() => {
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }, [now]);
+  const startOfMonth = useMemo(() => new Date(now.getFullYear(), now.getMonth(), 1), [now]);
 
-  const endOfMonth = useMemo(() => {
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-  }, [now]);
+  const endOfMonth = useMemo(
+    () => new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+    [now]
+  );
 
-  // Only count consultas that are not cancelled/no-show
-  const activeConsultas = useMemo(() => {
-    return appointments.filter(a =>
-      a.type === 'consulta' &&
-      a.status !== 'cancelled' &&
-      a.status !== 'no-show'
-    );
-  }, [appointments]);
+  const activeConsultas = useMemo(
+    () =>
+      appointments.filter(
+        (appointment) =>
+          appointment.type === 'consulta' &&
+          appointment.status !== 'cancelled' &&
+          appointment.status !== 'no-show'
+      ),
+    [appointments]
+  );
 
-  const todaysAppointments = useMemo(() => {
-    return activeConsultas.filter(a => a.start >= startOfDay && a.start <= endOfDay);
-  }, [activeConsultas, startOfDay, endOfDay]);
+  const todaysAppointments = useMemo(
+    () => activeConsultas.filter((appointment) => appointment.start >= startOfDay && appointment.start <= endOfDay),
+    [activeConsultas, endOfDay, startOfDay]
+  );
 
-  const monthAppointments = useMemo(() => {
-    return activeConsultas.filter(a => a.start >= startOfMonth && a.start <= endOfMonth);
-  }, [activeConsultas, startOfMonth, endOfMonth]);
+  const monthAppointments = useMemo(
+    () =>
+      activeConsultas.filter(
+        (appointment) => appointment.start >= startOfMonth && appointment.start <= endOfMonth
+      ),
+    [activeConsultas, endOfMonth, startOfMonth]
+  );
 
-  // Upcoming = from now (not from start of day) – includes scheduled & confirmed
-  const upcomingAll = useMemo(() => {
-    return appointments
-      .filter(a => a.start >= now && a.type === 'consulta' && a.status !== 'cancelled' && a.status !== 'no-show')
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [appointments, now]);
+  const upcomingAll = useMemo(
+    () =>
+      appointments
+        .filter(
+          (appointment) =>
+            appointment.start >= now &&
+            appointment.type === 'consulta' &&
+            appointment.status !== 'cancelled' &&
+            appointment.status !== 'no-show'
+        )
+        .sort((a, b) => a.start.getTime() - b.start.getTime()),
+    [appointments, now]
+  );
 
   const upcomingFiltered = useMemo(() => {
     switch (upcomingFilter) {
       case 'hoje':
-        return upcomingAll.filter(a => a.start <= endOfDay);
+        return upcomingAll.filter((appointment) => appointment.start <= endOfDay);
       case 'semana':
-        return upcomingAll.filter(a => a.start <= endOfWeek);
+        return upcomingAll.filter((appointment) => appointment.start <= endOfWeek);
       case 'mes':
-        return upcomingAll.filter(a => a.start <= endOfMonth);
+        return upcomingAll.filter((appointment) => appointment.start <= endOfMonth);
       default:
         return upcomingAll;
     }
-  }, [upcomingAll, upcomingFilter, endOfDay, endOfWeek, endOfMonth]);
+  }, [endOfDay, endOfMonth, endOfWeek, upcomingAll, upcomingFilter]);
 
-  const statusCounts = useMemo(() => {
-    return appointments.reduce((acc, a) => {
-      const key = a.status || 'scheduled';
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  }, [appointments]);
+  const statusCounts = useMemo(
+    () =>
+      appointments.reduce((acc, appointment) => {
+        const status = appointment.status || 'scheduled';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    [appointments]
+  );
 
-  const typeCounts = useMemo(() => {
-    return appointments.reduce((acc, a) => {
-      const key = a.type || 'consulta';
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  }, [appointments]);
+  const typeCounts = useMemo(
+    () =>
+      appointments.reduce((acc, appointment) => {
+        const type = appointment.type || 'consulta';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    [appointments]
+  );
 
-  const modalityCounts = useMemo(() => {
-    return appointments.reduce((acc, a) => {
-      const key = a.modality || 'presencial';
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  }, [appointments]);
+  const modalityCounts = useMemo(
+    () =>
+      appointments.reduce((acc, appointment) => {
+        const modality = appointment.modality || 'presencial';
+        acc[modality] = (acc[modality] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    [appointments]
+  );
 
-  // Appointments by day of week (last 30 days)
   const appointmentsByDayOfWeek = useMemo(() => {
     const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const counts = [0, 0, 0, 0, 0, 0, 0];
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    appointments.forEach(a => {
-      if (a.type === 'consulta' && a.start >= thirtyDaysAgo && a.start <= now) {
-        counts[a.start.getDay()]++;
+
+    appointments.forEach((appointment) => {
+      if (
+        appointment.type === 'consulta' &&
+        appointment.start >= thirtyDaysAgo &&
+        appointment.start <= now
+      ) {
+        counts[appointment.start.getDay()] += 1;
       }
     });
-    return days.map((day, i) => ({ day, atendimentos: counts[i] }));
+
+    return days.map((day, index) => ({
+      day,
+      atendimentos: counts[index],
+    }));
   }, [appointments, now]);
 
-  // Status pie chart data
   const statusPieData = useMemo(() => {
     const map: Record<string, { label: string; color: string }> = {
-      completed: { label: 'Finalizado', color: '#10b981' },
-      confirmed: { label: 'Confirmado', color: '#6366f1' },
-      scheduled: { label: 'Agendado', color: '#f59e0b' },
-      cancelled: { label: 'Cancelado', color: '#ef4444' },
+      completed: { label: 'Finalizado', color: '#4f8d67' },
+      confirmed: { label: 'Confirmado', color: '#2a74ac' },
+      scheduled: { label: 'Agendado', color: '#d9a21b' },
+      cancelled: { label: 'Cancelado', color: '#aa403d' },
       'no-show': { label: 'Falta', color: '#94a3b8' },
     };
+
     return Object.entries(statusCounts)
-      .filter(([, v]: [string, number]) => v > 0)
+      .filter(([, value]) => value > 0)
       .map(([key, value]) => ({
         name: map[key]?.label || key,
         value,
@@ -339,553 +502,823 @@ export const Dashboard: React.FC = () => {
       }));
   }, [statusCounts]);
 
-
   const birthdays = useMemo(() => {
     const list = patients
-      .filter(p => p.status === 'ativo' || p.status === 'active')
-      .map(p => {
-        const dateStr = p.birth_date || p.birthDate;
-        if (!dateStr) return null;
-        const d = new Date(dateStr);
-        if (Number.isNaN(d.getTime())) return null;
-        const next = new Date(now.getFullYear(), d.getMonth(), d.getDate());
-        if (next < startOfDay) next.setFullYear(next.getFullYear() + 1);
-        return { patient: p, next };
-      })
-      .filter(Boolean) as { patient: Patient; next: Date }[];
-    list.sort((a, b) => a.next.getTime() - b.next.getTime());
-    return list.slice(0, 5);
-  }, [patients, now, startOfDay]);
-
-  const formattedDate = now.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' });
-  const greetingName = user?.name ? user.name.split(' ')[0] : 'Doutor(a)';
-
-  const renderIcon = (iconName: string, size = 20) => {
-    if (iconName === 'globe') return <Globe size={size} />;
-    if (iconName === 'music') return <Music size={size} />;
-    if (iconName === 'facebook') return <Facebook size={size} />;
-    if (iconName === 'instagram') return <Instagram size={size} />;
-    if (iconName === 'linkedin') return <Linkedin size={size} />;
-    if (iconName === 'twitter') return <Twitter size={size} />;
-    if (iconName === 'youtube') return <Youtube size={size} />;
-    if (iconName === 'github') return <Github size={size} />;
-    if (iconName === 'mail') return <Mail size={size} />;
-    if (iconName === 'phone') return <Phone size={size} />;
-    if (iconName === 'whatsapp') return <MessageCircle size={size} />;
-    if (iconName === 'calendar') return <Calendar size={size} />;
-    if (iconName === 'briefcase') return <Briefcase size={size} />;
-    if (iconName === 'book') return <Book size={size} />;
-    if (iconName === 'video') return <MonitorPlay size={size} />;
-    if (iconName === 'chart') return <FileBarChart size={size} />;
-    if (iconName === 'coffee') return <Coffee size={size} />;
-    if (iconName === 'heart') return <Heart size={size} />;
-    if (iconName === 'star') return <Star size={size} />;
-    if (iconName === 'shield') return <Shield size={size} />;
-    if (iconName === 'camera') return <Camera size={size} />;
-    if (iconName === 'image') return <ImageIcon size={size} />;
-    if (iconName === 'mic') return <Mic size={size} />;
-    if (iconName === 'headphones') return <Headphones size={size} />;
-    if (iconName === 'film') return <Film size={size} />;
-    if (iconName === 'mappin') return <MapPin size={size} />;
-    if (iconName === 'cart') return <ShoppingCart size={size} />;
-    if (iconName === 'card') return <CreditCard size={size} />;
-    if (iconName === 'money') return <Banknote size={size} />;
-    if (iconName === 'gift') return <Gift size={size} />;
-    if (iconName === 'award') return <Award size={size} />;
-    if (iconName === 'zap') return <Zap size={size} />;
-    if (iconName === 'smile') return <Smile size={size} />;
-    return <LinkIcon size={size} />;
-  };
-
-  const handleSaveShortcut = async () => {
-    if (!newShortcut.title || !newShortcut.url || !user?.uiPreferences) return;
-    setIsSavingShortcut(true);
-    try {
-        let newList = [...customShortcuts];
-        if (editingShortcutId) {
-            // Edit existing
-            newList = newList.map(s => s.id === editingShortcutId ? {
-                ...s,
-                title: newShortcut.title!,
-                url: newShortcut.url!.startsWith('http') ? newShortcut.url! : `https://${newShortcut.url}`,
-                icon: newShortcut.icon || 'link',
-                color: newShortcut.color || 'bg-indigo-500'
-            } : s);
-        } else {
-            // Add new
-            const added: Shortcut = {
-                id: 'custom-' + Date.now(),
-                title: newShortcut.title,
-                url: newShortcut.url.startsWith('http') ? newShortcut.url : `https://${newShortcut.url}`,
-                icon: newShortcut.icon || 'link',
-                color: newShortcut.color || 'bg-indigo-500',
-                isSystem: false
-            };
-            newList.push(added);
+      .filter((patient) => patient.status === 'ativo' || patient.status === 'active')
+      .map((patient) => {
+        const dateStr = patient.birth_date || patient.birthDate;
+        if (!dateStr) {
+          return null;
         }
 
-        const newPrefs = { ...user.uiPreferences, dashboard_shortcuts: newList };
-        await api.patch('/profile/preferences', { ui_preferences: newPrefs });
-        
-        if (updateUser) updateUser({ uiPreferences: newPrefs });
-        
-        pushToast('success', editingShortcutId ? 'Acesso rápido atualizado com sucesso!' : 'Novo acesso rápido adicionado!');
-        setIsAddShortcutOpen(false);
-        setEditingShortcutId(null);
-        setNewShortcut({ title: '', url: '', icon: 'link', color: 'bg-indigo-500' });
-    } catch (e) {
-        console.error(e);
-        pushToast('error', 'Ops! Tivemos um erro ao salvar seu acesso rápido.');
-    } finally {
-        setIsSavingShortcut(false);
-    }
-  };
+        const birthDate = new Date(dateStr);
+        if (Number.isNaN(birthDate.getTime())) {
+          return null;
+        }
 
-  const openEditShortcut = (shortcut: Shortcut, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setEditingShortcutId(shortcut.id);
-    setNewShortcut({ title: shortcut.title, url: shortcut.url, icon: shortcut.icon, color: shortcut.color || 'bg-indigo-500' });
+        const nextBirthday = new Date(now.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+        if (nextBirthday < startOfDay) {
+          nextBirthday.setFullYear(nextBirthday.getFullYear() + 1);
+        }
+
+        return { patient, next: nextBirthday };
+      })
+      .filter(Boolean) as Array<{ patient: Patient; next: Date }>;
+
+    list.sort((a, b) => a.next.getTime() - b.next.getTime());
+    return list.slice(0, 5);
+  }, [now, patients, startOfDay]);
+
+  const totalAppointments = appointments.length;
+  const totalConsultas =
+    (statusCounts.completed || 0) +
+    (statusCounts.confirmed || 0) +
+    (statusCounts.scheduled || 0) +
+    (statusCounts['no-show'] || 0) +
+    (statusCounts.cancelled || 0);
+  const confirmedRate =
+    totalConsultas === 0
+      ? 0
+      : Math.round(
+          (((statusCounts.confirmed || 0) + (statusCounts.completed || 0)) / totalConsultas) * 100
+        );
+
+  const pendingTodosCount = todosList.filter((todo) => !todo.completed).length;
+  const nextAppointment = upcomingAll[0];
+  const nextAppointmentTime = nextAppointment?.start
+    ? nextAppointment.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
+  const isNextToday = nextAppointment?.start
+    ? nextAppointment.start.getDate() === now.getDate() &&
+      nextAppointment.start.getMonth() === now.getMonth() &&
+      nextAppointment.start.getFullYear() === now.getFullYear()
+    : false;
+
+  const insightMessage = useMemo(() => {
+    if (isLoading) {
+      return 'Sincronizando os indicadores do consultório.';
+    }
+
+    if (!nextAppointment) {
+      return 'A agenda está livre no momento. Use o período para revisar prontuários e organizar o dia.';
+    }
+
+    if (isNextToday) {
+      if (pendingTodosCount > 0) {
+        return `Seu próximo atendimento é com ${nextAppointment.patient_name} às ${nextAppointmentTime}. Você ainda tem ${pendingTodosCount} tarefa${pendingTodosCount > 1 ? 's' : ''} pendente${pendingTodosCount > 1 ? 's' : ''} hoje.`;
+      }
+
+      return `Seu próximo atendimento é com ${nextAppointment.patient_name} às ${nextAppointmentTime}. A rotina do dia está organizada.`;
+    }
+
+    return `O próximo atendimento será com ${nextAppointment.patient_name}. Aproveite a janela atual para avançar nas rotinas internas.`;
+  }, [isLoading, isNextToday, nextAppointment, nextAppointmentTime, pendingTodosCount]);
+
+  const formattedDate = now.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const greetingName = user?.name ? user.name.split(' ')[0] : 'Profissional';
+  const greeting =
+    now.getHours() < 12 ? 'Bom dia' : now.getHours() < 18 ? 'Boa tarde' : 'Boa noite';
+
+  const openNewShortcutModal = () => {
+    setEditingShortcutId(null);
+    setNewShortcut({ title: '', url: '', icon: 'link', color: 'bg-indigo-500' });
     setIsAddShortcutOpen(true);
   };
 
-  const handleRemoveShortcut = async (id: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!user?.uiPreferences) return;
+  const closeShortcutModal = () => {
+    setIsAddShortcutOpen(false);
+    setEditingShortcutId(null);
+  };
+
+  const handleSaveShortcut = async () => {
+    if (!newShortcut.title || !newShortcut.url || !user?.uiPreferences) {
+      return;
+    }
+
+    setIsSavingShortcut(true);
+
     try {
-        const newList = customShortcuts.filter((s: Shortcut) => s.id !== id);
-        const newPrefs = { ...user.uiPreferences, dashboard_shortcuts: newList };
-        await api.patch('/profile/preferences', { ui_preferences: newPrefs });
-        if (updateUser) updateUser({ uiPreferences: newPrefs });
-        pushToast('success', 'Acesso rápido removido com sucesso!');
-    } catch (err) {
-        console.error(err);
-        pushToast('error', 'Ocorreu um erro ao excluir esse acesso.');
+      let newList = [...customShortcuts];
+
+      if (editingShortcutId) {
+        newList = newList.map((shortcut) =>
+          shortcut.id === editingShortcutId
+            ? {
+                ...shortcut,
+                title: newShortcut.title!,
+                url: newShortcut.url!.startsWith('http')
+                  ? newShortcut.url!
+                  : `https://${newShortcut.url}`,
+                icon: newShortcut.icon || 'link',
+                color: newShortcut.color || 'bg-indigo-500',
+              }
+            : shortcut
+        );
+      } else {
+        newList.push({
+          id: `custom-${Date.now()}`,
+          title: newShortcut.title,
+          url: newShortcut.url.startsWith('http') ? newShortcut.url : `https://${newShortcut.url}`,
+          icon: newShortcut.icon || 'link',
+          color: newShortcut.color || 'bg-indigo-500',
+          isSystem: false,
+        });
+      }
+
+      const newPreferences = {
+        ...user.uiPreferences,
+        dashboard_shortcuts: newList,
+      };
+
+      await api.patch('/profile/preferences', { ui_preferences: newPreferences });
+      if (updateUser) {
+        updateUser({ uiPreferences: newPreferences });
+      }
+
+      pushToast(
+        'success',
+        editingShortcutId
+          ? 'Acesso rápido atualizado com sucesso.'
+          : 'Novo acesso rápido adicionado.'
+      );
+
+      closeShortcutModal();
+      setNewShortcut({ title: '', url: '', icon: 'link', color: 'bg-indigo-500' });
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Não foi possível salvar esse acesso rápido.');
+    } finally {
+      setIsSavingShortcut(false);
     }
   };
 
-  const handleSaveTodo = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!newTodo.trim() || !user?.uiPreferences) return;
+  const openEditShortcut = (shortcut: Shortcut, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setEditingShortcutId(shortcut.id);
+    setNewShortcut({
+      title: shortcut.title,
+      url: shortcut.url,
+      icon: shortcut.icon,
+      color: shortcut.color || 'bg-indigo-500',
+    });
+    setIsAddShortcutOpen(true);
+  };
+
+  const handleRemoveShortcut = async (id: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!user?.uiPreferences) {
+      return;
+    }
+
     try {
-       const added: TodoItem = { id: 'todo-' + Date.now(), text: newTodo.trim(), completed: false };
-       const updated = [added, ...todosList]; // Novos em cima
-       const newPrefs = { ...user.uiPreferences, dashboard_todos: updated };
-       await api.patch('/profile/preferences', { ui_preferences: newPrefs });
-       if (updateUser) updateUser({ uiPreferences: newPrefs });
-       setNewTodo('');
-    } catch (err) {
-       console.error(err);
+      const newList = customShortcuts.filter((shortcut: Shortcut) => shortcut.id !== id);
+      const newPreferences = { ...user.uiPreferences, dashboard_shortcuts: newList };
+
+      await api.patch('/profile/preferences', { ui_preferences: newPreferences });
+      if (updateUser) {
+        updateUser({ uiPreferences: newPreferences });
+      }
+
+      pushToast('success', 'Acesso rápido removido com sucesso.');
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Ocorreu um erro ao excluir esse acesso.');
+    }
+  };
+
+  const handleSaveTodo = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+
+    if (!newTodo.trim() || !user?.uiPreferences) {
+      return;
+    }
+
+    try {
+      const added: TodoItem = {
+        id: `todo-${Date.now()}`,
+        text: newTodo.trim(),
+        completed: false,
+      };
+
+      const updated = [added, ...todosList];
+      const newPreferences = { ...user.uiPreferences, dashboard_todos: updated };
+
+      await api.patch('/profile/preferences', { ui_preferences: newPreferences });
+      if (updateUser) {
+        updateUser({ uiPreferences: newPreferences });
+      }
+
+      setNewTodo('');
+    } catch (error) {
+      console.error(error);
+      pushToast('error', 'Não foi possível salvar a tarefa.');
     }
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
-    if (!user?.uiPreferences) return;
-    try {
-        const updated = todosList.map(t => t.id === id ? { ...t, completed } : t);
-        // Opcional: mover os concluídos pro final
-        updated.sort((a, b) => Number(a.completed) - Number(b.completed));
+    if (!user?.uiPreferences) {
+      return;
+    }
 
-        const newPrefs = { ...user.uiPreferences, dashboard_todos: updated };
-        await api.patch('/profile/preferences', { ui_preferences: newPrefs });
-        if (updateUser) updateUser({ uiPreferences: newPrefs });
-    } catch (err) { console.error(err); }
+    try {
+      const updated = todosList
+        .map((todo) => (todo.id === id ? { ...todo, completed } : todo))
+        .sort((a, b) => Number(a.completed) - Number(b.completed));
+
+      const newPreferences = { ...user.uiPreferences, dashboard_todos: updated };
+      await api.patch('/profile/preferences', { ui_preferences: newPreferences });
+
+      if (updateUser) {
+        updateUser({ uiPreferences: newPreferences });
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleRemoveTodo = async (id: string) => {
-    if (!user?.uiPreferences) return;
+    if (!user?.uiPreferences) {
+      return;
+    }
+
     try {
-        const updated = todosList.filter(t => t.id !== id);
-        const newPrefs = { ...user.uiPreferences, dashboard_todos: updated };
-        await api.patch('/profile/preferences', { ui_preferences: newPrefs });
-        if (updateUser) updateUser({ uiPreferences: newPrefs });
-    } catch (err) { console.error(err); }
-  };
+      const updated = todosList.filter((todo) => todo.id !== id);
+      const newPreferences = { ...user.uiPreferences, dashboard_todos: updated };
 
-  // Taxa de confirmação = (confirmed + completed) / total consultas
-  const totalConsultas = (statusCounts.completed || 0) + (statusCounts.confirmed || 0) + (statusCounts.scheduled || 0) + (statusCounts['no-show'] || 0) + (statusCounts.cancelled || 0);
-  const confirmedRate = totalConsultas === 0 ? 0 : Math.round(((statusCounts.confirmed || 0) + (statusCounts.completed || 0)) / totalConsultas * 100);
-
-  const ratio = (value: number, total: number) => total === 0 ? 0 : Math.round((value / total) * 100);
-  const totalAppointments = appointments.length;
-
-  const InsightWidget = () => {
-    const next = upcomingAll[0];
-    const nextTime = next?.start ? next.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    const isNextToday = next?.start
-      ? next.start.getDate() === now.getDate() && next.start.getMonth() === now.getMonth()
-      : false;
-    
-    // Gerador de insight dinâmico (Falso IA / Premium logic)
-    const generateInsight = () => {
-       if (isLoading) return 'Sincronizando Aurora Insights...';
-       if (!next) return 'Sem novos atendimentos na agenda hoje. Aproveite o tempo para revisar seus prontuários pendentes.';
-       if (isNextToday) return `Seu próximo paciente é ${next.patient_name} às ${nextTime}. ${todosList.filter(t => !t.completed).length > 0 ? `Lembre-se de concluir suas ${todosList.filter(t => !t.completed).length} tarefas pendentes hoje.` : 'Sua lista de tarefas está em dia!'}`;
-       return `Hoje o dia está limpo. O próximo atendimento será com ${next.patient_name} em breve. Boa jornada!`;
-    };
-
-    return (
-      <div className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 rounded-[2rem] p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden group">
-        {/* Background glow animations */}
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-purple-400 transition-colors duration-1000"></div>
-        <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-blue-300 opacity-20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
-        
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-5">
-          <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-inner">
-             <Sparkles size={24} className="text-yellow-300 animate-pulse" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-extrabold text-[11px] uppercase tracking-[0.2em] text-indigo-100 mb-1.5 flex items-center gap-2">
-               Aurora Insights <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-ping"></span>
-            </h3>
-            <p className="text-sm md:text-base font-medium leading-relaxed max-w-2xl text-white/90">
-              {generateInsight()}
-            </p>
-          </div>
-          <button onClick={() => navigate('/agenda')} className="shrink-0 text-[11px] uppercase tracking-widest font-black bg-white text-indigo-700 hover:bg-indigo-50 hover:scale-105 active:scale-95 px-5 h-10 rounded-xl border border-white/20 transition-all shadow-md">
-             Agenda Completa
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const StatCard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; hint?: string; onClick?: () => void }> = ({ label, value, icon, hint, onClick }) => (
-    <div onClick={onClick} className={`bg-white p-5 xl:p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all hover:border-indigo-100 group flex flex-col justify-between min-w-0 ${onClick ? 'cursor-pointer' : ''}`}>
-      <div className="flex items-start justify-between gap-2 overflow-hidden">
-        <div className="p-3 shrink-0 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">{icon}</div>
-        {hint && <span className="text-[8px] lg:text-[7px] xl:text-[9px] font-black text-slate-300 uppercase tracking-widest text-right leading-tight break-words max-w-[65%] mt-1">{hint}</span>}
-      </div>
-      <div>
-         <h3 className="text-3xl font-black text-slate-800 mt-4 xl:mt-5 group-hover:text-indigo-600 transition-colors truncate">{value}</h3>
-         <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mt-1 leading-tight break-words line-clamp-2 pr-1">{label}</p>
-      </div>
-    </div>
-  );
-
-  const filterLabels: Record<UpcomingFilter, string> = {
-    hoje: 'Hoje',
-    semana: 'Semana',
-    mes: 'Mês',
-    todos: 'Todos',
+      await api.patch('/profile/preferences', { ui_preferences: newPreferences });
+      if (updateUser) {
+        updateUser({ uiPreferences: newPreferences });
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-fadeIn pb-20">
-      {/* Header */}
-      <div className="relative overflow-hidden bg-white border border-slate-100 shadow-sm rounded-[2.5rem] p-8 md:p-10 group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full -mr-20 -mt-20 opacity-40 blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-1000"></div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-indigo-600 text-[10px] font-black uppercase tracking-widest mb-4">
-                👋 {formattedDate}
+    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+      <SectionTitle
+        title="Dashboard"
+        description="Visão geral da agenda, indicadores e rotinas da clínica."
+        icon={Sparkles}
+        action={
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button
+              variant="outline"
+              size="md"
+              fullWidth
+              iconLeft={<Calendar size={16} />}
+              onClick={() => navigate('/agenda')}
+            >
+              Ver agenda
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              fullWidth
+              iconLeft={<Plus size={16} />}
+              onClick={() => navigate('/pacientes')}
+            >
+              {t('patients.new')}
+            </Button>
+          </div>
+        }
+      />
+
+      <PanelCard
+        className="overflow-hidden border-[#1f496d]/10 bg-gradient-to-br from-[#143a59] via-[#295b85] to-[#2a74ac] text-white shadow-[0_24px_60px_rgba(20,58,89,0.22)]"
+        contentClassName="relative p-5 sm:p-6 lg:p-8"
+      >
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.24),transparent_60%)]" />
+        <div className="pointer-events-none absolute -right-12 top-0 h-48 w-48 rounded-full bg-cyan-300/15 blur-3xl" />
+
+        <div className="relative z-10 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl space-y-4">
+            <span className="inline-flex w-fit items-center rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm backdrop-blur-sm">
+              {formattedDate}
+            </span>
+
+            <div className="space-y-2">
+              <h2 className="font-display text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">
+                {greeting}, {greetingName}
+              </h2>
+              <p className="max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base">
+                Sua clínica está pronta para o dia. Você tem {todaysAppointments.length}{' '}
+                atendimento{todaysAppointments.length === 1 ? '' : 's'} programado
+                {todaysAppointments.length === 1 ? '' : 's'} para hoje.
+              </p>
             </div>
-            <h1 className="font-black text-3xl md:text-4xl text-slate-900 tracking-tight">
-              {now.getHours() < 12 ? 'Bom dia' : now.getHours() < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="text-indigo-600">{greetingName}</span>
-            </h1>
-            <p className="text-slate-400 text-sm font-bold mt-2 max-w-md leading-relaxed">Sua clínica está pronta. Você tem {todaysAppointments.length} atendimentos programados para hoje.</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button onClick={() => navigate('/agenda')} className="flex items-center gap-2 bg-slate-950 text-white px-6 h-12 rounded-[1.2rem] font-black text-[11px] shadow-xl hover:bg-slate-800 transition-all active:scale-95 uppercase tracking-widest">
-              <Calendar size={18} /> Ver agenda
-            </button>
-            <button onClick={() => navigate('/pacientes')} className="flex items-center gap-2 bg-indigo-600 text-white px-6 h-12 rounded-[1.2rem] font-black text-[11px] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 uppercase tracking-widest">
-              <Plus size={18} /> {t('patients.new')}
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <InsightWidget />
-
-      {/* KPI Cards & Financial Mini Widget */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {/* FINANCIAL MINI WIDGET (Ocupa 1 coluna tbm) */}
-        <div className="bg-slate-900 overflow-hidden relative p-6 rounded-[2rem] shadow-sm border border-slate-800 transition-all group flex flex-col justify-between hidden md:flex">
-             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform"><TrendingUp size={80} /></div>
-             <div className="relative z-10">
-                <div className="flex items-start justify-between">
-                   <div className="p-2.5 bg-white/10 rounded-xl text-emerald-400 backdrop-blur-md"><Banknote size={16} /></div>
-                   <button onClick={() => setShowFinance(!showFinance)} className="text-slate-400 hover:text-white p-1">
-                      {showFinance ? <EyeOff size={14}/> : <Eye size={14}/>}
-                   </button>
+            <div className="rounded-[1.75rem] border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10">
+                  <Sparkles size={18} className="text-cyan-100" />
                 </div>
-                {isLoading ? (
-                   <div className="mt-4"><div className="h-8 w-24 bg-slate-800 rounded animate-pulse"></div></div>
-                ) : (
-                  <h3 className="text-2xl font-black text-white mt-4 tracking-tight flex items-end gap-1">
-                     <span className="text-base text-slate-400 font-bold mb-1">R$</span> {showFinance ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(financeData.current) : '••••,••'}
-                  </h3>
-                )}
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 leading-tight border-b border-slate-700/50 pb-2">Entradas do Mês</p>
-                <div className="flex items-center gap-1.5 mt-3">
-                   {isLoading ? (
-                     <div className="h-4 w-12 bg-slate-800 rounded animate-pulse"></div>
-                   ) : (
-                     <span className={`flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-md ${financeData.percentage >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'}`}>
-                       {financeData.percentage >= 0 ? '+' : ''}{financeData.percentage}%
-                     </span>
-                   )}
-                   <span className="text-[10px] text-slate-500 font-medium truncate">vs. mês passado</span>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/90">
+                    Insights do dia
+                  </p>
+                  <p className="text-sm leading-relaxed text-white/90">{insightMessage}</p>
                 </div>
-             </div>
-        </div>
-
-        <StatCard
-          label={t('dashboard.totalPatients')}
-          value={isLoading ? '-' : patients.length}
-          icon={<Users size={18} />}
-          hint="cadastros"
-          onClick={() => navigate('/pacientes')}
-        />
-        <StatCard
-          label="Atendimentos hoje"
-          value={isLoading ? '-' : todaysAppointments.length}
-          icon={<Clock size={18} />}
-          hint="dia"
-          onClick={() => setUpcomingFilter('hoje')}
-        />
-        <StatCard
-          label="Atendimentos no mês"
-          value={isLoading ? '-' : monthAppointments.length}
-          icon={<Calendar size={18} />}
-          hint="mês"
-          onClick={() => setUpcomingFilter('mes')}
-        />
-        <StatCard
-          label="Taxa de conclusão"
-          value={isLoading ? '-' : `${confirmedRate}%`}
-          icon={<CheckCircle size={18} />}
-          hint="confirmados+finalizados"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Upcoming appointments with filter */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-            <div className="p-5 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-              <h3 className="font-display font-bold text-base text-slate-800 flex items-center gap-2">
-                <Calendar size={18} className="text-indigo-500" /> Próximos atendimentos
-              </h3>
-              <div className="flex items-center gap-1.5">
-                {(['hoje', 'semana', 'mes', 'todos'] as UpcomingFilter[]).map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setUpcomingFilter(f)}
-                    className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide transition-all ${
-                      upcomingFilter === f
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                    }`}
-                  >
-                    {filterLabels[f]}
-                  </button>
-                ))}
-                <button onClick={() => navigate('/agenda')} className="ml-2 text-[11px] font-bold text-indigo-600 hover:underline">Agenda</button>
               </div>
             </div>
-            <div className="p-4 space-y-2 max-h-[380px] overflow-y-auto custom-scrollbar">
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:w-[360px]">
+            <div className="rounded-[1.5rem] border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/90">
+                Próximo atendimento
+              </p>
+              <p className="mt-2 text-base font-black leading-tight text-white">
+                {nextAppointment?.patient_name || 'Agenda livre'}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-white/75">
+                {nextAppointment
+                  ? `${nextAppointment.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
+                      day: '2-digit',
+                      month: 'short',
+                    })} às ${nextAppointmentTime}`
+                  : 'Sem novas consultas marcadas por enquanto.'}
+              </p>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/90">
+                Pendências
+              </p>
+              <p className="mt-2 text-3xl font-black leading-none text-white">{pendingTodosCount}</p>
+              <p className="mt-1 text-xs leading-relaxed text-white/75">
+                {pendingTodosCount === 0
+                  ? 'Sua lista está em dia.'
+                  : `${pendingTodosCount} tarefa${pendingTodosCount === 1 ? '' : 's'} aguardando ação.`}
+              </p>
+            </div>
+          </div>
+        </div>
+      </PanelCard>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
+        <div className="space-y-4 sm:space-y-6">
+          <StatGrid cols={4}>
+            <StatCard
+              title={t('dashboard.totalPatients')}
+              value={isLoading ? '-' : patients.length}
+              icon={Users}
+              color="info"
+              description="Pacientes cadastrados"
+              delay={0}
+            />
+            <StatCard
+              title="Atendimentos hoje"
+              value={isLoading ? '-' : todaysAppointments.length}
+              icon={Clock}
+              color="purple"
+              description="Consultas previstas para hoje"
+              delay={0.04}
+            />
+            <StatCard
+              title="Atendimentos no mês"
+              value={isLoading ? '-' : monthAppointments.length}
+              icon={Calendar}
+              color="default"
+              description="Rotina acumulada no mês"
+              delay={0.08}
+            />
+            <StatCard
+              title="Taxa de conclusão"
+              value={isLoading ? '-' : `${confirmedRate}%`}
+              icon={CheckCircle}
+              color="success"
+              description="Confirmados e finalizados"
+              delay={0.12}
+            />
+          </StatGrid>
+
+          <PanelCard
+            title="Próximos atendimentos"
+            description="Agenda filtrada para acompanhamento rápido do dia e das próximas janelas."
+            icon={Calendar}
+            iconWrapClassName="border-sky-100 bg-sky-50"
+            iconClassName="text-sky-600"
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {(Object.keys(UPCOMING_FILTER_LABELS) as UpcomingFilter[]).map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setUpcomingFilter(filter)}
+                      className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide transition-colors ${
+                        upcomingFilter === filter
+                          ? 'border-[#295b85] bg-[#295b85] text-white'
+                          : 'border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-700'
+                      }`}
+                    >
+                      {UPCOMING_FILTER_LABELS[filter]}
+                    </button>
+                  ))}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconLeft={<Calendar size={14} />}
+                  onClick={() => navigate('/agenda')}
+                >
+                  Agenda
+                </Button>
+              </div>
+            }
+            contentClassName="p-0"
+          >
             {isLoading ? (
-              <div className="space-y-4 py-4">
-                 <div className="h-6 w-48 bg-slate-100 rounded-lg animate-pulse mb-6"></div>
-                 {[1,2,3,4].map(i => (
-                    <div key={i} className="flex gap-4 items-center">
-                       <div className="w-12 h-12 bg-slate-100 rounded-2xl animate-pulse shrink-0"></div>
-                       <div className="space-y-2 flex-1"><div className="h-4 bg-slate-100 rounded w-1/3 animate-pulse"></div><div className="h-3 bg-slate-50 rounded w-1/4 animate-pulse"></div></div>
+              <div className="space-y-3 p-4 sm:p-6">
+                {[1, 2, 3, 4].map((item) => (
+                  <div
+                    key={item}
+                    className="flex animate-pulse flex-col gap-3 rounded-2xl border border-zinc-100 p-4 sm:flex-row sm:items-center"
+                  >
+                    <div className="h-12 w-20 rounded-2xl bg-zinc-100" />
+                    <div className="space-y-2 sm:flex-1">
+                      <div className="h-4 w-40 rounded bg-zinc-100" />
+                      <div className="h-3 w-32 rounded bg-zinc-50" />
                     </div>
-                 ))}
+                  </div>
+                ))}
               </div>
             ) : upcomingFiltered.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-sm">
-                  Sem atendimentos {upcomingFilter === 'hoje' ? 'hoje' : upcomingFilter === 'semana' ? 'esta semana' : upcomingFilter === 'mes' ? 'este mês' : 'futuros'}.
-                </div>
-              ) : upcomingFiltered.slice(0, 10).map(app => (
-                <div key={app.id} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
-                  <div className="w-14 text-center shrink-0">
-                    <div className="text-xs font-bold text-indigo-600 uppercase">{app.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short' })}</div>
-                    <div className="text-[11px] text-slate-500">{app.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-slate-800 text-sm truncate">{app.patient_name || 'Consulta'}</h4>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-indigo-500 uppercase">{app.type || 'consulta'} · {app.modality || 'presencial'}</span>
-                      {app.status === 'confirmed' && <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md uppercase">Confirmado</span>}
-                      {app.status === 'scheduled' && <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md uppercase">Agendado</span>}
+              <div className="p-4 sm:p-6">
+                <EmptyState
+                  title="Nenhum atendimento encontrado"
+                  description={`Não há consultas ${
+                    upcomingFilter === 'hoje'
+                      ? 'para hoje'
+                      : upcomingFilter === 'semana'
+                        ? 'para esta semana'
+                        : upcomingFilter === 'mes'
+                          ? 'para este mês'
+                          : 'futuras'
+                  }.`}
+                  icon={Calendar}
+                />
+              </div>
+            ) : (
+              <div className="max-h-[460px] divide-y divide-zinc-100 overflow-y-auto">
+                {upcomingFiltered.slice(0, 10).map((appointment) => (
+                  <div
+                    key={appointment.id}
+                    className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-zinc-50/70 sm:px-6 sm:py-5 lg:flex-row lg:items-center"
+                  >
+                    <div className="flex w-full items-center gap-3 lg:w-[122px] lg:flex-none">
+                      <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl border border-sky-100 bg-sky-50 text-sky-700">
+                        <span className="text-[11px] font-black uppercase">
+                          {appointment.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </span>
+                        <span className="text-[10px] font-bold text-sky-600">
+                          {appointment.start.toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+
+                      <div className="lg:hidden">
+                        {renderAppointmentStatus(appointment.status)}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="truncate text-sm font-black text-zinc-900 sm:text-base">
+                          {appointment.patient_name || 'Consulta'}
+                        </h4>
+                        <div className="hidden lg:block">{renderAppointmentStatus(appointment.status)}</div>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge color="info">{appointment.type || 'consulta'}</Badge>
+                        <Badge color="teal">{appointment.modality || 'presencial'}</Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`/pacientes?search=${encodeURIComponent(appointment.patient_name || '')}`)
+                        }
+                        className="text-xs font-bold text-[#295b85] transition-colors hover:text-[#143a59]"
+                      >
+                        Ver paciente
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/agenda?appointmentId=${appointment.id}`)}
+                        className="text-xs font-bold text-zinc-500 transition-colors hover:text-zinc-900"
+                      >
+                        Abrir agenda
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => navigate(`/pacientes?search=${encodeURIComponent(app.patient_name || '')}`)}
-                      className="text-xs font-bold text-slate-400 hover:text-indigo-600"
-                      title="Ver paciente"
-                    >
-                      Paciente
-                    </button>
-                      <button onClick={() => navigate(`/agenda?appointmentId=${app.id}`)} className="text-xs font-bold text-slate-400 hover:text-indigo-600">Agenda</button>
-                  </div>
+                ))}
+              </div>
+            )}
+          </PanelCard>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <PanelCard
+              title="Atendimentos nos últimos 30 dias"
+              description="Distribuição por dia da semana para leitura rápida do fluxo."
+              icon={TrendingUp}
+              iconWrapClassName="border-cyan-100 bg-cyan-50"
+              iconClassName="text-cyan-600"
+            >
+              {isLoading ? (
+                <div className="flex h-[220px] items-center justify-center">
+                  <Loader2 className="animate-spin text-zinc-300" />
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Charts row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Bar chart - atendimentos por dia da semana */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><TrendingUp size={16} className="text-indigo-500" /> Atendimentos (últimos 30 dias)</h3>
-              </div>
-              {isLoading ? (
-                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-indigo-300" /></div>
               ) : (
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart data={appointmentsByDayOfWeek} barSize={22}>
-                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} />
-                    <YAxis hide allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                      formatter={(v: any) => [v, 'Atendimentos']}
-                    />
-                    <Bar dataKey="atendimentos" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={appointmentsByDayOfWeek} barSize={24}>
+                      <XAxis
+                        dataKey="day"
+                        tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis hide allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{
+                          fontSize: 11,
+                          borderRadius: 14,
+                          border: '1px solid #e4e4e7',
+                          boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
+                        }}
+                        formatter={(value: number) => [value, 'Atendimentos']}
+                      />
+                      <Bar dataKey="atendimentos" fill="#2a74ac" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
-            </div>
+            </PanelCard>
 
-            {/* Pie chart - status */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><UserCheck size={16} className="text-violet-500" /> Status dos atendimentos</h3>
-              </div>
+            <PanelCard
+              title="Status dos atendimentos"
+              description="Leitura consolidada da operação atual."
+              icon={UserCheck}
+              iconWrapClassName="border-emerald-100 bg-emerald-50"
+              iconClassName="text-emerald-600"
+            >
               {isLoading ? (
-                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-indigo-300" /></div>
+                <div className="flex h-[220px] items-center justify-center">
+                  <Loader2 className="animate-spin text-zinc-300" />
+                </div>
               ) : statusPieData.length === 0 ? (
-                <div className="text-center text-slate-400 text-xs py-10">Sem dados</div>
+                <EmptyState
+                  title="Sem dados para exibir"
+                  description="Ainda não há atendimentos suficientes para o gráfico de status."
+                  icon={UserCheck}
+                  className="h-[220px]"
+                />
               ) : (
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie
-                      data={statusPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={65}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {statusPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                      formatter={(v: any, name: any) => [v, name]}
-                    />
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, fontWeight: 700 }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={48}
+                        outerRadius={78}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {statusPieData.map((entry, index) => (
+                          <Cell key={`${entry.name}-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          fontSize: 11,
+                          borderRadius: 14,
+                          border: '1px solid #e4e4e7',
+                          boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
+                        }}
+                        formatter={(value: number, name: string) => [value, name]}
+                      />
+                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               )}
-            </div>
+            </PanelCard>
           </div>
 
-          {/* Type and modality bars */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><Layers size={16} className="text-indigo-500" /> Tipos de atendimento</h3>
-                <span className="text-[10px] font-bold text-slate-400">{totalAppointments} total</span>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <PanelCard
+              title="Tipos de atendimento"
+              description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} na base atual.`}
+              icon={Layers}
+              iconWrapClassName="border-indigo-100 bg-indigo-50"
+              iconClassName="text-indigo-600"
+            >
+              <div className="space-y-4">
+                {['consulta', 'pessoal', 'bloqueio'].map((type) => (
+                  <div key={type} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3 text-xs font-bold text-zinc-600">
+                      <span className="uppercase">{type}</span>
+                      <span>{typeCounts[type] || 0}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-zinc-100">
+                      <div
+                        className="h-2 rounded-full bg-[#295b85] transition-[width]"
+                        style={{ width: `${ratio(typeCounts[type] || 0, totalAppointments)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-              {['consulta', 'pessoal', 'bloqueio'].map((key) => (
-                <div key={key} className="mb-3">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-600 mb-1">
-                    <span className="uppercase">{key}</span>
-                    <span>{typeCounts[key] || 0}</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${ratio(typeCounts[key] || 0, totalAppointments)}%` }}></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            </PanelCard>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><Video size={16} className="text-emerald-500" /> Modalidade</h3>
-                <span className="text-[10px] font-bold text-slate-400">{totalAppointments} total</span>
+            <PanelCard
+              title="Modalidades"
+              description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} na base atual.`}
+              icon={Video}
+              iconWrapClassName="border-emerald-100 bg-emerald-50"
+              iconClassName="text-emerald-600"
+            >
+              <div className="space-y-4">
+                {['presencial', 'online'].map((modality) => (
+                  <div key={modality} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3 text-xs font-bold text-zinc-600">
+                      <span className="uppercase">{modality}</span>
+                      <span>{modalityCounts[modality] || 0}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-zinc-100">
+                      <div
+                        className="h-2 rounded-full bg-[#4f8d67] transition-[width]"
+                        style={{ width: `${ratio(modalityCounts[modality] || 0, totalAppointments)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-              {['presencial', 'online'].map((key) => (
-                <div key={key} className="mb-3">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-600 mb-1">
-                    <span className="uppercase">{key}</span>
-                    <span>{modalityCounts[key] || 0}</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${ratio(modalityCounts[key] || 0, totalAppointments)}%` }}></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            </PanelCard>
           </div>
         </div>
 
-        {/* Right column */}
-        <div className="space-y-6">
-
-          {/* SECTION: BIRTHDAYS */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2">
-                    <Sparkles size={16} className="text-amber-500" />
-                    Aniversários
-                </h3>
+        <div className="space-y-4 sm:space-y-6">
+          <PanelCard
+            title="Financeiro do mês"
+            description="Comparativo de entradas em relação ao mês anterior."
+            icon={Banknote}
+            iconWrapClassName="border-emerald-200 bg-emerald-50"
+            iconClassName="text-emerald-600"
+            className="border-[#143a59]/10 bg-[#0f172a] text-white"
+            headerClassName="border-[#1e293b] [&_h3]:text-white [&_p]:text-slate-300"
+            action={
+              <button
+                type="button"
+                onClick={() => setShowFinance((current) => !current)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                {showFinance ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            }
+            contentClassName="space-y-4"
+          >
+            <div className="space-y-1">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                Entradas acumuladas
+              </p>
+              {isLoading ? (
+                <div className="h-10 w-40 animate-pulse rounded-2xl bg-slate-800" />
+              ) : (
+                <p className="text-3xl font-black tracking-tight text-white">
+                  {showFinance ? formatCurrency(financeData.current) : 'R$ ••••••'}
+                </p>
+              )}
             </div>
+
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-slate-300">Variação mensal</span>
+                {isLoading ? (
+                  <div className="h-6 w-16 animate-pulse rounded-full bg-slate-800" />
+                ) : (
+                  <Badge
+                    color={financeData.percentage >= 0 ? 'success' : 'danger'}
+                    className="border-none"
+                  >
+                    {financeData.percentage >= 0 ? '+' : ''}
+                    {financeData.percentage}%
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                Leitura rápida para acompanhar se a curva do mês está acelerando ou retraindo.
+              </p>
+            </div>
+          </PanelCard>
+
+          <PanelCard
+            title="Aniversários"
+            description="Pacientes ativos com datas mais próximas."
+            icon={Sparkles}
+            iconWrapClassName="border-amber-100 bg-amber-50"
+            iconClassName="text-amber-600"
+          >
             {isLoading ? (
-              <div className="space-y-3 pt-4">
-                {[1,2].map(i => (
-                  <div key={i} className="flex gap-3 items-center">
-                     <div className="w-10 h-10 bg-slate-100 rounded-xl animate-pulse"></div>
-                     <div className="space-y-1.5 flex-1"><div className="h-4 w-28 bg-slate-100 rounded animate-pulse"></div><div className="h-3 w-16 bg-slate-50 rounded animate-pulse"></div></div>
+              <div className="space-y-3">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="flex animate-pulse items-center gap-3">
+                    <div className="h-12 w-12 rounded-2xl bg-zinc-100" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-32 rounded bg-zinc-100" />
+                      <div className="h-3 w-20 rounded bg-zinc-50" />
+                    </div>
                   </div>
                 ))}
               </div>
             ) : birthdays.length === 0 ? (
-              <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-50 rounded-2xl">Sem aniversários próximos.</div>
+              <EmptyState
+                title="Sem aniversários próximos"
+                description="Assim que houver pacientes com aniversários próximos, eles aparecerão aqui."
+                icon={Sparkles}
+              />
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {birthdays.map(({ patient, next }) => {
                   const birthDate = new Date(patient.birth_date || patient.birthDate || '');
-                  const age = Number.isNaN(birthDate.getTime()) ? null : now.getFullYear() - birthDate.getFullYear();
-                  const isToday = next.getDate() === now.getDate() && next.getMonth() === now.getMonth();
+                  const age = Number.isNaN(birthDate.getTime())
+                    ? null
+                    : now.getFullYear() - birthDate.getFullYear();
+                  const isToday =
+                    next.getDate() === now.getDate() &&
+                    next.getMonth() === now.getMonth() &&
+                    next.getFullYear() === now.getFullYear();
                   const phone = (patient.whatsapp || patient.phone || '').replace(/\D/g, '');
 
-                  const handleSendBirthdayMsg = () => {
-                    const msg = `Olá ${patient.full_name || patient.name}, parabéns pelo seu aniversário! Desejo muita saúde, paz e realizações. Um grande abraço!`;
-                    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                  const handleSendBirthdayMessage = () => {
+                    const message = `Olá ${
+                      patient.full_name || patient.name
+                    }, parabéns pelo seu aniversário! Desejo muita saúde, paz e realizações. Um grande abraço!`;
+                    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
                   };
 
                   return (
-                    <div key={patient.id} className={`flex items-center justify-between p-3.5 rounded-2xl transition-all border ${isToday ? 'bg-amber-50 border-amber-100' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:shadow-md'}`}>
+                    <div
+                      key={patient.id}
+                      className={`flex items-center justify-between gap-3 rounded-[1.5rem] border p-3.5 transition-colors ${
+                        isToday
+                          ? 'border-amber-200 bg-amber-50'
+                          : 'border-zinc-100 bg-zinc-50/80 hover:bg-white'
+                      }`}
+                    >
                       <div className="min-w-0 flex items-center gap-3">
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-black text-xs ${isToday ? 'bg-amber-200 text-amber-700' : 'bg-white text-slate-400 shadow-sm border border-slate-100'}`}>
-                            {next.getDate()}/{next.getMonth() + 1}
+                        <div
+                          className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl text-xs font-black ${
+                            isToday
+                              ? 'bg-amber-200 text-amber-800'
+                              : 'border border-zinc-100 bg-white text-zinc-500'
+                          }`}
+                        >
+                          <span>{String(next.getDate()).padStart(2, '0')}</span>
+                          <span>{String(next.getMonth() + 1).padStart(2, '0')}</span>
                         </div>
-                        <div className="truncate">
-                          <div className="text-sm font-black text-slate-800 truncate">{patient.full_name || patient.name}</div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {age && <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{age} anos</span>}
-                            {isToday && <span className="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-md uppercase tracking-tighter animate-pulse">Hoje!</span>}
+
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-black text-zinc-900">
+                            {patient.full_name || patient.name}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {age !== null && <Badge color="default">{age} anos</Badge>}
+                            {isToday && <Badge color="primary">Hoje</Badge>}
                           </div>
                         </div>
                       </div>
 
                       {phone && (
                         <button
-                          onClick={handleSendBirthdayMsg}
-                          className={`p-2.5 rounded-xl transition-all active:scale-95 ${isToday ? 'bg-amber-500 text-white shadow-lg shadow-amber-200 hover:bg-amber-600' : 'text-emerald-600 bg-white border border-slate-100 hover:bg-emerald-50 hover:border-emerald-100'}`}
+                          type="button"
+                          onClick={handleSendBirthdayMessage}
+                          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-colors ${
+                            isToday
+                              ? 'bg-amber-500 text-white hover:bg-amber-600'
+                              : 'border border-emerald-100 bg-white text-emerald-600 hover:bg-emerald-50'
+                          }`}
                           title="Mandar mensagem"
                         >
                           <Send size={16} />
@@ -896,142 +1329,230 @@ export const Dashboard: React.FC = () => {
                 })}
               </div>
             )}
-          </div>
+          </PanelCard>
 
-          {/* SECTION: TO-DO LIST (Gestão Diária) */}
-          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm flex flex-col max-h-[400px]">
-            <div className="flex items-center justify-between mb-5">
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-indigo-500" />
-                    Tarefas Diárias
-                </h3>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{todosList.filter(t=>!t.completed).length} Pendentes</span>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto w-full custom-scrollbar pr-2 space-y-2 mb-4">
-               {todosList.length === 0 ? (
-                  <div className="text-center text-slate-400 text-sm py-4 border border-dashed border-slate-100 rounded-2xl">
-                    Sua lista está vazia! Adicione tarefas abaixo. ✍🏼
+          <PanelCard
+            title="Tarefas diárias"
+            description="Checklist rápido para organização operacional."
+            icon={CheckCircle2}
+            iconWrapClassName="border-indigo-100 bg-indigo-50"
+            iconClassName="text-indigo-600"
+            action={<Badge color="info">{pendingTodosCount} pendente{pendingTodosCount === 1 ? '' : 's'}</Badge>}
+            contentClassName="space-y-4"
+          >
+            <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+              {todosList.length === 0 ? (
+                <EmptyState
+                  title="Sua lista está vazia"
+                  description="Adicione tarefas do dia para centralizar o acompanhamento aqui."
+                  icon={CheckCircle2}
+                />
+              ) : (
+                todosList.map((todo) => (
+                  <div
+                    key={todo.id}
+                    className="group flex items-start gap-3 rounded-[1.5rem] border border-zinc-100 bg-zinc-50/70 p-3.5 transition-colors hover:bg-white"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleTodo(todo.id, !todo.completed)}
+                      className="mt-0.5 shrink-0 text-zinc-300 transition-transform hover:scale-105"
+                    >
+                      {todo.completed ? (
+                        <CheckCircle2 size={18} className="text-emerald-500" />
+                      ) : (
+                        <Circle size={18} className="text-zinc-300" />
+                      )}
+                    </button>
+
+                    <p
+                      className={`flex-1 text-sm leading-relaxed ${
+                        todo.completed ? 'text-zinc-400 line-through' : 'font-medium text-zinc-700'
+                      }`}
+                    >
+                      {todo.text}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTodo(todo.id)}
+                      className="shrink-0 text-zinc-300 opacity-100 transition-colors hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-               ) : (
-                  todosList.map(t => (
-                     <div key={t.id} className="group flex items-start gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                        <button onClick={() => toggleTodo(t.id, !t.completed)} className="mt-0.5 shrink-0 transition-all active:scale-90">
-                           {t.completed ? <CheckCircle2 size={18} className="text-emerald-500" /> : <Circle size={18} className="text-slate-300 hover:text-indigo-400" />}
-                        </button>
-                        <p className={`flex-1 text-sm font-medium leading-snug transition-all ${t.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                           {t.text}
-                        </p>
-                        <button onClick={() => handleRemoveTodo(t.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1">
-                           <Trash2 size={14} />
-                        </button>
-                     </div>
-                  ))
-               )}
+                ))
+              )}
             </div>
 
-            <form onSubmit={handleSaveTodo} className="relative mt-auto border-t border-slate-50 pt-3">
-               <input
-                 type="text"
-                 placeholder="O que você não esquecer hoje?"
-                 value={newTodo}
-                 onChange={e => setNewTodo(e.target.value)}
-                 className="w-full bg-slate-50 border border-slate-100 placeholder-slate-400 text-sm rounded-xl py-3 pl-4 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:bg-white transition-all text-slate-700 font-medium"
-               />
-               <button type="submit" disabled={!newTodo.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 mt-1.5 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-lg transition-colors">
-                  <Plus size={14} />
-               </button>
+            <form onSubmit={handleSaveTodo} className="space-y-3 border-t border-zinc-100 pt-4">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={newTodo}
+                  onChange={(event) => setNewTodo(event.target.value)}
+                  placeholder="O que você não pode esquecer hoje?"
+                  wrapperClassName="flex-1"
+                />
+                <Button type="submit" iconLeft={<Plus size={14} />} disabled={!newTodo.trim()}>
+                  Adicionar
+                </Button>
+              </div>
             </form>
+          </PanelCard>
+
+          <PanelCard
+            title="Acessos rápidos"
+            description="Links de apoio usados na operação do consultório."
+            icon={Globe}
+            iconWrapClassName="border-sky-100 bg-sky-50"
+            iconClassName="text-sky-600"
+            action={
+              <Button variant="ghost" size="sm" iconLeft={<Plus size={14} />} onClick={openNewShortcutModal}>
+                Novo
+              </Button>
+            }
+          >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {allShortcuts.map((shortcut) => (
+                <a
+                  key={shortcut.id}
+                  href={shortcut.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/shortcut relative flex min-h-[118px] flex-col items-center justify-center rounded-[1.5rem] border border-zinc-100 bg-zinc-50/70 p-3 text-center transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+                >
+                  {!shortcut.isSystem && (
+                    <div className="absolute right-2 top-2 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/shortcut:opacity-100">
+                      <button
+                        type="button"
+                        onClick={(event) => openEditShortcut(shortcut, event)}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-zinc-500 shadow-sm transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        title="Editar"
+                      >
+                        <Settings size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => handleRemoveShortcut(shortcut.id, event)}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-zinc-500 shadow-sm transition-colors hover:bg-red-50 hover:text-red-600"
+                        title="Excluir"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )}
+
+                  <div
+                    className={`mb-3 flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm ${shortcut.color}`}
+                  >
+                    {renderShortcutIcon(shortcut.icon, 18)}
+                  </div>
+                  <span className="line-clamp-2 text-xs font-black leading-snug text-zinc-700">
+                    {shortcut.title}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </PanelCard>
+        </div>
+      </div>
+
+      <Modal
+        isOpen={isAddShortcutOpen}
+        onClose={closeShortcutModal}
+        title={editingShortcutId ? 'Editar Acesso Rápido' : 'Novo Acesso Rápido'}
+        size="sm"
+        footer={
+          <ModalFooter>
+            <Button variant="ghost" onClick={closeShortcutModal}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={handleSaveShortcut} loading={isSavingShortcut}>
+              Salvar
+            </Button>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <Input
+            label="Nome do acesso"
+            placeholder="Ex: Meu site, artigos..."
+            value={newShortcut.title || ''}
+            onChange={(event) =>
+              setNewShortcut((current) => ({
+                ...current,
+                title: event.target.value,
+              }))
+            }
+          />
+
+          <Input
+            label="Link (URL)"
+            placeholder="exemplo.com.br"
+            value={newShortcut.url || ''}
+            onChange={(event) =>
+              setNewShortcut((current) => ({
+                ...current,
+                url: event.target.value,
+              }))
+            }
+          />
+
+          <div className="space-y-2">
+            <span className="block text-xs font-bold text-zinc-600">Selecione o ícone</span>
+            <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
+              {SHORTCUT_ICON_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                const isActive = newShortcut.icon === option.id;
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() =>
+                      setNewShortcut((current) => ({
+                        ...current,
+                        icon: option.id,
+                        color: option.color,
+                      }))
+                    }
+                    className={`flex items-center justify-center rounded-xl border-2 p-3 transition-all ${
+                      isActive
+                        ? 'scale-105 border-[#295b85] bg-[#edf5fb] text-[#295b85] shadow-sm'
+                        : 'border-zinc-100 bg-white text-zinc-400 hover:border-zinc-300 hover:bg-zinc-50'
+                    }`}
+                    title={option.id}
+                  >
+                    <Icon size={16} />
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-               <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wide">Acesso rápido</h3>
-               <button onClick={() => { setEditingShortcutId(null); setNewShortcut({ title: '', url: '', icon: 'link', color: 'bg-indigo-500' }); setIsAddShortcutOpen(true); }} className="text-slate-400 hover:text-indigo-600 p-1.5 bg-slate-50 hover:bg-indigo-50 rounded-lg transition-colors group relative" title="Adicionar Atalho">
-                  <Plus size={16} />
-               </button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {allShortcuts.map(s => (
-                <a key={s.id} href={s.url} target="_blank" rel="noopener" className="group/btn relative flex flex-col items-center justify-center p-3 rounded-lg bg-slate-50 hover:bg-white border border-slate-100 hover:border-indigo-100 transition-all text-center">
-                  {!s.isSystem && (
-                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 pointer-events-none group-hover/btn:opacity-100 group-hover/btn:pointer-events-auto transition-all">
-                       <button onClick={(e) => openEditShortcut(s, e)} className="bg-slate-200 text-slate-600 hover:bg-indigo-100 hover:text-indigo-600 rounded-md p-1.5 shadow-sm transition-colors" title="Editar">
-                         <Settings size={12} />
-                       </button>
-                       <button onClick={(e) => handleRemoveShortcut(s.id, e)} className="bg-slate-200 text-slate-600 hover:bg-red-500 hover:text-white rounded-md p-1.5 shadow-sm transition-colors" title="Excluir">
-                         <Trash2 size={12} />
-                       </button>
-                     </div>
-                  )}
-                  <div className={`w-8 h-8 ${s.color} rounded-full flex items-center justify-center text-white mb-1.5`}>{renderIcon(s.icon, 16)}</div>
-                  <span className="text-[10px] font-bold text-slate-700 truncate w-full px-1">{s.title}</span>
-                </a>
+          <div className="space-y-2">
+            <span className="block text-xs font-bold text-zinc-600">Cor do círculo</span>
+            <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
+              {SHORTCUT_COLOR_OPTIONS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() =>
+                    setNewShortcut((current) => ({
+                      ...current,
+                      color,
+                    }))
+                  }
+                  className={`h-8 w-8 rounded-full border-2 shadow-sm transition-transform hover:scale-105 ${
+                    newShortcut.color === color ? 'border-zinc-800 scale-110' : 'border-transparent'
+                  } ${color}`}
+                  title={color}
+                />
               ))}
             </div>
           </div>
         </div>
-      </div>
-
-      <AuroraAssistant />
-
-      {/* MODAL ADICIONAR/EDITAR ACESSO RÁPIDO */}
-      <Modal
-         isOpen={isAddShortcutOpen}
-         onClose={() => { setIsAddShortcutOpen(false); setEditingShortcutId(null); }}
-         title={editingShortcutId ? "Editar Acesso Rápido" : "Novo Acesso Rápido"}
-         size="sm"
-         footer={
-            <div className="flex justify-end gap-2 w-full">
-               <Button variant="ghost" onClick={() => { setIsAddShortcutOpen(false); setEditingShortcutId(null); }}>Cancelar</Button>
-               <Button variant="primary" onClick={handleSaveShortcut} isLoading={isSavingShortcut}>Salvar</Button>
-            </div>
-         }
-      >
-         <div className="space-y-4 py-2">
-             <Input 
-                label="Nome do Acesso"
-                placeholder="Ex: Meu Site, Artigos..."
-                value={newShortcut.title || ''}
-                onChange={e => setNewShortcut({...newShortcut, title: e.target.value})}
-             />
-             <Input 
-                label="Link (URL)"
-                placeholder="exemplo.com.br"
-                value={newShortcut.url || ''}
-                onChange={e => setNewShortcut({...newShortcut, url: e.target.value})}
-             />
-             <div>
-                <span className="text-xs font-bold text-slate-600 block mb-2">Selecione o Ícone</span>
-                <div className="flex gap-2 flex-wrap max-h-36 overflow-y-auto w-full custom-scrollbar p-1">
-                   {ICON_OPTIONS.map(opt => (
-                      <button
-                         key={opt.id}
-                         onClick={() => setNewShortcut({...newShortcut, icon: opt.id, color: opt.color})} /* Sugere a cor baseada no icone */
-                         className={`p-3 rounded-xl transition-all border-2 flex items-center justify-center ${newShortcut.icon === opt.id ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shrink-0 scale-110 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300 text-slate-400 hover:bg-slate-50'}`}
-                         title={opt.id}
-                      >
-                         {opt.icon}
-                      </button>
-                   ))}
-                </div>
-             </div>
-
-             <div>
-                <span className="text-xs font-bold text-slate-600 block mb-2">Cor do Círculo</span>
-                <div className="flex gap-2 flex-wrap max-h-36 overflow-y-auto w-full custom-scrollbar p-1">
-                   {COLOR_OPTIONS.map(col => (
-                      <button
-                         key={col}
-                         onClick={() => setNewShortcut({...newShortcut, color: col})}
-                         className={`w-8 h-8 rounded-full shadow-sm transition-all border-2 ${col} ${newShortcut.color === col ? 'border-slate-800 scale-110' : 'border-transparent hover:scale-105'}`}
-                         title={col}
-                      />
-                   ))}
-                </div>
-             </div>
-         </div>
       </Modal>
-    </div>
+    </PageWrapper>
   );
 };

@@ -12,6 +12,7 @@ import { SystemAlerts } from '../SystemAlerts';
 interface TopbarProps {
    onMenuClick: () => void;
    onLogout?: () => void;
+   user?: User;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
@@ -44,7 +45,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
       <div className="flex items-center gap-4 flex-1">
         <button
           onClick={onMenuClick}
-          className="p-2 -ml-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-200 active:scale-95"
+          className="rounded-xl p-2 text-slate-500 transition-all duration-200 active:scale-95 hover:bg-indigo-50 hover:text-indigo-600 lg:hidden"
         >
           <Menu size={22} />
         </button>
