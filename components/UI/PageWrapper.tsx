@@ -89,7 +89,7 @@ export function SectionTitle({
       </div>
 
       {action && (
-        <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
           {action}
         </div>
       )}

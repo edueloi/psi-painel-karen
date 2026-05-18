@@ -4,6 +4,7 @@ import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, User
 import { useLanguage } from '../../contexts/LanguageContext';
 import { API_BASE_URL } from '../../services/api';
 import { DatePicker } from '../UI/DatePicker';
+import { Button, IconButton, Modal } from '../UI';
 
 /* ─── Países e DDI ────────────────────────────────────── */
 const COUNTRIES = [
@@ -75,13 +76,30 @@ const maskCep = (v: string) => {
 
 interface DocFile { file: File; label: string; }
 
+export interface WizardFooterContext {
+  currentStep: number;
+  totalSteps: number;
+  isLastStep: boolean;
+  hasId: boolean;
+  onNext: () => void;
+  onPrev: () => void;
+  onSaveNow: () => void;
+  onCancel: () => void;
+}
+
 interface PatientFormWizardProps {
   initialData?: Partial<Patient>;
   onSave: (data: Partial<Patient>, files: DocFile[], photoFile?: File | null) => void;
   onCancel: () => void;
+  /** Se fornecido, o footer interno é omitido e o pai controla o footer */
+  renderFooter?: (ctx: WizardFooterContext) => React.ReactNode;
+  /** Oculta o header interno (quando embutido num Modal que já tem header) */
+  hideHeader?: boolean;
+  /** Chamado quando o step muda — permite pai atualizar footer externo */
+  onStepChange?: (ctx: WizardFooterContext) => void;
 }
 
-export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialData = {} as Partial<Patient>, onSave, onCancel }) => {
+export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialData = {} as Partial<Patient>, onSave, onCancel, renderFooter, hideHeader = false, onStepChange }) => {
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [cepLoading, setCepLoading] = useState(false);
@@ -89,6 +107,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>(initialData.photo_url || (initialData as any).photoUrl || '');
   const photoInputRef = useRef<HTMLInputElement>(null);
+  // Refs para dados mutáveis usados no onSaveNow do onStepChange
+  const saveDataRef = useRef({ formData: {} as Partial<Patient>, selectedFiles: [] as DocFile[], photoFile: null as File | null });
+
   const [formData, setFormData] = useState<Partial<Patient>>(() => {
     const base = {
       status: 'ativo',
@@ -186,6 +207,25 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   const handlePrev = () => {
     if (currentStep > 0) setCurrentStep(prev => prev - 1);
   };
+
+  // Notifica pai quando step ou hasId muda (para footer externo)
+  React.useEffect(() => {
+    if (!onStepChange) return;
+    onStepChange({
+      currentStep,
+      totalSteps: STEPS.length,
+      isLastStep: currentStep === STEPS.length - 1,
+      hasId: !!formData.id,
+      onNext: handleNext,
+      onPrev: handlePrev,
+      onSaveNow: () => {
+        const { formData: d, selectedFiles: f, photoFile: p } = saveDataRef.current;
+        onSave(d, f, p);
+      },
+      onCancel,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, !!formData.id]);
 
   const maritalOptions = [
       { value: MaritalStatus.SINGLE, label: t('marital.single') },
@@ -550,10 +590,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                     maxLength={15}
                   />
                   {formData.spouse_phone && formData.spouse_phone.replace(/\D/g,'').length >= 10 && (
-                    <button type="button" onClick={() => openWhatsApp(formData.spouse_phone || '')}
-                      className="px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors flex items-center gap-1.5 text-xs font-bold whitespace-nowrap">
-                      <Phone size={14}/> WhatsApp
-                    </button>
+                    <Button type="button" variant="success" size="sm" onClick={() => openWhatsApp(formData.spouse_phone || '')} iconLeft={<Phone size={14}/>}>
+                      WA
+                    </Button>
                   )}
                 </div>
               </div>
@@ -565,10 +604,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                   <Users size={16} className="text-indigo-500"/> {t('wizard.emergencyContacts')}
                 </h4>
-                <button type="button" onClick={addEmergencyContact}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
-                  <Plus size={13}/> {t('wizard.addContact')}
-                </button>
+                <Button type="button" variant="outline" size="xs" onClick={addEmergencyContact} iconLeft={<Plus size={13}/>}>
+                  {t('wizard.addContact')}
+                </Button>
               </div>
 
               {emergencyContacts.length === 0 && (
@@ -582,10 +620,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   <div key={contact.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-500 uppercase">{t('wizard.contact')} {idx + 1}</span>
-                      <button type="button" onClick={() => removeEmergencyContact(contact.id)}
-                        className="text-rose-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-colors">
+                      <IconButton type="button" variant="ghost" size="xs" onClick={() => removeEmergencyContact(contact.id)} className="hover:text-rose-500 hover:bg-rose-50">
                         <Trash2 size={14}/>
-                      </button>
+                      </IconButton>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <input
@@ -622,10 +659,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                           maxLength={15}
                         />
                         {contact.phone && contact.phone.replace(/\D/g,'').length >= 10 && (
-                          <button type="button" onClick={() => openWhatsApp(contact.phone)}
-                            className="px-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold">
-                            <Phone size={13}/> WA
-                          </button>
+                          <IconButton type="button" variant="success" size="sm" onClick={() => openWhatsApp(contact.phone)}>
+                            <Phone size={13}/>
+                          </IconButton>
                         )}
                       </div>
                     </div>
@@ -822,13 +858,15 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                         />
                         <div className="text-[10px] text-slate-400 mt-0.5 truncate px-0.5">{doc.file.name}</div>
                       </div>
-                      <button
+                      <IconButton
                         type="button"
+                        variant="ghost"
+                        size="xs"
                         onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
-                        className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                        className="shrink-0 hover:text-red-500 hover:bg-red-50"
                       >
                         <X size={14} />
-                      </button>
+                      </IconButton>
                     </div>
                   ))}
                 </div>
@@ -842,87 +880,221 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
     }
   };
 
-  return (
-    <div className="flex flex-col h-full bg-white overflow-hidden">
-      {/* Header */}
-      <div className="bg-slate-50 border-b border-slate-100 px-5 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">
-              {formData.id ? t('wizard.editTitle') : t('wizard.newTitle')}
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Passo {currentStep + 1} de {STEPS.length} — {STEPS[currentStep].title}
-            </p>
-          </div>
-          <button onClick={onCancel} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400">
-            <X size={16} />
-          </button>
-        </div>
+  // Mantém ref atualizada com dados mais recentes para onSaveNow
+  saveDataRef.current = { formData, selectedFiles, photoFile };
 
-        {/* Step progress */}
-        <div className="flex items-center gap-1">
+  return (
+    <div className="flex flex-col h-full min-h-0 flex-1 bg-white overflow-hidden">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-5 pt-3 pb-4 shrink-0">
+        {!hideHeader && (
+          <div className="flex items-center justify-between mb-4">
+            <div className="min-w-0">
+              <h2 className="text-base font-black text-slate-900 tracking-tight">
+                {formData.id ? t('wizard.editTitle') : t('wizard.newTitle')}
+              </h2>
+              <p className="text-[11px] text-[#2a74ac] font-semibold mt-0.5">
+                Passo {currentStep + 1} de {STEPS.length} — {STEPS[currentStep].title}
+              </p>
+            </div>
+            <IconButton variant="ghost" size="sm" onClick={onCancel}>
+              <X size={18} />
+            </IconButton>
+          </div>
+        )}
+
+        {/* Progress steps */}
+        <div className="flex items-center gap-1.5">
           {STEPS.map((step, idx) => (
             <React.Fragment key={step.id}>
               <button
                 type="button"
                 onClick={() => setCurrentStep(idx)}
-                className={`w-7 h-7 rounded-full flex items-center justify-center border transition-all text-xs cursor-pointer ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all text-xs shrink-0 ${
                   idx === currentStep
-                    ? 'bg-indigo-600 border-indigo-600 text-white'
+                    ? 'bg-[#2a74ac] border-[#2a74ac] text-white shadow-md shadow-[#2a74ac]/30'
                     : idx < currentStep
-                    ? 'bg-indigo-50 border-indigo-200 text-indigo-500'
-                    : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300'
+                    ? 'bg-[#e6f0f8] border-[#2a74ac]/40 text-[#2a74ac]'
+                    : 'bg-white border-slate-200 text-slate-400'
                 }`}
               >
                 {idx < currentStep ? <CheckCircle size={14} /> : step.icon}
               </button>
               {idx < STEPS.length - 1 && (
-                <div className={`flex-1 h-px transition-colors ${idx < currentStep ? 'bg-indigo-400' : 'bg-slate-200'}`} />
+                <div className={`flex-1 h-0.5 rounded-full transition-colors ${idx < currentStep ? 'bg-[#2a74ac]/40' : 'bg-slate-200'}`} />
               )}
             </React.Fragment>
           ))}
         </div>
       </div>
 
-      <div className="flex-1 px-5 py-4 overflow-y-auto">
+      {/* Body scrollável */}
+      <div className="flex-1 px-4 sm:px-5 py-4 overflow-y-auto overscroll-contain">
         {renderStepContent()}
       </div>
 
-      <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-        <button
-          onClick={currentStep === 0 ? onCancel : handlePrev}
-          className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
-        >
-          <ChevronLeft size={16} /> {currentStep === 0 ? t('common.cancel') : t('wizard.back')}
-        </button>
-
-        {currentStep === STEPS.length - 1 ? (
-          <button
-            onClick={() => onSave(formData, selectedFiles, photoFile)}
-            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
+      {/* Footer — padrão interno (omitido quando pai gerencia via onStepChange/renderFooter) */}
+      {!onStepChange && !renderFooter && (
+        <div className="px-4 sm:px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-slate-100 bg-white flex flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:items-center">
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={currentStep === 0 ? onCancel : handlePrev}
+            iconLeft={currentStep > 0 ? <ChevronLeft size={16} /> : undefined}
+            fullWidth
+            className="sm:w-auto"
           >
-            <Save size={15} /> {t('wizard.finish')}
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            {formData.id && (
-              <button
-                onClick={() => onSave(formData, selectedFiles, photoFile)}
-                className="px-4 py-2 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5"
-              >
-                <Save size={15} /> {t('common.save')}
-              </button>
+            {currentStep === 0 ? t('common.cancel') : t('wizard.back')}
+          </Button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {formData.id && currentStep < STEPS.length - 1 && (
+              <Button variant="outline" size="md" onClick={() => onSave(formData, selectedFiles, photoFile)} iconLeft={<Save size={15} />} fullWidth className="sm:w-auto">
+                {t('common.save')}
+              </Button>
             )}
-            <button
-              onClick={handleNext}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
-            >
-              {t('wizard.next')} <ChevronRight size={15} />
-            </button>
+            {currentStep === STEPS.length - 1 ? (
+              <Button variant="primary" size="md" onClick={() => onSave(formData, selectedFiles, photoFile)} iconLeft={<Save size={15} />} fullWidth className="sm:w-auto">
+                {t('wizard.finish')}
+              </Button>
+            ) : (
+              <Button variant="primary" size="md" onClick={handleNext} iconRight={<ChevronRight size={16} />} fullWidth className="sm:w-auto">
+                {t('wizard.next')}
+              </Button>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
+  );
+};
+
+// ─── WizardModal ─────────────────────────────────────────────────────────────
+// Wrapper que combina Modal + PatientFormWizard com footer no padrão do sistema
+// (mesmo padrão do modal de agendamento: footer como prop do Modal, fixo)
+
+interface WizardModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialData?: Partial<Patient>;
+  onSave: (data: Partial<Patient>, files: DocFile[], photoFile?: File | null) => void;
+}
+
+export const WizardModal: React.FC<WizardModalProps> = ({ isOpen, onClose, initialData, onSave }) => {
+  const { t } = useLanguage();
+  // footerMeta: só dados escalares para re-render do footer
+  const [footerMeta, setFooterMeta] = React.useState({ currentStep: 0, isLastStep: false, hasId: false });
+  // footerFns: refs para funções sempre atualizadas do wizard
+  const wizardFnsRef = React.useRef<Pick<WizardFooterContext, 'onNext'|'onPrev'|'onSaveNow'|'onCancel'>>({
+    onNext: () => {}, onPrev: () => {}, onSaveNow: () => {}, onCancel: onClose,
+  });
+
+  React.useEffect(() => {
+    if (!isOpen) setFooterMeta({ currentStep: 0, isLastStep: false, hasId: false });
+  }, [isOpen]);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <div>
+          <div>{initialData?.id ? t('wizard.editTitle') : t('wizard.newTitle')}</div>
+          <div className="text-[11px] text-[#2a74ac] font-semibold normal-case tracking-normal mt-0.5">
+            Passo {footerMeta.currentStep + 1} de 6 — {t(`wizard.step${footerMeta.currentStep + 1}` as any)}
+          </div>
+        </div>
+      }
+      size="2xl"
+      mobileStyle="bottom-sheet"
+      className="sm:max-w-[760px]"
+      footer={
+        <div className="flex flex-col-reverse sm:flex-row w-full sm:justify-between sm:items-center gap-2">
+          {/* Mobile: primário em cima, secundário embaixo */}
+          <div className="flex sm:hidden flex-col gap-2">
+            {footerMeta.isLastStep ? (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => wizardFnsRef.current.onSaveNow()}
+                iconLeft={<Save size={15} />}
+                fullWidth
+                className="h-12 rounded-2xl text-sm"
+              >
+                {t('wizard.finish')}
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => wizardFnsRef.current.onNext()}
+                iconRight={<ChevronRight size={16} />}
+                fullWidth
+                className="h-12 rounded-2xl text-sm"
+              >
+                {t('wizard.next')}
+              </Button>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => footerMeta.currentStep === 0 ? wizardFnsRef.current.onCancel() : wizardFnsRef.current.onPrev()}
+                iconLeft={footerMeta.currentStep > 0 ? <ChevronLeft size={14} /> : undefined}
+                fullWidth
+                className="text-zinc-500"
+              >
+                {footerMeta.currentStep === 0 ? t('common.cancel') : t('wizard.back')}
+              </Button>
+              {footerMeta.hasId && !footerMeta.isLastStep && (
+                <Button variant="outline" size="sm" onClick={() => wizardFnsRef.current.onSaveNow()} iconLeft={<Save size={13} />} className="shrink-0">
+                  {t('common.save')}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop */}
+          <div className="hidden sm:flex w-full justify-between items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => footerMeta.currentStep === 0 ? wizardFnsRef.current.onCancel() : wizardFnsRef.current.onPrev()}
+              iconLeft={footerMeta.currentStep > 0 ? <ChevronLeft size={14} /> : undefined}
+            >
+              {footerMeta.currentStep === 0 ? t('common.cancel') : t('wizard.back')}
+            </Button>
+            <div className="flex gap-2">
+              {footerMeta.hasId && !footerMeta.isLastStep && (
+                <Button variant="outline" size="sm" onClick={() => wizardFnsRef.current.onSaveNow()} iconLeft={<Save size={13} />}>
+                  {t('common.save')}
+                </Button>
+              )}
+              {footerMeta.isLastStep ? (
+                <Button variant="primary" size="sm" onClick={() => wizardFnsRef.current.onSaveNow()} iconLeft={<Save size={13} />}>
+                  {t('wizard.finish')}
+                </Button>
+              ) : (
+                <Button variant="primary" size="sm" onClick={() => wizardFnsRef.current.onNext()} iconRight={<ChevronRight size={14} />}>
+                  {t('wizard.next')}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <div className="-m-4 sm:-m-7 flex flex-col flex-1 min-h-0">
+        <PatientFormWizard
+          initialData={initialData || {}}
+          onSave={onSave}
+          onCancel={onClose}
+          hideHeader
+          onStepChange={(ctx) => {
+            wizardFnsRef.current = { onNext: ctx.onNext, onPrev: ctx.onPrev, onSaveNow: ctx.onSaveNow, onCancel: ctx.onCancel };
+            setFooterMeta({ currentStep: ctx.currentStep, isLastStep: ctx.isLastStep, hasId: ctx.hasId });
+          }}
+        />
+      </div>
+    </Modal>
   );
 };

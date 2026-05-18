@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  X, Calendar, DollarSign, FileText, FolderOpen, StickyNote,
+  Calendar, DollarSign, FileText, FolderOpen, StickyNote,
   Loader2, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp,
   TrendingDown, Boxes, BrainCircuit, History, Info, ClipboardList, Radar
 } from 'lucide-react';
 import { Patient } from '../../types';
 import { api, getStaticUrl } from '../../services/api';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { Badge, EmptyState, FilterLineSegmented } from '../UI';
+import { ActionDrawer } from '../UI/ActionDrawer';
 
 interface TimelineItem {
   id: string;
@@ -136,54 +138,40 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
   const grouped = groupByMonth(filtered);
 
   return (
-    <>
-      {/* Overlay Escuro */}
-      <div
-        className={`fixed inset-0 z-[150] bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-        onClick={onClose}
-      />
-
-      {/* Drawer Container */}
-      <div className={`
-        fixed top-0 right-0 z-[160] h-full w-full max-w-2xl bg-white shadow-2xl flex flex-col
-        transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-      `}>
-        
-        {/* Header */}
-        <div className="bg-white border-b border-slate-100 p-4 sm:p-6 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-600 font-bold text-lg overflow-hidden shrink-0">
-              {patient?.photo_url ? (
-                <img src={getStaticUrl(patient.photo_url)} alt={patient.full_name} className="w-full h-full object-cover" />
+    <ActionDrawer
+      isOpen={isOpen}
+      onClose={onClose}
+      title={patient?.full_name || t('patients.history')}
+      subtitle={t('patients.history')}
+      size="lg"
+      mobileBehavior="full-screen"
+      bodyClassName="bg-slate-50 px-4 py-4 sm:px-6 sm:py-6"
+    >
+      <div className="space-y-4">
+        {patient && (
+          <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-100 text-lg font-bold text-indigo-600">
+              {patient.photo_url ? (
+                <img src={getStaticUrl(patient.photo_url)} alt={patient.full_name} className="h-full w-full object-cover" />
               ) : (
-                (patient?.full_name || '?').charAt(0).toUpperCase()
+                (patient.full_name || '?').charAt(0).toUpperCase()
               )}
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-800 leading-tight mb-0.5">{patient?.full_name}</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('patients.history')}</p>
-              {patient && (
-                <button
-                  onClick={() => { navigate(`/pacientes/${patient.id}`); onClose(); }}
-                  className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 hover:underline mt-0.5 block"
-                >
-                  Ver perfil completo →
-                </button>
-              )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-black text-slate-800">{patient.full_name}</p>
+              <button
+                onClick={() => { navigate(`/pacientes/${patient.id}`); onClose(); }}
+                className="mt-0.5 block text-[10px] font-bold text-indigo-500 hover:text-indigo-700 hover:underline"
+              >
+                Ver perfil completo →
+              </button>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-400 transition-all border border-slate-100"
-          >
-            <X size={16} />
-          </button>
-        </div>
+        )}
 
         {/* Estatísticas (Stats Grid) */}
         {data && (
-          <div className="grid grid-cols-3 sm:grid-cols-5 border-b border-slate-100 shrink-0 bg-slate-50/50">
+          <div className="grid grid-cols-2 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm sm:grid-cols-5">
             {[
               { label: t('nav.agenda'), value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={14}/> },
               { label: t('nav.records'), value: data.counts.records, color: 'text-blue-600', icon: <FileText size={14}/> },
@@ -191,7 +179,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
               { label: t('nav.comandas'), value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={14}/> },
               { label: 'Formulários', value: data.counts.forms || 0, color: 'text-rose-600', icon: <ClipboardList size={14}/> },
             ].map((s, idx) => (
-              <div key={idx} className="py-5 px-3 text-center border-r border-slate-100 last:border-r-0 flex flex-col items-center justify-center hover:bg-white transition-colors">
+              <div key={idx} className="flex flex-col items-center justify-center border-b border-r border-slate-100 px-3 py-4 text-center transition-colors last:border-r-0 hover:bg-slate-50 sm:border-b-0">
                 <div className={`flex items-center justify-center gap-2 text-base font-black ${s.color}`}>
                   {s.icon} <span>{s.value}</span>
                 </div>
@@ -202,37 +190,29 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
         )}
 
         {/* Filtros (Scroll Horizontal) */}
-        <div className="px-4 sm:px-6 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto custom-scrollbar shrink-0 bg-white z-10">
-          {FILTER_OPTIONS(t).map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                filter === f.id 
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 ring-2 ring-indigo-50' 
-                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-white hover:text-slate-600 hover:border-slate-300'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white p-3 shadow-sm custom-scrollbar">
+          <FilterLineSegmented<string>
+            value={filter}
+            onChange={setFilter}
+            options={FILTER_OPTIONS(t).map(f => ({ value: f.id, label: f.label }))}
+            size="sm"
+            className="min-w-max"
+          />
         </div>
 
         {/* Conteúdo da Linha do Tempo (Timeline) */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 bg-slate-50/30 custom-scrollbar">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
               <Loader2 size={32} className="animate-spin text-indigo-500" />
               <p className="text-sm font-medium">A carregar histórico...</p>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
-                <History size={24} className="text-slate-300" />
-              </div>
-              <h4 className="text-base font-semibold text-slate-700 mb-1">Sem registos</h4>
-              <p className="text-sm text-slate-500 max-w-xs">Não existem eventos nesta categoria para este paciente.</p>
-            </div>
+            <EmptyState
+              icon={History}
+              title="Sem registros"
+              description="Não existem eventos nesta categoria para este paciente."
+            />
           ) : (
             <div className="space-y-8 pb-10">
               {Object.entries(grouped).map(([month, items]) => (
@@ -287,7 +267,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                                           {st.icon} {st.label}
                                         </span>
                                       )}
-                                      <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">#{cfg.label}</span>
+                                      <Badge color="default" size="sm">#{cfg.label}</Badge>
                                     </div>
                                   </div>
                                   
@@ -344,6 +324,6 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
           )}
         </div>
       </div>
-    </>
+    </ActionDrawer>
   );
 };

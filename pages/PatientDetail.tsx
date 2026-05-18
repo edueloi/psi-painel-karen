@@ -4,15 +4,23 @@ import {
   ArrowLeft, Calendar, FileText, BrainCircuit, ClipboardList, FolderOpen,
   Boxes, StickyNote, MapPin, Shield, Phone, Mail, User, Edit2,
   Loader2, Download, Trash2, FileUp, TrendingUp, ExternalLink,
-  ChevronRight, History, Activity, AlertTriangle, X
+  ChevronRight, History, Activity
 } from 'lucide-react';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Patient } from '../types';
 import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
-import { DatePicker } from '../components/UI/DatePicker';
-import { Modal } from '../components/UI/Modal';
+import {
+  Button,
+  ConfirmModal as UIConfirmModal,
+  DatePicker,
+  IconButton,
+  Modal,
+  PageWrapper,
+  PanelCard,
+  SectionTitle,
+} from '../components/UI';
 import { useToast } from '../contexts/ToastContext';
 
 const AVATAR_COLORS = [
@@ -213,21 +221,21 @@ export const PatientDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
+      <PageWrapper className="flex min-h-[420px] items-center justify-center">
         <Loader2 size={28} className="animate-spin text-indigo-500" />
-      </div>
+      </PageWrapper>
     );
   }
 
   if (!patient) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-4">
+      <PageWrapper className="flex min-h-[420px] flex-col items-center justify-center gap-4">
         <User size={48} className="text-slate-300" />
         <p className="text-slate-500 font-medium">Paciente não encontrado</p>
-        <button onClick={() => navigate('/pacientes')} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700">
+        <Button type="button" onClick={() => navigate('/pacientes')} size="sm">
           Voltar à lista
-        </button>
-      </div>
+        </Button>
+      </PageWrapper>
     );
   }
 
@@ -235,35 +243,49 @@ export const PatientDetail: React.FC = () => {
   const active = isActive(patient);
 
   return (
-    <div className="-m-4 md:-m-6 lg:-m-8 bg-slate-50 flex flex-col">
+    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6">
       {/* Top bar */}
-      <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center gap-3">
-          <button onClick={() => navigate('/pacientes')} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors">
+      <PanelCard contentClassName="p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <IconButton type="button" variant="ghost" size="md" onClick={() => navigate('/pacientes')} aria-label="Voltar para pacientes">
             <ArrowLeft size={18} />
-          </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-black text-slate-800 truncate">{patientName(patient)}</h1>
-            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Perfil do paciente</p>
-          </div>
-          <button
-            onClick={() => setHistoryOpen(true)}
-            className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-            title="Histórico"
-          >
-            <History size={16} />
-          </button>
-          {hasPermission('edit_patient') && (
-            <button
-              onClick={() => setIsWizardOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
-            >
-              <Edit2 size={13} /> Editar
-            </button>
-          )}
+          </IconButton>
+          <SectionTitle
+            className="flex-1"
+            icon={User}
+            title={patientName(patient)}
+            description="Perfil do paciente"
+            action={
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  onClick={() => setHistoryOpen(true)}
+                  title="Histórico"
+                  aria-label="Histórico"
+                >
+                  <History size={16} />
+                </IconButton>
+                {hasPermission('edit_patient') && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsWizardOpen(true)}
+                    iconLeft={<Edit2 size={13} />}
+                  >
+                    Editar
+                  </Button>
+                )}
+              </div>
+            }
+          />
         </div>
+      </PanelCard>
 
         {/* Hero header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-6">
+        <PanelCard contentClassName="p-0" className="overflow-hidden">
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-5 sm:px-6 sm:py-6">
           <div className="flex items-center gap-4">
             <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${getAvatarColor(patientName(patient))} flex items-center justify-center text-white text-2xl font-black shrink-0 border-4 border-white/30 overflow-hidden shadow-lg`}>
               {patient.photo_url || patient.photoUrl ? (
@@ -312,9 +334,11 @@ export const PatientDetail: React.FC = () => {
             ))}
           </div>
         </div>
+        </PanelCard>
 
         {/* Tab bar */}
-        <div className="bg-white border-b border-slate-100 px-4 flex gap-1 overflow-x-auto">
+        <PanelCard contentClassName="p-0">
+        <div className="flex gap-1 overflow-x-auto px-3 sm:px-4">
           {TABS.filter(tab => {
             if (tab.key === 'prontuario') return hasPermission('view_medical_records');
             if (tab.key === 'ferramentas') return hasPermission('manage_clinical_tools');
@@ -342,9 +366,10 @@ export const PatientDetail: React.FC = () => {
             </button>
           ))}
         </div>
+        </PanelCard>
 
       {/* Tab content */}
-      <div className="max-w-4xl mx-auto w-full px-4 py-6">
+      <div className="mx-auto w-full max-w-4xl">
         {activeTab === 'dados' && <TabDados patient={patient} navigate={navigate} />}
         {activeTab === 'agenda' && <TabAgenda appointments={appointments} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'documentos' && <TabDocumentos documents={documents} loading={tabLoading} patientId={id!} onRefresh={() => loadTab('documentos')} />}
@@ -354,24 +379,27 @@ export const PatientDetail: React.FC = () => {
       </div>
 
       {/* Edit wizard modal */}
-      {isWizardOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white flex flex-col">
-            <PatientFormWizard
-              initialData={patient || {}}
-              onCancel={() => setIsWizardOpen(false)}
-              onSave={handlePatientSaved}
-            />
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        title="Editar paciente"
+        size="2xl"
+        mobileStyle="fullscreen"
+        className="sm:max-w-[760px]"
+      >
+        <PatientFormWizard
+          initialData={patient || {}}
+          onCancel={() => setIsWizardOpen(false)}
+          onSave={handlePatientSaved}
+        />
+      </Modal>
 
       {/* History drawer */}
       <PatientHistoryDrawer
         patient={historyOpen ? patient : null}
         onClose={() => setHistoryOpen(false)}
       />
-    </div>
+    </PageWrapper>
   );
 };
 
@@ -387,27 +415,28 @@ const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, va
 const TabDados: React.FC<{ patient: Patient; navigate: (p: string) => void }> = ({ patient, navigate }) => (
   <div className="space-y-4">
     {/* Contato */}
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-50 flex items-center gap-2">
-        <Phone size={14} className="text-indigo-500" />
-        <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Contato</span>
-      </div>
-      <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-5">
+    <PanelCard
+      title="Contato"
+      icon={Phone}
+      iconWrapClassName="border-blue-100 bg-blue-50"
+      iconClassName="text-blue-600"
+      contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+    >
         <InfoRow label="Telefone" value={patient.whatsapp || patient.phone} />
         <InfoRow label="Telefone 2" value={patient.phone2} />
         <InfoRow label="Email" value={patient.email} />
         <InfoRow label="CPF" value={patient.cpf_cnpj || patient.cpf} />
         <InfoRow label="RG" value={patient.rg} />
-      </div>
-    </div>
+    </PanelCard>
 
     {/* Dados pessoais */}
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-50 flex items-center gap-2">
-        <User size={14} className="text-violet-500" />
-        <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Dados Pessoais</span>
-      </div>
-      <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-5">
+    <PanelCard
+      title="Dados Pessoais"
+      icon={User}
+      iconWrapClassName="border-violet-100 bg-violet-50"
+      iconClassName="text-violet-600"
+      contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+    >
         <InfoRow label="Nascimento" value={formatDate(patient.birth_date || patient.birthDate)} />
         <InfoRow label="Gênero" value={patient.gender} />
         <InfoRow label="Estado civil" value={patient.marital_status} />
@@ -415,65 +444,63 @@ const TabDados: React.FC<{ patient: Patient; navigate: (p: string) => void }> = 
         <InfoRow label="Profissão" value={patient.profession} />
         <InfoRow label="Nacionalidade" value={patient.nationality} />
         <InfoRow label="Naturalidade" value={patient.naturality} />
-      </div>
-    </div>
+    </PanelCard>
 
     {/* Endereço */}
     {(patient.address || patient.street || patient.city) && (
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-50 flex items-center gap-2">
-          <MapPin size={14} className="text-emerald-500" />
-          <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Endereço</span>
-        </div>
-        <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-5">
+      <PanelCard
+        title="Endereço"
+        icon={MapPin}
+        iconWrapClassName="border-emerald-100 bg-emerald-50"
+        iconClassName="text-emerald-600"
+        contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+      >
           <InfoRow label="Logradouro" value={patient.address || patient.street} />
           <InfoRow label="Número" value={patient.house_number} />
           <InfoRow label="Bairro" value={patient.neighborhood} />
           <InfoRow label="Cidade" value={patient.city} />
           <InfoRow label="Estado" value={patient.state} />
           <InfoRow label="CEP" value={patient.zip_code || patient.address_zip} />
-        </div>
-      </div>
+      </PanelCard>
     )}
 
     {/* Família */}
     {(patient.spouse_name || patient.family_contact || patient.emergency_contact) && (
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-50 flex items-center gap-2">
-          <Activity size={14} className="text-rose-500" />
-          <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Família / Contatos</span>
-        </div>
-        <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-5">
+      <PanelCard
+        title="Família / Contatos"
+        icon={Activity}
+        iconWrapClassName="border-rose-100 bg-rose-50"
+        iconClassName="text-rose-600"
+        contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+      >
           <InfoRow label="Cônjuge" value={patient.spouse_name} />
           <InfoRow label="Contato familiar" value={patient.family_contact} />
           <InfoRow label="Contato emergência" value={patient.emergency_contact} />
-        </div>
-      </div>
+      </PanelCard>
     )}
 
     {/* Clínico */}
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-50 flex items-center gap-2">
-        <Shield size={14} className="text-amber-500" />
-        <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Informações Clínicas</span>
-      </div>
-      <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-5">
+    <PanelCard
+      title="Informações Clínicas"
+      icon={Shield}
+      iconWrapClassName="border-amber-100 bg-amber-50"
+      iconClassName="text-amber-600"
+      contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+    >
         <InfoRow label="Convênio" value={patient.health_plan || (patient.convenio ? patient.convenio_name || 'Sim' : undefined)} />
         <InfoRow label="Diagnóstico" value={patient.diagnosis} />
         {patient.notes && (
-          <div className="col-span-2 sm:col-span-3">
+          <div className="sm:col-span-2 lg:col-span-3">
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-1.5">Observações</div>
             <div className="text-sm text-slate-600 bg-amber-50 border border-amber-200/60 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
               {patient.notes}
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </PanelCard>
 
     {/* Quick nav */}
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-      <div className="text-xs font-black text-slate-400 uppercase tracking-wide mb-3">Ir para</div>
+    <PanelCard title="Ir para" icon={ExternalLink}>
       <div className="flex flex-wrap gap-2">
         {[
           { label: 'Prontuário', path: `/prontuario?patient_id=${patient.id}` },
@@ -491,7 +518,7 @@ const TabDados: React.FC<{ patient: Patient; navigate: (p: string) => void }> = 
           </button>
         ))}
       </div>
-    </div>
+    </PanelCard>
   </div>
 );
 
@@ -764,14 +791,15 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
       ))}
 
       {/* Modal de confirmação de exclusão */}
-      <ConfirmModal
-        open={!!deleteTarget}
+      <UIConfirmModal
+        isOpen={!!deleteTarget}
         title="Excluir documento"
         message={`Tem certeza que deseja excluir "${deleteTarget?.name}"? Esta ação não pode ser desfeita.`}
         confirmLabel="Excluir"
         loading={deleting}
         onConfirm={confirmDelete}
-        onCancel={() => setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
+        variant="danger"
       />
     </div>
   );
@@ -883,48 +911,3 @@ const EmptyState: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, 
     <p className="text-xs font-semibold text-slate-400">{label}</p>
   </div>
 );
-
-const ConfirmModal: React.FC<{
-  open: boolean;
-  title: string;
-  message: string;
-  confirmLabel?: string;
-  loading?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}> = ({ open, title, message, confirmLabel = 'Confirmar', loading, onConfirm, onCancel }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-            <AlertTriangle size={18} className="text-red-600" />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-slate-800">{title}</h3>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{message}</p>
-          </div>
-        </div>
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {loading && <Loader2 size={12} className="animate-spin" />}
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};

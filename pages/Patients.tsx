@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Users, Search, Plus, Phone, Mail, Calendar, FileText,
+  Users, Plus, Phone, Mail, Calendar, FileText,
   Edit2, Trash2, X, AlertCircle, Eye, ClipboardList,
-  FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight, ChevronLeft,
+  FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight,
   FileUp, FileDown, Download, MapPin, Shield, User,
   Activity, TrendingUp, CheckSquare, Square, History, CheckCircle2, ChevronDown
 } from 'lucide-react';
@@ -10,13 +10,33 @@ import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
+import { WizardModal } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useToast } from '../contexts/ToastContext';
 import { GridTable, Column } from '../components/UI/GridTable';
-import { PageHeader } from '../components/UI/PageHeader';
+import {
+  Badge,
+  Button,
+  IconButton,
+  ConfirmModal,
+  EmptyState,
+  FilterLine,
+  FilterLineItem,
+  FilterLineSearch,
+  FilterLineSection,
+  FilterLineSegmented,
+  FilterLineViewToggle,
+  Modal,
+  ModalFooter,
+  PageWrapper,
+  PanelCard,
+  SectionTitle,
+  StatCard,
+  StatGrid,
+  Pagination,
+} from '../components/UI';
 
 interface PatientSummary {
   appointmentsCount: number | null;
@@ -76,11 +96,11 @@ export const Patients: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(preferences.patients.viewMode);
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -152,7 +172,7 @@ export const Patients: React.FC = () => {
     }
   };
 
-  const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const norm = (s: string) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
@@ -171,23 +191,19 @@ export const Patients: React.FC = () => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, itemsPerPage]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / itemsPerPage));
   const currentPatients = useMemo(() => {
     return filteredPatients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   }, [filteredPatients, currentPage, itemsPerPage]);
 
   const toggleSelectAll = () => {
-    // Determine if all visible patients on the current page are selected
     const allVisibleSelected = currentPatients.every(p => selectedIds.has(String(p.id)));
     if (allVisibleSelected) {
-      // Unselect only the ones on the current page
       setSelectedIds(prev => {
         const next = new Set(prev);
         currentPatients.forEach(p => next.delete(String(p.id)));
         return next;
       });
     } else {
-      // Select all on the current page
       setSelectedIds(prev => {
         const next = new Set(prev);
         currentPatients.forEach(p => next.add(String(p.id)));
@@ -316,8 +332,7 @@ export const Patients: React.FC = () => {
       const newStatus = patient.status === 'ativo' ? 'inactive' : 'active';
       const p = patients.find(p => p.id === patient.id);
       if (!p) return;
-      
-      // Sanitizar dados para evitar erro 500 no MySQL (como birth_date: '')
+
       const payload = {
         ...p,
         status: newStatus,
@@ -467,7 +482,7 @@ export const Patients: React.FC = () => {
         p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '',
       ].join(';')),
     ];
-    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -628,7 +643,6 @@ export const Patients: React.FC = () => {
       const result = await api.request<any>('/patients/import/preview', { method: 'POST', body: formData });
       const rows = result.preview || [];
       setImportPreview(rows);
-      // Pré-seleciona apenas os não-duplicados
       setImportSelectedIds(new Set(rows.filter((r: any) => !r.duplicate).map((_: any, i: number) => String(i))));
       setImportFile(file);
       setImportPreviewOpen(true);
@@ -661,32 +675,59 @@ export const Patients: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-[1600px] mx-auto px-6 pt-6 mb-6">
-        <PageHeader
-          icon={<Users />}
+    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+      <div>
+        <SectionTitle
+          icon={Users}
           title={t('patients.title')}
-          subtitle={t('patients.subtitle')}
-          containerClassName="mb-0"
-          actions={
-            <div className="flex items-center gap-2">
+          description={t('patients.subtitle')}
+          action={
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {hasPermission('view_performance_reports') && (
                 <>
-                  <button
+                  {/* Modelo — só ícone no mobile */}
+                  <IconButton
+                    variant="outline"
+                    size="sm"
                     onClick={handleExportTemplate}
                     title="Baixar Modelo de Importação"
-                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm uppercase tracking-tighter"
+                    className="sm:hidden"
                   >
-                    <Download size={14} /> <span className="hidden sm:inline">Modelo</span>
-                  </button>
+                    <Download size={15} />
+                  </IconButton>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportTemplate}
+                    title="Baixar Modelo de Importação"
+                    iconLeft={<Download size={14} />}
+                    className="hidden sm:inline-flex"
+                  >
+                    Modelo
+                  </Button>
+
+                  {/* Exportar dropdown */}
                   <div className="relative">
-                    <button
+                    <IconButton
+                      variant="outline"
+                      size="sm"
                       onClick={() => setExportMenuOpen(o => !o)}
                       title="Exportar Pacientes"
-                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm uppercase tracking-tighter"
+                      className="sm:hidden"
                     >
-                      <Download size={14} /> <span className="hidden sm:inline">Exportar</span> <ChevronDown size={12} />
-                    </button>
+                      <FileDown size={15} />
+                    </IconButton>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExportMenuOpen(o => !o)}
+                      title="Exportar Pacientes"
+                      iconLeft={<FileDown size={14} />}
+                      iconRight={<ChevronDown size={12} />}
+                      className="hidden sm:inline-flex"
+                    >
+                      Exportar
+                    </Button>
                     {exportMenuOpen && (
                       <div
                         className="absolute right-0 top-full z-[110] mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
@@ -713,283 +754,244 @@ export const Patients: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer uppercase tracking-tighter">
-                    {isLoadingPreview ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />}
-                    <span className="hidden sm:inline">{isLoadingPreview ? 'Lendo...' : 'Importar'}</span>
+
+                  {/* Importar — só ícone no mobile */}
+                  <label className="sm:hidden flex h-8 w-8 items-center justify-center rounded-[10px] border-2 bg-white border-[#2a74ac] text-[#2a74ac] hover:bg-[#e6e7e8] cursor-pointer transition-colors">
+                    {isLoadingPreview ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
+                    <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
+                  </label>
+                  <label className="hidden sm:flex items-center gap-1.5 h-8 min-w-[82px] px-3 text-[12px] rounded-[20px] font-semibold border-2 bg-white border-[#2a74ac] text-[#2a74ac] hover:bg-[#e6e7e8] hover:border-[#487295] hover:text-[#487295] cursor-pointer select-none transition-colors duration-150 whitespace-nowrap">
+                    {isLoadingPreview ? <Loader2 size={14} className="animate-spin shrink-0" /> : <FileUp size={14} className="shrink-0" />}
+                    {isLoadingPreview ? 'Lendo...' : 'Importar'}
                     <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
                   </label>
                 </>
               )}
               {hasPermission('create_patient') && (
-                <button
-                  onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-primary-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-primary-700 transition-all shadow-sm uppercase tracking-tighter"
-                >
-                  <Plus size={14} /> {t('patients.new')}
-                </button>
+                <>
+                  {/* Novo — só ícone no mobile */}
+                  <IconButton
+                    variant="primary"
+                    size="sm"
+                    onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
+                    title={t('patients.new')}
+                    className="sm:hidden"
+                  >
+                    <Plus size={16} />
+                  </IconButton>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
+                    iconLeft={<Plus size={14} />}
+                    className="hidden sm:inline-flex"
+                  >
+                    {t('patients.new')}
+                  </Button>
+                </>
               )}
             </div>
           }
         />
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <StatGrid cols={4}>
           {[
-            { label: 'Total de Pacientes', value: summaryStats.total, icon: <Users size={18} />, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
-            { label: 'Pacientes Ativos', value: summaryStats.active, icon: <Activity size={18} />, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-            { label: 'Inativos / Arquivados', value: summaryStats.inactive, icon: <User size={18} />, color: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-200' },
-            { label: 'Com Convênio', value: summaryStats.withPlan, icon: <Shield size={18} />, color: 'text-primary-600', bg: 'bg-primary-50', border: 'border-primary-100' },
-          ].map(s => (
-            <div key={s.label} className={`bg-white border ${s.border} rounded-2xl p-4 flex items-center gap-3 shadow-sm`}>
-              <div className={`w-10 h-10 ${s.bg} ${s.color} rounded-xl flex items-center justify-center shrink-0`}>
-                {s.icon}
-              </div>
-              <div>
-                <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
-                <div className="text-[11px] text-slate-500 font-medium leading-tight">{s.label}</div>
-              </div>
-            </div>
+            { label: 'Total de Pacientes', value: summaryStats.total, icon: Users, color: 'info' as const },
+            { label: 'Pacientes Ativos', value: summaryStats.active, icon: Activity, color: 'success' as const },
+            { label: 'Inativos / Arquivados', value: summaryStats.inactive, icon: User, color: 'default' as const },
+            { label: 'Com Convênio', value: summaryStats.withPlan, icon: Shield, color: 'purple' as const },
+          ].map((s, index) => (
+            <StatCard
+              key={s.label}
+              title={s.label}
+              value={s.value}
+              icon={s.icon}
+              color={s.color}
+              delay={index * 0.04}
+            />
           ))}
-        </div>
+        </StatGrid>
 
         {/* Search + Filter Bar */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-3 mb-5 flex flex-col sm:flex-row gap-3 shadow-sm">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-            <input
-              type="text"
-              placeholder={t('patients.search')}
-              className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+        <FilterLine>
+          <FilterLineSection grow>
+            <FilterLineItem grow minWidth={260}>
+              <FilterLineSearch
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder={t('patients.search')}
+              />
+            </FilterLineItem>
+          </FilterLineSection>
+          <FilterLineSection align="right">
+            <FilterLineSegmented<'all' | 'ativo' | 'inativo'>
+              value={statusFilter}
+              onChange={(value) => {
+                setStatusFilter(value);
+                updatePreference('patients', { statusFilter: value });
+              }}
+              options={[
+                { value: 'all', label: t('patients.filter.all') },
+                { value: 'ativo', label: t('patients.status.active') },
+                { value: 'inativo', label: t('patients.status.archived') },
+              ]}
+              size="sm"
             />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-              {[
-                { id: 'all', label: t('patients.filter.all') },
-                { id: 'ativo', label: t('patients.status.active') },
-                { id: 'inativo', label: t('patients.status.archived') },
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => { setStatusFilter(f.id as any); updatePreference('patients', { statusFilter: f.id as any }); }}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    statusFilter === f.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+            <div className="hidden sm:flex">
+              <FilterLineViewToggle<'cards' | 'list'>
+                value={viewMode}
+                gridValue="cards"
+                listValue="list"
+                onChange={(value) => {
+                  setViewMode(value);
+                  updatePreference('patients', { viewMode: value });
+                }}
+              />
             </div>
-            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-              <button
-                onClick={() => { setViewMode('cards'); updatePreference('patients', { viewMode: 'cards' }); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'cards' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                title="Visualização em cards"
-              >
-                ⊞
-              </button>
-              <button
-                onClick={() => { setViewMode('list'); updatePreference('patients', { viewMode: 'list' }); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                title="Visualização em lista"
-              >
-                ☰
-              </button>
-            </div>
-          </div>
-        </div>
+          </FilterLineSection>
+        </FilterLine>
 
+        <PanelCard
+          title="Pacientes"
+          description={`${filteredPatients.length} paciente${filteredPatients.length !== 1 ? 's' : ''} encontrado${filteredPatients.length !== 1 ? 's' : ''}`}
+          icon={Users}
+          iconWrapClassName="border-sky-100 bg-sky-50"
+          iconClassName="text-sky-600"
+          contentClassName="space-y-4"
+        >
         {/* Results Count + Bulk Actions */}
         {!isLoading && (
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <p className="text-xs text-slate-400 font-medium">
-                {filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''} encontrado{filteredPatients.length !== 1 ? 's' : ''}
-              </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge color="info" pill>
+                {filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''}
+              </Badge>
               {filteredPatients.length > 0 && (
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
                   onClick={toggleSelectAll}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
-                >
-                  {selectedIds.size === filteredPatients.length && filteredPatients.length > 0
-                    ? <CheckSquare size={14} className="text-indigo-600" />
-                    : <Square size={14} />
+                  iconLeft={
+                    currentPatients.length > 0 && currentPatients.every(p => selectedIds.has(String(p.id)))
+                      ? <CheckSquare size={14} />
+                      : <Square size={14} />
                   }
-                  {selectedIds.size === filteredPatients.length && filteredPatients.length > 0 ? 'Desmarcar todos' : 'Selecionar todos'}
-                </button>
+                >
+                  {currentPatients.length > 0 && currentPatients.every(p => selectedIds.has(String(p.id))) ? 'Desmarcar página' : 'Selecionar página'}
+                </Button>
               )}
             </div>
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 animate-fadeIn">
-                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">
+              <div className="flex flex-wrap items-center gap-2 animate-fadeIn">
+                <Badge color="primary" pill>
                   {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
-                </span>
+                </Badge>
                 {hasPermission('delete_patient') && (
-                  <button
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="xs"
                     onClick={() => setConfirmBulkDelete(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors shadow-sm"
+                    iconLeft={<Trash2 size={13} />}
                   >
-                    <Trash2 size={13} /> Excluir selecionados
-                  </button>
+                    Excluir selecionados
+                  </Button>
                 )}
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
                   onClick={() => setSelectedIds(new Set())}
-                  className="text-xs text-slate-400 hover:text-slate-600 transition-colors px-2"
                 >
                   Cancelar
-                </button>
+                </Button>
               </div>
             )}
           </div>
         )}
 
-        {/* Content */}
+        {/* Content — mobile sempre cards, desktop respeita viewMode */}
         { (isLoading || bulkDeleting || isProcessing) ? (
-          <div className={viewMode === 'cards' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className={`bg-slate-100 rounded-2xl animate-pulse ${viewMode === 'cards' ? 'h-40' : 'h-16'}`} />
+              <div key={i} className="bg-slate-100 rounded-2xl animate-pulse h-40" />
             ))}
           </div>
-        ) : viewMode === 'cards' ? (
-          /* === CARD VIEW === */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {currentPatients.map(patient => {
-              const age = calcAge(patient.birth_date);
-              const active = isActive(patient);
-              const avatarGrad = getAvatarColor(patient.full_name || 'A');
-              const isSelected = selectedIds.has(String(patient.id));
-              return (
-                <div
-                  key={patient.id}
-                  className={`bg-white border rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'}`}
-                  onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : navigate(`/pacientes/${patient.id}`)}
-                >
-                  {/* Card Top */}
-                  <div className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="relative shrink-0">
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shadow-sm overflow-hidden`}>
-                          {patient.photo_url || patient.photoUrl ? (
-                            <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
-                          ) : (
-                            (patient.full_name || '?').charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <button
-                          onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelect(String(patient.id)); }}
-                          className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-indigo-400'}`}
-                        >
-                          {isSelected && <CheckSquare size={12} />}
-                        </button>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-sm font-bold text-slate-800 truncate">{patient.full_name || 'Sem nome'}</h3>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                            {active ? 'Ativo' : 'Inativo'}
-                          </span>
-                          {patient.health_plan && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-200">
-                              <Shield size={9} /> Convênio
-                            </span>
-                          )}
-                          {age && (
-                            <span className="text-[10px] text-slate-400 font-medium">{age} anos</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 space-y-1.5">
-                      {(patient.whatsapp || patient.phone) && (
-                        <div className="flex items-center gap-2 text-xs text-slate-600">
-                          <Phone size={11} className="text-indigo-400 shrink-0" />
-                          <span className="truncate flex items-center gap-1.5">
-                            {patient.phone_country && <span className="text-sm leading-none shrink-0" title={patient.phone_country}>{getFlag(patient.phone_country)}</span>}
-                            {patient.whatsapp || patient.phone}
-                          </span>
-                        </div>
-                      )}
-                      {patient.email && (
-                        <div className="flex items-center gap-2 text-xs text-slate-600">
-                          <Mail size={11} className="text-indigo-400 shrink-0" />
-                          <span className="truncate">{patient.email}</span>
-                        </div>
-                      )}
-                      {patient.city && (
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <MapPin size={11} className="text-slate-300 shrink-0" />
-                          <span className="truncate">{patient.city}{patient.state ? ` — ${patient.state}` : ''}</span>
-                        </div>
-                      )}
-                      {patient.notes && (
-                        <div className="flex items-start gap-2 text-xs text-slate-500 mt-2">
-                          <StickyNote size={11} className="text-amber-400 shrink-0 mt-0.5" />
-                          <span className="truncate italic">{patient.notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Card Footer */}
-                  <div className="border-t border-slate-100 px-3 py-2.5 flex flex-wrap items-center gap-1.5 bg-slate-50/70">
-                    <button
-                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate(`/pacientes/${patient.id}`); }}
-                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all flex-1 justify-center whitespace-nowrap"
+        ) : viewMode === 'list' ? (
+          /* === LIST VIEW — tabela só no desktop, cards no mobile === */
+          <>
+            {/* Mobile: sempre cards */}
+            <div className="block sm:hidden">
+              <div className="grid grid-cols-1 gap-4">
+                {currentPatients.map(patient => {
+                  const age = calcAge(patient.birth_date);
+                  const active = isActive(patient);
+                  const avatarGrad = getAvatarColor(patient.full_name || 'A');
+                  const isSelected = selectedIds.has(String(patient.id));
+                  return (
+                    <div
+                      key={patient.id}
+                      className={`bg-white border rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'}`}
+                      onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : navigate(`/pacientes/${patient.id}`)}
                     >
-                      <Eye size={12} /> Perfil
-                    </button>
-                    <button
-                      onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }}
-                      className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 transition-all flex-1 justify-nowrap"
-                    >
-                      <History size={12} /> Histórico
-                    </button>
-                    {hasPermission('edit_patient') && (
-                      <button
-                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
-                        className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg border transition-all flex-1 justify-center whitespace-nowrap ${active ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}
-                        title={active ? 'Desativar' : 'Ativar'}
-                      >
-                        {active ? 'Pausar' : 'Ativar'}
-                      </button>
-                    )}
-                    <div className="flex items-center gap-1.5 ml-auto">
-                        {hasPermission('edit_patient') && (
-                          <button
-                            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }}
-                            disabled={isProcessing || bulkDeleting}
-                            className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all disabled:opacity-50"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                        )}
-                        {hasPermission('delete_patient') && (
-                          <button
-                            onClick={e => { e.stopPropagation(); setDeleteId(patient.id); }}
-                            disabled={isProcessing || bulkDeleting}
-                            className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="relative shrink-0">
+                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shadow-sm overflow-hidden`}>
+                              {patient.photo_url || patient.photoUrl ? (
+                                <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
+                              ) : (patient.full_name || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelect(String(patient.id)); }} className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-indigo-400'}`}>
+                              {isSelected && <CheckSquare size={12} />}
+                            </button>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-bold text-slate-800 truncate mb-1">{patient.full_name || 'Sem nome'}</h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge color={active ? 'success' : 'default'} pill size="sm">
+                                <span className={`w-1.5 h-1.5 rounded-full mr-1 ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />{active ? 'Ativo' : 'Inativo'}
+                              </Badge>
+                              {patient.health_plan && <Badge color="info" pill size="sm"><Shield size={9} className="mr-1" />Convênio</Badge>}
+                              {age && <span className="text-[10px] text-slate-400 font-medium">{age} anos</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 space-y-1.5">
+                          {(patient.whatsapp || patient.phone) && (
+                            <div className="flex items-center gap-2 text-xs text-slate-600">
+                              <Phone size={11} className="text-indigo-400 shrink-0" />
+                              <span className="truncate flex items-center gap-1.5">
+                                {patient.phone_country && <span className="text-sm leading-none shrink-0">{getFlag(patient.phone_country)}</span>}
+                                {patient.whatsapp || patient.phone}
+                              </span>
+                            </div>
+                          )}
+                          {patient.email && <div className="flex items-center gap-2 text-xs text-slate-600"><Mail size={11} className="text-indigo-400 shrink-0" /><span className="truncate">{patient.email}</span></div>}
+                          {patient.city && <div className="flex items-center gap-2 text-xs text-slate-500"><MapPin size={11} className="text-slate-300 shrink-0" /><span className="truncate">{patient.city}{patient.state ? ` — ${patient.state}` : ''}</span></div>}
+                        </div>
+                      </div>
+                      <div className="border-t border-slate-100 px-3 py-2.5 flex flex-wrap items-center gap-1.5 bg-slate-50/70">
+                        <Button variant="outline" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate(`/pacientes/${patient.id}`); }} iconLeft={<Eye size={12} />} className="flex-1 justify-center">Perfil</Button>
+                        <Button variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }} iconLeft={<History size={12} />} className="flex-1 justify-center">Histórico</Button>
+                        {hasPermission('edit_patient') && <Button variant={active ? 'ghost' : 'success'} size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }} className={`flex-1 justify-center ${active ? 'text-amber-600 hover:bg-amber-50' : ''}`}>{active ? 'Pausar' : 'Ativar'}</Button>}
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          {hasPermission('edit_patient') && <IconButton variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }} disabled={isProcessing || bulkDeleting} className="hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50"><Edit2 size={13} /></IconButton>}
+                          {hasPermission('delete_patient') && <IconButton variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteId(patient.id); }} disabled={isProcessing || bulkDeleting} className="hover:border-red-300 hover:text-red-500 hover:bg-red-50"><Trash2 size={13} /></IconButton>}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <GridTable<Patient> 
+                  );
+                })}
+              </div>
+            </div>
+            {/* Desktop: tabela */}
+            <div className="hidden sm:block">
+              <GridTable<Patient>
             data={currentPatients}
             keyExtractor={(p) => p.id}
             selectedIds={selectedIds}
@@ -1054,11 +1056,11 @@ export const Patients: React.FC = () => {
                 render: (patient: Patient) => {
                   const active = isActive(patient);
                   return (
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
                       disabled={!hasPermission('edit_patient')}
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border transition-all ${!hasPermission('edit_patient') ? 'opacity-50 cursor-not-allowed border-slate-200' : 'hover:ring-4 hover:ring-slate-50'} ${
-                        active ? 'bg-emerald-50 text-emerald-700 border-emerald-100 px-2.5' : 'bg-slate-100 text-slate-500 border-slate-200 px-2.5'
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${!hasPermission('edit_patient') ? 'opacity-50 cursor-not-allowed border-slate-200' : 'hover:ring-4 hover:ring-slate-50'} ${
+                        active ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'
                       }`}
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
@@ -1073,184 +1075,251 @@ export const Patients: React.FC = () => {
                 headerClassName: 'text-right',
                 render: (patient: Patient) => (
                   <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <button
+                    <IconButton
+                      variant="outline"
+                      size="xs"
                       onClick={() => navigate(`/pacientes/${patient.id}`)}
-                      className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all"
                       title="Perfil"
                     >
                       <Eye size={13} />
-                    </button>
-                    <button
+                    </IconButton>
+                    <IconButton
+                      variant="ghost"
+                      size="xs"
                       onClick={() => setHistoryPatient(patient)}
-                      className="p-1.5 text-primary-500 bg-primary-50 border border-primary-100 rounded-lg hover:bg-primary-100 transition-all"
                       title="Histórico"
+                      className="hover:bg-primary-50 hover:text-primary-600"
                     >
                       <History size={13} />
-                    </button>
+                    </IconButton>
                     {hasPermission('edit_patient') && (
-                      <button
+                      <IconButton
+                        variant="ghost"
+                        size="xs"
                         onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
-                        className="p-1.5 text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 transition-all"
                         title="Editar"
+                        className="hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50"
                       >
                         <Edit2 size={13} />
-                      </button>
+                      </IconButton>
                     )}
                   </div>
                 )
               }
             ]}
           />
+            </div>
+          </>
+        ) : (
+          /* === CARD VIEW === */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {currentPatients.map(patient => {
+              const age = calcAge(patient.birth_date);
+              const active = isActive(patient);
+              const avatarGrad = getAvatarColor(patient.full_name || 'A');
+              const isSelected = selectedIds.has(String(patient.id));
+              return (
+                <div
+                  key={patient.id}
+                  className={`bg-white border rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'}`}
+                  onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : navigate(`/pacientes/${patient.id}`)}
+                >
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="relative shrink-0">
+                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shadow-sm overflow-hidden`}>
+                          {patient.photo_url || patient.photoUrl ? (
+                            <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
+                          ) : (patient.full_name || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <button
+                          onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelect(String(patient.id)); }}
+                          className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-indigo-400'}`}
+                        >
+                          {isSelected && <CheckSquare size={12} />}
+                        </button>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-bold text-slate-800 truncate mb-1">{patient.full_name || 'Sem nome'}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge color={active ? 'success' : 'default'} pill size="sm">
+                            <span className={`w-1.5 h-1.5 rounded-full mr-1 ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            {active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                          {patient.health_plan && <Badge color="info" pill size="sm"><Shield size={9} className="mr-1" /> Convênio</Badge>}
+                          {age && <span className="text-[10px] text-slate-400 font-medium">{age} anos</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-1.5">
+                      {(patient.whatsapp || patient.phone) && (
+                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                          <Phone size={11} className="text-indigo-400 shrink-0" />
+                          <span className="truncate flex items-center gap-1.5">
+                            {patient.phone_country && <span className="text-sm leading-none shrink-0">{getFlag(patient.phone_country)}</span>}
+                            {patient.whatsapp || patient.phone}
+                          </span>
+                        </div>
+                      )}
+                      {patient.email && (
+                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                          <Mail size={11} className="text-indigo-400 shrink-0" />
+                          <span className="truncate">{patient.email}</span>
+                        </div>
+                      )}
+                      {patient.city && (
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <MapPin size={11} className="text-slate-300 shrink-0" />
+                          <span className="truncate">{patient.city}{patient.state ? ` — ${patient.state}` : ''}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-t border-slate-100 px-3 py-2.5 flex flex-wrap items-center gap-1.5 bg-slate-50/70">
+                    <Button variant="outline" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate(`/pacientes/${patient.id}`); }} iconLeft={<Eye size={12} />} className="flex-1 justify-center">Perfil</Button>
+                    <Button variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }} iconLeft={<History size={12} />} className="flex-1 justify-center">Histórico</Button>
+                    {hasPermission('edit_patient') && (
+                      <Button variant={active ? 'ghost' : 'success'} size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }} className={`flex-1 justify-center ${active ? 'text-amber-600 hover:bg-amber-50' : ''}`}>{active ? 'Pausar' : 'Ativar'}</Button>
+                    )}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      {hasPermission('edit_patient') && (
+                        <IconButton variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }} disabled={isProcessing || bulkDeleting} className="hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50"><Edit2 size={13} /></IconButton>
+                      )}
+                      {hasPermission('delete_patient') && (
+                        <IconButton variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteId(patient.id); }} disabled={isProcessing || bulkDeleting} className="hover:border-red-300 hover:text-red-500 hover:bg-red-50"><Trash2 size={13} /></IconButton>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {/* Empty state */}
         {!isLoading && filteredPatients.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mb-5">
-              <Users size={32} className="text-slate-300" />
-            </div>
-            <h3 className="text-base font-bold text-slate-600 mb-1">{t('patients.empty')}</h3>
-            <p className="text-sm text-slate-400 max-w-xs mb-5">Tente buscar por outro termo ou ajuste os filtros para ver todos os pacientes.</p>
-            <button
-              onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
-              className="px-4 py-2 text-sm text-indigo-600 font-semibold border border-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
-            >
-              Limpar filtros
-            </button>
-          </div>
+          <EmptyState
+            icon={Users}
+            title={t('patients.empty')}
+            description="Tente buscar por outro termo ou ajuste os filtros para ver todos os pacientes."
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
+              >
+                Limpar filtros
+              </Button>
+            }
+          />
         )}
 
         {/* Pagination */}
         {!isLoading && filteredPatients.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span>Itens por página:</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100"
-              >
-                {[5, 15, 30, 50, 100].map(limit => (
-                  <option key={limit} value={limit}>{limit}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-slate-500">
-                Página {currentPage} de {totalPages}
-              </span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all font-bold"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all font-bold"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
+          <Pagination
+            total={filteredPatients.length}
+            page={currentPage}
+            pageSize={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setItemsPerPage}
+            className="rounded-2xl border border-zinc-100"
+          />
         )}
 
+        </PanelCard>
       </div>
 
       {/* Form Wizard Modal */}
-      {isWizardOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white flex flex-col">
-            <PatientFormWizard
-              initialData={editingPatient || {}}
-              onSave={handleSavePatient}
-              onCancel={() => setIsWizardOpen(false)}
-            />
-          </div>
-        </div>
-      )}
+      <WizardModal
+        isOpen={isWizardOpen}
+        initialData={editingPatient || {}}
+        onSave={handleSavePatient}
+        onClose={() => setIsWizardOpen(false)}
+      />
 
       {/* Bulk Delete Confirm Modal */}
-      {confirmBulkDelete && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shrink-0">
-                <Trash2 size={22} />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">Excluir {selectedIds.size} paciente{selectedIds.size > 1 ? 's' : ''}?</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Esta ação não pode ser desfeita.</p>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={() => setConfirmBulkDelete(false)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-semibold hover:bg-slate-200 transition-colors"
-                disabled={bulkDeleting}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                disabled={bulkDeleting}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
-              >
-                {bulkDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                {bulkDeleting ? 'Excluindo...' : 'Excluir'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        onConfirm={handleBulkDelete}
+        title={`Excluir ${selectedIds.size} paciente${selectedIds.size > 1 ? 's' : ''}?`}
+        message="Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        loading={bulkDeleting}
+        variant="danger"
+      />
 
       {/* Delete Modal */}
-      {deleteId && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shrink-0">
-                <AlertCircle size={24} />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">Excluir paciente</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Esta ação não pode ser desfeita.</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-semibold hover:bg-slate-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={isProcessing}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
-              >
-                {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                {isProcessing ? 'Excluindo...' : 'Excluir'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={confirmDelete}
+        title="Excluir paciente"
+        message="Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        loading={isProcessing}
+        variant="danger"
+      />
 
       {/* Patient Detail Modal */}
       {selectedPatient && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <Modal
+          isOpen={!!selectedPatient}
+          onClose={() => setSelectedPatient(null)}
+          size="2xl"
+          mobileStyle="fullscreen"
+          hideCloseButton
+          className="sm:max-w-2xl"
+          footer={
+            <ModalFooter align="between">
+              <div className="flex flex-wrap gap-2">
+                {hasPermission('view_agenda') && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => navigate(`/agenda?patient_id=${selectedPatient.id}`)}
+                    iconLeft={<Calendar size={13} />}
+                  >
+                    Agenda
+                  </Button>
+                )}
+                {[
+                  { label: 'Prontuário', path: `/prontuario?patient_id=${selectedPatient.id}`, perm: 'view_medical_records' },
+                  { label: 'Neuro', path: `/neurodesenvolvimento?patient_id=${selectedPatient.id}`, perm: 'neuro_access' },
+                  { label: 'Formulários', path: `/formularios/lista?patient_id=${selectedPatient.id}`, perm: 'fill_forms' },
+                  { label: 'Documentos', path: `/documentos?patient_id=${selectedPatient.id}`, perm: 'manage_documents' },
+                  { label: 'Ferramentas', path: `/caixa-ferramentas?patient_id=${selectedPatient.id}`, perm: 'view_medical_records' },
+                ].map(btn => hasPermission(btn.perm as any) && (
+                  <Button
+                    key={btn.label}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate(btn.path)}
+                  >
+                    {btn.label}
+                  </Button>
+                ))}
+              </div>
+              {hasPermission('edit_patient') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setEditingPatient(selectedPatient); setSelectedPatient(null); setIsWizardOpen(true); }}
+                  iconLeft={<Edit2 size={13} />}
+                >
+                  Editar
+                </Button>
+              )}
+            </ModalFooter>
+          }
+        >
+          <div className="-m-4 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl bg-white sm:-m-7 sm:max-h-[82vh]">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-primary-600 p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-xl font-bold shrink-0 border-2 border-white/30 overflow-hidden`}>
+                  <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-xl font-bold shrink-0 border-2 border-white/30 overflow-hidden">
                     {selectedPatient.photo_url || selectedPatient.photoUrl ? (
                       <img src={getStaticUrl(selectedPatient.photo_url || selectedPatient.photoUrl)} alt={selectedPatient.full_name} className="w-full h-full object-cover" />
                     ) : (
@@ -1259,17 +1328,20 @@ export const Patients: React.FC = () => {
                   </div>
                   <div className="text-white">
                     <div className="text-base font-bold">{selectedPatient.full_name}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive(selectedPatient) ? 'bg-emerald-400/30 text-emerald-100 border border-emerald-400/40' : 'bg-white/20 text-white/70'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isActive(selectedPatient) ? 'bg-emerald-300' : 'bg-white/50'}`} />
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <Badge
+                        color={isActive(selectedPatient) ? 'success' : 'default'}
+                        pill
+                        size="sm"
+                        className="bg-white/20 border-white/30 text-white"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full mr-1 ${isActive(selectedPatient) ? 'bg-emerald-300' : 'bg-white/50'}`} />
                         {isActive(selectedPatient) ? 'Ativo' : 'Inativo'}
-                      </span>
+                      </Badge>
                       {selectedPatient.health_plan && (
-                        <span className="text-[10px] text-indigo-100 font-medium flex items-center gap-1">
-                          <Shield size={10} /> {selectedPatient.health_plan}
-                        </span>
+                        <Badge color="info" pill size="sm" className="bg-white/20 border-white/30 text-indigo-100">
+                          <Shield size={9} className="mr-1" /> {selectedPatient.health_plan}
+                        </Badge>
                       )}
                       {calcAge(selectedPatient.birth_date || selectedPatient.birthDate) && (
                         <span className="text-[10px] text-indigo-100 font-medium">
@@ -1279,9 +1351,14 @@ export const Patients: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setSelectedPatient(null)} className="p-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-colors">
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedPatient(null)}
+                  className="bg-white/20 text-white hover:bg-white/30 border-transparent"
+                >
                   <X size={16} />
-                </button>
+                </IconButton>
               </div>
             </div>
 
@@ -1393,13 +1470,14 @@ export const Patients: React.FC = () => {
 
               {/* Extra details */}
               <div className="px-5 py-4">
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => setShowDetails(p => !p)}
-                  className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold hover:underline"
+                  iconLeft={<ChevronRight size={13} className={`transition-transform ${showDetails ? 'rotate-90' : ''}`} />}
                 >
-                  <ChevronRight size={13} className={`transition-transform ${showDetails ? 'rotate-90' : ''}`} />
                   {showDetails ? 'Ocultar dados completos' : 'Ver dados completos do cadastro'}
-                </button>
+                </Button>
                 {showDetails && (
                   <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-4 text-xs">
                     {[
@@ -1421,46 +1499,8 @@ export const Patients: React.FC = () => {
                 )}
               </div>
             </div>
-
-            {/* Footer actions */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/60">
-              <div className="flex flex-wrap gap-2">
-                {hasPermission('view_agenda') && (
-                  <button
-                    onClick={() => navigate(`/agenda?patient_id=${selectedPatient.id}`)}
-                    className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
-                  >
-                    <Calendar size={12} /> Agenda
-                  </button>
-                )}
-                {[
-                  { label: 'Prontuário', path: `/prontuario?patient_id=${selectedPatient.id}`, perm: 'view_medical_records' },
-                  { label: 'Neuro', path: `/neurodesenvolvimento?patient_id=${selectedPatient.id}`, perm: 'neuro_access' },
-                  { label: 'Formulários', path: `/formularios/lista?patient_id=${selectedPatient.id}`, perm: 'fill_forms' },
-                  { label: 'Documentos', path: `/documentos?patient_id=${selectedPatient.id}`, perm: 'manage_documents' },
-                  { label: 'Ferramentas', path: `/caixa-ferramentas?patient_id=${selectedPatient.id}`, perm: 'view_medical_records' },
-                ].map(btn => hasPermission(btn.perm as any) && (
-                  <button
-                    key={btn.label}
-                    onClick={() => navigate(btn.path)}
-                    className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
-                  >
-                    {btn.label}
-                  </button>
-                ))}
-                <div className="flex-1" />
-                {hasPermission('edit_patient') && (
-                  <button
-                    onClick={() => { setEditingPatient(selectedPatient); setSelectedPatient(null); setIsWizardOpen(true); }}
-                    className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50 transition-all flex items-center gap-1.5"
-                  >
-                    <Edit2 size={12} /> Editar
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Patient History Drawer */}
@@ -1535,99 +1575,93 @@ export const Patients: React.FC = () => {
             render: (row) => {
               const idx = importPreview.indexOf(row);
               return (
-                <button
+                <IconButton
+                  variant="ghost"
+                  size="xs"
                   onClick={(e) => { e.stopPropagation(); removeRow(idx); }}
                   title="Remover da lista"
-                  className="text-slate-300 hover:text-rose-500 transition-colors"
+                  className="mx-auto text-slate-300 hover:text-rose-500 hover:bg-rose-50"
                 >
                   <Trash2 size={14} />
-                </button>
+                </IconButton>
               );
             },
           },
         ];
 
         return (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col" style={{ maxHeight: '90vh' }}>
-
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
-                    <FileUp size={18} className="text-indigo-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-slate-800">Pré-visualização da Importação</h2>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-xs text-slate-500">{importPreview.length} pacientes na planilha</span>
-                      {dupCount > 0 && (
-                        <span className="text-[11px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
-                          {dupCount} CPF duplicado{dupCount > 1 ? 's' : ''}
-                        </span>
-                      )}
-                      <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                        {selectedCount} selecionado{selectedCount !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  </div>
+          <Modal
+            isOpen={importPreviewOpen}
+            onClose={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }}
+            size="full"
+            mobileStyle="fullscreen"
+            className="sm:max-w-4xl"
+            title={
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
+                  <FileUp size={18} className="text-indigo-600" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate">Pré-visualização da Importação</span>
+                  <span className="mt-1 flex flex-wrap items-center gap-2 normal-case">
+                    <Badge color="default" pill>{importPreview.length} na planilha</Badge>
+                    {dupCount > 0 && <Badge color="danger" pill>{dupCount} CPF duplicado{dupCount > 1 ? 's' : ''}</Badge>}
+                    <Badge color="info" pill>{selectedCount} selecionado{selectedCount !== 1 ? 's' : ''}</Badge>
+                  </span>
+                </span>
+              </div>
+            }
+            footer={
+              <ModalFooter align="between" className="w-full">
+                <Button type="button" variant="ghost" size="sm" onClick={toggleAll}>
+                  {allSelected ? 'Desmarcar todos' : 'Selecionar todos'}
+                </Button>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleConfirmImport}
+                    disabled={isImporting || selectedCount === 0}
+                    loading={isImporting}
+                    iconLeft={<FileUp size={15} />}
+                  >
+                    Importar {selectedCount} paciente{selectedCount !== 1 ? 's' : ''}
+                  </Button>
                 </div>
-                <button onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100">
-                  <X size={18} />
-                </button>
-              </div>
+              </ModalFooter>
+            }
+          >
+            <div className="space-y-3">
+              <GridTable
+                data={importPreview}
+                keyExtractor={(_) => String(importPreview.indexOf(_))}
+                columns={importColumns}
+                selectedIds={importSelectedIds}
+                onToggleSelect={(id) => { if (!importPreview[Number(id)]?.duplicate) toggleRow(id); }}
+                onToggleSelectAll={toggleAll}
+                emptyMessage="Nenhum paciente encontrado na planilha."
+              />
 
-              {/* Table — scrollable */}
-              <div className="overflow-y-auto flex-1 px-6 py-4">
-                <GridTable
-                  data={importPreview}
-                  keyExtractor={(_) => String(importPreview.indexOf(_))}
-                  columns={importColumns}
-                  selectedIds={importSelectedIds}
-                  onToggleSelect={(id) => { if (!importPreview[Number(id)]?.duplicate) toggleRow(id); }}
-                  onToggleSelectAll={toggleAll}
-                  emptyMessage="Nenhum paciente encontrado na planilha."
-                />
-              </div>
-
-              {/* Alert duplicates */}
               {dupCount > 0 && (
-                <div className="px-6 py-2.5 bg-rose-50 border-t border-rose-100 text-xs text-rose-600 font-medium flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-600">
                   <AlertCircle size={13} />
                   Linhas com CPF duplicado não podem ser selecionadas e serão ignoradas na importação.
                 </div>
               )}
-
-              {/* Footer */}
-              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 shrink-0">
-                <button
-                  onClick={toggleAll}
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-                >
-                  {allSelected ? 'Desmarcar todos' : 'Selecionar todos'}
-                </button>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }}
-                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors rounded-xl hover:bg-slate-100"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleConfirmImport}
-                    disabled={isImporting || selectedCount === 0}
-                    className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-indigo-100"
-                  >
-                    {isImporting ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
-                    Importar {selectedCount} paciente{selectedCount !== 1 ? 's' : ''}
-                  </button>
-                </div>
-              </div>
             </div>
-          </div>
+          </Modal>
         );
       })()}
 
-    </div>
+    </PageWrapper>
   );
 };
