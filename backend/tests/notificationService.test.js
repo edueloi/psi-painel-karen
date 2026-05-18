@@ -39,8 +39,8 @@ describe('NotificationService - Failure Scenarios', () => {
 
     // Verificamos se foi marcada como error por exceder tentativas
     expect(db.query).toHaveBeenCalledWith(
-      expect.stringContaining("UPDATE notification_queue SET status = ?"),
-      ['error', 1]
+      expect.stringContaining("UPDATE notification_queue SET status = ?, attempts = ?, last_error = ? WHERE id = ?"),
+      ['error', 10, 'Erro: Bot desconectado', 1]
     );
   });
 
@@ -85,8 +85,8 @@ describe('NotificationService - Failure Scenarios', () => {
 
     // Verificamos se incrementou o contador de tentativas sem mudar para error
     expect(db.query).toHaveBeenCalledWith(
-      expect.stringContaining("UPDATE notification_queue SET attempts = attempts + 1"),
-      ['Falhou desta vez', 3]
+      expect.stringContaining("UPDATE notification_queue SET status = ?, attempts = ?, last_error = ? WHERE id = ?"),
+      ['pending', 1, 'Falhou desta vez', 3]
     );
     
     // Não deve ter chamado o update de status para 'error' ainda

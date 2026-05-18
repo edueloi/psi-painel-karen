@@ -1,257 +1,468 @@
-const wppconnect = require('@wppconnect-team/wppconnect');
-const db = require('../db');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const QRCode = require('qrcode');
+const db = require('../db');
+
+function jidToPhone(jid) {
+  return String(jid || '').replace(/@.*/, '').replace(/:[0-9]+$/, '');
+}
+
+function normalizePhoneDigits(phone) {
+  let clean = String(phone || '').replace(/\D/g, '');
+  if (clean.length === 10 || clean.length === 11) {
+    clean = `55${clean}`;
+  }
+  return clean;
+}
+
+function normalizeDestination(dest) {
+  const raw = String(dest || '').trim();
+  if (!raw) return null;
+
+  if (raw.includes('@')) {
+    if (raw.endsWith('@c.us')) {
+      const digits = raw.replace('@c.us', '').replace(/\D/g, '');
+      return `${digits}@s.whatsapp.net`;
+    }
+    return raw;
+  }
+
+  const digits = normalizePhoneDigits(raw);
+  return digits ? `${digits}@s.whatsapp.net` : null;
+}
+
+function extractMessageText(msg) {
+  const text =
+    msg?.message?.conversation ||
+    msg?.message?.extendedTextMessage?.text ||
+    msg?.message?.imageMessage?.caption ||
+    msg?.message?.videoMessage?.caption ||
+    msg?.message?.buttonsResponseMessage?.selectedButtonId ||
+    msg?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    msg?.message?.templateButtonReplyMessage?.selectedId ||
+    '';
+
+  return String(text || '').trim();
+}
+
+function makeSilentLogger() {
+  const noop = () => {};
+  const logger = {
+    level: 'silent',
+    trace: noop,
+    debug: noop,
+    info: noop,
+    warn: noop,
+    error: noop,
+  };
+  logger.child = () => makeSilentLogger();
+  return logger;
+}
 
 class WhatsAppManager {
   constructor() {
-    this.instances = new Map(); // tenant_id -> { client, status, qrcode, phone, initializing, instanceName }
-    this.tokensPath = path.join(__dirname, '../tokens'); 
-    
-    // Garante que a pasta de tokens existee
+    this.instances = new Map();
+    this.sendingLocks = new Map();
+    this.tokensPath = path.join(__dirname, '../tokens');
+
     if (!fs.existsSync(this.tokensPath)) {
-      try { fs.mkdirSync(this.tokensPath, { recursive: true }); } catch (e) {
-         console.error('❌ Erro ao criar pasta de tokens:', e.message);
+      try {
+        fs.mkdirSync(this.tokensPath, { recursive: true });
+      } catch (e) {
+        console.error('❌ Erro ao criar pasta de sessões do WhatsApp:', e.message);
       }
     }
   }
 
-  // Ensures we have an entry for the tenant
   getTenantData(tenantId) {
-    if (!this.instances.has(tenantId)) {
-      this.instances.set(tenantId, {
+    const key = String(tenantId);
+
+    if (!this.instances.has(key)) {
+      this.instances.set(key, {
         client: null,
+        sock: null,
         status: 'disconnected',
         qrcode: null,
         phone: null,
         initializing: false,
-        instanceName: `psiflux-bot-tenant-${tenantId}`
+        manualDisconnect: false,
+        reconnectTimer: null,
+        sessionToken: null,
+        instanceName: `psiflux-bot-tenant-${key}`,
       });
     }
-    return this.instances.get(tenantId);
+
+    return this.instances.get(key);
   }
 
   getStatus(tenantId) {
     const data = this.getTenantData(tenantId);
+    const status = data.status === 'qr_pending' ? 'connecting' : data.status;
+
     return {
-      status: data.status,
+      status,
       qrcode: data.qrcode,
       phone: data.phone,
       initializing: data.initializing,
     };
   }
 
-  async connect(tenantId, forceNew = false) {
-    console.log(`🚀 Recebida solicitação de conexão WhatsApp para Tenant ${tenantId}...`);
-    const data = this.getTenantData(tenantId);
-
-    if (data.status === 'connected') {
-      console.log(`[WPP] Tenant ${tenantId} já está conectado.`);
-      return;
-    }
-
-    if (data.client) {
-      console.log(`[WPP] Encerrando instância anterior do Tenant ${tenantId}...`);
-      try {
-        if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners();
-        await data.client.close();
-      } catch(e) {}
-      data.client = null;
-    }
-
-    if (forceNew) {
-      const sessionFolder = path.join(this.tokensPath, data.instanceName);
-      if (fs.existsSync(sessionFolder)) {
-        console.log(`[WPP] Removendo arquivos de sessão antigos do Tenant ${tenantId}...`);
-        try { fs.rmSync(sessionFolder, { recursive: true, force: true }); } catch(e) {}
-      }
-    }
-    
-    data.status = 'connecting';
-    data.qrcode = null;
-    this.createClient(tenantId, data);
+  getSessionFolder(data) {
+    return path.join(this.tokensPath, data.instanceName);
   }
 
-  async createClient(tenantId, data) {
-    if (data.initializing) {
-      console.log(`[WPP] Inicialização já em curso para Tenant ${tenantId}. Ignorando duplicata.`);
-      return;
+  clearReconnectTimer(data) {
+    if (data.reconnectTimer) {
+      clearTimeout(data.reconnectTimer);
+      data.reconnectTimer = null;
     }
-    data.initializing = true;
-    
-    console.log(`🚀 [Passo 1/3] Iniciando WPPConnect para Tenant ${tenantId}...`);
-    data.status = 'connecting';
+  }
+
+  buildClientWrapper(data) {
+    return {
+      sendText: async (dest, text) => {
+        await this.sendTextInternal(data, dest, text);
+      },
+      logout: async () => {
+        if (data.sock?.logout) {
+          await data.sock.logout();
+        }
+      },
+      close: async () => {
+        try {
+          if (data.sock?.end) {
+            data.sock.end(new Error('Socket fechado'));
+          } else if (data.sock?.ws?.close) {
+            data.sock.ws.close();
+          }
+        } catch {}
+      },
+      removeAllListeners: () => {
+        try {
+          data.sock?.ev?.removeAllListeners?.();
+        } catch {}
+      },
+    };
+  }
+
+  async sendTextInternal(data, dest, text) {
+    if (!data.sock || data.status !== 'connected') {
+      throw new Error('WhatsApp não está conectado');
+    }
+
+    const jid = normalizeDestination(dest);
+    if (!jid) {
+      throw new Error('Destino inválido');
+    }
+
+    const lockKey = data.instanceName;
+    const previous = this.sendingLocks.get(lockKey) || Promise.resolve();
+
+    const current = previous.then(async () => {
+      await data.sock.sendMessage(jid, { text: String(text || '') });
+    });
+
+    this.sendingLocks.set(lockKey, current);
 
     try {
-      data.client = await wppconnect.create({
-        session: data.instanceName,
-        catchQR: (base64Qr, asciiQR, attempts) => {
-          data.qrcode = base64Qr;
-          data.status = 'connecting';
-          if (attempts === 1) console.log(`🚀 [Passo 2/3] QR Code pronto para Tenant ${tenantId}!`);
-        },
-        statusFind: (statusSession) => {
-          console.log(`[WPP Tenant ${tenantId}] Status da Sessão: ${statusSession}`);
-          if (['isLogged', 'qrReadSuccess', 'chatsAvailable'].includes(statusSession)) {
-            data.status = 'connected';
-            data.qrcode = null;
-            data.initializing = false;
-          }
-          if (statusSession === 'notLogged') {
-            data.status = 'connecting';
-          }
-          if (statusSession === 'desloged') {
-            data.status = 'disconnected';
-            data.phone = null;
-            data.initializing = false;
-            db.query('UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?', ['disconnected', null, tenantId]).catch(()=>{});
-            // Auto-reconexão: aguarda 35 segundos e tenta reconectar sem forçar novo QR
-            console.log(`[WPP] Tenant ${tenantId} desconectado — agendando reconexão automática em 35s...`);
-            setTimeout(() => {
-              if (data.status === 'disconnected' && !data.initializing) {
-                console.log(`[WPP] Tentando reconectar automaticamente Tenant ${tenantId}...`);
-                this.connect(tenantId, false).catch(e => console.error(`[WPP] Auto-reconnect Tenant ${tenantId}:`, e.message));
-              }
-            }, 35000);
-          }
-          // Telefone desvinculou da sessão WA Web — precisa novo QR Code
-          if (statusSession === 'disconnectedMobile') {
-            data.status = 'disconnected';
-            data.phone = null;
-            data.initializing = false;
-            data.qrcode = null;
-            db.query('UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?', ['disconnected', null, tenantId]).catch(()=>{});
-            console.log(`[WPP] Tenant ${tenantId} — telefone desvinculou (disconnectedMobile). Necessário novo QR Code.`);
-          }
-        },
-        mkdirFolder: this.tokensPath,
-        puppeteerOptions: {
-          userDataDir: path.join(this.tokensPath, data.instanceName),
-        },
-        headless: true,
-        devtools: false,
-        useChrome: false,
-        debug: false,
-        logQR: false,
-        browserArgs: [
-          `--user-data-dir=${path.join(this.tokensPath, data.instanceName)}`,
-          '--no-sandbox', 
-          '--disable-setuid-sandbox', 
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu',
-          '--disable-extensions',
-          '--disable-features=site-per-process',
-          '--single-process'
-        ],
-        autoClose: 0,
-        tokenStore: 'file',
-      });
-
-      console.log(`🚀 [Passo 3/3] Cliente WPP instanciado com sucesso para Tenant ${tenantId}`);
-      data.status = 'connected';
-      data.qrcode = null;
-      data.initializing = false;
-
-      try {
-        const hostDevice = await data.client.getHostDevice();
-        data.phone = hostDevice?.wid?.user || hostDevice?.wid?._serialized?.split('@')[0] || 'Conectado';
-      } catch (e) {
-        console.warn(`⚠️ Não foi possível obter o número do bot Tenant ${tenantId}:`, e.message);
-        data.phone = 'Conectado';
+      await current;
+    } finally {
+      if (this.sendingLocks.get(lockKey) === current) {
+        this.sendingLocks.delete(lockKey);
       }
-
-      await db.query(
-        'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ?, whatsapp_instance = ? WHERE id = ?',
-        ['connected', data.phone, data.instanceName, tenantId]
-      );
-
-      console.log(`✅ WhatsApp Tenant ${tenantId} Conectado: ${data.phone}`);
-
-      // Identifica se este é o master bot (tenant do super_admin)
-      let isMasterBot = false;
-      try {
-        const [saRows] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
-        isMasterBot = saRows[0]?.tenant_id == tenantId;
-        console.log(`[WPP] Tenant ${tenantId} isMasterBot=${isMasterBot}`);
-      } catch(e) {
-        console.error('[WPP] Erro ao verificar master bot:', e.message);
-      }
-
-      // Usa um token único por sessão para evitar processar mensagens de listeners antigos
-      const sessionToken = Date.now();
-      data.sessionToken = sessionToken;
-
-      data.client.onMessage((message) => {
-        // Descarta se esta sessão foi substituída por uma mais nova
-        if (data.sessionToken !== sessionToken) return;
-        // Ping-pong de diagnóstico
-        if (message.body === 'ping') {
-          data.client.sendText(message.from, 'pong');
-          return;
-        }
-        // Bot conversacional: só no master bot, só mensagens individuais (não grupos/broadcast)
-        if (isMasterBot && !message.isGroupMsg && message.chatId !== 'status@broadcast' && message.from !== 'status@broadcast') {
-          console.log(`[MasterBot] Mensagem recebida de ${message.from}: ${(message.body||'').substring(0,50)}`);
-          const { handleMessage } = require('./botConversation');
-          handleMessage(tenantId, message, data.client).catch(e => console.error('[MasterBot]', e.message));
-        }
-      });
-
-    } catch (err) {
-      data.initializing = false;
-      console.error(`❌ Erro ao inicializar WPPConnect Tenant ${tenantId}:`, err.message);
-      data.status = 'disconnected';
-      data.qrcode = null;
     }
   }
 
-  async disconnect(tenantId) {
-    const data = this.getTenantData(tenantId);
-    if (data.client) {
-      try {
-        if (typeof data.client.removeAllListeners === 'function') data.client.removeAllListeners();
-        await data.client.logout();
-        await data.client.close();
-      } catch (e) {
-        console.error('Erro ao fechar cliente WPP:', e.message);
-      }
-    }
-    // Remove completamente do Map para liberar memória
-    this.instances.delete(tenantId);
+  async updateTenantConnected(tenantId, data) {
+    await db.query(
+      'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ?, whatsapp_instance = ? WHERE id = ?',
+      ['connected', data.phone, data.instanceName, tenantId]
+    );
+  }
 
+  async updateTenantDisconnected(tenantId) {
     await db.query(
       'UPDATE tenants SET whatsapp_status = ?, whatsapp_phone = ? WHERE id = ?',
       ['disconnected', null, tenantId]
     );
   }
 
+  async connect(tenantId, forceNew = false) {
+    const key = String(tenantId);
+    const data = this.getTenantData(key);
+
+    console.log(`🚀 Solicitação de conexão Baileys para o tenant ${key}...`);
+
+    if (data.status === 'connected' && !forceNew) {
+      console.log(`[Baileys] Tenant ${key} já está conectado.`);
+      return;
+    }
+
+    this.clearReconnectTimer(data);
+    data.manualDisconnect = false;
+    data.sessionToken = Symbol(`restarting-${key}`);
+
+    if (forceNew) {
+      const sessionFolder = this.getSessionFolder(data);
+      if (fs.existsSync(sessionFolder)) {
+        console.log(`[Baileys] Removendo credenciais antigas do tenant ${key}...`);
+        try {
+          fs.rmSync(sessionFolder, { recursive: true, force: true });
+        } catch (e) {
+          console.warn(`[Baileys] Não foi possível limpar a sessão do tenant ${key}:`, e.message);
+        }
+      }
+    }
+
+    if (data.client) {
+      try {
+        data.client.removeAllListeners?.();
+      } catch {}
+      try {
+        await data.client.close?.();
+      } catch {}
+    }
+
+    data.client = null;
+    data.sock = null;
+    data.phone = null;
+    data.qrcode = null;
+    data.status = 'connecting';
+    data.initializing = true;
+
+    this.createClient(key, data).catch((err) => {
+      console.error(`[Baileys] Erro ao iniciar tenant ${key}:`, err.message);
+    });
+  }
+
+  async createClient(tenantId, data) {
+    const sessionToken = Symbol(`tenant-${tenantId}`);
+    data.sessionToken = sessionToken;
+
+    let makeWASocket;
+    let useMultiFileAuthState;
+    let fetchLatestBaileysVersion;
+    let DisconnectReason;
+
+    try {
+      let baileys;
+      try {
+        baileys = await import('@whiskeysockets/baileys');
+      } catch {
+        baileys = await import('@adiwajshing/baileys');
+      }
+      makeWASocket = baileys.makeWASocket || baileys.default;
+      useMultiFileAuthState = baileys.useMultiFileAuthState;
+      fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+      DisconnectReason = baileys.DisconnectReason;
+
+      if (!makeWASocket || !useMultiFileAuthState) {
+        throw new Error('Exports do Baileys não encontrados');
+      }
+    } catch (err) {
+      data.initializing = false;
+      data.status = 'disconnected';
+      data.qrcode = null;
+      console.error('[Baileys] Biblioteca não disponível:', err.message);
+      return;
+    }
+
+    const sessionDir = this.getSessionFolder(data);
+    if (!fs.existsSync(sessionDir)) {
+      fs.mkdirSync(sessionDir, { recursive: true });
+    }
+
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+
+    let waVersion = [2, 3000, 1015901307];
+    try {
+      const latest = await fetchLatestBaileysVersion?.();
+      if (latest?.version) {
+        waVersion = latest.version;
+      }
+    } catch {}
+
+    const sock = makeWASocket({
+      version: waVersion,
+      auth: state,
+      browser: ['Chrome (Linux)', 'PsiFlux', '1.0.0'],
+      printQRInTerminal: false,
+      syncFullHistory: false,
+      markOnlineOnConnect: false,
+      connectTimeoutMs: 60_000,
+      retryRequestDelayMs: 2_000,
+      logger: makeSilentLogger(),
+    });
+
+    data.sock = sock;
+    data.client = this.buildClientWrapper(data);
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', async (update) => {
+      if (data.sessionToken !== sessionToken) return;
+
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr) {
+        data.status = 'connecting';
+        data.initializing = false;
+        try {
+          data.qrcode = await QRCode.toDataURL(qr, { width: 320, margin: 2 });
+        } catch (e) {
+          console.warn(`[Baileys] Falha ao gerar QR do tenant ${tenantId}:`, e.message);
+          data.qrcode = null;
+        }
+        console.log(`[Baileys] QR Code pronto para o tenant ${tenantId}.`);
+      }
+
+      if (connection === 'open') {
+        data.status = 'connected';
+        data.initializing = false;
+        data.qrcode = null;
+        data.phone = jidToPhone(sock.user?.id || '') || 'Conectado';
+
+        try {
+          await this.updateTenantConnected(tenantId, data);
+        } catch (e) {
+          console.warn(`[Baileys] Falha ao persistir conexão do tenant ${tenantId}:`, e.message);
+        }
+
+        try {
+          const [saRows] = await db.query('SELECT tenant_id FROM users WHERE role = ? LIMIT 1', ['super_admin']);
+          data.isMasterBot = String(saRows[0]?.tenant_id || '') === String(tenantId);
+        } catch (e) {
+          data.isMasterBot = false;
+          console.warn('[Baileys] Não foi possível validar master bot:', e.message);
+        }
+
+        console.log(`✅ WhatsApp tenant ${tenantId} conectado via Baileys: ${data.phone}`);
+      }
+
+      if (connection === 'close') {
+        data.initializing = false;
+        data.status = 'disconnected';
+        data.qrcode = null;
+        data.phone = null;
+
+        try {
+          await this.updateTenantDisconnected(tenantId);
+        } catch (e) {
+          console.warn(`[Baileys] Falha ao persistir desconexão do tenant ${tenantId}:`, e.message);
+        }
+
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const loggedOut = statusCode === DisconnectReason?.loggedOut;
+
+        if (data.manualDisconnect || loggedOut) {
+          if (loggedOut) {
+            try {
+              fs.rmSync(sessionDir, { recursive: true, force: true });
+            } catch {}
+          }
+          return;
+        }
+
+        console.log(`[Baileys] Tenant ${tenantId} desconectado. Tentando reconectar em 5s...`);
+        this.clearReconnectTimer(data);
+        data.reconnectTimer = setTimeout(() => {
+          data.reconnectTimer = null;
+          if (data.sessionToken === sessionToken && !data.manualDisconnect) {
+            this.connect(tenantId, false).catch((err) => {
+              console.error(`[Baileys] Auto-reconnect tenant ${tenantId}:`, err.message);
+            });
+          }
+        }, 5000);
+      }
+    });
+
+    sock.ev.on('messages.upsert', async (payload) => {
+      if (data.sessionToken !== sessionToken) return;
+      if (!data.isMasterBot) return;
+      if (payload?.type !== 'notify') return;
+
+      for (const msg of payload.messages || []) {
+        try {
+          if (!msg?.message || msg?.key?.fromMe) continue;
+
+          const remoteJid = msg.key.remoteJid;
+          if (!remoteJid || remoteJid === 'status@broadcast' || remoteJid.includes('@g.us')) {
+            continue;
+          }
+
+          const text = extractMessageText(msg);
+          if (!text) continue;
+
+          if (text.toLowerCase() === 'ping') {
+            await data.client.sendText(remoteJid, 'pong');
+            continue;
+          }
+
+          const { handleMessage } = require('./botConversation');
+          await handleMessage(tenantId, {
+            body: text,
+            from: remoteJid,
+            isGroupMsg: false,
+            broadcast: false,
+            type: 'chat',
+          });
+        } catch (e) {
+          console.error('[MasterBot] Erro ao processar mensagem:', e.message);
+        }
+      }
+    });
+  }
+
+  async disconnect(tenantId) {
+    const key = String(tenantId);
+    const data = this.getTenantData(key);
+    const sessionDir = this.getSessionFolder(data);
+
+    this.clearReconnectTimer(data);
+    data.manualDisconnect = true;
+    data.sessionToken = Symbol(`manual-disconnect-${key}`);
+
+    if (data.client) {
+      try {
+        data.client.removeAllListeners?.();
+      } catch {}
+      try {
+        await data.client.logout?.();
+      } catch {}
+      try {
+        await data.client.close?.();
+      } catch {}
+    }
+
+    try {
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+    } catch {}
+
+    this.instances.delete(key);
+
+    await this.updateTenantDisconnected(key);
+  }
+
   async sendReminder(tenantId, to, text) {
     const data = this.getTenantData(tenantId);
+
     if (data.status !== 'connected' || !data.client) {
-      const msg = `⚠️ Tentativa de envio para Tenant ${tenantId} paralisada: Bot ${data.status || 'desconectado'}.`;
+      const msg = `⚠️ Tentativa de envio para o tenant ${tenantId} paralisada: bot ${data.status || 'desconectado'}.`;
       console.warn(msg);
       return msg;
     }
 
     try {
-      let clean = to.replace(/\D/g, '');
-      
-      // Formatação para Brasil (DDI 55)
-      if (clean.length === 10 || clean.length === 11) {
-        clean = '55' + clean;
+      const formattedTo = normalizeDestination(to);
+      if (!formattedTo) {
+        return 'Erro ao enviar via WhatsApp: destino inválido';
       }
-      
-      // WhatsApp ID
-      const formattedTo = clean.includes('@c.us') ? clean : `${clean}@c.us`;
-      
-      console.log(`📤 Enviando via WhatsApp (Tenant ${tenantId}) para: ${formattedTo}...`);
+
+      console.log(`📤 Enviando via Baileys (tenant ${tenantId}) para: ${formattedTo}...`);
       await data.client.sendText(formattedTo, text);
       return true;
     } catch (err) {
-      console.error(`❌ Erro WPPTenant ${tenantId} -> ${to}:`, err.message);
+      console.error(`❌ Erro Baileys tenant ${tenantId} -> ${to}:`, err.message);
       return `Erro ao enviar via WhatsApp: ${err.message}`;
     }
   }
@@ -260,15 +471,13 @@ class WhatsAppManager {
     try {
       const [rows] = await db.query("SELECT id FROM tenants WHERE whatsapp_status = 'connected'");
       for (const row of rows) {
-        console.log(`🔄 Recuperando conexão WhatsApp do Tenant ${row.id}...`);
-        this.connect(row.id, false).catch(e => console.error(e));
+        console.log(`🔄 Restaurando conexão WhatsApp do tenant ${row.id}...`);
+        this.connect(row.id, false).catch((e) => console.error(e));
       }
-    } catch(e) {
-      console.error('Erro ao recuperar sessoes', e);
+    } catch (e) {
+      console.error('Erro ao recuperar sessões do WhatsApp:', e.message);
     }
   }
 }
 
-// Singleton
-const service = new WhatsAppManager();
-module.exports = service;
+module.exports = new WhatsAppManager();

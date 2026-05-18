@@ -52,7 +52,7 @@ app.post('/bot-api/test/:tenantId', async (req, res) => {
 // ─── STARTUP ───
 
 app.listen(PORT, () => {
-  console.log(`🤖 PsiFlux-Bot (WPPConnect) rodando na porta ${PORT}`);
+  console.log(`🤖 PsiFlux-Bot (Baileys) rodando na porta ${PORT}`);
 
   // Recupera conexões do WhatsApp de todos os tenants ativos
   console.log('🔄 Verificando sessões do WhatsApp para recuperar...');
