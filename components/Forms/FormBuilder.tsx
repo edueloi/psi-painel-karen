@@ -6,7 +6,7 @@ import {
   Plus, Trash2, GripVertical, Type, AlignLeft, Hash, List, CheckSquare, ChevronDown, Save, Wand2, ArrowLeft, Calculator, Target, Palette, Settings, Copy, MoveVertical, AlertCircle, Sparkles
 } from 'lucide-react';
 import { Button } from '../UI/Button';
-import { Input, Select, TextArea } from '../UI/Input';
+import { Input, Select, Textarea } from '../UI/Input';
 import { Combobox } from '../UI/Combobox';
 import { AppCard } from '../UI/AppCard';
 import { PageHeader } from '../UI/PageHeader';
@@ -641,7 +641,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                                                   </div>
                                                   <div>
                                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Instruções / Relatório Gerado</label>
-                                                    <TextArea
+                                                    <Textarea
                                                         label=""
                                                         labelClassName="hidden"
                                                         rows={3}

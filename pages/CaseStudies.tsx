@@ -27,7 +27,7 @@ import { Patient } from '../types';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Combobox } from '../components/UI/Combobox';
-import { Input, Select, TextArea } from '../components/UI/Input';
+import { Input, Select, Textarea } from '../components/UI/Input';
 import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSearch, FilterLineViewToggle } from '../components/UI/FilterLine';
 import { GridTable } from '../components/UI/GridTable';
 
@@ -1037,7 +1037,7 @@ export const CaseStudies: React.FC = () => {
               </div>
             </div>
           )}
-          <TextArea
+          <Textarea
             label="Descrição (opcional)"
             rows={2}
             value={newBoardDesc}
@@ -1207,7 +1207,7 @@ export const CaseStudies: React.FC = () => {
                 }}
                 size="md"
               />
-              <TextArea
+              <Textarea
                 label="Resumo / Queixa principal"
                 rows={4}
                 value={editCardDesc}
@@ -1236,14 +1236,14 @@ export const CaseStudies: React.FC = () => {
                   <option value="Alto">Alto</option>
                 </Select>
               </div>
-              <TextArea label="Histórico Clínico" rows={3} value={editCardDetails.history} onChange={(e) => setEditCardDetails(prev => ({ ...prev, history: e.target.value }))} />
+              <Textarea label="Histórico Clínico" rows={3} value={editCardDetails.history} onChange={(e) => setEditCardDetails(prev => ({ ...prev, history: e.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
-                <TextArea label="Hipóteses" rows={3} value={editCardDetails.hypothesis} onChange={(e) => setEditCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))} />
-                <TextArea label="Objetivos Terapêuticos" rows={3} value={editCardDetails.objectives} onChange={(e) => setEditCardDetails(prev => ({ ...prev, objectives: e.target.value }))} />
+                <Textarea label="Hipóteses" rows={3} value={editCardDetails.hypothesis} onChange={(e) => setEditCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))} />
+                <Textarea label="Objetivos Terapêuticos" rows={3} value={editCardDetails.objectives} onChange={(e) => setEditCardDetails(prev => ({ ...prev, objectives: e.target.value }))} />
               </div>
-              <TextArea label="Intervenções Realizadas" rows={3} value={editCardDetails.interventions} onChange={(e) => setEditCardDetails(prev => ({ ...prev, interventions: e.target.value }))} />
-              <TextArea label="Próximos Passos" rows={3} value={editCardDetails.next_steps} onChange={(e) => setEditCardDetails(prev => ({ ...prev, next_steps: e.target.value }))} />
-              <TextArea label="Observações" rows={3} value={editCardDetails.observations} onChange={(e) => setEditCardDetails(prev => ({ ...prev, observations: e.target.value }))} />
+              <Textarea label="Intervenções Realizadas" rows={3} value={editCardDetails.interventions} onChange={(e) => setEditCardDetails(prev => ({ ...prev, interventions: e.target.value }))} />
+              <Textarea label="Próximos Passos" rows={3} value={editCardDetails.next_steps} onChange={(e) => setEditCardDetails(prev => ({ ...prev, next_steps: e.target.value }))} />
+              <Textarea label="Observações" rows={3} value={editCardDetails.observations} onChange={(e) => setEditCardDetails(prev => ({ ...prev, observations: e.target.value }))} />
               <Input label="Tags" placeholder="TCC, Ansiedade... (separados por vírgula)" value={editCardTags} onChange={(e) => setEditCardTags(e.target.value)} />
             </div>
           ) : (

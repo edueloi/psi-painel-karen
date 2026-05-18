@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
-import { Input, Select, TextArea } from '../components/UI/Input';
+import { Input, Select, Textarea } from '../components/UI/Input';
 import { PageHeader } from '../components/UI/PageHeader';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
 

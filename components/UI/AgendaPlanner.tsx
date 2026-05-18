@@ -515,7 +515,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
   return (
     <div className={cx('space-y-6', className)}>
       {!hideHeader && (
-        <div className="rounded-[30px] border border-slate-200 bg-gradient-to-r from-white to-slate-50/70 p-4 shadow-sm">
+        <div className="rounded-2xl sm:rounded-[30px] border border-slate-200 bg-gradient-to-r from-white to-slate-50/70 p-4 shadow-sm">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap items-center gap-3">
               <div className="inline-flex items-center rounded-[20px] border border-slate-200 bg-slate-100/80 p-1.5 shadow-inner">
@@ -649,9 +649,9 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
           showTasksPanel ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px]' : 'grid-cols-1'
         )}
       >
-        <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl sm:rounded-[24px] border border-slate-200 bg-white shadow-sm">
           <div className="overflow-auto custom-scrollbar">
-            <div className="min-w-[420px]">
+            <div className="min-w-[560px]">
               <div className="flex">
                 {/* Coluna do horário */}
                 <div
@@ -702,7 +702,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       <div
                         key={day.toISOString()}
                         className={cx(
-                          'flex min-w-[80px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-1',
+                          'flex min-w-[100px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-1',
                           closedEntry
                             ? 'bg-rose-50'
                             : isSameDay(day, new Date())
@@ -813,7 +813,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       <div
                         key={day.toISOString()}
                         className={cx(
-                          'relative min-w-[80px] flex-1 border-r border-slate-200 transition cursor-crosshair',
+                          'relative min-w-[100px] flex-1 border-r border-slate-200 transition cursor-crosshair',
                           isWeekend && !isSameDay(day, new Date()) ? 'bg-slate-100' : 'bg-transparent'
                         )}
                         style={isSameDay(day, new Date()) ? { backgroundColor: 'color-mix(in srgb, var(--c-100) 35%, transparent)' } : undefined}

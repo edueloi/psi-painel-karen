@@ -18,7 +18,7 @@ import {
 import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
-import { Input, Select, TextArea } from '../components/UI/Input';
+import { Input, Select, Textarea } from '../components/UI/Input';
 import { Button } from '../components/UI/Button';
 import { DatePicker } from '../components/UI/DatePicker';
 import { GridTable, Column } from '../components/UI/GridTable';

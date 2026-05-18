@@ -1,388 +1,443 @@
-import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, Check, UserPlus, ChevronDown, X } from 'lucide-react';
-import { getStaticUrl } from '../../services/api';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown, X, Check, Search, Plus } from "lucide-react";
+import { cn } from "@/src/lib/utils";
 
-interface Option {
-  id: string | number;
+export interface ComboboxOption {
+  value: string;
   label: string;
-  description?: string;
-  avatar?: string;
+  subtitle?: string;
+  /** Group name — options with the same group are shown under a shared header */
+  group?: string;
+  /** Short badge displayed on the right (e.g. price, tag) */
+  badge?: string;
+  /** Tailwind color classes for the badge background+text (default amber) */
+  badgeColor?: string;
 }
 
 interface ComboboxProps {
-  label: string;
-  options: Option[];
-  value: string | number | (string | number)[];
-  onChange: (value: any, label?: string) => void;
-  icon?: React.ReactNode;
+  options: ComboboxOption[];
+  value?: string | string[];
+  onChange: (value: string | string[]) => void;
   placeholder?: string;
-  allowCustom?: boolean;
-  onCustomAdd?: (name: string) => void;
-  disabled?: boolean;
-  className?: string;
-  noResultsText?: string;
-  size?: 'sm' | 'md';
-  showSelectedBadge?: boolean;
-  showResultCount?: boolean;
+  searchPlaceholder?: string;
   multiple?: boolean;
+  allowCustom?: boolean;
+  onCustomAdd?: (value: string) => void;
+  size?: "sm" | "md";
+  className?: string;
+  disabled?: boolean;
+  emptyMessage?: string;
 }
 
-const cx = (...classes: Array<string | false | null | undefined>) =>
-  classes.filter(Boolean).join(' ');
+function normalizeStr(str: string) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/** Groups filtered options by their `group` field, preserving order of first appearance */
+function groupOptions(opts: ComboboxOption[]): { group: string | null; items: ComboboxOption[] }[] {
+  const groups: { group: string | null; items: ComboboxOption[] }[] = [];
+  const groupMap = new Map<string | null, ComboboxOption[]>();
+
+  for (const opt of opts) {
+    const key = opt.group ?? null;
+    if (!groupMap.has(key)) {
+      const arr: ComboboxOption[] = [];
+      groupMap.set(key, arr);
+      groups.push({ group: key, items: arr });
+    }
+    groupMap.get(key)!.push(opt);
+  }
+  return groups;
+}
 
 export const Combobox: React.FC<ComboboxProps> = ({
-  label,
   options,
   value,
   onChange,
-  icon,
-  placeholder = 'Pesquisar...',
+  placeholder = "Selecionar...",
+  searchPlaceholder = "Buscar...",
+  multiple = false,
   allowCustom = false,
   onCustomAdd,
+  size = "sm",
+  className,
   disabled = false,
-  className = '',
-  noResultsText = 'Nenhum resultado encontrado',
-  size = 'sm',
-  showSelectedBadge = true,
-  showResultCount = true,
-  multiple = false,
+  emptyMessage = "Nenhum resultado encontrado.",
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const [dropdownCoords, setDropdownCoords] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [openUpward, setOpenUpward] = useState(false);
 
-  const selectedOptions = useMemo(() => {
-    if (multiple && Array.isArray(value)) {
-      return options.filter((option) => value.includes(option.id));
-    }
-    const single = options.find((option) => String(option.id) === String(value));
-    return single ? [single] : [];
-  }, [options, value, multiple]);
+  const selectedValues: string[] = multiple
+    ? Array.isArray(value) ? value : value ? [value] : []
+    : value ? [value as string] : [];
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const filtered = options.filter(o =>
+    normalizeStr(o.label).includes(normalizeStr(search)) ||
+    (o.subtitle && normalizeStr(o.subtitle).includes(normalizeStr(search))) ||
+    (o.group && normalizeStr(o.group).includes(normalizeStr(search)))
+  );
 
-  const ui = {
-    inputHeight: size === 'sm' ? 'min-h-[40px]' : 'min-h-[44px]',
-    inputText: size === 'sm' ? 'text-sm' : 'text-sm',
-    inputPadding: size === 'sm' ? 'pl-9 pr-10' : 'pl-10 pr-12',
-    dropdownRounded: size === 'sm' ? 'rounded-xl' : 'rounded-2xl',
-    dropdownTopOffset: size === 'sm' ? 6 : 8,
-    headerPadding: size === 'sm' ? 'px-3 py-2' : 'px-4 py-3',
-    listPadding: size === 'sm' ? 'p-1.5' : 'p-2',
-    listMaxHeight: size === 'sm' ? 'max-h-[220px]' : 'max-h-[260px]',
-    itemPadding: size === 'sm' ? 'px-3 py-2' : 'px-3 py-3',
-    itemTitle: size === 'sm' ? 'text-[14px]' : 'text-sm',
-    itemMeta: size === 'sm' ? 'text-[9px]' : 'text-[10px]',
-    checkSize: size === 'sm' ? 'h-7 w-7' : 'h-8 w-8',
-    clearSize: size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
-    chevronSize: size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
-  };
+  const grouped = groupOptions(filtered);
+  const hasGroups = options.some(o => o.group);
+
+  const canAddCustom =
+    allowCustom &&
+    search.trim().length > 0 &&
+    !options.some(o => normalizeStr(o.label) === normalizeStr(search.trim()));
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const dropdownHeight = 300;
+    const goUp = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+    setOpenUpward(goUp);
+    setDropdownStyle({
+      position: "fixed",
+      left: rect.left,
+      width: rect.width,
+      zIndex: 9999,
+      ...(goUp
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+    });
+  }, []);
 
   useEffect(() => {
-    if (multiple) return;
-    if (selectedOptions.length > 0) {
-      setQuery(selectedOptions[0].label);
-    } else if (value && allowCustom && !multiple) {
-      setQuery(String(value));
-    } else if (!value) {
-      setQuery('');
+    if (open) {
+      updatePosition();
+      setTimeout(() => searchRef.current?.focus(), 30);
     }
-  }, [selectedOptions, value, allowCustom, multiple]);
+  }, [open, updatePosition]);
 
-  const normQ = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-  const filteredOptions = useMemo(() => {
-    const normalizedQuery = normQ((query || '').trim());
-
-    // Se o valor da query for EXATAMENTE igual ao selecionado, mostramos todas as opções
-    const isShowingSelected = !multiple && selectedOptions.length > 0 && query === selectedOptions[0]?.label;
-
-    if (!normalizedQuery || isShowingSelected) return options;
-
-    return options.filter((option) =>
-      normQ(option.label).includes(normalizedQuery)
-    );
-  }, [options, query, multiple, selectedOptions]);
-
-  // Atualiza posição do dropdown quando abre ou redimensiona
-  const updateDropdownCoords = () => {
-    if (!containerRef.current) return;
-    const shell = containerRef.current.querySelector('.input-shell');
-    if (shell) {
-      const rect = shell.getBoundingClientRect();
-      const dropdownHeight = size === 'sm' ? 260 : 300; // Altura aproximada
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const shouldOpenUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
-
-      setDropdownCoords({
-        top: shouldOpenUp ? rect.top - dropdownHeight - ui.dropdownTopOffset : rect.bottom + ui.dropdownTopOffset,
-        left: rect.left,
-        width: rect.width
-      });
-    }
-  };
-
-  useLayoutEffect(() => {
-    if (isOpen) {
-      updateDropdownCoords();
-      window.addEventListener('scroll', updateDropdownCoords, true);
-      window.addEventListener('resize', updateDropdownCoords);
-    }
+  useEffect(() => {
+    if (!open) return;
+    const handleScroll = () => updatePosition();
+    const handleResize = () => updatePosition();
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleResize);
     return () => {
-      window.removeEventListener('scroll', updateDropdownCoords, true);
-      window.removeEventListener('resize', updateDropdownCoords);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
     };
-  }, [isOpen]);
+  }, [open, updatePosition]);
 
   useEffect(() => {
-    setHighlightedIndex(filteredOptions.length > 0 ? 0 : -1);
-  }, [query, filteredOptions.length, isOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node) && !listRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-        if (multiple) {
-            setQuery('');
-        } else if (selectedOptions.length > 0) {
-          setQuery(selectedOptions[0].label);
-        } else if (!allowCustom) {
-          setQuery('');
-          onChange('', '');
-        }
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+        setSearch("");
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectedOptions, allowCustom, onChange, multiple]);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
 
-  const handleSelect = (option: Option) => {
+  const handleSelect = (optValue: string) => {
     if (multiple) {
-      const currentValues = Array.isArray(value) ? value : [];
-      const newValue = currentValues.includes(option.id)
-        ? currentValues.filter((v) => v !== option.id)
-        : [...currentValues, option.id];
-      onChange(newValue);
-      setQuery('');
-      inputRef.current?.focus();
+      const current = Array.isArray(value) ? value : value ? [value] : [];
+      if (current.includes(optValue)) {
+        onChange(current.filter(v => v !== optValue));
+      } else {
+        onChange([...current, optValue]);
+      }
     } else {
-      onChange(option.id, option.label);
-      setQuery(option.label);
-      setIsOpen(false);
-      setHighlightedIndex(-1);
+      onChange(optValue === (value as string) ? "" : optValue);
+      setOpen(false);
+      setSearch("");
     }
   };
 
-  const openDropdown = () => setIsOpen(true);
-
-  const handleClear = () => {
-    setQuery('');
-    onChange(multiple ? [] : '', '');
-    setIsOpen(false);
-    inputRef.current?.focus();
-  };
-
-  const handleInputChange = (nextValue: string) => {
-    setQuery(nextValue);
-    setIsOpen(true);
-    if (!multiple) {
-      const exactMatch = options.find((option) => normQ(option.label) === normQ((nextValue || '').trim()));
-      if (exactMatch) {
-        onChange(exactMatch.id, exactMatch.label);
-      } else if (allowCustom) {
-        onChange(nextValue, nextValue);
-      } else if (!nextValue) {
-        onChange('', '');
-      }
+  const handleRemove = (e: React.MouseEvent, optValue: string) => {
+    e.stopPropagation();
+    if (multiple) {
+      const current = Array.isArray(value) ? value : [];
+      onChange(current.filter(v => v !== optValue));
+    } else {
+      onChange("");
     }
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (disabled) return;
-    if (!isOpen && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) setIsOpen(true);
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      setHighlightedIndex((prev) => filteredOptions.length === 0 ? -1 : prev < filteredOptions.length - 1 ? prev + 1 : 0);
-      return;
-    }
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setHighlightedIndex((prev) => filteredOptions.length === 0 ? -1 : prev > 0 ? prev - 1 : filteredOptions.length - 1);
-      return;
-    }
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      if (isOpen && highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
-        handleSelect(filteredOptions[highlightedIndex]);
-        return;
-      }
-      if (allowCustom && (query || '').trim() && onCustomAdd) {
-        onCustomAdd((query || '').trim());
-        setIsOpen(multiple);
-      }
-      return;
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      setIsOpen(false);
-      if (!multiple && selectedOptions.length > 0) setQuery(selectedOptions[0].label);
-      else if (multiple) setQuery('');
+  const handleCustomAdd = () => {
+    if (!search.trim()) return;
+    onCustomAdd?.(search.trim());
+    setSearch("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setOpen(false);
+      setSearch("");
     }
   };
 
-  const showAddCustom = allowCustom && (query || '').trim() && filteredOptions.length === 0 && typeof onCustomAdd === 'function';
+  const selectedLabels = selectedValues
+    .map(v => options.find(o => o.value === v)?.label || v)
+    .filter(Boolean);
 
-  const dropdownList = isOpen ? createPortal(
-    <div 
-        ref={listRef}
-        className={cx(
-            'fixed z-[10000] overflow-hidden border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.2)] animate-[dropdownIn_0.2s_ease-out]',
-            ui.dropdownRounded
-        )}
-        style={{ 
-            top: dropdownCoords.top, 
-            left: dropdownCoords.left, 
-            width: dropdownCoords.width 
-        }}
-    >
-      {showResultCount && (
-        <div className={cx('border-b border-slate-100', ui.headerPadding)}>
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-            {filteredOptions.length > 0 ? `${filteredOptions.length} resultado(s)` : 'Busca'}
-          </p>
-        </div>
-      )}
-      <div className={cx(ui.listMaxHeight, 'overflow-y-auto custom-scrollbar', ui.listPadding)}>
-        {filteredOptions.length > 0 ? (
-          filteredOptions.map((option, index) => {
-            const isSelected = selectedOptions.some(o => o.id === option.id);
-            const isHighlighted = index === highlightedIndex;
-            return (
-              <button 
-                key={option.id} 
-                type="button" 
-                data-index={index} 
-                onClick={() => handleSelect(option)} 
-                className={cx(
-                  'flex w-full items-center justify-between text-left transition group', 
-                  ui.itemPadding, 
-                  size === 'sm' ? 'rounded-lg' : 'rounded-xl', 
-                  isSelected ? 'bg-indigo-50 text-indigo-700' : isHighlighted ? 'bg-slate-50 text-slate-800' : 'text-slate-700 hover:bg-slate-50'
-                )}
-              >
-                <div className="flex items-center gap-3 min-w-0 pr-2">
-                  {option.avatar && (
-                    <img 
-                      src={getStaticUrl(option.avatar)} 
-                      alt="" 
-                      className="h-8 w-8 rounded-lg object-cover border border-slate-200 shadow-sm"
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <p className={cx('truncate font-bold', ui.itemTitle)}>{option.label}</p>
-                    {option.description ? (
-                      <p className={cx('mt-0.5 font-medium text-slate-400 truncate', ui.itemMeta)}>
-                        {option.description}
-                      </p>
-                    ) : isSelected && (
-                      <p className={cx('mt-0.5 font-bold uppercase tracking-wide text-indigo-500', ui.itemMeta)}>
-                        {multiple ? 'Ativado' : 'Selecionado'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className={cx('ml-2 flex shrink-0 items-center justify-center rounded-lg border transition', ui.checkSize, isSelected ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-100 group-hover:border-slate-300')}>
-                  <Check size={12} strokeWidth={4} />
-                </div>
-              </button>
-            );
-          })
-        ) : showAddCustom ? (
-          <button type="button" onClick={() => { onCustomAdd?.((query || '').trim()); if (!multiple) setIsOpen(false); }} className={cx('flex w-full items-center gap-3 text-left text-violet-700 transition hover:bg-violet-50', size === 'sm' ? 'rounded-lg px-3 py-3' : 'rounded-xl px-4 py-4')}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600"><UserPlus size={15} /></div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Não encontrado</p>
-              <p className="text-sm font-bold">Adicionar "{(query || '').trim()}"</p>
-            </div>
-          </button>
-        ) : (
-          <div className="flex flex-col items-center px-4 py-8 text-center">
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-300"><Search size={16} /></div>
-            <p className="text-sm font-bold text-slate-500">{noResultsText}</p>
-          </div>
-        )}
-      </div>
-      <style>{`
-        @keyframes dropdownIn {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-    </div>,
-    document.body
-  ) : null;
+  const sizeClasses = {
+    sm: "text-xs px-3 py-2 min-h-[38px]",
+    md: "text-sm px-3 py-2.5 min-h-[42px]",
+  };
+
+  /* ── Group header icon colours ── */
+  const GROUP_STYLES: Record<string, string> = {
+    "Serviços":  "text-amber-600 bg-amber-50 border-amber-200",
+    "Pacotes":   "text-violet-600 bg-violet-50 border-violet-200",
+  };
+  const GROUP_DOT: Record<string, string> = {
+    "Serviços": "bg-amber-400",
+    "Pacotes":  "bg-violet-400",
+  };
 
   return (
-    <div ref={containerRef} className={cx('w-full', className)}>
-      {label && (
-        <label className="mb-2 block text-[12px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-          {label}
-        </label>
-      )}
+    <div className={cn("relative", className)}>
+      <div
+        ref={triggerRef}
+        role="combobox"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        tabIndex={disabled ? -1 : 0}
+        onClick={() => { if (!disabled) setOpen(v => !v); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!disabled) setOpen(v => !v); }
+          handleKeyDown(e);
+        }}
+        className={cn(
+          "w-full flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 text-left transition-all cursor-pointer select-none",
+          "focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400",
+          disabled && "opacity-50 cursor-not-allowed",
+          sizeClasses[size],
+          open && "ring-2 ring-amber-400/40 border-amber-400"
+        )}
+      >
+        <div className="flex-1 flex flex-wrap gap-1 min-w-0">
+          {selectedLabels.length === 0 ? (
+            <span className="text-zinc-400 truncate">{placeholder}</span>
+          ) : multiple ? (
+            selectedLabels.map((label, i) => (
+              <span
+                key={selectedValues[i]}
+                className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-md px-1.5 py-0.5 text-[10px] font-medium max-w-full"
+              >
+                <span className="truncate max-w-[120px]">{label}</span>
+                <button
+                  type="button"
+                  onClick={e => handleRemove(e, selectedValues[i])}
+                  className="shrink-0 hover:text-red-500 transition-colors"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))
+          ) : (
+            <span className="truncate text-zinc-900 font-semibold text-xs">{selectedLabels[0]}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {!multiple && selectedValues.length > 0 && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onChange(""); }}
+              className="p-0.5 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          )}
+          <ChevronDown
+            size={14}
+            className={cn(
+              "text-zinc-400 transition-transform duration-200",
+              open && "rotate-180"
+            )}
+          />
+        </div>
+      </div>
 
-      <div className="relative">
+      {open && createPortal(
         <div
-          className={cx(
-            'input-shell relative flex items-center rounded-xl border bg-white transition-all',
-            ui.inputHeight,
-            disabled ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-70' : isOpen ? 'border-violet-500 ring-4 ring-violet-500/10' : 'border-slate-300 hover:border-slate-400'
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className={cn(
+            "bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden",
+            openUpward ? "flex flex-col-reverse" : "flex flex-col"
           )}
         >
-          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-            {icon || <Search size={15} />}
-          </div>
-
-          <div className="flex flex-1 flex-wrap items-center gap-1 pl-9 pr-10">
-            {multiple && selectedOptions.map((opt) => (
-               <span key={opt.id} className="inline-flex items-center gap-1 bg-violet-50 text-violet-700 text-[10px] font-black px-2 py-0.5 rounded-lg border border-violet-100">
-                  {opt.label}
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleSelect(opt); }} className="hover:text-violet-900">
-                    <X size={10} />
-                  </button>
-               </span>
-            ))}
+          {/* Search */}
+          <div className={cn(
+            "flex items-center gap-2 px-3 border-zinc-100 bg-white",
+            openUpward ? "border-t pt-2 pb-1.5" : "border-b pb-2 pt-2"
+          )}>
+            <Search size={12} className="text-zinc-400 shrink-0" />
             <input
-                ref={inputRef}
-                type="text"
-                disabled={disabled}
-                value={query || ''}
-                placeholder={selectedOptions.length > 0 && multiple ? '' : placeholder}
-                onFocus={openDropdown}
-                onClick={openDropdown}
-                onKeyDown={handleKeyDown}
-                onChange={(e) => handleInputChange(e.target.value)}
-                className={cx('flex-1 bg-transparent outline-none placeholder:text-slate-400 text-slate-700 w-px min-w-[40px]', ui.inputText, size === 'sm' ? 'h-9' : 'h-10')}
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="flex-1 text-xs outline-none text-zinc-700 placeholder:text-zinc-400 bg-transparent"
+              onKeyDown={e => {
+                if (e.key === "Escape") { setOpen(false); setSearch(""); }
+                if (e.key === "Enter" && canAddCustom) handleCustomAdd();
+              }}
             />
-          </div>
-
-          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-            {!!(query || selectedOptions.length > 0) && !disabled && (
-              <button type="button" onClick={handleClear} className={cx('flex items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600', ui.clearSize)} aria-label="Limpar">
-                <X size={13} />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-zinc-300 hover:text-zinc-500 transition-colors"
+              >
+                <X size={11} />
               </button>
             )}
-            <button type="button" onClick={() => (isOpen ? setIsOpen(!isOpen) : setIsOpen(true))} disabled={disabled} className={cx('flex items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed', ui.chevronSize)} aria-label="Abrir opções">
-              <ChevronDown size={14} className={cx('transition-transform', isOpen && 'rotate-180')} />
-            </button>
           </div>
-        </div>
-        {dropdownList}
-      </div>
+
+          {/* Options list */}
+          <div className="overflow-y-auto max-h-[240px]">
+            {filtered.length === 0 && !canAddCustom ? (
+              <div className="px-3 py-5 text-xs text-zinc-400 text-center">{emptyMessage}</div>
+            ) : (
+              <>
+                {hasGroups
+                  /* ── Grouped rendering ── */
+                  ? grouped.map(({ group, items }, gi) => (
+                    <div key={group ?? `g-${gi}`}>
+                      {/* Group header */}
+                      {group && (
+                        <div className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 sticky top-0 bg-white border-b",
+                          gi > 0 && "border-t",
+                          "border-zinc-100"
+                        )}>
+                          <div className={cn(
+                            "w-1.5 h-1.5 rounded-full shrink-0",
+                            GROUP_DOT[group] ?? "bg-zinc-400"
+                          )} />
+                          <span className={cn(
+                            "text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md border",
+                            GROUP_STYLES[group] ?? "text-zinc-500 bg-zinc-50 border-zinc-200"
+                          )}>
+                            {group}
+                          </span>
+                          <span className="text-[9px] text-zinc-400 ml-auto">{items.length}</span>
+                        </div>
+                      )}
+
+                      {/* Items */}
+                      {items.map(opt => {
+                        const isSelected = selectedValues.includes(opt.value);
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => handleSelect(opt.value)}
+                            className={cn(
+                              "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
+                              "hover:bg-amber-50",
+                              isSelected && "bg-amber-50/60"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-4 h-4 rounded-[4px] border flex items-center justify-center shrink-0 transition-all",
+                              isSelected ? "bg-amber-500 border-amber-500" : "border-zinc-300"
+                            )}>
+                              {isSelected && <Check size={10} className="text-white" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-zinc-800 truncate">{opt.label}</div>
+                              {opt.subtitle && (
+                                <div className="text-[10px] text-zinc-400 truncate">{opt.subtitle}</div>
+                              )}
+                            </div>
+                            {opt.badge && (
+                              <span className={cn(
+                                "text-[9px] font-black px-1.5 py-0.5 rounded-md border shrink-0",
+                                opt.badgeColor ?? "bg-zinc-50 text-zinc-500 border-zinc-200"
+                              )}>
+                                {opt.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))
+
+                  /* ── Flat rendering (no groups) ── */
+                  : filtered.map(opt => {
+                    const isSelected = selectedValues.includes(opt.value);
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleSelect(opt.value)}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
+                          "hover:bg-amber-50",
+                          isSelected && "bg-amber-50/60"
+                        )}
+                      >
+                        <div className={cn(
+                          "w-4 h-4 rounded-[4px] border flex items-center justify-center shrink-0 transition-all",
+                          isSelected ? "bg-amber-500 border-amber-500" : "border-zinc-300"
+                        )}>
+                          {isSelected && <Check size={10} className="text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-zinc-800 truncate">{opt.label}</div>
+                          {opt.subtitle && (
+                            <div className="text-[10px] text-zinc-400 truncate">{opt.subtitle}</div>
+                          )}
+                        </div>
+                        {opt.badge && (
+                          <span className={cn(
+                            "text-[9px] font-black px-1.5 py-0.5 rounded-md border shrink-0",
+                            opt.badgeColor ?? "bg-zinc-50 text-zinc-500 border-zinc-200"
+                          )}>
+                            {opt.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
+                }
+
+                {canAddCustom && (
+                  <button
+                    type="button"
+                    onClick={handleCustomAdd}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-50 border-t border-zinc-100"
+                  >
+                    <div className="w-4 h-4 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0">
+                      <Plus size={9} className="text-amber-600" />
+                    </div>
+                    <span className="text-xs text-amber-700 font-medium">
+                      Adicionar "{search.trim()}"
+                    </span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
+
+export default Combobox;

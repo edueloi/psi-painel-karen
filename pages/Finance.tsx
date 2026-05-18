@@ -13,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { FinancialTransaction, Patient } from '../types';
 import { Modal } from '../components/UI/Modal';
-import { Input, Select, TextArea } from '../components/UI/Input';
+import { Input, Select, Textarea } from '../components/UI/Input';
 import { useToast } from '../contexts/ToastContext';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
 import { AuraContabil } from '../components/AI/AuraContabil';
@@ -959,7 +959,7 @@ export const Finance: React.FC = () => {
 
               <div>
                   <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Observações / Detalhes</label>
-                  <TextArea 
+                  <Textarea 
                     value={txObservation}
                     onChange={e => setTxObservation(e.target.value)}
                     placeholder="Detalhes adicionais do lançamento..."

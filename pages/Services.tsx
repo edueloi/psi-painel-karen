@@ -31,7 +31,8 @@ import {
 import { api, API_BASE_URL } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
-import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
+import { Input, Select, Textarea } from '../components/UI/Input';
+import { Combobox } from '../components/UI/Combobox';
 import {
   FilterLine,
   FilterLineSection,
@@ -1509,7 +1510,7 @@ export const Services: React.FC = () => {
               </div>
             </div>
 
-            <TextArea
+            <Textarea
               label="Descrição / observações"
               value={editingService.description || ''}
               onChange={(e) =>
@@ -1748,7 +1749,7 @@ export const Services: React.FC = () => {
               </div>
             </div>
 
-            <TextArea
+            <Textarea
               label="Observações do pacote"
               value={editingPackage.description || ''}
               onChange={(e) =>

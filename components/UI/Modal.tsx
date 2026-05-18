@@ -1,221 +1,336 @@
-import React, { useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
+import { motion, AnimatePresence, Variants } from "motion/react";
+import { cn } from "@/src/lib/utils";
 
-interface ModalProps {
+// ─────────────────────────────────────────────────────────────────────────────
+// Modal — Design System
+//
+// Comportamento responsivo automático:
+//  • Mobile (<640px): bottom-sheet com handle iOS ou fullscreen
+//  • Tablet/Desktop: modal centralizado com bordas arredondadas
+//
+// Tamanhos (desktop):
+//  xs  → 360px   (confirmações simples)
+//  sm  → 448px   (forms pequenos)
+//  md  → 512px   (padrão geral)
+//  lg  → 640px   (forms médios)
+//  xl  → 768px   (forms grandes / detalhes)
+//  2xl → 900px   (painéis complexos / split)
+//  full → 95vw   (tabelas / relatórios)
+//
+// Slots:
+//  title    → header fixo com botão fechar
+//  children → body scrollável
+//  footer   → rodapé fixo com ações (use ModalFooter)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
-  subtitle?: string;
+  title?: string | React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full' | string;
   className?: string;
-  headerClassName?: string;
-  bodyClassName?: string;
-  footerClassName?: string;
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "full" | "auto";
   hideCloseButton?: boolean;
-  closeOnOverlayClick?: boolean;
-  closeOnEsc?: boolean;
+  /** Mobile presentation mode */
+  mobileStyle?: "bottom-sheet" | "fullscreen" | "center";
+  backdropBlur?: "none" | "sm" | "md";
 }
 
-const maxWidthClasses: Record<string, string> = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-  xl: 'max-w-xl',
-  '2xl': 'max-w-2xl',
-  '3xl': 'max-w-3xl',
-  '4xl': 'max-w-4xl',
-  '5xl': 'max-w-5xl',
-  full: 'max-w-[96vw] md:max-w-[92vw]',
+const sizeClasses: Record<string, string> = {
+  xs:   "sm:max-w-[360px]",
+  sm:   "sm:max-w-[448px]",
+  md:   "sm:max-w-[512px]",
+  lg:   "sm:max-w-[640px]",
+  xl:   "sm:max-w-[768px]",
+  "2xl":"sm:max-w-[900px]",
+  full: "sm:max-w-[95dvw] sm:w-full",
+  auto: "sm:w-auto",
+};
+
+const backdropConfigs: Record<string, string> = {
+  none: "",
+  sm:   "backdrop-blur-[2px]",
+  md:   "backdrop-blur-[4px]",
+};
+
+// ── Animações ──────────────────────────────────────────────────────────────
+const bottomSheetVariants: Variants = {
+  hidden:  { opacity: 0, y: "100%" },
+  visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 26, stiffness: 240, mass: 0.8 } },
+  exit:    { opacity: 0, y: "100%", transition: { duration: 0.22, ease: [0.32, 0.72, 0, 1] } },
+};
+
+const fullscreenVariants: Variants = {
+  hidden:  { opacity: 0, scale: 0.96, y: 24 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", damping: 26, stiffness: 240 } },
+  exit:    { opacity: 0, scale: 0.96, y: -16, transition: { duration: 0.18, ease: "easeIn" } },
+};
+
+const desktopVariants: Variants = {
+  hidden:  { opacity: 0, scale: 0.97, y: 16 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", damping: 28, stiffness: 320, mass: 0.7 } },
+  exit:    { opacity: 0, scale: 0.97, y: -12, transition: { duration: 0.15, ease: "easeIn" } },
 };
 
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
-  subtitle,
   children,
   footer,
-  maxWidth = '2xl',
-  className = '',
-  headerClassName = '',
-  bodyClassName = '',
-  footerClassName = '',
+  className,
+  size = "md",
   hideCloseButton = false,
-  closeOnOverlayClick = true,
-  closeOnEsc = true,
+  mobileStyle = "bottom-sheet",
+  backdropBlur = "sm",
 }) => {
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
-    if (!isOpen) {
-      document.body.style.overflow = 'unset';
-      return;
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Bloqueia scroll do body enquanto o modal está aberto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
     }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
 
-    document.body.style.overflow = 'hidden';
+  const isBottomSheet   = isMobile && mobileStyle === "bottom-sheet";
+  const isMobileFullscreen = isMobile && mobileStyle === "fullscreen";
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (closeOnEsc && event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = 'unset';
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose, closeOnEsc]);
-
-  if (!isOpen) return null;
-
-  const maxWidthClass = maxWidthClasses[maxWidth] || maxWidth;
+  const variants = isMobile
+    ? isMobileFullscreen ? fullscreenVariants : bottomSheetVariants
+    : desktopVariants;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 !m-0">
-      {/* Overlay */}
-      <div
-        className="absolute inset-0 bg-slate-900/45 animate-[fadeIn_.18s_ease-out]"
-        onClick={closeOnOverlayClick ? onClose : undefined}
-        aria-hidden="true"
-      />
-
-      {/* Modal */}
-      <div
-        className={`
-          relative w-full ${maxWidthClass}
-          bg-white
-          rounded-2xl sm:rounded-3xl
-          border border-slate-200
-          shadow-[0_20px_70px_rgba(15,23,42,0.18)]
-          flex flex-col
-          max-h-[88vh]
-          overflow-hidden
-          animate-[modalIn_.2s_ease-out]
-          ${className}
-        `}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-        {/* Header */}
-        <div
-          className={`
-            px-5 sm:px-6 py-4
-            flex items-start justify-between gap-4
-            border-b border-slate-100
-            bg-white
-            ${headerClassName}
-          `}
-        >
-          <div className="min-w-0">
-            <h3
-              id="modal-title"
-              className="text-[17px] sm:text-lg font-semibold text-slate-800 leading-tight"
-            >
-              {title}
-            </h3>
-
-            {subtitle && (
-              <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-                {subtitle}
-              </p>
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            onClick={onClose}
+            className={cn(
+              "fixed inset-0 z-[100] bg-zinc-900/45",
+              backdropConfigs[backdropBlur]
             )}
-          </div>
+          />
 
-          {!hideCloseButton && (
-            <button
-              onClick={onClose}
-              className="
-                shrink-0
-                inline-flex items-center justify-center
-                w-9 h-9
-                rounded-xl
-                text-slate-400
-                hover:text-slate-700
-                hover:bg-slate-100
-                transition-all
-                focus:outline-none
-                focus:ring-2
-                focus:ring-violet-500/30
-              "
-              aria-label="Fechar modal"
-            >
-              <X size={18} />
-            </button>
-          )}
-        </div>
-
-        {/* Body */}
-        <div
-          className={`
-            px-5 sm:px-6 py-5
-            overflow-y-auto
-            max-h-[calc(88vh-140px)]
-            text-slate-600
-            bg-white
-            custom-scrollbar
-            ${bodyClassName}
-          `}
-        >
-          {children}
-        </div>
-
-        {/* Footer */}
-        {footer && (
+          {/* Container de posicionamento */}
           <div
-            className={`
-              px-4 sm:px-6 py-3 sm:py-4
-              border-t border-slate-100
-              bg-white
-              flex items-center justify-end gap-3
-              ${footerClassName}
-            `}
+            className={cn(
+              "fixed inset-0 z-[101] flex pointer-events-none",
+              isBottomSheet
+                ? "items-end sm:items-center sm:justify-center p-0 sm:p-6"
+                : "items-center justify-center p-4 sm:p-6"
+            )}
           >
-            {footer}
+            <motion.div
+              key="modal-content"
+              variants={variants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className={cn(
+                "w-full bg-white relative flex flex-col pointer-events-auto overflow-hidden",
+                // Bottom-sheet: sem margens laterais, bordas só no topo, quase tela toda
+                isBottomSheet && [
+                  "rounded-t-[28px] sm:rounded-3xl",
+                  "h-[96dvh] sm:h-auto sm:max-h-[88vh]",
+                  "shadow-[0_-8px_40px_rgba(0,0,0,0.18)]",
+                ],
+                isMobileFullscreen && [
+                  "h-[100dvh] w-full rounded-none",
+                ],
+                // Desktop / center
+                !isBottomSheet && !isMobileFullscreen && [
+                  "rounded-3xl",
+                  "max-h-[90dvh] sm:max-h-[88vh]",
+                ],
+                "sm:rounded-3xl sm:shadow-[0_25px_60px_rgba(0,0,0,0.15)] sm:border sm:border-zinc-200/60",
+                sizeClasses[size],
+                className
+              )}
+            >
+              {/* iOS Grab Handle */}
+              {isBottomSheet && (
+                <div className="w-full flex justify-center pt-2.5 pb-1 shrink-0 sm:hidden">
+                  <div className="w-9 h-[4px] rounded-full bg-zinc-200" />
+                </div>
+              )}
+
+              {/* Header */}
+              {title && (
+                <div
+                  className={cn(
+                    "flex items-center justify-between shrink-0",
+                    "px-5 sm:px-7",
+                    "border-b border-zinc-100",
+                    isBottomSheet ? "pt-3 pb-4 sm:py-5" : "py-4 sm:py-5"
+                  )}
+                >
+                  <div className="text-sm sm:text-[15px] font-black text-zinc-900 uppercase tracking-wide truncate pr-4 font-display">
+                    {title}
+                  </div>
+                  {!hideCloseButton && (
+                    <button
+                      onClick={onClose}
+                      aria-label="Fechar"
+                      className="p-1.5 -mr-1 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-all active:scale-90 focus:outline-none focus:ring-2 focus:ring-amber-500/20 shrink-0"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Body — scrollável */}
+              <div className="flex-1 overflow-y-auto overscroll-contain w-full p-4 sm:p-7 relative scroll-smooth">
+                {/* Botão fechar flutuante (quando sem título) */}
+                {!title && !hideCloseButton && (
+                  <button
+                    onClick={onClose}
+                    aria-label="Fechar"
+                    className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/90 shadow-sm border border-zinc-200/60 text-zinc-500 hover:text-zinc-900 transition-all active:scale-90"
+                  >
+                    <X size={17} strokeWidth={2.5} />
+                  </button>
+                )}
+                {children}
+              </div>
+
+              {/* Footer fixo */}
+              {footer && (
+                <div
+                  className={cn(
+                    "shrink-0 border-t border-zinc-100 bg-white",
+                    "px-4 py-3 sm:px-7 sm:py-5",
+                    "pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-5"
+                  )}
+                >
+                  {footer}
+                </div>
+              )}
+            </motion.div>
           </div>
-        )}
-      </div>
-
-      <style>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes modalIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px) scale(0.985);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 999px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
-    </div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ModalFooter — Padrão de rodapé de ações
+//
+// Mobile: botões empilhados (ação principal primeiro visualmente, mas
+//         flex-col-reverse garante ordem lógica correta)
+// Desktop: alinhados à direita
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ModalFooterProps {
+  children: React.ReactNode;
+  align?: "left" | "right" | "between";
+  className?: string;
+}
+
+export function ModalFooter({ children, align = "right", className }: ModalFooterProps) {
+  const alignMap = {
+    left:    "sm:justify-start",
+    right:   "sm:justify-end",
+    between: "sm:justify-between",
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col-reverse gap-2 sm:flex-row sm:items-center",
+        alignMap[align],
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ConfirmModal — Modal de confirmação simples (sim/não)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string | React.ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  variant?: "danger" | "primary" | "success";
+  loading?: boolean;
+}
+
+export function ConfirmModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmLabel = "Confirmar",
+  cancelLabel = "Cancelar",
+  variant = "danger",
+  loading = false,
+}: ConfirmModalProps) {
+  const btnVariantMap = {
+    danger:  "bg-red-500 hover:bg-red-600 text-white",
+    primary: "bg-amber-500 hover:bg-amber-600 text-white",
+    success: "bg-emerald-500 hover:bg-emerald-600 text-white",
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="xs"
+      mobileStyle="center"
+      footer={
+        <ModalFooter>
+          <button
+            onClick={onClose}
+            className="h-10 px-4 rounded-[10px] border border-zinc-200 bg-white text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-all w-full sm:w-auto"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className={cn(
+              "h-10 px-5 rounded-[10px] text-sm font-bold transition-all w-full sm:w-auto",
+              "disabled:opacity-50 disabled:cursor-not-allowed active:scale-95",
+              btnVariantMap[variant]
+            )}
+          >
+            {loading ? "Aguarde..." : confirmLabel}
+          </button>
+        </ModalFooter>
+      }
+    >
+      <p className="text-sm text-zinc-600 leading-relaxed">{message}</p>
+    </Modal>
+  );
+}

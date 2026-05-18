@@ -19,10 +19,14 @@ import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
-import { Input, Select, TextArea, Combobox } from '../components/UI/Input';
+import { Input, Select, Textarea } from '../components/UI/Input';
+import { Combobox } from '../components/UI/Combobox';
 import { DatePicker } from '../components/UI/DatePicker';
 import { AgendaPlanner, WorkScheduleDay } from '../components/UI/AgendaPlanner';
 import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, StatGrid } from '../components/UI/PageWrapper';
+import { StatCard } from '../components/UI/StatCard';
+import { IconButton } from '../components/UI/Button';
 
 type ComandaTab = 'avulsa' | 'pacote';
 type ViewMode = 'kanban' | 'list';
@@ -1506,7 +1510,7 @@ export const Agenda: React.FC = () => {
 
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
+    <PageWrapper mobileBottomPad={false} className="space-y-4 animate-fadeIn font-sans !px-0 !pt-0 !pb-0">
       <PageHeader
         icon={<CalendarIcon />}
         title={t('agenda.title')}
@@ -1515,83 +1519,81 @@ export const Agenda: React.FC = () => {
         actions={
           <div className="flex items-center gap-2">
             <div className="relative">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
+                iconLeft={<Download size={14} className="text-emerald-500" />}
+                iconRight={<ChevronDown size={12} />}
                 onClick={() => setExportMenuOpen((o: boolean) => !o)}
-                className="bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition-all active:scale-95 shadow-sm uppercase tracking-tighter"
               >
-                <Download size={14} className="text-emerald-500" /> Exportar <ChevronDown size={12} />
-              </button>
+                Exportar
+              </Button>
               {exportMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg" onMouseLeave={() => setExportMenuOpen(false)}>
-                  <button onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-zinc-200 bg-white py-1 shadow-lg" onMouseLeave={() => setExportMenuOpen(false)}>
+                  <button onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">
                     <FileText size={14} className="text-emerald-500" /> Exportar CSV
                   </button>
-                  <button onClick={() => { setExportMenuOpen(false); handleExport(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                  <button onClick={() => { setExportMenuOpen(false); handleExport(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">
                     <FileText size={14} className="text-green-600" /> Exportar Excel
                   </button>
-                  <button onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                  <button onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">
                     <FileText size={14} className="text-red-500" /> Exportar PDF
                   </button>
                 </div>
               )}
             </div>
             {hasPermission('create_appointment') && (
-              <button
+              <Button
+                size="sm"
+                iconLeft={<Plus size={14} />}
                 onClick={() => openNewModal()}
-                className="bg-gradient-to-r from-indigo-600 to-primary-600 hover:from-indigo-700 hover:to-primary-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all active:scale-95 uppercase tracking-tighter"
               >
-                <Plus size={14} /> Novo Agendamento
-              </button>
+                Novo Agendamento
+              </Button>
             )}
           </div>
         }
       />
 
       {/* STATS + FILTERS — wrapper sticky opcional */}
-      <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-3 bg-slate-50/95 backdrop-blur-md pt-3 pb-3 -mx-6 px-6 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-3'}>
+      <div className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 space-y-3 bg-slate-50/95 backdrop-blur-md py-3 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-3'}>
 
         {/* STATS BAR */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-indigo-50/30 p-5 rounded-[2rem] border border-indigo-100 shadow-sm flex items-center gap-4 group hover:bg-white hover:border-indigo-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center border border-indigo-500 shadow-lg shadow-indigo-200 group-hover:scale-110 transition-all">
-                  <CalendarRange size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sessões hoje</p>
-                  <p className="text-xl font-black text-slate-800">{stats.todayCount}</p>
-              </div>
-          </div>
-          <div className="bg-emerald-50/30 p-5 rounded-[2rem] border border-emerald-100 shadow-sm flex items-center gap-4 group hover:bg-white hover:border-emerald-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center border border-emerald-400 shadow-lg shadow-emerald-100 group-hover:scale-110 transition-all">
-                  <UserCheck size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">Confirmados</p>
-                  <p className="text-xl font-black text-slate-800">{stats.confirmedCount}</p>
-              </div>
-          </div>
-          <div className="bg-amber-50/30 p-5 rounded-[2rem] border border-amber-100 shadow-sm flex items-center gap-4 group hover:bg-white hover:border-amber-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center border border-amber-400 shadow-lg shadow-amber-100 group-hover:scale-110 transition-all">
-                  <Video size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">Online hoje</p>
-                  <p className="text-xl font-black text-slate-800">{stats.onlineCount}</p>
-              </div>
-          </div>
-        </div>
+        <StatGrid cols={3}>
+          <StatCard
+            title="Sessões hoje"
+            value={stats.todayCount}
+            icon={CalendarRange}
+            color="info"
+            delay={0}
+          />
+          <StatCard
+            title="Confirmados"
+            value={stats.confirmedCount}
+            icon={UserCheck}
+            color="success"
+            delay={0.05}
+          />
+          <StatCard
+            title="Online hoje"
+            value={stats.onlineCount}
+            icon={Video}
+            color="warning"
+            delay={0.1}
+          />
+        </StatGrid>
 
       {/* FILTERS & NAVIGATION BAR */}
-      <div className="bg-gradient-to-r from-white to-indigo-50/40 px-4 py-3 rounded-[2.5rem] border border-indigo-100/50 shadow-sm flex flex-wrap gap-2 items-center justify-between">
+      <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-zinc-200 shadow-sm flex flex-wrap gap-2 items-center justify-between">
 
           {/* Navegação + label de data */}
           <div className="flex items-center gap-2 min-w-0">
-              <div className="flex bg-slate-100 p-1 rounded-2xl shadow-inner border border-slate-200 shrink-0">
-                  <button onClick={() => handleNavigate(-1)} className="p-2 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronLeft size={18}/></button>
-                  <button onClick={() => setCurrentDate(new Date())} className="px-3 text-[10px] font-black text-slate-700 uppercase tracking-widest underline decoration-indigo-300 underline-offset-4">Hoje</button>
-                  <button onClick={() => handleNavigate(1)} className="p-2 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-400 hover:text-indigo-600"><ChevronRight size={18}/></button>
+              <div className="flex bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
+                  <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(-1)}><ChevronLeft size={16}/></IconButton>
+                  <button onClick={() => setCurrentDate(new Date())} className="px-3 text-[10px] font-black text-zinc-700 uppercase tracking-widest underline decoration-indigo-300 underline-offset-4">Hoje</button>
+                  <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(1)}><ChevronRight size={16}/></IconButton>
               </div>
-              <h2 className="text-sm font-black text-slate-700 truncate hidden sm:block max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
+              <h2 className="text-sm font-black text-zinc-700 truncate hidden sm:block max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
               <DatePicker
                 value={currentDate.toISOString().slice(0, 10)}
                 onChange={(val) => val && handleDateChange(val)}
@@ -1601,36 +1603,37 @@ export const Agenda: React.FC = () => {
           {/* Controles: view switcher + filtros */}
           <div className="flex flex-wrap items-center gap-2">
               {/* View switcher */}
-              <div className="flex bg-slate-100 p-1 rounded-2xl shrink-0">
-                  <button onClick={() => setView('day')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'day' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Dia</button>
-                  <button onClick={() => setView('week')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Semana</button>
-                  <button onClick={() => setView('month')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${view === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Mês</button>
+              <div className="flex bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
+                  <button onClick={() => setView('day')} className={`px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all ${view === 'day' ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500'}`}>Dia</button>
+                  <button onClick={() => setView('week')} className={`px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all ${view === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500'}`}>Semana</button>
+                  <button onClick={() => setView('month')} className={`px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all ${view === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500'}`}>Mês</button>
               </div>
 
               {/* Filtros */}
-              <select className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 text-[10px] font-black text-slate-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[90px] max-w-[130px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
+              <select className="bg-white border border-zinc-200 rounded-xl px-3 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[80px] max-w-[120px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
                   <option value="">Status</option>
                   {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
-              <select className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 text-[10px] font-black text-slate-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[100px] max-w-[150px]" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
+              <select className="bg-white border border-zinc-200 rounded-xl px-3 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[90px] max-w-[140px]" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
                   <option value="">Profissional</option>
                   {professionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
               </select>
 
               {/* Botão fixar barra */}
-              <button
+              <IconButton
+                variant={stickyStats ? 'primary' : 'outline'}
+                size="sm"
                 onClick={() => updatePreference('agenda', { stickyStats: !stickyStats })}
                 title={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
-                className={`p-1.5 rounded-xl border transition-all ${stickyStats ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300'}`}
               >
                 {stickyStats ? <Pin size={13} /> : <PinOff size={13} />}
-              </button>
+              </IconButton>
           </div>
       </div>
       </div>{/* end sticky wrapper */}
 
       {/* CALENDAR CONTENT */}
-      <div className="bg-white rounded-[2.5rem] border border-indigo-100/60 shadow-xl shadow-indigo-500/5 animate-fadeIn relative" style={{overflow: view === 'month' ? 'auto' : 'hidden', maxHeight: view === 'month' ? 'calc(100vh - 88px - 40px)' : undefined}}>
+      <div className="bg-white rounded-2xl sm:rounded-[2.5rem] border border-indigo-100/60 shadow-xl shadow-indigo-500/5 animate-fadeIn relative" style={{overflow: view === 'month' ? 'auto' : 'hidden', maxHeight: view === 'month' ? 'calc(100vh - 88px - 40px)' : undefined}}>
         {isLoading ? (
             <div className="flex flex-col h-full animate-pulse">
                 {/* Header Skeleton */}
@@ -1839,89 +1842,132 @@ export const Agenda: React.FC = () => {
           isOpen={isModalOpen}
           onClose={closeAppointmentModal}
           title={formData.id ? 'Editar Sessão' : 'Novo Agendamento'}
-          subtitle={new Date(formData.appointment_date).toLocaleDateString(locale, { dateStyle: 'full' })}
-          maxWidth="max-w-4xl"
+          size="2xl"
+          mobileStyle="bottom-sheet"
           footer={
-            <div className="flex flex-col sm:flex-row w-full justify-between items-center gap-4">
-              {formData.id ? (
+            <div className="flex flex-col-reverse sm:flex-row w-full sm:justify-between sm:items-center gap-2">
+              {/* Mobile: confirmar em cima, descartar abaixo — Desktop: excluir esquerda, ações direita */}
+              <div className="flex sm:hidden flex-col gap-2">
                 <Button
-                  variant="danger"
-                  onClick={() => {
-                    if (formData.id || selectedApt?.id) {
-                      setSelectedDeleteIds([formData.id || (selectedApt?.id as any)]);
-                    }
-                    setIsDeleteModalOpen(true);
-                  }}
-                  className="h-10 w-full sm:w-10 p-0 rounded-lg shadow-sm flex items-center justify-center"
-                >
-                  <Trash2 size={18}/>
-                  <span className="sm:hidden ml-2 text-xs font-semibold">Excluir Agendamento</span>
-                </Button>
-              ) : <div className="hidden sm:block" />}
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Button variant="ghost" onClick={closeAppointmentModal} className="text-xs font-semibold h-10 px-6 rounded-lg">
-                  Descartar
-                </Button>
-                <Button
+                  size="md"
+                  loading={isSaving}
                   onClick={handleSave}
                   disabled={isSaving}
-                  isLoading={isSaving}
-                  loadingText="Salvando..."
-                  className="px-6 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm text-xs font-semibold transition-all transform active:scale-95 w-full sm:w-auto"
+                  iconLeft={<CheckCircle2 size={15} />}
+                  fullWidth
+                  className="bg-indigo-600 hover:bg-indigo-700 border-indigo-700 text-white h-12 rounded-2xl text-sm"
                 >
-                  <CheckCircle2 size={16} className="mr-2" />
                   {formData.id ? 'Atualizar' : 'Confirmar'} Agendamento
                 </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={closeAppointmentModal} fullWidth className="text-zinc-500">
+                    Descartar
+                  </Button>
+                  {formData.id && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      iconLeft={<Trash2 size={13}/>}
+                      onClick={() => {
+                        if (formData.id || selectedApt?.id) setSelectedDeleteIds([formData.id || (selectedApt?.id as any)]);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      className="shrink-0"
+                    >
+                      Excluir
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Desktop layout */}
+              <div className="hidden sm:flex w-full justify-between items-center gap-3">
+                {formData.id ? (
+                  <Button variant="danger" size="sm" iconLeft={<Trash2 size={14}/>}
+                    onClick={() => {
+                      if (formData.id || selectedApt?.id) setSelectedDeleteIds([formData.id || (selectedApt?.id as any)]);
+                      setIsDeleteModalOpen(true);
+                    }}
+                  />
+                ) : <div />}
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={closeAppointmentModal}>Descartar</Button>
+                  <Button size="sm" loading={isSaving} onClick={handleSave} disabled={isSaving}
+                    iconLeft={<CheckCircle2 size={14} />}
+                    className="bg-indigo-600 hover:bg-indigo-700 border-indigo-700 text-white"
+                  >
+                    {formData.id ? 'Atualizar' : 'Confirmar'} Agendamento
+                  </Button>
+                </div>
               </div>
             </div>
           }
       >
-          <div className="space-y-8 py-2">
-              {/* TYPE SELECTOR (MODERN CARDS) */}
-              <div className="flex flex-col sm:flex-row gap-3">
+          <div className="space-y-4 sm:space-y-6 py-0 sm:py-1">
+
+              {/* TYPE SELECTOR — segmented no mobile, cards no desktop */}
+              {/* Mobile: pill segmented control */}
+              <div className="flex sm:hidden bg-zinc-100 p-1 rounded-2xl gap-0.5">
+                {[
+                  { id: 'consulta', label: 'Consulta',  icon: <Briefcase size={15}/>, activeBg: 'bg-indigo-600 text-white shadow', activeText: 'text-white' },
+                  { id: 'pessoal',  label: 'Evento',    icon: <UserIcon  size={15}/>, activeBg: 'bg-amber-500  text-white shadow', activeText: 'text-white' },
+                  { id: 'bloqueio', label: 'Bloqueio',  icon: <Ban       size={15}/>, activeBg: 'bg-zinc-600   text-white shadow', activeText: 'text-white' },
+                ].map(t => {
+                  const active = formData.type === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setFormData({...formData, type: t.id})}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all ${
+                        active ? t.activeBg : 'text-zinc-500 hover:text-zinc-700'
+                      }`}
+                    >
+                      {t.icon}
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Desktop: cards completos */}
+              <div className="hidden sm:grid grid-cols-3 gap-3">
                    {[
-                       { id: 'consulta', label: 'Consulta', icon: <Briefcase size={20}/>, desc: 'Sessão clínica', color: 'indigo' },
-                       { id: 'pessoal', label: 'Evento Pessoal', icon: <UserIcon size={20}/>, desc: 'Compromisso', color: 'amber' },
-                       { id: 'bloqueio', label: 'Bloqueio', icon: <Ban size={20}/>, desc: 'Horário indisponível', color: 'slate' }
+                       { id: 'consulta',  label: 'Consulta',       icon: <Briefcase size={20}/>, desc: 'Sessão clínica',       activeClass: 'border-indigo-500 bg-indigo-50', iconClass: 'bg-indigo-500 text-white', radioClass: 'border-indigo-600 bg-indigo-600', textClass: 'text-indigo-900' },
+                       { id: 'pessoal',   label: 'Evento Pessoal', icon: <UserIcon size={20}/>,  desc: 'Compromisso pessoal',  activeClass: 'border-amber-500  bg-amber-50',  iconClass: 'bg-amber-500  text-white', radioClass: 'border-amber-600  bg-amber-600',  textClass: 'text-amber-900'  },
+                       { id: 'bloqueio',  label: 'Bloqueio',        icon: <Ban size={20}/>,       desc: 'Horário indisponível', activeClass: 'border-zinc-400   bg-zinc-100',  iconClass: 'bg-zinc-500   text-white', radioClass: 'border-zinc-500   bg-zinc-500',   textClass: 'text-zinc-800'   },
                    ].map(t => {
                        const active = formData.type === t.id;
-                       const colorClass = t.color === 'indigo' ? 'indigo' : t.color === 'amber' ? 'amber' : 'slate';
                        return (
                         <button
                           key={t.id}
                           type="button"
                           onClick={() => setFormData({...formData, type: t.id})}
-                          className={`flex-1 flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
-                            active
-                              ? `border-${colorClass}-500 bg-${colorClass}-50/50 shadow-sm shadow-${colorClass}-100/50`
-                              : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left shadow-sm ${
+                            active ? t.activeClass : 'border-zinc-100 bg-white hover:border-zinc-200 hover:bg-zinc-50'
                           }`}
                         >
-                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                            active ? `bg-${colorClass}-500 text-white` : 'bg-slate-100 text-slate-500'
-                          }`}>
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${active ? t.iconClass : 'bg-zinc-100 text-zinc-400'}`}>
                             {t.icon}
                           </div>
-                          <div>
-                            <div className={`text-[11px] font-black uppercase tracking-wider ${active ? `text-${colorClass}-900` : 'text-slate-700'}`}>{t.label}</div>
-                            <div className="text-[10px] text-slate-400 font-medium mt-0.5">{t.desc}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className={`text-[11px] font-black uppercase tracking-wider leading-tight ${active ? t.textClass : 'text-zinc-700'}`}>{t.label}</div>
+                            <div className="text-[10px] text-zinc-400 font-medium mt-0.5">{t.desc}</div>
                           </div>
-                          <div className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                            active ? `border-${colorClass}-600 bg-${colorClass}-600` : 'border-slate-200'
-                          }`}>
-                            {active && <Check size={10} className="text-white" strokeWidth={4} />}
+                          <div className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${active ? t.radioClass : 'border-zinc-200'}`}>
+                            {active && <Check size={9} className="text-white" strokeWidth={4} />}
                           </div>
                         </button>
                        );
                    })}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* LEFT COLUMN: IDENTIFICATION */}
-                  <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm space-y-6">
-                      <div className="flex items-center gap-2.5 mb-2">
-                          <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.15em]">Identificação</h4>
+                  <div className="bg-zinc-50 sm:bg-zinc-50 border border-zinc-200 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
+                      <div className="flex items-center gap-2.5">
+                          <div className="w-1 h-5 bg-indigo-500 rounded-full"></div>
+                          <h4 className="text-xs font-black text-zinc-700 uppercase tracking-[0.15em]">Identificação</h4>
                       </div>
 
                       {formData.type === 'consulta' ? (
@@ -2080,8 +2126,8 @@ export const Agenda: React.FC = () => {
                           <div className="space-y-4">
                             <div className="space-y-4">
                                 <div className="space-y-1.5 flex-1">
-                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Modalidade</label>
-                                    <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 w-full sm:w-2/3">
+                                    <label className="text-[11px] font-black text-zinc-400 uppercase tracking-[0.15em] ml-1">Modalidade</label>
+                                    <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-200 w-full sm:w-2/3">
                                         <button
                                           type="button"
                                           onClick={() => setFormData({...formData, modality: 'presencial'})}
@@ -2159,10 +2205,10 @@ export const Agenda: React.FC = () => {
                   </div>
 
                   {/* RIGHT COLUMN: TIME & RECURRENCE */}
-                  <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm space-y-6">
-                      <div className="flex items-center gap-2.5 mb-2">
-                          <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-                          <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.15em]">Horário e Repetição</h4>
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
+                      <div className="flex items-center gap-2.5">
+                          <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+                          <h4 className="text-xs font-black text-zinc-700 uppercase tracking-[0.15em]">Horário e Repetição</h4>
                       </div>
 
                       {formData.id ? (
@@ -2285,9 +2331,9 @@ export const Agenda: React.FC = () => {
                           const needsRecurrence = !formData.id && selComanda && (selComanda.package_id || Number(selComanda.sessions_total) > 1) && !formData.recurrence_rule && !formData.recurrence_explicitly_none;
                           return (
                           <div className={`p-4 rounded-xl border space-y-3 transition-colors ${needsRecurrence ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200/60'}`}>
-                              <div className="flex items-center justify-between">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                   <div className="flex items-center gap-2.5">
-                                      <div className={`p-1.5 bg-white rounded-lg shadow-sm border text-indigo-500 ${needsRecurrence ? 'border-amber-300' : 'border-slate-200'}`}>
+                                      <div className={`p-1.5 bg-white rounded-lg shadow-sm border text-indigo-500 shrink-0 ${needsRecurrence ? 'border-amber-300' : 'border-slate-200'}`}>
                                           <Repeat size={14} />
                                       </div>
                                       <div>
@@ -2298,7 +2344,7 @@ export const Agenda: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => setIsRecurrenceModalOpen(true)}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 bg-white border rounded-lg font-bold uppercase text-[10px] hover:bg-slate-100 transition-all shadow-sm group/btn ${needsRecurrence ? 'border-amber-400 text-amber-700' : 'border-slate-200 text-indigo-600'}`}
+                                    className={`flex items-center justify-center gap-1.5 w-full sm:w-auto px-3 py-2 sm:px-2.5 sm:py-1.5 bg-white border rounded-xl sm:rounded-lg font-bold uppercase text-[10px] hover:bg-slate-100 transition-all shadow-sm group/btn ${needsRecurrence ? 'border-amber-400 text-amber-700' : 'border-slate-200 text-indigo-600'}`}
                                   >
                                     {formData.recurrence_rule ? (
                                         <>
@@ -2328,18 +2374,17 @@ export const Agenda: React.FC = () => {
               </div>
 
               {formData.type === 'consulta' && formData.modality === 'online' && (
-                  <div className="bg-slate-900 p-5 rounded-3xl text-white animate-slideIn flex items-center gap-5 shadow-2xl relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
-                      <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-indigo-400 border border-white/10 shadow-inner">
-                          <Video size={24}/>
+                  <div className="bg-indigo-950 p-4 rounded-2xl text-white flex items-center gap-4 relative overflow-hidden">
+                      <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-indigo-300 border border-white/10 shrink-0">
+                          <Video size={20}/>
                       </div>
-                      <div className="flex-1">
-                          <label className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1.5 block">Link da Sala Virtual</label>
+                      <div className="flex-1 min-w-0">
+                          <label className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1 block">Link da Sala Virtual</label>
                           <input
-                            placeholder="Link do Google Meet, Zoom ou Internal Room..."
+                            placeholder="Google Meet, Zoom ou sala interna..."
                             value={formData.meeting_url || ''}
                             onChange={e => setFormData({...formData, meeting_url: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white placeholder:text-slate-500 outline-none focus:bg-white/10 focus:border-indigo-500 transition-all"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium text-white placeholder:text-white/30 outline-none focus:bg-white/10 focus:border-indigo-400 transition-all"
                           />
                       </div>
                   </div>
@@ -2362,14 +2407,14 @@ export const Agenda: React.FC = () => {
                   : 'border-slate-200';
                 
                 return (
-                  <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm space-y-4">
-                      <div className="flex items-center gap-2.5 ml-1">
-                          <div className={`w-1.5 h-4 ${notesColor} rounded-full`}></div>
-                          <h4 className={`text-[11px] font-black uppercase tracking-[0.15em] ${needsReason ? 'text-rose-600' : 'text-slate-800'}`}>
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+                      <div className="flex items-center gap-2.5">
+                          <div className={`w-1 h-5 ${notesColor} rounded-full`}></div>
+                          <h4 className={`text-xs font-black uppercase tracking-[0.15em] ${needsReason ? 'text-rose-600' : 'text-zinc-700'}`}>
                             {notesLabel}{needsReason && <span className="text-rose-500 ml-1">*</span>}
                           </h4>
                       </div>
-                      <TextArea
+                      <Textarea
                         label=""
                         placeholder={isAbsence
                           ? 'Descreva detalhadamente o motivo da ausência do paciente...'
@@ -2391,14 +2436,16 @@ export const Agenda: React.FC = () => {
               })()}
 
               {formData.id && formData.status !== 'no-show' && formData.status !== 'cancelled' && (
-                <div className="bg-amber-50/30 p-5 rounded-3xl border border-dashed border-amber-200/50 flex flex-col gap-3">
-                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest ml-1">Motivo da Alteração / Reagendamento</p>
-                    <TextArea
-                        label="Motivo"
+                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 flex flex-col gap-2">
+                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2">
+                      <AlertCircle size={12} className="text-amber-500" /> Motivo da Alteração / Reagendamento
+                    </p>
+                    <Textarea
+                        label=""
                         placeholder="Por que este atendimento foi alterado? (Opcional)"
                         value={formData.reschedule_reason || ''}
                         onChange={e => setFormData({...formData, reschedule_reason: e.target.value})}
-                        className="!bg-transparent !border-none !p-0 min-h-[60px] text-amber-700 placeholder:text-amber-300"
+                        className="!bg-white !border-amber-200 min-h-[60px] text-amber-800 placeholder:text-amber-300"
                     />
                 </div>
               )}
@@ -4375,7 +4422,7 @@ export const Agenda: React.FC = () => {
           />
         </div>
       </Modal>
-    </div>
+    </PageWrapper>
   );
 };
 

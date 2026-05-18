@@ -1,314 +1,264 @@
-import React from 'react';
+import React from "react";
+import { cn } from "@/src/lib/utils";
 
-type FieldSize = 'sm' | 'md' | 'lg';
+// ─────────────────────────────────────────────────────────────────────────────
+// Input — Design System
+// Altura: h-10 mobile / h-11 sm+  (usa classe ds-input do CSS global)
+// ─────────────────────────────────────────────────────────────────────────────
 
-interface BaseFieldProps {
-  label: string;
-  hideLabel?: boolean;
+interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+  label?: string;
   error?: string;
   hint?: string;
-  required?: boolean;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
-  prefix?: React.ReactNode;
-  suffix?: React.ReactNode;
-  size?: FieldSize;
-  containerClassName?: string;
-  labelClassName?: string;
+  iconLeft?: React.ReactNode;
+  iconRight?: React.ReactNode;
+  addonLeft?: React.ReactNode;
+  addonRight?: React.ReactNode;
+  wrapperClassName?: string;
+  size?: "sm" | "md" | "lg";
 }
 
-interface InputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
-    BaseFieldProps {}
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  (
+    {
+      label,
+      error,
+      hint,
+      iconLeft,
+      iconRight,
+      addonLeft,
+      addonRight,
+      wrapperClassName,
+      className,
+      id,
+      maxLength,
+      value,
+      size = "md",
+      ...props
+    },
+    ref
+  ) => {
+    const inputId = id ?? `input-${Math.random().toString(36).slice(2, 7)}`;
+    const currentLen = typeof value === "string" ? value.length : 0;
+    const nearLimit = maxLength !== undefined && currentLen >= maxLength * 0.85;
 
-interface SelectProps
-  extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'>,
-    BaseFieldProps {}
+    return (
+      <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
+        {label && (
+          <div className="flex items-center justify-between">
+            <label htmlFor={inputId} className="ds-label">
+              {label}
+            </label>
+            {maxLength !== undefined && (
+              <span className={cn(
+                "text-[10px] font-bold tabular-nums transition-colors",
+                currentLen >= maxLength ? "text-red-500" : nearLimit ? "text-amber-500" : "text-zinc-400"
+              )}>
+                {currentLen}/{maxLength}
+              </span>
+            )}
+          </div>
+        )}
 
-interface TextAreaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement>,
-    Omit<BaseFieldProps, 'prefix' | 'suffix'> {}
+        <div
+          className={cn(
+            "group relative flex items-stretch overflow-hidden transition-all duration-200",
+            "rounded-[10px] bg-zinc-50 border border-zinc-200 shadow-sm",
+            "focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/10 focus-within:bg-white",
+            error && "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/10 bg-red-50/30",
+            size === "sm" && "h-9"
+          )}
+        >
+          {addonLeft && (
+            <div className="flex items-center justify-center bg-zinc-100 px-3.5 border-r border-zinc-200 text-xs font-black text-zinc-500 whitespace-nowrap select-none shrink-0 group-focus-within:bg-zinc-50/50 transition-colors">
+              {addonLeft}
+            </div>
+          )}
 
-const cx = (...classes: Array<string | false | null | undefined>) =>
-  classes.filter(Boolean).join(' ');
+          <div className="relative flex flex-1 items-center">
+            {iconLeft && (
+              <span className="pointer-events-none absolute left-3 text-zinc-400 shrink-0 z-10">
+                {iconLeft}
+              </span>
+            )}
 
-const sizeMap: Record<FieldSize, { height: string; text: string; px: string }> = {
-  sm: {
-    height: 'h-9',
-    text: 'text-sm',
-    px: 'px-3',
-  },
-  md: {
-    height: 'h-10',
-    text: 'text-sm',
-    px: 'px-3.5',
-  },
-  lg: {
-    height: 'h-12',
-    text: 'text-base',
-    px: 'px-4',
-  },
-};
+            <input
+              ref={ref}
+              id={inputId}
+              maxLength={maxLength}
+              value={value}
+              className={cn(
+                "w-full bg-transparent px-3 py-2.5 outline-none",
+                "text-sm text-zinc-800 placeholder:text-zinc-400 font-bold tracking-tight",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+                size === "sm" && "py-1.5 text-xs",
+                iconLeft && (size === "sm" ? "pl-8" : "pl-9"),
+                iconRight && (size === "sm" ? "pr-8" : "pr-9"),
+                className
+              )}
+              {...props}
+            />
 
-const getFieldShellClasses = (hasError?: boolean, disabled?: boolean) =>
-  cx(
-    'relative flex w-full items-center rounded-xl border bg-white transition-all duration-200',
-    hasError
-      ? 'border-red-300 ring-[3px] ring-red-500/10'
-      : 'border-slate-200 hover:border-slate-300 focus-within:border-indigo-400 focus-within:ring-[3px] focus-within:ring-indigo-500/5',
-    disabled && 'cursor-not-allowed bg-slate-50 opacity-70'
-  );
+            {iconRight && (
+              <span className="absolute right-3 text-zinc-400 shrink-0 z-10 flex items-center">
+                {iconRight}
+              </span>
+            )}
+          </div>
 
-const FieldMeta: React.FC<{
-  label: string;
-  hideLabel?: boolean;
-  required?: boolean;
+          {addonRight && (
+            <div className="flex items-center justify-center bg-zinc-100 px-3.5 border-l border-zinc-200 text-xs font-black text-zinc-500 whitespace-nowrap select-none shrink-0 group-focus-within:bg-zinc-50/50 transition-colors">
+              {addonRight}
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <p className="text-[11px] font-semibold text-red-500">{error}</p>
+        )}
+        {hint && !error && (
+          <p className="text-[11px] text-zinc-400">{hint}</p>
+        )}
+      </div>
+    );
+  }
+);
+
+Input.displayName = "Input";
+
+// ─── Textarea ─────────────────────────────────────────────────────────────────
+interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: string;
   error?: string;
   hint?: string;
-  labelClassName?: string;
-}> = ({ label, hideLabel, required, error, hint, labelClassName }) => {
-  if (hideLabel) return null;
-  return (
-    <>
-      <label
-        className={cx(
-          'mb-1.5 block text-[12px] font-bold text-slate-500 uppercase tracking-widest',
-          labelClassName
-        )}
-      >
-        {label}
-        {required && <span className="ml-1 text-red-500">*</span>}
-      </label>
+  wrapperClassName?: string;
+}
 
-      {(error || hint) && (
-        <div className="mt-1 min-h-[16px]">
-          {error ? (
-            <span className="text-[11px] font-medium text-red-500">{error}</span>
-          ) : hint ? (
-            <span className="text-[11px] text-slate-400">{hint}</span>
-          ) : null}
-        </div>
-      )}
-    </>
-  );
-};
+export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ label, error, hint, wrapperClassName, className, id, maxLength, value, ...props }, ref) => {
+    const inputId = id ?? `textarea-${Math.random().toString(36).slice(2, 7)}`;
+    const currentLen = typeof value === "string" ? value.length : 0;
+    const nearLimit = maxLength !== undefined && currentLen >= maxLength * 0.85;
 
-export const Input: React.FC<InputProps> = ({
-  label,
-  error,
-  hint,
-  required,
-  leftIcon,
-  rightIcon,
-  prefix,
-  suffix,
-  size = 'md',
-  className = '',
-  containerClassName = '',
-  labelClassName = '',
-  disabled,
-  hideLabel,
-  ...props
-}) => {
-  const sizeStyle = sizeMap[size];
-
-  return (
-    <div className={cx('w-full', containerClassName)}>
-      <FieldMeta
-        label={label}
-        required={required}
-        error={error}
-        hint={hint}
-        labelClassName={labelClassName}
-      />
-
-      <div className={getFieldShellClasses(!!error, disabled)}>
-        {leftIcon && (
-          <div className="pointer-events-none pl-3 text-slate-400">
-            {leftIcon}
-          </div>
-        )}
-
-        {prefix && (
-          <div className="border-r border-slate-200 px-3 text-sm font-medium text-slate-500">
-            {prefix}
-          </div>
-        )}
-
-        <input
-          disabled={disabled}
-          className={cx(
-            'w-full bg-transparent outline-none placeholder:text-slate-400 text-slate-700',
-            sizeStyle.height,
-            sizeStyle.text,
-            !leftIcon && !prefix ? sizeStyle.px : 'px-3',
-            className
-          )}
-          {...props}
-        />
-
-        {suffix && (
-          <div className="border-l border-slate-200 px-3 text-sm font-medium text-slate-500">
-            {suffix}
-          </div>
-        )}
-
-        {rightIcon && (
-          <div className="pr-3 text-slate-400">
-            {rightIcon}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export const Select: React.FC<SelectProps> = ({
-  label,
-  error,
-  hint,
-  required,
-  leftIcon,
-  rightIcon,
-  prefix,
-  suffix,
-  size = 'md',
-  className = '',
-  containerClassName = '',
-  labelClassName = '',
-  disabled,
-  hideLabel,
-  children,
-  ...props
-}) => {
-  const sizeStyle = sizeMap[size];
-
-  return (
-    <div className={cx('w-full', containerClassName)}>
-      <FieldMeta
-        label={label}
-        required={required}
-        error={error}
-        hint={hint}
-        labelClassName={labelClassName}
-      />
-
-      <div className={getFieldShellClasses(!!error, disabled)}>
-        {leftIcon && (
-          <div className="pointer-events-none pl-3 text-slate-400">
-            {leftIcon}
-          </div>
-        )}
-
-        {prefix && (
-          <div className="border-r border-slate-200 px-3 text-sm font-medium text-slate-500">
-            {prefix}
-          </div>
-        )}
-
-        <select
-          disabled={disabled}
-          className={cx(
-            'w-full appearance-none bg-transparent outline-none text-slate-700',
-            sizeStyle.height,
-            sizeStyle.text,
-            !leftIcon && !prefix ? sizeStyle.px : 'px-3',
-            (suffix || rightIcon) ? 'pr-10' : 'pr-9',
-            className
-          )}
-          {...props}
-        >
-          {children}
-        </select>
-
-        {suffix && (
-          <div className="border-l border-slate-200 px-3 text-sm font-medium text-slate-500">
-            {suffix}
-          </div>
-        )}
-
-        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-          {rightIcon || (
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export const TextArea: React.FC<TextAreaProps> = ({
-  label,
-  error,
-  hint,
-  required,
-  leftIcon,
-  rightIcon,
-  size = 'md',
-  className = '',
-  containerClassName = '',
-  labelClassName = '',
-  disabled,
-  hideLabel,
-  rows = 4,
-  ...props
-}) => {
-  const sizeStyle = sizeMap[size];
-
-  return (
-    <div className={cx('w-full', containerClassName)}>
-      <FieldMeta
-        label={label}
-        required={required}
-        error={error}
-        hint={hint}
-        labelClassName={labelClassName}
-      />
-
-      <div
-        className={cx(
-          'relative rounded-xl border bg-white transition-all duration-200',
-          error
-            ? 'border-red-300 ring-[3px] ring-red-500/10'
-            : 'border-slate-200 hover:border-slate-300 focus-within:border-indigo-400 focus-within:ring-[3px] focus-within:ring-indigo-500/5',
-          disabled && 'cursor-not-allowed bg-slate-50 opacity-70'
-        )}
-      >
-        {leftIcon && (
-          <div className="pointer-events-none absolute left-3 top-3 text-slate-400">
-            {leftIcon}
-          </div>
-        )}
-
-        {rightIcon && (
-          <div className="pointer-events-none absolute right-3 top-3 text-slate-400">
-            {rightIcon}
+    return (
+      <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
+        {label && (
+          <div className="flex items-center justify-between">
+            <label htmlFor={inputId} className="ds-label">
+              {label}
+            </label>
+            {maxLength !== undefined && (
+              <span className={cn(
+                "text-[10px] font-bold tabular-nums transition-colors",
+                currentLen >= maxLength ? "text-red-500" : nearLimit ? "text-amber-500" : "text-zinc-400"
+              )}>
+                {currentLen}/{maxLength}
+              </span>
+            )}
           </div>
         )}
 
         <textarea
-          disabled={disabled}
-          rows={rows}
-          className={cx(
-            'w-full resize-none bg-transparent outline-none placeholder:text-slate-400 text-slate-700',
-            sizeStyle.text,
-            leftIcon ? 'pl-10' : 'pl-3.5',
-            rightIcon ? 'pr-10' : 'pr-3.5',
-            'py-3',
+          ref={ref}
+          id={inputId}
+          maxLength={maxLength}
+          value={value}
+          className={cn(
+            "w-full rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 py-2.5",
+            "text-sm text-zinc-800 placeholder:text-zinc-400 font-medium",
+            "outline-none resize-none transition-all duration-150",
+            "focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 focus:bg-white",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "min-h-[80px]",
+            error && "border-red-400 focus:border-red-500 focus:ring-red-500/10 bg-red-50/30",
             className
           )}
           {...props}
         />
-      </div>
-    </div>
-  );
-};
 
-export * from './Combobox';
+        {error && (
+          <p className="text-[11px] font-semibold text-red-500">{error}</p>
+        )}
+        {hint && !error && (
+          <p className="text-[11px] text-zinc-400">{hint}</p>
+        )}
+      </div>
+    );
+  }
+);
+
+Textarea.displayName = "Textarea";
+
+// ─── Select ───────────────────────────────────────────────────────────────────
+interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "size"> {
+  label?: string;
+  error?: string;
+  hint?: string;
+  wrapperClassName?: string;
+  options?: { value: string | number; label: string; disabled?: boolean }[];
+  placeholder?: string;
+  size?: "sm" | "md" | "lg";
+}
+
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  (
+    { label, error, hint, wrapperClassName, className, id, options, placeholder, size = "md", children, ...props },
+    ref
+  ) => {
+    const inputId = id ?? `select-${Math.random().toString(36).slice(2, 7)}`;
+
+    return (
+      <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
+        {label && (
+          <label htmlFor={inputId} className="ds-label">
+            {label}
+          </label>
+        )}
+
+        <div className="relative">
+          <select
+            ref={ref}
+            id={inputId}
+            className={cn(
+              "ds-input appearance-none pr-8 cursor-pointer",
+              size === "sm" && "h-8 py-0 px-2 text-[11px] font-black uppercase tracking-widest",
+              size === "lg" && "h-14 px-4 text-base",
+              error && "border-red-400 focus:border-red-500 focus:ring-red-500/10 bg-red-50/30",
+              className
+            )}
+            {...props}
+          >
+            {placeholder && (
+              <option value="" disabled>
+                {placeholder}
+              </option>
+            )}
+            {options
+              ? options.map((opt) => (
+                  <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+                    {opt.label}
+                  </option>
+                ))
+              : children}
+          </select>
+
+          {/* Chevron */}
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </div>
+
+        {error && (
+          <p className="text-[11px] font-semibold text-red-500">{error}</p>
+        )}
+        {hint && !error && (
+          <p className="text-[11px] text-zinc-400">{hint}</p>
+        )}
+      </div>
+    );
+  }
+);
+
+Select.displayName = "Select";
