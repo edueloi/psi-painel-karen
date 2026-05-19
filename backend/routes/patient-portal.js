@@ -35,7 +35,7 @@ async function resolveSession(req, res) {
   const sessionToken = req.headers['x-portal-token'] || req.query.session;
   if (!sessionToken) return null;
   const [rows] = await db.query(
-    `SELECT pps.*, p.full_name, p.email, p.whatsapp, p.tenant_id, p.psychologist_id
+    `SELECT pps.*, p.name AS full_name, p.email, p.phone AS whatsapp, p.tenant_id, p.responsible_professional_id AS psychologist_id
      FROM patient_portal_sessions pps
      JOIN patients p ON p.id = pps.patient_id
      WHERE pps.session_token = ? AND pps.expires_at > NOW()`,
@@ -51,8 +51,8 @@ router.get('/invite/:token', async (req, res) => {
     const [rows] = await db.query(
       `SELECT ppt.*,
               u.name AS professional_name, u.specialty, u.crp, u.avatar_url,
-              ten.company_name,
-              p.full_name AS patient_name, p.email AS patient_email
+              ten.name AS company_name,
+              p.name AS patient_name, p.email AS patient_email
        FROM patient_portal_tokens ppt
        LEFT JOIN users u ON u.id = ppt.professional_id
        LEFT JOIN tenants ten ON ten.id = ppt.tenant_id
@@ -92,7 +92,7 @@ router.get('/invite/:token', async (req, res) => {
 router.post('/invite/:token/login', async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT ppt.*, p.id AS pid, p.full_name, p.email, p.tenant_id
+      `SELECT ppt.*, p.id AS pid, p.name AS full_name, p.email, p.tenant_id
        FROM patient_portal_tokens ppt
        JOIN patients p ON p.id = ppt.patient_id
        WHERE ppt.token = ? AND (ppt.expires_at IS NULL OR ppt.expires_at > NOW())`,
@@ -145,9 +145,9 @@ router.post('/invite/:token/register', async (req, res) => {
     if (!full_name) return res.status(400).json({ error: 'Nome é obrigatório.' });
 
     const [ins] = await db.query(
-      `INSERT INTO patients (tenant_id, full_name, email, whatsapp, birth_date, cpf_cnpj,
-        psychologist_id, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
+      `INSERT INTO patients (tenant_id, name, email, phone, birth_date, cpf,
+        responsible_professional_id, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'Ativo', NOW())`,
       [tk.tenant_id, full_name, email || null, whatsapp || null,
        birth_date || null, cpf || null, tk.professional_id || null]
     );
@@ -187,13 +187,13 @@ router.get('/me', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
     const [rows] = await db.query(
-      `SELECT p.id, p.full_name, p.email, p.whatsapp, p.phone, p.birth_date, p.gender,
-              p.cpf_cnpj, p.street, p.house_number, p.neighborhood, p.city, p.state,
-              p.address_zip, p.health_plan, p.emergency_contacts, p.status, p.avatar_url,
+      `SELECT p.id, p.name AS full_name, p.email, p.phone AS whatsapp, p.phone, p.birth_date, p.gender,
+              p.cpf, p.address, p.city, p.state,
+              p.zip_code, p.health_plan, p.emergency_contacts, p.status, p.photo_url AS avatar_url,
               u.name AS professional_name, u.specialty, u.crp, u.avatar_url AS prof_avatar,
-              ten.company_name
+              ten.name AS company_name
        FROM patients p
-       LEFT JOIN users u ON u.id = p.psychologist_id
+       LEFT JOIN users u ON u.id = p.responsible_professional_id
        LEFT JOIN tenants ten ON ten.id = p.tenant_id
        WHERE p.id = ? AND p.tenant_id = ?`,
       [patient_id, tenant_id]
@@ -214,9 +214,9 @@ router.get('/me', portalAuth, async (req, res) => {
 router.patch('/me', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
-    const allowed = ['full_name', 'email', 'whatsapp', 'phone', 'birth_date', 'gender',
-                     'street', 'house_number', 'neighborhood', 'city', 'state',
-                     'address_zip', 'health_plan', 'emergency_contacts'];
+    const allowed = ['name', 'email', 'phone', 'birth_date', 'gender',
+                     'address', 'city', 'state',
+                     'zip_code', 'health_plan', 'emergency_contacts'];
     const updates = {};
     for (const k of allowed) {
       if (req.body[k] !== undefined) updates[k] = req.body[k];
@@ -528,7 +528,7 @@ router.get('/admin/schedule-requests', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     const [rows] = await db.query(
-      `SELECT r.*, p.full_name AS patient_name, p.whatsapp AS patient_whatsapp,
+      `SELECT r.*, p.name AS patient_name, p.phone AS patient_whatsapp,
               u.name AS professional_name
        FROM patient_portal_schedule_requests r
        JOIN patients p ON p.id = r.patient_id
@@ -566,7 +566,7 @@ router.get('/admin/payments', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     const [rows] = await db.query(
-      `SELECT pp.*, pat.full_name AS patient_name,
+      `SELECT pp.*, pat.name AS patient_name,
               (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', a.id, 'file_name', a.file_name, 'file_url', a.file_url, 'file_type', a.file_type))
                FROM patient_portal_payment_attachments a WHERE a.payment_id = pp.id) AS attachments
        FROM patient_portal_payments pp
