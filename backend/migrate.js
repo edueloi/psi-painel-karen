@@ -978,6 +978,7 @@ async function migrate() {
       allow_self_schedule TINYINT(1) DEFAULT 1,
       require_approval TINYINT(1) DEFAULT 1,
       is_used TINYINT(1) DEFAULT 0,
+      used_at DATETIME,
       created_by INT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_ppt_tenant (tenant_id),
@@ -985,6 +986,8 @@ async function migrate() {
       INDEX idx_ppt_token (token)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  // Patch: add used_at if missing (for existing installs)
+  await conn.query(`ALTER TABLE patient_portal_tokens ADD COLUMN IF NOT EXISTS used_at DATETIME`).catch(() => {});
 
   // ---- PATIENT PORTAL SESSIONS (login persistente do paciente) ----
   await conn.query(`

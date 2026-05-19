@@ -64,6 +64,8 @@ router.get('/invite/:token', async (req, res) => {
     if (!tk) return res.status(404).json({ error: 'Link inválido ou expirado.' });
     if (tk.expires_at && new Date(tk.expires_at) < new Date())
       return res.status(410).json({ error: 'Este link expirou.' });
+    if (tk.is_used && !tk.self_register)
+      return res.status(410).json({ error: 'Este link já foi utilizado. Solicite um novo link ao seu profissional.' });
 
     res.json({
       valid: true,
@@ -99,8 +101,17 @@ router.post('/invite/:token/login', async (req, res) => {
     if (!rows[0]) return res.status(401).json({ error: 'Link inválido ou expirado.' });
     const row = rows[0];
 
+    // Link de uso único: bloquear se já foi usado
+    if (row.is_used) {
+      return res.status(410).json({ error: 'Este link já foi utilizado. Solicite um novo link ao seu profissional.' });
+    }
+
+    // Marcar como usado imediatamente (uso único)
+    await db.query(`UPDATE patient_portal_tokens SET is_used = 1 WHERE id = ?`, [row.id]);
+    db.query(`UPDATE patient_portal_tokens SET used_at = NOW() WHERE id = ?`, [row.id]).catch(() => {});
+
     const sessionToken = genToken();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 dias
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // sessão válida por 30 dias
     await db.query(
       `INSERT INTO patient_portal_sessions (tenant_id, patient_id, session_token, expires_at)
        VALUES (?, ?, ?, ?)`,

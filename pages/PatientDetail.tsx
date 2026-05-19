@@ -525,11 +525,30 @@ export const PatientDetail: React.FC = () => {
               {portalTokens.map(tk => {
                 const url = `${window.location.origin}/portal/entrar/${tk.token}`;
                 const expired = tk.expires_at && new Date(tk.expires_at) < new Date();
+                const used = !!tk.is_used;
+                const inactive = expired || used;
                 return (
-                  <div key={tk.id} className={`bg-white rounded-2xl border p-4 ${expired ? 'border-red-200 opacity-60' : 'border-slate-200'}`}>
+                  <div key={tk.id} className={`bg-white rounded-2xl border p-4 ${inactive ? 'border-slate-200 opacity-60' : 'border-slate-200'}`}>
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-slate-700 truncate">{tk.label || 'Portal do Paciente'}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-semibold text-slate-700 truncate">{tk.label || 'Portal do Paciente'}</p>
+                          {used && (
+                            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                              Já utilizado
+                            </span>
+                          )}
+                          {!used && expired && (
+                            <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                              Expirado
+                            </span>
+                          )}
+                          {!used && !expired && (
+                            <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                              Ativo
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-400 font-mono truncate mt-0.5">{url.slice(0, 45)}…</p>
                       </div>
                       <button onClick={() => revokePortalToken(tk.id)} className="text-slate-400 hover:text-red-500 shrink-0 p-1">
@@ -539,19 +558,28 @@ export const PatientDetail: React.FC = () => {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-xs text-slate-400">
                         <Clock size={11} />
-                        {expired ? <span className="text-red-500">Expirado</span> :
-                          tk.expires_at ? `Expira ${new Date(tk.expires_at).toLocaleDateString('pt-BR')}` : 'Sem expiração'}
+                        {used
+                          ? <span className="text-amber-600">Acesso único — link esgotado</span>
+                          : expired
+                          ? <span className="text-red-500">Expirado</span>
+                          : tk.expires_at
+                          ? `Expira ${new Date(tk.expires_at).toLocaleDateString('pt-BR')}`
+                          : 'Sem expiração de data'}
                       </div>
                       <div className="flex gap-1.5">
-                        <button onClick={() => copyPortalLink(tk.token, tk.id)}
-                          className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${portalCopiedId === tk.id ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'}`}>
-                          {portalCopiedId === tk.id ? <Check size={11} /> : <Copy size={11} />}
-                          {portalCopiedId === tk.id ? 'Copiado!' : 'Copiar link'}
-                        </button>
-                        <a href={url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 transition-colors">
-                          <ExternalLink size={11} />Abrir
-                        </a>
+                        {!inactive && (
+                          <button onClick={() => copyPortalLink(tk.token, tk.id)}
+                            className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${portalCopiedId === tk.id ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'}`}>
+                            {portalCopiedId === tk.id ? <Check size={11} /> : <Copy size={11} />}
+                            {portalCopiedId === tk.id ? 'Copiado!' : 'Copiar link'}
+                          </button>
+                        )}
+                        {!inactive && (
+                          <a href={url} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 transition-colors">
+                            <ExternalLink size={11} />Abrir
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
