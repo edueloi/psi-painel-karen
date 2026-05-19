@@ -297,6 +297,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const sessionStartRef = useRef<number>(Date.now());
   // ID numérico da sala resolvido do banco (id da URL pode ser hash/código)
   const [numericRoomId, setNumericRoomId] = useState<number | null>(null);
+  const numericRoomIdRef = useRef<number | null>(null);
 
   // Gravação contínua do áudio local para upload ao encerrar
   const fullRecorderRef = useRef<MediaRecorder | null>(null);
@@ -1353,13 +1354,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     };
   }, [id, hasJoined, isGuest, suppressTranscriptHistory]);
 
-  // Resolve o ID numérico da sala (URL pode conter hash/código, não número)
+  // Resolve o ID numérico da sala imediatamente ao montar (URL pode ter hash)
   useEffect(() => {
-    if (!id || !hasAuthToken || numericRoomId) return;
+    if (!id || !hasAuthToken) return;
     api.get<{ id: number }>(`/virtual-rooms/${id}`)
-      .then((room) => { if (room?.id) setNumericRoomId(room.id); })
+      .then((room) => {
+        if (room?.id) {
+          numericRoomIdRef.current = room.id;
+          setNumericRoomId(room.id);
+        }
+      })
       .catch(() => {});
-  }, [id, hasAuthToken, numericRoomId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, hasAuthToken]);
 
   useEffect(() => {
     if (!id || !hasAuthToken) return;
@@ -2004,7 +2011,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
       const text = finalText.trim();
       if (!text || !id) return;
-      const rid = numericRoomId ?? id;
+      const rid = numericRoomIdRef.current ?? numericRoomId ?? id;
       if (isGuest) {
         if (!participantToken) return;
         api
@@ -2153,7 +2160,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
       if (!transcribed) return;
       const speakerName = isGuest ? guestName || "Paciente" : hostDisplayName;
-      const rid = numericRoomId ?? id;
+      const rid = numericRoomIdRef.current ?? numericRoomId ?? id;
       if (isGuest) {
         if (!participantToken) return;
         api
@@ -2295,7 +2302,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         formData.append("speaker_role", "mixed");
         formData.append("speaker_name", hostDisplayName);
         setIsUploadingRecording(true);
-        const rid = numericRoomId ?? id;
+        const rid = numericRoomIdRef.current ?? numericRoomId ?? id;
         try {
           await api.post(`/virtual-rooms/${rid}/sessions/${sessionKey}/recordings`, formData);
         } catch {
@@ -2318,7 +2325,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     stopGeminiRecording();
     if (!isGuest && id) {
       const durationSeconds = Math.floor((Date.now() - sessionStartRef.current) / 1000);
-      const rid = numericRoomId ?? id;
+      const rid = numericRoomIdRef.current ?? numericRoomId ?? id;
       // Upload gravação de áudio se houver
       if (fullRecorderRef.current) {
         setIsUploadingRecording(true);
@@ -2395,6 +2402,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     setSuppressEventHistory(true);
     setSuppressAssessmentHistory(true);
     setSuppressTranscriptHistory(true);
+
+    // Garante que o ID numérico está resolvido antes de entrar na sala
+    if (!numericRoomIdRef.current && id && hasAuthToken) {
+      try {
+        const room = await api.get<{ id: number }>(`/virtual-rooms/${id}`);
+        if (room?.id) { numericRoomIdRef.current = room.id; setNumericRoomId(room.id); }
+      } catch { /* non-critical */ }
+    }
 
     setHasJoined(true);
 
