@@ -2001,6 +2001,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           .post(`/virtual-rooms/public/${id}/transcripts`, {
             token: participantToken,
             speaker_name: guestName || "Paciente",
+            speaker_role: "guest",
+            session_key: sessionKey,
             text,
           })
           .catch(() => {});
@@ -2008,6 +2010,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         api
           .post(`/virtual-rooms/${id}/transcripts`, {
             speaker_name: hostDisplayName,
+            speaker_role: "host",
+            session_key: sessionKey,
             text,
           })
           .catch(() => {});
