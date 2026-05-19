@@ -989,6 +989,11 @@ async function migrate() {
   // Patch: add used_at if missing (for existing installs)
   await conn.query(`ALTER TABLE patient_portal_tokens ADD COLUMN IF NOT EXISTS used_at DATETIME`).catch(() => {});
 
+  // Patch: add portal credentials to patients table
+  await conn.query(`ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_email VARCHAR(255) NULL`).catch(() => {});
+  await conn.query(`ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_password_hash VARCHAR(255) NULL`).catch(() => {});
+  await conn.query(`ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_password_set TINYINT(1) DEFAULT 0`).catch(() => {});
+
   // ---- PATIENT PORTAL SESSIONS (login persistente do paciente) ----
   await conn.query(`
     CREATE TABLE IF NOT EXISTS patient_portal_sessions (

@@ -548,6 +548,8 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
         const formattedEnd = currentEnd.toISOString().slice(0, 19).replace('T', ' ');
 
         // ── Validação de agenda e datas bloqueadas do profissional ──────────────
+        // O próprio profissional pode agendar fora do expediente/intervalo (apenas bloqueios são respeitados)
+        const isOwnSchedule = String(req.user.id) === String(finalProfessionalId);
         if (finalProfessionalId && !req.body.ignore_schedule_rules) {
             const [profRows] = await db.query(
                 'SELECT schedule, closed_dates FROM users WHERE id = ? AND tenant_id = ? LIMIT 1',
@@ -608,10 +610,13 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                                 console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — fora do expediente ${schedStart}-${schedEnd}`);
                                 continue;
                             }
-                            return res.status(422).json({
-                                error: 'outside_hours',
-                                message: `Horário fora do expediente. O profissional atende das ${schedStart} às ${schedEnd}.`,
-                            });
+                            // Próprio profissional pode agendar fora do expediente (não bloqueia)
+                            if (!isOwnSchedule) {
+                                return res.status(422).json({
+                                    error: 'outside_hours',
+                                    message: `Horário fora do expediente. O profissional atende das ${schedStart} às ${schedEnd}.`,
+                                });
+                            }
                         }
 
                         // 4) Verificar se o horário não está em intervalo (break)
@@ -627,10 +632,13 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                                             console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — sobrepõe intervalo ${bStart}-${bEnd}`);
                                             continue;
                                         }
-                                        return res.status(422).json({
-                                            error: 'break_time',
-                                            message: `Horário em período de intervalo (${bStart}–${bEnd}).`,
-                                        });
+                                        // Próprio profissional pode agendar no intervalo (não bloqueia)
+                                        if (!isOwnSchedule) {
+                                            return res.status(422).json({
+                                                error: 'break_time',
+                                                message: `Horário em período de intervalo (${bStart}–${bEnd}).`,
+                                            });
+                                        }
                                     }
                                 }
                             }

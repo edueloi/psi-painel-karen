@@ -2236,14 +2236,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (!id || isGuest) return; // only host records
     const stream = localStreamRef.current;
     if (!stream || fullRecorderRef.current) return;
+    const audioTrack = stream.getAudioTracks()[0];
+    if (!audioTrack) return;
+    const audioStream = new MediaStream([audioTrack]);
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
       ? "audio/webm;codecs=opus"
       : MediaRecorder.isTypeSupported("audio/webm")
       ? "audio/webm"
-      : "audio/ogg";
+      : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+      ? "audio/ogg;codecs=opus"
+      : "";
     let recorder: MediaRecorder;
     try {
-      recorder = new MediaRecorder(stream, { mimeType });
+      recorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : undefined);
     } catch {
       return;
     }

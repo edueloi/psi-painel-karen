@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 
 // ─── Upload de comprovantes ───────────────────────────────────────────────────
 const uploadDir = path.join(__dirname, '../public/uploads/portal-receipts');
@@ -173,6 +174,117 @@ router.post('/invite/:token/register', async (req, res) => {
   }
 });
 
+// POST /patient-portal/auth/set-password — define senha após primeiro acesso via link
+router.post('/auth/set-password', async (req, res) => {
+  try {
+    const sessionToken = req.headers['x-portal-token'];
+    if (!sessionToken) return res.status(401).json({ error: 'Sessão inválida.' });
+
+    const [rows] = await db.query(
+      `SELECT pps.*, p.id AS pid, p.tenant_id
+       FROM patient_portal_sessions pps
+       JOIN patients p ON p.id = pps.patient_id
+       WHERE pps.session_token = ? AND pps.expires_at > NOW()`,
+      [sessionToken]
+    );
+    if (!rows[0]) return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
+
+    const { email, password } = req.body;
+    if (!password || password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const updates = { portal_password_hash: hash, portal_password_set: 1 };
+    if (email && email.trim()) updates.portal_email = email.trim().toLowerCase();
+
+    const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+    await db.query(
+      `UPDATE patients SET ${sets}, updated_at = NOW() WHERE id = ?`,
+      [...Object.values(updates), rows[0].patient_id]
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[portal set-password]', e?.message || e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /patient-portal/auth/login — login com email + senha
+router.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email e senha obrigatórios.' });
+
+    const [rows] = await db.query(
+      `SELECT id, name AS full_name, tenant_id, portal_password_hash, portal_password_set
+       FROM patients
+       WHERE (portal_email = ? OR email = ?) AND portal_password_set = 1
+       LIMIT 1`,
+      [email.trim().toLowerCase(), email.trim().toLowerCase()]
+    );
+
+    if (!rows[0]) return res.status(401).json({ error: 'Email ou senha incorretos.' });
+    const patient = rows[0];
+
+    const valid = await bcrypt.compare(password, patient.portal_password_hash);
+    if (!valid) return res.status(401).json({ error: 'Email ou senha incorretos.' });
+
+    const sessionToken = genToken();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await db.query(
+      `INSERT INTO patient_portal_sessions (tenant_id, patient_id, session_token, expires_at)
+       VALUES (?, ?, ?, ?)`,
+      [patient.tenant_id, patient.id, sessionToken, expiresAt]
+    );
+
+    res.json({
+      session_token: sessionToken,
+      patient_id: patient.id,
+      patient_name: patient.full_name,
+      tenant_id: patient.tenant_id,
+    });
+  } catch (e) {
+    console.error('[portal login]', e?.message || e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /patient-portal/auth/change-password — alterar senha
+router.post('/auth/change-password', async (req, res) => {
+  try {
+    const sessionToken = req.headers['x-portal-token'];
+    if (!sessionToken) return res.status(401).json({ error: 'Sessão inválida.' });
+
+    const [rows] = await db.query(
+      `SELECT pps.patient_id, p.portal_password_hash, p.portal_password_set
+       FROM patient_portal_sessions pps
+       JOIN patients p ON p.id = pps.patient_id
+       WHERE pps.session_token = ? AND pps.expires_at > NOW()`,
+      [sessionToken]
+    );
+    if (!rows[0]) return res.status(401).json({ error: 'Sessão inválida.' });
+
+    const { current_password, new_password } = req.body;
+    if (!new_password || new_password.length < 6)
+      return res.status(400).json({ error: 'Nova senha deve ter pelo menos 6 caracteres.' });
+
+    if (rows[0].portal_password_set) {
+      const valid = await bcrypt.compare(current_password || '', rows[0].portal_password_hash);
+      if (!valid) return res.status(401).json({ error: 'Senha atual incorreta.' });
+    }
+
+    const hash = await bcrypt.hash(new_password, 10);
+    await db.query(
+      `UPDATE patients SET portal_password_hash = ?, portal_password_set = 1, updated_at = NOW() WHERE id = ?`,
+      [hash, rows[0].patient_id]
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // ─── Middleware de sessão para rotas autenticadas do portal ───────────────────
 async function portalAuth(req, res, next) {
   const session = await resolveSession(req, res);
@@ -190,6 +302,7 @@ router.get('/me', portalAuth, async (req, res) => {
       `SELECT p.id, p.name AS full_name, p.email, p.phone AS whatsapp, p.phone, p.birth_date, p.gender,
               p.cpf, p.address, p.city, p.state,
               p.zip_code, p.health_plan, p.emergency_contacts, p.status, p.photo_url AS avatar_url,
+              p.portal_password_set, p.portal_email,
               u.name AS professional_name, u.specialty, u.crp, u.avatar_url AS prof_avatar,
               ten.name AS company_name
        FROM patients p
