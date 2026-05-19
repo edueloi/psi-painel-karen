@@ -3,7 +3,7 @@ const path = require('path');
 const https = require('https');
 
 const API_KEY = 'AIzaSyBysL3yvdnojR4i23W2sBeT0t3DpLyhlDI';
-const model = 'gemini-3.5-flash';
+const model = 'gemini-1.5-flash';
 const audioPath = path.join(__dirname, 'backend/public/uploads/room-recordings/rec-1779225164674-19mgy5c6m6s.webm');
 
 console.log('Lendo arquivo de áudio:', audioPath);

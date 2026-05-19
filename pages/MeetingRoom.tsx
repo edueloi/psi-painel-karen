@@ -1468,7 +1468,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             if (transcriptionEnabled && !recognitionActiveRef.current && !geminiMediaRecorderRef.current) {
               const hasGemini = (preferences.gemini.apiKeys?.some((k: string) => k.trim())) || preferences.gemini.apiKey.trim();
               if (hasGemini) {
-                startGeminiRecording();
+                // Inicia o indicador de gravação em segundo plano para transcrição detalhada no final
+                setTranscriptionActive(true);
               } else {
                 startRecognition();
               }
@@ -2217,7 +2218,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
     const hasGemini = (preferences.gemini.apiKeys?.some(k => k.trim())) || preferences.gemini.apiKey.trim();
     if (hasGemini) {
-      startGeminiRecording();
+      // Inicia o indicador de gravação em segundo plano para transcrição detalhada no final
+      setTranscriptionActive(true);
     } else {
       startRecognition();
     }
@@ -2234,7 +2236,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
     const hasGemini = (preferences.gemini.apiKeys?.some(k => k.trim())) || preferences.gemini.apiKey.trim();
     if (hasGemini) {
-      startGeminiRecording();
+      // Inicia o indicador de gravação em segundo plano para transcrição detalhada no final
+      setTranscriptionActive(true);
     } else {
       startRecognition();
     }
@@ -2306,7 +2309,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     for (const key of keys) {
       try {
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2356,7 +2359,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       for (const key of keys) {
         try {
           const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -2433,30 +2436,32 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     recorder.onstop = async () => {
-      try {
-        const chunks = geminiChunksRef.current;
-        geminiChunksRef.current = [];
-        if (chunks.length > 0) {
-          const blob = new Blob(chunks, { type: mimeType });
-          await transcribeChunkWithGeminiNormalized(blob);
+      // 1. Captura os pedaços de áudio imediatamente para podermos reiniciar o gravador sem perder áudio
+      const chunks = geminiChunksRef.current;
+      geminiChunksRef.current = [];
+
+      // 2. Reinicia o gravador imediatamente, eliminando o delay/buraco de gravação
+      if (geminiMediaRecorderRef.current) {
+        try {
+          geminiMediaRecorderRef.current.start();
+          setTimeout(() => {
+            if (geminiMediaRecorderRef.current?.state === "recording") {
+              geminiMediaRecorderRef.current.stop();
+            }
+          }, 6000);
+        } catch {
+          // ignore
         }
-      } finally {
-        if (geminiMediaRecorderRef.current) {
-          try {
-            geminiMediaRecorderRef.current.start();
-            setTimeout(() => {
-              if (geminiMediaRecorderRef.current?.state === "recording") {
-                geminiMediaRecorderRef.current.stop();
-              }
-            }, 6000);
-          } catch {
-            // ignore
-          }
-        } else if (geminiStopResolveRef.current) {
-          const resolve = geminiStopResolveRef.current;
-          geminiStopResolveRef.current = null;
-          resolve();
-        }
+      } else if (geminiStopResolveRef.current) {
+        const resolve = geminiStopResolveRef.current;
+        geminiStopResolveRef.current = null;
+        resolve();
+      }
+
+      // 3. Envia o áudio para transcrição em segundo plano (sem bloquear a gravação atual)
+      if (chunks.length > 0) {
+        const blob = new Blob(chunks, { type: mimeType });
+        transcribeChunkWithGeminiNormalized(blob).catch(() => {});
       }
     };
     geminiMediaRecorderRef.current = recorder;
@@ -4264,7 +4269,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                     readOnly
                     value={transcriptText}
                     className="w-full h-40 bg-[#0f1115] border border-white/10 rounded-xl p-3 text-xs text-slate-200 leading-relaxed resize-none"
-                    placeholder="Sem transcricao registrada."
+                    placeholder={
+                      (preferences.gemini.apiKeys?.some(k => k.trim()) || preferences.gemini.apiKey.trim())
+                        ? "A transcrição de alta fidelidade e com identificação de falantes será gerada automaticamente pelo Gemini assim que você clicar em 'Encerrar' e ficará salva no painel de Transcrições."
+                        : "Sem transcrição registrada."
+                    }
                   />
                 </div>
               )}
