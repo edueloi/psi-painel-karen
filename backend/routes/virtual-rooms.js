@@ -516,7 +516,7 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
     }
     const sk = req.params.sessionKey;
     const { speaker_role, speaker_name, duration_seconds } = req.body || {};
-    const fileUrl = `/uploads/room-recordings/${req.file.filename}`;
+    const fileUrl = `/uploads-static/room-recordings/${req.file.filename}`;
     const [ins] = await db.query(
       `INSERT INTO room_recordings (room_id, tenant_id, session_key, file_name, file_url, file_size, duration_seconds, speaker_role, speaker_name)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

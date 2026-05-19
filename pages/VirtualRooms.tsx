@@ -74,6 +74,24 @@ type RecordingEntry = {
   created_at: string;
 };
 
+const normalizeGeminiAudioMimeType = (mimeType?: string) => {
+  const normalized = (mimeType || '').toLowerCase();
+  if (normalized.includes('webm')) return 'audio/webm';
+  if (normalized.includes('ogg')) return 'audio/ogg';
+  if (normalized.includes('wav')) return 'audio/wav';
+  if (normalized.includes('mp4')) return 'audio/mp4';
+  if (normalized.includes('mpeg') || normalized.includes('mp3')) return 'audio/mpeg';
+  return 'audio/webm';
+};
+
+const resolveRecordingUrl = (fileUrl?: string) => {
+  if (!fileUrl) return '';
+  const normalizedPath = fileUrl.startsWith('/uploads/')
+    ? fileUrl.replace('/uploads/', '/uploads-static/')
+    : fileUrl;
+  return `${API_BASE_URL.replace('/api', '')}${normalizedPath}`;
+};
+
 export const VirtualRooms: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -226,11 +244,11 @@ export const VirtualRooms: React.FC = () => {
     setTranscribingRecording(rec.id);
     try {
       // Baixa o arquivo de áudio como blob
-      const audioUrl = `${API_BASE_URL.replace('/api', '')}${rec.file_url}`;
+      const audioUrl = resolveRecordingUrl(rec.file_url);
       const resp = await fetch(audioUrl);
       if (!resp.ok) throw new Error('Falha ao baixar áudio');
       const blob = await resp.blob();
-      const mimeType = blob.type || 'audio/webm';
+      const mimeType = normalizeGeminiAudioMimeType(blob.type);
 
       // Converte para base64
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -695,7 +713,7 @@ export const VirtualRooms: React.FC = () => {
                                               <span className="text-[11px] text-slate-400">{formatDuration(rec.duration_seconds)}</span>
                                             )}
                                             <a
-                                              href={`${API_BASE_URL.replace('/api', '')}${rec.file_url}`}
+                                              href={resolveRecordingUrl(rec.file_url)}
                                               download={rec.file_name}
                                               className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
                                               title="Baixar áudio"
@@ -708,7 +726,7 @@ export const VirtualRooms: React.FC = () => {
                                           ref={(el) => { audioRefs.current[`${rec.id}`] = el; }}
                                           controls
                                           className="w-full h-8"
-                                          src={`${API_BASE_URL.replace('/api', '')}${rec.file_url}`}
+                                          src={resolveRecordingUrl(rec.file_url)}
                                         />
                                         {/* Botão transcrever com Gemini */}
                                         <button

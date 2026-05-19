@@ -75,7 +75,7 @@ type RoomEvent = {
 };
 type TranscriptEntry = {
   id: number;
-  speaker_role: "host" | "guest";
+  speaker_role: "host" | "guest" | "system";
   speaker_name: string;
   text: string;
   created_at: string;
@@ -2119,13 +2119,23 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   };
 
-  const persistTranscriptText = async (text: string) => {
+  const persistTranscriptText = async (
+    text: string,
+    options?: {
+      speakerName?: string;
+      speakerRole?: TranscriptEntry["speaker_role"];
+    }
+  ) => {
     if (!text || !id) return;
 
     const payload = {
       room_id: numericRoomIdRef.current ?? numericRoomId ?? undefined,
-      speaker_name: isGuest ? guestName || "Paciente" : hostDisplayName,
-      speaker_role: isGuest ? "guest" as const : "host" as const,
+      speaker_name:
+        options?.speakerName ??
+        (isGuest ? guestName || "Paciente" : hostDisplayName),
+      speaker_role:
+        options?.speakerRole ??
+        (isGuest ? "guest" as const : "host" as const),
       session_key: sessionKey,
       text,
     };
@@ -2257,6 +2267,68 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       reader.readAsDataURL(blob);
     });
 
+  const normalizeGeminiAudioMimeType = (mimeType?: string) => {
+    const normalized = (mimeType || "").toLowerCase();
+    if (normalized.includes("webm")) return "audio/webm";
+    if (normalized.includes("ogg")) return "audio/ogg";
+    if (normalized.includes("wav")) return "audio/wav";
+    if (normalized.includes("mp4")) return "audio/mp4";
+    if (normalized.includes("mpeg") || normalized.includes("mp3")) {
+      return "audio/mpeg";
+    }
+    return "audio/webm";
+  };
+
+  const transcribeWithGemini = async (audioBlob: Blob, prompt: string) => {
+    const keys = (preferences.gemini.apiKeys?.filter(k => k.trim()) ?? []);
+    if (keys.length === 0 && preferences.gemini.apiKey.trim()) {
+      keys.push(preferences.gemini.apiKey.trim());
+    }
+    if (keys.length === 0 || !id) return "";
+
+    const base64Audio = await blobToBase64(audioBlob);
+    const mimeType = normalizeGeminiAudioMimeType(audioBlob.type);
+    const body = {
+      contents: [
+        {
+          parts: [
+            {
+              inline_data: { mime_type: mimeType, data: base64Audio },
+            },
+            {
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    };
+
+    for (const key of keys) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        );
+        if (!res.ok) {
+          const detail = await res.text().catch(() => "");
+          console.warn("Falha Gemini na transcricao", res.status, detail.slice(0, 200));
+          continue;
+        }
+        const data = await res.json();
+        const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        if (text) return text;
+      } catch (error) {
+        console.warn("Erro Gemini na transcricao", error);
+      }
+    }
+
+    return "";
+  };
+
   const transcribeChunkWithGemini = async (audioBlob: Blob) => {
     // Build ordered key list: apiKeys array first, fall back to legacy apiKey
     const keys = (preferences.gemini.apiKeys?.filter(k => k.trim()) ?? []);
@@ -2306,6 +2378,37 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   };
 
+  const transcribeChunkWithGeminiNormalized = async (audioBlob: Blob) => {
+    try {
+      const transcribed = await transcribeWithGemini(
+        audioBlob,
+        "Transcreva este áudio em português brasileiro. Retorne apenas o texto transcrito, sem explicações ou formatação adicional."
+      );
+      if (!transcribed) return false;
+      await persistTranscriptText(transcribed);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const transcribeFullSessionWithGemini = async (audioBlob: Blob) => {
+    try {
+      const transcribed = await transcribeWithGemini(
+        audioBlob,
+        "Transcreva este áudio completo em português brasileiro. Identifique os falantes quando possível como Profissional e Paciente. Retorne apenas a transcrição final, sem explicações adicionais."
+      );
+      if (!transcribed) return false;
+      await persistTranscriptText(transcribed, {
+        speakerName: "Transcrição da sessão",
+        speakerRole: "system",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const startGeminiRecording = () => {
     const stream = getRecordingStream();
     if (!stream || geminiMediaRecorderRef.current) return;
@@ -2335,7 +2438,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         geminiChunksRef.current = [];
         if (chunks.length > 0) {
           const blob = new Blob(chunks, { type: mimeType });
-          await transcribeChunkWithGemini(blob);
+          await transcribeChunkWithGeminiNormalized(blob);
         }
       } finally {
         if (geminiMediaRecorderRef.current) {
@@ -2437,6 +2540,21 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         }
         setIsUploadingRecording(true);
         try {
+          let hasExistingTranscript = false;
+          try {
+            const existing = await api.get<TranscriptEntry[]>(
+              `/virtual-rooms/${id}/transcripts`,
+              { since: "0" }
+            );
+            hasExistingTranscript = Array.isArray(existing) && existing.length > 0;
+          } catch {
+            hasExistingTranscript = transcriptLog.length > 0;
+          }
+
+          if (!hasExistingTranscript && transcriptionEnabled) {
+            await transcribeFullSessionWithGemini(blob);
+          }
+
           await api.post(`/virtual-rooms/${id}/sessions/${sessionKey}/recordings`, formData);
         } catch {
           // non-critical
