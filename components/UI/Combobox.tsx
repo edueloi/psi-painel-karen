@@ -4,7 +4,8 @@ import { ChevronDown, X, Check, Search, Plus } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 
 export interface ComboboxOption {
-  value: string;
+  value?: string;
+  id?: string;
   label: string;
   subtitle?: string;
   /** Group name — options with the same group are shown under a shared header */
@@ -19,6 +20,7 @@ interface ComboboxProps {
   options: ComboboxOption[];
   value?: string | string[];
   onChange: (value: string | string[]) => void;
+  label?: string;
   placeholder?: string;
   searchPlaceholder?: string;
   multiple?: boolean;
@@ -28,9 +30,12 @@ interface ComboboxProps {
   className?: string;
   disabled?: boolean;
   emptyMessage?: string;
+  showSelectedBadge?: boolean;
+  showResultCount?: boolean;
 }
 
 function normalizeStr(str: string) {
+  if (!str) return "";
   return str
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -58,6 +63,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
   options,
   value,
   onChange,
+  label,
   placeholder = "Selecionar...",
   searchPlaceholder = "Buscar...",
   multiple = false,
@@ -67,6 +73,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
   className,
   disabled = false,
   emptyMessage = "Nenhum resultado encontrado.",
+  showSelectedBadge = false,
+  showResultCount = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -76,23 +84,28 @@ export const Combobox: React.FC<ComboboxProps> = ({
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const [openUpward, setOpenUpward] = useState(false);
 
+  const normalizedOptions = options.map((option) => ({
+    ...option,
+    value: String(option.value ?? option.id ?? ""),
+  }));
+
   const selectedValues: string[] = multiple
     ? Array.isArray(value) ? value : value ? [value] : []
     : value ? [value as string] : [];
 
-  const filtered = options.filter(o =>
+  const filtered = normalizedOptions.filter(o =>
     normalizeStr(o.label).includes(normalizeStr(search)) ||
     (o.subtitle && normalizeStr(o.subtitle).includes(normalizeStr(search))) ||
     (o.group && normalizeStr(o.group).includes(normalizeStr(search)))
   );
 
   const grouped = groupOptions(filtered);
-  const hasGroups = options.some(o => o.group);
+  const hasGroups = normalizedOptions.some(o => o.group);
 
   const canAddCustom =
     allowCustom &&
     search.trim().length > 0 &&
-    !options.some(o => normalizeStr(o.label) === normalizeStr(search.trim()));
+    !normalizedOptions.some(o => normalizeStr(o.label) === normalizeStr(search.trim()));
 
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
@@ -186,7 +199,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
   };
 
   const selectedLabels = selectedValues
-    .map(v => options.find(o => o.value === v)?.label || v)
+    .map(v => normalizedOptions.find(o => o.value === v)?.label || v)
     .filter(Boolean);
 
   const sizeClasses = {
@@ -206,6 +219,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
 
   return (
     <div className={cn("relative", className)}>
+      {label && <label className="ds-label mb-1.5 block">{label}</label>}
+
       <div
         ref={triggerRef}
         role="combobox"
@@ -245,7 +260,15 @@ export const Combobox: React.FC<ComboboxProps> = ({
               </span>
             ))
           ) : (
-            <span className="truncate text-zinc-900 font-semibold text-xs">{selectedLabels[0]}</span>
+            <span
+              className={cn(
+                "truncate text-zinc-900 font-semibold text-xs",
+                showSelectedBadge &&
+                  "inline-flex max-w-full items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
+              )}
+            >
+              {selectedLabels[0]}
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -303,6 +326,11 @@ export const Combobox: React.FC<ComboboxProps> = ({
               >
                 <X size={11} />
               </button>
+            )}
+            {showResultCount && (
+              <span className="shrink-0 text-[10px] font-semibold text-zinc-400">
+                {filtered.length}
+              </span>
             )}
           </div>
 

@@ -2,11 +2,12 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { MessageTemplate } from '../types';
 import { api } from '../services/api';
 import {
-  MessageCircle, Search, Plus, Edit3, Trash2, Send, Variable, X, Copy, Check,
+  MessageCircle, Search, Plus, Edit3, Trash2, Send, Variable, Copy, Check,
   Loader2, MessageSquare, Tag, Users, Sparkles, LayoutGrid, List, AlertTriangle,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { Button } from '../components/UI/Button';
+import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper } from '../components/UI';
+import { Input, Select } from '../components/UI/Input';
 import { GridTable } from '../components/UI/GridTable';
 import { Combobox } from '../components/UI/Combobox';
 import { useToast } from '../contexts/ToastContext';
@@ -138,9 +139,7 @@ export const Messages: React.FC = () => {
   const [recipients, setRecipients]         = useState<any[]>([]);
   const [isRecipientsLoading, setIsRecipientsLoading] = useState(false);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>('');
-  // recipientStatusFilter persisted in preferences
-  const recipientStatusFilter = preferences.messages.recipientStatusFilter;
-  const setRecipientStatusFilter = (v: 'all' | 'ativo' | 'inativo') => updatePreference('messages', { recipientStatusFilter: v });
+  const [recipientStatusFilter, setRecipientStatusFilter] = useState<'all' | 'ativo' | 'inativo'>('all');
   const [sendTemplate, setSendTemplate]     = useState<MessageTemplate | null>(null);
   const [sendMeta, setSendMeta]             = useState({
     appointmentDate: new Date().toISOString().split('T')[0],
@@ -331,15 +330,8 @@ export const Messages: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Excluir este modelo?')) return;
-    try {
-      await api.delete(`/messages/templates/${id}`);
-      setTemplates(prev => prev.filter(t => t.id !== id));
-      pushToast('success', 'Modelo removido.');
-    } catch (err: any) {
-      pushToast('error', err.message || 'Erro ao remover');
-    }
+  const handleDelete = (template: MessageTemplate) => {
+    setDeleteTarget(template);
   };
 
   const handleCopy = (template: MessageTemplate) => {
@@ -428,9 +420,7 @@ export const Messages: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-
-      <div className="max-w-[1600px] mx-auto px-6 pt-6">
+    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
         <PageHeader
           icon={<MessageCircle />}
           title="Mensagens Pré-definidas"
@@ -449,9 +439,8 @@ export const Messages: React.FC = () => {
             </Button>
           }
         />
-      </div>
 
-      <main className="max-w-[1600px] mx-auto px-6 py-8 space-y-6">
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6">
 
         {/* ── SEARCH + CATEGORY TABS ── */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">
@@ -545,7 +534,7 @@ export const Messages: React.FC = () => {
                     <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleOpenModal(row)} title="Editar">
                       <Edit3 size={13} />
                     </Button>
-                    <Button variant="softDanger" size="sm" iconOnly radius="xl" onClick={() => handleDelete(row.id)} title="Excluir">
+                    <Button variant="softDanger" size="sm" iconOnly radius="xl" onClick={() => handleDelete(row)} title="Excluir">
                       <Trash2 size={13} />
                     </Button>
                   </div>
@@ -630,7 +619,7 @@ export const Messages: React.FC = () => {
                     size="sm"
                     iconOnly
                     radius="xl"
-                    onClick={() => handleDelete(template.id)}
+                    onClick={() => handleDelete(template)}
                     title="Excluir"
                   >
                     <Trash2 size={15} />
@@ -706,166 +695,137 @@ export const Messages: React.FC = () => {
             </div>
           </div>
         )}
-      </main>
+      </div>
 
-      {/* ══════════════════════════════════════════════════════════════
-          MODAL CRIAR / EDITAR
-      ══════════════════════════════════════════════════════════════ */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-scaleIn">
+      {/* MODAL CRIAR / EDITAR */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={currentTemplate.id ? 'Editar Modelo' : 'Novo Modelo'}
+        subtitle="Configure o texto e insira variáveis dinâmicas"
+        size="xl"
+        footer={
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Descartar</Button>
+            <Button
+              variant="primary"
+              loading={isSaving}
+              iconLeft={<Check size={15} />}
+              onClick={handleSave}
+            >
+              Salvar Modelo
+            </Button>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-5">
+          {/* Título + Categoria */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Título *"
+              value={currentTemplate.title || ''}
+              onChange={e => setCurrentTemplate({ ...currentTemplate, title: e.target.value })}
+              placeholder="Ex: Lembrete Padrão"
+            />
 
-            {/* Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 shrink-0">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">
-                  {currentTemplate.id ? 'Editar Modelo' : 'Novo Modelo'}
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Configure o texto e insira variáveis dinâmicas</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="px-8 py-6 space-y-5 overflow-y-auto">
-
-              {/* Título + Categoria */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Título *</label>
-                  <input
-                    value={currentTemplate.title || ''}
-                    onChange={e => setCurrentTemplate({ ...currentTemplate, title: e.target.value })}
-                    placeholder="Ex: Lembrete Padrão"
-                    className="w-full p-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
+            <div className="flex flex-col gap-1.5">
+              <label className="ds-label">Categoria</label>
+              {showNewCat ? (
+                <div className="flex gap-2">
+                  <Input
+                    value={newCategory}
+                    onChange={e => setNewCategory(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+                    placeholder="Nome da categoria..."
+                    autoFocus
                   />
+                  <Button variant="primary" size="sm" onClick={handleAddCategory}>Ok</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowNewCat(false)}>✕</Button>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Categoria</label>
-                  {showNewCat ? (
-                    <div className="flex gap-2">
-                      <input
-                        value={newCategory}
-                        onChange={e => setNewCategory(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-                        placeholder="Nome da categoria..."
-                        autoFocus
-                        className="flex-1 p-3 rounded-xl border border-indigo-300 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
-                      />
-                      <Button variant="primary" size="sm" radius="xl" onClick={handleAddCategory}>Ok</Button>
-                      <Button variant="ghost" size="sm" radius="xl" onClick={() => setShowNewCat(false)}>✕</Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <select
-                        value={currentTemplate.category || 'Lembrete'}
-                        onChange={e => setCurrentTemplate({ ...currentTemplate, category: e.target.value })}
-                        className="flex-1 p-3 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
-                      >
-                        {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                      <Button variant="ghost" size="sm" radius="xl" onClick={() => setShowNewCat(true)} title="Nova categoria">
-                        <Tag size={14} />
-                      </Button>
-                    </div>
-                  )}
+              ) : (
+                <div className="flex gap-2">
+                  <Select
+                    value={currentTemplate.category || 'Lembrete'}
+                    onChange={e => setCurrentTemplate({ ...currentTemplate, category: e.target.value })}
+                    className="flex-1"
+                  >
+                    {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </Select>
+                  <Button variant="ghost" size="sm" onClick={() => setShowNewCat(true)} title="Nova categoria">
+                    <Tag size={14} />
+                  </Button>
                 </div>
-              </div>
-
-              {/* Editor de conteúdo */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Conteúdo *</label>
-                  <span className="text-[11px] text-slate-400">Clique nas variáveis para inserir</span>
-                </div>
-
-                {/* Toolbar de variáveis */}
-                <div className="flex flex-wrap gap-1.5 p-3 mb-3 bg-slate-50 rounded-xl border border-slate-200">
-                  {AVAILABLE_VARIABLES.map(v => (
-                    <button
-                      key={v.tag}
-                      onClick={() => handleInsertVariable(v.tag)}
-                      title={v.hint}
-                      className={`${getBadgeClass(v.tag)} cursor-pointer hover:opacity-80 active:scale-95 transition-all`}
-                    >
-                      <Variable size={9} />
-                      {v.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Rich editor */}
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={() => {
-                    if (editorRef.current)
-                      setCurrentTemplate(prev => ({ ...prev, content: htmlToContent(editorRef.current!.innerHTML) }));
-                  }}
-                  onPaste={e => {
-                    e.preventDefault();
-                    const text = e.clipboardData.getData('text/plain');
-                    document.execCommand('insertText', false, text);
-                  }}
-                  data-placeholder="Digite o conteúdo da mensagem..."
-                  className="w-full p-4 min-h-[9rem] rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all text-sm text-slate-700 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400"
-                />
-                <p className="text-[11px] text-slate-400 mt-1.5">
-                  As variáveis serão substituídas pelos dados reais ao enviar.
-                </p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-slate-100 shrink-0 bg-slate-50/50 rounded-b-[28px]">
-              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Descartar</Button>
-              <Button
-                variant="primary"
-                radius="xl"
-                leftIcon={isSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                onClick={handleSave}
-                disabled={isSaving}
-                className="shadow-lg shadow-indigo-100"
-              >
-                {isSaving ? 'Salvando...' : 'Salvar Modelo'}
-              </Button>
+              )}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ══════════════════════════════════════════════════════════════
-          MODAL ENVIO WHATSAPP
-      ══════════════════════════════════════════════════════════════ */}
-      {isSendModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-scaleIn">
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 shrink-0">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Enviar via WhatsApp</h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Modelo: <span className="font-semibold text-slate-600">{sendTemplate?.title}</span>
-                </p>
-              </div>
-              <button
-                onClick={() => setIsSendModalOpen(false)}
-                className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
-              >
-                <X size={20} />
-              </button>
+          {/* Editor de conteúdo */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="ds-label">Conteúdo *</label>
+              <span className="text-[11px] text-slate-400">Clique nas variáveis para inserir</span>
             </div>
 
-            <div className="px-8 py-6 space-y-6 overflow-y-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="flex flex-wrap gap-1.5 p-3 mb-3 bg-slate-50 rounded-xl border border-slate-200">
+              {AVAILABLE_VARIABLES.map(v => (
+                <button
+                  key={v.tag}
+                  onClick={() => handleInsertVariable(v.tag)}
+                  title={v.hint}
+                  className={`${getBadgeClass(v.tag)} cursor-pointer hover:opacity-80 active:scale-95 transition-all`}
+                >
+                  <Variable size={9} />
+                  {v.label}
+                </button>
+              ))}
+            </div>
+
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={() => {
+                if (editorRef.current)
+                  setCurrentTemplate(prev => ({ ...prev, content: htmlToContent(editorRef.current!.innerHTML) }));
+              }}
+              onPaste={e => {
+                e.preventDefault();
+                const text = e.clipboardData.getData('text/plain');
+                document.execCommand('insertText', false, text);
+              }}
+              data-placeholder="Digite o conteúdo da mensagem..."
+              className="w-full p-4 min-h-[9rem] rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all text-sm text-slate-700 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400"
+            />
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              As variáveis serão substituídas pelos dados reais ao enviar.
+            </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL ENVIO WHATSAPP */}
+      <Modal
+        isOpen={isSendModalOpen}
+        onClose={() => setIsSendModalOpen(false)}
+        title="Enviar via WhatsApp"
+        subtitle={sendTemplate ? `Modelo: ${sendTemplate.title}` : undefined}
+        size="lg"
+        footer={
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setIsSendModalOpen(false)}>Cancelar</Button>
+            <Button
+              variant="success"
+              iconLeft={<Send size={15} />}
+              onClick={handleSendWhatsApp}
+              disabled={!selectedRecipientId}
+            >
+              Enviar via WhatsApp
+            </Button>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Destinatário (Equipe) — Combobox + filtro status */}
                 <div className="space-y-3">
@@ -968,26 +928,19 @@ export const Messages: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
             </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-slate-100 shrink-0 bg-slate-50/50 rounded-b-[28px]">
-              <Button variant="ghost" onClick={() => setIsSendModalOpen(false)}>Cancelar</Button>
-              <Button
-                variant="success"
-                radius="xl"
-                leftIcon={<Send size={15} />}
-                onClick={handleSendWhatsApp}
-                disabled={!selectedRecipientId}
-                className="shadow-lg shadow-emerald-100"
-              >
-                Enviar via WhatsApp
-              </Button>
-            </div>
-          </div>
         </div>
-      )}
-    </div>
+      </Modal>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Excluir modelo"
+        message={deleteTarget ? `O modelo "${deleteTarget.title}" será removido permanentemente.` : ''}
+        confirmLabel="Confirmar exclusão"
+        loading={isDeleting}
+      />
+    </PageWrapper>
   );
 };

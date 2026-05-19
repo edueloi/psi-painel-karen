@@ -22,6 +22,7 @@ import { PageHeader } from '../components/UI/PageHeader';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { ConfirmModal, PageWrapper } from '../components/UI';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select } from '../components/UI/Input';
@@ -417,7 +418,7 @@ export const Professionals: React.FC = () => {
   }, [professionals]);
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-8 animate-fadeIn font-sans">
+    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
       <PageHeader
         icon={<Users />}
         title={t('professionals.title')}
@@ -440,6 +441,7 @@ export const Professionals: React.FC = () => {
         }
       />
 
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6 sm:space-y-8">
 
         {/* STATS BAR */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -938,6 +940,7 @@ export const Professionals: React.FC = () => {
             </div>
           </div>
         ) : null}
+      </div>
       
       {/* --- MODAL DE USUÁRIO --- */}
       <Modal
@@ -1091,79 +1094,34 @@ export const Professionals: React.FC = () => {
         )}
       </Modal>
 
-      {/* CONFIRM DELETE MODAL (PRO) */}
-      <Modal
+      <ConfirmModal
         isOpen={!!deleteConfirmPro}
         onClose={() => setDeleteConfirmPro(null)}
-        title="Remover Acesso?"
-        maxWidth="sm"
-        headerClassName="text-center"
-      >
-        <div className="text-center py-2">
-          <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[24px] flex items-center justify-center mx-auto mb-6 border border-red-100 shadow-md">
-            <AlertCircle size={40} />
-          </div>
-          <p className="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
-            Esta ação irá remover permanentemente o acesso de <br />
-            <span className="text-slate-900 font-bold">{deleteConfirmPro?.name}</span> ao sistema.
-          </p>
-          <div className="flex flex-col gap-3">
-             <Button 
-              variant="danger"
-              fullWidth
-              onClick={confirmDelete}
-              className="py-4"
-             >
-               CONFIRMAR EXCLUSÃO
-             </Button>
-             <Button 
-              variant="ghost"
-              fullWidth
-              onClick={() => setDeleteConfirmPro(null)}
-             >
-               CANCELAR
-             </Button>
-          </div>
-        </div>
-      </Modal>
+        onConfirm={confirmDelete}
+        title="Remover acesso"
+        message={
+          <>
+            Esta ação irá remover permanentemente o acesso de{' '}
+            <span className="font-bold text-slate-900">{deleteConfirmPro?.name}</span> ao sistema.
+          </>
+        }
+        confirmLabel="Confirmar exclusão"
+      />
 
-      {/* CONFIRM DELETE MODAL (PROFILE) */}
-      <Modal
+      <ConfirmModal
         isOpen={!!deleteConfirmProfile}
         onClose={() => setDeleteConfirmProfile(null)}
-        title="Remover Perfil?"
-        maxWidth="sm"
-        headerClassName="text-center"
-      >
-        <div className="text-center py-2">
-          <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-[24px] flex items-center justify-center mx-auto mb-6 border border-amber-100 shadow-md">
-            <ShieldAlert size={40} />
-          </div>
-          <p className="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
-            Tem certeza que deseja apagar o perfil <br />
-            <span className="text-slate-900 font-bold">"{deleteConfirmProfile?.name}"</span>?<br/>
-            Eles perderão acesso até que você reatribua um novo.
-          </p>
-          <div className="flex flex-col gap-3">
-             <Button 
-              variant="danger"
-              fullWidth
-              onClick={confirmDeleteProfile}
-              className="py-4"
-             >
-               APAGAR PERFIL
-             </Button>
-             <Button 
-              variant="ghost"
-              fullWidth
-              onClick={() => setDeleteConfirmProfile(null)}
-             >
-               CANCELAR
-             </Button>
-          </div>
-        </div>
-      </Modal>
-    </div>
+        onConfirm={confirmDeleteProfile}
+        title="Remover perfil"
+        message={
+          <>
+            Tem certeza que deseja apagar o perfil{' '}
+            <span className="font-bold text-slate-900">"{deleteConfirmProfile?.name}"</span>? Eles perderão acesso até que você reatribua um novo.
+          </>
+        }
+        confirmLabel="Apagar perfil"
+      />
+    </PageWrapper>
   );
 };
 

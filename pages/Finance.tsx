@@ -12,7 +12,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { FinancialTransaction, Patient } from '../types';
-import { Modal } from '../components/UI/Modal';
+import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper } from '../components/UI';
 import { Input, Select, Textarea } from '../components/UI/Input';
 import { useToast } from '../contexts/ToastContext';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
@@ -681,7 +681,7 @@ export const Finance: React.FC = () => {
   );
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
+    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
       <PageHeader
         icon={<DollarSign />}
         title={t('finance.title')}
@@ -690,35 +690,39 @@ export const Finance: React.FC = () => {
         showBackButton
         onBackClick={() => navigate('/')}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {hasPermission('manage_payments') && (
               <>
-                <button 
-                    onClick={() => handleOpenModal('income')} 
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 tracking-widest"
+                <Button
+                  variant="success"
+                  onClick={() => handleOpenModal('income')}
+                  iconLeft={<Plus size={16} />}
                 >
-                    <Plus size={16} /> {t('finance.addIncome')}
-                </button>
-                <button 
-                    onClick={() => handleOpenModal('expense')} 
-                    className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-rose-100 transition-all active:scale-95 tracking-widest"
+                  {t('finance.addIncome')}
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => handleOpenModal('expense')}
+                  iconLeft={<Plus size={16} />}
                 >
-                    <Plus size={16} /> {t('finance.addExpense')}
-                </button>
+                  {t('finance.addExpense')}
+                </Button>
               </>
             )}
             {hasPermission('view_financial_reports') && (
-              <button
-                  onClick={() => setIsAuraOpen(true)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 tracking-widest"
+              <Button
+                variant="secondary"
+                onClick={() => setIsAuraOpen(true)}
+                iconLeft={<Sparkles size={16} />}
               >
-                  <Sparkles size={16} /> Aura Fiscal
-              </button>
+                Aura Fiscal
+              </Button>
             )}
           </div>
         }
       />
 
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6">
       {/* STATS BAR (KPIs Restyled) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
@@ -819,6 +823,7 @@ export const Finance: React.FC = () => {
                 )}
             </>
           )}
+      </div>
       </div>
 
       <Modal 
@@ -1005,36 +1010,16 @@ export const Finance: React.FC = () => {
           </div>
       </Modal>
 
-      {/* DELETE CONFIRMATION */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
-              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-red-100">
-                <Trash2 size={40} />
-              </div>
-              <h3 className="text-xl font-black text-slate-800 mb-3">Excluir Lançamento?</h3>
-              <p className="text-sm font-bold text-slate-400 mb-8 leading-relaxed">
-                Esta ação é irreversível e afetará seu balanço mensal.
-              </p>
-              <div className="flex flex-col gap-3">
-                 <button 
-                  onClick={confirmDelete}
-                  className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-100 transition-all"
-                 >
-                   CONFIRMAR EXCLUSÃO
-                 </button>
-                 <button 
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-                 >
-                   CANCELAR
-                 </button>
-              </div>
-           </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={confirmDelete}
+        title="Excluir lançamento"
+        message="Esta ação é irreversível e afetará seu balanço mensal."
+        confirmLabel="Confirmar exclusão"
+      />
 
       <AuraContabil isOpen={isAuraOpen} onClose={() => setIsAuraOpen(false)} />
-    </div>
+    </PageWrapper>
   );
 };

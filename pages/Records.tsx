@@ -3002,7 +3002,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   }
 
   return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+    <PageWrapper className="space-y-4 sm:space-y-6">
       <SectionTitle
         icon={FileText}
         title="Prontuário Clínico"

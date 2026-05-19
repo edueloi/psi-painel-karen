@@ -763,7 +763,7 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+    <PageWrapper className="space-y-4 sm:space-y-6">
       <SectionTitle
         title="Dashboard"
         description="Visão geral da agenda, indicadores e rotinas da clínica."

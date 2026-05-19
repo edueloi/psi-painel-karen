@@ -12,8 +12,12 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "
   hint?: string;
   iconLeft?: React.ReactNode;
   iconRight?: React.ReactNode;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
   addonLeft?: React.ReactNode;
   addonRight?: React.ReactNode;
+  prefix?: React.ReactNode;
+  suffix?: React.ReactNode;
   wrapperClassName?: string;
   size?: "sm" | "md" | "lg";
 }
@@ -28,6 +32,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       iconRight,
       addonLeft,
       addonRight,
+      leftIcon,
+      rightIcon,
+      prefix,
+      suffix,
       wrapperClassName,
       className,
       id,
@@ -41,6 +49,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const inputId = id ?? `input-${Math.random().toString(36).slice(2, 7)}`;
     const currentLen = typeof value === "string" ? value.length : 0;
     const nearLimit = maxLength !== undefined && currentLen >= maxLength * 0.85;
+    const resolvedIconLeft = iconLeft ?? leftIcon;
+    const resolvedIconRight = iconRight ?? rightIcon;
+    const resolvedAddonLeft = addonLeft ?? prefix;
+    const resolvedAddonRight = addonRight ?? suffix;
 
     return (
       <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
@@ -69,16 +81,16 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             size === "sm" && "h-9"
           )}
         >
-          {addonLeft && (
+          {resolvedAddonLeft && (
             <div className="flex items-center justify-center bg-zinc-100 px-3.5 border-r border-zinc-200 text-xs font-black text-zinc-500 whitespace-nowrap select-none shrink-0 group-focus-within:bg-zinc-50/50 transition-colors">
-              {addonLeft}
+              {resolvedAddonLeft}
             </div>
           )}
 
           <div className="relative flex flex-1 items-center">
-            {iconLeft && (
+            {resolvedIconLeft && (
               <span className="pointer-events-none absolute left-3 text-zinc-400 shrink-0 z-10">
-                {iconLeft}
+                {resolvedIconLeft}
               </span>
             )}
 
@@ -92,23 +104,23 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 "text-sm text-zinc-800 placeholder:text-zinc-400 font-bold tracking-tight",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 size === "sm" && "py-1.5 text-xs",
-                iconLeft && (size === "sm" ? "pl-8" : "pl-9"),
-                iconRight && (size === "sm" ? "pr-8" : "pr-9"),
+                resolvedIconLeft && (size === "sm" ? "pl-8" : "pl-9"),
+                resolvedIconRight && (size === "sm" ? "pr-8" : "pr-9"),
                 className
               )}
               {...props}
             />
 
-            {iconRight && (
+            {resolvedIconRight && (
               <span className="absolute right-3 text-zinc-400 shrink-0 z-10 flex items-center">
-                {iconRight}
+                {resolvedIconRight}
               </span>
             )}
           </div>
 
-          {addonRight && (
+          {resolvedAddonRight && (
             <div className="flex items-center justify-center bg-zinc-100 px-3.5 border-l border-zinc-200 text-xs font-black text-zinc-500 whitespace-nowrap select-none shrink-0 group-focus-within:bg-zinc-50/50 transition-colors">
-              {addonRight}
+              {resolvedAddonRight}
             </div>
           )}
         </div>
@@ -198,11 +210,27 @@ interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>
   options?: { value: string | number; label: string; disabled?: boolean }[];
   placeholder?: string;
   size?: "sm" | "md" | "lg";
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   (
-    { label, error, hint, wrapperClassName, className, id, options, placeholder, size = "md", children, ...props },
+    {
+      label,
+      error,
+      hint,
+      wrapperClassName,
+      className,
+      id,
+      options,
+      placeholder,
+      size = "md",
+      leftIcon,
+      rightIcon,
+      children,
+      ...props
+    },
     ref
   ) => {
     const inputId = id ?? `select-${Math.random().toString(36).slice(2, 7)}`;
@@ -216,6 +244,12 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         )}
 
         <div className="relative">
+          {leftIcon && (
+            <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-zinc-400">
+              {leftIcon}
+            </span>
+          )}
+
           <select
             ref={ref}
             id={inputId}
@@ -223,6 +257,8 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               "ds-input appearance-none pr-8 cursor-pointer",
               size === "sm" && "h-8 py-0 px-2 text-[11px] font-black uppercase tracking-widest",
               size === "lg" && "h-14 px-4 text-base",
+              leftIcon && (size === "sm" ? "pl-8" : "pl-10"),
+              rightIcon && "pr-10",
               error && "border-red-400 focus:border-red-500 focus:ring-red-500/10 bg-red-50/30",
               className
             )}
@@ -244,9 +280,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 
           {/* Chevron */}
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            {rightIcon ?? (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </span>
         </div>
 

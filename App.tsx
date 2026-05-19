@@ -129,7 +129,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={logout} />
       <div className="flex-1 flex min-w-0 flex-col h-full transition-all duration-300 lg:ml-[256px]">
         <Topbar onMenuClick={() => setSidebarOpen(!isSidebarOpen)} user={user as any} onLogout={logout} />
-        <main className="flex-1 overflow-y-auto px-3 pt-3 pb-24 sm:px-5 sm:pt-4 sm:pb-6 lg:px-6 lg:pt-5 lg:pb-8">
+        <main className="flex-1 overflow-y-auto">
           <div className="w-full max-w-[1600px] lg:mx-auto">{children}</div>
         </main>
       </div>

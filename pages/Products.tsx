@@ -13,6 +13,8 @@ import {
   CreditCard
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper, Select } from '../components/UI';
+import { FilterLine, FilterLineSearch, FilterLineSection, FilterLineSegmented } from '../components/UI/FilterLine';
 import { PageHeader } from '../components/UI/PageHeader';
 
 export const Products: React.FC = () => {
@@ -399,7 +401,7 @@ export const Products: React.FC = () => {
   );
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 space-y-6 animate-fadeIn font-sans">
+    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
       <PageHeader
         icon={<Package />}
         title={t('products.title')}
@@ -408,14 +410,19 @@ export const Products: React.FC = () => {
         onBackClick={() => navigate('/')}
         containerClassName="mb-0"
         actions={
-          <button 
-              onClick={() => handleOpenModal()} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 uppercase tracking-tighter"
+          <Button
+            onClick={() => handleOpenModal()}
+            variant="primary"
+            radius="xl"
+            leftIcon={<Plus size={18} />}
+            className="shadow-lg shadow-indigo-100 uppercase tracking-tighter text-xs font-black"
           >
-              <Plus size={18} /> {t('products.new')}
-          </button>
+            {t('products.new')}
+          </Button>
         }
       />
+
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
 
       {/* STATS BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -458,71 +465,65 @@ export const Products: React.FC = () => {
       </div>
 
       {/* FILTERS & SEARCH */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full lg:w-96 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
-              <input 
-                  type="text" 
-                  placeholder={t('products.search')} 
-                  value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)} 
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 transition-all placeholder:text-slate-400" 
-              />
-          </div>
+      <FilterLine>
+        <FilterLineSection grow>
+          <FilterLineSearch
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder={t('products.search')}
+            className="max-w-[420px]"
+          />
+        </FilterLineSection>
 
-          <div className="flex gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar">
-              {/* Category Filter */}
-              <select 
-                  value={selectedCategory} 
-                  onChange={(e) => setSelectedCategory(e.target.value)} 
-                  className="bg-slate-50 border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest rounded-2xl px-4 py-2 outline-none focus:border-indigo-200 transition-all cursor-pointer"
-              >
-                  {categories.map(cat => <option key={cat} value={cat}>{cat === 'ALL' ? t('common.all') : cat}</option>)}
-              </select>
+        <FilterLineSection align="right">
+          <Select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="min-w-[140px]"
+          >
+            {categories.map(cat => <option key={cat} value={cat}>{cat === 'ALL' ? t('common.all') : cat}</option>)}
+          </Select>
 
-              {/* View/Tab Toggle */}
-              <div className="flex bg-slate-100 p-1 rounded-2xl">
-                  {[
-                      { id: 'list', label: t('products.products'), icon: <Package size={14}/> },
-                      { id: 'dashboard', label: t('products.inventory'), icon: <BarChart size={14}/> }
-                  ].map(tab => (
-                      <button 
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id as any)}
-                          className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
-                      >
-                          {tab.icon}
-                          {tab.label}
-                      </button>
-                  ))}
-              </div>
-          </div>
-      </div>
+          <FilterLineSegmented
+            value={activeTab}
+            onChange={(value) => setActiveTab(value as 'list' | 'dashboard')}
+            options={[
+              { value: 'list', label: t('products.products'), icon: <Package size={14} /> },
+              { value: 'dashboard', label: t('products.inventory'), icon: <BarChart size={14} /> },
+            ]}
+          />
+        </FilterLineSection>
+      </FilterLine>
 
       {/* Main Content Render */}
       <div className="animate-fadeIn">
         {activeTab === 'list' ? renderList() : renderDashboard()}
       </div>
+      </div>
 
       {/* PRODUCT MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-fadeIn">
-            <div className="bg-white w-full max-w-5xl rounded-[3.5rem] shadow-2xl animate-bounceIn overflow-hidden flex flex-col max-h-[95vh] border border-white/20">
-                <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 bg-indigo-600 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-100">
-                        {editingProduct.id ? <Edit3 size={24} /> : <Plus size={28} />}
-                      </div>
-                      <div>
-                        <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight leading-none mb-1">{editingProduct.id ? t('products.edit') : t('products.new')}</h3>
-                        <p className="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{editingProduct.id ? `#${editingProduct.id}` : t('products.creation')}</p>
-                      </div>
-                    </div>
-                    <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white hover:bg-slate-50 rounded-2xl text-slate-400 shadow-sm ring-1 ring-slate-200 transition-all active:scale-95"><X size={20} /></button>
-                </div>
-                
-                <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1">
-                    <div className="flex flex-col lg:flex-row gap-8 md:gap-12">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingProduct.id ? t('products.edit') : t('products.new')}
+        subtitle={editingProduct.id ? `#${editingProduct.id}` : t('products.creation')}
+        maxWidth="max-w-5xl"
+        footer={
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSaveProduct}
+              leftIcon={<CheckCircle2 size={18} />}
+            >
+              {t('profile.saveChanges')}
+            </Button>
+          </ModalFooter>
+        }
+      >
+        <div className="flex flex-col lg:flex-row gap-8 md:gap-12">
                         
                         {/* LEFT: IMAGE & TYPE */}
                         <div className="w-full lg:w-80 space-y-8">
@@ -650,46 +651,17 @@ export const Products: React.FC = () => {
                             )}
                         </div>
                     </div>
-                </div>
+      </Modal>
 
-                <div className="p-6 md:p-8 border-t border-slate-50 bg-slate-50/30 flex justify-end items-center gap-4 px-8 md:px-12">
-                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">{t('common.cancel')}</button>
-                    <button onClick={handleSaveProduct} className="px-10 py-4 bg-indigo-600 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transform active:scale-95">
-                        <CheckCircle2 size={20} /> {t('profile.saveChanges')}
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* CONFIRM DELETE MODAL */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xl animate-fadeIn">
-           <div className="bg-white rounded-[3.5rem] p-12 max-w-sm w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn">
-              <div className="w-24 h-24 bg-red-50 text-red-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-red-100 shadow-lg shadow-red-50">
-                <AlertCircle size={48} />
-              </div>
-              <h3 className="text-2xl font-black text-slate-800 mb-4 tracking-tight leading-none">Remover Produto?</h3>
-              <p className="text-sm font-bold text-slate-400 mb-10 leading-relaxed">
-                Esta ação irá remover o item do inventário permanentemente. Relatórios de vendas passadas não serão afetados.
-              </p>
-              <div className="flex flex-col gap-4">
-                 <button 
-                  onClick={confirmDelete}
-                  className="w-full py-5 bg-red-500 hover:bg-red-600 text-white rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.1em] shadow-xl shadow-red-100 transition-all transform active:scale-95"
-                 >
-                   CONFIRMAR EXCLUSÃO
-                 </button>
-                 <button 
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="w-full py-4 text-slate-400 hover:text-slate-600 text-[11px] font-black uppercase tracking-[0.1em] transition-all font-black"
-                 >
-                   MANTER NO ESTOQUE
-                 </button>
-              </div>
-           </div>
-        </div>
-      )}
-    </div>
+      <ConfirmModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={confirmDelete}
+        title="Remover produto"
+        message="Esta ação irá remover o item do inventário permanentemente. Relatórios de vendas passadas não serão afetados."
+        confirmLabel="Confirmar exclusão"
+        cancelLabel="Manter no estoque"
+      />
+    </PageWrapper>
   );
 };

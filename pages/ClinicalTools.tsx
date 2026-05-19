@@ -311,7 +311,7 @@ export const ClinicalTools: React.FC = () => {
   const toolsForCustomizer = currentOrder.map(id => tools.find(t => t.id === id)!).filter(Boolean);
 
   return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+    <PageWrapper className="space-y-4 sm:space-y-6">
 
       <SectionTitle
         icon={Boxes}

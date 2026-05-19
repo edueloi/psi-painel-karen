@@ -11,6 +11,7 @@ import {
 import { Button } from '../components/UI/Button';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Select } from '../components/UI/Input';
+import { PageWrapper } from '../components/UI';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Language } from '../translations';
@@ -165,7 +166,7 @@ export const Settings: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-[1600px] mx-auto pb-20 px-4 font-sans">
+    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
 
       <PageHeader
         icon={<SettingsIcon />}
@@ -179,6 +180,7 @@ export const Settings: React.FC = () => {
         }
       />
 
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
       <div className="flex flex-col lg:flex-row gap-6">
 
         {/* Sidebar */}
@@ -769,6 +771,7 @@ export const Settings: React.FC = () => {
 
         </div>
       </div>
-    </div>
+      </div>
+    </PageWrapper>
   );
 };

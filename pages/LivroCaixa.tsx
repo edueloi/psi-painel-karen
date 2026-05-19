@@ -1617,7 +1617,7 @@ export const LivroCaixa: React.FC = () => {
   // ─── Render Archive ───────────────────────────────────────────────────────────
 
   const renderArchive = () => (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+    <PageWrapper className="space-y-4 sm:space-y-6">
       <SectionTitle
         icon={BookOpen}
         title="Arquivo Financeiro"
@@ -1795,7 +1795,7 @@ export const LivroCaixa: React.FC = () => {
       : '';
 
     return (
-      <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+      <PageWrapper className="space-y-4 sm:space-y-6">
         <SectionTitle
           icon={BookOpen}
           title="Livro Caixa"

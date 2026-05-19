@@ -3,12 +3,27 @@ import { cn } from "@/src/lib/utils";
 import { Loader2 } from "lucide-react";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "ghost" | "danger" | "success";
+  variant?:
+    | "primary"
+    | "secondary"
+    | "outline"
+    | "ghost"
+    | "danger"
+    | "success"
+    | "soft"
+    | "softDanger";
   size?: "xs" | "sm" | "md" | "lg";
   loading?: boolean;
+  isLoading?: boolean;
+  loadingText?: React.ReactNode;
   iconLeft?: React.ReactNode;
   iconRight?: React.ReactNode;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
   fullWidth?: boolean;
+  iconOnly?: boolean;
+  radius?: "md" | "lg" | "xl" | "full";
+  elevation?: "none" | "sm" | "md" | "lg";
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -18,15 +33,26 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant = "primary",
       size = "md",
       loading = false,
+      isLoading = false,
+      loadingText,
       iconLeft,
       iconRight,
+      leftIcon,
+      rightIcon,
       fullWidth = false,
+      iconOnly = false,
+      radius = "xl",
+      elevation = "none",
       children,
       disabled,
       ...props
     },
     ref
-  ) => {
+    ) => {
+    const resolvedLoading = loading || isLoading;
+    const resolvedLeftIcon = iconLeft ?? leftIcon;
+    const resolvedRightIcon = iconRight ?? rightIcon;
+
     const variants: Record<string, string> = {
       primary:
         "bg-[#2a74ac] border-[#295b85] text-white hover:bg-[#295b85] hover:border-[#264a6c]",
@@ -40,6 +66,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         "bg-white border-[#2a74ac] text-[#2a74ac] hover:bg-[#e6e7e8] hover:border-[#487295] hover:text-[#487295]",
       ghost:
         "bg-transparent border-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-700",
+      soft:
+        "bg-slate-100 border-slate-100 text-slate-700 hover:bg-slate-200 hover:border-slate-200 hover:text-slate-800",
+      softDanger:
+        "bg-rose-50 border-rose-100 text-rose-700 hover:bg-rose-100 hover:border-rose-200 hover:text-rose-800",
     };
 
     const sizes: Record<string, string> = {
@@ -49,12 +79,34 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       lg: "h-10 min-w-[110px] px-5 text-[14px] rounded-[20px]",
     };
 
+    const iconOnlySizes: Record<string, string> = {
+      xs: "h-7 w-7 rounded-[10px] p-0 min-w-0",
+      sm: "h-8 w-8 rounded-[10px] p-0 min-w-0",
+      md: "h-9 w-9 rounded-[12px] p-0 min-w-0",
+      lg: "h-10 w-10 rounded-[12px] p-0 min-w-0",
+    };
+
+    const radiusClasses: Record<string, string> = {
+      md: "rounded-xl",
+      lg: "rounded-2xl",
+      xl: "rounded-[20px]",
+      full: "rounded-full",
+    };
+
+    const elevationClasses: Record<string, string> = {
+      none: "",
+      sm: "shadow-sm",
+      md: "shadow-md shadow-slate-200/70",
+      lg: "shadow-lg shadow-slate-200/80",
+    };
+
     const spinnerSize = size === "lg" ? 16 : size === "md" ? 15 : 13;
+    const showOnlyIcon = iconOnly;
 
     return (
       <button
         ref={ref}
-        disabled={disabled || loading}
+        disabled={disabled || resolvedLoading}
         className={cn(
           "relative inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap border-2",
           "font-semibold leading-none select-none transition-colors duration-150",
@@ -63,18 +115,27 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           "[&_svg]:shrink-0 [&_svg]:pointer-events-none",
           fullWidth && "w-full",
           variants[variant],
-          sizes[size],
+          showOnlyIcon ? iconOnlySizes[size] : sizes[size],
+          !showOnlyIcon && radiusClasses[radius],
+          elevationClasses[elevation],
           className
         )}
         {...props}
       >
-        {loading ? (
-          <Loader2 size={spinnerSize} className="animate-spin shrink-0" />
+        {resolvedLoading ? (
+          <>
+            <Loader2 size={spinnerSize} className="animate-spin shrink-0" />
+            {!showOnlyIcon && (
+              <span className="inline-flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap leading-none">
+                {loadingText ?? children}
+              </span>
+            )}
+          </>
         ) : (
           <>
-            {iconLeft && (
+            {resolvedLeftIcon && (
               <span className="flex shrink-0 items-center justify-center">
-                {iconLeft}
+                {resolvedLeftIcon}
               </span>
             )}
 
@@ -84,9 +145,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
               </span>
             )}
 
-            {iconRight && (
+            {resolvedRightIcon && (
               <span className="flex shrink-0 items-center justify-center">
-                {iconRight}
+                {resolvedRightIcon}
               </span>
             )}
           </>
@@ -104,6 +165,8 @@ interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> 
   variant?: "primary" | "secondary" | "outline" | "ghost" | "danger" | "success";
   size?: "xs" | "sm" | "md" | "lg";
   loading?: boolean;
+  isLoading?: boolean;
+  radius?: "md" | "lg" | "xl" | "full";
 }
 
 export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
@@ -113,12 +176,16 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       variant = "ghost",
       size = "md",
       loading = false,
+      isLoading = false,
+      radius = "md",
       children,
       disabled,
       ...props
     },
     ref
-  ) => {
+    ) => {
+    const resolvedLoading = loading || isLoading;
+
     const variants: Record<string, string> = {
       primary:
         "bg-[#2a74ac] border-[#295b85] text-white hover:bg-[#295b85] hover:border-[#264a6c]",
@@ -141,12 +208,19 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       lg: "h-10 w-10 rounded-[12px]",
     };
 
+    const radiusClasses: Record<string, string> = {
+      md: "rounded-xl",
+      lg: "rounded-2xl",
+      xl: "rounded-[20px]",
+      full: "rounded-full",
+    };
+
     const spinnerSize = size === "lg" ? 16 : size === "md" ? 15 : 13;
 
     return (
       <button
         ref={ref}
-        disabled={disabled || loading}
+        disabled={disabled || resolvedLoading}
         className={cn(
           "inline-flex items-center justify-center shrink-0 border-2 transition-colors duration-150",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50 focus-visible:ring-offset-1",
@@ -154,11 +228,12 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           "[&_svg]:shrink-0 [&_svg]:pointer-events-none",
           variants[variant],
           sizes[size],
+          radiusClasses[radius],
           className
         )}
         {...props}
       >
-        {loading ? (
+        {resolvedLoading ? (
           <Loader2 size={spinnerSize} className="animate-spin" />
         ) : (
           children

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { motion, AnimatePresence, Variants } from "motion/react";
 import { cn } from "@/src/lib/utils";
@@ -29,11 +30,14 @@ export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string | React.ReactNode;
+  subtitle?: string | React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "full" | "auto";
+  maxWidth?: string;
   hideCloseButton?: boolean;
+  headerClassName?: string;
   /** Mobile presentation mode */
   mobileStyle?: "bottom-sheet" | "fullscreen" | "center";
   backdropBlur?: "none" | "sm" | "md";
@@ -79,12 +83,15 @@ export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
+  subtitle,
   children,
   footer,
   className,
   size = "md",
+  maxWidth,
   hideCloseButton = false,
-  mobileStyle = "bottom-sheet",
+  headerClassName,
+  mobileStyle,
   backdropBlur = "sm",
 }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -106,14 +113,26 @@ export const Modal: React.FC<ModalProps> = ({
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
-  const isBottomSheet   = isMobile && mobileStyle === "bottom-sheet";
-  const isMobileFullscreen = isMobile && mobileStyle === "fullscreen";
+  const resolvedSizeClass =
+    maxWidth
+      ? (sizeClasses[maxWidth] ?? maxWidth)
+      : sizeClasses[size];
+
+  const resolvedMobileStyle =
+    mobileStyle ?? (size === "xs" || size === "sm" || maxWidth === "max-w-sm" ? "center" : "bottom-sheet");
+
+  const isBottomSheet = isMobile && resolvedMobileStyle === "bottom-sheet";
+  const isMobileFullscreen = isMobile && resolvedMobileStyle === "fullscreen";
 
   const variants = isMobile
-    ? isMobileFullscreen ? fullscreenVariants : bottomSheetVariants
+    ? isMobileFullscreen
+      ? fullscreenVariants
+      : isBottomSheet
+        ? bottomSheetVariants
+        : desktopVariants
     : desktopVariants;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -163,7 +182,7 @@ export const Modal: React.FC<ModalProps> = ({
                   "max-h-[90dvh] sm:max-h-[88vh]",
                 ],
                 "sm:rounded-3xl sm:shadow-[0_25px_60px_rgba(0,0,0,0.15)] sm:border sm:border-zinc-200/60",
-                sizeClasses[size],
+                resolvedSizeClass,
                 className
               )}
             >
@@ -184,8 +203,20 @@ export const Modal: React.FC<ModalProps> = ({
                     isBottomSheet ? "pt-3 pb-4 sm:py-5" : "py-4 sm:py-5"
                   )}
                 >
-                  <div className="text-sm sm:text-[15px] font-black text-zinc-900 uppercase tracking-wide truncate pr-4 font-display">
-                    {title}
+                  <div className={cn("min-w-0 pr-4", headerClassName)}>
+                    <div
+                      className={cn(
+                        "truncate text-sm font-black text-zinc-900 sm:text-[15px]",
+                        typeof title === "string" ? "font-display uppercase tracking-wide" : ""
+                      )}
+                    >
+                      {title}
+                    </div>
+                    {subtitle && (
+                      <div className="mt-1 text-xs text-zinc-400 sm:text-[13px]">
+                        {subtitle}
+                      </div>
+                    )}
                   </div>
                   {!hideCloseButton && (
                     <button
@@ -230,7 +261,8 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

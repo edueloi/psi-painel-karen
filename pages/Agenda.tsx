@@ -1510,7 +1510,7 @@ export const Agenda: React.FC = () => {
 
 
   return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 animate-fadeIn font-sans !px-0 !pt-0 !pb-0">
+    <PageWrapper className="space-y-4 animate-fadeIn font-sans">
       <PageHeader
         icon={<CalendarIcon />}
         title={t('agenda.title')}

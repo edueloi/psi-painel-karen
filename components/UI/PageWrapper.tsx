@@ -13,19 +13,21 @@ interface PageWrapperProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   /** Adiciona padding-bottom extra para não sobrepor o bottom-nav no mobile */
   mobileBottomPad?: boolean;
+  /** @deprecated não é mais necessário — o <main> não tem padding próprio */
+  bleed?: boolean;
 }
 
 export function PageWrapper({
   children,
   className,
   mobileBottomPad = true,
+  bleed: _bleed,
   ...props
 }: PageWrapperProps) {
   return (
     <div
       className={cn(
         "w-full max-w-none min-w-0",
-        // Mobile: padding mínimo para aproveitar toda a tela
         "px-3 sm:px-5 lg:px-6 xl:px-8",
         "pt-3 sm:pt-4 lg:pt-5",
         mobileBottomPad ? "pb-24 sm:pb-6 lg:pb-8" : "pb-0",
