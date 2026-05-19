@@ -39,6 +39,7 @@ import {
   PieChart,
   ArrowLeft,
   Save,
+  LogIn,
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -48,6 +49,8 @@ import logoUrl from '../images/logo-psiflux.png';
 import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
 import { ClinicalForm, FormQuestion } from "../types";
 import { api, API_BASE_URL } from "../services/api";
+import { Button } from "../components/UI/Button";
+import { Input } from "../components/UI/Input";
 
 interface MeetingRoomProps {
   isGuest?: boolean;
@@ -292,6 +295,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     return `${ts}-${rand}`;
   });
   const sessionStartRef = useRef<number>(Date.now());
+  // ID numérico da sala resolvido do banco (id da URL pode ser hash/código)
+  const [numericRoomId, setNumericRoomId] = useState<number | null>(null);
 
   // Gravação contínua do áudio local para upload ao encerrar
   const fullRecorderRef = useRef<MediaRecorder | null>(null);
@@ -346,11 +351,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const lastPointRef = useRef<Point | null>(null);
 
   const meetingUrl = window.location.href.split("?")[0];
-  const appointment: {
-    title?: string;
-    patientName?: string;
-    psychologistName?: string;
-  } | null = null;
+  const appointment = null as { title?: string; patientName?: string; psychologistName?: string } | null;
   const roomLabel = id ? `Sala ${id}` : "Sala";
   const hostDisplayName = appointment?.psychologistName || "Profissional";
   const patientDisplayName =
@@ -1352,6 +1353,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     };
   }, [id, hasJoined, isGuest, suppressTranscriptHistory]);
 
+  // Resolve o ID numérico da sala (URL pode conter hash/código, não número)
+  useEffect(() => {
+    if (!id || !hasAuthToken || numericRoomId) return;
+    api.get<{ id: number }>(`/virtual-rooms/${id}`)
+      .then((room) => { if (room?.id) setNumericRoomId(room.id); })
+      .catch(() => {});
+  }, [id, hasAuthToken, numericRoomId]);
+
   useEffect(() => {
     if (!id || !hasAuthToken) return;
     let active = true;
@@ -1995,10 +2004,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
       const text = finalText.trim();
       if (!text || !id) return;
+      const rid = numericRoomId ?? id;
       if (isGuest) {
         if (!participantToken) return;
         api
-          .post(`/virtual-rooms/public/${id}/transcripts`, {
+          .post(`/virtual-rooms/public/${rid}/transcripts`, {
             token: participantToken,
             speaker_name: guestName || "Paciente",
             speaker_role: "guest",
@@ -2008,7 +2018,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           .catch(() => {});
       } else {
         api
-          .post(`/virtual-rooms/${id}/transcripts`, {
+          .post(`/virtual-rooms/${rid}/transcripts`, {
             speaker_name: hostDisplayName,
             speaker_role: "host",
             session_key: sessionKey,
@@ -2143,10 +2153,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
       if (!transcribed) return;
       const speakerName = isGuest ? guestName || "Paciente" : hostDisplayName;
+      const rid = numericRoomId ?? id;
       if (isGuest) {
         if (!participantToken) return;
         api
-          .post(`/virtual-rooms/public/${id}/transcripts`, {
+          .post(`/virtual-rooms/public/${rid}/transcripts`, {
             token: participantToken,
             speaker_name: speakerName,
             speaker_role: "guest",
@@ -2156,7 +2167,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           .catch(() => {});
       } else {
         api
-          .post(`/virtual-rooms/${id}/transcripts`, {
+          .post(`/virtual-rooms/${rid}/transcripts`, {
             speaker_name: speakerName,
             speaker_role: "host",
             session_key: sessionKey,
@@ -2284,8 +2295,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         formData.append("speaker_role", "mixed");
         formData.append("speaker_name", hostDisplayName);
         setIsUploadingRecording(true);
+        const rid = numericRoomId ?? id;
         try {
-          await api.post(`/virtual-rooms/${id}/sessions/${sessionKey}/recordings`, formData);
+          await api.post(`/virtual-rooms/${rid}/sessions/${sessionKey}/recordings`, formData);
         } catch {
           // non-critical
         } finally {
@@ -2304,14 +2316,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
   const handleEndCall = async () => {
     stopGeminiRecording();
-    // Upload full recording before navigating (host only)
-    if (!isGuest && id && fullRecorderRef.current) {
+    if (!isGuest && id) {
       const durationSeconds = Math.floor((Date.now() - sessionStartRef.current) / 1000);
-      setIsUploadingRecording(true);
-      await stopAndUploadRecording();
-      setIsUploadingRecording(false);
+      const rid = numericRoomId ?? id;
+      // Upload gravação de áudio se houver
+      if (fullRecorderRef.current) {
+        setIsUploadingRecording(true);
+        await stopAndUploadRecording();
+        setIsUploadingRecording(false);
+      }
+      // Sempre marca sessão como encerrada no banco (registra transcrições)
       try {
-        await api.post(`/virtual-rooms/${id}/sessions/${sessionKey}/end`, {
+        await api.post(`/virtual-rooms/${rid}/sessions/${sessionKey}/end`, {
           duration_seconds: durationSeconds,
         });
       } catch {
@@ -2565,248 +2581,231 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             </div>
           </div>
         )}
-        <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8 my-auto h-auto min-h-[600px]">
+        <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 my-auto">
           {/* Left Column: Video Preview */}
           <div className="flex flex-col justify-center animate-[fadeIn_0.5s_ease-out]">
-            <h1 className="text-3xl font-display font-bold mb-2 text-slate-900">
-              Sala de Espera
-            </h1>
-            <p className="text-slate-500 mb-6">
-              {isGuest
-                ? "Voce foi convidado para uma reuniao"
-                : `${appointment?.title || "Consulta"} - ${patientDisplayName}`}
-            </p>
+            <div className="mb-5">
+              <h1 className="text-3xl font-display font-bold text-slate-900">Sala de Espera</h1>
+              <p className="text-slate-500 mt-1 text-sm">
+                {isGuest
+                  ? "Você foi convidado para uma reunião"
+                  : `${appointment?.title || "Consulta"} · ${patientDisplayName}`}
+              </p>
+            </div>
 
-            <div className="relative w-full aspect-video bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-200 shadow-2xl mb-6 group ring-4 ring-white">
+            <div className="relative w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-white mb-4">
               <video
                 ref={lobbyVideoRef}
                 autoPlay
                 muted
                 playsInline
-                className={`w-full h-full object-cover transform scale-x-[-1] ${cameraOn ? '' : 'hidden'}`}
+                className={`w-full h-full object-cover scale-x-[-1] ${cameraOn ? '' : 'hidden'}`}
               />
               {!cameraOn && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 animate-pulse">
-                    <VideoOff size={32} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <div className="w-20 h-20 rounded-full bg-slate-700 flex items-center justify-center text-slate-400">
+                    <VideoOff size={28} />
                   </div>
+                  <span className="text-slate-500 text-xs font-medium">Câmera desativada</span>
                 </div>
               )}
 
-              {/* Audio Visualizer Overlay */}
-              <div className="absolute bottom-6 left-6 flex gap-1 h-6 items-end">
+              {/* Audio level bars */}
+              <div className="absolute bottom-5 left-5 flex gap-1 h-5 items-end">
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className={`w-2 rounded-full transition-all duration-75 ${
-                      micOn
-                        ? "bg-emerald-500 shadow-[0_0_10px_#10b981]"
-                        : "bg-red-500"
-                    }`}
-                    style={{
-                      height: micOn
-                        ? `${Math.max(20, audioLevel * (i * 0.8))}%`
-                        : "4px",
-                    }}
-                  ></div>
+                    className={`w-1.5 rounded-full transition-all duration-75 ${micOn ? "bg-emerald-400 shadow-[0_0_6px_#34d399]" : "bg-red-500"}`}
+                    style={{ height: micOn ? `${Math.max(20, audioLevel * (i * 0.8))}%` : "3px" }}
+                  />
                 ))}
               </div>
 
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/50 backdrop-blur-md p-2 rounded-2xl border border-white/10">
+              {/* Media controls */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 backdrop-blur-md px-3 py-2 rounded-2xl border border-white/10">
                 <button
                   onClick={toggleMic}
-                  className={`p-3 rounded-xl transition-all ${
-                    micOn
-                      ? "bg-white text-slate-900 hover:bg-slate-200"
-                      : "bg-red-500 text-white"
-                  }`}
+                  title={micOn ? "Desativar microfone" : "Ativar microfone"}
+                  className={`p-2.5 rounded-xl transition-all ${micOn ? "bg-white/90 text-slate-900 hover:bg-white" : "bg-red-500/90 text-white hover:bg-red-500"}`}
                 >
-                  {micOn ? <Mic size={20} /> : <MicOff size={20} />}
+                  {micOn ? <Mic size={18} /> : <MicOff size={18} />}
                 </button>
                 <button
                   onClick={toggleCam}
-                  className={`p-3 rounded-xl transition-all ${
-                    cameraOn
-                      ? "bg-white text-slate-900 hover:bg-slate-200"
-                      : "bg-red-500 text-white"
-                  }`}
+                  title={cameraOn ? "Desativar câmera" : "Ativar câmera"}
+                  className={`p-2.5 rounded-xl transition-all ${cameraOn ? "bg-white/90 text-slate-900 hover:bg-white" : "bg-red-500/90 text-white hover:bg-red-500"}`}
                 >
-                  {cameraOn ? <Video size={20} /> : <VideoOff size={20} />}
+                  {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
                 </button>
                 <button
                   onClick={() => setShowSettingsModal(true)}
-                  className="p-3 rounded-xl bg-slate-800/80 text-white hover:bg-slate-700 border border-white/10"
-                  title="Configurações"
+                  title="Configurações de áudio/vídeo"
+                  className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-all"
                 >
-                  <Settings size={20} />
+                  <Settings size={18} />
                 </button>
               </div>
+            </div>
+
+            {/* Mic/cam status badges */}
+            <div className="flex gap-2 flex-wrap">
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${micOn ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                {micOn ? <Mic size={11} /> : <MicOff size={11} />}
+                {micOn ? "Microfone ativo" : "Microfone desativado"}
+              </span>
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${cameraOn ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                {cameraOn ? <Video size={11} /> : <VideoOff size={11} />}
+                {cameraOn ? "Câmera ativa" : "Câmera desativada"}
+              </span>
             </div>
           </div>
 
           {/* Right Column: Controls & Info */}
-          <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100 flex flex-col h-full animate-[slideUpFade_0.5s_ease-out]">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 flex flex-col animate-[slideUpFade_0.5s_ease-out] overflow-hidden">
             {isGuest ? (
-              <div className="flex flex-col justify-center h-full space-y-6">
+              <div className="flex flex-col justify-center flex-1 p-8 space-y-6">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
-                    <User size={32} />
+                  <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-3 text-indigo-600">
+                    <User size={26} />
                   </div>
-                  <h2 className="text-xl font-bold text-slate-800">
-                    Identificacao
-                  </h2>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Como voce gostaria de ser chamado?
-                  </p>
+                  <h2 className="text-lg font-bold text-slate-800">Identificação</h2>
+                  <p className="text-sm text-slate-500 mt-1">Como você gostaria de ser chamado?</p>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                      Seu Nome
-                    </label>
-                    <input
-                      type="text"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      placeholder="Digite seu nome..."
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 font-medium text-slate-700"
-                    />
-                  </div>
-                  <button
+                <div className="space-y-3">
+                  <Input
+                    label="Seu Nome"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    placeholder="Digite seu nome..."
+                    iconLeft={<User size={15} />}
+                    onKeyDown={(e) => e.key === "Enter" && guestName.trim() && handleJoin()}
+                  />
+                  <Button
+                    fullWidth
+                    size="lg"
                     onClick={handleJoin}
                     disabled={!guestName.trim()}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95"
+                    iconLeft={<LogIn size={16} />}
                   >
                     Pedir para Entrar
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
               <>
-                <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
+                {/* Tab bar */}
+                <div className="flex border-b border-slate-100">
                   <button
                     onClick={() => setLobbyTab("info")}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-3.5 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
                       lobbyTab === "info"
-                        ? "bg-white text-indigo-600 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
+                        ? "border-[#2a74ac] text-[#2a74ac]"
+                        : "border-transparent text-slate-400 hover:text-slate-600"
                     }`}
                   >
-                    <Info size={16} /> Detalhes
+                    <Info size={14} /> Detalhes
                   </button>
                   <button
                     onClick={() => setLobbyTab("companion")}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-3.5 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
                       lobbyTab === "companion"
-                        ? "bg-white text-purple-600 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
+                        ? "border-purple-500 text-purple-600"
+                        : "border-transparent text-slate-400 hover:text-slate-600"
                     }`}
                   >
-                    <Tablet size={16} /> Lousa
+                    <Tablet size={14} /> Lousa
                   </button>
                 </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+
+                <div className="flex-1 overflow-y-auto p-6">
                   {lobbyTab === "info" ? (
-                    <div className="space-y-6">
-                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Sala
+                    <div className="space-y-4">
+                      {/* Room info card */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#2a74ac]/10 text-[#2a74ac] flex items-center justify-center shrink-0">
+                          <Video size={18} />
                         </div>
-                        <div className="text-lg font-bold text-slate-800">
-                          {roomLabel}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          Codigo: {id}
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sala</div>
+                          <div className="font-bold text-slate-800 text-sm truncate">{roomLabel}</div>
+                          <div className="text-xs text-slate-400 truncate">Código: {id}</div>
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                          Link da sala
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            readOnly
-                            value={meetingUrl}
-                            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-600"
-                          />
-                          <button
-                            onClick={handleCopyLink}
-                            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200"
-                          >
-                            {copied ? <Check size={16} /> : <Copy size={16} />}
-                          </button>
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          Compartilhe este link com o paciente.
-                        </p>
+                      {/* Link */}
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Link da Sala</div>
+                        <Input
+                          readOnly
+                          value={meetingUrl}
+                          iconRight={
+                            <button onClick={handleCopyLink} className="text-slate-400 hover:text-[#2a74ac] transition-colors">
+                              {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                            </button>
+                          }
+                        />
+                        <p className="text-[11px] text-slate-400 mt-1">Compartilhe este link com o paciente.</p>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3">
-                        <div className="bg-white border border-slate-200 rounded-xl p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                            Paciente
-                          </div>
-                          <div className="text-sm font-bold text-slate-800">
-                            {patientDisplayName}
-                          </div>
+                      {/* Participants */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">Paciente</div>
+                          <div className="text-sm font-bold text-slate-800 truncate">{patientDisplayName}</div>
                         </div>
-                        <div className="bg-white border border-slate-200 rounded-xl p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                            Profissional
-                          </div>
-                          <div className="text-sm font-bold text-slate-800">
-                            {hostDisplayName}
-                          </div>
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">Profissional</div>
+                          <div className="text-sm font-bold text-slate-800 truncate">{hostDisplayName}</div>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Lousa Companion
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Lousa Companion</div>
+                        <p className="text-sm text-slate-500">Use em um tablet ou celular para controlar a lousa durante a sessão.</p>
                       </div>
-                      <p className="text-sm text-slate-500">
-                        Use este link em um tablet ou celular para controlar a
-                        lousa.
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          readOnly
-                          value={getCompanionUrl()}
-                          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-600"
-                        />
-                        <button
-                          onClick={() =>
-                            navigator.clipboard.writeText(getCompanionUrl())
-                          }
-                          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200"
-                        >
-                          <Copy size={16} />
-                        </button>
-                      </div>
-                      <button
+                      <Input
+                        readOnly
+                        value={getCompanionUrl()}
+                        iconRight={
+                          <button
+                            onClick={() => navigator.clipboard.writeText(getCompanionUrl())}
+                            className="text-slate-400 hover:text-[#2a74ac] transition-colors"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        }
+                      />
+                      <Button
+                        fullWidth
+                        variant="secondary"
                         onClick={() => window.open(getCompanionUrl(), "_blank")}
-                        className="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-bold"
+                        iconLeft={<Tablet size={14} />}
                       >
-                        Abrir companion
-                      </button>
+                        Abrir Lousa Companion
+                      </Button>
                     </div>
                   )}
                 </div>
-                <div className="mt-6 flex flex-col sm:flex-row gap-2">
-                  <button
+
+                {/* Action buttons */}
+                <div className="p-4 border-t border-slate-100 flex gap-2">
+                  <Button
+                    fullWidth
+                    size="lg"
                     onClick={handleJoin}
-                    className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold"
+                    iconLeft={<LogIn size={16} />}
                   >
-                    Entrar na sala
-                  </button>
-                  <button
+                    Entrar na Sala
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
                     onClick={() => navigate("/salas-virtuais")}
-                    className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold"
                   >
                     Voltar
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
