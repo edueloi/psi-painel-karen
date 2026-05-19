@@ -49,6 +49,9 @@ export interface UserPreferences {
     orderedIds: string[];
     hiddenIds: string[];
   };
+  gemini: {
+    apiKey: string;
+  };
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -99,6 +102,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     orderedIds: [],
     hiddenIds: [],
   },
+  gemini: {
+    apiKey: '',
+  },
 };
 
 function mergeWithDefaults(stored: any): UserPreferences {
@@ -117,6 +123,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     messages:    { ...DEFAULT_PREFERENCES.messages,    ...stored?.messages },
     livroCaixa:  { ...DEFAULT_PREFERENCES.livroCaixa,  ...stored?.livroCaixa },
     clinicalTools: { ...DEFAULT_PREFERENCES.clinicalTools, ...stored?.clinicalTools },
+    gemini:       { ...DEFAULT_PREFERENCES.gemini,       ...stored?.gemini },
   };
 }
 

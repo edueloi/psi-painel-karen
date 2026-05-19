@@ -38,10 +38,12 @@ import {
   Play,
   PieChart,
   ArrowLeft,
+  Save,
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useUserPreferences } from "../contexts/UserPreferencesContext";
 import logoUrl from '../images/logo-psiflux.png';
 import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
 import { ClinicalForm, FormQuestion } from "../types";
@@ -125,6 +127,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const { t } = useLanguage();
   const { user } = useAuth();
   const { resolvedMode } = useTheme();
+  const { preferences, updatePreference } = useUserPreferences();
   const isDark = resolvedMode === 'dark';
   const hasAuthToken = Boolean(localStorage.getItem("psi_token"));
   const isGuest =
@@ -277,6 +280,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     useState(false);
   const [copiedTranscript, setCopiedTranscript] = useState(false);
 
+  // Gemini transcription
+  const [geminiKeyInput, setGeminiKeyInput] = useState<string>("");
+  const [geminiKeySaved, setGeminiKeySaved] = useState(false);
+  const [geminiRecording, setGeminiRecording] = useState(false);
+
   // --- Refs ---
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
@@ -294,6 +302,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const suppressTranscriptHistoryRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const recognitionActiveRef = useRef(false);
+  const geminiMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const geminiChunksRef = useRef<Blob[]>([]);
   const participantsRef = useRef<string[]>([]);
   const clientIdRef = useRef<string>(
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -2008,21 +2018,178 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (isGuest) return;
     if (!transcriptionEnabled) {
       stopRecognition();
+      stopGeminiRecording();
       return;
     }
-    startRecognition();
-    return () => stopRecognition();
-  }, [transcriptionEnabled, isGuest]);
+    if (preferences.gemini.apiKey.trim()) {
+      startGeminiRecording();
+    } else {
+      startRecognition();
+    }
+    return () => { stopRecognition(); stopGeminiRecording(); };
+  }, [transcriptionEnabled, isGuest, preferences.gemini.apiKey]);
 
   useEffect(() => {
     if (!isGuest) return;
     if (!guestTranscriptionEnabled) {
       stopRecognition();
+      stopGeminiRecording();
       return;
     }
-    startRecognition();
-    return () => stopRecognition();
-    }, [guestTranscriptionEnabled, isGuest]);
+    if (preferences.gemini.apiKey.trim()) {
+      startGeminiRecording();
+    } else {
+      startRecognition();
+    }
+    return () => { stopRecognition(); stopGeminiRecording(); };
+  }, [guestTranscriptionEnabled, isGuest, preferences.gemini.apiKey]);
+
+  const saveGeminiKey = () => {
+    const key = geminiKeyInput.trim();
+    updatePreference('gemini', { apiKey: key });
+    setGeminiKeySaved(true);
+    setTimeout(() => setGeminiKeySaved(false), 2000);
+  };
+
+  // sync input when preferences load
+  useEffect(() => {
+    if (preferences.gemini.apiKey && !geminiKeyInput) {
+      setGeminiKeyInput(preferences.gemini.apiKey);
+    }
+  }, [preferences.gemini.apiKey]);
+
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result.split(",")[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+  const transcribeChunkWithGemini = async (audioBlob: Blob) => {
+    if (!preferences.gemini.apiKey.trim() || !id) return;
+    try {
+      const base64Audio = await blobToBase64(audioBlob);
+      const mimeType = audioBlob.type || "audio/webm";
+      const body = {
+        contents: [
+          {
+            parts: [
+              {
+                inline_data: { mime_type: mimeType, data: base64Audio },
+              },
+              {
+                text: "Transcreva este áudio em português brasileiro. Retorne apenas o texto transcrito, sem explicações ou formatação adicional.",
+              },
+            ],
+          },
+        ],
+      };
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${preferences.gemini.apiKey.trim()}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const text: string =
+        data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      if (!text) return;
+      const speakerName = isGuest ? guestName || "Paciente" : hostDisplayName;
+      if (isGuest) {
+        if (!participantToken) return;
+        api
+          .post(`/virtual-rooms/public/${id}/transcripts`, {
+            token: participantToken,
+            speaker_name: speakerName,
+            text,
+          })
+          .catch(() => {});
+      } else {
+        api
+          .post(`/virtual-rooms/${id}/transcripts`, {
+            speaker_name: speakerName,
+            text,
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // ignore network/API errors
+    }
+  };
+
+  const startGeminiRecording = () => {
+    const stream = localStreamRef.current;
+    if (!stream || geminiMediaRecorderRef.current) return;
+    const audioTrack = stream.getAudioTracks()[0];
+    if (!audioTrack) return;
+    const audioStream = new MediaStream([audioTrack]);
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/webm")
+      ? "audio/webm"
+      : "audio/ogg";
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(audioStream, { mimeType });
+    } catch {
+      return;
+    }
+    geminiChunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        geminiChunksRef.current.push(e.data);
+      }
+    };
+    recorder.onstop = async () => {
+      const chunks = geminiChunksRef.current;
+      geminiChunksRef.current = [];
+      if (chunks.length === 0) return;
+      const blob = new Blob(chunks, { type: mimeType });
+      await transcribeChunkWithGemini(blob);
+      // restart if still active
+      if (geminiMediaRecorderRef.current) {
+        try {
+          geminiMediaRecorderRef.current.start();
+          setTimeout(() => {
+            if (geminiMediaRecorderRef.current?.state === "recording") {
+              geminiMediaRecorderRef.current.stop();
+            }
+          }, 6000);
+        } catch {
+          // ignore
+        }
+      }
+    };
+    geminiMediaRecorderRef.current = recorder;
+    setGeminiRecording(true);
+    setTranscriptionActive(true);
+    recorder.start();
+    setTimeout(() => {
+      if (geminiMediaRecorderRef.current?.state === "recording") {
+        geminiMediaRecorderRef.current.stop();
+      }
+    }, 6000);
+  };
+
+  const stopGeminiRecording = () => {
+    const recorder = geminiMediaRecorderRef.current;
+    if (!recorder) return;
+    geminiMediaRecorderRef.current = null;
+    setGeminiRecording(false);
+    setTranscriptionActive(false);
+    try {
+      if (recorder.state !== "inactive") recorder.stop();
+    } catch {
+      // ignore
+    }
+  };
 
   const handleEndCall = async () => {
     cleanupMedia();
@@ -3304,11 +3471,53 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 {!isGuest && (
                   <div className="space-y-3">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                      <Subtitles size={14} /> Transcricao
+                      <Subtitles size={14} /> Transcrição
                     </label>
+
+                    {/* Gemini API Key */}
+                    <div className="bg-[#252830] border border-white/10 rounded-xl px-4 py-3 space-y-2">
+                      <p className="text-xs text-slate-400">
+                        Chave de API Gemini{" "}
+                        <span className="text-slate-500">(opcional — melhora a qualidade da transcrição)</span>
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="password"
+                          value={geminiKeyInput}
+                          onChange={(e) => setGeminiKeyInput(e.target.value)}
+                          placeholder="AIza..."
+                          className="flex-1 bg-[#1a1c22] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 outline-none focus:border-indigo-500"
+                        />
+                        <button
+                          onClick={saveGeminiKey}
+                          className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
+                            geminiKeySaved
+                              ? "bg-emerald-600 text-white"
+                              : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                          }`}
+                        >
+                          {geminiKeySaved ? <Check size={12} /> : <Save size={12} />}
+                          {geminiKeySaved ? "Salvo" : "Salvar"}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-600">
+                        Obtenha sua chave gratuita em{" "}
+                        <span className="text-indigo-400">aistudio.google.com/apikey</span>
+                        {preferences.gemini.apiKey && (
+                          <span className="ml-2 text-emerald-500 font-bold">• Gemini ativo</span>
+                        )}
+                        {!preferences.gemini.apiKey && (
+                          <span className="ml-2 text-amber-500"> • Usando reconhecimento do browser</span>
+                        )}
+                      </p>
+                    </div>
+
                     <div className="flex items-center justify-between bg-[#252830] border border-white/10 rounded-xl px-4 py-3">
                       <span className="text-sm text-slate-200">
-                        Transcricao ativa
+                        Transcrição ativa
+                        {transcriptionActive && (
+                          <span className="ml-2 text-emerald-400 text-xs animate-pulse">● gravando</span>
+                        )}
                       </span>
                       <button
                         onClick={() =>
