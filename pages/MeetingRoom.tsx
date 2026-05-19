@@ -1460,6 +1460,22 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             if (mounted && !fullRecorderRef.current) startFullRecording();
           }, 200);
         }
+
+        // Inicia transcrição assim que o stream estiver disponível
+        // (o useEffect de transcriptionEnabled roda antes do stream estar pronto)
+        if (!isGuest && !isCompanionMode) {
+          setTimeout(() => {
+            if (!mounted) return;
+            if (transcriptionEnabled && !recognitionActiveRef.current && !geminiMediaRecorderRef.current) {
+              const hasGemini = (preferences.gemini.apiKeys?.some((k: string) => k.trim())) || preferences.gemini.apiKey.trim();
+              if (hasGemini) {
+                startGeminiRecording();
+              } else {
+                startRecognition();
+              }
+            }
+          }, 500);
+        }
       } catch (err) {
         console.error("Error accessing media:", err);
         if (!mounted) return;
