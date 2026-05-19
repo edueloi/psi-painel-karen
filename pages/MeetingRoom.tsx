@@ -278,7 +278,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   // Captions
   const [captionsOn, setCaptionsOn] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const [transcriptionEnabled, setTranscriptionEnabled] = useState(false);
+  const [transcriptionEnabled, setTranscriptionEnabled] = useState(true);
   const [guestTranscriptionEnabled, setGuestTranscriptionEnabled] =
     useState(false);
   const [copiedTranscript, setCopiedTranscript] = useState(false);
@@ -2647,8 +2647,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               </div>
             </div>
 
-            {/* Mic/cam status badges */}
-            <div className="flex gap-2 flex-wrap">
+            {/* Status badges */}
+            <div className="flex gap-2 flex-wrap items-center">
               <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${micOn ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
                 {micOn ? <Mic size={11} /> : <MicOff size={11} />}
                 {micOn ? "Microfone ativo" : "Microfone desativado"}
@@ -2657,6 +2657,20 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 {cameraOn ? <Video size={11} /> : <VideoOff size={11} />}
                 {cameraOn ? "Câmera ativa" : "Câmera desativada"}
               </span>
+              {!isGuest && (
+                <button
+                  onClick={() => setTranscriptionEnabled(v => !v)}
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                    transcriptionEnabled
+                      ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  }`}
+                  title="Clique para ativar/desativar transcrição automática"
+                >
+                  <Subtitles size={11} />
+                  {transcriptionEnabled ? "Transcrição ativa" : "Transcrição desativada"}
+                </button>
+              )}
             </div>
           </div>
 
