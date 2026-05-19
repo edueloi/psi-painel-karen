@@ -135,7 +135,7 @@ router.get('/history', async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT rs.*, vr.title AS room_title, vr.code AS room_code,
-              p.full_name AS patient_name,
+              p.name AS patient_name,
               u.name AS professional_name,
               (SELECT COUNT(*) FROM room_transcripts rt WHERE rt.session_key = rs.session_key) AS transcript_count,
               (SELECT COUNT(*) FROM room_recordings rr WHERE rr.session_key = rs.session_key) AS recording_count
