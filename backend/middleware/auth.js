@@ -8,8 +8,19 @@ const jwt = require('jsonwebtoken');
 const PUBLIC_PATHS = ['/virtual-rooms/public', '/patient-portal'];
 
 async function authMiddleware(req, res, next) {
-  // Allow public virtual-room guest routes without a token
-  if (PUBLIC_PATHS.some(p => req.path.startsWith(p))) return next();
+  // For semi-public paths: try to decode JWT if present, but don't block if absent
+  if (PUBLIC_PATHS.some(p => req.path.startsWith(p))) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+        req.user = decoded;
+      } catch {
+        // invalid token — leave req.user undefined, route will handle it
+      }
+    }
+    return next();
+  }
 
   // Suporte a Share Token (u) para fins de resposta externa (GET/PUT em ferramentas)
   const shareToken = req.query.u || req.body.u;

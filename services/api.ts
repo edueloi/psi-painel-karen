@@ -81,12 +81,14 @@ export const api: Api = {
       const response = await fetch(url, config);
 
       if (response.status === 401) {
-        const isPublicPath = window.location.pathname.startsWith('/f/') || 
-                           window.location.pathname.startsWith('/p/') || 
+        const isPublicPath = window.location.pathname.startsWith('/f/') ||
+                           window.location.pathname.startsWith('/p/') ||
+                           window.location.pathname.startsWith('/portal') ||
                            window.location.pathname === '/login' ||
                            window.location.pathname === '/';
-        
-        if (!isPublicPath) {
+        // Only force logout if the request was authenticated (had a token) and the server rejected it
+        const hadToken = !!localStorage.getItem('psi_token');
+        if (!isPublicPath && hadToken && endpoint.startsWith('/') && !endpoint.startsWith('/patient-portal') && !endpoint.startsWith('/virtual-rooms/public')) {
           localStorage.removeItem('psi_token');
           window.location.href = '/login';
         }
