@@ -83,8 +83,8 @@ router.get('/invite/:token', async (req, res) => {
       label: tk.label,
     });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Erro interno.' });
+    console.error('[portal GET invite]', e?.message || e);
+    res.status(500).json({ error: 'Erro interno.', detail: e?.message });
   }
 });
 

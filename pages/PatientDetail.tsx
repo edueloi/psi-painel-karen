@@ -521,65 +521,66 @@ export const PatientDetail: React.FC = () => {
           {/* Links gerados */}
           {portalTokens.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Links ativos</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Links gerados</p>
+                <span className="text-[11px] text-slate-400">{portalTokens.filter(t => !t.is_used && !(t.expires_at && new Date(t.expires_at) < new Date())).length} ativo(s)</span>
+              </div>
               {portalTokens.map(tk => {
                 const url = `${window.location.origin}/portal/entrar/${tk.token}`;
                 const expired = tk.expires_at && new Date(tk.expires_at) < new Date();
                 const used = !!tk.is_used;
                 const inactive = expired || used;
                 return (
-                  <div key={tk.id} className={`bg-white rounded-2xl border p-4 ${inactive ? 'border-slate-200 opacity-60' : 'border-slate-200'}`}>
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                  <div key={tk.id} className={`rounded-2xl border p-4 transition-all ${inactive ? 'bg-slate-50 border-slate-200 opacity-70' : 'bg-white border-indigo-100 shadow-sm'}`}>
+                    <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-semibold text-slate-700 truncate">{tk.label || 'Portal do Paciente'}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs font-semibold text-slate-700">{tk.label || 'Portal do Paciente'}</p>
                           {used && (
-                            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                              Já utilizado
-                            </span>
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Já utilizado</span>
                           )}
                           {!used && expired && (
-                            <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">
-                              Expirado
-                            </span>
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">Expirado</span>
                           )}
                           {!used && !expired && (
-                            <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                              Ativo
-                            </span>
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">● Ativo</span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 font-mono truncate mt-0.5">{url.slice(0, 45)}…</p>
+                        <p className="text-[11px] text-slate-400 font-mono truncate mt-1">{url.slice(0, 50)}…</p>
                       </div>
-                      <button onClick={() => revokePortalToken(tk.id)} className="text-slate-400 hover:text-red-500 shrink-0 p-1">
-                        <X size={14} />
-                      </button>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-1.5 text-xs text-slate-400">
                         <Clock size={11} />
                         {used
                           ? <span className="text-amber-600">Acesso único — link esgotado</span>
                           : expired
-                          ? <span className="text-red-500">Expirado</span>
+                          ? <span className="text-red-500">Expirado em {new Date(tk.expires_at).toLocaleDateString('pt-BR')}</span>
                           : tk.expires_at
                           ? `Expira ${new Date(tk.expires_at).toLocaleDateString('pt-BR')}`
-                          : 'Sem expiração de data'}
+                          : 'Sem expiração'}
                       </div>
                       <div className="flex gap-1.5">
                         {!inactive && (
                           <button onClick={() => copyPortalLink(tk.token, tk.id)}
                             className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${portalCopiedId === tk.id ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'}`}>
                             {portalCopiedId === tk.id ? <Check size={11} /> : <Copy size={11} />}
-                            {portalCopiedId === tk.id ? 'Copiado!' : 'Copiar link'}
+                            {portalCopiedId === tk.id ? 'Copiado!' : 'Copiar'}
                           </button>
                         )}
                         {!inactive && (
                           <a href={url} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 transition-colors">
-                            <ExternalLink size={11} />Abrir
+                            <ExternalLink size={11} /> Abrir
                           </a>
                         )}
+                        <button
+                          onClick={() => revokePortalToken(tk.id)}
+                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-100 bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                          title="Excluir link"
+                        >
+                          <Trash2 size={11} /> Excluir
+                        </button>
                       </div>
                     </div>
                   </div>

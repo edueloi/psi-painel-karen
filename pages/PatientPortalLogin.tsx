@@ -46,8 +46,8 @@ export const PatientPortalLogin: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE_URL}/patient-portal/invite/${tk}`);
       if (!res.ok) {
-        const e = await res.json();
-        setErrorMsg(e.error || "Link inválido ou expirado.");
+        const e = await res.json().catch(() => ({}));
+        setErrorMsg(e.error || (res.status === 500 ? "Erro no servidor. Tente novamente em instantes." : "Link inválido ou expirado."));
         setPhase("error");
         return;
       }
