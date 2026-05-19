@@ -91,6 +91,43 @@ function sinceItems(map, key, since) {
   return getList(map, key).filter(i => i.id > n);
 }
 
+async function resolveRoomContext({ roomIdentifier, explicitRoomId, tenantId }) {
+  const normalizedIdentifier = String(roomIdentifier || '').trim();
+  const explicitId = Number.parseInt(String(explicitRoomId || ''), 10) || 0;
+  const routeId = Number.parseInt(normalizedIdentifier, 10) || 0;
+  const candidates = [];
+
+  if (explicitId) {
+    candidates.push({
+      sql: `SELECT id, tenant_id
+            FROM virtual_rooms
+            WHERE id = ?${tenantId ? ' AND tenant_id = ?' : ''}
+            LIMIT 1`,
+      params: tenantId ? [explicitId, tenantId] : [explicitId],
+    });
+  }
+
+  if (normalizedIdentifier) {
+    candidates.push({
+      sql: `SELECT id, tenant_id
+            FROM virtual_rooms
+            WHERE (id = ? OR code = ? OR hash = ?)
+              ${tenantId ? 'AND tenant_id = ?' : ''}
+            LIMIT 1`,
+      params: tenantId
+        ? [routeId || 0, normalizedIdentifier, normalizedIdentifier, tenantId]
+        : [routeId || 0, normalizedIdentifier, normalizedIdentifier],
+    });
+  }
+
+  for (const candidate of candidates) {
+    const [rows] = await db.query(candidate.sql, candidate.params);
+    if (rows?.[0]) return rows[0];
+  }
+
+  return null;
+}
+
 // Limpa salas inativas a cada 30 minutos
 function cleanupInactiveRooms() {
   const cutoff = Date.now() - ROOM_TTL_MS;
@@ -354,21 +391,30 @@ router.post('/:id/transcripts', async (req, res) => {
     created_at: new Date().toISOString(),
   });
   // Persistir no banco (async, não bloqueia resposta)
-  const roomId = parseInt(req.params.id) || 0;
   const sk = session_key || key;
-  if (roomId && req.user && text) {
-    db.query(
-      `INSERT INTO room_transcripts (room_id, tenant_id, session_key, speaker_role, speaker_name, text)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [roomId, req.user.tenant_id, sk, speaker_role || 'host', speaker_name || '', text]
-    ).then(() => {
-      db.query(
-        `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
-         VALUES (?, ?, ?, NOW(), 1)
-         ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
-        [roomId, req.user.tenant_id, sk]
-      ).catch(() => {});
-    }).catch(() => {});
+  if (req.user && text) {
+    try {
+      const room = await resolveRoomContext({
+        roomIdentifier: req.params.id,
+        explicitRoomId: req.body?.room_id,
+        tenantId: req.user.tenant_id,
+      });
+      if (room?.id) {
+        await db.query(
+          `INSERT INTO room_transcripts (room_id, tenant_id, session_key, speaker_role, speaker_name, text)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [room.id, room.tenant_id, sk, speaker_role || 'host', speaker_name || '', text]
+        );
+        await db.query(
+          `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
+           VALUES (?, ?, ?, NOW(), 1)
+           ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
+          [room.id, room.tenant_id, sk]
+        );
+      }
+    } catch (_) {
+      // ignore persistence errors for real-time transcript updates
+    }
   }
   res.json({ ok: true, id: item.id });
 });
@@ -459,14 +505,22 @@ router.get('/:id/sessions/:sessionKey/recordings', async (req, res) => {
 router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
-    const roomId = parseInt(req.params.id);
+    const room = await resolveRoomContext({
+      roomIdentifier: req.params.id,
+      explicitRoomId: req.body?.room_id,
+      tenantId: req.user?.tenant_id,
+    });
+    if (!room?.id) {
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
+      return res.status(404).json({ error: 'Sala nao encontrada.' });
+    }
     const sk = req.params.sessionKey;
     const { speaker_role, speaker_name, duration_seconds } = req.body || {};
     const fileUrl = `/uploads/room-recordings/${req.file.filename}`;
     const [ins] = await db.query(
       `INSERT INTO room_recordings (room_id, tenant_id, session_key, file_name, file_url, file_size, duration_seconds, speaker_role, speaker_name)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [roomId, req.user.tenant_id, sk, req.file.originalname, fileUrl,
+      [room.id, room.tenant_id, sk, req.file.originalname, fileUrl,
        req.file.size, parseInt(duration_seconds) || null,
        speaker_role || 'mixed', speaker_name || null]
     );
@@ -474,7 +528,7 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
       `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, recording_count)
        VALUES (?, ?, ?, NOW(), 1)
        ON DUPLICATE KEY UPDATE recording_count = recording_count + 1, updated_at = NOW()`,
-      [roomId, req.user.tenant_id, sk]
+      [room.id, room.tenant_id, sk]
     );
     res.json({ id: ins.insertId, file_url: fileUrl });
   } catch (e) {
@@ -486,13 +540,18 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
 // POST /virtual-rooms/:id/sessions/:sessionKey/end — marcar sessão como encerrada
 router.post('/:id/sessions/:sessionKey/end', async (req, res) => {
   try {
-    const roomId = parseInt(req.params.id);
+    const room = await resolveRoomContext({
+      roomIdentifier: req.params.id,
+      explicitRoomId: req.body?.room_id,
+      tenantId: req.user?.tenant_id,
+    });
+    if (!room?.id) return res.status(404).json({ error: 'Sala nao encontrada.' });
     const { duration_seconds } = req.body || {};
     await db.query(
       `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, ended_at, duration_seconds)
        VALUES (?, ?, ?, NOW(), NOW(), ?)
        ON DUPLICATE KEY UPDATE ended_at = NOW(), duration_seconds = ?, updated_at = NOW()`,
-      [roomId, req.user.tenant_id, req.params.sessionKey, duration_seconds || null, duration_seconds || null]
+      [room.id, room.tenant_id, req.params.sessionKey, duration_seconds || null, duration_seconds || null]
     );
     res.json({ ok: true });
   } catch (e) {
@@ -689,7 +748,7 @@ router.get('/public/:id/transcripts', (req, res) => {
 // POST /virtual-rooms/public/:id/transcripts  (guest — persiste no banco)
 router.post('/public/:id/transcripts', async (req, res) => {
   const key = getRoomKey(req.params.id);
-  const { speaker_name, text, speaker_role, session_key, token: guestToken } = req.body || {};
+  const { speaker_name, text, speaker_role, session_key } = req.body || {};
   const item = pushItem(transcriptsMap, key, {
     id: nextId(),
     speaker_name: speaker_name || '',
@@ -698,25 +757,29 @@ router.post('/public/:id/transcripts', async (req, res) => {
     created_at: new Date().toISOString(),
   });
   // Persistir — busca tenant_id pela sala
-  const roomId = parseInt(req.params.id) || 0;
-  if (roomId && text) {
-    db.query(`SELECT tenant_id FROM virtual_rooms WHERE id = ?`, [roomId])
-      .then(([rows]) => {
-        if (!rows[0]) return;
-        const tid = rows[0].tenant_id;
+  if (text) {
+    try {
+      const room = await resolveRoomContext({
+        roomIdentifier: req.params.id,
+        explicitRoomId: req.body?.room_id,
+      });
+      if (room?.id) {
         const sk = session_key || key;
-        db.query(
+        await db.query(
           `INSERT INTO room_transcripts (room_id, tenant_id, session_key, speaker_role, speaker_name, text)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [roomId, tid, sk, speaker_role || 'guest', speaker_name || '', text]
-        ).catch(() => {});
-        db.query(
+          [room.id, room.tenant_id, sk, speaker_role || 'guest', speaker_name || '', text]
+        );
+        await db.query(
           `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
            VALUES (?, ?, ?, NOW(), 1)
            ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
-          [roomId, tid, sk]
-        ).catch(() => {});
-      }).catch(() => {});
+          [room.id, room.tenant_id, sk]
+        );
+      }
+    } catch (_) {
+      // ignore persistence errors for real-time transcript updates
+    }
   }
   res.json({ ok: true, id: item.id });
 });

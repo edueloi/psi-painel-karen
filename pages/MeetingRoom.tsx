@@ -302,6 +302,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   // Gravação contínua do áudio local para upload ao encerrar
   const fullRecorderRef = useRef<MediaRecorder | null>(null);
   const fullAudioChunksRef = useRef<Blob[]>([]);
+  const geminiStopResolveRef = useRef<(() => void) | null>(null);
   const [isUploadingRecording, setIsUploadingRecording] = useState(false);
 
   // --- Refs ---
@@ -342,6 +343,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const waitingAudioRef = useRef<HTMLAudioElement | null>(null);
   const entryAudioRef = useRef<HTMLAudioElement | null>(null);
+  const recordingMixerContextRef = useRef<AudioContext | null>(null);
+  const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const recordingLocalSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const recordingRemoteSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const recordingLocalTrackIdRef = useRef<string | null>(null);
+  const recordingRemoteTrackIdRef = useRef<string | null>(null);
 
   // Canvas
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1033,6 +1040,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   peerConnectionRef.current = null;
                 }
                 setRemoteStreamActive(false);
+                resetRecordingSource("remote");
                 const pc = new RTCPeerConnection(ICE_CONFIG);
                 peerConnectionRef.current = pc;
                 if (localStreamRef.current) {
@@ -1042,10 +1050,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   if (e.candidate) sendRoomEventRef.current?.('webrtc_ice', { candidate: e.candidate.toJSON() });
                 };
                 pc.ontrack = (e) => {
-                  if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = e.streams[0];
-                    setRemoteStreamActive(true);
-                  }
+                  assignRemoteMediaStream(e.streams[0] || new MediaStream([e.track]));
                 };
                 await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp }));
                 // Apply any ICE candidates that arrived with or before the offer
@@ -1128,21 +1133,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   console.log("Connection State:", pc.connectionState);
                   if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
                     setRemoteStreamActive(false);
+                    resetRecordingSource("remote");
                   }
                 };
                 pc.oniceconnectionstatechange = () => {
                   console.log("ICE State:", pc.iceConnectionState);
                 };
                 pc.ontrack = (e) => {
-                  if (remoteVideoRef.current) {
-                    if (e.streams[0]) {
-                      remoteVideoRef.current.srcObject = e.streams[0];
-                    } else {
-                      remoteVideoRef.current.srcObject = new MediaStream([e.track]);
-                    }
-                    remoteVideoRef.current.play().catch(() => {});
-                    setRemoteStreamActive(true);
-                  }
+                  assignRemoteMediaStream(e.streams[0] || new MediaStream([e.track]));
                 };
                 await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp }));
                 for (const c of pendingIceCandidates.current) {
@@ -1445,6 +1443,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         if (!mounted) { stream.getTracks().forEach(t => t.stop()); return; }
 
         localStreamRef.current = stream;
+        attachRecordingStream(stream, "local");
 
         // Assign to both video refs immediately — the visible one will display it
         if (lobbyVideoRef.current) lobbyVideoRef.current.srcObject = stream;
@@ -1525,15 +1524,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       peerConnectionRef.current = pc;
       localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
       pc.ontrack = (e) => {
-        if (remoteVideoRef.current) {
-          if (e.streams[0]) {
-            remoteVideoRef.current.srcObject = e.streams[0];
-          } else {
-            remoteVideoRef.current.srcObject = new MediaStream([e.track]);
-          }
-          remoteVideoRef.current.play().catch(() => {});
-          setRemoteStreamActive(true);
-        }
+        assignRemoteMediaStream(e.streams[0] || new MediaStream([e.track]));
       };
       pc.onicecandidate = (e) => {
         if (e.candidate) {
@@ -1546,6 +1537,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       pc.onconnectionstatechange = () => {
         if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
           setRemoteStreamActive(false);
+          resetRecordingSource("remote");
         }
       };
       try {
@@ -1562,6 +1554,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const restartRoomConnection = () => {
     if (!remoteUserConnected) return;
     setRemoteStreamActive(false);
+    resetRecordingSource("remote");
     if (isGuest) {
       // Guest sends a signal to host to re-offer
       sendRoomEvent('request_renegotiation');
@@ -1651,6 +1644,118 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   };
 
+  const resetRecordingSource = (kind: "local" | "remote") => {
+    const sourceRef =
+      kind === "local" ? recordingLocalSourceRef : recordingRemoteSourceRef;
+    const trackIdRef =
+      kind === "local" ? recordingLocalTrackIdRef : recordingRemoteTrackIdRef;
+    try {
+      sourceRef.current?.disconnect();
+    } catch {
+      // ignore
+    }
+    sourceRef.current = null;
+    trackIdRef.current = null;
+  };
+
+  const ensureRecordingMixer = () => {
+    const AudioContextCtor =
+      window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextCtor) return null;
+
+    if (
+      !recordingMixerContextRef.current ||
+      recordingMixerContextRef.current.state === "closed"
+    ) {
+      const context = new AudioContextCtor();
+      recordingMixerContextRef.current = context;
+      recordingDestinationRef.current = context.createMediaStreamDestination();
+    }
+
+    if (recordingMixerContextRef.current.state === "suspended") {
+      recordingMixerContextRef.current.resume().catch(() => {});
+    }
+
+    return {
+      context: recordingMixerContextRef.current,
+      destination: recordingDestinationRef.current!,
+    };
+  };
+
+  const attachRecordingStream = (
+    stream: MediaStream | null,
+    kind: "local" | "remote"
+  ) => {
+    const audioTrack = stream?.getAudioTracks?.()[0];
+    if (!audioTrack) {
+      resetRecordingSource(kind);
+      return recordingDestinationRef.current?.stream ?? null;
+    }
+
+    const trackIdRef =
+      kind === "local" ? recordingLocalTrackIdRef : recordingRemoteTrackIdRef;
+    const sourceRef =
+      kind === "local" ? recordingLocalSourceRef : recordingRemoteSourceRef;
+
+    if (trackIdRef.current === audioTrack.id && sourceRef.current) {
+      return recordingDestinationRef.current?.stream ?? null;
+    }
+
+    const mixer = ensureRecordingMixer();
+    if (!mixer) return null;
+
+    resetRecordingSource(kind);
+    const sourceNode = mixer.context.createMediaStreamSource(
+      new MediaStream([audioTrack])
+    );
+    sourceNode.connect(mixer.destination);
+    sourceRef.current = sourceNode;
+    trackIdRef.current = audioTrack.id;
+
+    audioTrack.addEventListener(
+      "ended",
+      () => {
+        if (trackIdRef.current === audioTrack.id) {
+          resetRecordingSource(kind);
+        }
+      },
+      { once: true }
+    );
+
+    return mixer.destination.stream;
+  };
+
+  const getRecordingStream = () => {
+    attachRecordingStream(localStreamRef.current, "local");
+    const remoteStream =
+      remoteVideoRef.current?.srcObject instanceof MediaStream
+        ? remoteVideoRef.current.srcObject
+        : null;
+    if (remoteStream) {
+      attachRecordingStream(remoteStream, "remote");
+    }
+    return recordingDestinationRef.current?.stream ?? localStreamRef.current;
+  };
+
+  const assignRemoteMediaStream = (stream: MediaStream | null) => {
+    if (!stream) return;
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = stream;
+      remoteVideoRef.current.play().catch(() => {});
+    }
+    attachRecordingStream(stream, "remote");
+    setRemoteStreamActive(true);
+  };
+
+  const cleanupRecordingMixer = () => {
+    resetRecordingSource("local");
+    resetRecordingSource("remote");
+    recordingDestinationRef.current = null;
+    const context = recordingMixerContextRef.current;
+    recordingMixerContextRef.current = null;
+    context?.close().catch(() => {});
+  };
+
   const visualizeAudio = () => {
     if (!analyserRef.current) return;
 
@@ -1671,10 +1776,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     screenStreamRef.current?.getTracks().forEach((track) => track.stop());
     audioContextRef.current?.close();
+    audioContextRef.current = null;
+    analyserRef.current = null;
     if (animationFrameRef.current)
       cancelAnimationFrame(animationFrameRef.current);
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
+    localStreamRef.current = null;
+    screenStreamRef.current = null;
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+    cleanupRecordingMixer();
     setRemoteStreamActive(false);
   };
 
@@ -2006,6 +2119,29 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   };
 
+  const persistTranscriptText = async (text: string) => {
+    if (!text || !id) return;
+
+    const payload = {
+      room_id: numericRoomIdRef.current ?? numericRoomId ?? undefined,
+      speaker_name: isGuest ? guestName || "Paciente" : hostDisplayName,
+      speaker_role: isGuest ? "guest" as const : "host" as const,
+      session_key: sessionKey,
+      text,
+    };
+
+    if (isGuest) {
+      if (!participantToken) return;
+      await api.post(`/virtual-rooms/public/${id}/transcripts`, {
+        token: participantToken,
+        ...payload,
+      });
+      return;
+    }
+
+    await api.post(`/virtual-rooms/${id}/transcripts`, payload);
+  };
+
   const stopRecognition = () => {
     if (recognitionRef.current && recognitionActiveRef.current) {
       try {
@@ -2036,29 +2172,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         }
       }
       const text = finalText.trim();
-      if (!text || !id) return;
-      const rid = numericRoomIdRef.current ?? numericRoomId ?? id;
-      if (isGuest) {
-        if (!participantToken) return;
-        api
-          .post(`/virtual-rooms/public/${rid}/transcripts`, {
-            token: participantToken,
-            speaker_name: guestName || "Paciente",
-            speaker_role: "guest",
-            session_key: sessionKey,
-            text,
-          })
-          .catch(() => {});
-      } else {
-        api
-          .post(`/virtual-rooms/${rid}/transcripts`, {
-            speaker_name: hostDisplayName,
-            speaker_role: "host",
-            session_key: sessionKey,
-            text,
-          })
-          .catch(() => {});
-      }
+      if (!text) return;
+      persistTranscriptText(text).catch(() => {});
     };
     recognition.onend = () => {
       if (recognitionActiveRef.current) {
@@ -2185,36 +2300,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         }
       }
       if (!transcribed) return;
-      const speakerName = isGuest ? guestName || "Paciente" : hostDisplayName;
-      const rid = numericRoomIdRef.current ?? numericRoomId ?? id;
-      if (isGuest) {
-        if (!participantToken) return;
-        api
-          .post(`/virtual-rooms/public/${rid}/transcripts`, {
-            token: participantToken,
-            speaker_name: speakerName,
-            speaker_role: "guest",
-            session_key: sessionKey,
-            text: transcribed,
-          })
-          .catch(() => {});
-      } else {
-        api
-          .post(`/virtual-rooms/${rid}/transcripts`, {
-            speaker_name: speakerName,
-            speaker_role: "host",
-            session_key: sessionKey,
-            text: transcribed,
-          })
-          .catch(() => {});
-      }
+      await persistTranscriptText(transcribed);
     } catch {
       // ignore
     }
   };
 
   const startGeminiRecording = () => {
-    const stream = localStreamRef.current;
+    const stream = getRecordingStream();
     if (!stream || geminiMediaRecorderRef.current) return;
     const audioTrack = stream.getAudioTracks()[0];
     if (!audioTrack) return;
@@ -2237,22 +2330,29 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     recorder.onstop = async () => {
-      const chunks = geminiChunksRef.current;
-      geminiChunksRef.current = [];
-      if (chunks.length === 0) return;
-      const blob = new Blob(chunks, { type: mimeType });
-      await transcribeChunkWithGemini(blob);
-      // restart if still active
-      if (geminiMediaRecorderRef.current) {
-        try {
-          geminiMediaRecorderRef.current.start();
-          setTimeout(() => {
-            if (geminiMediaRecorderRef.current?.state === "recording") {
-              geminiMediaRecorderRef.current.stop();
-            }
-          }, 6000);
-        } catch {
-          // ignore
+      try {
+        const chunks = geminiChunksRef.current;
+        geminiChunksRef.current = [];
+        if (chunks.length > 0) {
+          const blob = new Blob(chunks, { type: mimeType });
+          await transcribeChunkWithGemini(blob);
+        }
+      } finally {
+        if (geminiMediaRecorderRef.current) {
+          try {
+            geminiMediaRecorderRef.current.start();
+            setTimeout(() => {
+              if (geminiMediaRecorderRef.current?.state === "recording") {
+                geminiMediaRecorderRef.current.stop();
+              }
+            }, 6000);
+          } catch {
+            // ignore
+          }
+        } else if (geminiStopResolveRef.current) {
+          const resolve = geminiStopResolveRef.current;
+          geminiStopResolveRef.current = null;
+          resolve();
         }
       }
     };
@@ -2267,22 +2367,27 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }, 6000);
   };
 
-  const stopGeminiRecording = () => {
+  const stopGeminiRecording = (): Promise<void> => {
     const recorder = geminiMediaRecorderRef.current;
-    if (!recorder) return;
+    if (!recorder) return Promise.resolve();
     geminiMediaRecorderRef.current = null;
     setGeminiRecording(false);
     setTranscriptionActive(false);
-    try {
-      if (recorder.state !== "inactive") recorder.stop();
-    } catch {
-      // ignore
-    }
+    if (recorder.state === "inactive") return Promise.resolve();
+    return new Promise((resolve) => {
+      geminiStopResolveRef.current = resolve;
+      try {
+        recorder.stop();
+      } catch {
+        geminiStopResolveRef.current = null;
+        resolve();
+      }
+    });
   };
 
   const startFullRecording = () => {
     if (!id || isGuest) return; // only host records
-    const stream = localStreamRef.current;
+    const stream = getRecordingStream();
     if (!stream || fullRecorderRef.current) return;
     const audioTrack = stream.getAudioTracks()[0];
     if (!audioTrack) return;
@@ -2327,10 +2432,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         formData.append("audio", blob, `recording-${sessionKey}.${ext}`);
         formData.append("speaker_role", "mixed");
         formData.append("speaker_name", hostDisplayName);
+        if (numericRoomIdRef.current ?? numericRoomId) {
+          formData.append("room_id", String(numericRoomIdRef.current ?? numericRoomId));
+        }
         setIsUploadingRecording(true);
-        const rid = numericRoomIdRef.current ?? numericRoomId ?? id;
         try {
-          await api.post(`/virtual-rooms/${rid}/sessions/${sessionKey}/recordings`, formData);
+          await api.post(`/virtual-rooms/${id}/sessions/${sessionKey}/recordings`, formData);
         } catch {
           // non-critical
         } finally {
@@ -2348,10 +2455,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   };
 
   const handleEndCall = async () => {
-    stopGeminiRecording();
+    await stopGeminiRecording();
     if (!isGuest && id) {
       const durationSeconds = Math.floor((Date.now() - sessionStartRef.current) / 1000);
-      const rid = numericRoomIdRef.current ?? numericRoomId ?? id;
       // Upload gravação de áudio se houver
       if (fullRecorderRef.current) {
         setIsUploadingRecording(true);
@@ -2360,8 +2466,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
       // Sempre marca sessão como encerrada no banco (registra transcrições)
       try {
-        await api.post(`/virtual-rooms/${rid}/sessions/${sessionKey}/end`, {
+        await api.post(`/virtual-rooms/${id}/sessions/${sessionKey}/end`, {
           duration_seconds: durationSeconds,
+          room_id: numericRoomIdRef.current ?? numericRoomId ?? undefined,
         });
       } catch {
         // non-critical
