@@ -103,6 +103,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/anamnesis-send`, anamnesisSendRoutes);
   app.use(`${prefix}/therapeutic-plans`, therapeuticPlansRoutes);
   app.use(`${prefix}/patient-history`, patientHistoryRoutes);
+  app.use(`${prefix}/patient-portal`, require('./routes/patient-portal'));
   app.use(`${prefix}/backup`, require('./routes/backup'));
 }
 

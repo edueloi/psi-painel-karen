@@ -24,6 +24,8 @@ import { FormEditor } from './pages/FormEditor';
 import { FormResponses } from './pages/FormResponses';
 import { PublicProfile } from './pages/PublicProfile';
 import { ExternalForm } from './pages/ExternalForm';
+import { PatientPortalLogin } from './pages/PatientPortalLogin';
+import { PatientPortal } from './pages/PatientPortal';
 import { ResetPassword } from './pages/ResetPassword';
 import { SuperAdmin } from './pages/SuperAdmin';
 import { BotIntegration } from './pages/BotIntegration';
@@ -253,6 +255,11 @@ const AppRoutes: React.FC = () => {
       <Route path="/f/anamnese" element={<AnamnesisPublic />} />
       <Route path="/f/:hash" element={<ExternalForm />} />
       <Route path="/p/:slug" element={<PublicProfile />} />
+
+      {/* Portal do Paciente */}
+      <Route path="/portal" element={<PatientPortalLogin />} />
+      <Route path="/portal/entrar/:token" element={<PatientPortalLogin />} />
+      <Route path="/portal/inicio" element={<PatientPortal />} />
 
       {/* Rotas de Super Admin */}
       <Route

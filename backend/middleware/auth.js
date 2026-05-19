@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
  * Extrai tenant_id, user_id e role do token
  */
 // Paths that don't require authentication
-const PUBLIC_PATHS = ['/virtual-rooms/public'];
+const PUBLIC_PATHS = ['/virtual-rooms/public', '/patient-portal'];
 
 async function authMiddleware(req, res, next) {
   // Allow public virtual-room guest routes without a token

@@ -3942,7 +3942,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   <button
                     onClick={() => {
                       const shareUrl = `${window.location.origin}/api/virtual-rooms/public/${id}/preview`;
-                      const company = user?.company_name || user?.name || 'seu profissional';
+                      const company = user?.companyName || user?.name || 'seu profissional';
                       const msg = `*Prepare-se, sua sessão já vai começar com ${company}!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${shareUrl}`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                     }}

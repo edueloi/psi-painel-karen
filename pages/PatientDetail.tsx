@@ -4,7 +4,7 @@ import {
   ArrowLeft, Calendar, FileText, BrainCircuit, ClipboardList, FolderOpen,
   Boxes, StickyNote, MapPin, Shield, Phone, Mail, User, Edit2,
   Loader2, Download, Trash2, FileUp, TrendingUp, ExternalLink,
-  ChevronRight, History, Activity
+  ChevronRight, History, Activity, Link2, Copy, Check, X, Clock, Smartphone,
 } from 'lucide-react';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -79,6 +79,15 @@ export const PatientDetail: React.FC = () => {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  // Portal do paciente
+  const [portalModalOpen, setPortalModalOpen] = useState(false);
+  const [portalTokens, setPortalTokens] = useState<any[]>([]);
+  const [portalLinkLoading, setPortalLinkLoading] = useState(false);
+  const [portalCopiedId, setPortalCopiedId] = useState<number | null>(null);
+  const [portalForm, setPortalForm] = useState({
+    expires_in_days: '30', allow_self_schedule: true, require_approval: true, self_register: false,
+  });
+
   // Tab data
   const [appointments, setAppointments] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
@@ -147,6 +156,52 @@ export const PatientDetail: React.FC = () => {
     if (['agenda', 'documentos', 'prontuario', 'formularios'].includes(tab)) {
       loadTab(tab);
     }
+  };
+
+  const loadPortalTokens = useCallback(async () => {
+    if (!id) return;
+    try {
+      const data = await api.get<any[]>('/patient-portal/tokens', { patient_id: id });
+      setPortalTokens(Array.isArray(data) ? data : []);
+    } catch { setPortalTokens([]); }
+  }, [id]);
+
+  const openPortalModal = () => {
+    setPortalModalOpen(true);
+    loadPortalTokens();
+  };
+
+  const generatePortalLink = async () => {
+    if (!id) return;
+    setPortalLinkLoading(true);
+    try {
+      const res = await api.post<any>('/patient-portal/tokens', {
+        patient_id: parseInt(id),
+        expires_in_days: parseInt(portalForm.expires_in_days) || 30,
+        allow_self_schedule: portalForm.allow_self_schedule,
+        require_approval: portalForm.require_approval,
+        self_register: portalForm.self_register,
+        label: `Portal — ${patientName(patient!)}`,
+      });
+      await loadPortalTokens();
+    } catch {
+      pushToast('error', 'Erro ao gerar link.');
+    } finally { setPortalLinkLoading(false); }
+  };
+
+  const revokePortalToken = async (tokenId: number) => {
+    try {
+      await api.delete(`/patient-portal/tokens/${tokenId}`);
+      setPortalTokens(prev => prev.filter(t => t.id !== tokenId));
+    } catch { pushToast('error', 'Erro ao revogar.'); }
+  };
+
+  const copyPortalLink = (token: string, id: number) => {
+    const url = `${window.location.origin}/portal/entrar/${token}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setPortalCopiedId(id);
+      setTimeout(() => setPortalCopiedId(null), 2000);
+    });
   };
 
   const handlePatientSaved = async (data: Partial<Patient>, files: { file: File; label: string }[], photoFile?: File | null) => {
@@ -267,6 +322,15 @@ export const PatientDetail: React.FC = () => {
                 >
                   <History size={16} />
                 </IconButton>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={openPortalModal}
+                  iconLeft={<Smartphone size={13} />}
+                >
+                  Portal
+                </Button>
                 {hasPermission('edit_patient') && (
                   <Button
                     type="button"
@@ -399,6 +463,110 @@ export const PatientDetail: React.FC = () => {
         patient={historyOpen ? patient : null}
         onClose={() => setHistoryOpen(false)}
       />
+
+      {/* Modal Portal do Paciente */}
+      <Modal
+        isOpen={portalModalOpen}
+        onClose={() => setPortalModalOpen(false)}
+        title="Portal do Paciente"
+        subtitle="Gere um link de acesso seguro para o paciente acompanhar suas consultas e pagamentos."
+        size="md"
+      >
+        <div className="space-y-5 p-1">
+          {/* Configurações */}
+          <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Configurações do link</p>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Solicitar agendamento</p>
+                <p className="text-xs text-slate-400">Paciente pode solicitar novos horários</p>
+              </div>
+              <button onClick={() => setPortalForm(f => ({ ...f, allow_self_schedule: !f.allow_self_schedule }))}
+                className={`w-11 h-6 rounded-full transition-colors shrink-0 ${portalForm.allow_self_schedule ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                <span className={`block w-4 h-4 bg-white rounded-full mx-1 transition-transform ${portalForm.allow_self_schedule ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Requer aprovação</p>
+                <p className="text-xs text-slate-400">Agendamentos precisam de confirmação</p>
+              </div>
+              <button onClick={() => setPortalForm(f => ({ ...f, require_approval: !f.require_approval }))}
+                className={`w-11 h-6 rounded-full transition-colors shrink-0 ${portalForm.require_approval ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                <span className={`block w-4 h-4 bg-white rounded-full mx-1 transition-transform ${portalForm.require_approval ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Expira em</label>
+              <select value={portalForm.expires_in_days}
+                onChange={e => setPortalForm(f => ({ ...f, expires_in_days: e.target.value }))}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-indigo-400">
+                <option value="7">7 dias</option>
+                <option value="30">30 dias</option>
+                <option value="90">90 dias</option>
+                <option value="365">1 ano</option>
+                <option value="0">Nunca expira</option>
+              </select>
+            </div>
+          </div>
+
+          <Button type="button" fullWidth onClick={generatePortalLink} loading={portalLinkLoading}
+            iconLeft={<Link2 size={14} />}>
+            Gerar Novo Link
+          </Button>
+
+          {/* Links gerados */}
+          {portalTokens.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Links ativos</p>
+              {portalTokens.map(tk => {
+                const url = `${window.location.origin}/portal/entrar/${tk.token}`;
+                const expired = tk.expires_at && new Date(tk.expires_at) < new Date();
+                return (
+                  <div key={tk.id} className={`bg-white rounded-2xl border p-4 ${expired ? 'border-red-200 opacity-60' : 'border-slate-200'}`}>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-slate-700 truncate">{tk.label || 'Portal do Paciente'}</p>
+                        <p className="text-xs text-slate-400 font-mono truncate mt-0.5">{url.slice(0, 45)}…</p>
+                      </div>
+                      <button onClick={() => revokePortalToken(tk.id)} className="text-slate-400 hover:text-red-500 shrink-0 p-1">
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <Clock size={11} />
+                        {expired ? <span className="text-red-500">Expirado</span> :
+                          tk.expires_at ? `Expira ${new Date(tk.expires_at).toLocaleDateString('pt-BR')}` : 'Sem expiração'}
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => copyPortalLink(tk.token, tk.id)}
+                          className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${portalCopiedId === tk.id ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'}`}>
+                          {portalCopiedId === tk.id ? <Check size={11} /> : <Copy size={11} />}
+                          {portalCopiedId === tk.id ? 'Copiado!' : 'Copiar link'}
+                        </button>
+                        <a href={url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 transition-colors">
+                          <ExternalLink size={11} />Abrir
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {portalTokens.length === 0 && !portalLinkLoading && (
+            <div className="text-center py-4 text-slate-400 text-sm">
+              Nenhum link gerado ainda.
+            </div>
+          )}
+        </div>
+      </Modal>
     </PageWrapper>
   );
 };

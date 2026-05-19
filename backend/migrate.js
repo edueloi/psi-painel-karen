@@ -964,6 +964,101 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // ---- PATIENT PORTAL TOKENS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS patient_portal_tokens (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      patient_id INT NOT NULL,
+      professional_id INT,
+      token VARCHAR(128) NOT NULL UNIQUE,
+      label VARCHAR(255),
+      expires_at DATETIME,
+      self_register TINYINT(1) DEFAULT 0,
+      allow_self_schedule TINYINT(1) DEFAULT 1,
+      require_approval TINYINT(1) DEFAULT 1,
+      is_used TINYINT(1) DEFAULT 0,
+      created_by INT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ppt_tenant (tenant_id),
+      INDEX idx_ppt_patient (patient_id),
+      INDEX idx_ppt_token (token)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- PATIENT PORTAL SESSIONS (login persistente do paciente) ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS patient_portal_sessions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      patient_id INT NOT NULL,
+      session_token VARCHAR(128) NOT NULL UNIQUE,
+      expires_at DATETIME NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pps_patient (patient_id),
+      INDEX idx_pps_token (session_token)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- PATIENT PORTAL PAYMENTS (pagamentos declarados pelo paciente) ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS patient_portal_payments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      patient_id INT NOT NULL,
+      appointment_id INT,
+      amount DECIMAL(10,2) NOT NULL,
+      payment_method ENUM('pix','credit','debit','cash','transfer','check') DEFAULT 'pix',
+      payment_date DATE NOT NULL,
+      notes TEXT,
+      status ENUM('pending','confirmed','rejected') DEFAULT 'pending',
+      reviewed_by INT,
+      reviewed_at DATETIME,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_ppp_tenant (tenant_id),
+      INDEX idx_ppp_patient (patient_id),
+      INDEX idx_ppp_appointment (appointment_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- PATIENT PORTAL PAYMENT ATTACHMENTS ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS patient_portal_payment_attachments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      payment_id INT NOT NULL,
+      file_name VARCHAR(255),
+      file_url VARCHAR(500),
+      file_type VARCHAR(100),
+      file_size INT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pppa_payment (payment_id),
+      FOREIGN KEY (payment_id) REFERENCES patient_portal_payments(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- PATIENT PORTAL SCHEDULE REQUESTS (solicitações de agendamento) ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS patient_portal_schedule_requests (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      patient_id INT NOT NULL,
+      professional_id INT,
+      preferred_date DATE,
+      preferred_time VARCHAR(10),
+      preferred_modality ENUM('online','presencial','geral') DEFAULT 'online',
+      notes TEXT,
+      status ENUM('pending','approved','rejected','scheduled') DEFAULT 'pending',
+      appointment_id INT,
+      reviewed_by INT,
+      reviewed_at DATETIME,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_ppsr_tenant (tenant_id),
+      INDEX idx_ppsr_patient (patient_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   console.log('✅ Migração concluída com sucesso!');
   await conn.end();
 }
