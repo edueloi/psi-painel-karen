@@ -8,13 +8,25 @@ const fs = require('fs');
 
 // ── Multer para upload de áudio ───────────────────────────────────────────────
 const audioUploadDir = path.join(__dirname, '../public/uploads/room-recordings');
-if (!fs.existsSync(audioUploadDir)) fs.mkdirSync(audioUploadDir, { recursive: true });
 
 const audioStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, audioUploadDir),
+  destination: (req, file, cb) => {
+    try {
+      if (!fs.existsSync(audioUploadDir)) {
+        fs.mkdirSync(audioUploadDir, { recursive: true });
+        console.log(`[MulterAudio] Diretório de gravações criado: ${audioUploadDir}`);
+      }
+      cb(null, audioUploadDir);
+    } catch (err) {
+      console.error('[MulterAudio] Erro ao criar diretório de gravações:', err);
+      cb(err);
+    }
+  },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname) || '.webm';
-    cb(null, `rec-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+    const finalName = `rec-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    console.log(`[MulterAudio] Recebendo gravação: ${file.originalname} -> ${finalName}`);
+    cb(null, finalName);
   },
 });
 const uploadAudio = multer({
@@ -504,7 +516,11 @@ router.get('/:id/sessions/:sessionKey/recordings', async (req, res) => {
 // POST /virtual-rooms/:id/sessions/:sessionKey/recordings — upload de áudio
 router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    if (!req.file) {
+      console.warn('[MulterAudio] Tentativa de upload sem nenhum arquivo enviado.');
+      return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    }
+    console.log(`[MulterAudio] Processando gravação salva em: ${req.file.path} (${req.file.size} bytes)`);
     const room = await resolveRoomContext({
       roomIdentifier: req.params.id,
       explicitRoomId: req.body?.room_id,
@@ -512,6 +528,7 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
     });
     if (!room?.id) {
       try { fs.unlinkSync(req.file.path); } catch (_) {}
+      console.warn(`[MulterAudio] Sala não encontrada para identificador: ${req.params.id}`);
       return res.status(404).json({ error: 'Sala nao encontrada.' });
     }
     const sk = req.params.sessionKey;
@@ -530,9 +547,10 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
        ON DUPLICATE KEY UPDATE recording_count = recording_count + 1, updated_at = NOW()`,
       [room.id, room.tenant_id, sk]
     );
+    console.log(`[MulterAudio] Gravação salva e registrada no BD com ID: ${ins.insertId}, URL: ${fileUrl}`);
     res.json({ id: ins.insertId, file_url: fileUrl });
   } catch (e) {
-    console.error(e);
+    console.error('[MulterAudio] Erro ao salvar gravação:', e);
     res.status(500).json({ error: 'Erro ao salvar gravação.' });
   }
 });
