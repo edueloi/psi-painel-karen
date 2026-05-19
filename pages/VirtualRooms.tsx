@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Trash2,
   Video,
+  X,
 } from 'lucide-react';
 import { API_BASE_URL } from '../services/api';
 import { api } from '../services/api';
@@ -27,6 +28,7 @@ import { Patient, User, VirtualRoom } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { DatePicker } from '../components/UI/DatePicker';
 import { PageHeader } from '../components/UI/PageHeader';
 import {
@@ -77,6 +79,7 @@ export const VirtualRooms: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { pushToast } = useToast();
+  const { preferences, updatePreference } = useUserPreferences();
 
   const [rooms, setRooms] = useState<VirtualRoom[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -100,6 +103,35 @@ export const VirtualRooms: React.FC = () => {
   const [sessionRecordings, setSessionRecordings] = useState<Record<string, RecordingEntry[]>>({});
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+
+  // Gemini API keys management
+  const geminiKeys: string[] = preferences.gemini?.apiKeys?.length
+    ? preferences.gemini.apiKeys
+    : preferences.gemini?.apiKey ? [preferences.gemini.apiKey] : [];
+  const [newKeyInput, setNewKeyInput] = useState('');
+  const [keySaved, setKeySaved] = useState(false);
+
+  const addGeminiKey = () => {
+    const k = newKeyInput.trim();
+    if (!k) return;
+    const updated = [...geminiKeys.filter(x => x !== k), k];
+    updatePreference('gemini', { apiKeys: updated, apiKey: updated[0] });
+    setNewKeyInput('');
+    setKeySaved(true);
+    setTimeout(() => setKeySaved(false), 2000);
+  };
+
+  const removeGeminiKey = (key: string) => {
+    const updated = geminiKeys.filter(x => x !== key);
+    updatePreference('gemini', { apiKeys: updated, apiKey: updated[0] ?? '' });
+  };
+
+  const moveKeyUp = (idx: number) => {
+    if (idx === 0) return;
+    const updated = [...geminiKeys];
+    [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+    updatePreference('gemini', { apiKeys: updated, apiKey: updated[0] });
+  };
 
   const [createForm, setCreateForm] = useState({
     title: '',
@@ -417,6 +449,71 @@ export const VirtualRooms: React.FC = () => {
         </div>
 
         {activeTab === 'transcricoes' && (
+          <div className="space-y-4">
+
+          {/* Gemini API Keys config */}
+          <div className="rounded-3xl bg-gradient-to-br from-violet-100 via-white to-indigo-100 p-px shadow-sm">
+            <div className="rounded-[22px] border border-slate-100 bg-white px-6 py-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Mic size={18} className="text-violet-600" />
+                <h3 className="font-bold text-slate-800 text-base">Chaves Gemini para Transcrição</h3>
+                <span className="ml-auto text-[11px] text-slate-400">Fallback automático — usa a próxima se uma falhar</span>
+              </div>
+
+              {/* Key list */}
+              {geminiKeys.length > 0 ? (
+                <div className="space-y-2 mb-4">
+                  {geminiKeys.map((key, idx) => (
+                    <div key={idx} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                      <span className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${idx === 0 ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                        {idx + 1}
+                      </span>
+                      <span className="flex-1 font-mono text-xs text-slate-600 truncate">
+                        {key.slice(0, 8)}{'•'.repeat(20)}{key.slice(-4)}
+                      </span>
+                      {idx === 0 && (
+                        <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">Principal</span>
+                      )}
+                      {idx > 0 && (
+                        <button onClick={() => moveKeyUp(idx)} title="Mover para cima" className="shrink-0 rounded-lg border border-slate-200 p-1 text-slate-400 hover:text-indigo-600 transition-colors">
+                          <ChevronDown size={12} className="rotate-180" />
+                        </button>
+                      )}
+                      <button onClick={() => removeGeminiKey(key)} title="Remover" className="shrink-0 rounded-lg border border-red-100 p-1 text-red-400 hover:bg-red-50 transition-colors">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mb-4 text-sm text-slate-400">Nenhuma chave configurada. Adicione ao menos uma para ativar a transcrição com Gemini.</p>
+              )}
+
+              {/* Add new key */}
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={newKeyInput}
+                  onChange={e => setNewKeyInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addGeminiKey()}
+                  placeholder="AIza... — cole sua chave do Google AI Studio"
+                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-mono focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20"
+                />
+                <button
+                  onClick={addGeminiKey}
+                  disabled={!newKeyInput.trim()}
+                  className="shrink-0 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                >
+                  {keySaved ? <><Check size={14} /> Salvo!</> : <><Plus size={14} /> Adicionar</>}
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">
+                Obtenha chaves gratuitas em <span className="font-mono text-violet-600">aistudio.google.com/apikey</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Histórico */}
           <div className="rounded-3xl bg-gradient-to-br from-indigo-200 via-white to-slate-200 p-px shadow-lg">
             <div className="rounded-[22px] border border-slate-100 bg-white">
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4">
@@ -576,6 +673,8 @@ export const VirtualRooms: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+
           </div>
         )}
 

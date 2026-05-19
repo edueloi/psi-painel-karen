@@ -50,7 +50,8 @@ export interface UserPreferences {
     hiddenIds: string[];
   };
   gemini: {
-    apiKey: string;
+    apiKey: string;       // legacy / chave principal
+    apiKeys: string[];    // lista de chaves (com fallback automático)
   };
 }
 
@@ -104,6 +105,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   },
   gemini: {
     apiKey: '',
+    apiKeys: [],
   },
 };
 
@@ -123,7 +125,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     messages:    { ...DEFAULT_PREFERENCES.messages,    ...stored?.messages },
     livroCaixa:  { ...DEFAULT_PREFERENCES.livroCaixa,  ...stored?.livroCaixa },
     clinicalTools: { ...DEFAULT_PREFERENCES.clinicalTools, ...stored?.clinicalTools },
-    gemini:       { ...DEFAULT_PREFERENCES.gemini,       ...stored?.gemini },
+    gemini:       { ...DEFAULT_PREFERENCES.gemini, ...stored?.gemini, apiKeys: Array.isArray(stored?.gemini?.apiKeys) ? stored.gemini.apiKeys : (stored?.gemini?.apiKey ? [stored.gemini.apiKey] : []) },
   };
 }
 

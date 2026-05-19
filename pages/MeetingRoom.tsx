@@ -2043,13 +2043,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       stopGeminiRecording();
       return;
     }
-    if (preferences.gemini.apiKey.trim()) {
+    const hasGemini = (preferences.gemini.apiKeys?.some(k => k.trim())) || preferences.gemini.apiKey.trim();
+    if (hasGemini) {
       startGeminiRecording();
     } else {
       startRecognition();
     }
     return () => { stopRecognition(); stopGeminiRecording(); };
-  }, [transcriptionEnabled, isGuest, preferences.gemini.apiKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcriptionEnabled, isGuest]);
 
   useEffect(() => {
     if (!isGuest) return;
@@ -2058,13 +2060,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       stopGeminiRecording();
       return;
     }
-    if (preferences.gemini.apiKey.trim()) {
+    const hasGemini = (preferences.gemini.apiKeys?.some(k => k.trim())) || preferences.gemini.apiKey.trim();
+    if (hasGemini) {
       startGeminiRecording();
     } else {
       startRecognition();
     }
     return () => { stopRecognition(); stopGeminiRecording(); };
-  }, [guestTranscriptionEnabled, isGuest, preferences.gemini.apiKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestTranscriptionEnabled, isGuest]);
 
   const saveGeminiKey = () => {
     const key = geminiKeyInput.trim();
@@ -2092,7 +2096,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     });
 
   const transcribeChunkWithGemini = async (audioBlob: Blob) => {
-    if (!preferences.gemini.apiKey.trim() || !id) return;
+    // Build ordered key list: apiKeys array first, fall back to legacy apiKey
+    const keys = (preferences.gemini.apiKeys?.filter(k => k.trim()) ?? []);
+    if (keys.length === 0 && preferences.gemini.apiKey.trim()) keys.push(preferences.gemini.apiKey.trim());
+    if (keys.length === 0 || !id) return;
     try {
       const base64Audio = await blobToBase64(audioBlob);
       const mimeType = audioBlob.type || "audio/webm";
@@ -2110,19 +2117,27 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           },
         ],
       };
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${preferences.gemini.apiKey.trim()}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+      // Try each key in order; move to next on failure
+      let transcribed = "";
+      for (const key of keys) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            }
+          );
+          if (!res.ok) continue; // try next key
+          const data = await res.json();
+          const t: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+          if (t) { transcribed = t; break; } // got a result, stop trying
+        } catch {
+          continue; // network error on this key, try next
         }
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      const text: string =
-        data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-      if (!text) return;
+      }
+      if (!transcribed) return;
       const speakerName = isGuest ? guestName || "Paciente" : hostDisplayName;
       if (isGuest) {
         if (!participantToken) return;
@@ -2132,7 +2147,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             speaker_name: speakerName,
             speaker_role: "guest",
             session_key: sessionKey,
-            text,
+            text: transcribed,
           })
           .catch(() => {});
       } else {
@@ -2141,12 +2156,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             speaker_name: speakerName,
             speaker_role: "host",
             session_key: sessionKey,
-            text,
+            text: transcribed,
           })
           .catch(() => {});
       }
     } catch {
-      // ignore network/API errors
+      // ignore
     }
   };
 
