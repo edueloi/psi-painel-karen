@@ -1451,6 +1451,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
         setupAudioAnalysis(stream);
+
+        // Inicia gravação de áudio desde a sala de espera (host only)
+        if (!isGuest && !isCompanionMode && !fullRecorderRef.current) {
+          sessionStartRef.current = Date.now();
+          // startFullRecording usa localStreamRef internamente, já disponível
+          setTimeout(() => {
+            if (mounted && !fullRecorderRef.current) startFullRecording();
+          }, 200);
+        }
       } catch (err) {
         console.error("Error accessing media:", err);
         if (!mounted) return;
@@ -1719,9 +1728,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   }, [hasJoined, isCompanionMode, connectionStatus]);
 
-  // Start full session recording when host connects
+  // Inicia gravação assim que o stream local estiver disponível (sala de espera)
+  // Assim o áudio desde o início da sessão é capturado, mesmo antes de entrar
   useEffect(() => {
-    if (!isGuest && !isCompanionMode && connectionStatus === "connected" && !fullRecorderRef.current) {
+    if (!isGuest && !isCompanionMode && localStreamRef.current && !fullRecorderRef.current) {
       sessionStartRef.current = Date.now();
       startFullRecording();
     }
