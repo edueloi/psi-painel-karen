@@ -78,7 +78,7 @@ export const VirtualRooms: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { pushToast } = useToast();
+  const { success: toastSuccess, error: toastError } = useToast();
   const { preferences, updatePreference } = useUserPreferences();
 
   const [rooms, setRooms] = useState<VirtualRoom[]>([]);
@@ -216,6 +216,82 @@ export const VirtualRooms: React.FC = () => {
     );
   };
 
+  const [transcribingRecording, setTranscribingRecording] = useState<number | null>(null);
+
+  const transcribeRecording = async (rec: RecordingEntry, session: SessionSummary) => {
+    if (!geminiKeys.length) {
+      toastError('Chave Gemini necessária', 'Configure uma chave Gemini em "Chaves Gemini para Transcrição" primeiro.');
+      return;
+    }
+    setTranscribingRecording(rec.id);
+    try {
+      // Baixa o arquivo de áudio como blob
+      const audioUrl = `${API_BASE_URL.replace('/api', '')}${rec.file_url}`;
+      const resp = await fetch(audioUrl);
+      if (!resp.ok) throw new Error('Falha ao baixar áudio');
+      const blob = await resp.blob();
+      const mimeType = blob.type || 'audio/webm';
+
+      // Converte para base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Tenta cada chave Gemini em sequência
+      let transcribed = '';
+      for (const key of geminiKeys) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { inline_data: { mime_type: mimeType, data: base64 } },
+                    { text: 'Transcreva este áudio em português brasileiro. Identifique os falantes quando possível (Profissional e Paciente). Retorne apenas o texto transcrito com os falantes, sem explicações adicionais.' },
+                  ],
+                }],
+              }),
+            }
+          );
+          if (!res.ok) continue;
+          const data = await res.json();
+          const t: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+          if (t) { transcribed = t; break; }
+        } catch { continue; }
+      }
+
+      if (!transcribed) {
+        toastError('Falha na transcrição', 'Gemini não conseguiu transcrever o áudio. Tente novamente.');
+        return;
+      }
+
+      // Salva a transcrição no banco via POST /transcripts
+      await api.post(`/virtual-rooms/${session.room_id}/transcripts`, {
+        speaker_name: 'Transcrição do Áudio',
+        speaker_role: 'system',
+        session_key: session.session_key,
+        text: transcribed,
+      });
+
+      // Recarrega transcrições da sessão
+      const updated = await api.get<TranscriptLine[]>(
+        `/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript`
+      );
+      setSessionTranscripts((prev) => ({ ...prev, [session.session_key]: updated || [] }));
+      toastSuccess('Transcrição concluída', 'Áudio transcrito com sucesso!');
+    } catch (e) {
+      toastError('Erro', 'Erro ao transcrever o áudio.');
+    } finally {
+      setTranscribingRecording(null);
+    }
+  };
+
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return '--';
     const m = Math.floor(seconds / 60);
@@ -291,7 +367,7 @@ export const VirtualRooms: React.FC = () => {
       const roomCode = room.code || room.hash || code;
       window.open(`/sala/${roomCode}`, '_blank');
     } catch (error: any) {
-      pushToast('error', 'Erro ao criar sala: ' + (error.message || ''));
+      toastError('Erro ao criar sala', error.message || '');
     } finally {
       setIsCreatingInstant(false);
     }
@@ -336,9 +412,9 @@ export const VirtualRooms: React.FC = () => {
 
       setCreatedRoom(room);
       setRooms((prev) => [room, ...prev]);
-      pushToast('success', 'Sala criada com sucesso.');
+      toastSuccess('Sala criada', 'Sala criada com sucesso.');
     } catch (error: any) {
-      pushToast('error', t('rooms.errorCreate') + ' ' + (error.message || ''));
+      toastError('Erro ao criar sala', error.message || '');
     } finally {
       setIsSavingRoom(false);
     }
@@ -357,9 +433,9 @@ export const VirtualRooms: React.FC = () => {
       await api.delete(`/virtual-rooms/${roomToDelete.id}`);
       setRooms((prev) => prev.filter((room) => room.id !== roomToDelete.id));
       setRoomToDelete(null);
-      pushToast('success', 'Sala removida com sucesso.');
+      toastSuccess('Sala removida', 'Sala removida com sucesso.');
     } catch {
-      pushToast('error', t('rooms.errorDelete'));
+      toastError('Erro', t('rooms.errorDelete'));
     }
   };
 
@@ -609,10 +685,10 @@ export const VirtualRooms: React.FC = () => {
                                 {/* Recordings */}
                                 {(recordings?.length ?? 0) > 0 && (
                                   <div className="space-y-2">
-                                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Gravações</p>
+                                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Gravações de Áudio</p>
                                     {recordings!.map((rec) => (
-                                      <div key={rec.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                      <div key={rec.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                                        <div className="flex items-center justify-between gap-2">
                                           <span className="text-xs font-bold text-slate-700 truncate">{rec.file_name}</span>
                                           <div className="flex items-center gap-2 shrink-0">
                                             {rec.duration_seconds != null && (
@@ -634,6 +710,18 @@ export const VirtualRooms: React.FC = () => {
                                           className="w-full h-8"
                                           src={`${API_BASE_URL.replace('/api', '')}${rec.file_url}`}
                                         />
+                                        {/* Botão transcrever com Gemini */}
+                                        <button
+                                          onClick={() => transcribeRecording(rec, session)}
+                                          disabled={transcribingRecording === rec.id}
+                                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                          {transcribingRecording === rec.id ? (
+                                            <><Loader2 size={13} className="animate-spin" /> Transcrevendo com Gemini...</>
+                                          ) : (
+                                            <><Mic size={13} /> Transcrever Áudio com Gemini</>
+                                          )}
+                                        </button>
                                       </div>
                                     ))}
                                   </div>
