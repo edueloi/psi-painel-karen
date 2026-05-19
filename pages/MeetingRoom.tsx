@@ -3934,11 +3934,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 <PhoneOff size={36} />
               </div>
               <h3 className="text-2xl font-bold text-white mb-2">
-                Encerrar Sessão?
+                {isGuest ? "Sair da sessão?" : "Encerrar Sessão?"}
               </h3>
               <p className="text-slate-400 mb-8 text-sm leading-relaxed">
-                Isso desconectará você e o paciente da sala virtual.
-                Certifique-se de que o prontuário foi salvo.
+                {isGuest
+                  ? "Você vai sair da videochamada. O profissional continuará na sala. Pode entrar novamente pelo link de acesso."
+                  : "Isso encerrará a sessão para você e o paciente. Certifique-se de que o prontuário foi salvo."}
               </p>
               {!isGuest && transcriptionEnabled && (
                 <div className="text-left bg-[#101216] border border-white/10 rounded-2xl p-4 mb-6">
@@ -4004,7 +4005,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                       </svg>
                       Salvando…
                     </>
-                  ) : "Encerrar"}
+                  ) : isGuest ? "Sair" : "Encerrar"}
                 </button>
               </div>
             </div>
