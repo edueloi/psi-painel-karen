@@ -1059,6 +1059,64 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // ---- ROOM TRANSCRIPTS (persistência das transcrições de sala) ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS room_transcripts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      room_id INT NOT NULL,
+      tenant_id INT NOT NULL,
+      session_key VARCHAR(64) NOT NULL,
+      speaker_role ENUM('host','guest','system') DEFAULT 'host',
+      speaker_name VARCHAR(200),
+      text TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_rt_room (room_id),
+      INDEX idx_rt_tenant (tenant_id),
+      INDEX idx_rt_session (session_key),
+      INDEX idx_rt_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- ROOM RECORDINGS (arquivos de áudio das sessões) ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS room_recordings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      room_id INT NOT NULL,
+      tenant_id INT NOT NULL,
+      session_key VARCHAR(64) NOT NULL,
+      file_name VARCHAR(255) NOT NULL,
+      file_url VARCHAR(500) NOT NULL,
+      file_size INT,
+      duration_seconds INT,
+      speaker_role ENUM('host','guest','mixed') DEFAULT 'mixed',
+      speaker_name VARCHAR(200),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_rr_room (room_id),
+      INDEX idx_rr_tenant (tenant_id),
+      INDEX idx_rr_session (session_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ---- ROOM SESSIONS (cada sessão de uma sala, com horário e resumo) ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS room_sessions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      room_id INT NOT NULL,
+      tenant_id INT NOT NULL,
+      session_key VARCHAR(64) NOT NULL UNIQUE,
+      started_at DATETIME,
+      ended_at DATETIME,
+      duration_seconds INT,
+      transcript_count INT DEFAULT 0,
+      recording_count INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_rs_room (room_id),
+      INDEX idx_rs_tenant (tenant_id),
+      INDEX idx_rs_session (session_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   console.log('✅ Migração concluída com sucesso!');
   await conn.end();
 }

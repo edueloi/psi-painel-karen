@@ -2,6 +2,31 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// ── Multer para upload de áudio ───────────────────────────────────────────────
+const audioUploadDir = path.join(__dirname, '../public/uploads/room-recordings');
+if (!fs.existsSync(audioUploadDir)) fs.mkdirSync(audioUploadDir, { recursive: true });
+
+const audioStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, audioUploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.webm';
+    cb(null, `rec-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+  },
+});
+const uploadAudio = multer({
+  storage: audioStorage,
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+  fileFilter: (req, file, cb) => {
+    const ok = /webm|ogg|mp4|wav|mp3|opus/.test(
+      (path.extname(file.originalname) || '').toLowerCase().replace('.', '')
+    );
+    cb(null, ok);
+  },
+});
 
 // ── Auto-migrate virtual_rooms table ─────────────────────────────────────────
 async function ensureSchema() {
@@ -292,17 +317,187 @@ router.get('/:id/transcripts', (req, res) => {
   res.json(sinceItems(transcriptsMap, key, req.query.since));
 });
 
-// POST /virtual-rooms/:id/transcripts
-router.post('/:id/transcripts', (req, res) => {
+// POST /virtual-rooms/:id/transcripts  (persiste no banco + mantém in-memory)
+router.post('/:id/transcripts', async (req, res) => {
   const key = getRoomKey(req.params.id);
-  const { speaker_name, text } = req.body || {};
+  const { speaker_name, text, speaker_role, session_key } = req.body || {};
   const item = pushItem(transcriptsMap, key, {
     id: nextId(),
     speaker_name: speaker_name || '',
+    speaker_role: speaker_role || 'host',
     text: text || '',
     created_at: new Date().toISOString(),
   });
+  // Persistir no banco (async, não bloqueia resposta)
+  const roomId = parseInt(req.params.id) || 0;
+  const sk = session_key || key;
+  if (roomId && req.user && text) {
+    db.query(
+      `INSERT INTO room_transcripts (room_id, tenant_id, session_key, speaker_role, speaker_name, text)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [roomId, req.user.tenant_id, sk, speaker_role || 'host', speaker_name || '', text]
+    ).then(() => {
+      db.query(
+        `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
+         VALUES (?, ?, ?, NOW(), 1)
+         ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
+        [roomId, req.user.tenant_id, sk]
+      ).catch(() => {});
+    }).catch(() => {});
+  }
   res.json({ ok: true, id: item.id });
+});
+
+// GET /virtual-rooms/:id/sessions — histórico de sessões com transcrições
+router.get('/:id/sessions', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const [sessions] = await db.query(
+      `SELECT rs.*,
+              COUNT(rt.id) AS transcript_lines,
+              COUNT(rr.id) AS recordings
+       FROM room_sessions rs
+       LEFT JOIN room_transcripts rt ON rt.session_key = rs.session_key
+       LEFT JOIN room_recordings rr ON rr.session_key = rs.session_key
+       WHERE rs.room_id = ? AND rs.tenant_id = ?
+       GROUP BY rs.id
+       ORDER BY rs.created_at DESC`,
+      [roomId, req.user.tenant_id]
+    );
+    res.json(sessions);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// GET /virtual-rooms/:id/sessions/:sessionKey/transcript
+router.get('/:id/sessions/:sessionKey/transcript', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const [rows] = await db.query(
+      `SELECT id, speaker_role, speaker_name, text, created_at
+       FROM room_transcripts
+       WHERE room_id = ? AND tenant_id = ? AND session_key = ?
+       ORDER BY created_at ASC`,
+      [roomId, req.user.tenant_id, req.params.sessionKey]
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// GET /virtual-rooms/:id/sessions/:sessionKey/transcript/download — baixar .txt
+router.get('/:id/sessions/:sessionKey/transcript/download', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const [rows] = await db.query(
+      `SELECT speaker_name, text, created_at FROM room_transcripts
+       WHERE room_id = ? AND tenant_id = ? AND session_key = ?
+       ORDER BY created_at ASC`,
+      [roomId, req.user.tenant_id, req.params.sessionKey]
+    );
+    const [room] = await db.query(`SELECT title, code FROM virtual_rooms WHERE id = ?`, [roomId]);
+    const roomTitle = room[0]?.title || room[0]?.code || `sala-${roomId}`;
+    const content = rows.map(r => {
+      const ts = new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return `[${ts}] ${r.speaker_name}: ${r.text}`;
+    }).join('\n');
+    const filename = `transcricao-${roomTitle}-${req.params.sessionKey.slice(0, 8)}.txt`;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.send(content || 'Sem transcrição registrada.');
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// GET /virtual-rooms/:id/sessions/:sessionKey/recordings — listar gravações
+router.get('/:id/sessions/:sessionKey/recordings', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const [rows] = await db.query(
+      `SELECT id, file_name, file_url, file_size, duration_seconds, speaker_role, speaker_name, created_at
+       FROM room_recordings
+       WHERE room_id = ? AND tenant_id = ? AND session_key = ?
+       ORDER BY created_at ASC`,
+      [roomId, req.user.tenant_id, req.params.sessionKey]
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /virtual-rooms/:id/sessions/:sessionKey/recordings — upload de áudio
+router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    const roomId = parseInt(req.params.id);
+    const sk = req.params.sessionKey;
+    const { speaker_role, speaker_name, duration_seconds } = req.body || {};
+    const fileUrl = `/uploads/room-recordings/${req.file.filename}`;
+    const [ins] = await db.query(
+      `INSERT INTO room_recordings (room_id, tenant_id, session_key, file_name, file_url, file_size, duration_seconds, speaker_role, speaker_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [roomId, req.user.tenant_id, sk, req.file.originalname, fileUrl,
+       req.file.size, parseInt(duration_seconds) || null,
+       speaker_role || 'mixed', speaker_name || null]
+    );
+    await db.query(
+      `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, recording_count)
+       VALUES (?, ?, ?, NOW(), 1)
+       ON DUPLICATE KEY UPDATE recording_count = recording_count + 1, updated_at = NOW()`,
+      [roomId, req.user.tenant_id, sk]
+    );
+    res.json({ id: ins.insertId, file_url: fileUrl });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erro ao salvar gravação.' });
+  }
+});
+
+// POST /virtual-rooms/:id/sessions/:sessionKey/end — marcar sessão como encerrada
+router.post('/:id/sessions/:sessionKey/end', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const { duration_seconds } = req.body || {};
+    await db.query(
+      `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, ended_at, duration_seconds)
+       VALUES (?, ?, ?, NOW(), NOW(), ?)
+       ON DUPLICATE KEY UPDATE ended_at = NOW(), duration_seconds = ?, updated_at = NOW()`,
+      [roomId, req.user.tenant_id, req.params.sessionKey, duration_seconds || null, duration_seconds || null]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// GET /virtual-rooms/history — todas as sessões do tenant
+router.get('/history', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT rs.*, vr.title AS room_title, vr.code AS room_code,
+              p.full_name AS patient_name,
+              u.name AS professional_name,
+              (SELECT COUNT(*) FROM room_transcripts rt WHERE rt.session_key = rs.session_key) AS transcript_count,
+              (SELECT COUNT(*) FROM room_recordings rr WHERE rr.session_key = rs.session_key) AS recording_count
+       FROM room_sessions rs
+       JOIN virtual_rooms vr ON vr.id = rs.room_id
+       LEFT JOIN patients p ON p.id = vr.patient_id
+       LEFT JOIN users u ON u.id = vr.professional_id
+       WHERE rs.tenant_id = ?
+       ORDER BY rs.created_at DESC
+       LIMIT 200`,
+      [req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
 });
 
 // ── Waiting room ──────────────────────────────────────────────────────────────
@@ -491,16 +686,38 @@ router.get('/public/:id/transcripts', (req, res) => {
   res.json(sinceItems(transcriptsMap, key, req.query.since));
 });
 
-// POST /virtual-rooms/public/:id/transcripts
-router.post('/public/:id/transcripts', (req, res) => {
+// POST /virtual-rooms/public/:id/transcripts  (guest — persiste no banco)
+router.post('/public/:id/transcripts', async (req, res) => {
   const key = getRoomKey(req.params.id);
-  const { speaker_name, text } = req.body || {};
+  const { speaker_name, text, speaker_role, session_key, token: guestToken } = req.body || {};
   const item = pushItem(transcriptsMap, key, {
     id: nextId(),
     speaker_name: speaker_name || '',
+    speaker_role: speaker_role || 'guest',
     text: text || '',
     created_at: new Date().toISOString(),
   });
+  // Persistir — busca tenant_id pela sala
+  const roomId = parseInt(req.params.id) || 0;
+  if (roomId && text) {
+    db.query(`SELECT tenant_id FROM virtual_rooms WHERE id = ?`, [roomId])
+      .then(([rows]) => {
+        if (!rows[0]) return;
+        const tid = rows[0].tenant_id;
+        const sk = session_key || key;
+        db.query(
+          `INSERT INTO room_transcripts (room_id, tenant_id, session_key, speaker_role, speaker_name, text)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [roomId, tid, sk, speaker_role || 'guest', speaker_name || '', text]
+        ).catch(() => {});
+        db.query(
+          `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
+           VALUES (?, ?, ?, NOW(), 1)
+           ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
+          [roomId, tid, sk]
+        ).catch(() => {});
+      }).catch(() => {});
+  }
   res.json({ ok: true, id: item.id });
 });
 

@@ -1,14 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Calendar,
   Check,
+  ChevronDown,
   Clock,
   Copy,
+  Download,
+  FileText,
   History,
   Link as LinkIcon,
   Loader2,
+  Mic,
   Play,
   Plus,
   Search,
@@ -17,6 +21,7 @@ import {
   Trash2,
   Video,
 } from 'lucide-react';
+import { API_BASE_URL } from '../services/api';
 import { api } from '../services/api';
 import { Patient, User, VirtualRoom } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -36,6 +41,37 @@ import {
   Textarea,
 } from '../components/UI';
 
+type SessionSummary = {
+  id: number;
+  room_id: number;
+  session_key: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  transcript_count: number;
+  recording_count: number;
+  room_title?: string;
+  room_code?: string;
+};
+
+type TranscriptLine = {
+  id: number;
+  speaker_role: 'host' | 'guest' | 'system';
+  speaker_name: string;
+  text: string;
+  created_at: string;
+};
+
+type RecordingEntry = {
+  id: number;
+  file_name: string;
+  file_url: string;
+  file_size: number;
+  duration_seconds: number | null;
+  speaker_role: string;
+  created_at: string;
+};
+
 export const VirtualRooms: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -54,6 +90,16 @@ export const VirtualRooms: React.FC = () => {
   const [createdRoom, setCreatedRoom] = useState<VirtualRoom | null>(null);
   const [isCreatingInstant, setIsCreatingInstant] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<VirtualRoom | null>(null);
+
+  // Transcrições tab
+  const [activeTab, setActiveTab] = useState<'rooms' | 'transcricoes'>('rooms');
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [sessionTranscripts, setSessionTranscripts] = useState<Record<string, TranscriptLine[]>>({});
+  const [sessionRecordings, setSessionRecordings] = useState<Record<string, RecordingEntry[]>>({});
+  const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
+  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
   const [createForm, setCreateForm] = useState({
     title: '',
@@ -89,6 +135,61 @@ export const VirtualRooms: React.FC = () => {
   useEffect(() => {
     fetchRooms();
   }, []);
+
+  const fetchSessions = async () => {
+    setSessionsLoading(true);
+    try {
+      const data = await api.get<SessionSummary[]>('/virtual-rooms/history');
+      setSessions(data || []);
+    } catch {
+      // ignore
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'transcricoes') fetchSessions();
+  }, [activeTab]);
+
+  const toggleSession = async (session: SessionSummary) => {
+    const key = session.session_key;
+    if (expandedSession === key) {
+      setExpandedSession(null);
+      return;
+    }
+    setExpandedSession(key);
+    if (sessionTranscripts[key] !== undefined) return;
+    setLoadingDetail(key);
+    try {
+      const [transcripts, recordings] = await Promise.all([
+        api.get<TranscriptLine[]>(`/virtual-rooms/${session.room_id}/sessions/${key}/transcript`),
+        api.get<RecordingEntry[]>(`/virtual-rooms/${session.room_id}/sessions/${key}/recordings`),
+      ]);
+      setSessionTranscripts((prev) => ({ ...prev, [key]: transcripts || [] }));
+      setSessionRecordings((prev) => ({ ...prev, [key]: recordings || [] }));
+    } catch {
+      setSessionTranscripts((prev) => ({ ...prev, [key]: [] }));
+      setSessionRecordings((prev) => ({ ...prev, [key]: [] }));
+    } finally {
+      setLoadingDetail(null);
+    }
+  };
+
+  const downloadTranscript = (session: SessionSummary) => {
+    const token = localStorage.getItem('psi_token');
+    window.open(
+      `${API_BASE_URL}/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript/download?token=${token}`,
+      '_blank'
+    );
+  };
+
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return '--';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s.toString().padStart(2, '0')}s`;
+  };
 
   const matchesQuery = (room: VirtualRoom) => {
     const query = roomSearch.trim().toLowerCase();
@@ -291,7 +392,194 @@ export const VirtualRooms: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Tab navigation */}
+        <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1 w-fit">
+          <button
+            onClick={() => setActiveTab('rooms')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+              activeTab === 'rooms'
+                ? 'bg-white text-indigo-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Video size={15} /> Salas
+          </button>
+          <button
+            onClick={() => setActiveTab('transcricoes')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+              activeTab === 'transcricoes'
+                ? 'bg-white text-indigo-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <FileText size={15} /> Transcrições
+          </button>
+        </div>
+
+        {activeTab === 'transcricoes' && (
+          <div className="rounded-3xl bg-gradient-to-br from-indigo-200 via-white to-slate-200 p-px shadow-lg">
+            <div className="rounded-[22px] border border-slate-100 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4">
+                <h3 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                  <FileText size={20} className="text-indigo-600" /> Histórico de Transcrições
+                </h3>
+                <button
+                  onClick={fetchSessions}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+                >
+                  Atualizar
+                </button>
+              </div>
+
+              {sessionsLoading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="animate-spin text-slate-300" size={32} />
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                  <FileText size={40} className="mb-4 opacity-20" />
+                  <p className="font-medium">Nenhuma sessão registrada ainda.</p>
+                  <p className="mt-1 text-sm">As transcrições aparecem aqui após encerrar uma sessão.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {sessions.map((session) => {
+                    const isOpen = expandedSession === session.session_key;
+                    const transcripts = sessionTranscripts[session.session_key];
+                    const recordings = sessionRecordings[session.session_key];
+                    const isLoadingThis = loadingDetail === session.session_key;
+                    return (
+                      <div key={session.session_key}>
+                        <button
+                          onClick={() => toggleSession(session)}
+                          className="w-full flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                              <Mic size={18} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-bold text-slate-800 text-sm">
+                                {session.room_title || `Sala #${session.room_id}`}
+                                {session.room_code && (
+                                  <span className="ml-2 font-mono text-[10px] text-slate-400">{session.room_code}</span>
+                                )}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                {new Date(session.started_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                {' · '}
+                                {new Date(session.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                {session.duration_seconds != null && ` · ${formatDuration(session.duration_seconds)}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600">
+                              {session.transcript_count} linhas
+                            </span>
+                            {session.recording_count > 0 && (
+                              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600">
+                                {session.recording_count} áudio{session.recording_count > 1 ? 's' : ''}
+                              </span>
+                            )}
+                            <ChevronDown
+                              size={16}
+                              className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            />
+                          </div>
+                        </button>
+
+                        {isOpen && (
+                          <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-4">
+                            {isLoadingThis ? (
+                              <div className="flex justify-center py-6">
+                                <Loader2 className="animate-spin text-slate-300" size={24} />
+                              </div>
+                            ) : (
+                              <>
+                                {/* Actions row */}
+                                <div className="flex flex-wrap gap-2">
+                                  {(transcripts?.length ?? 0) > 0 && (
+                                    <button
+                                      onClick={() => downloadTranscript(session)}
+                                      className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors"
+                                    >
+                                      <Download size={13} /> Baixar .txt
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Recordings */}
+                                {(recordings?.length ?? 0) > 0 && (
+                                  <div className="space-y-2">
+                                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Gravações</p>
+                                    {recordings!.map((rec) => (
+                                      <div key={rec.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                          <span className="text-xs font-bold text-slate-700 truncate">{rec.file_name}</span>
+                                          <div className="flex items-center gap-2 shrink-0">
+                                            {rec.duration_seconds != null && (
+                                              <span className="text-[11px] text-slate-400">{formatDuration(rec.duration_seconds)}</span>
+                                            )}
+                                            <a
+                                              href={`${API_BASE_URL.replace('/api', '')}${rec.file_url}`}
+                                              download={rec.file_name}
+                                              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                                              title="Baixar áudio"
+                                            >
+                                              <Download size={13} />
+                                            </a>
+                                          </div>
+                                        </div>
+                                        <audio
+                                          ref={(el) => { audioRefs.current[`${rec.id}`] = el; }}
+                                          controls
+                                          className="w-full h-8"
+                                          src={`${API_BASE_URL.replace('/api', '')}${rec.file_url}`}
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Transcript */}
+                                {(transcripts?.length ?? 0) > 0 ? (
+                                  <div className="space-y-2">
+                                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Transcrição</p>
+                                    <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                                      {transcripts!.map((line) => (
+                                        <div key={line.id} className="flex gap-2">
+                                          <span
+                                            className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                              line.speaker_role === 'host'
+                                                ? 'bg-indigo-100 text-indigo-700'
+                                                : 'bg-emerald-100 text-emerald-700'
+                                            }`}
+                                          >
+                                            {line.speaker_name}
+                                          </span>
+                                          <p className="text-xs text-slate-700 leading-relaxed">{line.text}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-center text-sm text-slate-400 py-4">Sem transcrição registrada para esta sessão.</p>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'rooms' && <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="space-y-6">
             <div className="rounded-3xl bg-gradient-to-br from-indigo-200 via-white to-slate-200 p-px shadow-lg">
               <div className="rounded-[22px] border border-slate-100 bg-white p-6 sm:p-8">
@@ -485,7 +773,8 @@ export const VirtualRooms: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>}
+
       </div>
 
       <Modal

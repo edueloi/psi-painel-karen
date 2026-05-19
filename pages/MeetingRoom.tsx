@@ -285,6 +285,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [geminiKeySaved, setGeminiKeySaved] = useState(false);
   const [geminiRecording, setGeminiRecording] = useState(false);
 
+  // Session key — identifica unicamente esta sessão para persistência
+  const [sessionKey] = useState<string>(() => {
+    const ts = Date.now().toString(36);
+    const rand = Math.random().toString(36).slice(2, 7);
+    return `${ts}-${rand}`;
+  });
+  const sessionStartRef = useRef<number>(Date.now());
+
+  // Gravação contínua do áudio local para upload ao encerrar
+  const fullRecorderRef = useRef<MediaRecorder | null>(null);
+  const fullAudioChunksRef = useRef<Blob[]>([]);
+  const [isUploadingRecording, setIsUploadingRecording] = useState(false);
+
   // --- Refs ---
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
@@ -1690,6 +1703,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   }, [hasJoined, isCompanionMode, connectionStatus]);
 
+  // Start full session recording when host connects
+  useEffect(() => {
+    if (!isGuest && !isCompanionMode && connectionStatus === "connected" && !fullRecorderRef.current) {
+      sessionStartRef.current = Date.now();
+      startFullRecording();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionStatus, isGuest, isCompanionMode]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -2108,6 +2130,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           .post(`/virtual-rooms/public/${id}/transcripts`, {
             token: participantToken,
             speaker_name: speakerName,
+            speaker_role: "guest",
+            session_key: sessionKey,
             text,
           })
           .catch(() => {});
@@ -2115,6 +2139,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         api
           .post(`/virtual-rooms/${id}/transcripts`, {
             speaker_name: speakerName,
+            speaker_role: "host",
+            session_key: sessionKey,
             text,
           })
           .catch(() => {});
@@ -2191,7 +2217,83 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   };
 
+  const startFullRecording = () => {
+    if (!id || isGuest) return; // only host records
+    const stream = localStreamRef.current;
+    if (!stream || fullRecorderRef.current) return;
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/webm")
+      ? "audio/webm"
+      : "audio/ogg";
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType });
+    } catch {
+      return;
+    }
+    fullAudioChunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) fullAudioChunksRef.current.push(e.data);
+    };
+    fullRecorderRef.current = recorder;
+    recorder.start(5000); // collect chunks every 5s
+  };
+
+  const stopAndUploadRecording = (): Promise<void> => {
+    return new Promise((resolve) => {
+      const recorder = fullRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        resolve();
+        return;
+      }
+      recorder.onstop = async () => {
+        fullRecorderRef.current = null;
+        const chunks = fullAudioChunksRef.current;
+        fullAudioChunksRef.current = [];
+        if (!id || chunks.length === 0) { resolve(); return; }
+        const mimeType = chunks[0].type || "audio/webm";
+        const ext = mimeType.includes("ogg") ? "ogg" : "webm";
+        const blob = new Blob(chunks, { type: mimeType });
+        const formData = new FormData();
+        formData.append("audio", blob, `recording-${sessionKey}.${ext}`);
+        formData.append("speaker_role", "mixed");
+        formData.append("speaker_name", hostDisplayName);
+        setIsUploadingRecording(true);
+        try {
+          await api.post(`/virtual-rooms/${id}/sessions/${sessionKey}/recordings`, formData);
+        } catch {
+          // non-critical
+        } finally {
+          setIsUploadingRecording(false);
+        }
+        resolve();
+      };
+      try {
+        recorder.stop();
+      } catch {
+        fullRecorderRef.current = null;
+        resolve();
+      }
+    });
+  };
+
   const handleEndCall = async () => {
+    stopGeminiRecording();
+    // Upload full recording before navigating (host only)
+    if (!isGuest && id && fullRecorderRef.current) {
+      const durationSeconds = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+      setIsUploadingRecording(true);
+      await stopAndUploadRecording();
+      setIsUploadingRecording(false);
+      try {
+        await api.post(`/virtual-rooms/${id}/sessions/${sessionKey}/end`, {
+          duration_seconds: durationSeconds,
+        });
+      } catch {
+        // non-critical
+      }
+    }
     cleanupMedia();
     if (isGuest && participantToken && id) {
       try {
@@ -3871,9 +3973,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 </button>
                 <button
                   onClick={handleEndCall}
-                  className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors"
+                  disabled={isUploadingRecording}
+                  className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2"
                 >
-                  Encerrar
+                  {isUploadingRecording ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                      Salvando…
+                    </>
+                  ) : "Encerrar"}
                 </button>
               </div>
             </div>
