@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   User, ArrowRight, CheckCircle, AlertCircle, Loader2, Shield,
   Star, Calendar, CreditCard, Eye, EyeOff, Lock, Mail, ChevronLeft,
+  Heart, FileText, MessageCircle,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
 
@@ -39,6 +40,17 @@ function portalApiFetch(path: string, body?: object) {
   });
 }
 
+// ─── Toast simples para PatientPortalLogin ───────────────────────────────────
+function LoginToast({ msg, type = "success" }: { msg: string; type?: "success" | "error" | "info" }) {
+  const colors = { success: "bg-emerald-600", error: "bg-red-600", info: "bg-indigo-600" };
+  const icons = { success: <CheckCircle size={15} />, error: <AlertCircle size={15} />, info: <CheckCircle size={15} /> };
+  return (
+    <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[9999] ${colors[type]} text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold flex items-center gap-2.5 max-w-sm`}>
+      {icons[type]}{msg}
+    </div>
+  );
+}
+
 export const PatientPortalLogin: React.FC = () => {
   const { token } = useParams<{ token?: string }>();
   const navigate = useNavigate();
@@ -47,6 +59,7 @@ export const PatientPortalLogin: React.FC = () => {
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
 
   // Formulário de cadastro (self_register)
   const [regForm, setRegForm] = useState({ full_name: "", email: "", whatsapp: "", birth_date: "", cpf: "" });
@@ -79,6 +92,11 @@ export const PatientPortalLogin: React.FC = () => {
       const res = await fetch(`${API_BASE_URL}/patient-portal/invite/${tk}`);
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
+        // Se já tem senha configurada, redireciona para login ao invés de erro
+        if (res.status === 410 && e.error?.includes('email e senha')) {
+          setPhase("landing");
+          return;
+        }
         setErrorMsg(e.error || (res.status === 500 ? "Erro no servidor. Tente novamente em instantes." : "Link inválido ou expirado."));
         setPhase("error");
         return;
@@ -114,11 +132,11 @@ export const PatientPortalLogin: React.FC = () => {
         return;
       }
       const data = await res.json();
-      // Guarda sessão temporária para definir senha
+      // Normaliza session_token → token (formato esperado por getSession())
+      const session = { ...data, token: data.session_token };
       setTempSession(data.session_token);
-      // Preenche email se disponível
       setPassForm(f => ({ ...f, email: info.patient_email || "" }));
-      localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
       setPhase("invite_setpass");
     } catch {
       setErrorMsg("Erro ao conectar.");
@@ -143,9 +161,10 @@ export const PatientPortalLogin: React.FC = () => {
         return;
       }
       const data = await res.json();
+      const session = { ...data, token: data.session_token };
       setTempSession(data.session_token);
       setPassForm(f => ({ ...f, email: regForm.email }));
-      localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
       setPhase("invite_setpass");
     } catch {
       setErrorMsg("Erro ao conectar.");
@@ -164,7 +183,7 @@ export const PatientPortalLogin: React.FC = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Portal-Token": session?.session_token || tempSession || "",
+          "X-Portal-Token": session?.token || session?.session_token || tempSession || "",
         },
         body: JSON.stringify({ email: passForm.email, password: passForm.password }),
       });
@@ -173,7 +192,8 @@ export const PatientPortalLogin: React.FC = () => {
         setErrorMsg(e.error || "Erro ao definir senha.");
         return;
       }
-      navigate("/portal/inicio", { replace: true });
+      setSuccessMsg("Acesso configurado! Entrando no portal...");
+      setTimeout(() => navigate("/portal/inicio", { replace: true }), 1200);
     } catch {
       setErrorMsg("Erro ao conectar.");
     } finally { setSubmitting(false); }
@@ -194,12 +214,27 @@ export const PatientPortalLogin: React.FC = () => {
         return;
       }
       const data = await res.json();
-      localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-      navigate("/portal/inicio", { replace: true });
+      // Normaliza session_token → token (formato esperado por getSession())
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ ...data, token: data.session_token }));
+      setSuccessMsg("Login realizado! Entrando no portal...");
+      setTimeout(() => navigate("/portal/inicio", { replace: true }), 1000);
     } catch {
       setErrorMsg("Erro ao conectar.");
     } finally { setSubmitting(false); }
   };
+
+  // ── Toast de sucesso global (mostrado sobre qualquer fase) ──────────────────
+  if (successMsg) return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
+      <LoginToast msg={successMsg} type="success" />
+      <div className="text-center">
+        <div className="w-16 h-16 bg-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+          <CheckCircle size={28} className="text-white" />
+        </div>
+        <p className="text-slate-600 font-bold">{successMsg}</p>
+      </div>
+    </div>
+  );
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (phase === "loading") {
@@ -235,76 +270,101 @@ export const PatientPortalLogin: React.FC = () => {
   // ── Landing sem token ───────────────────────────────────────────────────────
   if (phase === "landing") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-700 to-indigo-900 flex flex-col items-center justify-center p-6 text-white">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border border-white/30">
-              <User size={44} className="text-white" />
+      <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+        {/* Hero — oculto em mobile, visível em desktop */}
+        <div className="hidden lg:flex lg:w-5/12 relative bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-700 flex-col items-center justify-center p-12 text-white overflow-hidden">
+          <div className="absolute -top-16 -left-16 w-64 h-64 bg-white/5 rounded-full" />
+          <div className="absolute -bottom-12 -right-12 w-80 h-80 bg-white/5 rounded-full" />
+          <div className="relative z-10 w-full max-w-xs">
+            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-6 shadow-xl border border-white/30">
+              <Heart size={26} className="text-white" fill="currentColor" />
             </div>
-            <h1 className="text-3xl font-black mb-2">Portal do Paciente</h1>
-            <p className="text-white/70 mb-0 text-base">Acompanhe suas consultas, pagamentos e muito mais.</p>
+            <h1 className="text-3xl font-black mb-2 leading-tight">Portal do<br/>Paciente</h1>
+            <p className="text-white/65 text-sm leading-relaxed mb-8">Sua saúde, seu espaço. Acesse consultas, pagamentos e muito mais.</p>
+            <div className="space-y-2.5">
+              {[
+                { icon: <Calendar size={14} />, label: "Consultas e agendamentos" },
+                { icon: <CreditCard size={14} />, label: "Histórico de pagamentos" },
+                { icon: <FileText size={14} />, label: "Documentos e prontuário" },
+                { icon: <MessageCircle size={14} />, label: "Comunicação segura" },
+              ].map(f => (
+                <div key={f.label} className="flex items-center gap-2.5 text-white/75">
+                  <div className="w-7 h-7 bg-white/15 rounded-lg flex items-center justify-center shrink-0">{f.icon}</div>
+                  <span className="text-sm">{f.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            {[
-              { icon: <Calendar size={20} />, label: "Agenda" },
-              { icon: <CreditCard size={20} />, label: "Pagamentos" },
-              { icon: <Shield size={20} />, label: "Segurança" },
-            ].map(f => (
-              <div key={f.label} className="bg-white/10 backdrop-blur rounded-2xl p-4 flex flex-col items-center gap-2 border border-white/20">
-                {f.icon}
-                <span className="text-xs font-semibold text-white/80">{f.label}</span>
+        {/* Formulário */}
+        <div className="flex-1 flex flex-col items-center justify-center p-5 min-h-screen lg:min-h-0">
+          <div className="w-full max-w-sm">
+            {/* Header mobile */}
+            <div className="lg:hidden flex items-center gap-3 mb-7">
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md shrink-0">
+                <Heart size={18} className="text-white" fill="currentColor" />
               </div>
-            ))}
-          </div>
-
-          {/* Login com email/senha */}
-          <div className="bg-white rounded-3xl p-6 shadow-2xl mb-4">
-            <h2 className="text-slate-800 font-bold text-lg mb-4">Entrar no Portal</h2>
-            <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Email</label>
+                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest leading-none">Bem-vindo(a)</p>
+                <p className="text-lg font-black text-slate-800 leading-tight">Portal do Paciente</p>
+              </div>
+            </div>
+
+            {/* Título desktop */}
+            <div className="hidden lg:block mb-6">
+              <h2 className="text-2xl font-black text-slate-800">Bem-vindo(a) de volta</h2>
+              <p className="text-slate-400 text-sm mt-1">Entre com suas credenciais para continuar.</p>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Email</label>
                 <div className="relative">
-                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input type="email" placeholder="seu@email.com" value={loginForm.email}
                     onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && doEmailLogin()}
-                    className="w-full border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                    className="w-full text-slate-800 placeholder-slate-400 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Senha</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Senha</label>
                 <div className="relative">
-                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input type={showLoginPass ? "text" : "password"} placeholder="••••••••" value={loginForm.password}
+                  <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input type={showLoginPass ? "text" : "password"} placeholder="Digite sua senha" value={loginForm.password}
                     onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && doEmailLogin()}
-                    className="w-full border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-sm bg-slate-50 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                    className="w-full text-slate-800 placeholder-slate-400 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
                   <button onClick={() => setShowLoginPass(v => !v)} type="button"
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                    {showLoginPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {showLoginPass ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
 
               {errorMsg && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-2xl px-4 py-3 border border-red-200">
-                  <AlertCircle size={14} />{errorMsg}
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-3.5 py-2.5 border border-red-100">
+                  <AlertCircle size={14} className="shrink-0" /><span>{errorMsg}</span>
                 </div>
               )}
 
               <button onClick={doEmailLogin} disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm shadow-lg transition-all active:scale-95 disabled:opacity-60">
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md shadow-indigo-200/50 transition-all active:scale-[0.98] disabled:opacity-60">
+                {submitting ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
                 {submitting ? "Entrando..." : "Entrar"}
               </button>
             </div>
-          </div>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-            <p className="text-sm text-white/80 flex items-center gap-2">
-              <Star size={13} className="text-yellow-300 shrink-0" />
-              Primeiro acesso? Clique no link que seu profissional enviou para você.
+            <div className="mt-4 flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl p-3.5">
+              <Star size={13} className="text-amber-500 shrink-0 mt-0.5" fill="currentColor" />
+              <p className="text-xs text-amber-700 leading-relaxed">
+                <span className="font-bold">Primeiro acesso?</span> Use o link enviado pelo seu profissional.
+              </p>
+            </div>
+
+            <p className="text-center text-[11px] text-slate-400 mt-5 flex items-center justify-center gap-1">
+              <Shield size={10} />Dados protegidos com criptografia
             </p>
           </div>
         </div>

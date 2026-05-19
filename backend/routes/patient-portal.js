@@ -53,7 +53,8 @@ router.get('/invite/:token', async (req, res) => {
       `SELECT ppt.*,
               u.name AS professional_name, u.specialty, u.crp, u.avatar_url,
               ten.name AS company_name,
-              p.name AS patient_name, p.email AS patient_email
+              p.name AS patient_name, p.email AS patient_email,
+              p.portal_password_set
        FROM patient_portal_tokens ppt
        LEFT JOIN users u ON u.id = ppt.professional_id
        LEFT JOIN tenants ten ON ten.id = ppt.tenant_id
@@ -65,8 +66,9 @@ router.get('/invite/:token', async (req, res) => {
     if (!tk) return res.status(404).json({ error: 'Link inválido ou expirado.' });
     if (tk.expires_at && new Date(tk.expires_at) < new Date())
       return res.status(410).json({ error: 'Este link expirou.' });
-    if (tk.is_used && !tk.self_register)
-      return res.status(410).json({ error: 'Este link já foi utilizado. Solicite um novo link ao seu profissional.' });
+    // Bloqueia apenas se é self_register já usado OU se paciente já configurou senha (usa email+senha daqui em diante)
+    if (tk.is_used && tk.portal_password_set && !tk.self_register)
+      return res.status(410).json({ error: 'Você já possui acesso configurado. Faça login com seu email e senha.' });
 
     res.json({
       valid: true,
@@ -93,7 +95,8 @@ router.get('/invite/:token', async (req, res) => {
 router.post('/invite/:token/login', async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT ppt.*, p.id AS pid, p.name AS full_name, p.email, p.tenant_id
+      `SELECT ppt.*, p.id AS pid, p.name AS full_name, p.email, p.tenant_id,
+              p.portal_password_set
        FROM patient_portal_tokens ppt
        JOIN patients p ON p.id = ppt.patient_id
        WHERE ppt.token = ? AND (ppt.expires_at IS NULL OR ppt.expires_at > NOW())`,
@@ -102,14 +105,15 @@ router.post('/invite/:token/login', async (req, res) => {
     if (!rows[0]) return res.status(401).json({ error: 'Link inválido ou expirado.' });
     const row = rows[0];
 
-    // Link de uso único: bloquear se já foi usado
-    if (row.is_used) {
-      return res.status(410).json({ error: 'Este link já foi utilizado. Solicite um novo link ao seu profissional.' });
+    // Marcar como usado apenas quando paciente já tem senha configurada
+    // (nesse caso o link virou desnecessário — paciente usa email+senha)
+    if (row.is_used && row.portal_password_set) {
+      return res.status(410).json({ error: 'Este link já foi utilizado. Faça login com seu email e senha.' });
     }
-
-    // Marcar como usado imediatamente (uso único)
-    await db.query(`UPDATE patient_portal_tokens SET is_used = 1 WHERE id = ?`, [row.id]);
-    db.query(`UPDATE patient_portal_tokens SET used_at = NOW() WHERE id = ?`, [row.id]).catch(() => {});
+    if (!row.is_used) {
+      await db.query(`UPDATE patient_portal_tokens SET is_used = 1 WHERE id = ?`, [row.id]);
+      db.query(`UPDATE patient_portal_tokens SET used_at = NOW() WHERE id = ?`, [row.id]).catch(() => {});
+    }
 
     const sessionToken = genToken();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // sessão válida por 30 dias
@@ -198,7 +202,7 @@ router.post('/auth/set-password', async (req, res) => {
 
     const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
     await db.query(
-      `UPDATE patients SET ${sets}, updated_at = NOW() WHERE id = ?`,
+      `UPDATE patients SET ${sets} WHERE id = ?`,
       [...Object.values(updates), rows[0].patient_id]
     );
 
@@ -340,7 +344,7 @@ router.patch('/me', portalAuth, async (req, res) => {
     if (!Object.keys(updates).length) return res.json({ ok: true });
     const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
     await db.query(
-      `UPDATE patients SET ${sets}, updated_at = NOW() WHERE id = ? AND tenant_id = ?`,
+      `UPDATE patients SET ${sets} WHERE id = ? AND tenant_id = ?`,
       [...Object.values(updates), patient_id, tenant_id]
     );
     res.json({ ok: true });
@@ -356,7 +360,9 @@ router.get('/appointments', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
     const [rows] = await db.query(
-      `SELECT a.id, a.start_date, a.end_date, a.status, a.type, a.modality,
+      `SELECT a.id,
+              a.start_time AS start_date, a.end_time AS end_date,
+              a.status, a.type, a.modality,
               a.meeting_url, a.notes, a.duration_minutes,
               u.name AS professional_name, u.specialty, u.avatar_url AS prof_avatar,
               s.name AS service_name, s.price AS service_price
@@ -365,7 +371,7 @@ router.get('/appointments', portalAuth, async (req, res) => {
        LEFT JOIN services s ON s.id = a.service_id
        WHERE a.patient_id = ? AND a.tenant_id = ?
          AND a.type != 'bloqueio' AND a.type != 'pessoal'
-       ORDER BY a.start_date DESC
+       ORDER BY a.start_time DESC
        LIMIT 100`,
       [patient_id, tenant_id]
     );
@@ -438,7 +444,7 @@ router.patch('/appointments/:id/cancel', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
     const [rows] = await db.query(
-      `SELECT id, status, start_date FROM appointments WHERE id = ? AND patient_id = ? AND tenant_id = ?`,
+      `SELECT id, status, start_time FROM appointments WHERE id = ? AND patient_id = ? AND tenant_id = ?`,
       [req.params.id, patient_id, tenant_id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Consulta não encontrada.' });
@@ -446,7 +452,7 @@ router.patch('/appointments/:id/cancel', portalAuth, async (req, res) => {
     if (!['scheduled', 'confirmed'].includes(appt.status))
       return res.status(409).json({ error: 'Esta consulta não pode ser cancelada.' });
     // Só pode cancelar com pelo menos 2h de antecedência
-    const start = new Date(appt.start_date);
+    const start = new Date(appt.start_time);
     const now = new Date();
     const diffHours = (start - now) / 3600000;
     if (diffHours < 2)
@@ -468,20 +474,27 @@ router.get('/payments', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
     const [rows] = await db.query(
-      `SELECT p.*,
-              a.start_date AS appointment_date, a.status AS appointment_status,
-              (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', att.id, 'file_name', att.file_name, 'file_url', att.file_url, 'file_type', att.file_type))
-               FROM patient_portal_payment_attachments att WHERE att.payment_id = p.id) AS attachments
+      `SELECT p.*, a.start_time AS appointment_date, a.status AS appointment_status
        FROM patient_portal_payments p
        LEFT JOIN appointments a ON a.id = p.appointment_id
        WHERE p.patient_id = ? AND p.tenant_id = ?
        ORDER BY p.created_at DESC`,
       [patient_id, tenant_id]
     );
-    res.json(rows.map(r => ({
-      ...r,
-      attachments: r.attachments ? (typeof r.attachments === 'string' ? JSON.parse(r.attachments) : r.attachments) : [],
-    })));
+    // Busca attachments separado (evita JSON_ARRAYAGG — não disponível MySQL < 8)
+    const paymentIds = rows.map(r => r.id);
+    let attachMap = {};
+    if (paymentIds.length > 0) {
+      const [atts] = await db.query(
+        `SELECT payment_id, id, file_name, file_url, file_type FROM patient_portal_payment_attachments WHERE payment_id IN (?)`,
+        [paymentIds]
+      );
+      for (const att of atts) {
+        if (!attachMap[att.payment_id]) attachMap[att.payment_id] = [];
+        attachMap[att.payment_id].push(att);
+      }
+    }
+    res.json(rows.map(r => ({ ...r, attachments: attachMap[r.id] || [] })));
   } catch (e) {
     res.status(500).json({ error: 'Erro interno.' });
   }
@@ -563,6 +576,168 @@ router.get('/professionals', portalAuth, async (req, res) => {
   }
 });
 
+// GET /patient-portal/professionals/:id/slots?date=YYYY-MM-DD
+// Retorna horários disponíveis de um profissional em um dia específico
+router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
+  try {
+    const { tenant_id } = req.portalSession;
+    const profId = parseInt(req.params.id);
+    const date = req.query.date; // YYYY-MM-DD
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+      return res.status(400).json({ error: 'Parâmetro date obrigatório (YYYY-MM-DD).' });
+
+    // Busca schedule do profissional
+    const [users] = await db.query(
+      `SELECT id, name, schedule, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [profId, tenant_id]
+    );
+    if (!users[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
+
+    let schedule = null;
+    try {
+      schedule = users[0].schedule
+        ? (typeof users[0].schedule === 'string' ? JSON.parse(users[0].schedule) : users[0].schedule)
+        : null;
+    } catch { schedule = null; }
+
+    const DAY_KEYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    // Calcula dia da semana sem problemas de timezone
+    const [yyyy, mm, dd] = date.split('-').map(Number);
+    const dayIndex = new Date(yyyy, mm - 1, dd).getDay();
+    const dayKey = DAY_KEYS[dayIndex];
+    const allSlots = (schedule && Array.isArray(schedule[dayKey])) ? schedule[dayKey] : [];
+
+    if (allSlots.length === 0) return res.json({ slots: [], date, day_key: dayKey });
+
+    // Busca appointments já ocupados nesse dia
+    const [occupied] = await db.query(
+      `SELECT start_time, end_time FROM appointments
+       WHERE professional_id = ? AND tenant_id = ?
+         AND DATE(start_time) = ? AND status NOT IN ('cancelled')`,
+      [profId, tenant_id, date]
+    );
+
+    const duration = users[0].duration_minutes || 50;
+
+    const slots = allSlots.map(slotTime => {
+      const [h, m] = slotTime.split(':').map(Number);
+      const slotStart = new Date(yyyy, mm - 1, dd, h, m, 0);
+      const slotEnd   = new Date(slotStart.getTime() + duration * 60000);
+      const busy = occupied.some(apt => {
+        const aptStart = new Date(apt.start_time);
+        const aptEnd   = new Date(apt.end_time);
+        return slotStart < aptEnd && slotEnd > aptStart;
+      });
+      return { time: slotTime, available: !busy };
+    });
+
+    res.json({ slots, date, day_key: dayKey, duration });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /patient-portal/appointments — agendar diretamente (se allow_self_schedule)
+router.post('/appointments', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const { professional_id, date, time, modality, notes } = req.body;
+    if (!professional_id || !date || !time)
+      return res.status(400).json({ error: 'Profissional, data e horário são obrigatórios.' });
+
+    // Verifica se o paciente tem permissão de auto-agendamento
+    const [tokens] = await db.query(
+      `SELECT allow_self_schedule FROM patient_portal_tokens
+       WHERE patient_id = ? AND tenant_id = ? AND is_used = 1
+       ORDER BY created_at DESC LIMIT 1`,
+      [patient_id, tenant_id]
+    );
+    if (!tokens[0] || !tokens[0].allow_self_schedule)
+      return res.status(403).json({ error: 'Auto-agendamento não permitido.' });
+
+    // Busca dados do profissional
+    const [profRows] = await db.query(
+      `SELECT id, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [professional_id, tenant_id]
+    );
+    if (!profRows[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
+
+    const duration = profRows[0].duration_minutes || 50;
+    const [yyyy, mm, dd] = date.split('-').map(Number);
+    const [h, min] = time.split(':').map(Number);
+    const startTime = new Date(yyyy, mm - 1, dd, h, min, 0);
+    const endTime   = new Date(startTime.getTime() + duration * 60000);
+
+    // Verifica conflito
+    const [conflict] = await db.query(
+      `SELECT id FROM appointments
+       WHERE professional_id = ? AND tenant_id = ?
+         AND status NOT IN ('cancelled')
+         AND start_time < ? AND end_time > ?`,
+      [professional_id, tenant_id,
+       endTime.toISOString().slice(0, 19).replace('T', ' '),
+       startTime.toISOString().slice(0, 19).replace('T', ' ')]
+    );
+    if (conflict.length > 0)
+      return res.status(409).json({ error: 'Este horário não está mais disponível.' });
+
+    const startStr = startTime.toISOString().slice(0, 19).replace('T', ' ');
+    const endStr   = endTime.toISOString().slice(0, 19).replace('T', ' ');
+
+    const [ins] = await db.query(
+      `INSERT INTO appointments
+       (tenant_id, patient_id, professional_id, start_time, end_time, duration_minutes,
+        status, modality, notes, type, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 'sessao', NOW(), NOW())`,
+      [tenant_id, patient_id, professional_id, startStr, endStr, duration,
+       modality || 'online', notes || null]
+    );
+
+    res.json({ id: ins.insertId, status: 'scheduled', start_time: startStr, end_time: endStr });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erro ao agendar consulta.' });
+  }
+});
+
+// ─── DOCUMENTOS DO PACIENTE ───────────────────────────────────────────────────
+// GET /patient-portal/documents — documentos gerados e uploads enviados ao paciente
+router.get('/documents', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+
+    // Documentos gerados (atestados, declarações, receitas)
+    const [docs] = await db.query(
+      `SELECT id, title, rendered_html, created_at, 'document' AS source_type
+       FROM doc_instances
+       WHERE patient_id = ? AND tenant_id = ?
+       ORDER BY created_at DESC LIMIT 50`,
+      [patient_id, tenant_id]
+    ).catch(() => [[]]);
+
+    // Uploads/arquivos enviados ao paciente
+    const [uploads] = await db.query(
+      `SELECT id,
+              COALESCE(title, original_name, file_name, filename) AS title,
+              COALESCE(file_url, url) AS file_url,
+              COALESCE(file_type, mime_type) AS file_type,
+              created_at, 'upload' AS source_type
+       FROM uploads
+       WHERE patient_id = ? AND tenant_id = ?
+         AND COALESCE(file_url, url) IS NOT NULL
+         AND COALESCE(file_url, url) != ''
+       ORDER BY created_at DESC LIMIT 50`,
+      [patient_id, tenant_id]
+    ).catch(() => [[]]);
+
+    res.json({ documents: docs, uploads });
+  } catch (e) {
+    console.error('[portal documents]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // ─── ADMIN: gerar token de convite (rota protegida pelo auth principal) ───────
 // Todas as rotas abaixo exigem o JWT do profissional (authMiddleware já aplicado antes de /patient-portal)
 
@@ -625,12 +800,16 @@ router.get('/tokens', async (req, res) => {
 router.delete('/tokens/:id', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
-    await db.query(
+    const [result] = await db.query(
       `DELETE FROM patient_portal_tokens WHERE id = ? AND tenant_id = ?`,
       [req.params.id, req.user.tenant_id]
     );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Link não encontrado.' });
+    }
     res.json({ ok: true });
   } catch (e) {
+    console.error('[portal DELETE token]', e?.message || e);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });

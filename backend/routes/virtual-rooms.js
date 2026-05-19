@@ -130,7 +130,32 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /virtual-rooms/:id  (must come before sub-routes that use /:id/xxx)
+// GET /virtual-rooms/history — todas as sessões do tenant (DEVE vir antes de /:id)
+router.get('/history', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT rs.*, vr.title AS room_title, vr.code AS room_code,
+              p.full_name AS patient_name,
+              u.name AS professional_name,
+              (SELECT COUNT(*) FROM room_transcripts rt WHERE rt.session_key = rs.session_key) AS transcript_count,
+              (SELECT COUNT(*) FROM room_recordings rr WHERE rr.session_key = rs.session_key) AS recording_count
+       FROM room_sessions rs
+       JOIN virtual_rooms vr ON vr.id = rs.room_id
+       LEFT JOIN patients p ON p.id = vr.patient_id
+       LEFT JOIN users u ON u.id = vr.professional_id
+       WHERE rs.tenant_id = ?
+       ORDER BY rs.created_at DESC
+       LIMIT 200`,
+      [req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// GET /virtual-rooms/:id
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -471,31 +496,6 @@ router.post('/:id/sessions/:sessionKey/end', async (req, res) => {
     );
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: 'Erro interno.' });
-  }
-});
-
-// GET /virtual-rooms/history — todas as sessões do tenant
-router.get('/history', async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      `SELECT rs.*, vr.title AS room_title, vr.code AS room_code,
-              p.full_name AS patient_name,
-              u.name AS professional_name,
-              (SELECT COUNT(*) FROM room_transcripts rt WHERE rt.session_key = rs.session_key) AS transcript_count,
-              (SELECT COUNT(*) FROM room_recordings rr WHERE rr.session_key = rs.session_key) AS recording_count
-       FROM room_sessions rs
-       JOIN virtual_rooms vr ON vr.id = rs.room_id
-       LEFT JOIN patients p ON p.id = vr.patient_id
-       LEFT JOIN users u ON u.id = vr.professional_id
-       WHERE rs.tenant_id = ?
-       ORDER BY rs.created_at DESC
-       LIMIT 200`,
-      [req.user.tenant_id]
-    );
-    res.json(rows);
-  } catch (e) {
-    console.error(e);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });

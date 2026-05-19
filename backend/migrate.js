@@ -987,12 +987,23 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   // Patch: add used_at if missing (for existing installs)
-  await conn.query(`ALTER TABLE patient_portal_tokens ADD COLUMN IF NOT EXISTS used_at DATETIME`).catch(() => {});
+  {
+    const [pptCols] = await conn.query(`SHOW COLUMNS FROM patient_portal_tokens`);
+    if (!pptCols.map(c => c.Field).includes('used_at'))
+      await conn.query(`ALTER TABLE patient_portal_tokens ADD COLUMN used_at DATETIME`).catch(() => {});
+  }
 
   // Patch: add portal credentials to patients table
-  await conn.query(`ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_email VARCHAR(255) NULL`).catch(() => {});
-  await conn.query(`ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_password_hash VARCHAR(255) NULL`).catch(() => {});
-  await conn.query(`ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_password_set TINYINT(1) DEFAULT 0`).catch(() => {});
+  // Patch portal credentials — ADD COLUMN IF NOT EXISTS não é suportado em MySQL < 8.0,
+  // então verificamos manualmente antes de adicionar.
+  const [patientCols] = await conn.query(`SHOW COLUMNS FROM patients`);
+  const patientColNames = patientCols.map(c => c.Field);
+  if (!patientColNames.includes('portal_email'))
+    await conn.query(`ALTER TABLE patients ADD COLUMN portal_email VARCHAR(255) NULL`).catch(() => {});
+  if (!patientColNames.includes('portal_password_hash'))
+    await conn.query(`ALTER TABLE patients ADD COLUMN portal_password_hash VARCHAR(255) NULL`).catch(() => {});
+  if (!patientColNames.includes('portal_password_set'))
+    await conn.query(`ALTER TABLE patients ADD COLUMN portal_password_set TINYINT(1) DEFAULT 0`).catch(() => {});
 
   // ---- PATIENT PORTAL SESSIONS (login persistente do paciente) ----
   await conn.query(`

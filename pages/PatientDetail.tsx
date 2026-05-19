@@ -547,6 +547,11 @@ export const PatientDetail: React.FC = () => {
                           )}
                         </div>
                         <p className="text-[11px] text-slate-400 font-mono truncate mt-1">{url.slice(0, 50)}…</p>
+                        {tk.created_at && (
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            Gerado em {new Date(tk.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2 flex-wrap">
