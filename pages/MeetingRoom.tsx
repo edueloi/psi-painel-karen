@@ -1322,8 +1322,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 resetRecordingSource("remote");
                 const stream = await waitForLocalStream();
                 guestPeerCycleRef.current += 1;
-                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=relay, sessionId=${offerSessionId})`);
-                const pc = new RTCPeerConnection(ICE_CONFIG_RELAY);
+                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, sessionId=${offerSessionId})`);
+                const pc = new RTCPeerConnection(ICE_CONFIG);
                 attachIceDiagnostics(pc, "Guest");
                 peerConnectionRef.current = pc;
                 if (stream) {
@@ -1436,8 +1436,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 resetRecordingSource("remote");
                 const stream = await waitForLocalStream();
                 guestPeerCycleRef.current += 1;
-                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=relay, sessionId=${offerSessionId})`);
-                const pc = new RTCPeerConnection(ICE_CONFIG_RELAY);
+                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, sessionId=${offerSessionId})`);
+                const pc = new RTCPeerConnection(ICE_CONFIG);
                 attachIceDiagnostics(pc, "Guest");
                 peerConnectionRef.current = pc;
                 if (stream) {
@@ -2005,9 +2005,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       expectedAnswerOfferTokenRef.current = null;
       acceptedAnswerOfferTokenRef.current = null;
       setRemoteStreamActive(false);
-      // Sempre usa relay via TURN para evitar falha por NAT hairpin
-      const iceConfig = ICE_CONFIG_RELAY;
-      console.log(`Host: criando PeerConnection (ciclo=${hostPeerCycle}, policy=relay)`);
+      const iceConfig = ICE_CONFIG;
+      console.log(`Host: criando PeerConnection (ciclo=${hostPeerCycle})`);
       const pc = new RTCPeerConnection(iceConfig);
       attachIceDiagnostics(pc, "Host");
       peerConnectionRef.current = pc;
