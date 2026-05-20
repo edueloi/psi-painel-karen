@@ -110,10 +110,23 @@ const iceServers: RTCIceServer[] = [
   { urls: "stun:stun4.l.google.com:19302" },
 ];
 
-const turnUrls = (import.meta.env.VITE_TURN_URL || "")
-  .split(",")
-  .map((value: string) => value.trim())
-  .filter(Boolean);
+const buildTurnUrlVariants = (value: string): string[] => {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  if (!/^turn:/i.test(trimmed) || trimmed.includes("?transport=")) {
+    return [trimmed];
+  }
+  return [trimmed, `${trimmed}?transport=tcp`];
+};
+
+const turnUrls = [
+  import.meta.env.VITE_TURN_URL || "",
+  import.meta.env.VITE_TURN_TLS_URL || "",
+]
+  .flatMap((rawValue: string) => rawValue.split(","))
+  .flatMap(buildTurnUrlVariants)
+  .filter(Boolean)
+  .filter((value: string, index: number, values: string[]) => values.indexOf(value) === index);
 
 if (turnUrls.length) {
   iceServers.push({
@@ -126,6 +139,52 @@ if (turnUrls.length) {
 const ICE_CONFIG: RTCConfiguration = {
   iceServers,
   iceCandidatePoolSize: 10,
+};
+
+const waitForIceGatheringComplete = (
+  pc: RTCPeerConnection,
+  timeoutMs = 1500
+): Promise<void> =>
+  new Promise((resolve) => {
+    if (pc.iceGatheringState === "complete") {
+      resolve();
+      return;
+    }
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeoutId);
+      pc.removeEventListener("icegatheringstatechange", handleStateChange);
+      resolve();
+    };
+    const handleStateChange = () => {
+      if (pc.iceGatheringState === "complete") {
+        finish();
+      }
+    };
+    const timeoutId = window.setTimeout(finish, timeoutMs);
+    pc.addEventListener("icegatheringstatechange", handleStateChange);
+  });
+
+const attachIceDiagnostics = (pc: RTCPeerConnection, label: string) => {
+  pc.addEventListener("icecandidateerror", (event) => {
+    const iceErrorEvent = event as Event & {
+      address?: string;
+      errorCode?: number;
+      errorText?: string;
+      port?: number;
+      url?: string;
+    };
+    console.warn(`${label} ICE Candidate Error:`, {
+      url: iceErrorEvent.url || "",
+      address: iceErrorEvent.address || "",
+      port: iceErrorEvent.port || "",
+      errorCode: iceErrorEvent.errorCode || "",
+      errorText: iceErrorEvent.errorText || "",
+    });
+  });
 };
 
 interface ReactionItem { id: string; emoji: string; sender: string; x: number; }
@@ -1135,6 +1194,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 resetRecordingSource("remote");
                 const stream = await waitForLocalStream();
                 const pc = new RTCPeerConnection(ICE_CONFIG);
+                attachIceDiagnostics(pc, "Guest");
                 peerConnectionRef.current = pc;
                 if (stream) {
                   stream.getTracks().forEach(t => pc.addTrack(t, stream));
@@ -1146,16 +1206,23 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   assignRemoteMediaStream(e.streams[0] || new MediaStream([e.track]));
                 };
                 let batchIceRestartTimer: ReturnType<typeof setTimeout> | null = null;
+                let batchIceCheckingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+                  if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'new') {
+                    sendRoomEventRef.current?.('request_renegotiation', {});
+                  }
+                }, 15000);
                 pc.oniceconnectionstatechange = () => {
-                  if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                  if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                    if (batchIceRestartTimer) { clearTimeout(batchIceRestartTimer); batchIceRestartTimer = null; }
+                    if (batchIceCheckingTimeout) { clearTimeout(batchIceCheckingTimeout); batchIceCheckingTimeout = null; }
+                  } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                    if (batchIceCheckingTimeout) { clearTimeout(batchIceCheckingTimeout); batchIceCheckingTimeout = null; }
                     if (batchIceRestartTimer) clearTimeout(batchIceRestartTimer);
                     batchIceRestartTimer = setTimeout(() => {
                       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
                         sendRoomEventRef.current?.('request_renegotiation', {});
                       }
                     }, 2000);
-                  } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-                    if (batchIceRestartTimer) { clearTimeout(batchIceRestartTimer); batchIceRestartTimer = null; }
                   }
                 };
                 await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp }));
@@ -1166,7 +1233,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 pendingIceCandidates.current = [];
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
-                await sendRoomEventRef.current?.('webrtc_answer', { sdp: answer.sdp, type: answer.type });
+                await waitForIceGatheringComplete(pc);
+                await sendRoomEventRef.current?.('webrtc_answer', {
+                  sdp: pc.localDescription?.sdp || answer.sdp,
+                  type: pc.localDescription?.type || answer.type,
+                });
               })().catch(() => {});
             }
           });
@@ -1227,6 +1298,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 setRemoteStreamActive(false);
                 const stream = await waitForLocalStream();
                 const pc = new RTCPeerConnection(ICE_CONFIG);
+                attachIceDiagnostics(pc, "Guest");
                 peerConnectionRef.current = pc;
                 if (stream) {
                   stream.getTracks().forEach(t => pc.addTrack(t, stream));
@@ -1244,10 +1316,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   }
                 };
                 let guestIceRestartTimer: ReturnType<typeof setTimeout> | null = null;
+                let guestIceCheckingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+                  if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'new') {
+                    console.warn("Guest: ICE preso em checking por 15s, pedindo renegociação...");
+                    sendRoomEventRef.current?.('request_renegotiation', {});
+                  }
+                }, 15000);
                 pc.oniceconnectionstatechange = () => {
                   console.log("Guest ICE State:", pc.iceConnectionState);
-                  if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                    // Guest pede ao host para reenviar offer
+                  if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                    if (guestIceRestartTimer) { clearTimeout(guestIceRestartTimer); guestIceRestartTimer = null; }
+                    if (guestIceCheckingTimeout) { clearTimeout(guestIceCheckingTimeout); guestIceCheckingTimeout = null; }
+                  } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                    if (guestIceCheckingTimeout) { clearTimeout(guestIceCheckingTimeout); guestIceCheckingTimeout = null; }
                     if (guestIceRestartTimer) clearTimeout(guestIceRestartTimer);
                     guestIceRestartTimer = setTimeout(() => {
                       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
@@ -1255,8 +1336,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                         sendRoomEventRef.current?.('request_renegotiation', {});
                       }
                     }, 2000);
-                  } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-                    if (guestIceRestartTimer) { clearTimeout(guestIceRestartTimer); guestIceRestartTimer = null; }
                   }
                 };
                 pc.ontrack = (e) => {
@@ -1269,7 +1348,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 pendingIceCandidates.current = [];
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
-                await sendRoomEventRef.current?.('webrtc_answer', { sdp: answer.sdp, type: answer.type });
+                await waitForIceGatheringComplete(pc);
+                await sendRoomEventRef.current?.('webrtc_answer', {
+                  sdp: pc.localDescription?.sdp || answer.sdp,
+                  type: pc.localDescription?.type || answer.type,
+                });
               })().catch(() => {});
             }
           } else if (evt.event_type === "webrtc_answer") {
@@ -1662,15 +1745,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   useEffect(() => {
     if (!remoteUserConnected || isGuest || isCompanionMode) return;
     const timer = setTimeout(async () => {
-      if (!localStreamRef.current) return;
+      const localStream = await waitForLocalStream();
+      if (!localStream) return;
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
       setRemoteStreamActive(false);
       const pc = new RTCPeerConnection(ICE_CONFIG);
+      attachIceDiagnostics(pc, "Host");
       peerConnectionRef.current = pc;
-      localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
       pc.ontrack = (e) => {
         assignRemoteMediaStream(e.streams[0] || new MediaStream([e.track]));
       };
@@ -1680,19 +1765,34 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         }
       };
       let iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
+      // Se ICE ficar preso em "checking" por 15s, força reconexão completa
+      let iceCheckingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+        if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'new') {
+          console.warn("Host: ICE preso em checking por 15s, forçando reconexão...");
+          setRemoteUserConnected(false);
+          setTimeout(() => setRemoteUserConnected(true), 500);
+        }
+      }, 15000);
       pc.oniceconnectionstatechange = () => {
         console.log("Host ICE State:", pc.iceConnectionState);
-        if (pc.iceConnectionState === 'disconnected') {
-          // Tenta ICE restart após 2s se ainda desconectado
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          if (iceRestartTimer) { clearTimeout(iceRestartTimer); iceRestartTimer = null; }
+          if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
+        } else if (pc.iceConnectionState === 'disconnected') {
+          if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
           iceRestartTimer = setTimeout(async () => {
             if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
               console.log("Host: tentando ICE restart...");
               try {
                 const offer = await pc.createOffer({ iceRestart: true });
                 await pc.setLocalDescription(offer);
-                await sendRoomEventRef.current?.('webrtc_offer', { sdp: offer.sdp, type: offer.type });
+                await waitForIceGatheringComplete(pc);
+                await sendRoomEventRef.current?.('webrtc_offer', {
+                  sdp: pc.localDescription?.sdp || offer.sdp,
+                  type: pc.localDescription?.type || offer.type,
+                });
               } catch (err) {
-                console.warn("ICE restart falhou, reagendando reconexão completa", err);
+                console.warn("ICE restart falhou, forçando reconexão completa", err);
                 setRemoteUserConnected(false);
                 setTimeout(() => setRemoteUserConnected(true), 500);
               }
@@ -1701,10 +1801,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         } else if (pc.iceConnectionState === 'failed') {
           console.log("Host: ICE failed, forçando reconexão completa...");
           if (iceRestartTimer) clearTimeout(iceRestartTimer);
+          if (iceCheckingTimeout) clearTimeout(iceCheckingTimeout);
           setRemoteUserConnected(false);
           setTimeout(() => setRemoteUserConnected(true), 500);
-        } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          if (iceRestartTimer) { clearTimeout(iceRestartTimer); iceRestartTimer = null; }
         }
       };
       pc.onconnectionstatechange = () => {
@@ -1716,7 +1815,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        await sendRoomEventRef.current?.('webrtc_offer', { sdp: offer.sdp, type: offer.type });
+        await waitForIceGatheringComplete(pc);
+        await sendRoomEventRef.current?.('webrtc_offer', {
+          sdp: pc.localDescription?.sdp || offer.sdp,
+          type: pc.localDescription?.type || offer.type,
+        });
       } catch (err) {
         console.error('WebRTC offer error:', err);
       }
