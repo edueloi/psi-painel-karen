@@ -4322,7 +4322,7 @@ export const Agenda: React.FC = () => {
                     }}
                     variant="primary"
                     fullWidth
-                    className="mt-4 bg-white !text-primary-600 hover:bg-primary-50"
+                    className="mt-4 !bg-white !text-slate-800 hover:!bg-slate-50 font-semibold"
                     size="lg"
                   >
                     Novo pagamento
@@ -4332,23 +4332,44 @@ export const Agenda: React.FC = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white p-5">
                   <h4 className="mb-4 text-sm font-semibold text-slate-700">Itens cobrados</h4>
                   <div className="space-y-3">
-                    {cmnd.items?.map((item: any, index: number) => (
-                      <div key={item.id || index} className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-slate-800">{item.name}</p>
-                          <p className="text-xs text-slate-400">
-                            {item.qty} × {formatCurrency(item.price)}
-                          </p>
-                        </div>
-                        <strong className="text-sm text-slate-700">
-                          {formatCurrency(Number(item.qty || 0) * Number(item.price || 0))}
-                        </strong>
-                      </div>
-                    ))}
-
-                    {(!cmnd.items || cmnd.items.length === 0) && (
-                      <p className="text-sm text-slate-400">Nenhum item registrado.</p>
-                    )}
+                    {(() => {
+                      const grossTotal = (cmnd.items || []).reduce((s: number, it: any) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
+                      const discountVal = Number(cmnd.discount_value || 0);
+                      const discountAmt = cmnd.discount_type === 'percentage'
+                        ? (grossTotal * discountVal) / 100
+                        : discountVal;
+                      const ratio = grossTotal > 0 ? (grossTotal - discountAmt) / grossTotal : 1;
+                      return (
+                        <>
+                          {(cmnd.items || []).map((item: any, index: number) => {
+                            const lineGross = Number(item.qty || 0) * Number(item.price || 0);
+                            const lineNet = lineGross * ratio;
+                            return (
+                              <div key={item.id || index} className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-medium text-slate-800">{item.name}</p>
+                                  <p className="text-xs text-slate-400">
+                                    {item.qty} × {formatCurrency(item.price)}
+                                  </p>
+                                </div>
+                                <strong className="text-sm text-slate-700">
+                                  {formatCurrency(lineNet)}
+                                </strong>
+                              </div>
+                            );
+                          })}
+                          {discountAmt > 0 && (
+                            <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-sm text-emerald-600">
+                              <span>Desconto{cmnd.discount_type === 'percentage' ? ` (${discountVal}%)` : ''}</span>
+                              <strong>− {formatCurrency(discountAmt)}</strong>
+                            </div>
+                          )}
+                          {(!cmnd.items || cmnd.items.length === 0) && (
+                            <p className="text-sm text-slate-400">Nenhum item registrado.</p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
