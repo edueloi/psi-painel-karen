@@ -1100,8 +1100,8 @@ async function migrate() {
   await conn.query(`
     CREATE TABLE IF NOT EXISTS room_recordings (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      room_id INT NOT NULL,
-      tenant_id INT NOT NULL,
+      room_id INT NULL,
+      tenant_id INT NULL,
       session_key VARCHAR(64) NOT NULL,
       file_name VARCHAR(255) NOT NULL,
       file_url VARCHAR(500) NOT NULL,
@@ -1115,6 +1115,9 @@ async function migrate() {
       INDEX idx_rr_session (session_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  // Garante nullable mesmo se a tabela já existia com NOT NULL (migração incremental)
+  try { await conn.query(`ALTER TABLE room_recordings MODIFY COLUMN room_id INT NULL`); } catch (_) {}
+  try { await conn.query(`ALTER TABLE room_recordings MODIFY COLUMN tenant_id INT NULL`); } catch (_) {}
 
   // ---- ROOM SESSIONS (cada sessão de uma sala, com horário e resumo) ----
   await conn.query(`

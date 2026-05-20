@@ -108,8 +108,8 @@ async function patch() {
   await conn.query(`
     CREATE TABLE IF NOT EXISTS room_recordings (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      room_id INT NOT NULL,
-      tenant_id INT NOT NULL,
+      room_id INT NULL,
+      tenant_id INT NULL,
       session_key VARCHAR(64) NOT NULL,
       file_name VARCHAR(255) NOT NULL,
       file_url VARCHAR(500) NOT NULL,
