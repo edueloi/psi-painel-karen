@@ -152,7 +152,7 @@ const ICE_CHECKING_TIMEOUT_MS = 40000;
 
 const waitForIceGatheringComplete = (
   pc: RTCPeerConnection,
-  timeoutMs = 1500
+  timeoutMs = 4000
 ): Promise<void> =>
   new Promise((resolve) => {
     if (pc.iceGatheringState === "complete") {
@@ -474,17 +474,29 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const participantTokenRef = useRef<string | null>(null);
   const hostRenegotiationInFlightRef = useRef(false);
   const hostRenegotiationAttemptsRef = useRef(0);
+  const hostOfferSequenceRef = useRef(0);
+  const expectedAnswerOfferTokenRef = useRef<string | null>(null);
+  const acceptedAnswerOfferTokenRef = useRef<string | null>(null);
   const guestPeerCycleRef = useRef(0);
   // Identificador da sessão WebRTC atual — incrementa a cada hard reset
   // Permite que host descarte answers de ciclos desatualizados
   const webrtcSessionIdRef = useRef(0);
 
   const setRemoteConnected = useCallback((val: boolean) => {
+    const wasConnected = remoteUserConnectedRef.current;
     remoteUserConnectedRef.current = val;
-    if (val) {
+    if (val && !wasConnected) {
       hostRenegotiationAttemptsRef.current = 0;
+      hostOfferSequenceRef.current = 0;
+      expectedAnswerOfferTokenRef.current = null;
+      acceptedAnswerOfferTokenRef.current = null;
       webrtcSessionIdRef.current = 0; // Reset session counter when new guest connects
       guestPeerCycleRef.current = 0;
+      pendingIceCandidates.current = [];
+    } else if (!val) {
+      expectedAnswerOfferTokenRef.current = null;
+      acceptedAnswerOfferTokenRef.current = null;
+      pendingIceCandidates.current = [];
     }
     setRemoteUserConnected(val);
   }, []);
@@ -1181,6 +1193,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
     webrtcSessionIdRef.current += 1;
     hostRenegotiationInFlightRef.current = false;
+    expectedAnswerOfferTokenRef.current = null;
+    acceptedAnswerOfferTokenRef.current = null;
+    pendingIceCandidates.current = [];
     setRemoteStreamActive(false);
     resetRecordingSource("remote");
     if (peerConnectionRef.current) {
@@ -1221,10 +1236,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       const offer = await pc.createOffer({ iceRestart: true });
       await pc.setLocalDescription(offer);
       await waitForIceGatheringComplete(pc);
+      const offerToken = `${webrtcSessionIdRef.current}:${++hostOfferSequenceRef.current}`;
+      expectedAnswerOfferTokenRef.current = offerToken;
+      acceptedAnswerOfferTokenRef.current = null;
+      pendingIceCandidates.current = [];
       const reofferId = await sendRoomEventRef.current?.("webrtc_offer", {
         sdp: pc.localDescription?.sdp || offer.sdp,
         type: pc.localDescription?.type || offer.type,
         sessionId: webrtcSessionIdRef.current,
+        offerToken,
       });
       if (reofferId && reofferId > lastEventIdRef.current) {
         lastEventIdRef.current = reofferId - 1;
@@ -1275,11 +1295,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             const payload = parsePayload(latestOffer.payload_json);
             if (payload?.sdp) {
               const offerSessionId = payload?.sessionId;
+              const offerToken = payload?.offerToken;
               (async () => {
                 if (peerConnectionRef.current) {
                   peerConnectionRef.current.close();
                   peerConnectionRef.current = null;
                 }
+                pendingIceCandidates.current = [];
                 setRemoteStreamActive(false);
                 resetRecordingSource("remote");
                 const stream = await waitForLocalStream();
@@ -1332,6 +1354,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   sdp: pc.localDescription?.sdp || answer.sdp,
                   type: pc.localDescription?.type || answer.type,
                   sessionId: offerSessionId,
+                  offerToken,
                 });
               })().catch((err) => { console.error("Guest: erro ao processar offer (batch):", err); });
             }
@@ -1386,11 +1409,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             // Guest receives offer → create answer
             if (isGuest && !isCompanionMode && payload?.sdp) {
               const offerSessionId = payload?.sessionId;
+              const offerToken = payload?.offerToken;
               (async () => {
                 if (peerConnectionRef.current) {
                   peerConnectionRef.current.close();
                   peerConnectionRef.current = null;
                 }
+                pendingIceCandidates.current = [];
                 setRemoteStreamActive(false);
                 resetRecordingSource("remote");
                 const stream = await waitForLocalStream();
@@ -1453,6 +1478,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   sdp: pc.localDescription?.sdp || answer.sdp,
                   type: pc.localDescription?.type || answer.type,
                   sessionId: offerSessionId,
+                  offerToken,
                 });
               })().catch((err) => { console.error("Guest: erro ao processar offer:", err); });
             }
@@ -1460,13 +1486,29 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             // Host receives answer — ignora se sessionId não bate com a sessão atual
             if (!isGuest && peerConnectionRef.current && payload?.sdp) {
               const answerSessionId = payload?.sessionId;
+              const answerOfferToken =
+                typeof payload?.offerToken === "string" ? payload.offerToken : null;
               const currentSessionId = webrtcSessionIdRef.current;
+              const expectedOfferToken = expectedAnswerOfferTokenRef.current;
+              const acceptedOfferToken = acceptedAnswerOfferTokenRef.current;
               if (answerSessionId !== undefined && answerSessionId !== currentSessionId) {
                 console.log(`Host: descartando answer de sessão antiga (answer sessionId=${answerSessionId}, atual=${currentSessionId})`);
+              } else if (answerOfferToken && acceptedOfferToken === answerOfferToken) {
+                console.log(`Host: descartando answer duplicado (offerToken=${answerOfferToken})`);
+              } else if (
+                answerOfferToken &&
+                expectedOfferToken &&
+                answerOfferToken !== expectedOfferToken
+              ) {
+                console.log(
+                  `Host: descartando answer de offer antiga (offerToken=${answerOfferToken}, esperado=${expectedOfferToken})`
+                );
               } else if (peerConnectionRef.current.signalingState === 'have-local-offer') {
                 peerConnectionRef.current.setRemoteDescription(
                   new RTCSessionDescription({ type: payload.type, sdp: payload.sdp })
                 ).then(async () => {
+                  acceptedAnswerOfferTokenRef.current =
+                    answerOfferToken || expectedOfferToken || acceptedAnswerOfferTokenRef.current;
                   for (const c of pendingIceCandidates.current) {
                     await peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
                   }
@@ -1861,6 +1903,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
+      pendingIceCandidates.current = [];
+      expectedAnswerOfferTokenRef.current = null;
+      acceptedAnswerOfferTokenRef.current = null;
       setRemoteStreamActive(false);
       // Sempre usa relay via TURN para evitar falha por NAT hairpin
       const iceConfig = ICE_CONFIG_RELAY;
@@ -1918,11 +1963,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         await pc.setLocalDescription(offer);
         await waitForIceGatheringComplete(pc);
         const sessionId = webrtcSessionIdRef.current;
+        const offerToken = `${sessionId}:${++hostOfferSequenceRef.current}`;
+        expectedAnswerOfferTokenRef.current = offerToken;
+        acceptedAnswerOfferTokenRef.current = null;
         console.log(`Host: enviando offer (sessionId=${sessionId}, ciclo=${hostPeerCycle})`);
         const offerId = await sendRoomEventRef.current?.('webrtc_offer', {
           sdp: pc.localDescription?.sdp || offer.sdp,
           type: pc.localDescription?.type || offer.type,
           sessionId,
+          offerToken,
         });
         // Avança o cursor de eventos para ignorar qualquer webrtc_answer anterior a este offer
         if (offerId && offerId > lastEventIdRef.current) {
@@ -1978,13 +2027,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (!isGuest) {
       setHasJoined(true);
       setConnectionStatus("connected");
-      setRemoteConnected(true);
     }
     setMessages((prev) => [
       ...prev,
       {
         sender: "System",
-        text: `${name} entrou na sala.`,
+        text: `${name} foi admitido e está conectando.`,
         time: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
