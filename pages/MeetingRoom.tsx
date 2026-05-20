@@ -475,7 +475,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingIceCandidates = useRef<RTCIceCandidateInit[]>([]);
-  const sendRoomEventRef = useRef<((type: string, payload?: Record<string, any>) => Promise<void>) | null>(null);
+  const sendRoomEventRef = useRef<((type: string, payload?: Record<string, any>) => Promise<number | null>) | null>(null);
   const participantTokenRef = useRef<string | null>(null);
   const hostRenegotiationInFlightRef = useRef(false);
   const hostRenegotiationAttemptsRef = useRef(0);
