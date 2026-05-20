@@ -1378,9 +1378,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           return;
         }
         const processEvent = (evt: RoomEvent) => {
-          // WebRTC signaling events are delivered exclusively via WebSocket.
-          // Skip them in the polling path to avoid replaying stale offers/answers/ice.
-          if (evt.event_type.startsWith('webrtc_') || evt.event_type === 'request_renegotiation') return;
+          const signalingEvent =
+            evt.event_type.startsWith("webrtc_") ||
+            evt.event_type === "request_renegotiation";
+          const shouldUsePollingForSignaling = !roomWsReadyRef.current;
+
+          // Prefer WS for signaling when it is online, but keep polling as a
+          // real fallback. Without this, audio/video die whenever the proxy
+          // drops WS upgrades and HTTP remains healthy.
+          if (signalingEvent && !shouldUsePollingForSignaling) return;
           const payload = parsePayload(evt.payload_json);
           if (payload?.client_id && payload.client_id === clientIdRef.current)
             return;
