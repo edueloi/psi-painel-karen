@@ -863,9 +863,9 @@ router.get('/public/:id/preview', async (req, res) => {
     const ua = req.headers['user-agent'] || '';
     const isBot = /WhatsApp|facebookexternalhit|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot|bingbot|Googlebot|curl|python/i.test(ua);
 
-    // Usuário normal: redireciona direto para a SPA sem HTML intermediário
+    // Usuário normal: serve o index.html da SPA diretamente (redirect causaria loop via Nginx)
     if (!isBot) {
-      return res.redirect(302, `/sala/${rid}`);
+      return res.sendFile(require('path').join(__dirname, '../../dist/index.html'));
     }
 
     const [rooms] = await db.query(
