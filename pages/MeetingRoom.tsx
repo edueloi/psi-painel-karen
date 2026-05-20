@@ -466,6 +466,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const pendingIceCandidates = useRef<RTCIceCandidateInit[]>([]);
   const sendRoomEventRef = useRef<((type: string, payload?: Record<string, any>) => Promise<void>) | null>(null);
   const participantTokenRef = useRef<string | null>(null);
+  const hostRenegotiationInFlightRef = useRef(false);
 
   // Audio Analysis
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -603,7 +604,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           }
           if (!isGuest) {
             setIncomingRequest(null);
-            setRemoteUserConnected(true);
           }
           break;
 
@@ -1151,6 +1151,46 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id_r)), 4000);
   }, []);
 
+  const hardResetHostConnection = useCallback((delayMs = 500) => {
+    if (isGuest || isCompanionMode || !remoteUserConnected) return;
+    hostRenegotiationInFlightRef.current = false;
+    setRemoteStreamActive(false);
+    resetRecordingSource("remote");
+    setRemoteUserConnected(false);
+    setTimeout(() => setRemoteUserConnected(true), delayMs);
+  }, [isGuest, isCompanionMode, remoteUserConnected]);
+
+  const requestHostRenegotiation = useCallback(async (reason: string) => {
+    if (isGuest || isCompanionMode) return;
+    const pc = peerConnectionRef.current;
+    if (!pc || pc.connectionState === "closed" || pc.signalingState === "closed") {
+      hardResetHostConnection(100);
+      return;
+    }
+    if (hostRenegotiationInFlightRef.current) return;
+    if (pc.signalingState !== "stable") {
+      console.log(`Host: renegociação adiada (${reason}) - signaling=${pc.signalingState}`);
+      return;
+    }
+
+    hostRenegotiationInFlightRef.current = true;
+    try {
+      console.log(`Host: tentando renegociação (${reason})...`);
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+      await waitForIceGatheringComplete(pc);
+      await sendRoomEventRef.current?.("webrtc_offer", {
+        sdp: pc.localDescription?.sdp || offer.sdp,
+        type: pc.localDescription?.type || offer.type,
+      });
+    } catch (err) {
+      console.warn(`Host: renegociação falhou (${reason}), recriando conexão...`, err);
+      hardResetHostConnection(500);
+    } finally {
+      hostRenegotiationInFlightRef.current = false;
+    }
+  }, [hardResetHostConnection, isGuest, isCompanionMode]);
+
   useEffect(() => {
     if (!id || !hasJoined) return;
     if (isGuest && connectionStatus !== "connected") return;
@@ -1379,9 +1419,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             }
           } else if (evt.event_type === "request_renegotiation") {
             if (!isGuest && !isCompanionMode) {
-              const trigger = remoteUserConnected;
-              setRemoteUserConnected(false);
-              setTimeout(() => setRemoteUserConnected(trigger), 100);
+              requestHostRenegotiation("guest_request");
             }
           } else if (evt.event_type === "session_ended") {
             if (isGuest) {
@@ -1410,7 +1448,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       active = false;
       clearInterval(interval);
     };
-  }, [id, hasJoined, isGuest, connectionStatus, suppressEventHistory, addReaction]);
+  }, [id, hasJoined, isGuest, connectionStatus, suppressEventHistory, addReaction, isCompanionMode, requestHostRenegotiation]);
 
   useEffect(() => {
     if (!id || !hasJoined) return;
@@ -1630,7 +1668,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     };
     fetchParticipants();
-    const interval = setInterval(fetchParticipants, 5000);
+    const interval = setInterval(fetchParticipants, 1500);
     return () => {
       active = false;
       clearInterval(interval);
@@ -1768,6 +1806,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       // Se ICE ficar preso em "checking" por 15s, força reconexão completa
       let iceCheckingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
         if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'new') {
+          requestHostRenegotiation("checking_timeout");
+          return;
           console.warn("Host: ICE preso em checking por 15s, forçando reconexão...");
           setRemoteUserConnected(false);
           setTimeout(() => setRemoteUserConnected(true), 500);
@@ -1776,12 +1816,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       pc.oniceconnectionstatechange = () => {
         console.log("Host ICE State:", pc.iceConnectionState);
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          hostRenegotiationInFlightRef.current = false;
           if (iceRestartTimer) { clearTimeout(iceRestartTimer); iceRestartTimer = null; }
           if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
         } else if (pc.iceConnectionState === 'disconnected') {
           if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
           iceRestartTimer = setTimeout(async () => {
             if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+              requestHostRenegotiation("disconnected");
+              return;
               console.log("Host: tentando ICE restart...");
               try {
                 const offer = await pc.createOffer({ iceRestart: true });
@@ -1825,7 +1868,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     }, 800);
     return () => { clearTimeout(timer); };
-  }, [remoteUserConnected, isGuest, isCompanionMode, hasJoined]);
+  }, [remoteUserConnected, isGuest, isCompanionMode, hasJoined, hardResetHostConnection, requestHostRenegotiation]);
 
   const restartRoomConnection = () => {
     if (!remoteUserConnected) return;
@@ -1835,10 +1878,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       // Guest sends a signal to host to re-offer
       sendRoomEvent('request_renegotiation');
     } else {
-      // Host forced offer
-      const trigger = remoteUserConnected;
-      setRemoteUserConnected(false);
-      setTimeout(() => setRemoteUserConnected(trigger), 100);
+      requestHostRenegotiation("manual_restart");
     }
   };
 
@@ -1863,7 +1903,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     } else {
       broadcastChannelRef.current?.postMessage({ type: "ADMIT_GUEST" });
     }
-    setRemoteUserConnected(true);
     setRemoteParticipantName(name);
     setIncomingRequest(null);
     if (entry && entry.id > 0) {
