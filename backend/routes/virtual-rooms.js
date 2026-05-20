@@ -107,33 +107,32 @@ async function resolveRoomContext({ roomIdentifier, explicitRoomId, tenantId }) 
   const normalizedIdentifier = String(roomIdentifier || '').trim();
   const explicitId = Number.parseInt(String(explicitRoomId || ''), 10) || 0;
   const routeId = Number.parseInt(normalizedIdentifier, 10) || 0;
-  const candidates = [];
 
+  // 1. ID numérico explícito enviado pelo frontend — mais confiável, sem filtro de tenant
   if (explicitId) {
-    candidates.push({
-      sql: `SELECT id, tenant_id
-            FROM virtual_rooms
-            WHERE id = ?${tenantId ? ' AND tenant_id = ?' : ''}
-            LIMIT 1`,
-      params: tenantId ? [explicitId, tenantId] : [explicitId],
-    });
+    const [rows] = await db.query(
+      'SELECT id, tenant_id FROM virtual_rooms WHERE id = ? LIMIT 1',
+      [explicitId]
+    );
+    if (rows?.[0]) return rows[0];
   }
 
+  // 2. Identificador da URL com tenant filter (quando autenticado)
+  if (normalizedIdentifier && tenantId) {
+    const [rows] = await db.query(
+      `SELECT id, tenant_id FROM virtual_rooms
+       WHERE (id = ? OR code = ? OR hash = ?) AND tenant_id = ? LIMIT 1`,
+      [routeId || 0, normalizedIdentifier, normalizedIdentifier, tenantId]
+    );
+    if (rows?.[0]) return rows[0];
+  }
+
+  // 3. Fallback sem tenant filter — identificador pode ser hash/code de sala anônima
   if (normalizedIdentifier) {
-    candidates.push({
-      sql: `SELECT id, tenant_id
-            FROM virtual_rooms
-            WHERE (id = ? OR code = ? OR hash = ?)
-              ${tenantId ? 'AND tenant_id = ?' : ''}
-            LIMIT 1`,
-      params: tenantId
-        ? [routeId || 0, normalizedIdentifier, normalizedIdentifier, tenantId]
-        : [routeId || 0, normalizedIdentifier, normalizedIdentifier],
-    });
-  }
-
-  for (const candidate of candidates) {
-    const [rows] = await db.query(candidate.sql, candidate.params);
+    const [rows] = await db.query(
+      'SELECT id, tenant_id FROM virtual_rooms WHERE id = ? OR code = ? OR hash = ? LIMIT 1',
+      [routeId || 0, normalizedIdentifier, normalizedIdentifier]
+    );
     if (rows?.[0]) return rows[0];
   }
 
@@ -526,14 +525,30 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
       explicitRoomId: req.body?.room_id,
       tenantId: req.user?.tenant_id,
     });
-    if (!room?.id) {
-      try { fs.unlinkSync(req.file.path); } catch (_) {}
-      console.warn(`[MulterAudio] Sala não encontrada para identificador: ${req.params.id}`);
-      return res.status(404).json({ error: 'Sala nao encontrada.' });
-    }
+
     const sk = req.params.sessionKey;
     const { speaker_role, speaker_name, duration_seconds } = req.body || {};
     const fileUrl = `/uploads-static/room-recordings/${req.file.filename}`;
+
+    if (!room?.id) {
+      // Arquivo já foi salvo no disco — registra no BD sem room_id para não perder a gravação
+      console.warn(`[MulterAudio] Sala não encontrada para "${req.params.id}" — gravação preservada sem vínculo de sala: ${req.file.filename}`);
+      try {
+        const tenantId = req.user?.tenant_id || null;
+        const [ins] = await db.query(
+          `INSERT INTO room_recordings (room_id, tenant_id, session_key, file_name, file_url, file_size, duration_seconds, speaker_role, speaker_name)
+           VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [tenantId, sk, req.file.originalname, fileUrl,
+           req.file.size, parseInt(duration_seconds) || null,
+           speaker_role || 'mixed', speaker_name || null]
+        );
+        return res.json({ id: ins.insertId, file_url: fileUrl, warning: 'room_not_found' });
+      } catch (dbErr) {
+        console.error('[MulterAudio] Erro ao salvar gravação órfã no BD:', dbErr);
+        return res.json({ file_url: fileUrl, warning: 'room_not_found' });
+      }
+    }
+
     const [ins] = await db.query(
       `INSERT INTO room_recordings (room_id, tenant_id, session_key, file_name, file_url, file_size, duration_seconds, speaker_role, speaker_name)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

@@ -145,6 +145,22 @@ async function patch() {
   `);
   console.log('✅ room_sessions OK');
 
+  // Torna room_id nullable em room_recordings para aceitar gravações de salas não encontradas no BD
+  try {
+    await conn.query(`ALTER TABLE room_recordings MODIFY COLUMN room_id INT NULL`);
+    console.log('✅ room_recordings.room_id agora aceita NULL');
+  } catch (e) {
+    if (!e.message?.includes('same')) console.log('ℹ️  room_recordings.room_id já é nullable ou coluna não existe');
+  }
+
+  // Torna tenant_id nullable em room_recordings (gravações de sessões anônimas)
+  try {
+    await conn.query(`ALTER TABLE room_recordings MODIFY COLUMN tenant_id INT NULL`);
+    console.log('✅ room_recordings.tenant_id agora aceita NULL');
+  } catch (e) {
+    console.log('ℹ️  room_recordings.tenant_id já é nullable ou coluna não existe');
+  }
+
   console.log('\n✨ Banco de dados atualizado com sucesso!');
   await conn.end();
 }
