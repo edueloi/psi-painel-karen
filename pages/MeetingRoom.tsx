@@ -367,6 +367,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
   const screenShareRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const pipLocalVideoRef = useRef<HTMLVideoElement | null>(null);
+  const pipRemoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Aguarda o stream local ficar disponível (máx 8s) antes de processar WebRTC
   const waitForLocalStream = (): Promise<MediaStream | null> =>
@@ -800,10 +802,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   }, [isGuest, waitingToken, id, guestName]);
 
   // --- ASSESSMENT HANDLERS ---
-  const handleStartAssessment = (assessId: string) => {
-    const selected =
-      assessmentForms.find((form) => form.id === assessId) ||
-      assessmentDetails[assessId];
+  const handleStartAssessment = async (assessId: string) => {
+    // Garante que os detalhes (incluindo hash) estão carregados antes de iniciar
+    let freshMapped: ClinicalForm | null = null;
+    if (!assessmentDetails[assessId]) {
+      try {
+        const formData = await api.get<any>(`/forms/${assessId}`);
+        freshMapped = normalizeForm(formData);
+        setAssessmentDetails((prev) => ({ ...prev, [assessId]: freshMapped! }));
+      } catch { /* segue mesmo sem detalhes */ }
+    }
+    const selected = freshMapped || assessmentDetails[assessId] || assessmentForms.find((form) => form.id === assessId);
     const formHash = selected?.hash || null;
     setActiveAssessmentId(assessId);
     setActiveAssessmentHash(formHash);
@@ -1321,11 +1330,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             return;
           if (evt.event_type === "start") {
             if (isGuest) {
+              const formHash = payload?.form_hash || null;
               setActiveAssessmentId(evt.assessment_id);
-              setActiveAssessmentHash(payload?.form_hash || null);
+              setActiveAssessmentHash(formHash);
               setAssessmentStatus("active");
               setActiveSidePanel("assessments");
               setRemoteAnswers({});
+              loadAssessmentForm(evt.assessment_id, formHash);
             } else {
               setMessages((prev) => [
                 ...prev,
@@ -1854,6 +1865,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       remoteVideoRef.current.srcObject = stream;
       remoteVideoRef.current.play().catch(() => {});
     }
+    // Sincroniza o PiP remoto se estiver montado
+    if (pipRemoteVideoRef.current) {
+      pipRemoteVideoRef.current.srcObject = stream;
+      pipRemoteVideoRef.current.play().catch(() => {});
+    }
     attachRecordingStream(stream, "remote");
     setRemoteStreamActive(true);
   };
@@ -2222,7 +2238,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   };
 
   const sendReaction = (emoji: string) => {
-    sendRoomEventRef.current?.("reaction", { emoji, sender: localDisplayName });
+    sendRoomEventRef.current?.("reaction", { emoji, sender: localDisplayName, client_id: clientIdRef.current });
     addReaction(emoji, localDisplayName);
   };
 
@@ -3459,37 +3475,44 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 />
               )}
 
-              {/* PiP card — toque para inverter */}
+              {/* PiP card — vídeo secundário com ref próprio para não conflitar */}
               <div
-                className="absolute bottom-[5.5rem] right-3 w-28 h-40 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-pointer z-20 active:scale-95 transition-transform"
+                className="absolute bottom-[5.5rem] right-3 w-28 h-40 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-pointer z-20 active:scale-95 transition-transform bg-[#101216]"
                 onClick={() => setMobileSwapped(v => !v)}
                 title="Toque para inverter"
               >
                 {mobileSwapped ? (
-                  <RemoteVideoTile
-                    videoRef={remoteVideoRef}
-                    remoteUserConnected={remoteUserConnected}
-                    remoteStreamActive={remoteStreamActive}
-                    remoteDisplayName={remoteDisplayName}
-                    remoteInitial={remoteInitial}
-                    screenShareRef={screenShareRef}
-                    screenShare={screenShare}
-                    className="h-full !rounded-none"
+                  /* PiP mostra remoto */
+                  <video
+                    ref={(el) => {
+                      pipRemoteVideoRef.current = el;
+                      if (el && remoteVideoRef.current?.srcObject) {
+                        el.srcObject = remoteVideoRef.current.srcObject;
+                        el.play().catch(() => {});
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <VideoTile
-                    videoRef={localVideoRef}
-                    label={localDisplayName}
-                    isLocal
-                    cameraOn={cameraOn}
-                    initial={localInitial}
-                    audioLevel={audioLevel}
-                    micOn={micOn}
-                    className="h-full !rounded-none"
+                  /* PiP mostra local */
+                  <video
+                    ref={(el) => {
+                      pipLocalVideoRef.current = el;
+                      if (el && localStreamRef.current) {
+                        el.srcObject = localStreamRef.current;
+                        el.play().catch(() => {});
+                      }
+                    }}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover scale-x-[-1]"
                   />
                 )}
                 {/* Ícone de swap */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity pointer-events-none">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                     <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
                   </svg>
