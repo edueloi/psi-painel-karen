@@ -82,6 +82,7 @@ export const Finance: React.FC = () => {
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalReviewing, setPortalReviewing] = useState<string | null>(null);
   const [portalAttachModal, setPortalAttachModal] = useState<any | null>(null);
+  const [portalDeleteConfirm, setPortalDeleteConfirm] = useState<string | null>(null);
 
 
   const fetchData = async () => {
@@ -144,6 +145,18 @@ export const Finance: React.FC = () => {
       pushToast('error', 'Erro ao atualizar pagamento.');
     } finally {
       setPortalReviewing(null);
+    }
+  };
+
+  const deletePortalPayment = async (id: string) => {
+    try {
+      await api.delete(`/patient-portal/admin/payments/${id}`);
+      setPortalPayments(prev => prev.filter(p => p.id !== id));
+      pushToast('success', 'Declaração removida.');
+    } catch {
+      pushToast('error', 'Erro ao remover pagamento.');
+    } finally {
+      setPortalDeleteConfirm(null);
     }
   };
 
@@ -412,6 +425,13 @@ export const Finance: React.FC = () => {
               </button>
             </>
           )}
+          <button
+            onClick={() => setPortalDeleteConfirm(p.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all"
+            title="Remover declaração"
+          >
+            <Trash2 size={12}/>
+          </button>
         </div>
       </div>
     );
@@ -463,6 +483,17 @@ export const Finance: React.FC = () => {
             </div>
           </Modal>
         )}
+
+        {/* Confirmação de deleção */}
+        <ConfirmModal
+          isOpen={!!portalDeleteConfirm}
+          onClose={() => setPortalDeleteConfirm(null)}
+          onConfirm={() => portalDeleteConfirm && deletePortalPayment(portalDeleteConfirm)}
+          title="Remover declaração"
+          message="Tem certeza? Isso também removerá o lançamento no Livro Caixa se houver."
+          confirmLabel="Remover"
+          variant="danger"
+        />
       </div>
     );
   };

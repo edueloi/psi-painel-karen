@@ -941,4 +941,33 @@ router.patch('/admin/payments/:id', async (req, res) => {
   }
 });
 
+// DELETE /patient-portal/admin/payments/:id — remover declaração de pagamento
+router.delete('/admin/payments/:id', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    const [[payment]] = await db.query(
+      `SELECT id, finance_transaction_id, tenant_id FROM patient_portal_payments WHERE id = ? AND tenant_id = ?`,
+      [req.params.id, req.user.tenant_id]
+    );
+    if (!payment) return res.status(404).json({ error: 'Pagamento não encontrado.' });
+
+    // Remove anexos
+    await db.query(`DELETE FROM patient_portal_payment_attachments WHERE payment_id = ?`, [payment.id]);
+
+    // Remove lançamento no Livro Caixa se foi criado
+    if (payment.finance_transaction_id) {
+      await db.query(`DELETE FROM financial_transactions WHERE id = ? AND tenant_id = ?`,
+        [payment.finance_transaction_id, req.user.tenant_id]).catch(() => {});
+    }
+
+    await db.query(`DELETE FROM patient_portal_payments WHERE id = ? AND tenant_id = ?`,
+      [req.params.id, req.user.tenant_id]);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Erro ao deletar pagamento portal:', e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 module.exports = router;
