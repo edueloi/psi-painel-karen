@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { GoogleGenAI } from "@google/genai";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -41,6 +41,7 @@ import {
   ArrowLeft,
   Save,
   LogIn,
+  Smile,
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -126,6 +127,36 @@ const ICE_CONFIG: RTCConfiguration = {
   iceServers,
   iceCandidatePoolSize: 10,
 };
+
+interface ReactionItem { id: string; emoji: string; sender: string; x: number; }
+
+const ReactionsOverlay: React.FC<{ reactions: ReactionItem[] }> = ({ reactions }) => (
+  <div className="absolute inset-0 pointer-events-none overflow-hidden z-30">
+    {reactions.map((r) => (
+      <div
+        key={r.id}
+        style={{
+          position: "absolute",
+          left: `${r.x}%`,
+          bottom: "72px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          animation: "rxRise 3.5s ease-out forwards",
+          willChange: "transform, opacity",
+        }}
+      >
+        <span style={{ fontSize: "clamp(2.5rem,8vw,3.5rem)", lineHeight: 1, filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }}>
+          {r.emoji}
+        </span>
+        <span style={{ fontSize: "11px", fontWeight: 700, color: "white", background: "rgba(0,0,0,0.55)", padding: "2px 8px", borderRadius: "999px", whiteSpace: "nowrap" }}>
+          {r.sender}
+        </span>
+      </div>
+    ))}
+  </div>
+);
 
 export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   isGuest: isGuestProp = false,
@@ -322,6 +353,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const geminiStopResolveRef = useRef<(() => void) | null>(null);
   const [isUploadingRecording, setIsUploadingRecording] = useState(false);
 
+  // Emoji reactions
+  const [reactions, setReactions] = useState<Array<{ id: string; emoji: string; sender: string; x: number }>>([]);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+
+  // Mobile spotlight layout
+  const [mobileSwapped, setMobileSwapped] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(() => window.innerWidth < 1024);
+
   // --- Refs ---
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
@@ -458,6 +497,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
     return { value: rawValue, score: 0 };
   };
+
+  // --- RESPONSIVE BREAKPOINT DETECTION ---
+  useEffect(() => {
+    const check = () => setIsMobileView(window.innerWidth < 1024);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // --- BROADCAST CHANNEL (Real-time Sync between tabs) ---
   useEffect(() => {
@@ -1018,6 +1064,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   }, [isGuest, remoteWhiteboardActive, activeSidePanel]);
 
+  const addReaction = useCallback((emoji: string, sender: string) => {
+    const id_r = `${Date.now()}-${Math.random()}`;
+    const x = 10 + Math.random() * 80;
+    setReactions(prev => [...prev, { id: id_r, emoji, sender, x }]);
+    setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id_r)), 4000);
+  }, []);
+
   useEffect(() => {
     if (!id || !hasJoined) return;
     if (isGuest && connectionStatus !== "connected") return;
@@ -1208,6 +1261,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               }
               if (guestWaitingKey) localStorage.removeItem(guestWaitingKey);
             }
+          } else if (evt.event_type === "reaction") {
+            addReaction(payload?.emoji || "👍", payload?.sender || "Participante");
           }
         });
         const last = rows[rows.length - 1];
@@ -1223,7 +1278,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       active = false;
       clearInterval(interval);
     };
-  }, [id, hasJoined, isGuest, connectionStatus, suppressEventHistory]);
+  }, [id, hasJoined, isGuest, connectionStatus, suppressEventHistory, addReaction]);
 
   useEffect(() => {
     if (!id || !hasJoined) return;
@@ -2150,6 +2205,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     } catch (err) {
       // ignore send errors; polling will keep UI consistent
     }
+  };
+
+  const sendReaction = (emoji: string) => {
+    sendRoomEventRef.current?.("reaction", { emoji, sender: localDisplayName });
+    addReaction(emoji, localDisplayName);
   };
 
   const handleCopyTranscript = async () => {
@@ -3180,8 +3240,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     );
   }
 
+
   return (
     <div className="fixed inset-0 bg-[#0f1115] text-white flex flex-col">
+      <style>{`
+        @keyframes rxRise {
+          0%   { transform: translate3d(0, 0px, 0);    opacity: 0; }
+          10%  { transform: translate3d(0, -24px, 0);  opacity: 1; }
+          80%  { transform: translate3d(0, -220px, 0); opacity: 1; }
+          100% { transform: translate3d(0, -260px, 0); opacity: 0; }
+        }
+      `}</style>
       <header className="h-16 px-6 flex items-center justify-between border-b border-white/10 bg-[#111319]">
         <div className="flex items-center gap-3">
           <ArrowLeft
@@ -3227,7 +3296,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         </div>
       )}
 
-      <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden min-h-0">
+      <main className={`flex-1 flex overflow-hidden min-h-0 ${isMobileView ? "" : "flex-col lg:flex-row gap-4 p-4"}`}>
         {!isGuest && (
           <WaitingToast
             entries={waitingEntries}
@@ -3236,32 +3305,98 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             dark
           />
         )}
-        <section
-          className={`flex-1 grid gap-3 min-h-0 ${
-            useGridLayout
-              ? "grid-cols-1 sm:grid-cols-2"
-              : "grid-cols-1"
-          }`}
-        >
-          <RemoteVideoTile
-            videoRef={remoteVideoRef}
-            remoteUserConnected={remoteUserConnected}
-            remoteStreamActive={remoteStreamActive}
-            remoteDisplayName={remoteDisplayName}
-            remoteInitial={remoteInitial}
-            screenShareRef={screenShareRef}
-            screenShare={screenShare}
-          />
+        <section className="flex-1 relative min-h-0 min-w-0">
+          {!isMobileView ? (
+            /* ── Desktop: grid lado a lado ── */
+            <div className={`grid h-full gap-3 ${useGridLayout ? "grid-cols-2" : "grid-cols-1"}`}>
+              <RemoteVideoTile
+                videoRef={remoteVideoRef}
+                remoteUserConnected={remoteUserConnected}
+                remoteStreamActive={remoteStreamActive}
+                remoteDisplayName={remoteDisplayName}
+                remoteInitial={remoteInitial}
+                screenShareRef={screenShareRef}
+                screenShare={screenShare}
+              />
+              <VideoTile
+                videoRef={localVideoRef}
+                label={localDisplayName}
+                isLocal
+                cameraOn={cameraOn}
+                initial={localInitial}
+                audioLevel={audioLevel}
+                micOn={micOn}
+              />
+              <ReactionsOverlay reactions={reactions} />
+            </div>
+          ) : (
+            /* ── Mobile: spotlight fullscreen + PiP card ── */
+            <div className="absolute inset-0">
+              {/* Vídeo principal (fullscreen) */}
+              {mobileSwapped ? (
+                <VideoTile
+                  videoRef={localVideoRef}
+                  label={localDisplayName}
+                  isLocal
+                  cameraOn={cameraOn}
+                  initial={localInitial}
+                  audioLevel={audioLevel}
+                  micOn={micOn}
+                  className="absolute inset-0 !rounded-none !min-h-0"
+                />
+              ) : (
+                <RemoteVideoTile
+                  videoRef={remoteVideoRef}
+                  remoteUserConnected={remoteUserConnected}
+                  remoteStreamActive={remoteStreamActive}
+                  remoteDisplayName={remoteDisplayName}
+                  remoteInitial={remoteInitial}
+                  screenShareRef={screenShareRef}
+                  screenShare={screenShare}
+                  className="absolute inset-0 !rounded-none !min-h-0"
+                />
+              )}
 
-          <VideoTile
-            videoRef={localVideoRef}
-            label={localDisplayName}
-            isLocal
-            cameraOn={cameraOn}
-            initial={localInitial}
-            audioLevel={audioLevel}
-            micOn={micOn}
-          />
+              {/* PiP card — toque para inverter */}
+              <div
+                className="absolute top-3 right-3 w-28 h-40 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-pointer z-20 active:scale-95 transition-transform"
+                onClick={() => setMobileSwapped(v => !v)}
+                title="Toque para inverter"
+              >
+                {mobileSwapped ? (
+                  <RemoteVideoTile
+                    videoRef={remoteVideoRef}
+                    remoteUserConnected={remoteUserConnected}
+                    remoteStreamActive={remoteStreamActive}
+                    remoteDisplayName={remoteDisplayName}
+                    remoteInitial={remoteInitial}
+                    screenShareRef={screenShareRef}
+                    screenShare={screenShare}
+                    className="h-full !rounded-none"
+                  />
+                ) : (
+                  <VideoTile
+                    videoRef={localVideoRef}
+                    label={localDisplayName}
+                    isLocal
+                    cameraOn={cameraOn}
+                    initial={localInitial}
+                    audioLevel={audioLevel}
+                    micOn={micOn}
+                    className="h-full !rounded-none"
+                  />
+                )}
+                {/* Ícone de swap */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                    <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+                  </svg>
+                </div>
+              </div>
+
+              <ReactionsOverlay reactions={reactions} />
+            </div>
+          )}
         </section>
 
         {activeSidePanel !== "none" && (
@@ -3752,6 +3887,24 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
       {/* --- FOOTER CONTROLS --- */}
         <footer className="shrink-0 flex items-center justify-center relative z-50 pointer-events-none px-2 py-2 sm:px-4 sm:py-3">
+          {/* Emoji picker — fora do overflow-x-auto */}
+          {showReactionPicker && (
+            <>
+              <div className="fixed inset-0 z-[190] pointer-events-auto" onClick={() => setShowReactionPicker(false)} />
+              <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 pointer-events-auto bg-[#1e2028] border border-white/15 rounded-2xl px-3 py-2.5 flex gap-1 sm:gap-2 shadow-2xl z-[200]">
+                {["✋", "👍", "❤️", "😂", "🎉", "👏", "🙏", "😮"].map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => { sendReaction(emoji); setShowReactionPicker(false); }}
+                    className="text-2xl sm:text-3xl hover:scale-125 transition-transform active:scale-90 select-none p-0.5"
+                    title={emoji}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <div className="pointer-events-auto bg-[#181a1f]/90 backdrop-blur-xl border border-white/10 p-1.5 sm:p-2 rounded-2xl shadow-2xl flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-full">
             <RoomFooterBtn
               onClick={toggleMic}
@@ -3831,6 +3984,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 <ClipboardCheck size={22} className="hidden sm:block" />
               </RoomFooterBtn>
             )}
+
+            <RoomFooterBtn
+              onClick={() => setShowReactionPicker(v => !v)}
+              active={showReactionPicker}
+              title="Reações"
+            >
+              <Smile size={18} className="sm:hidden" />
+              <Smile size={22} className="hidden sm:block" />
+            </RoomFooterBtn>
 
             <RoomFooterBtn onClick={() => setShowSettingsModal(true)} title="Configurações">
               <Settings size={18} className="sm:hidden" />

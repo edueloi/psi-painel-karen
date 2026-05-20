@@ -66,6 +66,7 @@ interface RemoteVideoTileProps {
   remoteInitial: string;
   screenShareRef?: React.RefObject<HTMLVideoElement | null>;
   screenShare?: boolean;
+  className?: string;
 }
 
 export const RemoteVideoTile: React.FC<RemoteVideoTileProps> = ({
@@ -76,8 +77,9 @@ export const RemoteVideoTile: React.FC<RemoteVideoTileProps> = ({
   remoteInitial,
   screenShareRef,
   screenShare = false,
+  className = "",
 }) => (
-  <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center min-h-[160px] sm:min-h-[200px]">
+  <div className={`relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center min-h-[160px] sm:min-h-[200px] ${className}`}>
     {screenShare && screenShareRef ? (
       <video
         ref={screenShareRef}
