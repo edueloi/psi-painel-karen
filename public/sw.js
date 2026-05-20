@@ -1,4 +1,4 @@
-const CACHE_NAME = 'psiflux-v2';
+const CACHE_NAME = 'psiflux-v3';
 const STATIC_ASSETS = ['/', '/index.html', '/app_psiflux.png', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -24,11 +24,15 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   if (url.origin !== location.origin) return;
+
+  // Nunca interceptar estas rotas — deixa ir direto para a rede
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/uploads-static/') ||
     url.pathname.startsWith('/@vite/') ||
     url.pathname.startsWith('/node_modules/') ||
+    url.pathname.startsWith('/sala/') ||
+    url.pathname === '/sala' ||
     url.pathname === '/sw.js'
   ) {
     return;
@@ -44,7 +48,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => caches.match('/index.html'))
+        .catch(() => caches.match('/index.html').then(r => r || Response.error()))
     );
     return;
   }
