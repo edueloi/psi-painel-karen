@@ -236,6 +236,51 @@ export const VirtualRooms: React.FC = () => {
   };
 
   const [transcribingRecording, setTranscribingRecording] = useState<number | null>(null);
+  const [deletingRecording, setDeletingRecording] = useState<number | null>(null);
+  const [deletingTranscript, setDeletingTranscript] = useState<string | null>(null);
+
+  const deleteRecording = async (rec: RecordingEntry, session: SessionSummary) => {
+    if (!window.confirm(`Deletar a gravação "${rec.file_name}"?`)) return;
+    setDeletingRecording(rec.id);
+    try {
+      await api.delete(`/virtual-rooms/${session.room_id}/sessions/${session.session_key}/recordings/${rec.id}`);
+      setSessionRecordings((prev) => ({
+        ...prev,
+        [session.session_key]: (prev[session.session_key] || []).filter((r) => r.id !== rec.id),
+      }));
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.session_key === session.session_key
+            ? { ...s, recording_count: Math.max(0, s.recording_count - 1) }
+            : s
+        )
+      );
+      toastSuccess('Gravação deletada', 'O arquivo de áudio foi removido.');
+    } catch {
+      toastError('Erro', 'Não foi possível deletar a gravação.');
+    } finally {
+      setDeletingRecording(null);
+    }
+  };
+
+  const deleteTranscript = async (session: SessionSummary) => {
+    if (!window.confirm('Deletar toda a transcrição desta sessão?')) return;
+    setDeletingTranscript(session.session_key);
+    try {
+      await api.delete(`/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript`);
+      setSessionTranscripts((prev) => ({ ...prev, [session.session_key]: [] }));
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.session_key === session.session_key ? { ...s, transcript_count: 0 } : s
+        )
+      );
+      toastSuccess('Transcrição deletada', 'Todas as linhas foram removidas.');
+    } catch {
+      toastError('Erro', 'Não foi possível deletar a transcrição.');
+    } finally {
+      setDeletingTranscript(null);
+    }
+  };
 
   const transcribeRecording = async (rec: RecordingEntry, session: SessionSummary) => {
     if (!geminiKeys.length) {
@@ -692,6 +737,19 @@ export const VirtualRooms: React.FC = () => {
                                       <Download size={13} /> Baixar .txt
                                     </button>
                                   )}
+                                  {(transcripts?.length ?? 0) > 0 && (recordings?.length ?? 0) > 0 && (
+                                    <button
+                                      onClick={async () => {
+                                        await deleteTranscript(session);
+                                        const recs = sessionRecordings[session.session_key];
+                                        if (recs?.length) transcribeRecording(recs[0], session);
+                                      }}
+                                      disabled={deletingTranscript === session.session_key || transcribingRecording !== null}
+                                      className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                                    >
+                                      <Mic size={13} /> Refazer Transcrição
+                                    </button>
+                                  )}
                                 </div>
 
                                 {/* Recordings */}
@@ -714,6 +772,14 @@ export const VirtualRooms: React.FC = () => {
                                             >
                                               <Download size={13} />
                                             </a>
+                                            <button
+                                              onClick={() => deleteRecording(rec, session)}
+                                              disabled={deletingRecording === rec.id}
+                                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 hover:border-red-200 hover:text-red-500 disabled:opacity-50 transition-colors"
+                                              title="Deletar gravação"
+                                            >
+                                              {deletingRecording === rec.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                            </button>
                                           </div>
                                         </div>
                                         <audio
@@ -742,7 +808,18 @@ export const VirtualRooms: React.FC = () => {
                                 {/* Transcript */}
                                 {(transcripts?.length ?? 0) > 0 ? (
                                   <div className="space-y-2">
-                                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Transcrição</p>
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Transcrição</p>
+                                      <button
+                                        onClick={() => deleteTranscript(session)}
+                                        disabled={deletingTranscript === session.session_key}
+                                        className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-400 hover:border-red-200 hover:text-red-500 disabled:opacity-50 transition-colors"
+                                        title="Deletar transcrição"
+                                      >
+                                        {deletingTranscript === session.session_key ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                        Deletar
+                                      </button>
+                                    </div>
                                     <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 space-y-2">
                                       {transcripts!.map((line) => (
                                         <div key={line.id} className="flex gap-2">

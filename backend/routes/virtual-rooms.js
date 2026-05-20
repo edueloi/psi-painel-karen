@@ -570,6 +570,52 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
   }
 });
 
+// DELETE /virtual-rooms/:id/sessions/:sessionKey/recordings/:recordingId — deletar gravação
+router.delete('/:id/sessions/:sessionKey/recordings/:recordingId', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const recordingId = parseInt(req.params.recordingId);
+    const [rows] = await db.query(
+      `SELECT id, file_name FROM room_recordings WHERE id = ? AND room_id = ? AND tenant_id = ? AND session_key = ?`,
+      [recordingId, roomId, req.user.tenant_id, req.params.sessionKey]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Gravação não encontrada.' });
+    const fileName = rows[0].file_name;
+    await db.query(`DELETE FROM room_recordings WHERE id = ?`, [recordingId]);
+    await db.query(
+      `UPDATE room_sessions SET recording_count = GREATEST(0, recording_count - 1), updated_at = NOW()
+       WHERE room_id = ? AND tenant_id = ? AND session_key = ?`,
+      [roomId, req.user.tenant_id, req.params.sessionKey]
+    );
+    const filePath = path.join(audioUploadDir, fileName);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[DELETE recording]', e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// DELETE /virtual-rooms/:id/sessions/:sessionKey/transcript — deletar todas as linhas de transcrição
+router.delete('/:id/sessions/:sessionKey/transcript', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const [result] = await db.query(
+      `DELETE FROM room_transcripts WHERE room_id = ? AND tenant_id = ? AND session_key = ?`,
+      [roomId, req.user.tenant_id, req.params.sessionKey]
+    );
+    await db.query(
+      `UPDATE room_sessions SET transcript_count = 0, updated_at = NOW()
+       WHERE room_id = ? AND tenant_id = ? AND session_key = ?`,
+      [roomId, req.user.tenant_id, req.params.sessionKey]
+    );
+    res.json({ ok: true, deleted: result.affectedRows });
+  } catch (e) {
+    console.error('[DELETE transcript]', e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // POST /virtual-rooms/:id/sessions/:sessionKey/end — marcar sessão como encerrada
 router.post('/:id/sessions/:sessionKey/end', async (req, res) => {
   try {
