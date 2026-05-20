@@ -303,9 +303,19 @@ router.get('/me', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
     const [rows] = await db.query(
-      `SELECT p.id, p.name AS full_name, p.email, p.phone AS whatsapp, p.phone, p.birth_date, p.gender,
-              p.cpf, p.address, p.city, p.state,
-              p.zip_code, p.health_plan, p.emergency_contacts, p.status, p.photo_url AS avatar_url,
+      `SELECT p.id, p.name AS full_name, p.email,
+              p.phone AS whatsapp, p.phone_country,
+              p.phone2, p.phone2_country,
+              p.birth_date, p.gender,
+              p.cpf AS cpf_cnpj,
+              p.address, p.street, p.house_number, p.neighborhood,
+              p.city, p.state, p.zip_code AS address_zip,
+              p.health_plan, p.notes,
+              p.marital_status, p.education, p.profession, p.nationality,
+              p.has_children, p.children_count, p.minor_children_count,
+              p.spouse_name, p.spouse_phone,
+              p.emergency_contacts,
+              p.status, p.photo_url AS avatar_url,
               p.portal_password_set, p.portal_email,
               u.name AS professional_name, u.specialty, u.crp, u.avatar_url AS prof_avatar,
               ten.name AS company_name
@@ -320,6 +330,7 @@ router.get('/me', portalAuth, async (req, res) => {
     if (p.emergency_contacts && typeof p.emergency_contacts === 'string') {
       try { p.emergency_contacts = JSON.parse(p.emergency_contacts); } catch { p.emergency_contacts = []; }
     }
+    p.has_children = Boolean(p.has_children);
     res.json(p);
   } catch (e) {
     console.error(e);
@@ -327,24 +338,39 @@ router.get('/me', portalAuth, async (req, res) => {
   }
 });
 
-// PATCH /patient-portal/me — atualizar dados básicos
+// PATCH /patient-portal/me — atualizar dados do paciente
 router.patch('/me', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
-    const allowed = ['name', 'email', 'phone', 'birth_date', 'gender',
-                     'address', 'city', 'state',
-                     'zip_code', 'health_plan', 'emergency_contacts'];
+    const allowed = [
+      'name', 'email', 'phone', 'phone_country', 'phone2', 'phone2_country',
+      'birth_date', 'gender', 'cpf',
+      'address', 'street', 'house_number', 'neighborhood', 'city', 'state', 'zip_code',
+      'health_plan', 'notes',
+      'marital_status', 'education', 'profession', 'nationality',
+      'has_children', 'children_count', 'minor_children_count',
+      'spouse_name', 'spouse_phone',
+      'emergency_contacts',
+    ];
+    const fieldMap = { cpf: 'cpf', address_zip: 'zip_code' };
+    const body = req.body;
     const updates = {};
     for (const k of allowed) {
-      if (req.body[k] !== undefined) updates[k] = req.body[k];
+      const bodyKey = Object.keys(fieldMap).find(fk => fieldMap[fk] === k) || k;
+      if (body[bodyKey] !== undefined) updates[k] = body[bodyKey];
+      else if (body[k] !== undefined) updates[k] = body[k];
     }
+    // cpf_cnpj → cpf
+    if (body.cpf_cnpj !== undefined) updates['cpf'] = body.cpf_cnpj;
+    // address_zip → zip_code
+    if (body.address_zip !== undefined) updates['zip_code'] = body.address_zip;
     if (updates.emergency_contacts && typeof updates.emergency_contacts !== 'string') {
       updates.emergency_contacts = JSON.stringify(updates.emergency_contacts);
     }
     if (!Object.keys(updates).length) return res.json({ ok: true });
     const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
     await db.query(
-      `UPDATE patients SET ${sets} WHERE id = ? AND tenant_id = ?`,
+      `UPDATE patients SET ${sets}, updated_at = NOW() WHERE id = ? AND tenant_id = ?`,
       [...Object.values(updates), patient_id, tenant_id]
     );
     res.json({ ok: true });

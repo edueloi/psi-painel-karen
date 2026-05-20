@@ -6,24 +6,54 @@ import {
   Upload, Trash2, Eye, X, Phone, Home, FileText, ArrowLeft,
   Check, Send, Loader2, ExternalLink, Edit3, Save, Lock,
   Eye as EyeIcon, EyeOff, Shield, ChevronRight, Bell, FolderOpen, Download,
-  ChevronLeft,
+  ChevronLeft, Heart, Users,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
+import { Input, Select, Textarea } from "../components/UI/Input";
+import { Button, IconButton } from "../components/UI";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
+interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
 interface PortalPatient {
   id: number;
   full_name: string;
   email?: string;
   whatsapp?: string;
+  phone_country?: string;
+  phone2?: string;
+  phone2_country?: string;
   birth_date?: string;
   gender?: string;
+  cpf_cnpj?: string;
   health_plan?: string;
+  notes?: string;
+  // endereço detalhado
   address?: string;
+  street?: string;
+  house_number?: string;
+  neighborhood?: string;
   city?: string;
   state?: string;
-  zip_code?: string;
-  cpf?: string;
+  address_zip?: string;
+  // social
+  marital_status?: string;
+  education?: string;
+  profession?: string;
+  nationality?: string;
+  // família
+  has_children?: boolean;
+  children_count?: number;
+  minor_children_count?: number;
+  spouse_name?: string;
+  spouse_phone?: string;
+  emergency_contacts?: EmergencyContact[];
+  // profissional
   professional_name?: string;
   specialty?: string;
   crp?: string;
@@ -1067,6 +1097,53 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
   );
 }
 
+// ─── Helpers do perfil ───────────────────────────────────────────────────────
+const MARITAL_OPTIONS = [
+  { value: "", label: "Não informado" },
+  { value: "solteiro", label: "Solteiro(a)" },
+  { value: "casado", label: "Casado(a)" },
+  { value: "divorciado", label: "Divorciado(a)" },
+  { value: "viuvo", label: "Viúvo(a)" },
+  { value: "uniao_estavel", label: "União Estável" },
+  { value: "separado", label: "Separado(a)" },
+];
+const EDUCATION_OPTIONS = [
+  { value: "", label: "Não informado" },
+  { value: "fundamental_inc", label: "Fundamental Incompleto" },
+  { value: "fundamental_com", label: "Fundamental Completo" },
+  { value: "medio_inc", label: "Médio Incompleto" },
+  { value: "medio_com", label: "Médio Completo" },
+  { value: "superior_inc", label: "Superior Incompleto" },
+  { value: "superior_com", label: "Superior Completo" },
+  { value: "pos_grad", label: "Pós-graduação" },
+  { value: "mestrado", label: "Mestrado" },
+  { value: "doutorado", label: "Doutorado" },
+];
+const RELATIONSHIP_OPTIONS = [
+  { value: "", label: "Parentesco" },
+  { value: "conjuge", label: "Cônjuge" },
+  { value: "mae", label: "Mãe" },
+  { value: "pai", label: "Pai" },
+  { value: "filho", label: "Filho" },
+  { value: "filha", label: "Filha" },
+  { value: "irmao", label: "Irmão" },
+  { value: "irma", label: "Irmã" },
+  { value: "avo", label: "Avó/Avô" },
+  { value: "tio", label: "Tio/Tia" },
+  { value: "primo", label: "Primo/Prima" },
+  { value: "amigo", label: "Amigo(a)" },
+  { value: "outro", label: "Outro" },
+];
+
+function mkPhone(v: string) {
+  const d = v.replace(/\D/g, "");
+  return d.replace(/^(\d{2})(\d)/g, "($1) $2").replace(/(\d)(\d{4})$/, "$1-$2").substring(0, 15);
+}
+function mkCep(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 8);
+  return d.replace(/(\d{5})(\d{0,3})/, "$1-$2").replace(/-$/, "");
+}
+
 // ─── Tab: Perfil ──────────────────────────────────────────────────────────────
 function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
   patient: PortalPatient;
@@ -1074,34 +1151,82 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
   onPatientUpdate: () => void;
   showToast: (msg: string, type?: ToastType) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    name: patient.full_name,
-    email: patient.email || "",
-    phone: patient.whatsapp || "",
-    birth_date: patient.birth_date ? patient.birth_date.split("T")[0] : "",
-    gender: patient.gender || "",
-    health_plan: patient.health_plan || "",
-    address: patient.address || "",
-    city: patient.city || "",
-    state: patient.state || "",
-    zip_code: patient.zip_code || "",
+  const buildForm = (p: PortalPatient) => ({
+    name: p.full_name,
+    email: p.email || "",
+    phone: p.whatsapp || "",
+    phone2: p.phone2 || "",
+    birth_date: p.birth_date ? p.birth_date.split("T")[0] : "",
+    gender: p.gender || "",
+    cpf_cnpj: p.cpf_cnpj || "",
+    health_plan: p.health_plan || "",
+    notes: p.notes || "",
+    // endereço
+    address_zip: p.address_zip || "",
+    street: p.street || "",
+    house_number: p.house_number || "",
+    neighborhood: p.neighborhood || "",
+    city: p.city || "",
+    state: p.state || "",
+    // social
+    marital_status: p.marital_status || "",
+    education: p.education || "",
+    profession: p.profession || "",
+    nationality: p.nationality || "",
+    // família
+    has_children: p.has_children || false,
+    children_count: p.children_count || 0,
+    minor_children_count: p.minor_children_count || 0,
+    spouse_name: p.spouse_name || "",
+    spouse_phone: p.spouse_phone || "",
+    emergency_contacts: (p.emergency_contacts || []) as EmergencyContact[],
   });
+
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(() => buildForm(patient));
   const [saving, setSaving] = useState(false);
 
-  // Seção de senha
   const [showPassSection, setShowPassSection] = useState(false);
   const [passForm, setPassForm] = useState({ current_password: "", new_password: "", confirm: "" });
   const [showPass, setShowPass] = useState(false);
   const [savingPass, setSavingPass] = useState(false);
   const [passError, setPassError] = useState("");
 
+  const sf = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
+    setForm(f => ({ ...f, [k]: v }));
+
   const saveProfile = async () => {
     setSaving(true);
     try {
       const res = await portalFetch("/me", {
         method: "PATCH",
-        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, birth_date: form.birth_date || null, gender: form.gender, health_plan: form.health_plan, address: form.address, city: form.city, state: form.state, zip_code: form.zip_code }),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email || null,
+          phone: form.phone || null,
+          phone2: form.phone2 || null,
+          birth_date: form.birth_date || null,
+          gender: form.gender || null,
+          cpf_cnpj: form.cpf_cnpj || null,
+          health_plan: form.health_plan || null,
+          notes: form.notes || null,
+          address_zip: form.address_zip || null,
+          street: form.street || null,
+          house_number: form.house_number || null,
+          neighborhood: form.neighborhood || null,
+          city: form.city || null,
+          state: form.state || null,
+          marital_status: form.marital_status || null,
+          education: form.education || null,
+          profession: form.profession || null,
+          nationality: form.nationality || null,
+          has_children: form.has_children,
+          children_count: form.has_children ? form.children_count : 0,
+          minor_children_count: form.has_children ? form.minor_children_count : 0,
+          spouse_name: form.spouse_name || null,
+          spouse_phone: form.spouse_phone || null,
+          emergency_contacts: form.emergency_contacts,
+        }),
       });
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao salvar.", "error"); return; }
       showToast("Dados atualizados com sucesso!", "success");
@@ -1127,7 +1252,26 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
     } finally { setSavingPass(false); }
   };
 
-  const fieldClass = "w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-white disabled:border-transparent disabled:text-slate-700 disabled:px-0";
+  const fmtBirth = (iso: string) => {
+    if (!iso) return "—";
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
+  const addContact = () =>
+    sf("emergency_contacts", [...form.emergency_contacts, { id: Date.now().toString(), name: "", phone: "", relationship: "" }]);
+  const removeContact = (id: string) =>
+    sf("emergency_contacts", form.emergency_contacts.filter(c => c.id !== id));
+  const updateContact = (id: string, field: keyof EmergencyContact, value: string) =>
+    sf("emergency_contacts", form.emergency_contacts.map(c => c.id === id ? { ...c, [field]: value } : c));
+
+  // Label helper
+  const Field = ({ label, value }: { label: string; value?: string | number | null }) => (
+    <div className="px-5 py-3.5 border-b border-slate-50 last:border-0">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
+      <p className="text-sm text-slate-700">{value || "—"}</p>
+    </div>
+  );
 
   return (
     <div className="space-y-4 pb-6">
@@ -1139,100 +1283,197 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
             {patient.full_name.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-black truncate">{patient.full_name}</h2>
+            <h2 className="text-xl font-black leading-tight">{patient.full_name}</h2>
             {(patient.portal_email || patient.email) && (
-              <p className="text-slate-400 text-sm truncate">{patient.portal_email || patient.email}</p>
+              <p className="text-slate-400 text-sm mt-0.5">{patient.portal_email || patient.email}</p>
             )}
             {patient.company_name && <p className="text-slate-500 text-xs mt-0.5">{patient.company_name}</p>}
           </div>
         </div>
       </div>
 
-      {/* Dados pessoais */}
+      {/* ── DADOS PESSOAIS ── */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-50 flex items-center justify-between">
-          <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Meus Dados</span>
+        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+          <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Dados Pessoais</span>
           {!editing ? (
-            <button onClick={() => setEditing(true)}
-              className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 rounded-xl px-3 py-1.5">
-              <Edit3 size={12} />Editar
-            </button>
+            <Button size="sm" variant="outline" iconLeft={<Edit3 size={12} />} onClick={() => setEditing(true)}>
+              Editar
+            </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <button onClick={() => setEditing(false)} className="text-xs text-slate-400 font-medium px-3 py-1.5 rounded-xl hover:bg-slate-50">Cancelar</button>
-              <button onClick={saveProfile} disabled={saving}
-                className="flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-600 rounded-xl px-3 py-1.5 hover:bg-indigo-700 disabled:opacity-60">
-                {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
-                Salvar
-              </button>
+              <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setForm(buildForm(patient)); }}>
+                Cancelar
+              </Button>
+              <Button size="sm" variant="primary" iconLeft={saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                onClick={saveProfile} disabled={saving}>
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
             </div>
           )}
         </div>
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            <div>
-              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Nome completo</label>
-              <input disabled={!editing} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={fieldClass} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Email</label>
-                <input disabled={!editing} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={fieldClass} />
-              </div>
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">WhatsApp</label>
-                <input disabled={!editing} type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={fieldClass} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Nascimento</label>
-                <input disabled={!editing} type="date" value={form.birth_date} onChange={e => setForm(f => ({ ...f, birth_date: e.target.value }))} className={fieldClass} />
-              </div>
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Gênero</label>
-                {editing ? (
-                  <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-indigo-400">
-                    <option value="">Não informado</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Feminino">Feminino</option>
-                    <option value="Não-binário">Não-binário</option>
-                    <option value="Prefiro não informar">Prefiro não informar</option>
-                  </select>
-                ) : (
-                  <p className="text-sm text-slate-700 py-3">{form.gender || "—"}</p>
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Plano de saúde</label>
-              <input disabled={!editing} value={form.health_plan} onChange={e => setForm(f => ({ ...f, health_plan: e.target.value }))} placeholder="Ex.: Unimed, Amil..." className={fieldClass} />
-            </div>
-            {editing && (
+
+        {editing ? (
+          <div className="p-5 space-y-3">
+            {/* ─ Básico ─ */}
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Básico</p>
+            <Input label="Nome completo" value={form.name}
+              onChange={e => sf("name", e.target.value)} />
+            <Input label="Email" type="email" value={form.email}
+              onChange={e => sf("email", e.target.value)} />
+            <Input label="WhatsApp / Telefone" type="tel" value={form.phone}
+              onChange={e => sf("phone", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
+            <Input label="Telefone 2" type="tel" value={form.phone2}
+              onChange={e => sf("phone2", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
+            <Input label="CPF / CNPJ" value={form.cpf_cnpj}
+              onChange={e => sf("cpf_cnpj", e.target.value)} placeholder="000.000.000-00" />
+            <Input label="Data de nascimento" type="date" value={form.birth_date}
+              onChange={e => sf("birth_date", e.target.value)} />
+            <Select label="Gênero" value={form.gender}
+              onChange={e => sf("gender", e.target.value)}
+              options={[
+                { value: "", label: "Não informado" },
+                { value: "Masculino", label: "Masculino" },
+                { value: "Feminino", label: "Feminino" },
+                { value: "Não-binário", label: "Não-binário" },
+                { value: "Prefiro não informar", label: "Prefiro não informar" },
+              ]} />
+            <Input label="Plano de saúde" value={form.health_plan}
+              onChange={e => sf("health_plan", e.target.value)} placeholder="Ex.: Unimed, Amil..." />
+            <Textarea label="Observações" value={form.notes}
+              onChange={e => sf("notes", e.target.value)} placeholder="Informações adicionais..." />
+
+            {/* ─ Endereço ─ */}
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Endereço</p>
+            <Input label="CEP" value={form.address_zip}
+              onChange={e => sf("address_zip", mkCep(e.target.value))} placeholder="00000-000" />
+            <Input label="Logradouro" value={form.street}
+              onChange={e => sf("street", e.target.value)} placeholder="Rua, Avenida..." />
+            <Input label="Número" value={form.house_number}
+              onChange={e => sf("house_number", e.target.value)} />
+            <Input label="Bairro" value={form.neighborhood}
+              onChange={e => sf("neighborhood", e.target.value)} />
+            <Input label="Cidade" value={form.city}
+              onChange={e => sf("city", e.target.value)} />
+            <Input label="Estado (UF)" value={form.state}
+              onChange={e => sf("state", e.target.value.toUpperCase())} maxLength={2} placeholder="SP" />
+
+            {/* ─ Social ─ */}
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Social</p>
+            <Select label="Estado civil" value={form.marital_status}
+              onChange={e => sf("marital_status", e.target.value)} options={MARITAL_OPTIONS} />
+            <Select label="Escolaridade" value={form.education}
+              onChange={e => sf("education", e.target.value)} options={EDUCATION_OPTIONS} />
+            <Input label="Profissão" value={form.profession}
+              onChange={e => sf("profession", e.target.value)} />
+            <Input label="Nacionalidade" value={form.nationality}
+              onChange={e => sf("nationality", e.target.value)} />
+
+            {/* ─ Família ─ */}
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Família</p>
+            <label className="flex items-center gap-3 cursor-pointer bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+              <input type="checkbox" className="h-4 w-4 rounded accent-indigo-600"
+                checked={form.has_children}
+                onChange={e => sf("has_children", e.target.checked)} />
+              <span className="text-sm font-semibold text-slate-600">Possui filhos?</span>
+            </label>
+            {form.has_children && (
               <>
-                <div>
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Endereço</label>
-                  <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Rua, número, complemento" className={fieldClass} />
+                <Input label="Total de filhos" type="number" value={String(form.children_count)}
+                  onChange={e => sf("children_count", parseInt(e.target.value) || 0)} />
+                <Input label="Filhos menores de idade" type="number" value={String(form.minor_children_count)}
+                  onChange={e => sf("minor_children_count", parseInt(e.target.value) || 0)} />
+              </>
+            )}
+            <Input label="Nome do cônjuge / parceiro" value={form.spouse_name}
+              onChange={e => sf("spouse_name", e.target.value)} />
+            <Input label="Telefone do cônjuge" type="tel" value={form.spouse_phone}
+              onChange={e => sf("spouse_phone", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
+
+            {/* ─ Contatos de emergência ─ */}
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contatos de emergência</p>
+              <Button size="sm" variant="outline" iconLeft={<Plus size={12} />} onClick={addContact}>
+                Adicionar
+              </Button>
+            </div>
+            {form.emergency_contacts.length === 0 && (
+              <p className="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Nenhum contato de emergência
+              </p>
+            )}
+            {form.emergency_contacts.map((c, idx) => (
+              <div key={c.id} className="bg-slate-50 rounded-xl border border-slate-200 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500">Contato {idx + 1}</span>
+                  <IconButton variant="ghost" size="xs" onClick={() => removeContact(c.id)}
+                    className="hover:text-red-500 hover:bg-red-50">
+                    <Trash2 size={13} />
+                  </IconButton>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Cidade</label>
-                    <input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className={fieldClass} />
+                <Input placeholder="Nome" value={c.name}
+                  onChange={e => updateContact(c.id, "name", e.target.value)} />
+                <Select value={c.relationship}
+                  onChange={e => updateContact(c.id, "relationship", e.target.value)}
+                  options={RELATIONSHIP_OPTIONS} />
+                <Input placeholder="Telefone" type="tel" value={c.phone}
+                  onChange={e => updateContact(c.id, "phone", mkPhone(e.target.value))} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* ── MODO VISUALIZAÇÃO ── */
+          <div>
+            <p className="px-5 pt-4 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Básico</p>
+            <Field label="Nome completo" value={form.name} />
+            <Field label="Email" value={form.email} />
+            <Field label="WhatsApp / Telefone" value={form.phone} />
+            {form.phone2 && <Field label="Telefone 2" value={form.phone2} />}
+            {form.cpf_cnpj && <Field label="CPF / CNPJ" value={form.cpf_cnpj} />}
+            <Field label="Data de nascimento" value={fmtBirth(form.birth_date)} />
+            <Field label="Gênero" value={form.gender} />
+            <Field label="Plano de saúde" value={form.health_plan} />
+            {form.notes && <Field label="Observações" value={form.notes} />}
+
+            {(form.street || form.city || form.address_zip) && (
+              <>
+                <p className="px-5 pt-4 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Endereço</p>
+                {form.address_zip && <Field label="CEP" value={form.address_zip} />}
+                {form.street && <Field label="Logradouro" value={[form.street, form.house_number].filter(Boolean).join(", ")} />}
+                {form.neighborhood && <Field label="Bairro" value={form.neighborhood} />}
+                {form.city && <Field label="Cidade / Estado" value={[form.city, form.state].filter(Boolean).join(" — ")} />}
+              </>
+            )}
+
+            {(form.marital_status || form.education || form.profession || form.nationality) && (
+              <>
+                <p className="px-5 pt-4 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Social</p>
+                {form.marital_status && <Field label="Estado civil" value={MARITAL_OPTIONS.find(o => o.value === form.marital_status)?.label} />}
+                {form.education && <Field label="Escolaridade" value={EDUCATION_OPTIONS.find(o => o.value === form.education)?.label} />}
+                {form.profession && <Field label="Profissão" value={form.profession} />}
+                {form.nationality && <Field label="Nacionalidade" value={form.nationality} />}
+              </>
+            )}
+
+            {(form.has_children || form.spouse_name || form.emergency_contacts.length > 0) && (
+              <>
+                <p className="px-5 pt-4 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Família</p>
+                {form.has_children && (
+                  <Field label="Filhos" value={`${form.children_count} total · ${form.minor_children_count} menor(es)`} />
+                )}
+                {form.spouse_name && <Field label="Cônjuge" value={form.spouse_name} />}
+                {form.emergency_contacts.map((c, i) => (
+                  <div key={c.id} className="px-5 py-3.5 border-b border-slate-50 last:border-0">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Emergência {i + 1}</p>
+                    <p className="text-sm text-slate-700 font-semibold">{c.name || "—"}</p>
+                    {c.relationship && <p className="text-xs text-slate-400">{RELATIONSHIP_OPTIONS.find(r => r.value === c.relationship)?.label || c.relationship}</p>}
+                    {c.phone && <p className="text-xs text-slate-500">{c.phone}</p>}
                   </div>
-                  <div>
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Estado</label>
-                    <input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} maxLength={2} className={fieldClass} />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">CEP</label>
-                  <input value={form.zip_code} onChange={e => setForm(f => ({ ...f, zip_code: e.target.value }))} placeholder="00000-000" className={fieldClass} />
-                </div>
+                ))}
               </>
             )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Meu profissional */}
@@ -1242,10 +1483,10 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
             <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Meu Profissional</span>
           </div>
           <div className="px-5 py-4 flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-lg">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-lg shrink-0">
               {patient.professional_name.charAt(0)}
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="font-black text-slate-800">{patient.professional_name}</p>
               {patient.specialty && <p className="text-sm text-slate-500">{patient.specialty}</p>}
               {patient.crp && <p className="text-xs text-slate-400 mt-0.5">CRP {patient.crp}</p>}
@@ -1259,7 +1500,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
         <button onClick={() => setShowPassSection(v => !v)}
           className="w-full px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-50 rounded-2xl flex items-center justify-center">
+            <div className="w-9 h-9 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0">
               <Lock size={16} className="text-indigo-600" />
             </div>
             <div className="text-left">
@@ -1275,57 +1516,42 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
         {showPassSection && (
           <div className="px-5 pb-5 space-y-3 border-t border-slate-50 pt-4">
             {patient.portal_password_set && (
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Senha atual</label>
-                <div className="relative">
-                  <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input type={showPass ? "text" : "password"} placeholder="••••••••" value={passForm.current_password}
-                    onChange={e => setPassForm(f => ({ ...f, current_password: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-indigo-400" />
-                </div>
-              </div>
+              <Input label="Senha atual" type={showPass ? "text" : "password"} placeholder="••••••••"
+                value={passForm.current_password}
+                onChange={e => setPassForm(f => ({ ...f, current_password: e.target.value }))}
+                iconLeft={<Lock size={14} />} />
             )}
-            <div>
-              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Nova senha</label>
-              <div className="relative">
-                <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type={showPass ? "text" : "password"} placeholder="Mínimo 6 caracteres" value={passForm.new_password}
-                  onChange={e => setPassForm(f => ({ ...f, new_password: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-sm bg-slate-50 focus:outline-none focus:border-indigo-400" />
-                <button onClick={() => setShowPass(v => !v)} type="button"
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+            <Input label="Nova senha" type={showPass ? "text" : "password"} placeholder="Mínimo 6 caracteres"
+              value={passForm.new_password}
+              onChange={e => setPassForm(f => ({ ...f, new_password: e.target.value }))}
+              iconLeft={<Lock size={14} />}
+              iconRight={
+                <button onClick={() => setShowPass(v => !v)} type="button" className="text-zinc-400 hover:text-zinc-600">
                   {showPass ? <EyeOff size={14} /> : <EyeIcon size={14} />}
                 </button>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Confirme a nova senha</label>
-              <div className="relative">
-                <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type={showPass ? "text" : "password"} placeholder="Repita a senha" value={passForm.confirm}
-                  onChange={e => setPassForm(f => ({ ...f, confirm: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-indigo-400" />
-              </div>
-            </div>
+              } />
+            <Input label="Confirme a nova senha" type={showPass ? "text" : "password"} placeholder="Repita a senha"
+              value={passForm.confirm}
+              onChange={e => setPassForm(f => ({ ...f, confirm: e.target.value }))}
+              iconLeft={<Lock size={14} />} />
             {passError && (
               <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-2xl px-3 py-2.5 border border-red-200">
                 <AlertCircle size={12} />{passError}
               </div>
             )}
-            <button onClick={savePassword} disabled={savingPass || !passForm.new_password}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-              {savingPass ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+            <Button variant="primary" className="w-full"
+              iconLeft={savingPass ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+              onClick={savePassword} disabled={savingPass || !passForm.new_password}>
               {savingPass ? "Salvando..." : "Salvar nova senha"}
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
       {/* Sair */}
-      <button onClick={onLogout}
-        className="w-full flex items-center justify-center gap-2 py-4 bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 rounded-3xl font-bold text-sm transition-colors">
-        <LogOut size={16} />Sair do Portal
-      </button>
+      <Button variant="danger" className="w-full" iconLeft={<LogOut size={16} />} onClick={onLogout}>
+        Sair do Portal
+      </Button>
     </div>
   );
 }
