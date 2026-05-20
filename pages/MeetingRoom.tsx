@@ -1586,8 +1586,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (!id || !hasJoined) return;
     if (isGuest && connectionStatus !== "connected") return;
 
-    const wsBase = API_BASE_URL.replace(/^http/, "ws");
-    const wsUrl = `${wsBase}/ws/room/${id.toLowerCase()}`;
+    // Strip path from API_BASE_URL — WS server lives at the root, not under /api
+    const wsOrigin = API_BASE_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "").replace(/\/$/, "");
+    const wsUrl = `${wsOrigin}/ws/room/${id.toLowerCase()}`;
 
     let ws: WebSocket | null = null;
     let reconnectDelay = 1000;
