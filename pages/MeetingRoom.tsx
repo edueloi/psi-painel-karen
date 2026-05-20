@@ -141,6 +141,8 @@ const ICE_CONFIG: RTCConfiguration = {
   iceCandidatePoolSize: 10,
 };
 
+const ICE_CHECKING_TIMEOUT_MS = 40000;
+
 const waitForIceGatheringComplete = (
   pc: RTCPeerConnection,
   timeoutMs = 1500
@@ -256,6 +258,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     id: string;
   } | null>(null);
   const [remoteUserConnected, setRemoteUserConnected] = useState(false);
+  const remoteUserConnectedRef = useRef(false);
+  const [hostPeerCycle, setHostPeerCycle] = useState(0);
   const [remoteParticipantName, setRemoteParticipantName] = useState<
     string | null
   >(null);
@@ -467,6 +471,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const sendRoomEventRef = useRef<((type: string, payload?: Record<string, any>) => Promise<void>) | null>(null);
   const participantTokenRef = useRef<string | null>(null);
   const hostRenegotiationInFlightRef = useRef(false);
+  const hostRenegotiationAttemptsRef = useRef(0);
+
+  const setRemoteConnected = useCallback((val: boolean) => {
+    remoteUserConnectedRef.current = val;
+    if (val) hostRenegotiationAttemptsRef.current = 0;
+    setRemoteUserConnected(val);
+  }, []);
 
   // Audio Analysis
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -600,7 +611,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         case "ADMIT_GUEST":
           if (isGuest && connectionStatus === "waiting_approval") {
             setConnectionStatus("connected");
-            setRemoteUserConnected(true);
+            setRemoteConnected(true);
           }
           if (!isGuest) {
             setIncomingRequest(null);
@@ -831,7 +842,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               });
             }
             setConnectionStatus("connected");
-            setRemoteUserConnected(true);
+            setRemoteConnected(true);
             setWaitingToken(null);
             if (guestWaitingKey) localStorage.removeItem(guestWaitingKey);
           } catch (err) {
@@ -1152,13 +1163,20 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   }, []);
 
   const hardResetHostConnection = useCallback((delayMs = 500) => {
-    if (isGuest || isCompanionMode || !remoteUserConnected) return;
+    if (isGuest || isCompanionMode || !remoteUserConnectedRef.current) return;
     hostRenegotiationInFlightRef.current = false;
     setRemoteStreamActive(false);
     resetRecordingSource("remote");
-    setRemoteUserConnected(false);
-    setTimeout(() => setRemoteUserConnected(true), delayMs);
-  }, [isGuest, isCompanionMode, remoteUserConnected]);
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.onicecandidate = null;
+      peerConnectionRef.current.ontrack = null;
+      peerConnectionRef.current.oniceconnectionstatechange = null;
+      peerConnectionRef.current.onconnectionstatechange = null;
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    setTimeout(() => setHostPeerCycle((prev) => prev + 1), delayMs);
+  }, [isGuest, isCompanionMode]);
 
   const requestHostRenegotiation = useCallback(async (reason: string) => {
     if (isGuest || isCompanionMode) return;
@@ -1173,9 +1191,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       return;
     }
 
+    hostRenegotiationAttemptsRef.current += 1;
+    if (hostRenegotiationAttemptsRef.current > 5) {
+      console.warn(`Host: muitas tentativas de renegociação (${reason}), recriando conexão completa...`);
+      hostRenegotiationAttemptsRef.current = 0;
+      hardResetHostConnection(500);
+      return;
+    }
+
     hostRenegotiationInFlightRef.current = true;
     try {
-      console.log(`Host: tentando renegociação (${reason})...`);
+      console.log(`Host: tentando renegociação (${reason}) [tentativa ${hostRenegotiationAttemptsRef.current}]...`);
       const offer = await pc.createOffer({ iceRestart: true });
       await pc.setLocalDescription(offer);
       await waitForIceGatheringComplete(pc);
@@ -1250,7 +1276,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'new') {
                     sendRoomEventRef.current?.('request_renegotiation', {});
                   }
-                }, 15000);
+                }, ICE_CHECKING_TIMEOUT_MS);
                 pc.oniceconnectionstatechange = () => {
                   if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
                     if (batchIceRestartTimer) { clearTimeout(batchIceRestartTimer); batchIceRestartTimer = null; }
@@ -1358,10 +1384,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 let guestIceRestartTimer: ReturnType<typeof setTimeout> | null = null;
                 let guestIceCheckingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
                   if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'new') {
-                    console.warn("Guest: ICE preso em checking por 15s, pedindo renegociação...");
+                    console.warn("Guest: ICE preso em checking por muito tempo, pedindo renegociação...");
                     sendRoomEventRef.current?.('request_renegotiation', {});
                   }
-                }, 15000);
+                }, ICE_CHECKING_TIMEOUT_MS);
                 pc.oniceconnectionstatechange = () => {
                   console.log("Guest ICE State:", pc.iceConnectionState);
                   if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
@@ -1654,11 +1680,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         }
         if (prev.length && names.length === 0) {
           setEntryNotice(`${prev[0]} saiu da sala.`);
-          setRemoteUserConnected(false);
+          setRemoteConnected(false);
           setRemoteParticipantName(null);
         }
         if (!prev.length && names.length) {
-          setRemoteUserConnected(true);
+          setRemoteConnected(true);
           setRemoteParticipantName(names[0]);
         }
         participantsRef.current = names;
@@ -1781,8 +1807,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
   // WebRTC: host creates offer when remote user connects
   useEffect(() => {
-    if (!remoteUserConnected || isGuest || isCompanionMode) return;
+    if (!remoteUserConnectedRef.current || isGuest || isCompanionMode) return;
     const timer = setTimeout(async () => {
+      if (!remoteUserConnectedRef.current) return;
       const localStream = await waitForLocalStream();
       if (!localStream) return;
       if (peerConnectionRef.current) {
@@ -1803,16 +1830,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         }
       };
       let iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
-      // Se ICE ficar preso em "checking" por 15s, força reconexão completa
+      // Se ICE ficar preso em "checking" por muito tempo, tenta renegociação sem marcar o participante como ausente
       let iceCheckingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
         if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'new') {
           requestHostRenegotiation("checking_timeout");
-          return;
-          console.warn("Host: ICE preso em checking por 15s, forçando reconexão...");
-          setRemoteUserConnected(false);
-          setTimeout(() => setRemoteUserConnected(true), 500);
         }
-      }, 15000);
+      }, ICE_CHECKING_TIMEOUT_MS);
       pc.oniceconnectionstatechange = () => {
         console.log("Host ICE State:", pc.iceConnectionState);
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
@@ -1824,29 +1847,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           iceRestartTimer = setTimeout(async () => {
             if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
               requestHostRenegotiation("disconnected");
-              return;
-              console.log("Host: tentando ICE restart...");
-              try {
-                const offer = await pc.createOffer({ iceRestart: true });
-                await pc.setLocalDescription(offer);
-                await waitForIceGatheringComplete(pc);
-                await sendRoomEventRef.current?.('webrtc_offer', {
-                  sdp: pc.localDescription?.sdp || offer.sdp,
-                  type: pc.localDescription?.type || offer.type,
-                });
-              } catch (err) {
-                console.warn("ICE restart falhou, forçando reconexão completa", err);
-                setRemoteUserConnected(false);
-                setTimeout(() => setRemoteUserConnected(true), 500);
-              }
             }
           }, 2000);
         } else if (pc.iceConnectionState === 'failed') {
           console.log("Host: ICE failed, forçando reconexão completa...");
           if (iceRestartTimer) clearTimeout(iceRestartTimer);
           if (iceCheckingTimeout) clearTimeout(iceCheckingTimeout);
-          setRemoteUserConnected(false);
-          setTimeout(() => setRemoteUserConnected(true), 500);
+          hardResetHostConnection(500);
         }
       };
       pc.onconnectionstatechange = () => {
@@ -1868,7 +1875,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       }
     }, 800);
     return () => { clearTimeout(timer); };
-  }, [remoteUserConnected, isGuest, isCompanionMode, hasJoined, hardResetHostConnection, requestHostRenegotiation]);
+  }, [remoteUserConnected, isGuest, isCompanionMode, hasJoined, hostPeerCycle, hardResetHostConnection, requestHostRenegotiation]);
 
   const restartRoomConnection = () => {
     if (!remoteUserConnected) return;
