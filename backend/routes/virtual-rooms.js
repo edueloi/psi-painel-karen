@@ -570,6 +570,34 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
   }
 });
 
+// DELETE /virtual-rooms/:id/sessions/:sessionKey — deletar sessão inteira (transcripts + recordings + session row)
+router.delete('/:id/sessions/:sessionKey', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const sk = req.params.sessionKey;
+    const tenantId = req.user.tenant_id;
+
+    // Busca arquivos físicos para deletar
+    const [recRows] = await db.query(
+      `SELECT file_name FROM room_recordings WHERE room_id = ? AND tenant_id = ? AND session_key = ?`,
+      [roomId, tenantId, sk]
+    );
+    for (const r of recRows) {
+      const filePath = path.join(audioUploadDir, r.file_name);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    await db.query(`DELETE FROM room_recordings WHERE room_id = ? AND tenant_id = ? AND session_key = ?`, [roomId, tenantId, sk]);
+    await db.query(`DELETE FROM room_transcripts WHERE room_id = ? AND tenant_id = ? AND session_key = ?`, [roomId, tenantId, sk]);
+    await db.query(`DELETE FROM room_sessions WHERE room_id = ? AND tenant_id = ? AND session_key = ?`, [roomId, tenantId, sk]);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[DELETE session]', e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // DELETE /virtual-rooms/:id/sessions/:sessionKey/recordings/:recordingId — deletar gravação
 router.delete('/:id/sessions/:sessionKey/recordings/:recordingId', async (req, res) => {
   try {

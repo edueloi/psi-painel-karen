@@ -366,6 +366,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
   const screenShareRef = useRef<HTMLVideoElement>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
 
   // Aguarda o stream local ficar disponível (máx 8s) antes de processar WebRTC
   const waitForLocalStream = (): Promise<MediaStream | null> =>
@@ -377,7 +378,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         if (Date.now() - start > 8000) { clearInterval(iv); resolve(null); }
       }, 100);
     });
-  const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   const lastMessageIdRef = useRef(0);

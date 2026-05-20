@@ -123,6 +123,13 @@ export const VirtualRooms: React.FC = () => {
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
+  // Filtros do histórico
+  const [sessionSearch, setSessionSearch] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterHasRecording, setFilterHasRecording] = useState<boolean | null>(null);
+  const [filterHasTranscript, setFilterHasTranscript] = useState<boolean | null>(null);
+
   // Gemini API keys management
   const geminiKeys: string[] = preferences.gemini?.apiKeys?.length
     ? preferences.gemini.apiKeys
@@ -292,12 +299,66 @@ export const VirtualRooms: React.FC = () => {
     setConfirmAction({ type: 'transcript', session });
   };
 
+  const deleteSession = (session: SessionSummary) => {
+    setConfirmAction({ type: 'session', session } as any);
+  };
+
+  const executeDeleteSession = async (session: SessionSummary) => {
+    try {
+      await api.delete(`/virtual-rooms/${session.room_id}/sessions/${session.session_key}`);
+      setSessions((prev) => prev.filter((s) => s.session_key !== session.session_key));
+      setSessionTranscripts((prev) => { const n = { ...prev }; delete n[session.session_key]; return n; });
+      setSessionRecordings((prev) => { const n = { ...prev }; delete n[session.session_key]; return n; });
+      if (expandedSession === session.session_key) setExpandedSession(null);
+      toastSuccess('Sessão deletada', 'Sessão, transcrições e gravações removidas.');
+    } catch {
+      toastError('Erro', 'Não foi possível deletar a sessão.');
+    }
+  };
+
+  // Filtro aplicado sobre sessions
+  const filteredSessions = sessions.filter((s) => {
+    if (sessionSearch.trim()) {
+      const q = sessionSearch.trim().toLowerCase();
+      const inTitle = (s.room_title || '').toLowerCase().includes(q);
+      const inCode = (s.room_code || '').toLowerCase().includes(q);
+      const inKey = s.session_key.toLowerCase().includes(q);
+      if (!inTitle && !inCode && !inKey) return false;
+    }
+    if (filterDateFrom) {
+      if (new Date(s.started_at) < new Date(filterDateFrom)) return false;
+    }
+    if (filterDateTo) {
+      const to = new Date(filterDateTo);
+      to.setHours(23, 59, 59, 999);
+      if (new Date(s.started_at) > to) return false;
+    }
+    if (filterHasRecording === true && s.recording_count === 0) return false;
+    if (filterHasRecording === false && s.recording_count > 0) return false;
+    if (filterHasTranscript === true && s.transcript_count === 0) return false;
+    if (filterHasTranscript === false && s.transcript_count > 0) return false;
+    return true;
+  });
+
+  const hasActiveFilters = sessionSearch.trim() || filterDateFrom || filterDateTo || filterHasRecording !== null || filterHasTranscript !== null;
+
+  const clearFilters = () => {
+    setSessionSearch('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterHasRecording(null);
+    setFilterHasTranscript(null);
+  };
+
   const handleConfirmDelete = async () => {
     if (!confirmAction) return;
-    if (confirmAction.type === 'recording') {
-      await executeDeleteRecording(confirmAction.rec, confirmAction.session);
-    } else {
-      await executeDeleteTranscript(confirmAction.session);
+    const action = confirmAction as any;
+    if (action.type === 'recording') {
+      await executeDeleteRecording(action.rec, action.session);
+    } else if (action.type === 'transcript') {
+      await executeDeleteTranscript(action.session);
+    } else if (action.type === 'session') {
+      await executeDeleteSession(action.session);
     }
     setConfirmAction(null);
   };
@@ -676,42 +737,109 @@ export const VirtualRooms: React.FC = () => {
           {/* Histórico */}
           <div className="rounded-3xl bg-gradient-to-br from-indigo-200 via-white to-slate-200 p-px shadow-lg">
             <div className="rounded-[22px] border border-slate-100 bg-white">
-              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-                <h3 className="flex items-center gap-2 text-lg font-bold text-slate-800">
-                  <FileText size={20} className="text-indigo-600" /> Histórico de Transcrições
-                </h3>
-                <button
-                  onClick={fetchSessions}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
-                >
-                  Atualizar
-                </button>
+              {/* Header */}
+              <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                    <FileText size={20} className="text-indigo-600" /> Histórico de Transcrições
+                  </h3>
+                  <button
+                    onClick={fetchSessions}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+                  >
+                    Atualizar
+                  </button>
+                </div>
+
+                {/* Filtros */}
+                <div className="flex flex-wrap gap-2">
+                  {/* Busca */}
+                  <div className="relative flex-1 min-w-[160px]">
+                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={sessionSearch}
+                      onChange={e => setSessionSearch(e.target.value)}
+                      placeholder="Buscar sala ou sessão..."
+                      className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                    />
+                  </div>
+                  {/* Data início */}
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={e => setFilterDateFrom(e.target.value)}
+                    title="De"
+                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                  />
+                  {/* Data fim */}
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={e => setFilterDateTo(e.target.value)}
+                    title="Até"
+                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                  />
+                  {/* Filtro áudio */}
+                  <button
+                    onClick={() => setFilterHasRecording(v => v === true ? null : true)}
+                    className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-colors ${filterHasRecording === true ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:text-emerald-600'}`}
+                  >
+                    Com áudio
+                  </button>
+                  {/* Filtro transcrição */}
+                  <button
+                    onClick={() => setFilterHasTranscript(v => v === true ? null : true)}
+                    className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-colors ${filterHasTranscript === true ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:text-indigo-600'}`}
+                  >
+                    Com transcrição
+                  </button>
+                  {/* Limpar filtros */}
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="rounded-xl border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-500 hover:bg-red-100 transition-colors flex items-center gap-1"
+                    >
+                      <X size={11} /> Limpar
+                    </button>
+                  )}
+                </div>
+
+                {/* Contagem */}
+                {!sessionsLoading && sessions.length > 0 && (
+                  <p className="text-[11px] text-slate-400">
+                    {filteredSessions.length} de {sessions.length} sessão{sessions.length !== 1 ? 'ões' : ''}
+                  </p>
+                )}
               </div>
 
               {sessionsLoading ? (
                 <div className="flex justify-center py-16">
                   <Loader2 className="animate-spin text-slate-300" size={32} />
                 </div>
-              ) : sessions.length === 0 ? (
+              ) : filteredSessions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                   <FileText size={40} className="mb-4 opacity-20" />
-                  <p className="font-medium">Nenhuma sessão registrada ainda.</p>
-                  <p className="mt-1 text-sm">As transcrições aparecem aqui após encerrar uma sessão.</p>
+                  <p className="font-medium">{sessions.length === 0 ? 'Nenhuma sessão registrada ainda.' : 'Nenhuma sessão encontrada.'}</p>
+                  <p className="mt-1 text-sm">{sessions.length === 0 ? 'As transcrições aparecem aqui após encerrar uma sessão.' : 'Tente ajustar os filtros.'}</p>
+                  {hasActiveFilters && (
+                    <button onClick={clearFilters} className="mt-3 text-xs text-indigo-600 hover:underline">Limpar filtros</button>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {sessions.map((session) => {
+                  {filteredSessions.map((session) => {
                     const isOpen = expandedSession === session.session_key;
                     const transcripts = sessionTranscripts[session.session_key];
                     const recordings = sessionRecordings[session.session_key];
                     const isLoadingThis = loadingDetail === session.session_key;
                     return (
                       <div key={session.session_key}>
-                        <button
-                          onClick={() => toggleSession(session)}
-                          className="w-full flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-full flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+                          <button
+                            onClick={() => toggleSession(session)}
+                            className="flex-1 flex items-center gap-4 min-w-0 text-left"
+                          >
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                               <Mic size={18} />
                             </div>
@@ -729,8 +857,8 @@ export const VirtualRooms: React.FC = () => {
                                 {session.duration_seconds != null && ` · ${formatDuration(session.duration_seconds)}`}
                               </p>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
+                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
                             <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600">
                               {session.transcript_count} linhas
                             </span>
@@ -739,12 +867,22 @@ export const VirtualRooms: React.FC = () => {
                                 {session.recording_count} áudio{session.recording_count > 1 ? 's' : ''}
                               </span>
                             )}
-                            <ChevronDown
-                              size={16}
-                              className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                            />
+                            {/* Deletar sessão */}
+                            <button
+                              onClick={() => deleteSession(session)}
+                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 hover:border-red-200 hover:text-red-500 transition-colors"
+                              title="Deletar sessão"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                            <button onClick={() => toggleSession(session)} className="p-1">
+                              <ChevronDown
+                                size={16}
+                                className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                              />
+                            </button>
                           </div>
-                        </button>
+                        </div>
 
                         {isOpen && (
                           <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-4">
@@ -1257,17 +1395,23 @@ export const VirtualRooms: React.FC = () => {
         isOpen={!!confirmAction}
         onClose={() => setConfirmAction(null)}
         onConfirm={handleConfirmDelete}
-        title={confirmAction?.type === 'recording' ? 'Deletar gravação' : 'Deletar transcrição'}
+        title={
+          (confirmAction as any)?.type === 'recording' ? 'Deletar gravação'
+          : (confirmAction as any)?.type === 'session' ? 'Deletar sessão completa'
+          : 'Deletar transcrição'
+        }
         message={
-          confirmAction?.type === 'recording'
-            ? <>Tem certeza que deseja deletar a gravação <strong className="text-slate-800">"{confirmAction.rec.file_name}"</strong>? O arquivo será removido permanentemente.</>
+          (confirmAction as any)?.type === 'recording'
+            ? <>Tem certeza que deseja deletar a gravação <strong className="text-slate-800">"{(confirmAction as any).rec.file_name}"</strong>? O arquivo será removido permanentemente.</>
+            : (confirmAction as any)?.type === 'session'
+            ? <>Isso irá deletar a sessão <strong className="text-slate-800">permanentemente</strong>, incluindo todas as transcrições e arquivos de áudio. Esta ação não pode ser desfeita.</>
             : 'Tem certeza que deseja deletar toda a transcrição desta sessão? Esta ação não pode ser desfeita.'
         }
         confirmLabel="Deletar"
         loading={
-          confirmAction?.type === 'recording'
-            ? deletingRecording === confirmAction?.rec.id
-            : deletingTranscript === confirmAction?.session.session_key
+          (confirmAction as any)?.type === 'recording'
+            ? deletingRecording === (confirmAction as any)?.rec?.id
+            : deletingTranscript === (confirmAction as any)?.session?.session_key
         }
       />
     </PageWrapper>
