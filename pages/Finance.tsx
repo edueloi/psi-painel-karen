@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
+import {
   DollarSign, TrendingUp, TrendingDown, Calendar, CreditCard,
-  Wallet, PieChart, ArrowUpRight, ArrowDownRight, Filter, Download, 
+  Wallet, PieChart, ArrowUpRight, ArrowDownRight, Filter, Download,
   Calculator, AlertCircle, Trash2, Loader2,
-  Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2, Sparkles
+  Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2, Sparkles,
+  Inbox, CheckCircle, XCircle, Clock, Eye, Paperclip
 } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/UI/PageHeader';
@@ -44,7 +45,7 @@ export const Finance: React.FC = () => {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { user, isAdmin, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'tax'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'tax' | 'portal'>('dashboard');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'year'>('month');
   
@@ -75,6 +76,12 @@ export const Finance: React.FC = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isAuraOpen, setIsAuraOpen] = useState(false);
   const { pushToast } = useToast();
+
+  // States para Pagamentos do Portal
+  const [portalPayments, setPortalPayments] = useState<any[]>([]);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalReviewing, setPortalReviewing] = useState<string | null>(null);
+  const [portalAttachModal, setPortalAttachModal] = useState<any | null>(null);
 
 
   const fetchData = async () => {
@@ -115,9 +122,38 @@ export const Finance: React.FC = () => {
     setYearMonths(results);
   };
 
+  const fetchPortalPayments = async () => {
+    setPortalLoading(true);
+    try {
+      const data = await api.get<any[]>('/patient-portal/admin/payments');
+      setPortalPayments(data);
+    } catch (err) {
+      console.error('Erro ao buscar pagamentos do portal:', err);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const reviewPortalPayment = async (id: string, status: 'confirmed' | 'rejected') => {
+    setPortalReviewing(id);
+    try {
+      await api.patch(`/patient-portal/admin/payments/${id}`, { status });
+      setPortalPayments(prev => prev.map(p => p.id === id ? { ...p, status, reviewed_at: new Date().toISOString() } : p));
+      pushToast('success', status === 'confirmed' ? 'Pagamento confirmado!' : 'Pagamento recusado.');
+    } catch {
+      pushToast('error', 'Erro ao atualizar pagamento.');
+    } finally {
+      setPortalReviewing(null);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [currentDate]);
+
+  useEffect(() => {
+    fetchPortalPayments();
+  }, []);
 
   const handleOpenModal = (type: 'income' | 'expense', tx?: FinancialTransaction) => {
       if (tx) {
@@ -327,6 +363,110 @@ export const Finance: React.FC = () => {
   }, [stats]);
 
 
+  const PORTAL_METHOD_LABELS: Record<string, string> = {
+    pix: 'PIX', credit: 'Crédito', debit: 'Débito', cash: 'Dinheiro', transfer: 'Transferência', check: 'Cheque',
+  };
+
+  const renderPortalPayments = () => {
+    const pending = portalPayments.filter(p => p.status === 'pending');
+    const reviewed = portalPayments.filter(p => p.status !== 'pending');
+
+    const StatusBadge = ({ status }: { status: string }) => {
+      if (status === 'pending') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200"><Clock size={10}/> Aguardando</span>;
+      if (status === 'confirmed') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200"><CheckCircle size={10}/> Confirmado</span>;
+      return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-red-50 text-red-500 border border-red-200"><XCircle size={10}/> Recusado</span>;
+    };
+
+    const PaymentCard = ({ p }: { p: any }) => (
+      <div key={p.id} className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-4 shadow-sm hover:border-indigo-100 transition-all">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-black text-slate-800 text-base">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(p.amount))}</span>
+            <StatusBadge status={p.status} />
+          </div>
+          <p className="text-xs text-slate-500 font-semibold">{p.patient_name}</p>
+          <p className="text-[11px] text-slate-400">{new Date(p.payment_date).toLocaleDateString('pt-BR')} · {PORTAL_METHOD_LABELS[p.payment_method] || p.payment_method}</p>
+          {p.notes && <p className="text-[11px] text-slate-400 italic mt-1">"{p.notes}"</p>}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {p.attachments?.length > 0 && (
+            <button onClick={() => setPortalAttachModal(p)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all">
+              <Paperclip size={12}/> {p.attachments.length} anexo{p.attachments.length > 1 ? 's' : ''}
+            </button>
+          )}
+          {p.status === 'pending' && (
+            <>
+              <button
+                onClick={() => reviewPortalPayment(p.id, 'confirmed')}
+                disabled={portalReviewing === p.id}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-500 text-white text-[10px] font-black hover:bg-emerald-600 transition-all disabled:opacity-50"
+              >
+                {portalReviewing === p.id ? <Loader2 size={12} className="animate-spin"/> : <CheckCircle size={12}/>} Confirmar
+              </button>
+              <button
+                onClick={() => reviewPortalPayment(p.id, 'rejected')}
+                disabled={portalReviewing === p.id}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-red-50 text-red-500 border border-red-200 text-[10px] font-black hover:bg-red-100 transition-all disabled:opacity-50"
+              >
+                <XCircle size={12}/> Recusar
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="space-y-6 animate-fadeIn">
+        {portalLoading ? (
+          <div className="flex items-center justify-center p-20 text-indigo-500">
+            <Loader2 className="animate-spin" size={40}/>
+          </div>
+        ) : portalPayments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-20 gap-4 text-slate-400">
+            <Inbox size={48} className="opacity-30"/>
+            <p className="text-sm font-black uppercase tracking-widest opacity-50">Nenhuma declaração ainda</p>
+          </div>
+        ) : (
+          <>
+            {pending.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
+                  <Clock size={12}/> Aguardando revisão ({pending.length})
+                </h3>
+                {pending.map(p => <PaymentCard key={p.id} p={p}/>)}
+              </div>
+            )}
+            {reviewed.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <CheckCircle2 size={12}/> Revisados ({reviewed.length})
+                </h3>
+                {reviewed.map(p => <PaymentCard key={p.id} p={p}/>)}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Modal de anexos */}
+        {portalAttachModal && (
+          <Modal isOpen={true} onClose={() => setPortalAttachModal(null)} title="Comprovantes" maxWidth="max-w-md">
+            <div className="space-y-3 p-2">
+              {portalAttachModal.attachments.map((a: any) => (
+                <a key={a.id} href={a.file_url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group">
+                  <Paperclip size={16} className="text-indigo-400 flex-shrink-0"/>
+                  <span className="text-sm font-semibold text-slate-700 truncate group-hover:text-indigo-600">{a.file_name}</span>
+                  <Eye size={14} className="text-slate-300 group-hover:text-indigo-400 flex-shrink-0 ml-auto"/>
+                </a>
+              ))}
+            </div>
+          </Modal>
+        )}
+      </div>
+    );
+  };
+
   const renderDashboard = () => (
     <div className="space-y-6 animate-fadeIn">
         {/* Main Chart & Methods breakdown */}
@@ -390,7 +530,7 @@ export const Finance: React.FC = () => {
                                 <div className="flex justify-between items-center mb-2.5">
                                     <div className="flex items-center gap-2.5">
                                         <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-white shadow-lg ${method.color}`}>
-                                            {React.cloneElement(method.icon as React.ReactElement, { size: 14 })}
+                                            {React.cloneElement(method.icon as React.ReactElement<any>, { size: 14 })}
                                         </div>
                                         <span className="text-xs font-black text-slate-600 uppercase tracking-tight">{method.label}</span>
                                     </div>
@@ -760,21 +900,27 @@ export const Finance: React.FC = () => {
                {[
                    { id: 'dashboard', label: t('finance.dashboard'), icon: <PieChart size={14}/> },
                    { id: 'daily', label: t('finance.daily'), icon: <ListIcon size={14}/> },
-                   { id: 'tax', label: t('finance.fiscal'), icon: <Calculator size={14}/> }
+                   { id: 'tax', label: t('finance.fiscal'), icon: <Calculator size={14}/> },
+                   { id: 'portal', label: 'Portal', icon: <Inbox size={14}/>, badge: portalPayments.filter(p => p.status === 'pending').length }
                ].map(tab => (
-                   <button 
+                   <button
                        key={tab.id}
                        onClick={() => setActiveTab(tab.id as any)}
-                       className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 flex-1 lg:flex-none justify-center ${activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-indigo-400'}`}
+                       className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 flex-1 lg:flex-none justify-center relative ${activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-indigo-400'}`}
                    >
                        {tab.icon}
                        {tab.label}
+                       {(tab as any).badge > 0 && (
+                         <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center">
+                           {(tab as any).badge}
+                         </span>
+                       )}
                    </button>
                ))}
            </div>
 
-           <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                <button 
+           <div className={`flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100 ${activeTab === 'portal' ? 'invisible' : ''}`}>
+                <button
                     onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
                     className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-slate-400 transition-all"
                 >
@@ -795,7 +941,7 @@ export const Finance: React.FC = () => {
 
       {/* Content Switch */}
       <div className="opacity-100 transition-opacity duration-300">
-          {isLoading ? (
+          {isLoading && activeTab !== 'portal' ? (
             <div className="flex flex-col items-center justify-center p-40 gap-6 text-indigo-500">
                 <div className="relative">
                     <Loader2 className="animate-spin" size={64} />
@@ -821,6 +967,7 @@ export const Finance: React.FC = () => {
                     selectedYear={currentDate.getFullYear()}
                   />
                 )}
+                {activeTab === 'portal' && renderPortalPayments()}
             </>
           )}
       </div>
