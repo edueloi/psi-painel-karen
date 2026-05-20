@@ -1918,6 +1918,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (!isGuest) {
       setHasJoined(true);
       setConnectionStatus("connected");
+      setRemoteConnected(true);
     }
     setMessages((prev) => [
       ...prev,
