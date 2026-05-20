@@ -27,13 +27,16 @@ let _pushItem = null;
 let _nextId   = null;
 let _eventsMap = null;
 
-/**
- * Chamado pelo virtual-rooms.js para injetar dependências (evita circular require).
- */
 function injectRoomState({ pushItem, nextId, eventsMap }) {
   _pushItem  = pushItem;
   _nextId    = nextId;
   _eventsMap = eventsMap;
+}
+
+function purgeWebrtcEvents(roomId) {
+  if (!_eventsMap || !_eventsMap.has(roomId)) return;
+  const list = _eventsMap.get(roomId);
+  _eventsMap.set(roomId, list.filter(e => !e.event_type.startsWith('webrtc_') && e.event_type !== 'request_renegotiation'));
 }
 
 // roomId → Set<WebSocket>
@@ -118,6 +121,7 @@ function attachRoomWebSocket(httpServer) {
         if (!event_type) return;
 
         // Persiste no map em memória (mesmo usado pelo polling HTTP)
+        if (event_type === 'webrtc_offer') purgeWebrtcEvents(roomId);
         let item = null;
         if (_pushItem && _nextId && _eventsMap) {
           item = _pushItem(_eventsMap, roomId, {

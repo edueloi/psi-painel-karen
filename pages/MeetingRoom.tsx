@@ -1378,6 +1378,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           return;
         }
         const processEvent = (evt: RoomEvent) => {
+          // WebRTC signaling events are delivered exclusively via WebSocket.
+          // Skip them in the polling path to avoid replaying stale offers/answers/ice.
+          if (evt.event_type.startsWith('webrtc_') || evt.event_type === 'request_renegotiation') return;
           const payload = parsePayload(evt.payload_json);
           if (payload?.client_id && payload.client_id === clientIdRef.current)
             return;
@@ -2014,18 +2017,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       pc.ontrack = (e) => {
         assignRemoteMediaStream(e.streams[0] || new MediaStream([e.track]));
       };
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          sendRoomEventRef.current?.('webrtc_ice', { candidate: e.candidate.toJSON() });
-        }
-      };
       let iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
-      // Se ICE ficar preso em "checking" por muito tempo, força reconexão completa via TURN
       let iceCheckingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
         if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'new') {
           hardResetHostConnection(200);
         }
       }, ICE_CHECKING_TIMEOUT_MS);
+
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          sendRoomEventRef.current?.('webrtc_ice', { candidate: e.candidate.toJSON() });
+        }
+      };
       pc.oniceconnectionstatechange = () => {
         console.log("Host ICE State:", pc.iceConnectionState);
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
@@ -2034,19 +2037,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
         } else if (pc.iceConnectionState === 'disconnected') {
           if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
-          // Aguarda 5s antes de resetar — dar tempo para TURN reconectar
           iceRestartTimer = setTimeout(() => {
             if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
               hardResetHostConnection(500);
             }
           }, 5000);
         } else if (pc.iceConnectionState === 'failed') {
-          console.log("Host: ICE failed, aguardando 3s antes de reconectar...");
           if (iceRestartTimer) clearTimeout(iceRestartTimer);
           if (iceCheckingTimeout) clearTimeout(iceCheckingTimeout);
-          iceRestartTimer = setTimeout(() => {
-            hardResetHostConnection(500);
-          }, 3000);
+          iceRestartTimer = setTimeout(() => { hardResetHostConnection(500); }, 3000);
         }
       };
       pc.onconnectionstatechange = () => {
@@ -2058,24 +2057,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        await waitForIceGatheringComplete(pc);
         const sessionId = webrtcSessionIdRef.current;
         const offerToken = `${sessionId}:${++hostOfferSequenceRef.current}`;
         expectedAnswerOfferTokenRef.current = offerToken;
         acceptedAnswerOfferTokenRef.current = null;
+        // Trickle ICE: envia offer imediatamente, candidatos chegam via onicecandidate
         console.log(`Host: enviando offer (sessionId=${sessionId}, ciclo=${hostPeerCycle})`);
-        const offerId = await sendRoomEventRef.current?.('webrtc_offer', {
+        await sendRoomEventRef.current?.('webrtc_offer', {
           sdp: pc.localDescription?.sdp || offer.sdp,
           type: pc.localDescription?.type || offer.type,
           sessionId,
           offerToken,
         });
-        // Avança o cursor de eventos para ignorar qualquer webrtc_answer anterior a este offer
-        if (offerId && offerId > lastEventIdRef.current) {
-          lastEventIdRef.current = offerId - 1;
-          setLastEventId(offerId - 1);
-          console.log(`Host: avançando lastEventId para ${offerId - 1} (descartando answers antigos)`);
-        }
       } catch (err) {
         console.error('WebRTC offer error:', err);
       }

@@ -98,6 +98,15 @@ function pushItem(map, key, item) {
   return item;
 }
 
+// Quando um novo offer WebRTC chega, apaga todos os eventos webrtc_* antigos
+// para impedir que o polling entregue answers/ice de sessões anteriores.
+function purgeWebrtcEvents(key) {
+  if (!eventsMap.has(key)) return;
+  const list = eventsMap.get(key);
+  const filtered = list.filter(e => !e.event_type.startsWith('webrtc_') && e.event_type !== 'request_renegotiation');
+  eventsMap.set(key, filtered);
+}
+
 // ── Integração WebSocket ──────────────────────────────────────────────────────
 // Injeta dependências no room-ws e recebe função de broadcast
 const roomWs = require('./room-ws');
@@ -334,6 +343,7 @@ router.post('/:id/events', (req, res) => {
   const key = getRoomKey(req.params.id);
   const { event_type, payload } = req.body || {};
   if (!event_type) return res.json({ ok: true });
+  if (event_type === 'webrtc_offer') purgeWebrtcEvents(key);
   const item = pushItem(eventsMap, key, {
     id: nextId(),
     event_type,
@@ -803,6 +813,7 @@ router.post('/public/:id/events', (req, res) => {
   const key = getRoomKey(req.params.id);
   const { event_type, payload } = req.body || {};
   if (!event_type) return res.json({ ok: true });
+  if (event_type === 'webrtc_offer') purgeWebrtcEvents(key);
   const item = pushItem(eventsMap, key, {
     id: nextId(),
     event_type,
