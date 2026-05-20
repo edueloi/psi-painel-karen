@@ -427,9 +427,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [reactions, setReactions] = useState<Array<{ id: string; emoji: string; sender: string; x: number }>>([]);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
 
-  // Mobile spotlight layout — split é o padrão no mobile
-  const [mobileSwapped, setMobileSwapped] = useState(false);
-  const [mobileSplit, setMobileSplit] = useState(() => window.innerWidth < 1024);
   const [isMobileView, setIsMobileView] = useState(() => window.innerWidth < 1024);
 
   // --- Refs ---
@@ -437,8 +434,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
   const screenShareRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const pipLocalVideoRef = useRef<HTMLVideoElement | null>(null);
-  const pipRemoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Aguarda o stream local ficar disponível (máx 8s) antes de processar WebRTC
   const waitForLocalStream = (): Promise<MediaStream | null> =>
@@ -2131,11 +2126,6 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       remoteVideoRef.current.srcObject = stream;
       remoteVideoRef.current.play().catch(() => {});
     }
-    // Sincroniza o PiP remoto se estiver montado
-    if (pipRemoteVideoRef.current) {
-      pipRemoteVideoRef.current.srcObject = stream;
-      pipRemoteVideoRef.current.play().catch(() => {});
-    }
     attachRecordingStream(stream, "remote");
     setRemoteStreamActive(true);
   };
@@ -3602,7 +3592,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         </div>
       )}
 
-      <main className={`flex-1 flex overflow-hidden min-h-0 ${isMobileView ? "" : "flex-col lg:flex-row gap-4 p-4"}`}>
+      <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden min-h-0">
         {!isGuest && (
           <WaitingToast
             entries={waitingEntries}
@@ -3612,196 +3602,28 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           />
         )}
         <section className="flex-1 relative min-h-0 min-w-0">
-          {!isMobileView ? (
-            /* ── Desktop: grid lado a lado ── */
-            <div className={`grid h-full gap-3 ${useGridLayout ? "grid-cols-2" : "grid-cols-1"}`}>
-              <RemoteVideoTile
-                videoRef={remoteVideoRef}
-                remoteUserConnected={remoteUserConnected}
-                remoteStreamActive={remoteStreamActive}
-                remoteDisplayName={remoteDisplayName}
-                remoteInitial={remoteInitial}
-                screenShareRef={screenShareRef}
-                screenShare={screenShare}
-              />
-              <VideoTile
-                videoRef={localVideoRef}
-                label={localDisplayName}
-                isLocal
-                cameraOn={cameraOn}
-                initial={localInitial}
-                audioLevel={audioLevel}
-                micOn={micOn}
-              />
-              <ReactionsOverlay reactions={reactions} />
-            </div>
-          ) : mobileSplit ? (
-            /* ── Mobile: split screen — dois vídeos empilhados ── */
-            <div className="absolute inset-0 flex flex-col">
-              {/* Vídeo de cima */}
-              <div className="flex-1 relative min-h-0">
-                {mobileSwapped ? (
-                  <VideoTile
-                    videoRef={localVideoRef}
-                    label={localDisplayName}
-                    isLocal
-                    cameraOn={cameraOn}
-                    initial={localInitial}
-                    audioLevel={audioLevel}
-                    micOn={micOn}
-                    className="absolute inset-0 !rounded-none !min-h-0"
-                  />
-                ) : (
-                  <RemoteVideoTile
-                    videoRef={remoteVideoRef}
-                    remoteUserConnected={remoteUserConnected}
-                    remoteStreamActive={remoteStreamActive}
-                    remoteDisplayName={remoteDisplayName}
-                    remoteInitial={remoteInitial}
-                    screenShareRef={screenShareRef}
-                    screenShare={screenShare}
-                    className="absolute inset-0 !rounded-none !min-h-0"
-                  />
-                )}
-              </div>
-              {/* Divisor */}
-              <div className="h-0.5 bg-white/10 shrink-0" />
-              {/* Vídeo de baixo */}
-              <div className="flex-1 relative min-h-0">
-                {mobileSwapped ? (
-                  <RemoteVideoTile
-                    videoRef={remoteVideoRef}
-                    remoteUserConnected={remoteUserConnected}
-                    remoteStreamActive={remoteStreamActive}
-                    remoteDisplayName={remoteDisplayName}
-                    remoteInitial={remoteInitial}
-                    screenShareRef={screenShareRef}
-                    screenShare={screenShare}
-                    className="absolute inset-0 !rounded-none !min-h-0"
-                  />
-                ) : (
-                  <VideoTile
-                    videoRef={localVideoRef}
-                    label={localDisplayName}
-                    isLocal
-                    cameraOn={cameraOn}
-                    initial={localInitial}
-                    audioLevel={audioLevel}
-                    micOn={micOn}
-                    className="absolute inset-0 !rounded-none !min-h-0"
-                  />
-                )}
-              </div>
-              {/* Botão trocar posição */}
-              <button
-                className="absolute top-1/2 right-3 -translate-y-1/2 z-20 rounded-full bg-black/50 border border-white/20 p-2 active:scale-95 transition-transform"
-                onClick={() => setMobileSwapped(v => !v)}
-                title="Inverter vídeos"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                  <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-                </svg>
-              </button>
-              {/* Botão alternar para PiP */}
-              <button
-                className="absolute top-3 right-3 z-20 rounded-full bg-black/50 border border-white/20 p-2 active:scale-95 transition-transform"
-                onClick={() => setMobileSplit(false)}
-                title="Modo spotlight"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <rect x="2" y="2" width="20" height="20" rx="3"/>
-                  <rect x="13" y="13" width="8" height="8" rx="1.5" fill="white" stroke="none"/>
-                </svg>
-              </button>
-              <ReactionsOverlay reactions={reactions} />
-            </div>
-          ) : (
-            /* ── Mobile: spotlight fullscreen + PiP card ── */
-            <div className="absolute inset-0">
-              {/* Vídeo principal (fullscreen) */}
-              {mobileSwapped ? (
-                <VideoTile
-                  videoRef={localVideoRef}
-                  label={localDisplayName}
-                  isLocal
-                  cameraOn={cameraOn}
-                  initial={localInitial}
-                  audioLevel={audioLevel}
-                  micOn={micOn}
-                  className="absolute inset-0 !rounded-none !min-h-0"
-                />
-              ) : (
-                <RemoteVideoTile
-                  videoRef={remoteVideoRef}
-                  remoteUserConnected={remoteUserConnected}
-                  remoteStreamActive={remoteStreamActive}
-                  remoteDisplayName={remoteDisplayName}
-                  remoteInitial={remoteInitial}
-                  screenShareRef={screenShareRef}
-                  screenShare={screenShare}
-                  className="absolute inset-0 !rounded-none !min-h-0"
-                />
-              )}
-
-              {/* PiP card — vídeo secundário com ref próprio para não conflitar */}
-              <div
-                className="absolute bottom-[5.5rem] right-3 w-28 h-40 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-pointer z-20 active:scale-95 transition-transform bg-[#101216]"
-                onClick={() => setMobileSwapped(v => !v)}
-                title="Toque para inverter"
-              >
-                {mobileSwapped ? (
-                  /* PiP mostra remoto */
-                  <video
-                    ref={(el) => {
-                      pipRemoteVideoRef.current = el;
-                      if (el && remoteVideoRef.current?.srcObject) {
-                        el.srcObject = remoteVideoRef.current.srcObject;
-                        el.play().catch(() => {});
-                      }
-                    }}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  /* PiP mostra local */
-                  <video
-                    ref={(el) => {
-                      pipLocalVideoRef.current = el;
-                      if (el && localStreamRef.current) {
-                        el.srcObject = localStreamRef.current;
-                        el.play().catch(() => {});
-                      }
-                    }}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover scale-x-[-1]"
-                  />
-                )}
-                {/* Ícone de swap */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity pointer-events-none">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                    <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-                  </svg>
-                </div>
-              </div>
-
-              {/* Botão alternar para split */}
-              <button
-                className="absolute bottom-[5.5rem] left-3 z-20 rounded-full bg-black/50 border border-white/20 p-2 active:scale-95 transition-transform"
-                onClick={() => setMobileSplit(true)}
-                title="Dividir tela"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <rect x="2" y="2" width="20" height="20" rx="3"/>
-                  <line x1="2" y1="12" x2="22" y2="12"/>
-                </svg>
-              </button>
-
-              <ReactionsOverlay reactions={reactions} />
-            </div>
-          )}
+          {/* ── Grid de vídeos: lado a lado no desktop, empilhado no mobile ── */}
+          <div className={`grid h-full gap-3 ${useGridLayout ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
+            <RemoteVideoTile
+              videoRef={remoteVideoRef}
+              remoteUserConnected={remoteUserConnected}
+              remoteStreamActive={remoteStreamActive}
+              remoteDisplayName={remoteDisplayName}
+              remoteInitial={remoteInitial}
+              screenShareRef={screenShareRef}
+              screenShare={screenShare}
+            />
+            <VideoTile
+              videoRef={localVideoRef}
+              label={localDisplayName}
+              isLocal
+              cameraOn={cameraOn}
+              initial={localInitial}
+              audioLevel={audioLevel}
+              micOn={micOn}
+            />
+            <ReactionsOverlay reactions={reactions} />
+          </div>
         </section>
 
         {activeSidePanel !== "none" && (
