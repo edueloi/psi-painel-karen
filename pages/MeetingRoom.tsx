@@ -1608,7 +1608,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       ws.onmessage = (msgEvent) => {
         let data: any;
         try { data = JSON.parse(msgEvent.data); } catch { return; }
-        if (data.type === "event") {
+        if (data.type === "ack") {
+          // Server confirmed our sent event with a real ID — advance cursor so polling skips it
+          const ackId: number = data.id ?? 0;
+          if (ackId > lastEventIdRef.current) {
+            lastEventIdRef.current = ackId;
+            setLastEventId(ackId);
+          }
+        } else if (data.type === "event") {
           const evt: RoomEvent = {
             id: data.id ?? 0,
             event_type: data.event_type ?? "",
@@ -2451,10 +2458,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (ws && ws.readyState === WebSocket.OPEN) {
       try {
         ws.send(JSON.stringify({ type: "event", event_type: eventType, payload: mergedPayload }));
-        // WS send is fire-and-forget; return a synthetic id so callers don't break.
-        // For webrtc_offer/answer/ice we don't need the real server id back immediately —
-        // the server will broadcast and we'll get the ack, but the caller only needs non-null.
-        return -1;
+        // WS is fire-and-forget — no server-assigned ID yet.
+        // Return null so callers that advance lastEventId only do so with real IDs.
+        return null;
       } catch {
         // fall through to HTTP
       }
