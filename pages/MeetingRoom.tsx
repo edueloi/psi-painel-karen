@@ -1226,11 +1226,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       const offer = await pc.createOffer({ iceRestart: true });
       await pc.setLocalDescription(offer);
       await waitForIceGatheringComplete(pc);
-      await sendRoomEventRef.current?.("webrtc_offer", {
+      const reofferId = await sendRoomEventRef.current?.("webrtc_offer", {
         sdp: pc.localDescription?.sdp || offer.sdp,
         type: pc.localDescription?.type || offer.type,
         sessionId: webrtcSessionIdRef.current,
       });
+      if (reofferId && reofferId > lastEventIdRef.current) {
+        lastEventIdRef.current = reofferId - 1;
+        setLastEventId(reofferId - 1);
+      }
     } catch (err) {
       console.warn(`Host: renegociação falhou (${reason}), recriando conexão...`, err);
       hardResetHostConnection(500);
@@ -1920,11 +1924,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         await waitForIceGatheringComplete(pc);
         const sessionId = webrtcSessionIdRef.current;
         console.log(`Host: enviando offer (sessionId=${sessionId}, ciclo=${hostPeerCycle})`);
-        await sendRoomEventRef.current?.('webrtc_offer', {
+        const offerId = await sendRoomEventRef.current?.('webrtc_offer', {
           sdp: pc.localDescription?.sdp || offer.sdp,
           type: pc.localDescription?.type || offer.type,
           sessionId,
         });
+        // Avança o cursor de eventos para ignorar qualquer webrtc_answer anterior a este offer
+        if (offerId && offerId > lastEventIdRef.current) {
+          lastEventIdRef.current = offerId - 1;
+          setLastEventId(offerId - 1);
+          console.log(`Host: avançando lastEventId para ${offerId - 1} (descartando answers antigos)`);
+        }
       } catch (err) {
         console.error('WebRTC offer error:', err);
       }
@@ -2288,16 +2298,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const sendRoomEvent = async (
     eventType: string,
     payload?: Record<string, any>
-  ) => {
-    if (!id) return;
-    if (isGuest && !guestCanDraw && eventType.startsWith("whiteboard_")) return;
+  ): Promise<number | null> => {
+    if (!id) return null;
+    if (isGuest && !guestCanDraw && eventType.startsWith("whiteboard_")) return null;
     if (
       isGuest &&
       (eventType === "whiteboard_open" ||
         eventType === "whiteboard_close" ||
         eventType === "whiteboard_permission")
     )
-      return;
+      return null;
     const body = {
       event_type: eventType,
       payload: payload
@@ -2306,16 +2316,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     };
     try {
       if (isGuest) {
-        if (!participantToken) return;
-        await api.post(`/virtual-rooms/public/${id}/events`, {
+        if (!participantToken) return null;
+        const res = await api.post<{ ok: boolean; id?: number }>(`/virtual-rooms/public/${id}/events`, {
           token: participantToken,
           ...body,
         });
+        return res?.id ?? null;
       } else {
-        await api.post(`/virtual-rooms/${id}/events`, body);
+        const res = await api.post<{ ok: boolean; id?: number }>(`/virtual-rooms/${id}/events`, body);
+        return res?.id ?? null;
       }
     } catch (err) {
-      // ignore event errors
+      return null;
     }
   };
 
