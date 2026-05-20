@@ -261,7 +261,7 @@ router.post('/', async (req, res) => {
     const [room] = await db.query('SELECT * FROM virtual_rooms WHERE id = ?', [result.insertId]);
     res.status(201).json(room[0]);
   } catch (err) {
-    console.error(err);
+    console.error('[VirtualRooms] Erro ao criar sala:', err?.message || err);
     res.status(500).json({ error: 'Erro ao criar sala' });
   }
 });
