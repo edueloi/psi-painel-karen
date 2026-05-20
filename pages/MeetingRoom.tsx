@@ -3286,8 +3286,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       </header>
 
       {entryNotice && (
-        <div className="px-4 pt-3">
-          <div className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-xl text-sm">
+        <div className={isMobileView
+          ? "absolute top-16 inset-x-4 z-30 pointer-events-none"
+          : "px-4 pt-3"
+        }>
+          <div className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-xl text-sm text-center">
             {entryNotice}
           </div>
         </div>
@@ -3445,7 +3448,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
               {/* PiP card — toque para inverter */}
               <div
-                className="absolute top-3 right-3 w-28 h-40 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-pointer z-20 active:scale-95 transition-transform"
+                className="absolute bottom-[5.5rem] right-3 w-28 h-40 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-pointer z-20 active:scale-95 transition-transform"
                 onClick={() => setMobileSwapped(v => !v)}
                 title="Toque para inverter"
               >
@@ -3482,7 +3485,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
               {/* Botão alternar para split */}
               <button
-                className="absolute top-3 left-3 z-20 rounded-full bg-black/50 border border-white/20 p-2 active:scale-95 transition-transform"
+                className="absolute bottom-[5.5rem] left-3 z-20 rounded-full bg-black/50 border border-white/20 p-2 active:scale-95 transition-transform"
                 onClick={() => setMobileSplit(true)}
                 title="Dividir tela"
               >

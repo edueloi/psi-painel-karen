@@ -40,7 +40,7 @@ export const VideoTile: React.FC<VideoTileProps> = ({
         <div className="text-sm">Câmera desativada</div>
       </div>
     )}
-    <div className="absolute top-2 left-2 text-xs text-slate-300 bg-black/50 px-2 py-0.5 rounded-full truncate max-w-[70%]">
+    <div className="absolute top-3 left-3 z-10 text-xs text-slate-300 bg-black/60 px-2.5 py-1 rounded-full truncate max-w-[70%]">
       {label}
     </div>
     {isLocal && micOn && (
@@ -111,7 +111,7 @@ export const RemoteVideoTile: React.FC<RemoteVideoTileProps> = ({
         Aguardando participante entrar...
       </div>
     )}
-    <div className="absolute top-2 left-2 text-xs text-slate-300 bg-black/50 px-2 py-0.5 rounded-full truncate max-w-[70%]">
+    <div className="absolute top-3 left-3 z-10 text-xs text-slate-300 bg-black/60 px-2.5 py-1 rounded-full truncate max-w-[70%]">
       {screenShare ? "Compartilhando tela" : remoteDisplayName}
     </div>
   </div>
