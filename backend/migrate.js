@@ -1056,6 +1056,11 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Coluna de referência cruzada com financial_transactions
+  await conn.query(`ALTER TABLE patient_portal_payments ADD COLUMN finance_transaction_id INT NULL`).catch(e => {
+    if (!e.message.includes('Duplicate column')) console.warn('portal payments alter:', e.message);
+  });
+
   // ---- PATIENT PORTAL SCHEDULE REQUESTS (solicitações de agendamento) ----
   await conn.query(`
     CREATE TABLE IF NOT EXISTS patient_portal_schedule_requests (

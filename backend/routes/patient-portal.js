@@ -883,13 +883,60 @@ router.patch('/admin/payments/:id', async (req, res) => {
     const { status } = req.body;
     if (!['confirmed', 'rejected'].includes(status))
       return res.status(400).json({ error: 'Status inválido.' });
+
+    // Busca o pagamento antes de atualizar
+    const [[payment]] = await db.query(
+      `SELECT pp.*, pat.name AS patient_name, pat.cpf AS patient_cpf
+       FROM patient_portal_payments pp
+       JOIN patients pat ON pat.id = pp.patient_id
+       WHERE pp.id = ? AND pp.tenant_id = ?`,
+      [req.params.id, req.user.tenant_id]
+    );
+    if (!payment) return res.status(404).json({ error: 'Pagamento não encontrado.' });
+
     await db.query(
       `UPDATE patient_portal_payments SET status = ?, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
        WHERE id = ? AND tenant_id = ?`,
       [status, req.user.id, req.params.id, req.user.tenant_id]
     );
+
+    // Ao confirmar: cria lançamento no Livro Caixa automaticamente
+    if (status === 'confirmed' && !payment.finance_transaction_id) {
+      const paymentDate = payment.payment_date
+        ? new Date(payment.payment_date).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+
+      const description = `Pagamento Portal - ${payment.patient_name}${payment.notes ? ` (${payment.notes})` : ''}`;
+
+      const [txRes] = await db.query(
+        `INSERT INTO financial_transactions
+           (tenant_id, type, category, description, amount, date, patient_id,
+            payment_method, status, payer_name, payer_cpf, created_by, source, origin_module, origin_payment_id)
+         VALUES (?, 'income', 'Sessão Individual', ?, ?, ?, ?, ?, 'paid', ?, ?, ?, 'Portal', 'PORTAL_PAYMENT', ?)`,
+        [
+          req.user.tenant_id,
+          description,
+          payment.amount,
+          paymentDate,
+          payment.patient_id,
+          payment.payment_method || 'pix',
+          payment.patient_name || '',
+          payment.patient_cpf || '',
+          req.user.id,
+          payment.id,
+        ]
+      );
+
+      // Salva referência cruzada para evitar duplicata
+      await db.query(
+        `UPDATE patient_portal_payments SET finance_transaction_id = ? WHERE id = ?`,
+        [txRes.insertId, payment.id]
+      ).catch(() => {}); // coluna pode não existir ainda, ignora silenciosamente
+    }
+
     res.json({ ok: true });
   } catch (e) {
+    console.error('Erro ao revisar pagamento portal:', e);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });
