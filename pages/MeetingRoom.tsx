@@ -359,6 +359,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
   // Mobile spotlight layout
   const [mobileSwapped, setMobileSwapped] = useState(false);
+  const [mobileSplit, setMobileSplit] = useState(false);
   const [isMobileView, setIsMobileView] = useState(() => window.innerWidth < 1024);
 
   // --- Refs ---
@@ -2394,24 +2395,29 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     const base64Audio = await blobToBase64(audioBlob);
     const mimeType = normalizeGeminiAudioMimeType(audioBlob.type);
 
+    const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-2.5-pro"];
     for (const key of keys) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: key });
-        const response = await ai.models.generateContent({
-          model: "gemini-2.0-flash",
-          contents: [
-            {
-              parts: [
-                { inlineData: { mimeType, data: base64Audio } },
-                { text: prompt },
-              ],
-            },
-          ],
-        });
-        const text = response.text?.trim() || "";
-        if (text) return text;
-      } catch (error) {
-        console.warn("Erro Gemini na transcricao", error);
+      for (const model of GEMINI_MODELS) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: key });
+          const response = await ai.models.generateContent({
+            model,
+            contents: [
+              {
+                parts: [
+                  { inlineData: { mimeType, data: base64Audio } },
+                  { text: prompt },
+                ],
+              },
+            ],
+          });
+          const text = response.text?.trim() || "";
+          if (text) return text;
+        } catch (error: any) {
+          const is429 = error?.message?.includes('429') || error?.message?.includes('quota') || error?.message?.includes('RESOURCE_EXHAUSTED');
+          console.warn(`Erro Gemini na transcricao [${model}]`, is429 ? '429/quota' : error);
+          if (!is429) break;
+        }
       }
     }
 
@@ -3329,6 +3335,86 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               />
               <ReactionsOverlay reactions={reactions} />
             </div>
+          ) : mobileSplit ? (
+            /* ── Mobile: split screen — dois vídeos empilhados ── */
+            <div className="absolute inset-0 flex flex-col">
+              {/* Vídeo de cima */}
+              <div className="flex-1 relative min-h-0">
+                {mobileSwapped ? (
+                  <VideoTile
+                    videoRef={localVideoRef}
+                    label={localDisplayName}
+                    isLocal
+                    cameraOn={cameraOn}
+                    initial={localInitial}
+                    audioLevel={audioLevel}
+                    micOn={micOn}
+                    className="absolute inset-0 !rounded-none !min-h-0"
+                  />
+                ) : (
+                  <RemoteVideoTile
+                    videoRef={remoteVideoRef}
+                    remoteUserConnected={remoteUserConnected}
+                    remoteStreamActive={remoteStreamActive}
+                    remoteDisplayName={remoteDisplayName}
+                    remoteInitial={remoteInitial}
+                    screenShareRef={screenShareRef}
+                    screenShare={screenShare}
+                    className="absolute inset-0 !rounded-none !min-h-0"
+                  />
+                )}
+              </div>
+              {/* Divisor */}
+              <div className="h-0.5 bg-white/10 shrink-0" />
+              {/* Vídeo de baixo */}
+              <div className="flex-1 relative min-h-0">
+                {mobileSwapped ? (
+                  <RemoteVideoTile
+                    videoRef={remoteVideoRef}
+                    remoteUserConnected={remoteUserConnected}
+                    remoteStreamActive={remoteStreamActive}
+                    remoteDisplayName={remoteDisplayName}
+                    remoteInitial={remoteInitial}
+                    screenShareRef={screenShareRef}
+                    screenShare={screenShare}
+                    className="absolute inset-0 !rounded-none !min-h-0"
+                  />
+                ) : (
+                  <VideoTile
+                    videoRef={localVideoRef}
+                    label={localDisplayName}
+                    isLocal
+                    cameraOn={cameraOn}
+                    initial={localInitial}
+                    audioLevel={audioLevel}
+                    micOn={micOn}
+                    className="absolute inset-0 !rounded-none !min-h-0"
+                  />
+                )}
+              </div>
+              {/* Botão trocar posição */}
+              <button
+                className="absolute top-1/2 right-3 -translate-y-1/2 z-20 rounded-full bg-black/50 border border-white/20 p-2 active:scale-95 transition-transform"
+                onClick={() => setMobileSwapped(v => !v)}
+                title="Inverter vídeos"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                  <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+                </svg>
+              </button>
+              {/* Botão alternar para PiP */}
+              <button
+                className="absolute top-3 right-3 z-20 rounded-full bg-black/50 border border-white/20 p-2 active:scale-95 transition-transform"
+                onClick={() => setMobileSplit(false)}
+                title="Modo spotlight"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <rect x="2" y="2" width="20" height="20" rx="3"/>
+                  <rect x="13" y="13" width="8" height="8" rx="1.5" fill="white" stroke="none"/>
+                </svg>
+              </button>
+              <ReactionsOverlay reactions={reactions} />
+            </div>
           ) : (
             /* ── Mobile: spotlight fullscreen + PiP card ── */
             <div className="absolute inset-0">
@@ -3393,6 +3479,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   </svg>
                 </div>
               </div>
+
+              {/* Botão alternar para split */}
+              <button
+                className="absolute top-3 left-3 z-20 rounded-full bg-black/50 border border-white/20 p-2 active:scale-95 transition-transform"
+                onClick={() => setMobileSplit(true)}
+                title="Dividir tela"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <rect x="2" y="2" width="20" height="20" rx="3"/>
+                  <line x1="2" y1="12" x2="22" y2="12"/>
+                </svg>
+              </button>
 
               <ReactionsOverlay reactions={reactions} />
             </div>

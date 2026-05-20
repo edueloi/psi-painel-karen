@@ -304,23 +304,30 @@ export const VirtualRooms: React.FC = () => {
         reader.readAsDataURL(blob);
       });
 
-      // Tenta cada chave Gemini em sequência
+      // Tenta cada chave + cada modelo em sequência (fallback automático em caso de 429)
+      const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-2.5-pro'];
       let transcribed = '';
-      for (const key of geminiKeys) {
-        try {
-          const ai = new GoogleGenAI({ apiKey: key });
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: [{
-              parts: [
-                { inlineData: { mimeType, data: base64 } },
-                { text: 'Transcreva este áudio em português brasileiro. Identifique os falantes quando possível (Profissional e Paciente). Retorne apenas o texto transcrito com os falantes, sem explicações adicionais.' },
-              ],
-            }],
-          });
-          const t = response.text?.trim() || '';
-          if (t) { transcribed = t; break; }
-        } catch { continue; }
+      outer: for (const key of geminiKeys) {
+        for (const model of GEMINI_MODELS) {
+          try {
+            const ai = new GoogleGenAI({ apiKey: key });
+            const response = await ai.models.generateContent({
+              model,
+              contents: [{
+                parts: [
+                  { inlineData: { mimeType, data: base64 } },
+                  { text: 'Transcreva este áudio em português brasileiro. Identifique os falantes quando possível (Profissional e Paciente). Retorne apenas o texto transcrito com os falantes, sem explicações adicionais.' },
+                ],
+              }],
+            });
+            const t = response.text?.trim() || '';
+            if (t) { transcribed = t; break outer; }
+          } catch (err: any) {
+            // Se não for 429/quota, não tenta próximo modelo
+            const is429 = err?.message?.includes('429') || err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED');
+            if (!is429) break;
+          }
+        }
       }
 
       if (!transcribed) {
