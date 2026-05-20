@@ -860,9 +860,10 @@ router.get('/public/:id/preview', async (req, res) => {
     const rid = req.params.id;
     const numId = parseInt(rid) || 0;
 
-    // Busca sala e info do host (com logo)
     const [rooms] = await db.query(
-      `SELECT r.title, r.code, r.hash, u.name as host_name, u.clinic_logo_url, u.company_name
+      `SELECT r.title, r.code, r.hash,
+              u.name as host_name, u.clinic_logo_url, u.company_name,
+              u.specialty, u.crp, u.bio, u.avatar_url
        FROM virtual_rooms r
        JOIN users u ON u.id = r.host_id
        WHERE r.hash = ? OR r.code = ? OR r.id = ?`,
@@ -870,50 +871,61 @@ router.get('/public/:id/preview', async (req, res) => {
     );
 
     if (rooms.length === 0) {
-      return res.send(`<html><head><script>window.location.href='/sala/${rid}';</script></head><body>Redirecionando...</body></html>`);
+      return res.send(`<html><head><meta http-equiv="refresh" content="0;url=/sala/${rid}"><script>window.location.href='/sala/${rid}';</script></head><body>Redirecionando...</body></html>`);
     }
 
     const room = rooms[0];
-    const logo = room.clinic_logo_url || 'https://psiflux.com.br/images/logo-psiflux.png';
-    const company = room.company_name || room.host_name || 'PsiFlux';
-    const title = room.title || 'Sessão de Atendimento';
-    const roomUrl = `https://psiflux.com.br/sala/${room.code || room.hash || rid}`;
+    const roomSlug = room.code || room.hash || rid;
+    const roomUrl = `https://psiflux.com.br/sala/${roomSlug}`;
 
-    const html = `
-<!DOCTYPE html>
+    // Imagem: prefere logo da clínica, depois avatar, depois padrão
+    const rawImage = room.clinic_logo_url || room.avatar_url || 'https://psiflux.com.br/images/logo-psiflux.png';
+    const ogImage = rawImage.startsWith('http') ? rawImage : `https://psiflux.com.br${rawImage}`;
+
+    const company  = room.company_name || room.host_name || 'Consultório';
+    const hostName = room.host_name || 'Profissional';
+    const crp      = room.crp ? ` • CRP ${room.crp}` : '';
+    const specialty = room.specialty ? ` • ${room.specialty}` : '';
+
+    const ogTitle = `${company} — Sala de Atendimento Online`;
+    const ogDesc  = `${hostName}${crp}${specialty}. Acesse sua consulta virtual com segurança e privacidade.`;
+
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.send(`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>${title} - ${company}</title>
-  <meta name="description" content="Prepare-se para sua consulta virtual com ${room.host_name}.">
-  
-  <!-- Open Graph -->
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="${title} | ${company}">
-  <meta property="og:description" content="Acesse sua sala virtual de forma segura.">
-  <meta property="og:image" content="${logo.startsWith('http') ? logo : 'https://psiflux.com.br' + logo}">
-  <meta property="og:url" content="${roomUrl}">
-  
-  <!-- Twitter -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${title} | ${company}">
-  <meta name="twitter:image" content="${logo.startsWith('http') ? logo : 'https://psiflux.com.br' + logo}">
+  <title>${ogTitle}</title>
+  <meta name="description" content="${ogDesc}">
 
-  <script>
-    window.location.href = "/sala/${room.code || room.hash || rid}";
-  </script>
-  <meta http-equiv="refresh" content="0;url=/sala/${room.code || room.hash || rid}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="${company}">
+  <meta property="og:url" content="${roomUrl}">
+  <meta property="og:title" content="${ogTitle}">
+  <meta property="og:description" content="${ogDesc}">
+  <meta property="og:image" content="${ogImage}">
+  <meta property="og:image:width" content="400">
+  <meta property="og:image:height" content="400">
+  <meta property="og:locale" content="pt_BR">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="${ogTitle}">
+  <meta name="twitter:description" content="${ogDesc}">
+  <meta name="twitter:image" content="${ogImage}">
+
+  <meta http-equiv="refresh" content="0;url=/sala/${roomSlug}">
+  <script>window.location.href='/sala/${roomSlug}';</script>
 </head>
-<body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #f8fafc; color: #64748b;">
-  <div style="text-align: center;">
-    <img src="${logo.startsWith('http') ? logo : 'https://psiflux.com.br' + logo}" style="max-width: 120px; margin-bottom: 20px; border-radius: 20px;" />
-    <h2>Redirecionando para a sala...</h2>
-    <p>Se não for redirecionado automaticamente, <a href="/sala/${room.code || room.hash || rid}">clique aqui</a>.</p>
+<body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#64748b;margin:0">
+  <div style="text-align:center;padding:24px">
+    <img src="${ogImage}" style="width:80px;height:80px;object-fit:cover;border-radius:50%;margin-bottom:16px;border:3px solid #e2e8f0" onerror="this.style.display='none'" />
+    <h2 style="margin:0 0 4px;color:#1e293b;font-size:18px">${company}</h2>
+    <p style="margin:0 0 4px;font-size:14px">${hostName}${crp}</p>
+    ${room.specialty ? `<p style="margin:0 0 16px;font-size:13px;color:#94a3b8">${room.specialty}</p>` : '<br>'}
+    <p style="font-size:13px">Redirecionando para a sala… <a href="/sala/${roomSlug}" style="color:#4f46e5">Clique aqui</a> se não for redirecionado.</p>
   </div>
 </body>
-</html>`;
-
-    res.send(html);
+</html>`);
   } catch (err) {
     console.error(err);
     res.redirect(`/sala/${req.params.id}`);
