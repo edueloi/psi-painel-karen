@@ -239,8 +239,11 @@ export const VirtualRooms: React.FC = () => {
   const [deletingRecording, setDeletingRecording] = useState<number | null>(null);
   const [deletingTranscript, setDeletingTranscript] = useState<string | null>(null);
 
-  const deleteRecording = async (rec: RecordingEntry, session: SessionSummary) => {
-    if (!window.confirm(`Deletar a gravação "${rec.file_name}"?`)) return;
+  // Confirm modal state
+  type ConfirmAction = { type: 'recording'; rec: RecordingEntry; session: SessionSummary } | { type: 'transcript'; session: SessionSummary } | null;
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+
+  const executeDeleteRecording = async (rec: RecordingEntry, session: SessionSummary) => {
     setDeletingRecording(rec.id);
     try {
       await api.delete(`/virtual-rooms/${session.room_id}/sessions/${session.session_key}/recordings/${rec.id}`);
@@ -263,8 +266,7 @@ export const VirtualRooms: React.FC = () => {
     }
   };
 
-  const deleteTranscript = async (session: SessionSummary) => {
-    if (!window.confirm('Deletar toda a transcrição desta sessão?')) return;
+  const executeDeleteTranscript = async (session: SessionSummary) => {
     setDeletingTranscript(session.session_key);
     try {
       await api.delete(`/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript`);
@@ -280,6 +282,24 @@ export const VirtualRooms: React.FC = () => {
     } finally {
       setDeletingTranscript(null);
     }
+  };
+
+  const deleteRecording = (rec: RecordingEntry, session: SessionSummary) => {
+    setConfirmAction({ type: 'recording', rec, session });
+  };
+
+  const deleteTranscript = (session: SessionSummary) => {
+    setConfirmAction({ type: 'transcript', session });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === 'recording') {
+      await executeDeleteRecording(confirmAction.rec, confirmAction.session);
+    } else {
+      await executeDeleteTranscript(confirmAction.session);
+    }
+    setConfirmAction(null);
   };
 
   const transcribeRecording = async (rec: RecordingEntry, session: SessionSummary) => {
@@ -1231,6 +1251,24 @@ export const VirtualRooms: React.FC = () => {
         title="Excluir sala"
         message={roomToDelete ? `A sala "${roomToDelete.title || roomToDelete.code}" será removida permanentemente.` : ''}
         confirmLabel="Confirmar exclusão"
+      />
+
+      <ConfirmModal
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirmDelete}
+        title={confirmAction?.type === 'recording' ? 'Deletar gravação' : 'Deletar transcrição'}
+        message={
+          confirmAction?.type === 'recording'
+            ? <>Tem certeza que deseja deletar a gravação <strong className="text-slate-800">"{confirmAction.rec.file_name}"</strong>? O arquivo será removido permanentemente.</>
+            : 'Tem certeza que deseja deletar toda a transcrição desta sessão? Esta ação não pode ser desfeita.'
+        }
+        confirmLabel="Deletar"
+        loading={
+          confirmAction?.type === 'recording'
+            ? deletingRecording === confirmAction?.rec.id
+            : deletingTranscript === confirmAction?.session.session_key
+        }
       />
     </PageWrapper>
   );

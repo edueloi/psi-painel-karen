@@ -357,15 +357,26 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [reactions, setReactions] = useState<Array<{ id: string; emoji: string; sender: string; x: number }>>([]);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
 
-  // Mobile spotlight layout
+  // Mobile spotlight layout — split é o padrão no mobile
   const [mobileSwapped, setMobileSwapped] = useState(false);
-  const [mobileSplit, setMobileSplit] = useState(false);
+  const [mobileSplit, setMobileSplit] = useState(() => window.innerWidth < 1024);
   const [isMobileView, setIsMobileView] = useState(() => window.innerWidth < 1024);
 
   // --- Refs ---
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
   const screenShareRef = useRef<HTMLVideoElement>(null);
+
+  // Aguarda o stream local ficar disponível (máx 8s) antes de processar WebRTC
+  const waitForLocalStream = (): Promise<MediaStream | null> =>
+    new Promise((resolve) => {
+      if (localStreamRef.current) { resolve(localStreamRef.current); return; }
+      const start = Date.now();
+      const iv = setInterval(() => {
+        if (localStreamRef.current) { clearInterval(iv); resolve(localStreamRef.current); return; }
+        if (Date.now() - start > 8000) { clearInterval(iv); resolve(null); }
+      }, 100);
+    });
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
@@ -1113,10 +1124,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 }
                 setRemoteStreamActive(false);
                 resetRecordingSource("remote");
+                const stream = await waitForLocalStream();
                 const pc = new RTCPeerConnection(ICE_CONFIG);
                 peerConnectionRef.current = pc;
-                if (localStreamRef.current) {
-                  localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+                if (stream) {
+                  stream.getTracks().forEach(t => pc.addTrack(t, stream));
                 }
                 pc.onicecandidate = (e) => {
                   if (e.candidate) sendRoomEventRef.current?.('webrtc_ice', { candidate: e.candidate.toJSON() });
@@ -1191,10 +1203,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   peerConnectionRef.current = null;
                 }
                 setRemoteStreamActive(false);
+                const stream = await waitForLocalStream();
                 const pc = new RTCPeerConnection(ICE_CONFIG);
                 peerConnectionRef.current = pc;
-                if (localStreamRef.current) {
-                  localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+                if (stream) {
+                  stream.getTracks().forEach(t => pc.addTrack(t, stream));
                 }
                 pc.onicecandidate = (e) => {
                   if (e.candidate) {
