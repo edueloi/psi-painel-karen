@@ -47,10 +47,14 @@ const { provisionFormsForAllTenants } = require('./services/provisionForms');
 const db = require('./db');
 const fs = require('fs');
 
+const http = require('http');
 const path = require('path');
 const app = express();
 app.set('trust proxy', 1); // Necessário para o Nginx (express-rate-limit e logs corretos)
 const PORT = process.env.PORT || 3013;
+
+// Servidor HTTP compartilhado entre Express e WebSocket
+const httpServer = http.createServer(app);
 
 function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/uploads-static`, express.static(path.join(__dirname, 'public/uploads')));
@@ -403,12 +407,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
-app.listen(PORT, () => {
+// ── WebSocket para sinalização WebRTC das salas virtuais ─────────────────────
+const { attachRoomWebSocket } = require('./routes/room-ws');
+attachRoomWebSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`Backend PsiFlux rodando na porta ${PORT}`);
   console.log(`Health: http://localhost:${PORT}/health`);
+  console.log(`WebSocket sala virtual: ws://localhost:${PORT}/ws/room/:id`);
   startCronJobs();
   ensureAlertSchema().catch(e => console.warn('⚠️  system_alerts schema:', e.message));
   provisionFormsForAllTenants().catch(e => console.warn('⚠️  provisionForms:', e.message));
 
   console.log('🔄 WPP Bot separado para micro-serviço (porta 3014) ✅');
-}); // Fecha o bloco do app.listen
+});

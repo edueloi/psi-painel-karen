@@ -98,6 +98,12 @@ function pushItem(map, key, item) {
   return item;
 }
 
+// ── Integração WebSocket ──────────────────────────────────────────────────────
+// Injeta dependências no room-ws e recebe função de broadcast
+const roomWs = require('./room-ws');
+roomWs.injectRoomState({ pushItem, nextId, eventsMap });
+const { broadcastEventToRoom } = roomWs;
+
 function sinceItems(map, key, since) {
   const n = Number(since) || 0;
   return getList(map, key).filter(i => i.id > n);
@@ -334,6 +340,7 @@ router.post('/:id/events', (req, res) => {
     payload_json: payload ? JSON.stringify(payload) : null,
     created_at: new Date().toISOString(),
   });
+  broadcastEventToRoom(key, item);
   res.json({ ok: true, id: item.id });
 });
 
@@ -802,6 +809,7 @@ router.post('/public/:id/events', (req, res) => {
     payload_json: payload ? JSON.stringify(payload) : null,
     created_at: new Date().toISOString(),
   });
+  broadcastEventToRoom(key, item);
   res.json({ ok: true, id: item.id });
 });
 

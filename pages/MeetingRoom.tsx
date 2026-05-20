@@ -472,6 +472,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const pendingIceCandidates = useRef<RTCIceCandidateInit[]>([]);
   const sendRoomEventRef = useRef<((type: string, payload?: Record<string, any>) => Promise<number | null>) | null>(null);
   const participantTokenRef = useRef<string | null>(null);
+  const roomWsRef = useRef<WebSocket | null>(null);
+  const roomWsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roomWsReadyRef = useRef(false);
+  const processRoomEventRef = useRef<((evt: RoomEvent) => void) | null>(null);
   const hostRenegotiationInFlightRef = useRef(false);
   const hostRenegotiationAttemptsRef = useRef(0);
   const hostOfferSequenceRef = useRef(0);
@@ -1177,7 +1181,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   }, [isGuest, remoteWhiteboardActive, activeSidePanel]);
 
-  const addReaction = useCallback((emoji: string, sender: string) => {
+  const seenReactionEventIdsRef = useRef<Set<number>>(new Set());
+
+  const addReaction = useCallback((emoji: string, sender: string, eventId?: number) => {
+    // Deduplicação: ignora reações já exibidas (histórico ao reconectar)
+    if (eventId !== undefined) {
+      if (seenReactionEventIdsRef.current.has(eventId)) return;
+      seenReactionEventIdsRef.current.add(eventId);
+      // Limita o set a 200 entradas para não vazar memória
+      if (seenReactionEventIdsRef.current.size > 200) {
+        const oldest = seenReactionEventIdsRef.current.values().next().value;
+        if (oldest !== undefined) seenReactionEventIdsRef.current.delete(oldest);
+      }
+    }
     const id_r = `${Date.now()}-${Math.random()}`;
     const x = 10 + Math.random() * 80;
     setReactions(prev => [...prev, { id: id_r, emoji, sender, x }]);
@@ -1361,7 +1377,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           }
           return;
         }
-        rows.forEach((evt) => {
+        const processEvent = (evt: RoomEvent) => {
           const payload = parsePayload(evt.payload_json);
           if (payload?.client_id && payload.client_id === clientIdRef.current)
             return;
@@ -1545,9 +1561,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               if (guestWaitingKey) localStorage.removeItem(guestWaitingKey);
             }
           } else if (evt.event_type === "reaction") {
-            addReaction(payload?.emoji || "👍", payload?.sender || "Participante");
+            addReaction(payload?.emoji || "👍", payload?.sender || "Participante", evt.id);
           }
-        });
+        };
+        processRoomEventRef.current = processEvent;
+        rows.forEach(processEvent);
         const last = rows[rows.length - 1];
         lastEventIdRef.current = last.id;
         setLastEventId(last.id);
@@ -1562,6 +1580,78 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       clearInterval(interval);
     };
   }, [id, hasJoined, isGuest, connectionStatus, suppressEventHistory, addReaction, isCompanionMode, requestHostRenegotiation]);
+
+  // WebSocket connection for real-time signaling (offer/answer/ICE)
+  useEffect(() => {
+    if (!id || !hasJoined) return;
+    if (isGuest && connectionStatus !== "connected") return;
+
+    const wsBase = API_BASE_URL.replace(/^http/, "ws");
+    const wsUrl = `${wsBase}/ws/room/${id.toLowerCase()}`;
+
+    let ws: WebSocket | null = null;
+    let reconnectDelay = 1000;
+    let destroyed = false;
+
+    const connect = () => {
+      if (destroyed) return;
+      ws = new WebSocket(wsUrl);
+      roomWsRef.current = ws;
+      roomWsReadyRef.current = false;
+
+      ws.onopen = () => {
+        reconnectDelay = 1000;
+        roomWsReadyRef.current = true;
+      };
+
+      ws.onmessage = (msgEvent) => {
+        let data: any;
+        try { data = JSON.parse(msgEvent.data); } catch { return; }
+        if (data.type === "event") {
+          const evt: RoomEvent = {
+            id: data.id ?? 0,
+            event_type: data.event_type ?? "",
+            payload_json: data.payload_json ?? null,
+            created_at: data.created_at ?? new Date().toISOString(),
+          };
+          // Advance lastEventId so polling doesn't replay this event
+          if (evt.id && evt.id > lastEventIdRef.current) {
+            lastEventIdRef.current = evt.id;
+            setLastEventId(evt.id);
+          }
+          processRoomEventRef.current?.(evt);
+        }
+      };
+
+      ws.onclose = () => {
+        roomWsReadyRef.current = false;
+        roomWsRef.current = null;
+        if (!destroyed) {
+          roomWsReconnectTimerRef.current = setTimeout(() => {
+            reconnectDelay = Math.min(reconnectDelay * 2, 15000);
+            connect();
+          }, reconnectDelay);
+        }
+      };
+
+      ws.onerror = () => {
+        ws?.close();
+      };
+    };
+
+    connect();
+
+    return () => {
+      destroyed = true;
+      roomWsReadyRef.current = false;
+      roomWsRef.current = null;
+      if (roomWsReconnectTimerRef.current) {
+        clearTimeout(roomWsReconnectTimerRef.current);
+        roomWsReconnectTimerRef.current = null;
+      }
+      ws?.close();
+    };
+  }, [id, hasJoined, isGuest, connectionStatus]);
 
   useEffect(() => {
     if (!id || !hasJoined) return;
@@ -2170,6 +2260,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
   const assignRemoteMediaStream = (stream: MediaStream | null) => {
     if (!stream) return;
+    // Ignora loopback: se o stream recebido é o próprio stream local, descarta
+    if (localStreamRef.current && stream.id === localStreamRef.current.id) {
+      console.warn("assignRemoteMediaStream: stream remoto é igual ao local (loopback), ignorando.");
+      return;
+    }
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = stream;
       remoteVideoRef.current.play().catch(() => {});
@@ -2346,12 +2441,25 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         eventType === "whiteboard_permission")
     )
       return null;
-    const body = {
-      event_type: eventType,
-      payload: payload
-        ? { ...payload, client_id: clientIdRef.current }
-        : { client_id: clientIdRef.current },
-    };
+    const mergedPayload = payload
+      ? { ...payload, client_id: clientIdRef.current }
+      : { client_id: clientIdRef.current };
+
+    // Try WebSocket first for low-latency signaling
+    const ws = roomWsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ type: "event", event_type: eventType, payload: mergedPayload }));
+        // WS send is fire-and-forget; return a synthetic id so callers don't break.
+        // For webrtc_offer/answer/ice we don't need the real server id back immediately —
+        // the server will broadcast and we'll get the ack, but the caller only needs non-null.
+        return -1;
+      } catch {
+        // fall through to HTTP
+      }
+    }
+
+    const body = { event_type: eventType, payload: mergedPayload };
     try {
       if (isGuest) {
         if (!participantToken) return null;
