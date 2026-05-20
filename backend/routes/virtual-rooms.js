@@ -855,10 +855,18 @@ router.get('/public/:id/info', async (req, res) => {
 });
 
 // GET /virtual-rooms/public/:id/preview - Para previews em redes sociais (WhatsApp, etc.)
+// Também serve como handler para /sala/:id vindo do Nginx (detecta bot vs. usuário)
 router.get('/public/:id/preview', async (req, res) => {
   try {
     const rid = req.params.id;
     const numId = parseInt(rid) || 0;
+    const ua = req.headers['user-agent'] || '';
+    const isBot = /WhatsApp|facebookexternalhit|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot|bingbot|Googlebot|curl|python/i.test(ua);
+
+    // Usuário normal: redireciona direto para a SPA sem HTML intermediário
+    if (!isBot) {
+      return res.redirect(302, `/sala/${rid}`);
+    }
 
     const [rooms] = await db.query(
       `SELECT r.title, r.code, r.hash,
