@@ -1284,9 +1284,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 resetRecordingSource("remote");
                 const stream = await waitForLocalStream();
                 guestPeerCycleRef.current += 1;
-                const guestIceConfig = guestPeerCycleRef.current > 1 ? ICE_CONFIG_RELAY : ICE_CONFIG;
-                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=${guestIceConfig.iceTransportPolicy || 'all'}, sessionId=${offerSessionId})`);
-                const pc = new RTCPeerConnection(guestIceConfig);
+                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=relay, sessionId=${offerSessionId})`);
+                const pc = new RTCPeerConnection(ICE_CONFIG_RELAY);
                 attachIceDiagnostics(pc, "Guest");
                 peerConnectionRef.current = pc;
                 if (stream) {
@@ -1316,7 +1315,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
                         sendRoomEventRef.current?.('request_renegotiation', {});
                       }
-                    }, 500);
+                    }, 5000);
                   }
                 };
                 await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp }));
@@ -1396,9 +1395,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 resetRecordingSource("remote");
                 const stream = await waitForLocalStream();
                 guestPeerCycleRef.current += 1;
-                const guestIceConfig2 = guestPeerCycleRef.current > 1 ? ICE_CONFIG_RELAY : ICE_CONFIG;
-                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=${guestIceConfig2.iceTransportPolicy || 'all'}, sessionId=${offerSessionId})`);
-                const pc = new RTCPeerConnection(guestIceConfig2);
+                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=relay, sessionId=${offerSessionId})`);
+                const pc = new RTCPeerConnection(ICE_CONFIG_RELAY);
                 attachIceDiagnostics(pc, "Guest");
                 peerConnectionRef.current = pc;
                 if (stream) {
@@ -1436,7 +1434,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                         console.log("Guest: solicitando renegociação com TURN ao host...");
                         sendRoomEventRef.current?.('request_renegotiation', {});
                       }
-                    }, 500);
+                    }, 5000);
                   }
                 };
                 pc.ontrack = (e) => {
@@ -1864,9 +1862,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         peerConnectionRef.current = null;
       }
       setRemoteStreamActive(false);
-      // Na primeira tentativa usa STUN+TURN; em reconexões força relay via TURN
-      const iceConfig = hostPeerCycle > 0 ? ICE_CONFIG_RELAY : ICE_CONFIG;
-      console.log(`Host: criando PeerConnection (ciclo=${hostPeerCycle}, policy=${iceConfig.iceTransportPolicy || 'all'})`);
+      // Sempre usa relay via TURN para evitar falha por NAT hairpin
+      const iceConfig = ICE_CONFIG_RELAY;
+      console.log(`Host: criando PeerConnection (ciclo=${hostPeerCycle}, policy=relay)`);
       const pc = new RTCPeerConnection(iceConfig);
       attachIceDiagnostics(pc, "Host");
       peerConnectionRef.current = pc;
@@ -1894,17 +1892,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
         } else if (pc.iceConnectionState === 'disconnected') {
           if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
-          // Reconecta rapidamente (500ms) forçando relay via TURN na próxima tentativa
+          // Aguarda 5s antes de resetar — dar tempo para TURN reconectar
           iceRestartTimer = setTimeout(() => {
             if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-              hardResetHostConnection(200);
+              hardResetHostConnection(500);
             }
-          }, 500);
+          }, 5000);
         } else if (pc.iceConnectionState === 'failed') {
-          console.log("Host: ICE failed, forçando reconexão via TURN...");
+          console.log("Host: ICE failed, aguardando 3s antes de reconectar...");
           if (iceRestartTimer) clearTimeout(iceRestartTimer);
           if (iceCheckingTimeout) clearTimeout(iceCheckingTimeout);
-          hardResetHostConnection(200);
+          iceRestartTimer = setTimeout(() => {
+            hardResetHostConnection(500);
+          }, 3000);
         }
       };
       pc.onconnectionstatechange = () => {
