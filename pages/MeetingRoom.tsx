@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { GoogleGenAI } from "@google/genai";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Mic,
@@ -51,6 +52,11 @@ import { ClinicalForm, FormQuestion } from "../types";
 import { api, API_BASE_URL } from "../services/api";
 import { Button } from "../components/UI/Button";
 import { Input } from "../components/UI/Input";
+import { PanelCard } from "../components/UI/PanelCard";
+import { VideoTile, RemoteVideoTile } from "../components/MeetingRoom/VideoTile";
+import { WaitingToast } from "../components/MeetingRoom/WaitingToast";
+import { RoomModal, RoomModalHeader, RoomModalBody, RoomModalFooter } from "../components/MeetingRoom/RoomModal";
+import { RoomFooterBtn } from "../components/MeetingRoom/RoomFooterBtn";
 
 interface MeetingRoomProps {
   isGuest?: boolean;
@@ -225,6 +231,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const [transcriptionActive, setTranscriptionActive] = useState(false);
   const [remoteStreamActive, setRemoteStreamActive] = useState(false);
 
+  // Room public info (shown in guest lobby)
+  const [roomInfo, setRoomInfo] = useState<{
+    title: string | null;
+    host_name: string | null;
+    company_name: string | null;
+    clinic_logo_url: string | null;
+  } | null>(null);
+
+  // Guest: session ended by host
+  const [sessionEndedByHost, setSessionEndedByHost] = useState(false);
+
   useEffect(() => {
     if (!isGuest || !id) return;
     if (guestNameKey && !guestName) {
@@ -336,6 +353,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingIceCandidates = useRef<RTCIceCandidateInit[]>([]);
   const sendRoomEventRef = useRef<((type: string, payload?: Record<string, any>) => Promise<void>) | null>(null);
+  const participantTokenRef = useRef<string | null>(null);
 
   // Audio Analysis
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -1180,6 +1198,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               setRemoteUserConnected(false);
               setTimeout(() => setRemoteUserConnected(trigger), 100);
             }
+          } else if (evt.event_type === "session_ended") {
+            if (isGuest) {
+              setSessionEndedByHost(true);
+              cleanupMedia();
+              const token = participantTokenRef.current;
+              if (token && id) {
+                api.post(`/virtual-rooms/public/${id}/leave`, { token }).catch(() => {});
+              }
+              if (guestWaitingKey) localStorage.removeItem(guestWaitingKey);
+            }
           }
         });
         const last = rows[rows.length - 1];
@@ -1351,6 +1379,19 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       clearInterval(interval);
     };
   }, [id, hasJoined, isGuest, suppressTranscriptHistory]);
+
+  // Carrega info pública da sala (para lobby do guest)
+  useEffect(() => {
+    if (!id) return;
+    api.get<{
+      title: string | null;
+      host_name: string | null;
+      company_name: string | null;
+      clinic_logo_url: string | null;
+    }>(`/virtual-rooms/public/${id}/info`)
+      .then((info) => setRoomInfo(info))
+      .catch(() => {});
+  }, [id]);
 
   // Resolve o ID numérico da sala imediatamente ao montar (URL pode ter hash)
   useEffect(() => {
@@ -1939,6 +1980,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
   // Always keep ref pointing to latest sendRoomEvent closure
   sendRoomEventRef.current = sendRoomEvent;
+  participantTokenRef.current = participantToken;
 
   const startDrawing = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
@@ -2291,38 +2333,22 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
     const base64Audio = await blobToBase64(audioBlob);
     const mimeType = normalizeGeminiAudioMimeType(audioBlob.type);
-    const body = {
-      contents: [
-        {
-          parts: [
-            {
-              inline_data: { mime_type: mimeType, data: base64Audio },
-            },
-            {
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    };
 
     for (const key of keys) {
       try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          }
-        );
-        if (!res.ok) {
-          const detail = await res.text().catch(() => "");
-          console.warn("Falha Gemini na transcricao", res.status, detail.slice(0, 200));
-          continue;
-        }
-        const data = await res.json();
-        const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        const ai = new GoogleGenAI({ apiKey: key });
+        const response = await ai.models.generateContent({
+          model: "gemini-2.0-flash",
+          contents: [
+            {
+              parts: [
+                { inlineData: { mimeType, data: base64Audio } },
+                { text: prompt },
+              ],
+            },
+          ],
+        });
+        const text = response.text?.trim() || "";
         if (text) return text;
       } catch (error) {
         console.warn("Erro Gemini na transcricao", error);
@@ -2333,47 +2359,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   };
 
   const transcribeChunkWithGemini = async (audioBlob: Blob) => {
-    // Build ordered key list: apiKeys array first, fall back to legacy apiKey
-    const keys = (preferences.gemini.apiKeys?.filter(k => k.trim()) ?? []);
-    if (keys.length === 0 && preferences.gemini.apiKey.trim()) keys.push(preferences.gemini.apiKey.trim());
-    if (keys.length === 0 || !id) return;
     try {
-      const base64Audio = await blobToBase64(audioBlob);
-      const mimeType = audioBlob.type || "audio/webm";
-      const body = {
-        contents: [
-          {
-            parts: [
-              {
-                inline_data: { mime_type: mimeType, data: base64Audio },
-              },
-              {
-                text: "Transcreva este áudio em português brasileiro. Retorne apenas o texto transcrito, sem explicações ou formatação adicional.",
-              },
-            ],
-          },
-        ],
-      };
-      // Try each key in order; move to next on failure
-      let transcribed = "";
-      for (const key of keys) {
-        try {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            }
-          );
-          if (!res.ok) continue; // try next key
-          const data = await res.json();
-          const t: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-          if (t) { transcribed = t; break; } // got a result, stop trying
-        } catch {
-          continue; // network error on this key, try next
-        }
-      }
+      const transcribed = await transcribeWithGemini(
+        audioBlob,
+        "Transcreva este áudio em português brasileiro. Retorne apenas o texto transcrito, sem explicações ou formatação adicional."
+      );
       if (!transcribed) return;
       await persistTranscriptText(transcribed);
     } catch {
@@ -2597,6 +2587,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         // non-critical
       }
     }
+    // Notifica o guest que a sessão foi encerrada pelo host
+    if (!isGuest && id) {
+      try {
+        await api.post(`/virtual-rooms/${id}/events`, {
+          event_type: "session_ended",
+          payload: { client_id: clientIdRef.current },
+        });
+      } catch {
+        // non-critical
+      }
+    }
     cleanupMedia();
     if (isGuest && participantToken && id) {
       try {
@@ -2776,22 +2777,79 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     );
   }
 
+  // --- RENDER: SESSION ENDED BY HOST (GUEST) ---
+  if (sessionEndedByHost) {
+    return (
+      <div className="fixed inset-0 bg-slate-50 text-slate-800 flex flex-col items-center justify-center p-6 text-center font-sans">
+        {/* Clinic header */}
+        {(roomInfo?.clinic_logo_url || roomInfo?.company_name) && (
+          <div className="flex items-center gap-3 mb-8">
+            {roomInfo.clinic_logo_url && (
+              <img
+                src={roomInfo.clinic_logo_url}
+                alt="Logo"
+                className="w-10 h-10 rounded-xl object-contain border border-slate-200 bg-white p-1"
+              />
+            )}
+            <div className="text-left">
+              <div className="font-bold text-slate-800 text-sm">{roomInfo.company_name || roomInfo.host_name}</div>
+              {roomInfo.host_name && roomInfo.company_name && (
+                <div className="text-xs text-slate-500">{roomInfo.host_name}</div>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="w-20 h-20 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mb-6">
+          <PhoneOff size={36} className="text-slate-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">Sessão encerrada</h2>
+        <p className="text-slate-500 max-w-sm mb-8">
+          O profissional encerrou a sessão. Obrigado pela sua presença.
+        </p>
+        <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-100 px-4 py-2 rounded-full">
+          <ShieldAlert size={13} />
+          <span>Conexão encerrada com segurança</span>
+        </div>
+      </div>
+    );
+  }
+
   // --- RENDER: WAITING ROOM (GUEST) ---
   if (hasJoined && connectionStatus === "waiting_approval") {
     return (
       <div className="fixed inset-0 bg-[#0f1115] text-white flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
-        <div className="relative w-32 h-32 mb-8">
+        {/* Clinic info top */}
+        {(roomInfo?.clinic_logo_url || roomInfo?.company_name) && (
+          <div className="absolute top-6 flex items-center gap-2.5">
+            {roomInfo.clinic_logo_url && (
+              <img
+                src={roomInfo.clinic_logo_url}
+                alt="Logo"
+                className="w-9 h-9 rounded-xl object-contain border border-white/10 bg-white/5 p-1"
+              />
+            )}
+            <div className="text-left">
+              <div className="text-sm font-bold text-white">{roomInfo.company_name || roomInfo.host_name}</div>
+              {roomInfo.host_name && roomInfo.company_name && (
+                <div className="text-xs text-slate-400">{roomInfo.host_name}</div>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="relative w-28 h-28 mb-8">
           <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
           <div className="relative w-full h-full bg-slate-800 rounded-full flex items-center justify-center border-4 border-slate-700">
-            <User size={64} className="text-slate-400" />
+            <User size={56} className="text-slate-400" />
           </div>
         </div>
-        <h2 className="text-2xl md:text-3xl font-bold mb-3">
+        <h2 className="text-2xl md:text-3xl font-bold mb-2">
           Aguardando permissão
         </h2>
-        <p className="text-slate-400 text-lg max-w-md mb-8">
-          Você está na sala de espera. O anfitrião permitirá sua entrada em
-          breve.
+        <p className="text-slate-400 text-base max-w-sm mb-6">
+          Você está na sala de espera.{" "}
+          {roomInfo?.host_name ? (
+            <><strong className="text-slate-300">{roomInfo.host_name}</strong> irá permitir sua entrada em breve.</>
+          ) : "O profissional irá permitir sua entrada em breve."}
         </p>
         <div className="flex items-center gap-2 text-sm text-slate-500 bg-white/5 px-4 py-2 rounded-full border border-white/10">
           <ShieldAlert size={14} />
@@ -2804,58 +2862,39 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   // --- RENDER: LOBBY (PRE-FLIGHT) ---
   if (!hasJoined) {
     return (
-      <div className="fixed inset-0 bg-slate-50 text-slate-800 flex items-center justify-center font-sans p-4 overflow-y-auto">
-        {waitingEntries.length > 0 && !isGuest && (
-          <div className="absolute top-6 right-6 z-[100] animate-[slideLeft_0.3s_ease-out] w-full max-w-sm">
-            <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-2xl">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Na espera ({waitingEntries.length})
-                </div>
-                <div className="text-[10px] text-slate-400">
-                  Permissao pendente
-                </div>
-              </div>
-              <div className="space-y-3">
-                {waitingEntries.map((entry) => (
-                  <div key={entry.id} className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg">
-                      {entry.guest_name.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-sm text-slate-900">
-                        {entry.guest_name}
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Solicitando entrada...
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDenyGuest(entry)}
-                        className="p-2 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white transition-colors"
-                        title="Negar"
-                      >
-                        <X size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleAdmitGuest(entry)}
-                        className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors"
-                        title="Admitir"
-                      >
-                        <Check size={18} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+      <div className="fixed inset-0 bg-slate-50 text-slate-800 flex flex-col font-sans overflow-y-auto">
+        {!isGuest && (
+          <WaitingToast
+            entries={waitingEntries}
+            onAdmit={handleAdmitGuest}
+            onDeny={handleDenyGuest}
+            dark={false}
+          />
         )}
-        <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 my-auto">
+
+        {/* Mobile header */}
+        <div className="lg:hidden px-4 pt-5 pb-3 flex items-center justify-between shrink-0">
+          <div>
+            <h1 className="text-xl font-display font-bold text-slate-900">Sala de Espera</h1>
+            <p className="text-slate-500 text-xs mt-0.5">
+              {isGuest ? "Você foi convidado para uma reunião" : `${appointment?.title || "Consulta"} · ${patientDisplayName}`}
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full ${micOn ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+              {micOn ? <Mic size={10} /> : <MicOff size={10} />}
+            </span>
+            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full ${cameraOn ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+              {cameraOn ? <Video size={10} /> : <VideoOff size={10} />}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex-1 flex items-start lg:items-center justify-center p-3 lg:p-6">
+          <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 lg:gap-6">
           {/* Left Column: Video Preview */}
           <div className="flex flex-col justify-center animate-[fadeIn_0.5s_ease-out]">
-            <div className="mb-5">
+            <div className="hidden lg:block mb-5">
               <h1 className="text-3xl font-display font-bold text-slate-900">Sala de Espera</h1>
               <p className="text-slate-500 mt-1 text-sm">
                 {isGuest
@@ -2864,7 +2903,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               </p>
             </div>
 
-            <div className="relative w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-white mb-4">
+            <div className="relative w-full bg-slate-900 rounded-2xl overflow-hidden shadow-xl ring-2 ring-white mb-3" style={{ aspectRatio: "16/9", maxHeight: "40vh" }}>
               <video
                 ref={lobbyVideoRef}
                 autoPlay
@@ -2873,16 +2912,16 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 className={`w-full h-full object-cover scale-x-[-1] ${cameraOn ? '' : 'hidden'}`}
               />
               {!cameraOn && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <div className="w-20 h-20 rounded-full bg-slate-700 flex items-center justify-center text-slate-400">
-                    <VideoOff size={28} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                  <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-slate-700 flex items-center justify-center text-slate-400">
+                    <VideoOff size={22} />
                   </div>
                   <span className="text-slate-500 text-xs font-medium">Câmera desativada</span>
                 </div>
               )}
 
               {/* Audio level bars */}
-              <div className="absolute bottom-5 left-5 flex gap-1 h-5 items-end">
+              <div className="absolute bottom-3 left-3 sm:bottom-5 sm:left-5 flex gap-1 h-4 items-end">
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
@@ -2893,33 +2932,33 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               </div>
 
               {/* Media controls */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 backdrop-blur-md px-3 py-2 rounded-2xl border border-white/10">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-2xl border border-white/10">
                 <button
                   onClick={toggleMic}
                   title={micOn ? "Desativar microfone" : "Ativar microfone"}
-                  className={`p-2.5 rounded-xl transition-all ${micOn ? "bg-white/90 text-slate-900 hover:bg-white" : "bg-red-500/90 text-white hover:bg-red-500"}`}
+                  className={`p-2 rounded-xl transition-all ${micOn ? "bg-white/90 text-slate-900 hover:bg-white" : "bg-red-500/90 text-white hover:bg-red-500"}`}
                 >
-                  {micOn ? <Mic size={18} /> : <MicOff size={18} />}
+                  {micOn ? <Mic size={16} /> : <MicOff size={16} />}
                 </button>
                 <button
                   onClick={toggleCam}
                   title={cameraOn ? "Desativar câmera" : "Ativar câmera"}
-                  className={`p-2.5 rounded-xl transition-all ${cameraOn ? "bg-white/90 text-slate-900 hover:bg-white" : "bg-red-500/90 text-white hover:bg-red-500"}`}
+                  className={`p-2 rounded-xl transition-all ${cameraOn ? "bg-white/90 text-slate-900 hover:bg-white" : "bg-red-500/90 text-white hover:bg-red-500"}`}
                 >
-                  {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
+                  {cameraOn ? <Video size={16} /> : <VideoOff size={16} />}
                 </button>
                 <button
                   onClick={() => setShowSettingsModal(true)}
                   title="Configurações de áudio/vídeo"
-                  className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-all"
+                  className="p-2 rounded-xl bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-all"
                 >
-                  <Settings size={18} />
+                  <Settings size={16} />
                 </button>
               </div>
             </div>
 
-            {/* Status badges */}
-            <div className="flex gap-2 flex-wrap items-center">
+            {/* Status badges — desktop only (mobile shows in header) */}
+            <div className="hidden lg:flex gap-2 flex-wrap items-center">
               <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${micOn ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
                 {micOn ? <Mic size={11} /> : <MicOff size={11} />}
                 {micOn ? "Microfone ativo" : "Microfone desativado"}
@@ -2948,23 +2987,60 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           {/* Right Column: Controls & Info */}
           <div className="bg-white rounded-2xl shadow-lg border border-slate-100 flex flex-col animate-[slideUpFade_0.5s_ease-out] overflow-hidden">
             {isGuest ? (
-              <div className="flex flex-col justify-center flex-1 p-8 space-y-6">
-                <div className="text-center">
-                  <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-3 text-indigo-600">
-                    <User size={26} />
+              <div className="flex flex-col flex-1 overflow-y-auto">
+                {/* Clinic / Professional header */}
+                <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    {roomInfo?.clinic_logo_url ? (
+                      <img
+                        src={roomInfo.clinic_logo_url}
+                        alt="Logo"
+                        className="w-12 h-12 rounded-xl object-contain border border-slate-200 bg-white p-1 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-[#2a74ac]/10 text-[#2a74ac] flex items-center justify-center shrink-0">
+                        <Video size={22} />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-800 text-sm truncate leading-tight">
+                        {roomInfo?.company_name || roomInfo?.host_name || "Consultório"}
+                      </div>
+                      {roomInfo?.host_name && roomInfo?.company_name && (
+                        <div className="text-xs text-slate-500 truncate">
+                          {roomInfo.host_name}
+                        </div>
+                      )}
+                      <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                        {roomInfo?.title || "Sala de Atendimento Virtual"}
+                      </div>
+                    </div>
                   </div>
-                  <h2 className="text-lg font-bold text-slate-800">Identificação</h2>
-                  <p className="text-sm text-slate-500 mt-1">Como você gostaria de ser chamado?</p>
                 </div>
-                <div className="space-y-3">
+
+                {/* Segurança info */}
+                <div className="mx-6 mt-4 mb-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3.5 py-2.5 flex items-center gap-2.5">
+                  <ShieldAlert size={15} className="text-emerald-600 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-emerald-700">Ambiente Seguro</div>
+                    <div className="text-[11px] text-emerald-600">Criptografia ponta-a-ponta ativada</div>
+                  </div>
+                </div>
+
+                {/* Name form */}
+                <div className="px-6 py-4 space-y-3 flex-1">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sua Identificação</div>
                   <Input
-                    label="Seu Nome"
+                    label="Como você prefere ser chamado?"
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
                     placeholder="Digite seu nome..."
                     iconLeft={<User size={15} />}
                     onKeyDown={(e) => e.key === "Enter" && guestName.trim() && handleJoin()}
                   />
+                </div>
+
+                <div className="px-6 pb-6">
                   <Button
                     fullWidth
                     size="lg"
@@ -2974,6 +3050,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   >
                     Pedir para Entrar
                   </Button>
+                  <p className="text-[11px] text-slate-400 text-center mt-2">
+                    Você ficará na sala de espera até o profissional permitir sua entrada.
+                  </p>
                 </div>
               </div>
             ) : (
@@ -3096,6 +3175,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             )}
           </div>
         </div>
+        </div>
       </div>
     );
   }
@@ -3148,52 +3228,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       )}
 
       <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden min-h-0">
-        {!isGuest && waitingEntries.length > 0 && (
-          <div className="absolute top-20 right-6 z-[100] animate-[slideLeft_0.3s_ease-out] w-full max-w-sm">
-            <div className="bg-[#111319] border border-white/10 p-4 rounded-2xl shadow-2xl">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Na espera ({waitingEntries.length})
-                </div>
-                <div className="text-[10px] text-slate-500">
-                  Permissao pendente
-                </div>
-              </div>
-              <div className="space-y-3">
-                {waitingEntries.map((entry) => (
-                  <div key={entry.id} className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">
-                      {entry.guest_name.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-sm text-slate-100">
-                        {entry.guest_name}
-                      </h4>
-                      <p className="text-xs text-slate-400">
-                        Solicitando entrada...
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDenyGuest(entry)}
-                        className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-                        title="Negar"
-                      >
-                        <X size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleAdmitGuest(entry)}
-                        className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors"
-                        title="Admitir"
-                      >
-                        <Check size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {!isGuest && (
+          <WaitingToast
+            entries={waitingEntries}
+            onAdmit={handleAdmitGuest}
+            onDeny={handleDenyGuest}
+            dark
+          />
         )}
         <section
           className={`flex-1 grid gap-3 min-h-0 ${
@@ -3202,72 +3243,25 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               : "grid-cols-1"
           }`}
         >
-          <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center min-h-[160px] sm:min-h-[200px]">
-            {screenShare ? (
-              <video
-                ref={screenShareRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-contain bg-black"
-              />
-            ) : remoteUserConnected ? (
-              <div className="relative w-full h-full flex items-center justify-center">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className={`w-full h-full object-cover ${remoteStreamActive ? '' : 'hidden'}`}
-                />
-                {!remoteStreamActive && (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-slate-800 flex items-center justify-center text-2xl sm:text-3xl font-bold">
-                      {remoteInitial}
-                    </div>
-                    <div className="text-sm text-slate-300">{remoteDisplayName}</div>
-                    <div className="text-xs text-slate-500 animate-pulse">Conectando vídeo...</div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-slate-500 text-sm text-center px-4">
-                Aguardando participante entrar...
-              </div>
-            )}
-            <div className="absolute top-2 left-2 text-xs text-slate-300 bg-black/50 px-2 py-0.5 rounded-full truncate max-w-[70%]">
-              {screenShare ? "Compartilhando tela" : remoteDisplayName}
-            </div>
-          </div>
+          <RemoteVideoTile
+            videoRef={remoteVideoRef}
+            remoteUserConnected={remoteUserConnected}
+            remoteStreamActive={remoteStreamActive}
+            remoteDisplayName={remoteDisplayName}
+            remoteInitial={remoteInitial}
+            screenShareRef={screenShareRef}
+            screenShare={screenShare}
+          />
 
-          <div className="relative bg-[#101216] rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center min-h-[160px] sm:min-h-[200px]">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              muted
-              playsInline
-              className={`w-full h-full object-cover transform scale-x-[-1] ${cameraOn ? '' : 'hidden'}`}
-            />
-            {!cameraOn && (
-              <div className="flex flex-col items-center gap-3 text-slate-400">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-800 flex items-center justify-center text-2xl font-bold">
-                  {localInitial}
-                </div>
-                <div className="text-sm">Câmera desativada</div>
-              </div>
-            )}
-            <div className="absolute top-2 left-2 text-xs text-slate-300 bg-black/50 px-2 py-0.5 rounded-full truncate max-w-[70%]">
-              {localDisplayName}
-            </div>
-            {/* Mic indicator */}
-            {micOn && (
-              <div className="absolute bottom-2 right-2 flex gap-0.5 h-4 items-end">
-                {[1,2,3].map(i => (
-                  <div key={i} className="w-1 rounded-full bg-emerald-400 transition-all duration-75"
-                    style={{ height: `${Math.max(30, audioLevel * (i * 0.5))}%` }} />
-                ))}
-              </div>
-            )}
-          </div>
+          <VideoTile
+            videoRef={localVideoRef}
+            label={localDisplayName}
+            isLocal
+            cameraOn={cameraOn}
+            initial={localInitial}
+            audioLevel={audioLevel}
+            micOn={micOn}
+          />
         </section>
 
         {activeSidePanel !== "none" && (
@@ -3444,256 +3438,280 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
             {activeSidePanel === "assessments" && (
               <>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm font-bold">Avaliacoes</div>
+                <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck size={14} className="text-slate-400" />
+                    <span className="text-sm font-bold">Avaliações</span>
+                  </div>
                   {assessmentStatus !== "idle" && (
-                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">
-                      {assessmentStatus === "completed"
-                        ? "Finalizada"
-                        : "Em andamento"}
-                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      assessmentStatus === "completed"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-indigo-500/20 text-indigo-300"
+                    }`}>
+                      {assessmentStatus === "completed" ? "Finalizada" : "Em andamento"}
+                    </span>
                   )}
                 </div>
 
                 {!isGuest && assessmentStatus === "idle" && (
-                  <div className="space-y-2">
-                    {assessmentForms.length === 0 && (
-                      <div className="text-xs text-slate-400">
-                        Nenhuma avaliacao disponivel.
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                    {assessmentForms.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                        <ClipboardCheck size={28} className="text-slate-600" />
+                        <div className="text-xs text-slate-500">Nenhuma avaliação disponível.</div>
                       </div>
-                    )}
-                    {assessmentForms.map((form) => (
-                      <button
-                        key={form.id}
-                        onClick={() => handleStartAssessment(form.id)}
-                        className="w-full text-left bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-3 py-2"
-                      >
-                        <div className="text-sm font-semibold text-white">
-                          {form.title}
-                        </div>
-                        {form.description && (
-                          <div className="text-xs text-slate-400 mt-1">
-                            {form.description}
+                    ) : (
+                      assessmentForms.map((form) => (
+                        <button
+                          key={form.id}
+                          onClick={() => handleStartAssessment(form.id)}
+                          className="w-full text-left bg-white/5 hover:bg-indigo-500/10 border border-white/10 hover:border-indigo-500/30 rounded-xl px-3 py-2.5 transition-colors group"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors">
+                              {form.title}
+                            </div>
+                            <Play size={12} className="text-slate-500 group-hover:text-indigo-400 shrink-0 transition-colors" />
                           </div>
-                        )}
-                      </button>
-                    ))}
+                          {form.description && (
+                            <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{form.description}</div>
+                          )}
+                          {form.responseCount > 0 && (
+                            <div className="text-[10px] text-slate-500 mt-1">{form.responseCount} resposta(s) anteriores</div>
+                          )}
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
 
                 {!isGuest && assessmentStatus !== "idle" && (
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-slate-400 uppercase tracking-wider">
-                        Avaliacao em andamento
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                      <span className="text-xs font-bold text-slate-300">
+                        {activeAssessmentForm?.title || "Carregando..."}
                       </span>
                       <button
                         onClick={handleCancelAssessment}
-                        className="text-xs text-red-400 hover:text-red-200"
+                        className="text-[10px] text-red-400 hover:text-red-200 flex items-center gap-1"
                       >
-                        Cancelar e retornar
+                        <X size={10} /> Cancelar
                       </button>
                     </div>
-                    <div className="text-xs text-slate-400 mb-2">
-                      {activeAssessmentForm
-                        ? `${activeAssessmentForm.title} - ${Object.keys(
-                            remoteAnswers
-                          ).length}/${activeAssessmentForm.questions.length} respondidas`
-                        : "Carregando avaliacao..."}
-                    </div>
+
+                    {/* Progress */}
+                    {activeAssessmentForm && assessmentStatus === "active" && (
+                      <div className="mb-3 flex-shrink-0">
+                        <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                          <span>Respostas do paciente</span>
+                          <span>{Object.keys(remoteAnswers).length}/{activeAssessmentForm.questions.length}</span>
+                        </div>
+                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                            style={{ width: `${activeAssessmentForm.questions.length ? (Object.keys(remoteAnswers).length / activeAssessmentForm.questions.length) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Answers */}
                     {activeAssessmentForm && (
-                      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                        {activeAssessmentForm.questions.map((question) => {
+                      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                        {activeAssessmentForm.questions.map((question, idx) => {
                           const answer = remoteAnswers[question.id];
+                          const hasAnswer = answer !== undefined && answer !== null;
                           return (
                             <div
                               key={question.id}
-                              className="bg-white/5 border border-white/10 rounded-xl p-3"
+                              className={`border rounded-xl p-3 transition-colors ${
+                                hasAnswer ? "bg-indigo-500/10 border-indigo-500/20" : "bg-white/5 border-white/10"
+                              }`}
                             >
-                              <div className="text-xs text-slate-300 mb-2">
-                                {question.text}
+                              <div className="flex items-start gap-2 mb-1.5">
+                                <span className="shrink-0 w-4 h-4 rounded-full bg-white/10 text-[9px] font-bold text-slate-500 flex items-center justify-center">
+                                  {idx + 1}
+                                </span>
+                                <div className="text-xs text-slate-400 leading-relaxed">{question.text}</div>
                               </div>
-                              <div className="text-sm text-white">
-                                {formatAnswerDisplay(
-                                  question,
-                                  answer?.value
-                                )}
+                              <div className={`text-sm font-medium pl-6 ${hasAnswer ? "text-white" : "text-slate-600 italic"}`}>
+                                {hasAnswer ? formatAnswerDisplay(question, answer.value) : "–"}
                               </div>
-                              {typeof answer?.score === "number" && (
-                                <div className="text-[10px] text-slate-500 mt-1">
-                                  Score: {answer.score}
-                                </div>
+                              {hasAnswer && typeof answer.score === "number" && answer.score !== 0 && (
+                                <div className="text-[10px] text-indigo-400 pl-6 mt-0.5">+{answer.score} pts</div>
                               )}
                             </div>
                           );
                         })}
                       </div>
                     )}
-                    {assessmentStatus === "completed" && (
-                      <div className="mt-3 text-xs text-slate-300">
-                        <div>Resultado: {calculateHostResult() ?? "-"}</div>
-                        {getInterpretationForScore(calculateHostResult()) && (
-                          <div className="mt-1 text-slate-400">
-                            {
-                              getInterpretationForScore(calculateHostResult())
-                                ?.resultTitle
-                            }
-                          </div>
-                        )}
-                      </div>
-                    )}
+
+                    {/* Result */}
+                    {assessmentStatus === "completed" && (() => {
+                      const score = calculateHostResult();
+                      const interp = getInterpretationForScore(score);
+                      return (
+                        <div className="mt-3 bg-white/5 border border-white/10 rounded-xl p-3 flex-shrink-0 space-y-1">
+                          <div className="text-xs text-slate-400">Pontuação total</div>
+                          <div className="text-2xl font-bold text-white">{score ?? "–"}</div>
+                          {interp && (
+                            <div className={`text-xs font-semibold px-2 py-1 rounded-lg inline-block ${interp.color || "bg-slate-700 text-slate-300"}`}>
+                              {interp.resultTitle}
+                            </div>
+                          )}
+                          {interp?.description && (
+                            <div className="text-xs text-slate-400 mt-1">{interp.description}</div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
                 {isGuest && (
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    {!activeAssessmentForm && (
-                      <div className="text-xs text-slate-300">
-                        Aguardando avaliacao iniciar.
-                      </div>
-                    )}
-                    {activeAssessmentForm && (
-                      <>
-                        <div className="text-xs text-slate-400 mb-2">
-                          {activeAssessmentForm.title}
+                    {!activeAssessmentForm ? (
+                      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4 py-8">
+                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                          <ClipboardCheck size={22} className="text-slate-500" />
                         </div>
-                        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-                          {activeAssessmentForm.questions.map((question) => {
-                            const answerValue =
-                              remoteAnswers[question.id]?.value ??
-                              (question.type === "checkbox" ? [] : "");
-                            const isDisabled =
-                              assessmentStatus === "completed";
+                        <div className="text-sm text-slate-300 font-medium">Aguardando avaliação</div>
+                        <div className="text-xs text-slate-500">O profissional iniciará o questionário em breve.</div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Assessment header */}
+                        <div className="mb-3 pb-3 border-b border-white/10 flex-shrink-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-bold text-white">{activeAssessmentForm.title}</div>
+                              {activeAssessmentForm.description && (
+                                <div className="text-xs text-slate-400 mt-0.5">{activeAssessmentForm.description}</div>
+                              )}
+                            </div>
+                            {assessmentStatus === "completed" && (
+                              <span className="shrink-0 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">
+                                Finalizada
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Progress bar */}
+                          {assessmentStatus === "active" && (
+                            <div className="mt-3">
+                              <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                                <span>Progresso</span>
+                                <span>{Object.keys(remoteAnswers).length}/{activeAssessmentForm.questions.length} respondidas</span>
+                              </div>
+                              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${activeAssessmentForm.questions.length ? (Object.keys(remoteAnswers).length / activeAssessmentForm.questions.length) * 100 : 0}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Questions list */}
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                          {activeAssessmentForm.questions.map((question, idx) => {
+                            const answerValue = remoteAnswers[question.id]?.value ?? (question.type === "checkbox" ? [] : "");
+                            const isDisabled = assessmentStatus === "completed";
+                            const hasAnswer = question.type === "checkbox"
+                              ? Array.isArray(answerValue) && answerValue.length > 0
+                              : answerValue !== "" && answerValue !== null && answerValue !== undefined;
                             return (
                               <div
                                 key={question.id}
-                                className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-2"
+                                className={`border rounded-xl p-3 space-y-2.5 transition-colors ${
+                                  hasAnswer
+                                    ? "bg-indigo-500/10 border-indigo-500/30"
+                                    : "bg-white/5 border-white/10"
+                                }`}
                               >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="text-xs text-slate-200">
+                                <div className="flex items-start gap-2">
+                                  <span className="shrink-0 w-5 h-5 rounded-full bg-white/10 text-[10px] font-bold text-slate-400 flex items-center justify-center mt-0.5">
+                                    {idx + 1}
+                                  </span>
+                                  <div className="text-xs text-slate-200 leading-relaxed flex-1">
                                     {question.text}
+                                    {question.required && <span className="text-red-400 ml-1">*</span>}
                                   </div>
-                                  <button
-                                    onClick={() =>
-                                      handleGuestAnswerChange(
-                                        question,
-                                        question.type === "checkbox" ? [] : ""
-                                      )
-                                    }
-                                    disabled={isDisabled}
-                                    className="text-[10px] text-indigo-300 hover:text-white"
-                                  >
-                                    Limpar
-                                  </button>
                                 </div>
-                                {(question.type === "text" ||
-                                  question.type === "number") && (
+
+                                {(question.type === "radio" || question.type === "checkbox") && (question.options || []).map((opt) => {
+                                  const optionValue = String(opt.value);
+                                  const checked = question.type === "radio"
+                                    ? String(answerValue) === optionValue
+                                    : Array.isArray(answerValue) && answerValue.includes(optionValue);
+                                  return (
+                                    <label
+                                      key={optionValue}
+                                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                        checked
+                                          ? "bg-indigo-600/50 text-white border border-indigo-500/50"
+                                          : "bg-white/5 text-slate-300 border border-transparent hover:bg-white/10"
+                                      } ${isDisabled ? "pointer-events-none opacity-70" : ""}`}
+                                    >
+                                      <input
+                                        type={question.type === "radio" ? "radio" : "checkbox"}
+                                        name={`q-${question.id}`}
+                                        value={optionValue}
+                                        checked={checked}
+                                        disabled={isDisabled}
+                                        onChange={() => {
+                                          if (question.type === "radio") {
+                                            handleGuestAnswerChange(question, optionValue);
+                                            return;
+                                          }
+                                          const selected = Array.isArray(answerValue) ? [...answerValue] : [];
+                                          const next = selected.includes(optionValue)
+                                            ? selected.filter(item => item !== optionValue)
+                                            : [...selected, optionValue];
+                                          handleGuestAnswerChange(question, next);
+                                        }}
+                                        className="accent-indigo-500 w-3.5 h-3.5"
+                                      />
+                                      <span>{opt.label}</span>
+                                    </label>
+                                  );
+                                })}
+
+                                {(question.type === "text" || question.type === "number") && (
                                   <input
-                                    type={
-                                      question.type === "number"
-                                        ? "number"
-                                        : "text"
-                                    }
+                                    type={question.type === "number" ? "number" : "text"}
                                     value={answerValue ?? ""}
-                                    onChange={(e) =>
-                                      handleGuestAnswerChange(
-                                        question,
-                                        e.target.value
-                                      )
-                                    }
+                                    onChange={(e) => handleGuestAnswerChange(question, e.target.value)}
                                     disabled={isDisabled}
-                                    className="w-full bg-[#0f1115] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
+                                    placeholder="Sua resposta..."
+                                    className="w-full bg-[#0f1115] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60 placeholder-slate-600"
                                   />
                                 )}
+
                                 {question.type === "textarea" && (
                                   <textarea
                                     value={answerValue ?? ""}
-                                    onChange={(e) =>
-                                      handleGuestAnswerChange(
-                                        question,
-                                        e.target.value
-                                      )
-                                    }
+                                    onChange={(e) => handleGuestAnswerChange(question, e.target.value)}
                                     disabled={isDisabled}
-                                    className="w-full h-24 bg-[#0f1115] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 resize-none disabled:opacity-60"
+                                    placeholder="Sua resposta..."
+                                    rows={3}
+                                    className="w-full bg-[#0f1115] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 resize-none disabled:opacity-60 placeholder-slate-600"
                                   />
                                 )}
-                                {(question.type === "radio" ||
-                                  question.type === "checkbox") &&
-                                  (question.options || []).map((opt) => {
-                                    const optionValue = String(opt.value);
-                                    const checked =
-                                      question.type === "radio"
-                                        ? String(answerValue) === optionValue
-                                        : Array.isArray(answerValue) &&
-                                          answerValue.includes(optionValue);
-                                    return (
-                                      <label
-                                        key={optionValue}
-                                        className="flex items-center gap-2 text-xs text-slate-300"
-                                      >
-                                        <input
-                                          type={
-                                            question.type === "radio"
-                                              ? "radio"
-                                              : "checkbox"
-                                          }
-                                          name={`q-${question.id}`}
-                                          value={optionValue}
-                                          checked={checked}
-                                          disabled={isDisabled}
-                                          onChange={() => {
-                                            if (question.type === "radio") {
-                                              handleGuestAnswerChange(
-                                                question,
-                                                optionValue
-                                              );
-                                              return;
-                                            }
-                                            const selected = Array.isArray(
-                                              answerValue
-                                            )
-                                              ? [...answerValue]
-                                              : [];
-                                            const next = selected.includes(
-                                              optionValue
-                                            )
-                                              ? selected.filter(
-                                                  (item) =>
-                                                    item !== optionValue
-                                                )
-                                              : [...selected, optionValue];
-                                            handleGuestAnswerChange(
-                                              question,
-                                              next
-                                            );
-                                          }}
-                                          className="accent-indigo-500"
-                                        />
-                                        <span>{opt.label}</span>
-                                      </label>
-                                    );
-                                  })}
+
                                 {question.type === "select" && (
                                   <select
                                     value={answerValue ?? ""}
-                                    onChange={(e) =>
-                                      handleGuestAnswerChange(
-                                        question,
-                                        e.target.value
-                                      )
-                                    }
+                                    onChange={(e) => handleGuestAnswerChange(question, e.target.value)}
                                     disabled={isDisabled}
                                     className="w-full bg-[#0f1115] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
                                   >
                                     <option value="">Selecione...</option>
                                     {(question.options || []).map((opt) => (
-                                      <option
-                                        key={opt.value}
-                                        value={String(opt.value)}
-                                      >
-                                        {opt.label}
-                                      </option>
+                                      <option key={opt.value} value={String(opt.value)}>{opt.label}</option>
                                     ))}
                                   </select>
                                 )}
@@ -3701,19 +3719,26 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                             );
                           })}
                         </div>
-                        {assessmentStatus === "active" && (
-                          <button
-                            onClick={handleFinishAssessment}
-                            className="mt-3 w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
-                          >
-                            Finalizar avaliacao
-                          </button>
-                        )}
-                        {assessmentStatus === "completed" && (
-                          <div className="mt-3 text-xs text-slate-400">
-                            Avaliacao finalizada.
-                          </div>
-                        )}
+
+                        {/* Footer actions */}
+                        <div className="mt-3 flex-shrink-0">
+                          {assessmentStatus === "active" && (
+                            <button
+                              onClick={handleFinishAssessment}
+                              disabled={Object.keys(remoteAnswers).length === 0}
+                              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Check size={15} />
+                              Finalizar Avaliação
+                            </button>
+                          )}
+                          {assessmentStatus === "completed" && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 text-center">
+                              <div className="text-sm font-bold text-emerald-400">Avaliação finalizada!</div>
+                              <div className="text-xs text-slate-400 mt-1">Suas respostas foram enviadas ao profissional.</div>
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>
@@ -3728,514 +3753,308 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       {/* --- FOOTER CONTROLS --- */}
         <footer className="shrink-0 flex items-center justify-center relative z-50 pointer-events-none px-2 py-2 sm:px-4 sm:py-3">
           <div className="pointer-events-auto bg-[#181a1f]/90 backdrop-blur-xl border border-white/10 p-1.5 sm:p-2 rounded-2xl shadow-2xl flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-full">
-            <button
+            <RoomFooterBtn
               onClick={toggleMic}
-              className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
-                micOn
-                  ? "bg-[#252830] hover:bg-[#2d313a] text-white"
-                  : "bg-red-500/20 text-red-500 hover:bg-red-500/30"
-              }`}
+              active={!micOn}
+              activeColor="bg-red-500/20 hover:bg-red-500/30 !text-red-500"
               title={micOn ? "Desativar Microfone" : "Ativar Microfone"}
             >
-              {micOn ? <Mic size={18} className="sm:hidden" /> : <MicOff size={18} className="sm:hidden" />}
-              {micOn ? <Mic size={22} className="hidden sm:block" /> : <MicOff size={22} className="hidden sm:block" />}
-            </button>
-            <button
+              {micOn ? <><Mic size={18} className="sm:hidden" /><Mic size={22} className="hidden sm:block" /></> : <><MicOff size={18} className="sm:hidden" /><MicOff size={22} className="hidden sm:block" /></>}
+            </RoomFooterBtn>
+            <RoomFooterBtn
               onClick={toggleCam}
-              className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
-                cameraOn
-                  ? "bg-[#252830] hover:bg-[#2d313a] text-white"
-                  : "bg-red-500/20 text-red-500 hover:bg-red-500/30"
-              }`}
+              active={!cameraOn}
+              activeColor="bg-red-500/20 hover:bg-red-500/30 !text-red-500"
               title={cameraOn ? "Desativar Câmera" : "Ativar Câmera"}
             >
-              {cameraOn ? <Video size={18} className="sm:hidden" /> : <VideoOff size={18} className="sm:hidden" />}
-              {cameraOn ? <Video size={22} className="hidden sm:block" /> : <VideoOff size={22} className="hidden sm:block" />}
-            </button>
+              {cameraOn ? <><Video size={18} className="sm:hidden" /><Video size={22} className="hidden sm:block" /></> : <><VideoOff size={18} className="sm:hidden" /><VideoOff size={22} className="hidden sm:block" /></>}
+            </RoomFooterBtn>
             <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
 
             {/* Hidden for Guests */}
             {!isGuest && (
               <>
-                <button
+                <RoomFooterBtn
                   onClick={toggleScreenShare}
-                  className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
-                    screenShare
-                      ? "bg-green-600 text-white"
-                      : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
-                  }`}
+                  active={screenShare}
+                  activeColor="bg-green-600"
                   title="Compartilhar Tela"
                 >
-                  {screenShare ? <MonitorUp size={18} className="sm:hidden" /> : <ScreenShare size={18} className="sm:hidden" />}
-                  {screenShare ? <MonitorUp size={22} className="hidden sm:block" /> : <ScreenShare size={22} className="hidden sm:block" />}
-                </button>
-                <button
-                  onClick={() =>
-                    setActiveSidePanel(
-                      activeSidePanel === "assessments" ? "none" : "assessments"
-                    )
-                  }
-                  className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
-                    activeSidePanel === "assessments"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
-                  }`}
+                  {screenShare ? <><MonitorUp size={18} className="sm:hidden" /><MonitorUp size={22} className="hidden sm:block" /></> : <><ScreenShare size={18} className="sm:hidden" /><ScreenShare size={22} className="hidden sm:block" /></>}
+                </RoomFooterBtn>
+                <RoomFooterBtn
+                  onClick={() => setActiveSidePanel(activeSidePanel === "assessments" ? "none" : "assessments")}
+                  active={activeSidePanel === "assessments"}
                   title="Avaliações"
                 >
                   <ClipboardCheck size={18} className="sm:hidden" />
                   <ClipboardCheck size={22} className="hidden sm:block" />
-                </button>
-                <button
-                  onClick={() =>
-                    setActiveSidePanel(
-                      activeSidePanel === "whiteboard" ? "none" : "whiteboard"
-                    )
-                  }
-                  className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all ${
-                    activeSidePanel === "whiteboard"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
-                  }`}
+                </RoomFooterBtn>
+                <RoomFooterBtn
+                  onClick={() => setActiveSidePanel(activeSidePanel === "whiteboard" ? "none" : "whiteboard")}
+                  active={activeSidePanel === "whiteboard"}
                   title="Lousa Interativa"
                 >
                   <PenTool size={18} className="sm:hidden" />
                   <PenTool size={22} className="hidden sm:block" />
-                </button>
-                <button
+                </RoomFooterBtn>
+                <RoomFooterBtn
                   onClick={() => setCaptionsOn(!captionsOn)}
-                  className={`hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl items-center justify-center transition-all ${
-                    captionsOn
-                      ? "bg-indigo-600 text-white"
-                      : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
-                  }`}
+                  active={captionsOn}
+                  className="hidden sm:flex"
                   title="Legendas"
                 >
                   <Subtitles size={22} />
-                </button>
-                <button
+                </RoomFooterBtn>
+                <RoomFooterBtn
                   onClick={() => setShowInviteModal(true)}
-                  className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all bg-[#252830] hover:bg-[#2d313a] text-slate-300"
                   title="Convidar"
                 >
                   <UserPlus size={18} className="sm:hidden" />
                   <UserPlus size={22} className="hidden sm:block" />
-                </button>
+                </RoomFooterBtn>
                 <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
               </>
             )}
 
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all bg-[#252830] hover:bg-[#2d313a] text-slate-300"
-              title="Configurações"
-            >
+            {/* Assessment button visible to guests when active */}
+            {isGuest && assessmentStatus !== "idle" && (
+              <RoomFooterBtn
+                onClick={() => setActiveSidePanel(activeSidePanel === "assessments" ? "none" : "assessments")}
+                active={activeSidePanel === "assessments"}
+                activeColor="bg-indigo-600"
+                className={activeSidePanel !== "assessments" ? "bg-indigo-500/20 !text-indigo-300 hover:bg-indigo-500/30" : ""}
+                badge={assessmentStatus === "active" && activeSidePanel !== "assessments"}
+                title="Avaliação"
+              >
+                <ClipboardCheck size={18} className="sm:hidden" />
+                <ClipboardCheck size={22} className="hidden sm:block" />
+              </RoomFooterBtn>
+            )}
+
+            <RoomFooterBtn onClick={() => setShowSettingsModal(true)} title="Configurações">
               <Settings size={18} className="sm:hidden" />
               <Settings size={22} className="hidden sm:block" />
-            </button>
+            </RoomFooterBtn>
             <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
 
-            <button
-              onClick={() =>
-                setActiveSidePanel(activeSidePanel === "chat" ? "none" : "chat")
-              }
-              className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center transition-all relative ${
-                activeSidePanel === "chat"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-[#252830] hover:bg-[#2d313a] text-slate-300"
-              }`}
+            <RoomFooterBtn
+              onClick={() => setActiveSidePanel(activeSidePanel === "chat" ? "none" : "chat")}
+              active={activeSidePanel === "chat"}
+              badge={messages.length > 1 && activeSidePanel !== "chat"}
               title="Chat"
             >
               <MessageSquare size={18} className="sm:hidden" />
               <MessageSquare size={22} className="hidden sm:block" />
-              {messages.length > 1 && activeSidePanel !== "chat" && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-            </button>
-            <button
+            </RoomFooterBtn>
+            <RoomFooterBtn
               onClick={() => setShowEndModal(true)}
-              className="w-12 h-10 sm:w-16 sm:h-12 shrink-0 rounded-xl bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg ml-1 transition-all active:scale-95"
+              danger
+              wide
+              className="ml-1"
               title="Encerrar"
             >
               <PhoneOff size={18} className="sm:hidden" />
               <PhoneOff size={22} className="hidden sm:block" />
-            </button>
+            </RoomFooterBtn>
           </div>
         </footer>
 
-        {/* ... (Other Modals - Settings, LinkDevice, End - kept same) ... */}
-        {showSettingsModal && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-[#181a1f] border border-white/10 w-full max-w-lg max-h-[90vh] rounded-[2rem] shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-white/10 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Settings size={20} /> Configurações
-                </h3>
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="p-6 space-y-6 overflow-y-auto min-h-0">
-                {!isGuest && (
-                  <div className="space-y-3">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                      <Subtitles size={14} /> Transcrição
-                    </label>
-
-                    {/* Gemini API Key */}
-                    <div className="bg-[#252830] border border-white/10 rounded-xl px-4 py-3 space-y-2">
-                      <p className="text-xs text-slate-400">
-                        Chave de API Gemini{" "}
-                        <span className="text-slate-500">(opcional — melhora a qualidade da transcrição)</span>
-                      </p>
-                      <div className="flex gap-2">
-                        <input
-                          type="password"
-                          value={geminiKeyInput}
-                          onChange={(e) => setGeminiKeyInput(e.target.value)}
-                          placeholder="AIza..."
-                          className="flex-1 bg-[#1a1c22] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 outline-none focus:border-indigo-500"
-                        />
-                        <button
-                          onClick={saveGeminiKey}
-                          className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
-                            geminiKeySaved
-                              ? "bg-emerald-600 text-white"
-                              : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                          }`}
-                        >
-                          {geminiKeySaved ? <Check size={12} /> : <Save size={12} />}
-                          {geminiKeySaved ? "Salvo" : "Salvar"}
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-slate-600">
-                        Obtenha sua chave gratuita em{" "}
-                        <span className="text-indigo-400">aistudio.google.com/apikey</span>
-                        {preferences.gemini.apiKey && (
-                          <span className="ml-2 text-emerald-500 font-bold">• Gemini ativo</span>
-                        )}
-                        {!preferences.gemini.apiKey && (
-                          <span className="ml-2 text-amber-500"> • Usando reconhecimento do browser</span>
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-[#252830] border border-white/10 rounded-xl px-4 py-3">
-                      <span className="text-sm text-slate-200">
-                        Transcrição ativa
-                        {transcriptionActive && (
-                          <span className="ml-2 text-emerald-400 text-xs animate-pulse">● gravando</span>
-                        )}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setTranscriptionEnabled(!transcriptionEnabled)
-                        }
-                        className={`w-12 h-7 rounded-full transition-colors ${
-                          transcriptionEnabled
-                            ? "bg-emerald-500"
-                            : "bg-slate-600"
-                        }`}
-                      >
-                        <span
-                          className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${
-                            transcriptionEnabled
-                              ? "translate-x-6"
-                              : "translate-x-1"
-                          }`}
-                        ></span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {!isGuest && (
-                  <div className="space-y-3">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                      <PenTool size={14} /> Lousa
-                    </label>
-                    <div className="flex items-center justify-between bg-[#252830] border border-white/10 rounded-xl px-4 py-3">
-                      <span className="text-sm text-slate-200">
-                        Permitir paciente desenhar
-                      </span>
-                      <button
-                        onClick={() => setAllowGuestDraw(!allowGuestDraw)}
-                        className={`w-12 h-7 rounded-full transition-colors ${
-                          allowGuestDraw ? "bg-emerald-500" : "bg-slate-600"
-                        }`}
-                      >
-                        <span
-                          className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${
-                            allowGuestDraw ? "translate-x-6" : "translate-x-1"
-                          }`}
-                        ></span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+        {/* ── Modal: Configurações ── */}
+        <RoomModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} size="md">
+          <RoomModalHeader title={<><Settings size={18} /> Configurações</>} onClose={() => setShowSettingsModal(false)} />
+          <RoomModalBody>
+            <div className="space-y-6">
+              {!isGuest && (
                 <div className="space-y-3">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <Layout size={14} /> Layout da Sala
+                    <Subtitles size={14} /> Transcrição
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => setLayoutMode("focus")}
-                      className={
-                        layoutMode === "focus"
-                          ? "px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-indigo-600 text-white border-indigo-500"
-                          : "px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-[#252830] text-slate-300 border-white/10 hover:bg-[#2d313a]"
-                      }
-                    >
-                      Foco
-                    </button>
-                    <button
-                      onClick={() => setLayoutMode("side-by-side")}
-                      className={
-                        layoutMode === "side-by-side"
-                          ? "px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-indigo-600 text-white border-indigo-500"
-                          : "px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-[#252830] text-slate-300 border-white/10 hover:bg-[#2d313a]"
-                      }
-                    >
-                      Lado a lado
-                    </button>
-                    <button
-                      onClick={() => setLayoutMode("stacked")}
-                      className={
-                        layoutMode === "stacked"
-                          ? "px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-indigo-600 text-white border-indigo-500"
-                          : "px-3 py-2 rounded-xl text-xs font-bold border transition-colors bg-[#252830] text-slate-300 border-white/10 hover:bg-[#2d313a]"
-                      }
-                    >
-                      Empilhado
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <Video size={14} /> Câmera
-                  </label>
-                  <div className="relative">
-                    <select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none">
-                      <option>FaceTime HD Camera (Built-in)</option>
-                      <option>External Webcam</option>
-                    </select>
-                    <ChevronDown
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                      size={16}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <Mic size={14} /> Microfone
-                  </label>
-                  <div className="relative">
-                    <select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none">
-                      <option>MacBook Pro Microphone (Built-in)</option>
-                      <option>AirPods Pro</option>
-                    </select>
-                    <ChevronDown
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                      size={16}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-[#252830] h-2 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 w-[60%] animate-pulse"></div>
+                  <div className="bg-[#252830] border border-white/10 rounded-xl px-4 py-3 space-y-2">
+                    <p className="text-xs text-slate-400">
+                      Chave de API Gemini{" "}
+                      <span className="text-slate-500">(opcional — melhora a qualidade da transcrição)</span>
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={geminiKeyInput}
+                        onChange={(e) => setGeminiKeyInput(e.target.value)}
+                        placeholder="AIza..."
+                        className="flex-1 bg-[#1a1c22] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        onClick={saveGeminiKey}
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${geminiKeySaved ? "bg-emerald-600 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"}`}
+                      >
+                        {geminiKeySaved ? <Check size={12} /> : <Save size={12} />}
+                        {geminiKeySaved ? "Salvo" : "Salvar"}
+                      </button>
                     </div>
-                    <span className="text-xs text-emerald-400 font-bold">
-                      Bom
-                    </span>
+                    <p className="text-[10px] text-slate-600">
+                      Obtenha sua chave gratuita em{" "}
+                      <span className="text-indigo-400">aistudio.google.com/apikey</span>
+                      {preferences.gemini.apiKey && <span className="ml-2 text-emerald-500 font-bold">• Gemini ativo</span>}
+                      {!preferences.gemini.apiKey && <span className="ml-2 text-amber-500"> • Usando reconhecimento do browser</span>}
+                    </p>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <Volume2 size={14} /> Saída de Áudio
-                  </label>
-                  <div className="relative">
-                    <select className="w-full p-3 bg-[#252830] border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500 appearance-none">
-                      <option>MacBook Pro Speakers</option>
-                      <option>AirPods Pro</option>
-                    </select>
-                    <ChevronDown
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                      size={16}
-                    />
-                  </div>
-                  <button className="text-xs text-indigo-400 font-bold hover:underline">
-                    Testar Som
-                  </button>
-                </div>
-                
-                <div className="pt-4 border-t border-white/5">
-                   <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Status da Conexão</div>
-                   <div className="flex flex-col gap-1.5">
-                     <div className="flex justify-between text-[11px]">
-                       <span className="text-slate-400">Usuário remoto:</span>
-                       <span className={remoteUserConnected ? "text-emerald-400 font-bold" : "text-amber-400"}>
-                         {remoteUserConnected ? "Conectado" : "Aguardando"}
-                       </span>
-                     </div>
-                     <div className="flex justify-between text-[11px]">
-                       <span className="text-slate-400">Fluxo de Vídeo:</span>
-                       <span className={remoteStreamActive ? "text-emerald-400 font-bold" : "text-slate-500"}>
-                         {remoteStreamActive ? "Ativo" : "Inativo"}
-                       </span>
-                     </div>
-                     <button
-                       onClick={restartRoomConnection}
-                       className="mt-2 w-full py-2 bg-indigo-600/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-indigo-500/20 hover:bg-indigo-600/30 transition-all"
-                     >
-                       Reiniciar Fluxo de Mídia
-                     </button>
-                   </div>
-                </div>
-              </div>
-              <div className="p-6 border-t border-white/10 flex justify-end">
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors"
-                >
-                  Concluído
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showLinkDeviceModal && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-[#181a1f] border border-white/10 p-6 rounded-[2rem] max-w-md w-full shadow-2xl animate-[slideUpFade_0.3s_ease-out]">
-
-              {/* Header */}
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Tablet size={18} className="text-indigo-400" />
-                  Vincular Lousa Interativa
-                </h3>
-                <button onClick={() => setShowLinkDeviceModal(false)} className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors">
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Tabs */}
-              <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-5">
-                <button
-                  onClick={() => setLinkDeviceTab("qr")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${linkDeviceTab === "qr" ? "bg-white/15 text-white" : "text-slate-400 hover:text-white"}`}
-                >
-                  <QrCode size={14} /> QR Code
-                </button>
-                <button
-                  onClick={() => setLinkDeviceTab("link")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${linkDeviceTab === "link" ? "bg-white/15 text-white" : "text-slate-400 hover:text-white"}`}
-                >
-                  <Copy size={14} /> Copiar Link
-                </button>
-              </div>
-
-              {/* QR Tab */}
-              {linkDeviceTab === "qr" && (
-                <div className="flex flex-col items-center mb-5">
-                  <div className="bg-white p-4 rounded-2xl shadow-lg">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getCompanionUrl())}&format=png&margin=1&color=0f172a`}
-                      alt="QR Code Lousa"
-                      className="w-48 h-48 block"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-                      }}
-                    />
-                    <div className="hidden w-48 h-48 flex-col items-center justify-center text-slate-400 gap-2">
-                      <QrCode size={64} />
-                      <p className="text-xs text-center">Sem conexão para gerar QR</p>
-                    </div>
-                  </div>
-                  <p className="text-slate-400 text-xs mt-3 text-center">
-                    Aponte a câmera do celular ou tablet para abrir a lousa
-                  </p>
-                </div>
-              )}
-
-              {/* Link Tab */}
-              {linkDeviceTab === "link" && (
-                <div className="space-y-3 mb-5">
-                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-3">
-                    <span className="flex-1 text-xs text-slate-300 font-mono truncate select-all">
-                      {getCompanionUrl()}
+                  <div className="flex items-center justify-between bg-[#252830] border border-white/10 rounded-xl px-4 py-3">
+                    <span className="text-sm text-slate-200">
+                      Transcrição ativa
+                      {transcriptionActive && <span className="ml-2 text-emerald-400 text-xs animate-pulse">● gravando</span>}
                     </span>
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(getCompanionUrl());
-                        setCopiedCompanionLink(true);
-                        setTimeout(() => setCopiedCompanionLink(false), 2000);
-                      }}
-                      className={`p-2 rounded-lg transition-all shrink-0 ${copiedCompanionLink ? "bg-emerald-500/20 text-emerald-400" : "hover:bg-white/10 text-slate-400 hover:text-white"}`}
-                      title="Copiar link"
+                      onClick={() => setTranscriptionEnabled(!transcriptionEnabled)}
+                      className={`w-12 h-7 rounded-full transition-colors ${transcriptionEnabled ? "bg-emerald-500" : "bg-slate-600"}`}
                     >
-                      {copiedCompanionLink ? <Check size={14} /> : <Copy size={14} />}
+                      <span className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${transcriptionEnabled ? "translate-x-6" : "translate-x-1"}`} />
                     </button>
                   </div>
-
-                  <button
-                    onClick={sendCompanionLinkToChat}
-                    className="w-full py-2.5 rounded-xl font-bold text-sm bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/20 flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Send size={14} /> Enviar link ao paciente via chat
-                  </button>
-
-                  <button
-                    onClick={() => window.open(getCompanionUrl(), "_blank")}
-                    className="w-full py-2.5 rounded-xl font-bold text-sm bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <MonitorUp size={14} /> Abrir neste dispositivo
-                  </button>
                 </div>
               )}
-
-              <p className="text-slate-500 text-xs text-center leading-relaxed mb-5">
-                O dispositivo vinculado acessa a{" "}
-                <span className="text-indigo-400 font-semibold">Lousa Interativa</span>{" "}
-                — você pode habilitar o desenho para o paciente nas configurações da lousa.
-              </p>
-
-              <button
-                onClick={() => setShowLinkDeviceModal(false)}
-                className="w-full py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-900/30"
-              >
-                Concluído
-              </button>
+              {!isGuest && (
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <PenTool size={14} /> Lousa
+                  </label>
+                  <div className="flex items-center justify-between bg-[#252830] border border-white/10 rounded-xl px-4 py-3">
+                    <span className="text-sm text-slate-200">Permitir paciente desenhar</span>
+                    <button
+                      onClick={() => setAllowGuestDraw(!allowGuestDraw)}
+                      className={`w-12 h-7 rounded-full transition-colors ${allowGuestDraw ? "bg-emerald-500" : "bg-slate-600"}`}
+                    >
+                      <span className={`block w-5 h-5 bg-white rounded-full transform transition-transform ${allowGuestDraw ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                  <Layout size={14} /> Layout da Sala
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["focus", "side-by-side", "stacked"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setLayoutMode(mode)}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${layoutMode === mode ? "bg-indigo-600 text-white border-indigo-500" : "bg-[#252830] text-slate-300 border-white/10 hover:bg-[#2d313a]"}`}
+                    >
+                      {mode === "focus" ? "Foco" : mode === "side-by-side" ? "Lado a lado" : "Empilhado"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="pt-4 border-t border-white/5">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Status da Conexão</div>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-400">Usuário remoto:</span>
+                    <span className={remoteUserConnected ? "text-emerald-400 font-bold" : "text-amber-400"}>
+                      {remoteUserConnected ? "Conectado" : "Aguardando"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-400">Fluxo de Vídeo:</span>
+                    <span className={remoteStreamActive ? "text-emerald-400 font-bold" : "text-slate-500"}>
+                      {remoteStreamActive ? "Ativo" : "Inativo"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={restartRoomConnection}
+                    className="mt-2 w-full py-2 bg-indigo-600/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-indigo-500/20 hover:bg-indigo-600/30 transition-all"
+                  >
+                    Reiniciar Fluxo de Mídia
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-
-        {showEndModal && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
-            <div
-              className={`bg-[#181a1f] border border-white/10 p-8 rounded-[2rem] ${
-                !isGuest && transcriptionEnabled ? "max-w-2xl" : "max-w-sm"
-              } w-full text-center shadow-2xl animate-[slideUpFade_0.3s_ease-out]`}
+          </RoomModalBody>
+          <RoomModalFooter>
+            <button
+              onClick={() => setShowSettingsModal(false)}
+              className="ml-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors"
             >
-              <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
-                <PhoneOff size={36} />
+              Concluído
+            </button>
+          </RoomModalFooter>
+        </RoomModal>
+
+        {/* ── Modal: Vincular Lousa ── */}
+        <RoomModal isOpen={showLinkDeviceModal} onClose={() => setShowLinkDeviceModal(false)} size="sm">
+          <RoomModalHeader title={<><Tablet size={18} className="text-indigo-400" /> Vincular Lousa Interativa</>} onClose={() => setShowLinkDeviceModal(false)} />
+          <RoomModalBody>
+            <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-5">
+              {(["qr", "link"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setLinkDeviceTab(tab)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${linkDeviceTab === tab ? "bg-white/15 text-white" : "text-slate-400 hover:text-white"}`}
+                >
+                  {tab === "qr" ? <><QrCode size={14} /> QR Code</> : <><Copy size={14} /> Copiar Link</>}
+                </button>
+              ))}
+            </div>
+            {linkDeviceTab === "qr" && (
+              <div className="flex flex-col items-center mb-5">
+                <div className="bg-white p-4 rounded-2xl shadow-lg">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getCompanionUrl())}&format=png&margin=1&color=0f172a`}
+                    alt="QR Code Lousa"
+                    className="w-48 h-48 block"
+                  />
+                </div>
+                <p className="text-slate-400 text-xs mt-3 text-center">Aponte a câmera do celular ou tablet para abrir a lousa</p>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-2">
-                {isGuest ? "Sair da sessão?" : "Encerrar Sessão?"}
-              </h3>
-              <p className="text-slate-400 mb-8 text-sm leading-relaxed">
+            )}
+            {linkDeviceTab === "link" && (
+              <div className="space-y-3 mb-5">
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-3">
+                  <span className="flex-1 text-xs text-slate-300 font-mono truncate select-all">{getCompanionUrl()}</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(getCompanionUrl()); setCopiedCompanionLink(true); setTimeout(() => setCopiedCompanionLink(false), 2000); }}
+                    className={`p-2 rounded-lg transition-all shrink-0 ${copiedCompanionLink ? "bg-emerald-500/20 text-emerald-400" : "hover:bg-white/10 text-slate-400 hover:text-white"}`}
+                  >
+                    {copiedCompanionLink ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                </div>
+                <button onClick={sendCompanionLinkToChat} className="w-full py-2.5 rounded-xl font-bold text-sm bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/20 flex items-center justify-center gap-2 transition-colors">
+                  <Send size={14} /> Enviar link ao paciente via chat
+                </button>
+                <button onClick={() => window.open(getCompanionUrl(), "_blank")} className="w-full py-2.5 rounded-xl font-bold text-sm bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 transition-colors">
+                  <MonitorUp size={14} /> Abrir neste dispositivo
+                </button>
+              </div>
+            )}
+            <p className="text-slate-500 text-xs text-center leading-relaxed">
+              O dispositivo vinculado acessa a <span className="text-indigo-400 font-semibold">Lousa Interativa</span> — você pode habilitar o desenho para o paciente nas configurações da lousa.
+            </p>
+          </RoomModalBody>
+          <RoomModalFooter>
+            <button onClick={() => setShowLinkDeviceModal(false)} className="w-full py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+              Concluído
+            </button>
+          </RoomModalFooter>
+        </RoomModal>
+
+        {/* ── Modal: Encerrar Sessão ── */}
+        <RoomModal isOpen={showEndModal} onClose={() => setShowEndModal(false)} size={!isGuest && transcriptionEnabled ? "lg" : "sm"}>
+          <RoomModalHeader title={isGuest ? "Sair da sessão?" : "Encerrar Sessão?"} onClose={() => setShowEndModal(false)} />
+          <RoomModalBody>
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mb-4 border border-red-500/20">
+                <PhoneOff size={28} />
+              </div>
+              <p className="text-slate-400 text-sm leading-relaxed">
                 {isGuest
                   ? "Você vai sair da videochamada. O profissional continuará na sala. Pode entrar novamente pelo link de acesso."
                   : "Isso encerrará a sessão para você e o paciente. Certifique-se de que o prontuário foi salvo."}
               </p>
-              {!isGuest && transcriptionEnabled && (
-                <div className="text-left bg-[#101216] border border-white/10 rounded-2xl p-4 mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-                      Transcrição da sessão
-                    </div>
-                    <div className="flex items-center gap-3">
+            </div>
+            {!isGuest && transcriptionEnabled && (
+              <div className="text-left bg-[#101216] border border-white/10 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Transcrição da sessão</div>
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={() => {
                         const blob = new Blob([transcriptText || 'Sem transcrição registrada.'], { type: 'text/plain;charset=utf-8' });
@@ -4243,146 +4062,101 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                         const a = document.createElement('a');
                         a.href = url;
                         a.download = `transcricao-${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.txt`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
                         URL.revokeObjectURL(url);
                       }}
                       className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
                     >
                       <Download size={12} /> Baixar .txt
                     </button>
-                    <button
-                      onClick={handleCopyTranscript}
-                      className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
-                    >
-                      {copiedTranscript ? (
-                        <Check size={12} />
-                      ) : (
-                        <Copy size={12} />
-                      )}
+                    <button onClick={handleCopyTranscript} className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                      {copiedTranscript ? <Check size={12} /> : <Copy size={12} />}
                       {copiedTranscript ? "Copiado" : "Copiar"}
                     </button>
-                    </div>
                   </div>
-                  <textarea
-                    readOnly
-                    value={transcriptText}
-                    className="w-full h-40 bg-[#0f1115] border border-white/10 rounded-xl p-3 text-xs text-slate-200 leading-relaxed resize-none"
-                    placeholder={
-                      (preferences.gemini.apiKeys?.some(k => k.trim()) || preferences.gemini.apiKey.trim())
-                        ? "A transcrição de alta fidelidade e com identificação de falantes será gerada automaticamente pelo Gemini assim que você clicar em 'Encerrar' e ficará salva no painel de Transcrições."
-                        : "Sem transcrição registrada."
-                    }
+                </div>
+                <textarea
+                  readOnly
+                  value={transcriptText}
+                  className="w-full h-40 bg-[#0f1115] border border-white/10 rounded-xl p-3 text-xs text-slate-200 leading-relaxed resize-none"
+                  placeholder={
+                    (preferences.gemini.apiKeys?.some(k => k.trim()) || preferences.gemini.apiKey.trim())
+                      ? "A transcrição de alta fidelidade e com identificação de falantes será gerada automaticamente pelo Gemini assim que você clicar em 'Encerrar'."
+                      : "Sem transcrição registrada."
+                  }
+                />
+              </div>
+            )}
+          </RoomModalBody>
+          <RoomModalFooter>
+            <button onClick={() => setShowEndModal(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-300 hover:bg-white/10 transition-colors">
+              Cancelar
+            </button>
+            <button
+              onClick={handleEndCall}
+              disabled={isUploadingRecording}
+              className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2"
+            >
+              {isUploadingRecording ? (
+                <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Salvando…</>
+              ) : isGuest ? "Sair" : "Encerrar"}
+            </button>
+          </RoomModalFooter>
+        </RoomModal>
+
+        {/* ── Modal: Convidar ── */}
+        <RoomModal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} size="sm">
+          <RoomModalHeader title={<><UserPlus size={18} className="text-indigo-400" /> Convidar</>} onClose={() => setShowInviteModal(false)} />
+          <RoomModalBody>
+            <div className="flex flex-col items-center mb-6">
+              <div className="relative mb-4">
+                <div className="bg-white p-4 rounded-3xl shadow-2xl shadow-indigo-500/10">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(meetingUrl)}&format=png&margin=1&color=111827`}
+                    alt="QR Code Meeting"
+                    className="w-40 h-40 block"
                   />
                 </div>
-              )}
-              <div className="flex gap-3">
+                {user?.clinicLogoUrl ? (
+                  <div className="absolute -bottom-3 -right-3 w-12 h-12 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
+                    <img src={user.clinicLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="absolute -bottom-3 -right-3 w-12 h-12 bg-white rounded-2xl p-1 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
+                    <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-10 h-10 object-contain" />
+                  </div>
+                )}
+              </div>
+              <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest text-center">Acesso Direto via QR Code</p>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl p-3 hover:bg-white/10 transition-colors">
+                <span className="flex-1 text-xs text-slate-300 font-mono truncate select-all">{meetingUrl}</span>
                 <button
-                  onClick={() => setShowEndModal(false)}
-                  className="flex-1 py-3.5 rounded-xl font-bold text-slate-300 hover:bg-white/10 transition-colors"
+                  onClick={() => { navigator.clipboard.writeText(meetingUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  className={`p-2 rounded-xl transition-all shrink-0 ${copied ? "bg-emerald-500 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
                 >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleEndCall}
-                  disabled={isUploadingRecording}
-                  className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2"
-                >
-                  {isUploadingRecording ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                      </svg>
-                      Salvando…
-                    </>
-                  ) : isGuest ? "Sair" : "Encerrar"}
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
                 </button>
               </div>
+              <button
+                onClick={() => {
+                  const shareUrl = `${window.location.origin}/api/virtual-rooms/public/${id}/preview`;
+                  const company = user?.companyName || user?.name || 'seu profissional';
+                  const msg = `*Prepare-se, sua sessão já vai começar com ${company}!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${shareUrl}`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                }}
+                className="w-full h-12 rounded-2xl font-black text-xs uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Send size={16} /> Compartilhar via WhatsApp
+              </button>
+              <p className="text-center text-[10px] text-slate-500 leading-relaxed font-bold">
+                Este link é exclusivo para esta sala. O paciente não precisa de login para entrar.
+              </p>
             </div>
-          </div>
-        )}
+          </RoomModalBody>
+        </RoomModal>
 
-        {showInviteModal && (
-          <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-[#181a1f] border border-white/10 rounded-[2.5rem] max-w-sm w-full shadow-2xl animate-[slideUpFade_0.3s_ease-out] overflow-hidden relative">
-              <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-indigo-600/20 to-transparent pointer-events-none" />
-              <div className="p-8 relative z-10">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <UserPlus size={22} className="text-indigo-400" />
-                    Convidar
-                  </h3>
-                  <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors">
-                    <X size={20} />
-                  </button>
-                </div>
-
-                <div className="flex flex-col items-center mb-8">
-                  <div className="relative mb-6">
-                    <div className="bg-white p-5 rounded-3xl shadow-2xl shadow-indigo-500/10 scale-105">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(meetingUrl)}&format=png&margin=1&color=111827`}
-                        alt="QR Code Meeting"
-                        className="w-40 h-40 block"
-                      />
-                    </div>
-                    {user?.clinicLogoUrl ? (
-                      <div className="absolute -bottom-3 -right-3 w-14 h-14 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
-                        <img src={user.clinicLogoUrl} alt="Logo" className="w-full h-full object-contain" />
-                      </div>
-                    ) : (
-                      <div className="absolute -bottom-3 -right-3 w-16 h-16 bg-white rounded-2xl p-1 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
-                        <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-12 h-12 object-contain" />
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest text-center">
-                    Acesso Direto via QR Code
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Link de Acesso</label>
-                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl p-4 group hover:bg-white/10 transition-colors">
-                      <span className="flex-1 text-xs text-slate-300 font-mono truncate select-all">
-                        {meetingUrl}
-                      </span>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(meetingUrl);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }}
-                        className={`p-2 rounded-xl transition-all shrink-0 ${copied ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-white/5 text-slate-400 hover:text-white"}`}
-                      >
-                        {copied ? <Check size={16} /> : <Copy size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      const shareUrl = `${window.location.origin}/api/virtual-rooms/public/${id}/preview`;
-                      const company = user?.companyName || user?.name || 'seu profissional';
-                      const msg = `*Prepare-se, sua sessão já vai começar com ${company}!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${shareUrl}`;
-                      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-                    }}
-                    className="w-full h-14 rounded-2xl font-black text-xs uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2 active:scale-95"
-                  >
-                    <Send size={18} /> Compartilhar via WhatsApp
-                  </button>
-
-                  <p className="text-center text-[10px] text-slate-500 leading-relaxed font-bold px-4">
-                    Este link é exclusivo para esta sala. O paciente não precisa de login para entrar.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }

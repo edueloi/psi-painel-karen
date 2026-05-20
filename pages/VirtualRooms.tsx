@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { GoogleGenAI } from '@google/genai';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -262,24 +263,17 @@ export const VirtualRooms: React.FC = () => {
       let transcribed = '';
       for (const key of geminiKeys) {
         try {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { inline_data: { mime_type: mimeType, data: base64 } },
-                    { text: 'Transcreva este áudio em português brasileiro. Identifique os falantes quando possível (Profissional e Paciente). Retorne apenas o texto transcrito com os falantes, sem explicações adicionais.' },
-                  ],
-                }],
-              }),
-            }
-          );
-          if (!res.ok) continue;
-          const data = await res.json();
-          const t: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+          const ai = new GoogleGenAI({ apiKey: key });
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{
+              parts: [
+                { inlineData: { mimeType, data: base64 } },
+                { text: 'Transcreva este áudio em português brasileiro. Identifique os falantes quando possível (Profissional e Paciente). Retorne apenas o texto transcrito com os falantes, sem explicações adicionais.' },
+              ],
+            }],
+          });
+          const t = response.text?.trim() || '';
           if (t) { transcribed = t; break; }
         } catch { continue; }
       }
