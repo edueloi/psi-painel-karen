@@ -480,10 +480,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   const hostRenegotiationInFlightRef = useRef(false);
   const hostRenegotiationAttemptsRef = useRef(0);
   const guestPeerCycleRef = useRef(0);
+  // Identificador da sessão WebRTC atual — incrementa a cada hard reset
+  // Permite que host descarte answers de ciclos desatualizados
+  const webrtcSessionIdRef = useRef(0);
 
   const setRemoteConnected = useCallback((val: boolean) => {
     remoteUserConnectedRef.current = val;
-    if (val) hostRenegotiationAttemptsRef.current = 0;
+    if (val) {
+      hostRenegotiationAttemptsRef.current = 0;
+      webrtcSessionIdRef.current = 0; // Reset session counter when new guest connects
+      guestPeerCycleRef.current = 0;
+    }
     setRemoteUserConnected(val);
   }, []);
 
@@ -1172,6 +1179,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
   const hardResetHostConnection = useCallback((delayMs = 500) => {
     if (isGuest || isCompanionMode || !remoteUserConnectedRef.current) return;
+    // Limita a 4 ciclos totais para evitar loop infinito (sem TURN funcional)
+    if (webrtcSessionIdRef.current >= 4) {
+      console.warn("Host: máximo de ciclos WebRTC atingido (4). Parando reconexão automática.");
+      return;
+    }
+    webrtcSessionIdRef.current += 1;
     hostRenegotiationInFlightRef.current = false;
     setRemoteStreamActive(false);
     resetRecordingSource("remote");
@@ -1216,6 +1229,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       await sendRoomEventRef.current?.("webrtc_offer", {
         sdp: pc.localDescription?.sdp || offer.sdp,
         type: pc.localDescription?.type || offer.type,
+        sessionId: webrtcSessionIdRef.current,
       });
     } catch (err) {
       console.warn(`Host: renegociação falhou (${reason}), recriando conexão...`, err);
@@ -1255,10 +1269,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
               iceCandidatesInBatch.push(payload.candidate);
             }
           });
-          rows.forEach((evt) => {
-            if (!evt.event_type.startsWith('webrtc_')) return;
-            const payload = parsePayload(evt.payload_json);
-            if (evt.event_type === 'webrtc_offer' && isGuest && !isCompanionMode && payload?.sdp) {
+          // Pega só o offer mais recente do lote (descarta offers antigos)
+          const offersInBatch = rows.filter(e => e.event_type === 'webrtc_offer' && isGuest && !isCompanionMode);
+          const latestOffer = offersInBatch.length > 0 ? offersInBatch[offersInBatch.length - 1] : null;
+          if (latestOffer) {
+            const payload = parsePayload(latestOffer.payload_json);
+            if (payload?.sdp) {
+              const offerSessionId = payload?.sessionId;
               (async () => {
                 if (peerConnectionRef.current) {
                   peerConnectionRef.current.close();
@@ -1269,7 +1286,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 const stream = await waitForLocalStream();
                 guestPeerCycleRef.current += 1;
                 const guestIceConfig = guestPeerCycleRef.current > 1 ? ICE_CONFIG_RELAY : ICE_CONFIG;
-                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=${guestIceConfig.iceTransportPolicy || 'all'})`);
+                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=${guestIceConfig.iceTransportPolicy || 'all'}, sessionId=${offerSessionId})`);
                 const pc = new RTCPeerConnection(guestIceConfig);
                 attachIceDiagnostics(pc, "Guest");
                 peerConnectionRef.current = pc;
@@ -1312,13 +1329,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 await waitForIceGatheringComplete(pc);
+                console.log(`Guest: enviando answer (sessionId=${offerSessionId}) [batch mode]`);
                 await sendRoomEventRef.current?.('webrtc_answer', {
                   sdp: pc.localDescription?.sdp || answer.sdp,
                   type: pc.localDescription?.type || answer.type,
+                  sessionId: offerSessionId,
                 });
-              })().catch(() => {});
+              })().catch((err) => { console.error("Guest: erro ao processar offer (batch):", err); });
             }
-          });
+          }
           return;
         }
         rows.forEach((evt) => {
@@ -1368,16 +1387,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           } else if (evt.event_type === "webrtc_offer") {
             // Guest receives offer → create answer
             if (isGuest && !isCompanionMode && payload?.sdp) {
+              const offerSessionId = payload?.sessionId;
               (async () => {
                 if (peerConnectionRef.current) {
                   peerConnectionRef.current.close();
                   peerConnectionRef.current = null;
                 }
                 setRemoteStreamActive(false);
+                resetRecordingSource("remote");
                 const stream = await waitForLocalStream();
                 guestPeerCycleRef.current += 1;
                 const guestIceConfig2 = guestPeerCycleRef.current > 1 ? ICE_CONFIG_RELAY : ICE_CONFIG;
-                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=${guestIceConfig2.iceTransportPolicy || 'all'})`);
+                console.log(`Guest: criando PeerConnection (ciclo=${guestPeerCycleRef.current}, policy=${guestIceConfig2.iceTransportPolicy || 'all'}, sessionId=${offerSessionId})`);
                 const pc = new RTCPeerConnection(guestIceConfig2);
                 attachIceDiagnostics(pc, "Guest");
                 peerConnectionRef.current = pc;
@@ -1430,23 +1451,35 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 await waitForIceGatheringComplete(pc);
+                console.log(`Guest: enviando answer (sessionId=${offerSessionId})`);
                 await sendRoomEventRef.current?.('webrtc_answer', {
                   sdp: pc.localDescription?.sdp || answer.sdp,
                   type: pc.localDescription?.type || answer.type,
+                  sessionId: offerSessionId,
                 });
-              })().catch(() => {});
+              })().catch((err) => { console.error("Guest: erro ao processar offer:", err); });
             }
           } else if (evt.event_type === "webrtc_answer") {
-            // Host receives answer
+            // Host receives answer — ignora se sessionId não bate com a sessão atual
             if (!isGuest && peerConnectionRef.current && payload?.sdp) {
-              peerConnectionRef.current.setRemoteDescription(
-                new RTCSessionDescription({ type: payload.type, sdp: payload.sdp })
-              ).then(async () => {
-                for (const c of pendingIceCandidates.current) {
-                  await peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
-                }
-                pendingIceCandidates.current = [];
-              }).catch(() => {});
+              const answerSessionId = payload?.sessionId;
+              const currentSessionId = webrtcSessionIdRef.current;
+              if (answerSessionId !== undefined && answerSessionId !== currentSessionId) {
+                console.log(`Host: descartando answer de sessão antiga (answer sessionId=${answerSessionId}, atual=${currentSessionId})`);
+              } else if (peerConnectionRef.current.signalingState === 'have-local-offer') {
+                peerConnectionRef.current.setRemoteDescription(
+                  new RTCSessionDescription({ type: payload.type, sdp: payload.sdp })
+                ).then(async () => {
+                  for (const c of pendingIceCandidates.current) {
+                    await peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+                  }
+                  pendingIceCandidates.current = [];
+                }).catch((err) => {
+                  console.warn("Host: erro ao aplicar answer:", err);
+                });
+              } else {
+                console.log(`Host: ignorando answer (signalingState=${peerConnectionRef.current.signalingState})`);
+              }
             }
           } else if (evt.event_type === "webrtc_ice") {
             // Both sides receive ICE candidates
@@ -1885,9 +1918,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         await waitForIceGatheringComplete(pc);
+        const sessionId = webrtcSessionIdRef.current;
+        console.log(`Host: enviando offer (sessionId=${sessionId}, ciclo=${hostPeerCycle})`);
         await sendRoomEventRef.current?.('webrtc_offer', {
           sdp: pc.localDescription?.sdp || offer.sdp,
           type: pc.localDescription?.type || offer.type,
+          sessionId,
         });
       } catch (err) {
         console.error('WebRTC offer error:', err);
