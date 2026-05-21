@@ -1243,11 +1243,14 @@ export const Agenda: React.FC = () => {
         fetchData();
         closeAppointmentModal();
       } else if (e?.conflict) {
-        const fmt = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const fmt = (iso: string) => {
+          const d = new Date(iso);
+          return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+        };
         const who = e.prof_name || 'O profissional';
         const hStart = e.start_time ? fmt(e.start_time) : '?';
         const hEnd = e.end_time ? fmt(e.end_time) : '?';
-        pushToast('error', `${who} já possui um agendamento das ${hStart} às ${hEnd} neste período.`);
+        pushToast('error', `${who} já possui um agendamento de ${hStart} até ${hEnd} neste período.`);
       } else {
         pushToast('error', e?.message || 'Erro ao salvar agendamento.');
       }
