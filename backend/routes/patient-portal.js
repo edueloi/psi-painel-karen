@@ -7,6 +7,26 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
+// ─── Auto-migrate: garante colunas do portal na tabela patients ──────────────
+let portalSchemaReady = false;
+async function ensurePortalPatientColumns() {
+  if (portalSchemaReady) return;
+  const cols = [
+    "ALTER TABLE patients ADD COLUMN street VARCHAR(255) NULL",
+    "ALTER TABLE patients ADD COLUMN house_number VARCHAR(20) NULL",
+    "ALTER TABLE patients ADD COLUMN neighborhood VARCHAR(100) NULL",
+    "ALTER TABLE patients ADD COLUMN spouse_phone VARCHAR(20) NULL",
+    "ALTER TABLE patients ADD COLUMN emergency_contacts TEXT NULL",
+    "ALTER TABLE patients ADD COLUMN portal_email VARCHAR(255) NULL",
+    "ALTER TABLE patients ADD COLUMN portal_password_hash VARCHAR(255) NULL",
+    "ALTER TABLE patients ADD COLUMN portal_password_set TINYINT(1) DEFAULT 0",
+  ];
+  for (const sql of cols) {
+    try { await db.query(sql); } catch (e) { /* coluna já existe, ignorar */ }
+  }
+  portalSchemaReady = true;
+}
+
 // ─── Upload de comprovantes ───────────────────────────────────────────────────
 const uploadDir = path.join(__dirname, '../public/uploads/portal-receipts');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -33,6 +53,7 @@ function genToken(bytes = 32) {
 }
 
 async function resolveSession(req, res) {
+  await ensurePortalPatientColumns();
   const sessionToken = req.headers['x-portal-token'] || req.query.session;
   if (!sessionToken) return null;
   const [rows] = await db.query(
@@ -308,15 +329,20 @@ router.get('/me', portalAuth, async (req, res) => {
               p.phone2, p.phone2_country,
               p.birth_date, p.gender,
               p.cpf AS cpf_cnpj,
-              p.address, p.street, p.house_number, p.neighborhood,
+              p.address,
+              COALESCE(p.street, '') AS street,
+              COALESCE(p.house_number, '') AS house_number,
+              COALESCE(p.neighborhood, '') AS neighborhood,
               p.city, p.state, p.zip_code AS address_zip,
               p.health_plan, p.notes,
               p.marital_status, p.education, p.profession, p.nationality,
               p.has_children, p.children_count, p.minor_children_count,
-              p.spouse_name, p.spouse_phone,
-              p.emergency_contacts,
+              p.spouse_name,
+              COALESCE(p.spouse_phone, '') AS spouse_phone,
+              COALESCE(p.emergency_contacts, '[]') AS emergency_contacts,
               p.status, p.photo_url AS avatar_url,
-              p.portal_password_set, p.portal_email,
+              COALESCE(p.portal_password_set, 0) AS portal_password_set,
+              p.portal_email,
               u.name AS professional_name, u.specialty, u.crp, u.avatar_url AS prof_avatar,
               ten.name AS company_name
        FROM patients p
@@ -349,13 +375,14 @@ router.patch('/me', portalAuth, async (req, res) => {
       'health_plan', 'notes',
       'marital_status', 'education', 'profession', 'nationality',
       'has_children', 'children_count', 'minor_children_count',
-      'spouse_name', 'spouse_phone',
-      'emergency_contacts',
+      'spouse_name', 'spouse_phone', 'emergency_contacts',
     ];
+    // Filtra apenas colunas que existem no banco (evita erro se migração ainda não rodou)
+    const safeAllowed = allowed.filter(c => !['street','house_number','neighborhood','spouse_phone'].includes(c) || portalSchemaReady);
     const fieldMap = { cpf: 'cpf', address_zip: 'zip_code' };
     const body = req.body;
     const updates = {};
-    for (const k of allowed) {
+    for (const k of safeAllowed) {
       const bodyKey = Object.keys(fieldMap).find(fk => fieldMap[fk] === k) || k;
       if (body[bodyKey] !== undefined) updates[k] = body[bodyKey];
       else if (body[k] !== undefined) updates[k] = body[k];
