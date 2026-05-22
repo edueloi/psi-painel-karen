@@ -1,505 +1,661 @@
-import React, { useState, useEffect } from 'react';
-import { Smartphone, CheckCircle, AlertCircle, Clock, Calendar, DollarSign, Gift, User, FileText, Bell, Loader2, Save } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Smartphone, CheckCircle2, AlertCircle, Clock, Calendar,
+  Gift, Loader2, Save, Send, Wifi, WifiOff, Zap,
+  MessageSquare, DollarSign, Bell, RefreshCw, X
+} from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { PageWrapper } from '../components/UI/PageWrapper';
+import { PageHeader } from '../components/UI/PageHeader';
+import { PanelCard } from '../components/UI/PanelCard';
+import { Button } from '../components/UI/Button';
+import { Switch } from '../components/UI/Switch';
+import { Badge } from '../components/UI/Badge';
+import { StatCard } from '../components/UI/StatCard';
+import { Input } from '../components/UI/Input';
 
-// Componente de Rich Text fake para gerenciar variáveis como Badges coloridos e un-quebráveis
-const BadgeEditor = ({ value, onChange, variables }: { value: string, onChange: (v: string) => void, variables: {key: string, label: string}[] }) => {
-    const editorRef = React.useRef<HTMLDivElement>(null);
+// ── Variáveis disponíveis por seção ──────────────────────────────────────────
+const GENERAL_VARS = [
+  { key: 'patient_name',      label: 'Nome Paciente' },
+  { key: 'professional_name', label: 'Nome Profissional' },
+  { key: 'date',              label: 'Data (10/12/26)' },
+  { key: 'time',              label: 'Hora (14:30)' },
+  { key: 'service',           label: 'Serviço' },
+];
+const BDAY_VARS = [
+  { key: 'patient_name', label: 'Nome Paciente' },
+];
+const PAYMENT_VARS = [
+  { key: 'patient_name', label: 'Nome Paciente' },
+  { key: 'amount',       label: 'Valor (150,00)' },
+];
 
-    // Initial render do conteúdo transformando {variaveis} em nós <strong>
-    useEffect(() => {
-        if (editorRef.current && !editorRef.current.hasAttribute('data-initialized')) {
-            editorRef.current.innerHTML = formatToHTML(value);
-            editorRef.current.setAttribute('data-initialized', 'true');
-        }
-    }, []);
-
-    const formatToHTML = (text: string) => {
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\n/g, '<br>')
-            .replace(/\{([^}]+)\}/g, (match, p1) => {
-                return `<strong contenteditable="false" class="inline-flex items-center px-1.5 py-0.5 rounded-[4px] text-[11px] font-bold bg-indigo-100 text-indigo-700 mx-[2px] shadow-sm border border-indigo-200 select-none align-baseline cursor-default">{${p1}}</strong>`;
-            });
-    };
-
-    const handleInput = (e: any) => {
-        let text = e.currentTarget.innerText;
-        // Limpa caracteres invisíveis ou non-breaking spaces e as substitui por espaços normais quando colados
-        text = text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\u00A0/g, ' ');
-        onChange(text);
-    };
-
-    const insertVar = (v: string) => {
-        if (!editorRef.current) return;
-        editorRef.current.focus();
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-            const range = sel.getRangeAt(0);
-            
-            let isInEditor = false;
-            let node = range.commonAncestorContainer;
-            while (node) {
-                if (node === editorRef.current) { isInEditor = true; break; }
-                node = node.parentNode!;
-            }
-
-            if (!isInEditor) {
-                range.selectNodeContents(editorRef.current);
-                range.collapse(false);
-            }
-
-            range.deleteContents();
-            const badge = document.createElement('strong');
-            badge.contentEditable = "false";
-            badge.className = "inline-flex items-center px-1.5 py-0.5 rounded-[4px] text-[11px] font-bold bg-indigo-100 text-indigo-700 mx-[2px] shadow-sm border border-indigo-200 select-none align-baseline cursor-default";
-            badge.innerText = `{${v}}`;
-            
-            const space = document.createTextNode('\u00A0');
-
-            range.insertNode(space);
-            range.insertNode(badge);
-
-            range.setStartAfter(space);
-            range.setEndAfter(space);
-            sel.removeAllRanges();
-            sel.addRange(range);
-
-            handleInput({ currentTarget: editorRef.current });
-        }
-    };
-
-    return (
-        <div className="flex flex-col gap-2 w-full animate-fadeIn">
-            <div className="flex flex-wrap gap-2 mb-1 p-2.5 bg-slate-50 border border-slate-200 rounded-lg shadow-inner">
-                <span className="text-[11px] font-bold text-slate-500 mr-1 flex items-center uppercase tracking-wider">Variáveis:</span>
-                {variables.map(v => (
-                    <button 
-                        key={v.key}
-                        onClick={() => insertVar(v.key)}
-                        title={v.label}
-                        className="text-[11px] bg-white border border-slate-300 px-2 py-1 rounded shadow-sm hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 font-bold text-slate-700 transition-colors"
-                    >
-                        +{v.label}
-                    </button>
-                ))}
-            </div>
-            <div 
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={handleInput}
-                className="w-full min-h-[120px] p-4 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-700 bg-white cursor-text leading-relaxed"
-                style={{ whiteSpace: 'pre-wrap' }}
-            />
-        </div>
-    );
+const VAR_COLORS: Record<string, string> = {
+  patient_name:      'bg-indigo-100 text-indigo-700 border-indigo-200',
+  professional_name: 'bg-amber-100 text-amber-700 border-amber-200',
+  date:              'bg-sky-100 text-sky-700 border-sky-200',
+  time:              'bg-violet-100 text-violet-700 border-violet-200',
+  service:           'bg-emerald-100 text-emerald-700 border-emerald-200',
+  amount:            'bg-rose-100 text-rose-700 border-rose-200',
 };
 
+// ── BadgeEditor ───────────────────────────────────────────────────────────────
+const BadgeEditor = ({
+  value, onChange, variables,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  variables: { key: string; label: string }[];
+}) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const formatToHTML = (text: string) =>
+    text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br>')
+      .replace(/\{([^}]+)\}/g, (_, p1) => {
+        const cls = VAR_COLORS[p1] || 'bg-slate-100 text-slate-700 border-slate-200';
+        return `<strong contenteditable="false" data-var="{${p1}}" class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border mx-0.5 select-none align-middle cursor-default ${cls}">{${p1}}</strong>`;
+      });
+
+  useEffect(() => {
+    if (editorRef.current && !editorRef.current.hasAttribute('data-init')) {
+      editorRef.current.innerHTML = formatToHTML(value);
+      editorRef.current.setAttribute('data-init', '1');
+    }
+  }, []);
+
+  const readText = () => {
+    if (!editorRef.current) return '';
+    const walk = (n: Node): string => {
+      if (n.nodeType === Node.TEXT_NODE) return n.textContent || '';
+      const el = n as Element;
+      if (el.tagName === 'BR') return '\n';
+      if (el.hasAttribute('data-var')) return el.getAttribute('data-var') || '';
+      return Array.from(n.childNodes).map(walk).join('');
+    };
+    return walk(editorRef.current);
+  };
+
+  const insertVar = (key: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const cls = VAR_COLORS[key] || 'bg-slate-100 text-slate-700 border-slate-200';
+    const badge = document.createElement('strong');
+    badge.contentEditable = 'false';
+    badge.setAttribute('data-var', `{${key}}`);
+    badge.className = `inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border mx-0.5 select-none align-middle cursor-default ${cls}`;
+    badge.innerText = `{${key}}`;
+    const space = document.createTextNode(' ');
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      let inEditor = false;
+      let node: Node | null = range.commonAncestorContainer;
+      while (node) { if (node === editor) { inEditor = true; break; } node = node.parentNode; }
+      if (!inEditor) { range.selectNodeContents(editor); range.collapse(false); }
+      range.deleteContents();
+      range.insertNode(space);
+      range.insertNode(badge);
+      range.setStartAfter(space);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      editor.appendChild(badge);
+      editor.appendChild(space);
+    }
+    onChange(readText());
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-xl">
+        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center mr-1">Variáveis:</span>
+        {variables.map(v => (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => insertVar(v.key)}
+            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer hover:opacity-80 active:scale-95 transition-all ${VAR_COLORS[v.key] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
+          >
+            +{v.label}
+          </button>
+        ))}
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={() => onChange(readText())}
+        onPaste={e => {
+          e.preventDefault();
+          document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+        }}
+        className="w-full min-h-[130px] p-4 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all text-sm text-zinc-700 bg-white leading-relaxed"
+        style={{ whiteSpace: 'pre-wrap' }}
+      />
+    </div>
+  );
+};
+
+// ── Bloco de configuração de disparo ─────────────────────────────────────────
+const DispatchBlock = ({
+  icon: Icon,
+  label,
+  description,
+  color,
+  enabled,
+  onToggle,
+  time,
+  onTimeChange,
+  showTime = false,
+  children,
+}: {
+  icon: React.ElementType;
+  label: string;
+  description?: string;
+  color: string;
+  enabled: boolean;
+  onToggle: () => void;
+  time?: string;
+  onTimeChange?: (v: string) => void;
+  showTime?: boolean;
+  children?: React.ReactNode;
+}) => (
+  <div className={`rounded-2xl border transition-all duration-200 ${enabled ? 'border-zinc-200 bg-white shadow-sm' : 'border-zinc-100 bg-zinc-50/60 opacity-70'}`}>
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+          <Icon size={17} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-zinc-800">{label}</p>
+          {description && <p className="text-[11px] text-zinc-400 font-medium truncate">{description}</p>}
+        </div>
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        {showTime && enabled && onTimeChange && (
+          <div className="flex items-center gap-1.5 bg-zinc-50 border border-zinc-200 px-3 py-1.5 rounded-xl">
+            <Clock size={13} className="text-zinc-400" />
+            <input
+              type="time"
+              value={time}
+              onChange={e => onTimeChange(e.target.value)}
+              className="text-xs font-bold text-zinc-700 focus:outline-none bg-transparent w-16 cursor-pointer"
+            />
+          </div>
+        )}
+        <Switch checked={enabled} onCheckedChange={onToggle} />
+      </div>
+    </div>
+    {enabled && children && (
+      <div className="px-4 pb-4 border-t border-zinc-100 pt-4 animate-fadeIn">
+        {children}
+      </div>
+    )}
+  </div>
+);
+
+// ── Componente principal ──────────────────────────────────────────────────────
 export const BotIntegration: React.FC = () => {
-  const { t } = useLanguage();
-  const { success, error: pushError } = useToast();
+  const { pushToast } = useToast();
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
-  const [phone, setPhone] = useState<string | null>(null);
+  const [phone, setPhone]   = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading]         = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isSaving, setIsSaving]           = useState(false);
+  const [stats, setStats]                 = useState({ sent24h: 0, sentTotal: 0, queued: 0 });
 
   const [prefs, setPrefs] = useState({
     reminder_24h_enabled: true,
-    reminder_24h_msg: `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nSua consulta com {professional_name} está confirmada para amanhã ({date}) às {time}.`,
+    reminder_24h_msg: `🔔 *Confirmação de Presença*\n\nOlá {patient_name} 😊\n\nEste é um lembrete para o seu atendimento, dia {date} às {time}.\nServiço: {service}\nPosso confirmar a presença?`,
     reminder_1h_enabled: true,
-    reminder_1h_msg: `🔔 *Notificação de Atendimento*\n\nOlá, *{patient_name}*.\nLembramos que seu agendamento com {professional_name} é hoje às {time}.`,
+    reminder_1h_msg: `🔔 *Aviso Imediato*\n\nOlá, *{patient_name}*.\nLembramos que seu agendamento com {professional_name} é hoje às {time}.`,
     birthday_enabled: true,
     birthday_time: '10:00',
     birthday_msg: `🎂 *Feliz Aniversário!*\n\nOlá, *{patient_name}*!\nA equipe deseja a você um excelente dia repleto de alegrias e muita paz!`,
     payment_enabled: true,
     payment_time: '10:00',
-    payment_msg: `💰 *Lembrete de Pagamento*\n\nOlá, *{patient_name}*.\nLembramos que o vencimento da sua parcela no valor de R$ {amount} é hoje. Qualquer dúvida, estamos à disposição.`,
+    payment_msg: `💰 *Lembrete de Pagamento*\n\nOlá, *{patient_name}*.\nLembramos que o vencimento da sua parcela no valor de R$ {amount} é hoje.`,
   });
 
-  const GENERAL_VARS = [
-      { key: 'patient_name', label: 'Nome Paciente' },
-      { key: 'professional_name', label: 'Nome Profissional' },
-      { key: 'date', label: 'Data (10/12/26)' },
-      { key: 'time', label: 'Hora (14:30)' },
-      { key: 'service', label: 'Serviço' }
-  ];
-
-  const BDAY_VARS = [
-      { key: 'patient_name', label: 'Nome Paciente' }
-  ];
-
-  const PAYMENT_VARS = [
-      { key: 'patient_name', label: 'Nome Paciente' },
-      { key: 'amount', label: 'Valor (150,00)' }
-  ];
-
+  // Polling enquanto conectando
+  useEffect(() => { fetchStatus(); }, []);
   useEffect(() => {
-    fetchStatus();
-  }, []);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (status === 'connecting') {
-      interval = setInterval(() => {
-        fetchStatus(false);
-      }, 2000);
-    }
-    return () => clearInterval(interval);
+    if (status !== 'connecting') return;
+    const id = setInterval(() => fetchStatus(false), 2500);
+    return () => clearInterval(id);
   }, [status]);
 
   const fetchStatus = async (showLoading = true) => {
     try {
       if (showLoading) setIsLoading(true);
-      const data = await api.get<{ status: any, phone: string | null, preferences: any, qrcode?: string }>('/whatsapp/status');
+      const data = await api.get<any>('/whatsapp/status');
       setStatus(data.status || 'disconnected');
-      setPhone(data.phone);
-      
-      // Se a API retornar o QR Code no status, atualiza a tela
-      if (data.qrcode) {
-          setQrCode(data.qrcode);
-      } else if (data.status !== 'connecting') {
-          // Limpa o QR Code se já conectou ou falhou
-          setQrCode(null);
-      }
-
-      if (data.preferences && Object.keys(data.preferences).length > 0) {
-        setPrefs(prev => ({ ...prev, ...data.preferences }));
-      }
-    } catch (err) {
-      console.error('Erro ao buscar status:', err);
+      setPhone(data.phone || null);
+      if (data.qrcode) setQrCode(data.qrcode);
+      else if (data.status !== 'connecting') setQrCode(null);
+      if (data.preferences && Object.keys(data.preferences).length > 0)
+        setPrefs(p => ({ ...p, ...data.preferences }));
+      // stats opcionais
+      if (data.stats) setStats(s => ({ ...s, ...data.stats }));
+    } catch {
+      // silencioso
     } finally {
       if (showLoading) setIsLoading(false);
     }
   };
 
   const handleConnect = async () => {
+    setIsActionLoading(true);
     try {
-      setIsActionLoading(true);
-      const data = await api.post<{ qrcode: string, status: any }>('/whatsapp/connect', {});
-      setQrCode(data.qrcode);
+      const data = await api.post<any>('/whatsapp/connect', {});
+      setQrCode(data.qrcode || null);
       setStatus('connecting');
-    } catch (err) {
-      console.error('Erro ao conectar:', err);
+    } catch (e: any) {
+      pushToast('error', e.message || 'Erro ao conectar.');
     } finally {
       setIsActionLoading(false);
     }
   };
 
   const handleDisconnect = async () => {
-    if (!window.confirm(t('bot.disconnect') + '?')) return;
+    if (!window.confirm('Desconectar o bot? As mensagens automáticas serão pausadas.')) return;
+    setIsActionLoading(true);
     try {
-      setIsActionLoading(true);
       await api.post('/whatsapp/disconnect', {});
       setStatus('disconnected');
       setQrCode(null);
       setPhone(null);
-    } catch (err) {
-      console.error('Erro ao desconectar:', err);
+    } catch (e: any) {
+      pushToast('error', e.message || 'Erro ao desconectar.');
     } finally {
       setIsActionLoading(false);
     }
   };
 
-  const savePreferences = async () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     try {
-      setIsActionLoading(true);
       await api.post('/whatsapp/preferences', prefs);
-      success('Configurações Salvas', 'As preferências do bot foram atualizadas com sucesso.');
-    } catch (err) {
-      pushError('Erro ao Salvar', 'Não foi possível salvar as configurações do bot.');
+      pushToast('success', 'Configurações salvas com sucesso!');
+    } catch (e: any) {
+      pushToast('error', e.message || 'Erro ao salvar configurações.');
     } finally {
-      setIsActionLoading(false);
+      setIsSaving(false);
     }
   };
 
-  const handlePrefChange = (key: string, value: any) => {
-    setPrefs(p => ({ ...p, [key]: value }));
-  };
+  const set = (key: string, val: any) => setPrefs(p => ({ ...p, [key]: val }));
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="animate-spin text-indigo-600" size={40} />
-      </div>
+      <PageWrapper>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="animate-spin text-amber-500" size={40} />
+        </div>
+      </PageWrapper>
     );
   }
 
+  const isConnected   = status === 'connected';
+  const isConnecting  = status === 'connecting';
+
   return (
-    <div className="space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-20">
-      
-      {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-[26px] p-8 bg-slate-900 shadow-2xl shadow-emerald-900/20 border border-slate-800 text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 via-slate-900 to-slate-950 opacity-90"></div>
-        <div className="absolute right-0 top-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-        
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-            <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-800/80 border border-slate-700 text-emerald-300 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
-                    <Smartphone size={14} />
-                    <span>Integração WhatsApp</span>
+    <PageWrapper className="space-y-5 pb-20">
+      <PageHeader
+        icon={<Smartphone />}
+        title="WhatsApp Bot"
+        subtitle="Configure o disparo automático de mensagens para pacientes e profissionais"
+        iconGradient="from-emerald-500 to-teal-600"
+        containerClassName="mb-0"
+        actions={
+          <Button
+            variant="primary"
+            leftIcon={isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            onClick={handleSave}
+            loading={isSaving}
+            className="shadow-lg"
+          >
+            Salvar Tudo
+          </Button>
+        }
+      />
+
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6">
+
+        {/* Stats rápidos */}
+        <div className="grid grid-cols-3 gap-4">
+          <StatCard
+            title="Bot"
+            value={isConnected ? 'Ativo' : 'Inativo'}
+            icon={isConnected ? Wifi : WifiOff}
+            color={isConnected ? 'success' : 'danger'}
+            description={phone || 'Nenhum número vinculado'}
+            delay={0}
+          />
+          <StatCard
+            title="Fila pendente"
+            value={stats.queued}
+            icon={Bell}
+            color="warning"
+            description="mensagens aguardando"
+            delay={0.05}
+          />
+          <StatCard
+            title="Enviadas hoje"
+            value={stats.sent24h}
+            icon={Zap}
+            color="info"
+            description="nas últimas 24h"
+            delay={0.1}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+          {/* ── Coluna esquerda: dispositivo ── */}
+          <div className="xl:col-span-4 space-y-4">
+            <PanelCard
+              icon={Smartphone}
+              title="Dispositivo Bot"
+              description="Escaneie o QR Code para ativar"
+              iconWrapClassName="bg-emerald-50 border-emerald-100"
+              iconClassName="text-emerald-600"
+            >
+              {isConnected ? (
+                <div className="flex flex-col items-center gap-4 py-6 animate-fadeIn">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-emerald-400 blur-xl opacity-20 rounded-full" />
+                    <div className="relative w-20 h-20 bg-emerald-50 border-2 border-emerald-200 rounded-full flex items-center justify-center">
+                      <CheckCircle2 size={40} className="text-emerald-500" />
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-black text-zinc-800 text-base">Conectado</p>
+                    <p className="text-sm text-emerald-600 font-bold mt-0.5">{phone || 'Dispositivo vinculado'}</p>
+                    <p className="text-xs text-zinc-400 mt-1">Bot ativo e enviando notificações</p>
+                  </div>
+                  <Badge color="success" dot>Online</Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDisconnect}
+                    loading={isActionLoading}
+                    className="text-rose-500 hover:bg-rose-50 hover:text-rose-600 border-rose-100 gap-1.5"
+                  >
+                    <X size={13} /> Desconectar
+                  </Button>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-3 leading-tight">Painel de Comunicação</h1>
-                <p className="text-emerald-200 text-lg leading-relaxed max-w-xl">
-                    Conecte o WhatsApp da sua clínica e customize facilmente as mensagens automáticas de lembretes e cobranças.
-                </p>
-            </div>
-            <button onClick={savePreferences} disabled={isActionLoading} className="hidden lg:flex bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all items-center gap-2">
-                {isActionLoading ? <Loader2 className="animate-spin text-slate-900" size={20} /> : <Save size={20} />}
-                Salvar Tudo
-            </button>
+              ) : (
+                <div className="flex flex-col items-center gap-4 py-4">
+                  {/* QR frame */}
+                  <div className="relative bg-zinc-900 p-4 rounded-[20px] shadow-xl border border-zinc-800">
+                    <div className="w-52 h-52 bg-white rounded-xl flex items-center justify-center overflow-hidden relative">
+                      {qrCode ? (
+                        <img src={qrCode} alt="QR Code" className="w-full h-full object-contain p-2 animate-fadeIn" />
+                      ) : (
+                        <div className="w-full h-full grid grid-cols-6 grid-rows-6 gap-1 p-3 opacity-[0.08]">
+                          {Array.from({ length: 36 }).map((_, i) => (
+                            <div key={i} className={`bg-zinc-900 rounded-[2px] ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'}`} />
+                          ))}
+                        </div>
+                      )}
+                      {/* Overlay loading/button */}
+                      {(isActionLoading || (isConnecting && !qrCode) || (!isConnecting && !qrCode)) && (
+                        <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center gap-3 p-4 rounded-xl">
+                          {isActionLoading || (isConnecting && !qrCode) ? (
+                            <>
+                              <Loader2 size={30} className="animate-spin text-emerald-600" />
+                              <span className="text-xs font-bold text-emerald-700 animate-pulse">
+                                {isActionLoading ? 'Iniciando...' : 'Gerando código...'}
+                              </span>
+                            </>
+                          ) : (
+                            <Button
+                              variant="primary"
+                              onClick={handleConnect}
+                              className="bg-emerald-600 border-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 gap-2"
+                            >
+                              <Smartphone size={15} /> Gerar QR Code
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-black text-zinc-800 uppercase tracking-wide">Conectar Aparelho</p>
+                    <p className="text-xs text-zinc-400 mt-1 max-w-[200px] leading-relaxed">
+                      Abra seu WhatsApp e escaneie o código para ativar o robô
+                    </p>
+                  </div>
+                  {isConnecting && (
+                    <button
+                      onClick={handleDisconnect}
+                      className="text-[11px] font-bold text-zinc-400 hover:text-rose-500 underline uppercase tracking-wider transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  {isConnecting && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => fetchStatus(false)}
+                      className="gap-1.5 text-zinc-500"
+                    >
+                      <RefreshCw size={13} /> Atualizar status
+                    </Button>
+                  )}
+                </div>
+              )}
+            </PanelCard>
+
+            {/* Dicas */}
+            <PanelCard
+              icon={AlertCircle}
+              title="Dicas de Uso"
+              iconWrapClassName="bg-blue-50 border-blue-100"
+              iconClassName="text-blue-500"
+            >
+              <ul className="space-y-2.5 text-xs text-zinc-500 font-medium">
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 shrink-0 mt-1.5" />
+                  Seu celular pode ficar longe — mantemos a conexão via túnel com a API oficial.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 shrink-0 mt-1.5" />
+                  Use as variáveis coloridas para inserir dados dinâmicos do paciente.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 shrink-0 mt-1.5" />
+                  O WhatsApp Web precisa da versão mais recente instalada.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1.5" />
+                  <span className="text-emerald-700 font-bold">As mensagens são disparadas automaticamente pelos cron jobs a cada minuto.</span>
+                </li>
+              </ul>
+            </PanelCard>
+          </div>
+
+          {/* ── Coluna direita: configurações ── */}
+          <div className="xl:col-span-8 space-y-5">
+
+            {/* Lembretes de Consulta */}
+            <PanelCard
+              icon={Calendar}
+              title="Lembretes de Consultas"
+              description="Notificações automáticas para reduzir faltas"
+              iconWrapClassName="bg-indigo-50 border-indigo-100"
+              iconClassName="text-indigo-600"
+            >
+              <div className="space-y-3">
+                <DispatchBlock
+                  icon={Bell}
+                  label="Aviso Antecipado (24 Horas Antes)"
+                  description="Enviado na véspera da consulta"
+                  color="bg-indigo-50 text-indigo-600"
+                  enabled={prefs.reminder_24h_enabled}
+                  onToggle={() => set('reminder_24h_enabled', !prefs.reminder_24h_enabled)}
+                >
+                  <BadgeEditor
+                    value={prefs.reminder_24h_msg}
+                    onChange={v => set('reminder_24h_msg', v)}
+                    variables={GENERAL_VARS}
+                  />
+                </DispatchBlock>
+
+                <DispatchBlock
+                  icon={Zap}
+                  label="Aviso Imediato (60 Minutos Antes)"
+                  description="Enviado no dia do atendimento"
+                  color="bg-violet-50 text-violet-600"
+                  enabled={prefs.reminder_1h_enabled}
+                  onToggle={() => set('reminder_1h_enabled', !prefs.reminder_1h_enabled)}
+                >
+                  <BadgeEditor
+                    value={prefs.reminder_1h_msg}
+                    onChange={v => set('reminder_1h_msg', v)}
+                    variables={GENERAL_VARS}
+                  />
+                </DispatchBlock>
+              </div>
+            </PanelCard>
+
+            {/* Rotinas Diárias */}
+            <PanelCard
+              icon={Gift}
+              title="Rotinas Automáticas Diárias"
+              description="Mensagens que disparam no horário configurado"
+              iconWrapClassName="bg-emerald-50 border-emerald-100"
+              iconClassName="text-emerald-600"
+            >
+              <div className="space-y-3">
+                <DispatchBlock
+                  icon={Gift}
+                  label="Mensagem de Aniversário"
+                  description="Enviada no dia do aniversário do paciente"
+                  color="bg-amber-50 text-amber-600"
+                  enabled={prefs.birthday_enabled}
+                  onToggle={() => set('birthday_enabled', !prefs.birthday_enabled)}
+                  showTime
+                  time={prefs.birthday_time}
+                  onTimeChange={v => set('birthday_time', v)}
+                >
+                  <BadgeEditor
+                    value={prefs.birthday_msg}
+                    onChange={v => set('birthday_msg', v)}
+                    variables={BDAY_VARS}
+                  />
+                </DispatchBlock>
+
+                <DispatchBlock
+                  icon={DollarSign}
+                  label="Cobrança Padrão (Dia do Vencimento)"
+                  description="Enviada quando há parcela vencendo hoje"
+                  color="bg-rose-50 text-rose-600"
+                  enabled={prefs.payment_enabled}
+                  onToggle={() => set('payment_enabled', !prefs.payment_enabled)}
+                  showTime
+                  time={prefs.payment_time}
+                  onTimeChange={v => set('payment_time', v)}
+                >
+                  <BadgeEditor
+                    value={prefs.payment_msg}
+                    onChange={v => set('payment_msg', v)}
+                    variables={PAYMENT_VARS}
+                  />
+                </DispatchBlock>
+              </div>
+            </PanelCard>
+
+            {/* Disparo manual de teste */}
+            {isConnected && (
+              <PanelCard
+                icon={Send}
+                title="Teste de Envio"
+                description="Envie uma mensagem de teste para verificar se o bot está funcionando"
+                iconWrapClassName="bg-teal-50 border-teal-100"
+                iconClassName="text-teal-600"
+              >
+                <TestSendPanel />
+              </PanelCard>
+            )}
+          </div>
+        </div>
+
+        {/* Botão salvar mobile */}
+        <div className="flex lg:hidden sticky bottom-5 z-50 px-2">
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            loading={isSaving}
+            className="w-full h-14 text-base shadow-2xl shadow-emerald-200 bg-emerald-600 border-emerald-600 hover:bg-emerald-700 gap-3"
+          >
+            <Save size={20} /> Salvar Configurações
+          </Button>
         </div>
       </div>
+    </PageWrapper>
+  );
+};
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-          
-          {/* Left Column: QR Code & Status */}
-          <div className="xl:col-span-4 space-y-6">
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/40 flex flex-col items-center text-center justify-center relative overflow-hidden">
-                  {/* Fundo Decorativo */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-[100px] pointer-events-none -z-0"></div>
-                  
-                  <h3 className="font-bold text-slate-800 mb-6 relative z-10 text-lg flex items-center justify-center gap-2">
-                    <Smartphone size={20} className="text-indigo-600" /> Dispositivo Bot
-                  </h3>
-                  
-                  {status === 'connected' ? (
-                      <div className="flex flex-col items-center justify-center py-8 animate-fadeIn w-full relative z-10">
-                          <div className="relative mb-6">
-                              <div className="absolute inset-0 bg-emerald-400 blur-xl opacity-30 rounded-full animate-pulse"></div>
-                              <div className="w-24 h-24 bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600 rounded-full flex items-center justify-center shadow-lg border-4 border-white relative z-10 hover:scale-105 transition-transform">
-                                  <CheckCircle size={44} />
-                              </div>
-                          </div>
-                          <h4 className="text-xl font-extrabold text-slate-800 mb-1">{t('bot.connected')}</h4>
-                          <p className="text-sm font-semibold text-emerald-600 mb-2">{phone || 'Dispositivo Vinculado com Sucesso'}</p>
-                          <p className="text-xs text-slate-500 mb-6 max-w-[200px] mx-auto leading-relaxed">Seu bot está ativo e enviando notificações em segundo plano.</p>
-                          <button 
-                            onClick={handleDisconnect} 
-                            disabled={isActionLoading}
-                            className="text-xs font-bold px-4 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
-                          >
-                            {isActionLoading ? <Loader2 className="animate-spin" size={14}/> : <AlertCircle size={14}/>}
-                            {t('bot.disconnect')}
-                          </button>
-                      </div>
-                  ) : (
-                      <div className="w-full flex flex-col items-center group relative z-10 pb-4">
-                          <div className="relative bg-slate-900 p-5 rounded-[24px] shadow-2xl mb-8 group-hover:scale-105 transition-all duration-500 ease-out border border-slate-800/80 group-hover:shadow-indigo-900/40">
-                              <div className="w-56 h-56 bg-white rounded-xl flex items-center justify-center overflow-hidden relative shadow-inner">
-                                  {qrCode ? (
-                                      <img src={qrCode} alt="QR Code" className="w-full h-full object-contain p-3 animate-fadeIn" />
-                                  ) : (
-                                    <div className="w-full h-full grid grid-cols-6 grid-rows-6 gap-1 p-3 opacity-10">
-                                        {Array.from({length: 36}).map((_, i) => (
-                                            <div key={i} className={`bg-slate-900 ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'} rounded-[2px]`}></div>
-                                        ))}
-                                    </div>
-                                  )}
-                                  
-                                  {(status === 'disconnected' || isActionLoading || (status === 'connecting' && !qrCode)) && (
-                                    <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center backdrop-blur-sm p-4 transition-opacity">
-                                        {(isActionLoading || (status === 'connecting' && !qrCode)) ? (
-                                            <div className="flex flex-col items-center">
-                                                <Loader2 className="animate-spin text-emerald-600 mb-3" size={32} />
-                                                <span className="text-sm font-bold text-emerald-700 animate-pulse text-center">
-                                                    {isActionLoading ? 'Iniciando...' : 'Gerando código...'}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <button 
-                                                onClick={handleConnect}
-                                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 rounded-xl font-bold text-sm shadow-xl shadow-emerald-600/30 transition-all flex items-center gap-2"
-                                            >
-                                                <Smartphone size={18} /> Gerar QR Code
-                                            </button>
-                                        )}
-                                    </div>
-                                  )}
-                              </div>
-                          </div>
-                          <p className="text-sm font-black text-slate-800 mb-2 uppercase tracking-wide">
-                              Conectar Aparelho
-                          </p>
-                          <p className="text-xs text-slate-500 max-w-[200px] leading-relaxed">
-                              Abra seu WhatsApp e escaneie o código para ativar o robô.
-                          </p>
-                          {status === 'connecting' && (
-                            <button 
-                                onClick={handleDisconnect} 
-                                className="mt-6 text-[11px] font-bold text-slate-400 hover:text-red-500 underline uppercase tracking-wider"
-                            >
-                                {t('common.cancel')}
-                            </button>
-                          )}
-                      </div>
-                  )}
-              </div>
+// ── Painel de teste de envio ──────────────────────────────────────────────────
+const TestSendPanel: React.FC = () => {
+  const { pushToast } = useToast();
+  const [phone, setPhone]     = useState('');
+  const [message, setMessage] = useState('Olá! Este é um teste do bot PsiFlux. 🤖');
+  const [sending, setSending] = useState(false);
 
-              <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-                  <h4 className="font-bold text-sm text-slate-700 mb-4 flex items-center gap-2">
-                      <AlertCircle size={16} className="text-indigo-500" /> Dicas de Uso Constante
-                  </h4>
-                  <p className="text-xs text-slate-600 mb-3 leading-relaxed">
-                      Seu celular pode ficar longe, nós mantemos a conexão através do nosso túnel com a API oficial em segundo plano.
-                  </p>
-                  <ul className="space-y-3 text-[11px] text-slate-600 list-disc pl-4 font-medium">
-                      <li>O WhatsApp Web precisa da versão mais recente instalada.</li>
-                      <li>Use as <b>variáveis de botões</b> acima dos editores para preencher automaticamente com os dados dos seus clientes.</li>
-                  </ul>
-              </div>
-          </div>
+  const handleTest = async () => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length < 10) { pushToast('error', 'Informe um telefone válido (DDD + número).'); return; }
+    if (!message.trim()) { pushToast('error', 'Informe uma mensagem.'); return; }
+    setSending(true);
+    try {
+      await api.post('/whatsapp/test', { phone: cleaned, message });
+      pushToast('success', 'Mensagem de teste enviada com sucesso!');
+    } catch (e: any) {
+      pushToast('error', e.message || 'Erro ao enviar mensagem de teste.');
+    } finally {
+      setSending(false);
+    }
+  };
 
-          {/* Right Column: Configuration */}
-          <div className="xl:col-span-8 space-y-8">
-              
-              {/* Lembretes de Consultas */}
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl shadow-slate-200/40 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-[60px] pointer-events-none -z-0"></div>
-                  
-                  <div className="flex items-center gap-4 mb-8 pb-6 border-b border-indigo-50 relative z-10">
-                      <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner"><Calendar size={24} /></div>
-                      <div>
-                          <h3 className="font-bold text-xl text-slate-800">Lembretes de Consultas</h3>
-                          <p className="text-sm text-slate-500">Mande notificações antecipadas para reduzir faltas.</p>
-                      </div>
-                  </div>
-                  
-                  <div className="space-y-10 relative z-10">
-                      <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-100 hover:shadow-md transition-shadow">
-                          <ToggleItem 
-                              label="Aviso Antecipado (24 Horas Antes)" 
-                              checked={prefs.reminder_24h_enabled} 
-                              onChange={() => handlePrefChange('reminder_24h_enabled', !prefs.reminder_24h_enabled)} 
-                          />
-                          {prefs.reminder_24h_enabled && (
-                              <div className="mt-4 animate-fadeIn">
-                                  <BadgeEditor 
-                                      value={prefs.reminder_24h_msg}
-                                      onChange={(v) => handlePrefChange('reminder_24h_msg', v)}
-                                      variables={GENERAL_VARS}
-                                  />
-                              </div>
-                          )}
-                      </div>
-
-                      <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-100 hover:shadow-md transition-shadow">
-                          <ToggleItem 
-                              label="Aviso Imediato (60 Minutos Antes)" 
-                              checked={prefs.reminder_1h_enabled} 
-                              onChange={() => handlePrefChange('reminder_1h_enabled', !prefs.reminder_1h_enabled)} 
-                          />
-                          {prefs.reminder_1h_enabled && (
-                              <div className="mt-4 animate-fadeIn">
-                                  <BadgeEditor 
-                                      value={prefs.reminder_1h_msg}
-                                      onChange={(v) => handlePrefChange('reminder_1h_msg', v)}
-                                      variables={GENERAL_VARS}
-                                  />
-                              </div>
-                          )}
-                      </div>
-                  </div>
-              </div>
-
-              {/* Rotinas Financeiras e Aniversários */}
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl shadow-slate-200/40 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50/50 rounded-full blur-[60px] pointer-events-none -z-0"></div>
-                  
-                  <div className="flex items-center gap-4 mb-8 pb-6 border-b border-emerald-50 relative z-10">
-                      <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner"><Gift size={24} /></div>
-                      <div>
-                          <h3 className="font-bold text-xl text-slate-800">Rotinas Automáticas Diárias</h3>
-                          <p className="text-sm text-slate-500">Mensagens que disparam no horário configurado e poupam trabalho manual.</p>
-                      </div>
-                  </div>
-                  
-                  <div className="space-y-10 relative z-10">
-                      <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-100 hover:shadow-md transition-shadow">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                              <ToggleItem 
-                                  label="Mensagem de Aniversário" 
-                                  checked={prefs.birthday_enabled} 
-                                  onChange={() => handlePrefChange('birthday_enabled', !prefs.birthday_enabled)} 
-                              />
-                              {prefs.birthday_enabled && (
-                                  <div className="flex items-center gap-3 bg-white px-4 py-2 border rounded-xl shadow-sm">
-                                      <Clock size={16} className="text-emerald-500"/>
-                                      <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Disparar às:</span>
-                                      <input type="time" 
-                                          value={prefs.birthday_time} onChange={e => handlePrefChange('birthday_time', e.target.value)}
-                                          className="text-sm font-bold text-slate-800 focus:outline-none bg-transparent w-20 cursor-pointer" />
-                                  </div>
-                              )}
-                          </div>
-                          
-                          {prefs.birthday_enabled && (
-                              <div className="animate-fadeIn">
-                                  <BadgeEditor 
-                                      value={prefs.birthday_msg}
-                                      onChange={(v) => handlePrefChange('birthday_msg', v)}
-                                      variables={BDAY_VARS}
-                                  />
-                              </div>
-                          )}
-                      </div>
-
-                      <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-100 hover:shadow-md transition-shadow border-l-4 border-l-orange-400">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                              <ToggleItem 
-                                  label="Cobrança Padrão (Dia do Vencimento)" 
-                                  checked={prefs.payment_enabled} 
-                                  onChange={() => handlePrefChange('payment_enabled', !prefs.payment_enabled)} 
-                              />
-                              {prefs.payment_enabled && (
-                                  <div className="flex items-center gap-3 bg-white px-4 py-2 border rounded-xl shadow-sm">
-                                      <Clock size={16} className="text-orange-500"/>
-                                      <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Disparar às:</span>
-                                      <input type="time" 
-                                          value={prefs.payment_time} onChange={e => handlePrefChange('payment_time', e.target.value)}
-                                          className="text-sm font-bold text-slate-800 focus:outline-none bg-transparent w-20 cursor-pointer" />
-                                  </div>
-                              )}
-                          </div>
-
-                          {prefs.payment_enabled && (
-                              <div className="animate-fadeIn">
-                                  <BadgeEditor 
-                                      value={prefs.payment_msg}
-                                      onChange={(v) => handlePrefChange('payment_msg', v)}
-                                      variables={PAYMENT_VARS}
-                                  />
-                              </div>
-                          )}
-                      </div>
-                  </div>
-              </div>
-
-              {/* Botão Salvar Flutuante Mobile */}
-              <div className="flex lg:hidden justify-center sticky bottom-6 z-50">
-                  <button onClick={savePreferences} disabled={isActionLoading} className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-2xl font-bold shadow-2xl shadow-emerald-600/50 border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all flex items-center gap-3 w-full justify-center text-lg max-w-sm">
-                      {isActionLoading ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />} Salvar Configurações
-                  </button>
-              </div>
-
-          </div>
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <Input
+        label="Telefone (com DDD)"
+        type="tel"
+        value={phone}
+        onChange={e => setPhone(e.target.value)}
+        placeholder="11999998888"
+        leftIcon={<Smartphone size={14} />}
+      />
+      <Input
+        label="Mensagem"
+        type="text"
+        value={message}
+        onChange={e => setMessage(e.target.value)}
+        placeholder="Mensagem de teste..."
+        leftIcon={<MessageSquare size={14} />}
+      />
+      <div className="sm:col-span-2">
+        <Button
+          variant="primary"
+          onClick={handleTest}
+          loading={sending}
+          className="gap-2 bg-teal-600 border-teal-600 hover:bg-teal-700"
+        >
+          <Send size={14} /> Enviar Mensagem de Teste
+        </Button>
       </div>
     </div>
   );
 };
-
-const ToggleItem = ({ label, checked, onChange }: any) => (
-    <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors w-full">
-        <span className="font-medium text-sm text-slate-700">{label}</span>
-        <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" checked={checked} onChange={onChange} className="sr-only peer" />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-        </label>
-    </div>
-);
-
