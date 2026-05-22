@@ -53,6 +53,25 @@ export interface UserPreferences {
     apiKey: string;       // legacy / chave principal
     apiKeys: string[];    // lista de chaves (com fallback automático)
   };
+  menuLayouts: MenuLayout[];
+  activeMenuLayoutId: string | null;
+}
+
+export interface MenuLayoutItem {
+  navItemPath: string;
+}
+
+export interface MenuLayoutSection {
+  id: string;
+  label: string;
+  items: MenuLayoutItem[];
+}
+
+export interface MenuLayout {
+  id: string;
+  name: string;
+  sections: MenuLayoutSection[];
+  createdAt: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -107,6 +126,8 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     apiKey: '',
     apiKeys: [],
   },
+  menuLayouts: [],
+  activeMenuLayoutId: null,
 };
 
 function mergeWithDefaults(stored: any): UserPreferences {
@@ -126,6 +147,8 @@ function mergeWithDefaults(stored: any): UserPreferences {
     livroCaixa:  { ...DEFAULT_PREFERENCES.livroCaixa,  ...stored?.livroCaixa },
     clinicalTools: { ...DEFAULT_PREFERENCES.clinicalTools, ...stored?.clinicalTools },
     gemini:       { ...DEFAULT_PREFERENCES.gemini, ...stored?.gemini, apiKeys: Array.isArray(stored?.gemini?.apiKeys) ? stored.gemini.apiKeys : (stored?.gemini?.apiKey ? [stored.gemini.apiKey] : []) },
+    menuLayouts: Array.isArray(stored?.menuLayouts) ? stored.menuLayouts : [],
+    activeMenuLayoutId: stored?.activeMenuLayoutId ?? null,
   };
 }
 
@@ -142,6 +165,9 @@ interface UserPreferencesContextType {
   lockedMonths: string[];
   refreshLockedMonths: () => void;
   toggleLockMonth: (monthKey: string) => Promise<void>;
+  saveMenuLayout: (layout: MenuLayout) => void;
+  deleteMenuLayout: (layoutId: string) => void;
+  setActiveMenuLayout: (layoutId: string | null) => void;
 }
 
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
@@ -232,9 +258,13 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
     updates: Partial<UserPreferences[T]>
   ) => {
     setPreferences((prev) => {
+      const current = prev[screen];
+      const merged = (current !== null && typeof current === 'object' && !Array.isArray(current))
+        ? { ...current, ...updates }
+        : updates;
       const next: UserPreferences = {
         ...prev,
-        [screen]: { ...prev[screen], ...updates },
+        [screen]: merged,
       };
       if (loaded) persistToBackend(next, formsArchived, formsFavorites);
       return next;
@@ -271,14 +301,45 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
     } catch {}
   };
 
+  const saveMenuLayout = (layout: MenuLayout) => {
+    setPreferences((prev) => {
+      const exists = prev.menuLayouts.some(l => l.id === layout.id);
+      const menuLayouts = exists
+        ? prev.menuLayouts.map(l => l.id === layout.id ? layout : l)
+        : [...prev.menuLayouts, layout];
+      const next: UserPreferences = { ...prev, menuLayouts };
+      if (loaded) persistToBackend(next, formsArchived, formsFavorites);
+      return next;
+    });
+  };
+
+  const deleteMenuLayout = (layoutId: string) => {
+    setPreferences((prev) => {
+      const menuLayouts = prev.menuLayouts.filter(l => l.id !== layoutId);
+      const activeMenuLayoutId = prev.activeMenuLayoutId === layoutId ? null : prev.activeMenuLayoutId;
+      const next: UserPreferences = { ...prev, menuLayouts, activeMenuLayoutId };
+      if (loaded) persistToBackend(next, formsArchived, formsFavorites);
+      return next;
+    });
+  };
+
+  const setActiveMenuLayout = (layoutId: string | null) => {
+    setPreferences((prev) => {
+      const next: UserPreferences = { ...prev, activeMenuLayoutId: layoutId };
+      if (loaded) persistToBackend(next, formsArchived, formsFavorites);
+      return next;
+    });
+  };
+
   if (!loaded) return null;
 
   return (
-    <UserPreferencesContext.Provider value={{ 
-      preferences, updatePreference, 
-      formsArchived, setFormsArchived, 
+    <UserPreferencesContext.Provider value={{
+      preferences, updatePreference,
+      formsArchived, setFormsArchived,
       formsFavorites, setFormsFavorites,
-      lockedMonths, refreshLockedMonths, toggleLockMonth
+      lockedMonths, refreshLockedMonths, toggleLockMonth,
+      saveMenuLayout, deleteMenuLayout, setActiveMenuLayout,
     }}>
       {children}
     </UserPreferencesContext.Provider>

@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NAV_SECTIONS } from '../../constants';
-import { LogOut, ShieldAlert, ChevronDown } from 'lucide-react';
+import { LogOut, ShieldAlert, ChevronDown, LayoutGrid } from 'lucide-react';
 import logoUrl from '../../images/logo-psiflux.png';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { MenuCustomizerModal } from './MenuCustomizerModal';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -27,7 +29,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
   const { t } = useLanguage();
   const { user, isAdmin, hasPermission } = useAuth();
   const { resolvedMode } = useTheme();
+  const { preferences } = useUserPreferences();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
+  const [customizerOpen, setCustomizerOpen] = useState(false);
 
   // Expand all sections when the guided tour starts
   useEffect(() => {
@@ -73,7 +77,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
     });
   }, []);
 
-  const visibleSections = React.useMemo(() => {
+  // All permitted nav items (path → meta)
+  const allNavMeta = React.useMemo(() => {
+    const map: Record<string, { label: string; icon: React.ReactNode; path: string }> = {};
+    for (const section of NAV_SECTIONS) {
+      for (const item of section.items as any[]) {
+        if (item.requiredFeature && !user?.plan_features?.includes(item.requiredFeature)) continue;
+        if (item.requiredPermission && typeof hasPermission === 'function' && !hasPermission(item.requiredPermission)) continue;
+        map[item.path] = { label: item.label, icon: item.icon, path: item.path };
+      }
+    }
+    return map;
+  }, [user, hasPermission]);
+
+  // Default sections (no custom layout active)
+  const defaultSections = React.useMemo(() => {
     return NAV_SECTIONS.map(section => ({
       ...section,
       items: section.items.filter((item: any) => {
@@ -88,6 +106,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
       return section.items.length > 0;
     });
   }, [user, isAdmin, hasPermission]);
+
+  // Active custom layout sections (if set)
+  const activeLayout = React.useMemo(() => {
+    const { menuLayouts, activeMenuLayoutId } = preferences;
+    if (!activeMenuLayoutId) return null;
+    return menuLayouts.find(l => l.id === activeMenuLayoutId) ?? null;
+  }, [preferences.menuLayouts, preferences.activeMenuLayoutId]);
+
+  const visibleSections = React.useMemo(() => {
+    if (!activeLayout) return defaultSections;
+    return activeLayout.sections
+      .map(section => ({
+        title: section.label,
+        icon: null as React.ReactNode,
+        id: section.id,
+        items: section.items
+          .map(i => allNavMeta[i.navItemPath])
+          .filter(Boolean)
+          .map(meta => ({
+            label: meta.label,
+            path: meta.path,
+            icon: meta.icon,
+          })),
+      }))
+      .filter(s => s.items.length > 0);
+  }, [activeLayout, defaultSections, allNavMeta]);
 
   const tourMap: Record<string, string> = {
     '/agenda': 'agenda', '/pacientes': 'pacientes', '/prontuario': 'prontuarios',
@@ -201,13 +245,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
           </nav>
         </div>
 
-        {/* Logout */}
-        <div className={`p-3 border-t ${headerBorder} ${isDark ? 'bg-slate-950/50' : 'bg-slate-50/50'}`}>
+        {/* Footer actions */}
+        <div className={`p-3 border-t ${headerBorder} ${isDark ? 'bg-slate-950/50' : 'bg-slate-50/50'} space-y-1.5`}>
+          {/* Personalizar menu */}
+          <button
+            onClick={() => setCustomizerOpen(true)}
+            className={`w-full flex items-center justify-center gap-2 p-2 rounded-xl text-xs font-bold transition-all duration-200 ${isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 border border-slate-800 hover:border-slate-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80 border border-slate-200/60 hover:border-indigo-200'}`}
+          >
+            <LayoutGrid size={13}/>
+            <span>Personalizar menu</span>
+            {activeLayout && (
+              <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-500'}`}>
+                {activeLayout.name}
+              </span>
+            )}
+          </button>
+
           <button onClick={onLogout} className={`w-full flex items-center justify-center gap-2 p-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${logoutStyle}`}>
             <LogOut size={15}/> {t('nav.logout')}
           </button>
         </div>
       </aside>
+
+      <MenuCustomizerModal isOpen={customizerOpen} onClose={() => setCustomizerOpen(false)} />
     </>
   );
 };

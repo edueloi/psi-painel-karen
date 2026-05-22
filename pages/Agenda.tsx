@@ -3018,7 +3018,7 @@ export const Agenda: React.FC = () => {
                     })
                   }
                   placeholder="Ex: Sessão de Terapia Analítica..."
-                  containerClassName="md:col-span-2"
+                  wrapperClassName="md:col-span-2"
                 />
 
                 <Combobox
@@ -3117,7 +3117,7 @@ export const Agenda: React.FC = () => {
                       professionalId: e.target.value,
                     })
                   }
-                  containerClassName="md:col-span-2"
+                  wrapperClassName="md:col-span-2"
                 >
                   <option value="">Selecione um profissional</option>
                   {professionals.map((p: any) => (
@@ -3133,7 +3133,7 @@ export const Agenda: React.FC = () => {
                   label="Pacote Base (Opcional)"
                   value={editingComanda.packageId || ''}
                   onChange={(e) => handleSelectPackage(e.target.value)}
-                  containerClassName="md:col-span-2"
+                  wrapperClassName="md:col-span-2"
                 >
                   <option value="">Selecione uma definição de pacote</option>
                   {packages.map((pkg) => (
@@ -3264,7 +3264,7 @@ export const Agenda: React.FC = () => {
                               )
                             }
                             size="sm"
-                            containerClassName="!mb-0"
+                            wrapperClassName="!mb-0"
                           >
                             <option value="">Selecione</option>
                             {services.map((service) => (
@@ -3621,7 +3621,7 @@ export const Agenda: React.FC = () => {
                       <label className="text-[9px] font-black text-violet-500 uppercase tracking-widest block mb-1 ml-1">Nova Data</label>
                       <DatePicker
                         value={detailRescheduleDateTime.date}
-                        onChange={val => setDetailRescheduleDateTime(prev => ({ ...prev, date: val }))}
+                        onChange={val => setDetailRescheduleDateTime(prev => ({ ...prev, date: val ?? '' }))}
                         className="w-full"
                       />
                     </div>
@@ -4121,7 +4121,7 @@ export const Agenda: React.FC = () => {
                                   <div className="w-[125px]">
                                     <DatePicker
                                       value={editAptValues.date}
-                                      onChange={(val) => setEditAptValues(prev => ({ ...prev, date: val }))}
+                                      onChange={(val) => setEditAptValues(prev => ({ ...prev, date: val ?? '' }))}
                                       className="!h-8 !border-slate-200 !rounded-lg text-[11px] font-black"
                                     />
                                   </div>

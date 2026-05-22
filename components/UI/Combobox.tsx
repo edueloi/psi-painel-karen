@@ -32,6 +32,7 @@ interface ComboboxProps {
   emptyMessage?: string;
   showSelectedBadge?: boolean;
   showResultCount?: boolean;
+  icon?: React.ReactNode;
 }
 
 function normalizeStr(str: string) {
@@ -75,6 +76,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
   emptyMessage = "Nenhum resultado encontrado.",
   showSelectedBadge = false,
   showResultCount = false,
+  icon,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -240,6 +242,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
           open && "ring-2 ring-amber-400/40 border-amber-400"
         )}
       >
+        {icon && <span className="shrink-0 flex items-center">{icon}</span>}
         <div className="flex-1 flex flex-wrap gap-1 min-w-0">
           {selectedLabels.length === 0 ? (
             <span className="text-zinc-400 truncate">{placeholder}</span>
