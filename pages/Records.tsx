@@ -10,6 +10,11 @@ import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { GridTable } from '../components/UI/GridTable';
 import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
+import { StatCard } from '../components/UI/StatCard';
+import { Badge } from '../components/UI/Badge';
+import { EmptyState } from '../components/UI/EmptyState';
+import { PanelCard } from '../components/UI/PanelCard';
+import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineDateRange } from '../components/UI/FilterLine';
 import {
   Search, Plus, FileText, Calendar, Clock, Activity, BarChart2,
   Trash2, Eye, EyeOff, Edit3, CheckCircle2, ChevronRight, Loader2,
@@ -46,6 +51,15 @@ const STATUS_COLORS: Record<string, string> = {
   'Revisado': 'bg-purple-100 text-purple-700 border-purple-200',
   'Aprovado': 'bg-emerald-100 text-emerald-700 border-emerald-200',
   'Finalizado': 'bg-indigo-100 text-indigo-700 border-indigo-200',
+};
+const STATUS_BADGE_COLOR: Record<string, 'warning'|'info'|'purple'|'success'|'default'> = {
+  'Rascunho': 'warning', 'Organizado': 'info', 'Revisado': 'purple',
+  'Aprovado': 'success', 'Finalizado': 'info',
+};
+const TYPE_BADGE_COLOR: Record<string, 'purple'|'info'|'teal'|'orange'|'default'> = {
+  'Anamnese': 'purple', 'Evolução': 'info', 'Relatório': 'info',
+  'Avaliação': 'teal', 'Encaminhamento': 'orange', 'Plano Terapêutico': 'purple',
+  'Atestado': 'default',
 };
 const TYPE_LABELS: Record<string, string> = {
   Evolucao: 'Evolução', Anamnese: 'Anamnese', Avaliacao: 'Avaliação',
@@ -1768,7 +1782,7 @@ const RecordEditor: React.FC<{
                           value={draft}
                           onChange={setDraft}
                           placeholder="Escreva tudo o que aconteceu na sessão..."
-                          minHeight={recordType === 'Avaliacao' ? "550px" : "400px"}
+                          minHeight={recordType === 'Avaliacao' ? 550 : 400}
                         />
                         <Button onClick={organizeWithAI} loading={aiLoading} disabled={!draft.trim()} variant="primary"
                           className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3">
@@ -3011,42 +3025,43 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           <div className="flex items-center gap-2">
             {view === 'patient' && (
               <>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => { setSearchParams({}); setView('grid'); setSelectedPatientId(null); setRecords([]); setAnamnesisSends([]); }}
-                  className="h-9 px-3 md:px-4 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase text-slate-600 hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-all"
+                  className="gap-2 uppercase text-xs font-black tracking-widest"
                 >
                   <ArrowLeft size={14}/> <span className="hidden sm:inline">Voltar</span>
-                </button>
+                </Button>
 
-                <div className="flex items-center gap-1 bg-white/50 p-1 rounded-2xl border border-slate-200 shadow-sm">
-                  {([
-                    { key: 'history', label: 'Registros', icon: <History size={13}/> },
-                    { key: 'timeline', label: 'Timeline', icon: <Clock size={13}/> },
-                    { key: 'analysis', label: 'Análise', icon: <BarChart2 size={13}/> },
-                  ] as const).map(tab => (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                      className={`px-3 md:px-4 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tight transition-all flex items-center gap-1.5 ${activeTab === tab.key ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
-                      {tab.icon} <span className="hidden xs:inline">{tab.label}</span>
-                    </button>
-                  ))}
-                </div>
+                <FilterLineSegmented
+                  value={activeTab}
+                  onChange={(v) => setActiveTab(v as typeof activeTab)}
+                  options={[
+                    { value: 'history', label: 'Registros', icon: <History size={13}/> },
+                    { value: 'timeline', label: 'Timeline', icon: <Clock size={13}/> },
+                    { value: 'analysis', label: 'Análise', icon: <BarChart2 size={13}/> },
+                  ]}
+                />
 
-                <button onClick={exportPDF} className="h-9 px-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase text-slate-600 hover:bg-slate-50 flex items-center justify-center sm:gap-2 shadow-sm">
+                <Button variant="ghost" size="sm" onClick={exportPDF} className="gap-2 uppercase text-xs font-black tracking-widest">
                   <Download size={14}/> <span className="hidden sm:inline">PDF</span>
-                </button>
+                </Button>
 
-                <button onClick={openNew} className="h-9 md:h-10 px-3 md:px-6 bg-indigo-600 text-white rounded-xl text-[10px] md:text-[11px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 flex items-center justify-center sm:gap-2 transition-all">
+                <Button variant="primary" size="sm" onClick={openNew} className="gap-2 uppercase text-xs font-black tracking-widest shadow-lg shadow-indigo-100">
                   <Plus size={16}/> <span className="hidden sm:inline">Novo Registro</span>
-                </button>
+                </Button>
               </>
             )}
             {view === 'grid' && (
-              <button
+              <Button
+                variant={showFilters ? 'primary' : 'ghost'}
+                size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className={`h-9 px-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showFilters ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                className="gap-2 uppercase text-xs font-black tracking-widest"
               >
                 <Filter size={14}/> <span className="hidden sm:inline">Filtros</span>
-              </button>
+              </Button>
             )}
           </div>
         }
@@ -3055,62 +3070,63 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
       {/* Linha de Filtros de Tipo (Mobile Friendly) */}
       {view === 'patient' && activeTab === 'history' && (
-        <div className="bg-white/40 p-1.5 rounded-2xl border border-slate-200/50 flex items-center gap-1 overflow-x-auto no-scrollbar animate-fadeIn">
-          <button 
-            onClick={() => setFilterType('')}
-            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${!filterType ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-white hover:text-indigo-600'}`}
-          >
-            Tudo
-          </button>
-          {Object.entries(TYPE_LABELS).map(([key, label]) => (
-            <button 
-              key={key} 
-              onClick={() => setFilterType(key)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${filterType === key ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-white hover:text-indigo-600'}`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="overflow-x-auto no-scrollbar animate-fadeIn">
+          <FilterLineSegmented
+            value={filterType || '__all__'}
+            onChange={(v) => setFilterType(v === '__all__' ? '' : v)}
+            options={[
+              { value: '__all__', label: 'Tudo' },
+              ...Object.entries(TYPE_LABELS).map(([key, label]) => ({ value: key, label })),
+            ]}
+          />
         </div>
       )}
 
-      {/* ─── GRID DE PACIENTES ─── */}      {/* Filtros Expansion */}
+      {/* ─── GRID DE PACIENTES ─── */}
       {showFilters && (
-        <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm mb-6 animate-slideDownFade">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-black text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2">
-              <Filter size={14} className="text-indigo-500"/> Parâmetros de Filtro
-            </h3>
-            <button onClick={() => { setFilterStatus(''); setFilterType(''); setDateFrom(null); setDateTo(null); }} className="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-800">Limpar Tudo</button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase">Status</label>
-              <select className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="">Todos</option>
-                <option value="Rascunho">Rascunho</option>
-                <option value="Revisado">Revisado</option>
-                <option value="Aprovado">Aprovado</option>
-                <option value="Finalizado">Finalizado</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase">Tipo</label>
-              <select className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none" value={filterType} onChange={e => setFilterType(e.target.value)}>
-                <option value="">Todos</option>
-                {Object.entries(TYPE_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase">Desde</label>
-              <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="Início" className="h-10"/>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase">Até</label>
-              <DatePicker value={dateTo} onChange={setDateTo} placeholder="Fim" className="h-10"/>
-            </div>
-          </div>
-        </div>
+        <FilterLine className="animate-slideDownFade">
+          <FilterLineSection grow wrap>
+            <FilterLineItem fullOnMobile minWidth={180}>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Status</label>
+                <select className="w-full h-10 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-bold outline-none focus:border-amber-400 transition" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                  <option value="">Todos</option>
+                  <option value="Rascunho">Rascunho</option>
+                  <option value="Revisado">Revisado</option>
+                  <option value="Aprovado">Aprovado</option>
+                  <option value="Finalizado">Finalizado</option>
+                </select>
+              </div>
+            </FilterLineItem>
+            <FilterLineItem fullOnMobile minWidth={180}>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Tipo</label>
+                <select className="w-full h-10 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-bold outline-none focus:border-amber-400 transition" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                  <option value="">Todos</option>
+                  {Object.entries(TYPE_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+            </FilterLineItem>
+            <FilterLineItem fullOnMobile minWidth={180}>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Período</label>
+                <FilterLineDateRange
+                  from={dateFrom}
+                  to={dateTo}
+                  onFromChange={setDateFrom}
+                  onToChange={setDateTo}
+                  fromLabel="De"
+                  toLabel="Até"
+                />
+              </div>
+            </FilterLineItem>
+          </FilterLineSection>
+          <FilterLineSection align="right">
+            <button onClick={() => { setFilterStatus(''); setFilterType(''); setDateFrom(null); setDateTo(null); }} className="text-[10px] font-black uppercase text-amber-600 hover:text-amber-700 whitespace-nowrap">
+              Limpar Tudo
+            </button>
+          </FilterLineSection>
+        </FilterLine>
       )}
 
       {view === 'grid' && (
@@ -3118,36 +3134,42 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           {/* Stats Cards */}
           {stats && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: 'Total de Registros', value: stats.total, color: 'indigo', icon: <FileText size={20}/> },
-                { label: 'Este Mês', value: stats.thisMonth, color: 'blue', icon: <Calendar size={20}/> },
-                { label: 'Aprovados', value: stats.approved, color: 'emerald', icon: <CheckCircle2 size={20}/> },
-                { label: 'Rascunhos', value: stats.drafts, color: 'amber', icon: <Edit3 size={20}/> },
-              ].map(s => (
-                <div key={s.label} className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl bg-${s.color}-50 text-${s.color}-600 flex items-center justify-center shrink-0`}>{s.icon}</div>
-                  <div>
-                    <div className="text-2xl font-black text-slate-800">{s.value}</div>
-                    <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wide">{s.label}</div>
-                  </div>
-                </div>
-              ))}
+              <StatCard title="Total de Registros" value={stats.total} icon={FileText} color="info" delay={0} />
+              <StatCard title="Este Mês" value={stats.thisMonth} icon={Calendar} color="purple" delay={0.05} />
+              <StatCard title="Aprovados" value={stats.approved} icon={CheckCircle2} color="success" delay={0.1} />
+              <StatCard title="Rascunhos" value={stats.drafts} icon={Edit3} color="warning" delay={0.15} />
             </div>
           )}
 
           {/* Grid de pacientes ou Últimos Registros */}
-          <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="relative w-full sm:w-72">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                <input className="w-full h-10 pl-9 pr-4 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none focus:border-indigo-300 font-medium"
-                  placeholder={showLatestRecords ? "Buscar no histórico..." : "Buscar paciente..."} value={search} onChange={e => setSearch(e.target.value)}/>
-              </div>
-              <div className="flex items-center bg-slate-100 p-1 rounded-xl w-fit">
-                <button onClick={() => setShowLatestRecords(false)} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${!showLatestRecords ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Pacientes</button>
-                <button onClick={() => setShowLatestRecords(true)} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${showLatestRecords ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Últimos Registros</button>
-              </div>
-            </div>
+          <PanelCard
+            title={showLatestRecords ? 'Últimos Registros' : 'Pacientes'}
+            icon={showLatestRecords ? Activity : Users}
+            action={
+              <FilterLine className="border-0 shadow-none p-0">
+                <FilterLineSection>
+                  <FilterLineItem grow>
+                    <FilterLineSearch
+                      value={search}
+                      onChange={setSearch}
+                      placeholder={showLatestRecords ? 'Buscar no histórico...' : 'Buscar paciente...'}
+                      className="w-full sm:w-72"
+                    />
+                  </FilterLineItem>
+                  <FilterLineItem fullOnMobile={false}>
+                    <FilterLineSegmented
+                      value={showLatestRecords ? 'records' : 'patients'}
+                      onChange={(v) => setShowLatestRecords(v === 'records')}
+                      options={[
+                        { value: 'patients', label: 'Pacientes', icon: <Users size={12}/> },
+                        { value: 'records', label: 'Últimos Registros', icon: <Activity size={12}/> },
+                      ]}
+                    />
+                  </FilterLineItem>
+                </FilterLineSection>
+              </FilterLine>
+            }
+          >
 
             {isLoading ? (
               <div className="flex items-center justify-center py-12"><Loader2 size={28} className="text-indigo-400 animate-spin"/></div>
@@ -3184,8 +3206,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 accessor: 'status',
                                 render: (r: MedicalRecord) => (
                                     <div className="flex flex-wrap gap-1.5 items-center">
-                                        <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.status}</span>
-                                        {r.ai_status === 'organized' && <span className="text-[9px] font-black uppercase px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1"><Sparkles size={10}/> IA</span>}
+                                        <Badge size="md" color={STATUS_BADGE_COLOR[r.status] ?? 'default'}>{r.status}</Badge>
+                                        {r.ai_status === 'organized' && <Badge size="md" color="purple" icon={<Sparkles size={9}/>}>IA</Badge>}
                                     </div>
                                 )
                             },
@@ -3255,11 +3277,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                   const isActive = !p.status || ['ativo','active','Ativo','Em Atendimento'].includes(p.status);
                                   return (
                                     <div className="flex flex-col gap-1.5">
-                                      <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm w-fit ${
-                                        isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
-                                      }`}>
-                                        {statusPt}
-                                      </span>
+                                      <Badge color={isActive ? 'success' : 'default'} dot>{statusPt}</Badge>
                                       {lastRec && (
                                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                                           {TYPE_LABELS[lastRec.record_type] || lastRec.record_type}
@@ -3292,7 +3310,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                     />
                 </div>
             )}
-          </div>
+          </PanelCard>
         </div>
       )}
 
@@ -3301,46 +3319,30 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         <div className="space-y-6">
           {/* Stats do paciente */}
           <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Total', value: patientRecords.length, icon: <Layers size={16}/>, color: 'indigo' },
-              { label: 'Aprovados', value: patientRecords.filter(r => r.status === 'Aprovado').length, icon: <CheckCircle2 size={16}/>, color: 'emerald' },
-              { label: 'Rascunhos', value: patientRecords.filter(r => r.status === 'Rascunho').length, icon: <Edit3 size={16}/>, color: 'amber' },
-            ].map(s => (
-              <div key={s.label} className={`bg-white rounded-[20px] border border-${s.color}-100 p-3 md:p-4 shadow-sm flex items-center gap-2 md:gap-3`}>
-                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl bg-${s.color}-50 text-${s.color}-600 flex items-center justify-center shrink-0`}>{s.icon}</div>
-                <div className="min-w-0">
-                  <div className="text-lg md:text-xl font-black text-slate-800">{s.value}</div>
-                  <div className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase truncate">{s.label}</div>
-                </div>
-              </div>
-            ))}
+            <StatCard title="Total" value={patientRecords.length} icon={Layers} color="info" delay={0} />
+            <StatCard title="Aprovados" value={patientRecords.filter(r => r.status === 'Aprovado').length} icon={CheckCircle2} color="success" delay={0.05} />
+            <StatCard title="Rascunhos" value={patientRecords.filter(r => r.status === 'Rascunho').length} icon={Edit3} color="warning" delay={0.1} />
           </div>
 
           {/* Histórico */}
           {activeTab === 'history' && (
             <div className="animate-fadeIn">
               {patientRecords.length === 0 ? (
-                <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden p-20 text-center">
-                  <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 mx-auto mb-4 border border-slate-100">
-                    <BookOpen size={32}/>
-                  </div>
-                  <p className="font-bold text-slate-400 mb-6 uppercase text-[11px] tracking-widest">Nenhuma evolução registrada para este paciente.</p>
-                  <Button onClick={openNew} variant="primary" className="h-11 px-8 gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-indigo-100 transition-all hover:-translate-y-0.5">
-                    <Plus size={18}/> Iniciar Evolução
-                  </Button>
-                </div>
+                <EmptyState
+                  icon={BookOpen}
+                  title="Nenhuma evolução registrada"
+                  description="Este paciente ainda não possui registros clínicos. Inicie a primeira evolução agora."
+                  action={
+                    <Button onClick={openNew} variant="primary" className="h-11 px-8 gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-indigo-100 transition-all hover:-translate-y-0.5">
+                      <Plus size={18}/> Iniciar Evolução
+                    </Button>
+                  }
+                />
               ) : (
                 <>
                   {/* Mobile: card list */}
                   <div className="md:hidden space-y-3">
                     {patientRecords.map((r) => {
-                      const TYPE_COLORS_M: Record<string, string> = {
-                        'Anamnese': 'bg-violet-50 text-violet-700 border-violet-200',
-                        'Evolução': 'bg-indigo-50 text-indigo-700 border-indigo-200',
-                        'Relatório': 'bg-blue-50 text-blue-700 border-blue-200',
-                        'Avaliação': 'bg-cyan-50 text-cyan-700 border-cyan-200',
-                      };
-                      const typeColorM = TYPE_COLORS_M[r.record_type] || 'bg-slate-50 text-slate-500 border-slate-200';
                       const sendForThisRecord = anamnesisSends.find(s => String(s.medical_record_id) === String(r.id));
                       const pat = patients.find(p => String(p.id) === String(r.patient_id));
                       return (
@@ -3357,9 +3359,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-1.5 mb-3">
-                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border ${typeColorM}`}>{TYPE_LABELS[r.record_type] || r.record_type}</span>
-                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.status}</span>
-                            {r.ai_status === 'organized' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1"><Sparkles size={9}/> IA</span>}
+                            <Badge color={TYPE_BADGE_COLOR[TYPE_LABELS[r.record_type]] ?? 'default'}>{TYPE_LABELS[r.record_type] || r.record_type}</Badge>
+                            <Badge color={STATUS_BADGE_COLOR[r.status] ?? 'default'}>{r.status}</Badge>
+                            {r.ai_status === 'organized' && <Badge color="purple" icon={<Sparkles size={9}/>}>IA</Badge>}
                           </div>
                           <div className="flex items-center gap-1.5">
                             {r.record_type === 'Anamnese' && pat && (
@@ -3399,6 +3401,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   <div className="hidden md:block">
                   <GridTable
                     data={patientRecords}
+
                   keyExtractor={(r) => r.id}
                   columns={[
                     {
@@ -3444,25 +3447,13 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       header: 'Tipo / Status',
                       accessor: 'status',
                       render: (r: MedicalRecord) => {
-                        // Cores por tipo de registro
-                        const TYPE_COLORS: Record<string, string> = {
-                          'Anamnese': 'bg-violet-50 text-violet-700 border-violet-200',
-                          'Evolução': 'bg-indigo-50 text-indigo-700 border-indigo-200',
-                          'Relatório': 'bg-blue-50 text-blue-700 border-blue-200',
-                          'Avaliação': 'bg-cyan-50 text-cyan-700 border-cyan-200',
-                          'Sessão': 'bg-teal-50 text-teal-700 border-teal-200',
-                          'Diagnóstico': 'bg-rose-50 text-rose-700 border-rose-200',
-                        };
-                        const typeColor = TYPE_COLORS[r.record_type] || 'bg-slate-50 text-slate-500 border-slate-200';
                         return (
                           <div className="flex flex-wrap gap-1.5 items-center">
-                            <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${typeColor}`}>
+                            <Badge size="md" color={TYPE_BADGE_COLOR[TYPE_LABELS[r.record_type]] ?? 'default'}>
                               {TYPE_LABELS[r.record_type] || r.record_type}
-                            </span>
-                            <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                              {r.status}
-                            </span>
-                            {r.ai_status === 'organized' && <span className="text-[9px] font-black uppercase px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1"><Sparkles size={9}/> IA</span>}
+                            </Badge>
+                            <Badge size="md" color={STATUS_BADGE_COLOR[r.status] ?? 'default'}>{r.status}</Badge>
+                            {r.ai_status === 'organized' && <Badge size="md" color="purple" icon={<Sparkles size={9}/>}>IA</Badge>}
                           </div>
                         );
                       }
@@ -3567,12 +3558,12 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
           {/* Timeline */}
           {activeTab === 'timeline' && selectedPatientId && (
-            <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-5 animate-fadeIn">
+            <PanelCard title="Linha do Tempo" icon={Clock} description="Histórico cronológico de atendimentos" className="animate-fadeIn">
               <PatientTimeline
                 patientId={String(selectedPatientId)}
                 patientName={selectedPatient?.full_name}
               />
-            </div>
+            </PanelCard>
           )}
 
           {/* Análise */}
@@ -3580,55 +3571,45 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             <div className="space-y-4 animate-fadeIn">
               {/* KPI row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  {
-                    label: 'Média / mês',
-                    value: analysisData.stats.avgPerMonth,
-                    sub: 'registros por mês',
-                    icon: <TrendingUp size={15}/>,
-                    color: 'indigo',
-                  },
-                  {
-                    label: 'Taxa de aprovação',
-                    value: `${analysisData.stats.approvalRate}%`,
-                    sub: `${analysisData.byStatus.find(s => s.name === 'Aprovado')?.value ?? 0} de ${analysisData.stats.total} aprovados`,
-                    icon: <CheckCircle2 size={15}/>,
-                    color: 'emerald',
-                  },
-                  {
-                    label: 'Duração média',
-                    value: analysisData.stats.avgDuration ? `${analysisData.stats.avgDuration} min` : '—',
-                    sub: analysisData.stats.avgDuration ? 'por sessão registrada' : 'sem horários registrados',
-                    icon: <Clock size={15}/>,
-                    color: 'violet',
-                  },
-                  {
-                    label: 'Período',
-                    value: analysisData.stats.firstDate ? fmtDate(analysisData.stats.firstDate) : '—',
-                    sub: analysisData.stats.lastDate && analysisData.stats.firstDate !== analysisData.stats.lastDate ? `até ${fmtDate(analysisData.stats.lastDate)}` : 'único registro',
-                    icon: <CalendarDays size={15}/>,
-                    color: 'amber',
-                  },
-                ].map(k => (
-                  <div key={k.label} className={`bg-white rounded-[20px] border border-${k.color}-100 p-4 shadow-sm`}>
-                    <div className={`w-8 h-8 rounded-xl bg-${k.color}-50 text-${k.color}-600 flex items-center justify-center mb-3`}>{k.icon}</div>
-                    <div className="text-xl font-black text-slate-800 leading-none mb-1">{k.value}</div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{k.label}</div>
-                    <div className="text-[9px] font-medium text-slate-300 mt-0.5 truncate">{k.sub}</div>
-                  </div>
-                ))}
+                <StatCard
+                  title="Média / mês"
+                  value={analysisData.stats.avgPerMonth}
+                  icon={TrendingUp}
+                  color="info"
+                  description="registros por mês"
+                  delay={0}
+                />
+                <StatCard
+                  title="Taxa de aprovação"
+                  value={`${analysisData.stats.approvalRate}%`}
+                  icon={CheckCircle2}
+                  color="success"
+                  description={`${analysisData.byStatus.find(s => s.name === 'Aprovado')?.value ?? 0} de ${analysisData.stats.total} aprovados`}
+                  delay={0.05}
+                />
+                <StatCard
+                  title="Duração média"
+                  value={analysisData.stats.avgDuration ? `${analysisData.stats.avgDuration} min` : '—'}
+                  icon={Clock}
+                  color="purple"
+                  description={analysisData.stats.avgDuration ? 'por sessão registrada' : 'sem horários registrados'}
+                  delay={0.1}
+                />
+                <StatCard
+                  title="Período"
+                  value={analysisData.stats.firstDate ? fmtDate(analysisData.stats.firstDate) : '—'}
+                  icon={CalendarDays}
+                  color="warning"
+                  description={analysisData.stats.lastDate && analysisData.stats.firstDate !== analysisData.stats.lastDate ? `até ${fmtDate(analysisData.stats.lastDate)}` : 'único registro'}
+                  delay={0.15}
+                />
               </div>
 
               {/* Charts row */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Evolução por mês — ocupa 2 colunas */}
-                <div className="lg:col-span-2 bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Registros por Mês</h3>
-                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Frequência de atendimentos ao longo do tempo</p>
-                    </div>
-                  </div>
+                <PanelCard className="lg:col-span-2" title="Registros por Mês" icon={BarChart2} description="Frequência de atendimentos ao longo do tempo">
+                  <div>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={analysisData.byMonth} barSize={32}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
@@ -3642,47 +3623,38 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       <Bar dataKey="count" fill="#4f46e5" radius={[8, 8, 0, 0]}/>
                     </BarChart>
                   </ResponsiveContainer>
-                </div>
+                  </div>
+                </PanelCard>
 
                 {/* Status donut */}
-                <div className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm flex flex-col">
-                  <div className="mb-4">
-                    <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Status</h3>
-                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">Distribuição atual dos registros</p>
-                  </div>
-                  <div className="flex-1 flex flex-col justify-center">
-                    <ResponsiveContainer width="100%" height={160}>
-                      <PieChart>
-                        <Pie data={analysisData.byStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3}>
-                          {analysisData.byStatus.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>)}
-                        </Pie>
-                        <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', fontSize: 12, fontWeight: 700 }}/>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex flex-col gap-2 mt-2">
-                      {analysisData.byStatus.map((s, i) => (
-                        <div key={s.name} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
-                            <span className="text-[11px] font-bold text-slate-600">{s.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-black text-slate-800">{s.value}</span>
-                            <span className="text-[9px] font-bold text-slate-300">{Math.round((s.value / analysisData.stats.total) * 100)}%</span>
-                          </div>
+                <PanelCard title="Status" icon={Activity} description="Distribuição atual dos registros" contentClassName="flex flex-col justify-center">
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={analysisData.byStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3}>
+                        {analysisData.byStatus.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>)}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', fontSize: 12, fontWeight: 700 }}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-col gap-2 mt-2">
+                    {analysisData.byStatus.map((s, i) => (
+                      <div key={s.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
+                          <span className="text-[11px] font-bold text-zinc-600">{s.name}</span>
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-black text-zinc-800">{s.value}</span>
+                          <span className="text-[9px] font-bold text-zinc-300">{Math.round((s.value / analysisData.stats.total) * 100)}%</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                </PanelCard>
               </div>
 
               {/* Tipo de registro — barra horizontal proporcional */}
-              <div className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm">
-                <div className="mb-4">
-                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Tipos de Registro</h3>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">Distribuição por categoria de prontuário</p>
-                </div>
+              <PanelCard title="Tipos de Registro" icon={Layers} description="Distribuição por categoria de prontuário">
                 <div className="space-y-3">
                   {analysisData.byType.map((t, i) => {
                     const pct = Math.round((t.value / analysisData.stats.total) * 100);
@@ -3691,21 +3663,21 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
-                            <span className="text-[11px] font-black text-slate-700">{t.name}</span>
+                            <span className="text-[11px] font-black text-zinc-700">{t.name}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-black text-slate-800">{t.value}</span>
-                            <span className="text-[9px] font-bold text-slate-400 w-8 text-right">{pct}%</span>
+                            <span className="text-[11px] font-black text-zinc-800">{t.value}</span>
+                            <span className="text-[9px] font-bold text-zinc-400 w-8 text-right">{pct}%</span>
                           </div>
                         </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: PIE_COLORS[i % PIE_COLORS.length] }}/>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              </PanelCard>
             </div>
           )}
         </div>

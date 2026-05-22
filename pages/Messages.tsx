@@ -7,11 +7,12 @@ import {
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper } from '../components/UI';
-import { Input, Select } from '../components/UI/Input';
+import { Input } from '../components/UI/Input';
 import { GridTable } from '../components/UI/GridTable';
 import { Combobox } from '../components/UI/Combobox';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { useAuth } from '../contexts/AuthContext';
 import { PageHeader } from '../components/UI/PageHeader';
 
 // ── Variáveis disponíveis ─────────────────────────────────────────────────────
@@ -111,6 +112,7 @@ function htmlToContent(html: string): string {
 export const Messages: React.FC = () => {
   const { pushToast } = useToast();
   const { preferences, updatePreference } = useUserPreferences();
+  const { user } = useAuth();
 
   const [templates, setTemplates]           = useState<MessageTemplate[]>([]);
   const [searchTerm, setSearchTerm]         = useState('');
@@ -137,10 +139,14 @@ export const Messages: React.FC = () => {
   // Modal envio WhatsApp
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [recipients, setRecipients]         = useState<any[]>([]);
+  const [patients, setPatients]             = useState<any[]>([]);
   const [isRecipientsLoading, setIsRecipientsLoading] = useState(false);
+  const [recipientTab, setRecipientTab]     = useState<'professional' | 'patient'>('professional');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>('');
   const [recipientStatusFilter, setRecipientStatusFilter] = useState<'all' | 'ativo' | 'inativo'>('all');
   const [sendTemplate, setSendTemplate]     = useState<MessageTemplate | null>(null);
+  const [botStatus, setBotStatus]           = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
+  const [isSendingBot, setIsSendingBot]     = useState(false);
   const [sendMeta, setSendMeta]             = useState({
     appointmentDate: new Date().toISOString().split('T')[0],
     appointmentTime: '',
@@ -220,13 +226,14 @@ export const Messages: React.FC = () => {
   [filteredTemplates, currentPage, itemsPerPage]);
 
   const filteredRecipients = useMemo(() => {
-    return recipients.filter(p => {
-      const active = p.is_active ?? p.active ?? true;
-      if (recipientStatusFilter === 'ativo')   return active === 1 || active === true;
-      if (recipientStatusFilter === 'inativo') return active === 0 || active === false;
+    const list = recipientTab === 'professional' ? recipients : patients;
+    return list.filter(p => {
+      const active = p.is_active ?? p.active ?? p.status ?? true;
+      if (recipientStatusFilter === 'ativo')   return active === 1 || active === true || active === 'ativo' || active === 'active' || active === 'Ativo';
+      if (recipientStatusFilter === 'inativo') return active === 0 || active === false || active === 'inativo' || active === 'inactive';
       return true;
     });
-  }, [recipients, recipientStatusFilter]);
+  }, [recipients, patients, recipientStatusFilter, recipientTab]);
 
   const recipientOptions = useMemo(() =>
     filteredRecipients.map(p => ({
@@ -366,41 +373,76 @@ export const Messages: React.FC = () => {
 
   const previewMessage = useMemo(() => {
     if (!sendTemplate || !selectedRecipientId) return '';
-    const recipient = recipients.find(p => String(p.id) === selectedRecipientId);
+    const list = recipientTab === 'professional' ? recipients : patients;
+    const recipient = list.find(p => String(p.id) === selectedRecipientId);
     return recipient ? fillTemplate(sendTemplate.content, recipient) : '';
-  }, [sendTemplate, selectedRecipientId, sendMeta, recipients]);
+  }, [sendTemplate, selectedRecipientId, sendMeta, recipients, patients, recipientTab]);
 
   const handleOpenSendModal = async (template: MessageTemplate) => {
     setSendTemplate(template);
     setSelectedRecipientId('');
+    setRecipientTab('professional');
+    setSendMeta(prev => ({
+      ...prev,
+      appointmentDate: new Date().toISOString().split('T')[0],
+      clinic: prev.clinic || user?.companyName || '',
+    }));
     setIsSendModalOpen(true);
-    if (recipients.length === 0) {
-      setIsRecipientsLoading(true);
-      try {
-        const rows = await api.get<any[]>('/users');
-        setRecipients(rows || []);
-      } catch (err: any) {
-        pushToast('error', 'Equipe', err.message || 'Erro ao carregar profissionais');
-      } finally {
-        setIsRecipientsLoading(false);
+    setIsRecipientsLoading(true);
+    try {
+      const [usersRows, patientsRows, statusRes] = await Promise.allSettled([
+        recipients.length === 0 ? api.get<any[]>('/users') : Promise.resolve(recipients),
+        patients.length === 0   ? api.get<any[]>('/patients') : Promise.resolve(patients),
+        api.get<any>('/whatsapp/status'),
+      ]);
+      if (usersRows.status === 'fulfilled')   setRecipients(usersRows.value || []);
+      if (patientsRows.status === 'fulfilled') setPatients(patientsRows.value || []);
+      if (statusRes.status === 'fulfilled') {
+        const s = statusRes.value;
+        setBotStatus(s?.status === 'connected' || s?.connected ? 'connected' : 'disconnected');
       }
+    } catch {
+      // silently ignore
+    } finally {
+      setIsRecipientsLoading(false);
     }
   };
 
-  const handleSendWhatsApp = () => {
-    if (!sendTemplate) return;
-    if (!selectedRecipientId) {
-      pushToast('error', 'Selecione um destinatário.');
-      return;
-    }
-    const recipient = recipients.find(p => String(p.id) === selectedRecipientId);
+  const allSendRecipients = recipientTab === 'professional' ? recipients : patients;
+
+  const handleRecipientTabChange = (tab: 'professional' | 'patient') => {
+    setRecipientTab(tab);
+    setSelectedRecipientId('');
+  };
+
+  const handleSendManual = () => {
+    if (!sendTemplate || !selectedRecipientId) { pushToast('error', 'Selecione um destinatário.'); return; }
+    const recipient = allSendRecipients.find(p => String(p.id) === selectedRecipientId);
     if (!recipient) return;
     const phone = normalizePhone(recipient.phone || recipient.whatsapp);
-    if (!phone) { pushToast('error', 'Telefone Ausente', `Sem telefone cadastrado para: ${recipient.name}`); return; }
+    if (!phone) { pushToast('error', 'Telefone Ausente', `Sem telefone cadastrado para: ${recipient.name || recipient.full_name}`); return; }
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(fillTemplate(sendTemplate.content, recipient))}`;
     window.open(url, '_blank');
-    pushToast('success', 'Agenda', 'WhatsApp aberto com sucesso!');
+    pushToast('success', 'WhatsApp aberto com sucesso!');
     setIsSendModalOpen(false);
+  };
+
+  const handleSendBot = async () => {
+    if (!sendTemplate || !selectedRecipientId) { pushToast('error', 'Selecione um destinatário.'); return; }
+    const recipient = allSendRecipients.find(p => String(p.id) === selectedRecipientId);
+    if (!recipient) return;
+    const phone = normalizePhone(recipient.phone || recipient.whatsapp);
+    if (!phone) { pushToast('error', 'Telefone Ausente', `Sem telefone cadastrado para: ${recipient.name || recipient.full_name}`); return; }
+    setIsSendingBot(true);
+    try {
+      await api.post('/whatsapp/test', { phone, message: fillTemplate(sendTemplate.content, recipient) });
+      pushToast('success', 'Mensagem enviada automaticamente via bot!');
+      setIsSendModalOpen(false);
+    } catch (err: any) {
+      pushToast('error', err.message || 'Erro ao enviar via bot. Tente envio manual.');
+    } finally {
+      setIsSendingBot(false);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -576,11 +618,9 @@ export const Messages: React.FC = () => {
                 </div>
 
                 {/* Content preview */}
-                <div className="mx-5 mb-4 flex-1 bg-slate-50 rounded-xl border border-slate-100 p-4">
-                  <p className="text-sm text-slate-600 leading-relaxed line-clamp-4 whitespace-pre-wrap">
-                    {template.content}
-                  </p>
-                </div>
+                <div className="mx-5 mb-4 flex-1 bg-slate-50 rounded-xl border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed line-clamp-4"
+                  dangerouslySetInnerHTML={{ __html: contentToHtml(template.content).replace(/<br>/g, ' ') }}
+                />
 
                 {/* Actions */}
                 <div className="px-5 pb-5 flex items-center gap-2">
@@ -743,15 +783,16 @@ export const Messages: React.FC = () => {
                   <Button variant="ghost" size="sm" onClick={() => setShowNewCat(false)}>✕</Button>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <Select
-                    value={currentTemplate.category || 'Lembrete'}
-                    onChange={e => setCurrentTemplate({ ...currentTemplate, category: e.target.value })}
-                    className="flex-1"
-                  >
-                    {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                  </Select>
-                  <Button variant="ghost" size="sm" onClick={() => setShowNewCat(true)} title="Nova categoria">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Combobox
+                      options={allCategories.map(c => ({ id: c, label: c }))}
+                      value={currentTemplate.category || 'Lembrete'}
+                      onChange={(val) => setCurrentTemplate({ ...currentTemplate, category: String(val) })}
+                      placeholder="Selecionar categoria..."
+                    />
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setShowNewCat(true)} title="Nova categoria" className="shrink-0 h-10">
                     <Tag size={14} />
                   </Button>
                 </div>
@@ -809,126 +850,167 @@ export const Messages: React.FC = () => {
         onClose={() => setIsSendModalOpen(false)}
         title="Enviar via WhatsApp"
         subtitle={sendTemplate ? `Modelo: ${sendTemplate.title}` : undefined}
-        size="lg"
+        size="xl"
         footer={
           <ModalFooter>
             <Button variant="ghost" onClick={() => setIsSendModalOpen(false)}>Cancelar</Button>
+            {botStatus === 'connected' && (
+              <Button
+                variant="primary"
+                iconLeft={<Send size={15} />}
+                onClick={handleSendBot}
+                loading={isSendingBot}
+                disabled={!selectedRecipientId}
+                className="bg-emerald-600 border-emerald-600 hover:bg-emerald-700"
+              >
+                Enviar pelo Bot
+              </Button>
+            )}
             <Button
               variant="success"
               iconLeft={<Send size={15} />}
-              onClick={handleSendWhatsApp}
+              onClick={handleSendManual}
               disabled={!selectedRecipientId}
             >
-              Enviar via WhatsApp
+              Abrir WhatsApp
             </Button>
           </ModalFooter>
         }
       >
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                {/* Destinatário (Equipe) — Combobox + filtro status */}
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Users size={12} /> Profissional / Parceiro
-                  </label>
-                  <p className="text-[10px] text-slate-400 font-medium leading-none mb-1">Selecione um membro da equipe para enviar</p>
+            {/* ── Lado esquerdo: destinatário ── */}
+            <div className="space-y-3">
+              {/* Status do bot */}
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${botStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : botStatus === 'disconnected' ? 'bg-rose-400' : 'bg-slate-300'}`} />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Bot {botStatus === 'connected' ? 'conectado — envio automático disponível' : botStatus === 'disconnected' ? 'desconectado — apenas envio manual' : 'verificando...'}
+                </span>
+              </div>
 
-                  <div className="flex gap-1.5">
-                    {(['all', 'ativo', 'inativo'] as const).map(opt => (
-                      <button
-                        key={opt}
-                        onClick={() => setRecipientStatusFilter(opt)}
-                        className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          recipientStatusFilter === opt
-                            ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-100'
-                            : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                        }`}
-                      >
-                        {opt === 'all' ? 'Todos' : opt === 'ativo' ? 'Ativos' : 'Inativos'}
-                      </button>
-                    ))}
-                  </div>
+              {/* Tabs Profissional / Paciente */}
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                {([
+                  { key: 'professional', label: 'Profissional', icon: <Users size={12}/> },
+                  { key: 'patient',      label: 'Paciente',     icon: <MessageSquare size={12}/> },
+                ] as const).map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => handleRecipientTabChange(tab.key)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
+                      recipientTab === tab.key
+                        ? 'bg-white text-indigo-600 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
 
-                  {isRecipientsLoading ? (
-                    <div className="flex items-center gap-2 py-3 text-slate-400 text-sm italic">
-                      <Loader2 size={16} className="animate-spin" /> Carregando equipe...
-                    </div>
-                  ) : (
-                    <Combobox
-                      label="Selecionar parceiro"
-                      options={recipientOptions}
-                      value={selectedRecipientId}
-                      onChange={(id) => setSelectedRecipientId(String(id))}
-                      placeholder="Buscar por nome..."
-                      showSelectedBadge
-                      showResultCount
-                    />
-                  )}
+              {/* Filtro status */}
+              <div className="flex gap-1.5">
+                {(['all', 'ativo', 'inativo'] as const).map(opt => (
+                  <button
+                    key={opt}
+                    onClick={() => { setRecipientStatusFilter(opt); setSelectedRecipientId(''); }}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                      recipientStatusFilter === opt
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                    }`}
+                  >
+                    {opt === 'all' ? 'Todos' : opt === 'ativo' ? 'Ativos' : 'Inativos'}
+                  </button>
+                ))}
+              </div>
 
-                  {selectedRecipientId && (() => {
-                    const r = recipients.find(x => String(x.id) === selectedRecipientId);
-                    if (!r) return null;
-                    const phoneSize = normalizePhone(r.phone || r.whatsapp).length;
-                    return (
-                      <div className="bg-slate-50 rounded-2xl border border-slate-200 px-4 py-3 text-sm space-y-0.5 animate-fadeIn">
-                        <p className="font-black text-slate-700 uppercase text-[11px]">{r.name || r.full_name}</p>
-                        <p className="text-xs text-slate-400 font-medium">{r.phone || r.whatsapp || r.email || 'Sem contato'}</p>
-                        {phoneSize < 8 && (
-                          <p className="text-[10px] text-rose-500 font-black uppercase mt-1">⚠ Sem telefone válido no cadastro</p>
-                        )}
-                      </div>
-                    );
-                  })()}
+              {/* Combobox destinatário */}
+              {isRecipientsLoading ? (
+                <div className="flex items-center gap-2 py-3 text-slate-400 text-sm italic">
+                  <Loader2 size={16} className="animate-spin" /> Carregando...
                 </div>
+              ) : (
+                <Combobox
+                  label={recipientTab === 'professional' ? 'Selecionar profissional' : 'Selecionar paciente'}
+                  options={recipientOptions}
+                  value={selectedRecipientId}
+                  onChange={(id) => setSelectedRecipientId(String(id))}
+                  placeholder="Buscar por nome..."
+                  showSelectedBadge
+                  showResultCount
+                />
+              )}
 
-                {/* Dados variáveis + preview */}
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">Dados da Mensagem</label>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: 'Data', type: 'date', key: 'appointmentDate' },
-                      { label: 'Horário', type: 'time', key: 'appointmentTime' },
-                      { label: 'Serviço', type: 'text', key: 'service', placeholder: 'Ex: Consulta' },
-                      { label: 'Valor (R$)', type: 'text', key: 'total', placeholder: 'Ex: 150,00' },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label className="block text-xs font-semibold text-slate-500 mb-1">{f.label}</label>
-                        <input
-                          type={f.type}
-                          value={(sendMeta as any)[f.key]}
-                          onChange={e => setSendMeta({ ...sendMeta, [f.key]: e.target.value })}
-                          placeholder={f.placeholder}
-                          className="w-full p-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
-                        />
-                      </div>
-                    ))}
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Nome da Clínica</label>
-                      <input
-                        type="text"
-                        value={sendMeta.clinic}
-                        onChange={e => setSendMeta({ ...sendMeta, clinic: e.target.value })}
-                        placeholder="Ex: PsiFlux"
-                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
-                      />
-                    </div>
+              {/* Card com dados do selecionado */}
+              {selectedRecipientId && (() => {
+                const r = allSendRecipients.find(x => String(x.id) === selectedRecipientId);
+                if (!r) return null;
+                const phone = normalizePhone(r.phone || r.whatsapp);
+                return (
+                  <div className="bg-slate-50 rounded-2xl border border-slate-200 px-4 py-3 space-y-0.5 animate-fadeIn">
+                    <p className="font-black text-slate-700 text-sm">{r.name || r.full_name}</p>
+                    <p className="text-xs text-slate-400 font-medium">{r.phone || r.whatsapp || 'Sem telefone'}</p>
+                    {r.email && <p className="text-xs text-slate-400">{r.email}</p>}
+                    {phone.length < 8 && (
+                      <p className="text-[10px] text-rose-500 font-black uppercase mt-1 flex items-center gap-1">
+                        <AlertTriangle size={10}/> Sem telefone válido no cadastro
+                      </p>
+                    )}
+                    {phone.length >= 8 && botStatus === 'connected' && (
+                      <p className="text-[10px] text-emerald-600 font-bold mt-1">Bot irá enviar para: +{phone}</p>
+                    )}
                   </div>
-
-                  {/* Preview */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">
-                      Preview
-                    </label>
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed min-h-[80px]">
-                      {previewMessage || (
-                        <span className="text-slate-400 italic font-medium text-xs">Selecione um destinatário para visualizar a mensagem.</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                );
+              })()}
             </div>
+
+            {/* ── Lado direito: dados + preview ── */}
+            <div className="space-y-4">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">Dados da Mensagem</label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Data', type: 'date', key: 'appointmentDate' },
+                  { label: 'Horário', type: 'time', key: 'appointmentTime' },
+                  { label: 'Serviço', type: 'text', key: 'service', placeholder: 'Ex: Consulta' },
+                  { label: 'Valor (R$)', type: 'text', key: 'total', placeholder: 'Ex: 150,00' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">{f.label}</label>
+                    <input
+                      type={f.type}
+                      value={(sendMeta as any)[f.key]}
+                      onChange={e => setSendMeta({ ...sendMeta, [f.key]: e.target.value })}
+                      placeholder={(f as any).placeholder}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
+                    />
+                  </div>
+                ))}
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Nome da Clínica</label>
+                  <input
+                    type="text"
+                    value={sendMeta.clinic}
+                    onChange={e => setSendMeta({ ...sendMeta, clinic: e.target.value })}
+                    placeholder="Ex: PsiFlux"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Preview</label>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed min-h-[100px]">
+                  {previewMessage || (
+                    <span className="text-slate-400 italic font-medium text-xs">Selecione um destinatário para visualizar a mensagem.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </Modal>
 
