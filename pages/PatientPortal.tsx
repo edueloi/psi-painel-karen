@@ -11,6 +11,9 @@ import {
 import { API_BASE_URL } from "../services/api";
 import { Input, Select, Textarea } from "../components/UI/Input";
 import { Button, IconButton } from "../components/UI";
+import { Combobox } from "../components/UI/Combobox";
+import { Badge } from "../components/UI/Badge";
+import { EmptyState } from "../components/UI/EmptyState";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 interface EmergencyContact {
@@ -155,15 +158,14 @@ function fmtCurrency(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function StatusBadge({ status, map }: { status: string; map: Record<string, any> }) {
-  const cfg = map[status] || { label: status, color: "text-slate-600", bg: "bg-slate-100 border-slate-200", dot: "bg-slate-400" };
-  return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.color} ${cfg.bg}`}>
-      {cfg.dot && <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />}
-      {cfg.label}
-    </span>
-  );
-}
+// Badge color mappings for portal statuses
+const STATUS_BADGE_COLOR: Record<string, "info" | "success" | "default" | "danger" | "warning"> = {
+  scheduled: "info", confirmed: "success", completed: "default",
+  cancelled: "danger", "no-show": "warning",
+};
+const PAYMENT_BADGE_COLOR: Record<string, "warning" | "success" | "danger"> = {
+  pending: "warning", confirmed: "success", rejected: "danger",
+};
 
 type ToastType = "success" | "error" | "info";
 function Toast({ msg, type = "success", onClose }: { msg: string; type?: ToastType; onClose: () => void }) {
@@ -250,7 +252,7 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
               <div className="absolute -right-2 -bottom-6 w-20 h-20 bg-white/5 rounded-full pointer-events-none" />
               <div className="flex items-center gap-1.5 mb-3">
                 <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Próxima consulta</span>
-                <StatusBadge status={next.status} map={STATUS_CONFIG} />
+                <Badge color={STATUS_BADGE_COLOR[next.status] || "default"} dot>{STATUS_CONFIG[next.status]?.label || next.status}</Badge>
               </div>
               <div className="flex items-center gap-3">
                 <div className="bg-white/15 rounded-xl p-3 shrink-0">
@@ -320,7 +322,7 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
                       <p className="text-xs text-slate-400">{fmtTime(a.start_date)}</p>
                     </div>
                   </div>
-                  <StatusBadge status={a.status} map={STATUS_CONFIG} />
+                  <Badge color={STATUS_BADGE_COLOR[a.status] || "default"} dot>{STATUS_CONFIG[a.status]?.label || a.status}</Badge>
                 </div>
               ))}
             </div>
@@ -339,7 +341,7 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
                     <p className="text-sm font-semibold text-slate-600">{fmtDate(a.start_date, { day: "numeric", month: "short", year: "numeric" })}</p>
                     <p className="text-xs text-slate-400">{fmtTime(a.start_date)}</p>
                   </div>
-                  <StatusBadge status={a.status} map={STATUS_CONFIG} />
+                  <Badge color={STATUS_BADGE_COLOR[a.status] || "default"} dot>{STATUS_CONFIG[a.status]?.label || a.status}</Badge>
                 </div>
               ))}
             </div>
@@ -483,9 +485,17 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   allowSchedule: boolean;
   showToast: (msg: string, type?: ToastType) => void;
 }) {
-  const [mode, setMode] = useState<"list" | "schedule">("list");
+  const [mode, setMode] = useState<"list" | "schedule" | "reschedule">("list");
   const [loading, setLoading] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
+  const [rescheduleAppt, setRescheduleAppt] = useState<PortalAppointment | null>(null);
+  const [actionApptId, setActionApptId] = useState<number | null>(null); // qual card está com menu aberto
+
+  // Retorna true se a consulta está a mais de 24h de distância (pode cancelar/reagendar)
+  const canModify = (appt: PortalAppointment) => {
+    const diff = new Date(appt.start_date).getTime() - Date.now();
+    return diff > 24 * 60 * 60 * 1000;
+  };
 
   // Schedule flow state
   const [step, setStep] = useState<"calendar" | "slots" | "confirm">("calendar");
@@ -572,7 +582,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
   // Carrega mês inicial quando entra no fluxo de agendamento
   useEffect(() => {
-    if (mode === "schedule" && schedForm.professional_id) {
+    if ((mode === "schedule" || mode === "reschedule") && schedForm.professional_id) {
       const now = new Date();
       loadMonthAvailability(schedForm.professional_id, now.getFullYear(), now.getMonth());
     }
@@ -632,29 +642,87 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     } finally { setLoading(false); setCancelId(null); }
   };
 
+  const startReschedule = (appt: PortalAppointment) => {
+    setRescheduleAppt(appt);
+    setActionApptId(null);
+    setSchedForm(f => ({
+      ...f,
+      professional_id: professionals[0]?.id?.toString() || "",
+      date: "",
+      time: "",
+      modality: appt.modality || "online",
+      notes: appt.notes || "",
+    }));
+    setStep("calendar");
+    setMode("reschedule");
+    const now = new Date();
+    loadMonthAvailability(professionals[0]?.id?.toString() || "", now.getFullYear(), now.getMonth());
+  };
+
+  const submitReschedule = async () => {
+    if (!rescheduleAppt) return;
+    setLoading(true);
+    try {
+      // Cancela a consulta atual e cria uma nova
+      const cancelRes = await portalFetch(`/appointments/${rescheduleAppt.id}/cancel`, { method: "PATCH", body: "{}" });
+      if (!cancelRes.ok) { const e = await cancelRes.json(); showToast(e.error || "Erro ao cancelar consulta anterior.", "error"); return; }
+      const res = await portalFetch("/appointments", {
+        method: "POST",
+        body: JSON.stringify({
+          professional_id: parseInt(schedForm.professional_id),
+          date: schedForm.date,
+          time: schedForm.time,
+          modality: schedForm.modality,
+          notes: schedForm.notes,
+        }),
+      });
+      if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao reagendar.", "error"); return; }
+      showToast("Consulta reagendada com sucesso!", "success");
+      setMode("list");
+      setStep("calendar");
+      setRescheduleAppt(null);
+      onRefresh();
+    } finally { setLoading(false); }
+  };
+
   const bookedDates = appointments
     .filter(a => ["scheduled", "confirmed"].includes(a.status))
     .map(a => a.start_date?.split("T")[0] || "");
 
   const selectedProf = professionals.find(p => p.id.toString() === schedForm.professional_id);
 
-  // ─── SCHEDULE FLOW ───────────────────────────────────────────────────────────
-  if (mode === "schedule") {
+  // ─── SCHEDULE / RESCHEDULE FLOW ─────────────────────────────────────────────
+  if (mode === "schedule" || mode === "reschedule") {
+    const isReschedule = mode === "reschedule";
     return (
       <div className="space-y-4 pb-6">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => { setMode("list"); setStep("calendar"); }}
-            className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50">
+          <Button variant="ghost" size="sm" onClick={() => { setMode("list"); setStep("calendar"); setRescheduleAppt(null); }}>
             <ArrowLeft size={16} />
-          </button>
+          </Button>
           <div>
-            <h2 className="text-base font-black text-slate-800">Agendar Consulta</h2>
+            <h2 className="text-base font-black text-slate-800">
+              {isReschedule ? "Reagendar Consulta" : "Agendar Consulta"}
+            </h2>
             <p className="text-xs text-slate-400">
-              {step === "calendar" ? "Escolha a data" : step === "slots" ? "Escolha o horário" : "Confirmar agendamento"}
+              {step === "calendar" ? "Escolha a nova data" : step === "slots" ? "Escolha o horário" : "Confirmar"}
             </p>
           </div>
         </div>
+
+        {/* Banner de reagendamento — consulta original */}
+        {isReschedule && rescheduleAppt && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+            <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-black text-amber-700">Reagendando consulta</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                {fmtDate(rescheduleAppt.start_date, { weekday: "short", day: "numeric", month: "short" })} às {fmtTime(rescheduleAppt.start_date)} será cancelada ao confirmar.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Seletor de profissional */}
         {professionals.length > 1 && (
@@ -721,15 +789,15 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               <p className="text-xs font-black text-slate-400 uppercase tracking-wider">
                 {schedForm.date ? new Date(schedForm.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) : ""}
               </p>
-              <button onClick={() => setStep("calendar")} className="text-xs text-indigo-600 font-bold hover:underline">
+              <Button variant="ghost" size="sm" onClick={() => setStep("calendar")} className="text-indigo-600">
                 ← Mudar data
-              </button>
+              </Button>
             </div>
             {slots.filter(s => s.available).length === 0 ? (
               <div className="text-center py-6">
                 <p className="text-slate-500 font-bold text-sm">Nenhum horário disponível</p>
                 <p className="text-slate-400 text-xs mt-1">Escolha outra data</p>
-                <button onClick={() => setStep("calendar")} className="mt-3 text-xs text-indigo-600 font-bold underline">← Voltar ao calendário</button>
+                <Button variant="ghost" size="sm" onClick={() => setStep("calendar")} className="mt-3 text-indigo-600">← Voltar ao calendário</Button>
               </div>
             ) : (
               <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
@@ -787,24 +855,27 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
             </div>
 
             <div>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Observações (opcional)</p>
-              <textarea value={schedForm.notes} onChange={e => setSchedForm(f => ({ ...f, notes: e.target.value }))}
-                rows={2} placeholder="Ex.: prefiro câmera desligada..."
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:border-indigo-400 resize-none" />
+              <Textarea label="Observações (opcional)" rows={2} placeholder="Ex.: prefiro câmera desligada..."
+                value={schedForm.notes} onChange={e => setSchedForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
 
             <div className="space-y-2">
-              <button onClick={submitDirect} disabled={loading}
-                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-                {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                {loading ? "Agendando..." : "Confirmar Agendamento"}
-              </button>
-              <button onClick={submitRequest} disabled={loading}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-                <Send size={14} /> Enviar como Solicitação
-              </button>
+              {isReschedule ? (
+                <Button variant="primary" onClick={submitReschedule} loading={loading} loadingText="Reagendando..." iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+                  Confirmar Reagendamento
+                </Button>
+              ) : (
+                <>
+                  <Button variant="primary" onClick={submitDirect} loading={loading} loadingText="Agendando..." iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+                    Confirmar Agendamento
+                  </Button>
+                  <Button variant="ghost" onClick={submitRequest} disabled={loading} className="w-full">
+                    <Send size={14} /> Enviar como Solicitação
+                  </Button>
+                </>
+              )}
             </div>
-            <button onClick={() => setStep("slots")} className="w-full text-xs text-slate-400 hover:text-slate-600 text-center">← Escolher outro horário</button>
+            <Button variant="ghost" size="sm" onClick={() => setStep("slots")} className="w-full text-slate-400">← Escolher outro horário</Button>
           </div>
         )}
       </div>
@@ -815,10 +886,10 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   return (
     <div className="space-y-4 pb-6">
       {allowSchedule && (
-        <button onClick={() => { setMode("schedule"); setStep("calendar"); setSchedForm(f => ({ ...f, date: "", time: "" })); }}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm shadow-lg transition-all active:scale-95">
-          <Plus size={18} />Agendar / Solicitar Consulta
-        </button>
+        <Button variant="primary" onClick={() => { setMode("schedule"); setStep("calendar"); setSchedForm(f => ({ ...f, date: "", time: "" })); }}
+          className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700 shadow-lg">
+          <Plus size={18} /> Agendar / Solicitar Consulta
+        </Button>
       )}
 
       {requests.filter(r => r.status === "pending").length > 0 && (
@@ -841,43 +912,67 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           <div className="px-4 py-2.5 border-b border-slate-50">
             <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Próximas Consultas</span>
           </div>
-          {upcoming.map(a => (
-            <div key={a.id} className="px-4 py-4 border-b border-slate-50 last:border-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0">
-                    <Calendar size={16} className="text-indigo-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-800">{fmtDate(a.start_date, { weekday: "short", day: "numeric", month: "short" })}</p>
-                    <p className="text-xs text-slate-500">{fmtTime(a.start_date)}{a.duration_minutes ? ` · ${a.duration_minutes}min` : ""}</p>
-                    <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
-                      {a.modality === "online" ? <Video size={10} className="text-indigo-400" /> : <MapPin size={10} />}
-                      {MODALITY_LABELS[a.modality] || a.modality}
+          {upcoming.map(a => {
+            const modifiable = canModify(a);
+            const isOpen = actionApptId === a.id;
+            return (
+              <div key={a.id} className="px-4 py-4 border-b border-slate-50 last:border-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0">
+                      <Calendar size={16} className="text-indigo-600" />
                     </div>
-                    {a.modality === "online" && a.meeting_url && (
-                      <a href={a.meeting_url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 mt-1.5 text-xs font-bold text-indigo-600 hover:underline">
-                        <ExternalLink size={10} />Entrar na sala
-                      </a>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-800">{fmtDate(a.start_date, { weekday: "short", day: "numeric", month: "short" })}</p>
+                      <p className="text-xs text-slate-500">{fmtTime(a.start_date)}{a.duration_minutes ? ` · ${a.duration_minutes}min` : ""}</p>
+                      <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
+                        {a.modality === "online" ? <Video size={10} className="text-indigo-400" /> : <MapPin size={10} />}
+                        {MODALITY_LABELS[a.modality] || a.modality}
+                      </div>
+                      {a.modality === "online" && a.meeting_url && (
+                        <a href={a.meeting_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 mt-1.5 text-xs font-bold text-indigo-600 hover:underline">
+                          <ExternalLink size={10} />Entrar na sala
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <Badge color={STATUS_BADGE_COLOR[a.status] || "default"} dot>{STATUS_CONFIG[a.status]?.label || a.status}</Badge>
+
+                    {/* Ações: só disponível se modifiable (>24h) */}
+                    {modifiable ? (
+                      cancelId === a.id ? (
+                        <div className="flex gap-1.5">
+                          <Button size="sm" variant="danger" onClick={() => cancelAppt(a.id)} loading={loading}>Confirmar cancelamento</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setCancelId(null)}>Não</Button>
+                        </div>
+                      ) : isOpen ? (
+                        <div className="flex flex-col items-end gap-1.5 animate-fadeIn">
+                          <Button size="sm" variant="outline" onClick={() => startReschedule(a)} className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 gap-1">
+                            <Calendar size={11} /> Reagendar
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setCancelId(a.id); setActionApptId(null); }} className="text-red-400 hover:text-red-600 gap-1">
+                            <X size={11} /> Cancelar consulta
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setActionApptId(null)} className="text-slate-400 text-[10px]">Fechar</Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => setActionApptId(a.id)} className="text-slate-400 hover:text-slate-600 text-xs gap-1">
+                          Gerenciar
+                        </Button>
+                      )
+                    ) : (
+                      <p className="text-[10px] text-slate-400 text-right max-w-[100px] leading-tight">
+                        Alterações só até 24h antes
+                      </p>
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <StatusBadge status={a.status} map={STATUS_CONFIG} />
-                  {cancelId === a.id ? (
-                    <div className="flex gap-1.5">
-                      <button onClick={() => cancelAppt(a.id)} disabled={loading}
-                        className="text-xs text-red-600 font-bold px-2.5 py-1 bg-red-50 rounded-xl border border-red-200">Confirmar</button>
-                      <button onClick={() => setCancelId(null)} className="text-xs text-slate-500 px-2.5 py-1 bg-slate-50 rounded-xl border border-slate-200">Não</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => setCancelId(a.id)} className="text-xs text-red-400 font-medium hover:text-red-600">Cancelar</button>
-                  )}
-                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -892,18 +987,14 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 <p className="text-sm font-bold text-slate-600">{fmtDate(a.start_date)}</p>
                 <p className="text-xs text-slate-400">{fmtTime(a.start_date)}</p>
               </div>
-              <StatusBadge status={a.status} map={STATUS_CONFIG} />
+              <Badge color={STATUS_BADGE_COLOR[a.status] || "default"} dot>{STATUS_CONFIG[a.status]?.label || a.status}</Badge>
             </div>
           ))}
         </div>
       )}
 
       {upcoming.length === 0 && past.length === 0 && requests.length === 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-10 text-center shadow-sm">
-          <Calendar size={36} className="text-slate-200 mx-auto mb-3" />
-          <p className="font-bold text-slate-600">Nenhuma consulta</p>
-          <p className="text-slate-400 text-sm mt-1">Suas consultas aparecerão aqui.</p>
-        </div>
+        <EmptyState icon={Calendar} title="Nenhuma consulta" description="Suas consultas aparecerão aqui." />
       )}
     </div>
   );
@@ -977,10 +1068,9 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
       )}
 
       {!showForm && (
-        <button onClick={() => setShowForm(true)}
-          className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-3xl font-bold text-sm shadow-lg transition-all active:scale-95">
-          <Plus size={18} />Declarar Pagamento
-        </button>
+        <Button variant="primary" onClick={() => setShowForm(true)} className="w-full bg-emerald-600 border-emerald-600 hover:bg-emerald-700 shadow-lg h-14">
+          <Plus size={18} /> Declarar Pagamento
+        </Button>
       )}
 
       {showForm && (
@@ -991,30 +1081,18 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
           </div>
           <div className="p-5 space-y-4">
             {pendingAppts.length > 0 && (
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Consulta relacionada</label>
-                <select value={form.appointment_id} onChange={e => setForm(f => ({ ...f, appointment_id: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-emerald-400">
-                  <option value="">Sem consulta específica</option>
-                  {pendingAppts.map(a => (
-                    <option key={a.id} value={a.id}>{fmtDate(a.start_date)} {fmtTime(a.start_date)}{a.service_name ? ` — ${a.service_name}` : ""}</option>
-                  ))}
-                </select>
-              </div>
+              <Select label="Consulta relacionada" value={form.appointment_id}
+                onChange={e => setForm(f => ({ ...f, appointment_id: e.target.value }))}
+                options={[
+                  { value: "", label: "Sem consulta específica" },
+                  ...pendingAppts.map(a => ({ value: String(a.id), label: `${fmtDate(a.start_date)} ${fmtTime(a.start_date)}${a.service_name ? ` — ${a.service_name}` : ""}` })),
+                ]} />
             )}
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Valor (R$)</label>
-                <input type="number" step="0.01" min="0" placeholder="0,00" value={form.amount}
-                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-emerald-400" />
-              </div>
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Data</label>
-                <input type="date" value={form.payment_date}
-                  onChange={e => setForm(f => ({ ...f, payment_date: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-emerald-400" />
-              </div>
+              <Input label="Valor (R$)" type="number" placeholder="0,00" value={form.amount}
+                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+              <Input label="Data" type="date" value={form.payment_date}
+                onChange={e => setForm(f => ({ ...f, payment_date: e.target.value }))} />
             </div>
             <div>
               <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Forma de pagamento</label>
@@ -1027,11 +1105,8 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
                 ))}
               </div>
             </div>
-            <div>
-              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Observações</label>
-              <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Ex.: pago via PIX..."
-                className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm bg-slate-50 focus:outline-none focus:border-emerald-400 resize-none" />
-            </div>
+            <Textarea label="Observações" rows={2} placeholder="Ex.: pago via PIX..."
+              value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             <div>
               <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Comprovantes</label>
               <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center cursor-pointer hover:border-emerald-300 transition-colors"
@@ -1049,11 +1124,9 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
                 </div>
               ))}
             </div>
-            <button onClick={submitPayment} disabled={loading}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-              {loading ? "Enviando..." : "Registrar Pagamento"}
-            </button>
+            <Button variant="primary" onClick={submitPayment} loading={loading} loadingText="Enviando..." iconLeft={<Check size={16} />} className="w-full bg-emerald-600 border-emerald-600 hover:bg-emerald-700">
+              Registrar Pagamento
+            </Button>
           </div>
         </div>
       )}
@@ -1070,7 +1143,7 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
                   <p className="text-base font-black text-slate-800">{fmtCurrency(p.amount)}</p>
                   <p className="text-xs text-slate-400">{fmtDate(p.payment_date)} · {METHOD_LABELS[p.payment_method] || p.payment_method}</p>
                 </div>
-                <StatusBadge status={p.status} map={PAYMENT_STATUS} />
+                <Badge color={PAYMENT_BADGE_COLOR[p.status] || "default"} dot>{PAYMENT_STATUS[p.status]?.label || p.status}</Badge>
               </div>
               {p.notes && <p className="text-xs text-slate-500 italic mb-2">"{p.notes}"</p>}
               {p.attachments && p.attachments.length > 0 && (
@@ -1087,11 +1160,7 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-100 p-10 text-center shadow-sm">
-          <CreditCard size={36} className="text-slate-200 mx-auto mb-3" />
-          <p className="font-bold text-slate-600">Nenhum pagamento registrado</p>
-          <p className="text-slate-400 text-sm mt-1">Declare seus pagamentos para manter o histórico.</p>
-        </div>
+        <EmptyState icon={CreditCard} title="Nenhum pagamento registrado" description="Declare seus pagamentos para manter o histórico." />
       )}
     </div>
   );
@@ -1329,8 +1398,8 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
               onChange={e => sf("cpf_cnpj", e.target.value)} placeholder="000.000.000-00" />
             <Input label="Data de nascimento" type="date" value={form.birth_date}
               onChange={e => sf("birth_date", e.target.value)} />
-            <Select label="Gênero" value={form.gender}
-              onChange={e => sf("gender", e.target.value)}
+            <Combobox label="Gênero" value={form.gender}
+              onChange={v => sf("gender", v as string)}
               options={[
                 { value: "", label: "Não informado" },
                 { value: "Masculino", label: "Masculino" },
@@ -1360,10 +1429,10 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 
             {/* ─ Social ─ */}
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Social</p>
-            <Select label="Estado civil" value={form.marital_status}
-              onChange={e => sf("marital_status", e.target.value)} options={MARITAL_OPTIONS} />
-            <Select label="Escolaridade" value={form.education}
-              onChange={e => sf("education", e.target.value)} options={EDUCATION_OPTIONS} />
+            <Combobox label="Estado civil" value={form.marital_status}
+              onChange={v => sf("marital_status", v as string)} options={MARITAL_OPTIONS} />
+            <Combobox label="Escolaridade" value={form.education}
+              onChange={v => sf("education", v as string)} options={EDUCATION_OPTIONS} />
             <Input label="Profissão" value={form.profession}
               onChange={e => sf("profession", e.target.value)} />
             <Input label="Nacionalidade" value={form.nationality}
@@ -1413,8 +1482,8 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
                 </div>
                 <Input placeholder="Nome" value={c.name}
                   onChange={e => updateContact(c.id, "name", e.target.value)} />
-                <Select value={c.relationship}
-                  onChange={e => updateContact(c.id, "relationship", e.target.value)}
+                <Combobox value={c.relationship} placeholder="Parentesco"
+                  onChange={v => updateContact(c.id, "relationship", v as string)}
                   options={RELATIONSHIP_OPTIONS} />
                 <Input placeholder="Telefone" type="tel" value={c.phone}
                   onChange={e => updateContact(c.id, "phone", mkPhone(e.target.value))} />
@@ -1567,10 +1636,9 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
   if (viewDoc) {
     return (
       <div className="pb-6">
-        <button onClick={() => setViewDoc(null)}
-          className="flex items-center gap-1.5 text-sm text-indigo-600 font-bold mb-4">
+        <Button variant="ghost" size="sm" onClick={() => setViewDoc(null)} className="mb-4 text-indigo-600">
           <ArrowLeft size={15} /> Voltar
-        </button>
+        </Button>
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
           <h3 className="font-black text-slate-800 mb-1">{viewDoc.title || "Documento"}</h3>
           <p className="text-xs text-slate-400 mb-4">{fmtDate(viewDoc.created_at)}</p>
@@ -1589,13 +1657,7 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
       </div>
 
       {allItems.length === 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 text-center shadow-sm">
-          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-            <FolderOpen size={18} className="text-slate-400" />
-          </div>
-          <p className="font-bold text-slate-600 text-sm">Nenhum documento ainda</p>
-          <p className="text-slate-400 text-xs mt-1">Documentos enviados pelo profissional aparecerão aqui</p>
-        </div>
+        <EmptyState icon={FolderOpen} title="Nenhum documento ainda" description="Documentos enviados pelo profissional aparecerão aqui" />
       )}
 
       {allItems.map((item, i) => (
@@ -1611,10 +1673,9 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
             <p className="text-xs text-slate-400">{fmtDate(item.created_at)}</p>
           </div>
           {item.kind === "doc" ? (
-            <button onClick={() => setViewDoc(item)}
-              className="flex items-center gap-1 text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors shrink-0">
+            <Button variant="ghost" size="sm" onClick={() => setViewDoc(item)} className="text-indigo-600 shrink-0">
               <Eye size={12} /> Ver
-            </button>
+            </Button>
           ) : item.file_url && !item.file_url.startsWith("data:") ? (
             <a href={item.file_url} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors shrink-0">

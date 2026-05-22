@@ -512,7 +512,10 @@ export const Comandas: React.FC = () => {
       return itemsTotal > 0 ? itemsTotal : Number(editingComanda.totalValue || 0);
     }
 
-    return Number(editingComanda.totalValue || 0);
+    // avulso: totalValue é o valor por sessão; multiplica pelo total de sessões
+    const perSession = Number(editingComanda.totalValue || 0);
+    const sessions = Number(editingComanda.sessions_total || 1);
+    return perSession * sessions;
   }, [editingComanda, modalTab]);
 
   const modalDiscountAmount = useMemo(() => {
