@@ -30,8 +30,22 @@ router.get('/status', async (req, res) => {
     } catch(err) {
        console.warn('Bot service unreachable:', err.message);
     }
-    
-    res.json({ ...botStatus, preferences });
+
+    // Stats da fila de notificações
+    const [[queuedRow]] = await db.query(
+      "SELECT COUNT(*) AS total FROM notification_queue WHERE tenant_id = ? AND status = 'pending'",
+      [tenantId]
+    );
+    const [[sent24hRow]] = await db.query(
+      "SELECT COUNT(*) AS total FROM notification_queue WHERE tenant_id = ? AND status = 'sent' AND sent_at >= NOW() - INTERVAL 24 HOUR",
+      [tenantId]
+    );
+    const stats = {
+      queued: queuedRow?.total || 0,
+      sent24h: sent24hRow?.total || 0,
+    };
+
+    res.json({ ...botStatus, preferences, stats });
   } catch(e) {
     res.json({ status: 'disconnected', preferences: {} });
   }
