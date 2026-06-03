@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Smartphone, CheckCircle2, AlertCircle, Clock, Calendar,
   Gift, Loader2, Save, Send, Wifi, WifiOff, Zap,
-  MessageSquare, DollarSign, Bell, RefreshCw, X
+  MessageSquare, DollarSign, Bell, RefreshCw, X,
+  History, User, Eye
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -209,6 +210,9 @@ export const BotIntegration: React.FC = () => {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isSaving, setIsSaving]           = useState(false);
   const [stats, setStats]                 = useState({ sent24h: 0, sentTotal: 0, queued: 0 });
+  const [queue, setQueue]                 = useState<any[]>([]);
+  const [queueLoading, setQueueLoading]   = useState(false);
+  const [selectedMsg, setSelectedMsg]     = useState<any | null>(null);
 
   const [prefs, setPrefs] = useState({
     reminder_24h_enabled: true,
@@ -223,8 +227,20 @@ export const BotIntegration: React.FC = () => {
     payment_msg: `💰 *Lembrete de Pagamento*\n\nOlá, *{patient_name}*.\nLembramos que o vencimento da sua parcela no valor de R$ {amount} é hoje.`,
   });
 
+  const fetchQueue = async () => {
+    setQueueLoading(true);
+    try {
+      const data = await api.get<any[]>('/notifications/queue');
+      setQueue(Array.isArray(data) ? data : []);
+    } catch {
+      // silencioso
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
   // Polling enquanto conectando
-  useEffect(() => { fetchStatus(); }, []);
+  useEffect(() => { fetchStatus(); fetchQueue(); }, []);
   useEffect(() => {
     if (status !== 'connecting') return;
     const id = setInterval(() => fetchStatus(false), 2500);
@@ -589,6 +605,108 @@ export const BotIntegration: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Histórico de mensagens */}
+        <PanelCard
+          icon={History}
+          title="Histórico de Mensagens"
+          description="Mensagens enviadas, pendentes e com erro"
+          iconWrapClassName="bg-slate-50 border-slate-100"
+          iconClassName="text-slate-500"
+          action={
+            <Button variant="ghost" size="sm" onClick={fetchQueue} loading={queueLoading} className="gap-1.5 text-zinc-500">
+              <RefreshCw size={13} /> Atualizar
+            </Button>
+          }
+        >
+          {queueLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-zinc-300" size={28} /></div>
+          ) : queue.length === 0 ? (
+            <div className="py-10 text-center text-xs text-zinc-400 font-medium">Nenhuma mensagem registrada.</div>
+          ) : (
+            <div className="space-y-2">
+              {queue.map(item => {
+                const meta = typeof item.metadata === 'string' ? JSON.parse(item.metadata || '{}') : (item.metadata || {});
+                const typeLabel: Record<string, { label: string; color: 'info' | 'warning' | 'purple' | 'orange' | 'teal' | 'default' }> = {
+                  '24h-reminder-patient':   { label: '24h antes', color: 'info' },
+                  '1h-reminder-patient':    { label: '60 min antes', color: 'warning' },
+                  'reminder-professional':  { label: 'Profissional', color: 'purple' },
+                  'birthday':               { label: 'Aniversário', color: 'orange' },
+                  'payment-reminder':       { label: 'Cobrança', color: 'teal' },
+                  'manual-test':            { label: 'Teste', color: 'default' },
+                };
+                const type = typeLabel[meta.type] || { label: meta.type || 'Mensagem', color: 'default' as const };
+                const statusCfg: Record<string, { label: string; color: 'success' | 'warning' | 'danger' | 'default' }> = {
+                  sent:    { label: 'Enviado', color: 'success' },
+                  pending: { label: 'Pendente', color: 'warning' },
+                  error:   { label: 'Erro', color: 'danger' },
+                  canceled:{ label: 'Cancelado', color: 'default' },
+                };
+                const st = statusCfg[item.status] || { label: item.status, color: 'default' as const };
+                const sentAt = item.sent_at
+                  ? new Date(item.sent_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                  : item.status === 'pending' ? 'Aguardando...' : '—';
+                const phone = item.recipient_phone || '—';
+                const name = item.patient_name || null;
+
+                return (
+                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl border border-zinc-100 bg-white hover:border-zinc-200 transition-all">
+                    <div className="w-9 h-9 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0">
+                      <User size={15} className="text-zinc-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-zinc-800 truncate">{name || phone}</span>
+                        {name && <span className="text-[10px] text-zinc-400 font-medium">{phone}</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <Badge color={type.color as any} size="sm">{type.label}</Badge>
+                        <Badge color={st.color as any} size="sm" dot>{st.label}</Badge>
+                        <span className="text-[10px] text-zinc-400 flex items-center gap-0.5">
+                          <Clock size={10} /> {sentAt}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedMsg(item)}
+                      className="p-2 rounded-xl hover:bg-zinc-50 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0"
+                      title="Ver mensagem"
+                    >
+                      <Eye size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </PanelCard>
+
+        {/* Modal conteúdo da mensagem */}
+        {selectedMsg && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSelectedMsg(null)}>
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-black text-zinc-800 uppercase tracking-tight">Conteúdo da Mensagem</p>
+                <button onClick={() => setSelectedMsg(null)} className="p-1.5 rounded-xl hover:bg-zinc-100 text-zinc-400"><X size={16} /></button>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Destinatário</p>
+                <p className="text-sm font-bold text-zinc-700">{selectedMsg.patient_name || selectedMsg.recipient_phone}</p>
+                {selectedMsg.patient_name && <p className="text-xs text-zinc-400">{selectedMsg.recipient_phone}</p>}
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Mensagem</p>
+                <pre className="text-xs text-zinc-700 whitespace-pre-wrap bg-zinc-50 border border-zinc-100 rounded-2xl p-4 font-sans leading-relaxed max-h-60 overflow-y-auto">{selectedMsg.content}</pre>
+              </div>
+              {selectedMsg.last_error && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">Erro</p>
+                  <p className="text-xs text-red-600 bg-red-50 rounded-xl p-3">{selectedMsg.last_error}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Botão salvar mobile */}
         <div className="flex lg:hidden sticky bottom-5 z-50 px-2">

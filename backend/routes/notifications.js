@@ -102,18 +102,25 @@ router.post('/trigger/monthly', async (req, res) => {
 // GET /notifications/queue — ver fila do tenant
 router.get('/queue', async (req, res) => {
   try {
-    const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
     const tenantId = req.user.tenant_id;
+    const isSuperAdmin = req.user.role === 'super_admin';
 
-    let query = 'SELECT * FROM notification_queue';
+    let query = `
+      SELECT
+        nq.*,
+        COALESCE(p.name, p.full_name) AS patient_name
+      FROM notification_queue nq
+      LEFT JOIN patients p ON p.id = JSON_UNQUOTE(JSON_EXTRACT(nq.metadata, '$.patient_id'))
+        AND p.tenant_id = nq.tenant_id
+    `;
     const params = [];
 
-    if (req.user.role !== 'super_admin') {
-      query += ' WHERE tenant_id = ?';
+    if (!isSuperAdmin) {
+      query += ' WHERE nq.tenant_id = ?';
       params.push(tenantId);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT 100';
+    query += ' ORDER BY nq.created_at DESC LIMIT 100';
 
     const [rows] = await db.query(query, params);
     res.json(rows);
