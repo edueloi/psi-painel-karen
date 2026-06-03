@@ -208,12 +208,22 @@ async function checkAppointmentReminders() {
           const timeStr = fmtTime(apt.start_time);
           const dateStr = fmtDate(apt.start_time);
 
+          const sessionNum  = apt.sessions_used != null ? apt.sessions_used + 1 : null;
+          const sessionInfo = (sessionNum && apt.sessions_total)
+            ? `Sessão ${sessionNum} de ${apt.sessions_total}`
+            : '';
+          const packageName = apt.package_name || '';
+
           const buildMsg = (template, defaultMsg) => {
             let msg = template || defaultMsg;
             return msg.replace(/\{patient_name\}/g, apt.patient_name)
                       .replace(/\{professional_name\}/g, apt.professional_name || 'Profissional')
                       .replace(/\{time\}/g, timeStr)
-                      .replace(/\{date\}/g, dateStr);
+                      .replace(/\{date\}/g, dateStr)
+                      .replace(/\{service\}/g, apt.service_name || 'Consulta')
+                      .replace(/\{clinic_name\}/g, apt.clinic_name || 'Clínica')
+                      .replace(/\{session_info\}/g, sessionInfo)
+                      .replace(/\{package_name\}/g, packageName);
           };
 
           if (diffMinutes > 30 && diffMinutes <= 70 && !apt.whatsapp_reminder_1h_sent && prefs.reminder_1h_enabled !== false) {

@@ -20,16 +20,21 @@ import { Input } from '../components/UI/Input';
 const GENERAL_VARS = [
   { key: 'patient_name',      label: 'Nome Paciente' },
   { key: 'professional_name', label: 'Nome Profissional' },
-  { key: 'date',              label: 'Data (10/12/26)' },
-  { key: 'time',              label: 'Hora (14:30)' },
+  { key: 'date',              label: 'Data' },
+  { key: 'time',              label: 'Hora' },
   { key: 'service',           label: 'Serviço' },
+  { key: 'clinic_name',       label: 'Clínica' },
+  { key: 'session_info',      label: 'Sessão (ex: 2 de 10)' },
+  { key: 'package_name',      label: 'Pacote' },
 ];
 const BDAY_VARS = [
   { key: 'patient_name', label: 'Nome Paciente' },
+  { key: 'clinic_name',  label: 'Clínica' },
 ];
 const PAYMENT_VARS = [
   { key: 'patient_name', label: 'Nome Paciente' },
-  { key: 'amount',       label: 'Valor (150,00)' },
+  { key: 'amount',       label: 'Valor' },
+  { key: 'clinic_name',  label: 'Clínica' },
 ];
 
 const VAR_COLORS: Record<string, string> = {
@@ -39,7 +44,37 @@ const VAR_COLORS: Record<string, string> = {
   time:              'bg-violet-100 text-violet-700 border-violet-200',
   service:           'bg-emerald-100 text-emerald-700 border-emerald-200',
   amount:            'bg-rose-100 text-rose-700 border-rose-200',
+  clinic_name:       'bg-teal-100 text-teal-700 border-teal-200',
+  session_info:      'bg-purple-100 text-purple-700 border-purple-200',
+  package_name:      'bg-orange-100 text-orange-700 border-orange-200',
 };
+
+// ── Valores de exemplo para pré-visualização ─────────────────────────────────
+const PREVIEW_VALUES: Record<string, string> = {
+  patient_name:      'Maria Silva',
+  professional_name: 'Karen Gomes',
+  date:              '10/06/2026',
+  time:              '14:30',
+  service:           'Psicoterapia',
+  clinic_name:       'Consultório Karen Gomes',
+  session_info:      'Sessão 3 de 10',
+  package_name:      'Pacote Mensal',
+  amount:            '250,00',
+};
+
+function renderPreview(text: string): string {
+  let out = text;
+  Object.entries(PREVIEW_VALUES).forEach(([k, v]) => {
+    out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), `<strong>${v}</strong>`);
+  });
+  // negrito WhatsApp *texto*
+  out = out.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+  // itálico _texto_
+  out = out.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // quebras de linha
+  out = out.replace(/\n/g, '<br>');
+  return out;
+}
 
 // ── BadgeEditor ───────────────────────────────────────────────────────────────
 const BadgeEditor = ({
@@ -50,6 +85,7 @@ const BadgeEditor = ({
   variables: { key: string; label: string }[];
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const formatToHTML = (text: string) =>
     text
@@ -113,6 +149,7 @@ const BadgeEditor = ({
 
   return (
     <div className="space-y-2">
+      {/* Barra de variáveis + toggle preview */}
       <div className="flex flex-wrap gap-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-xl">
         <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center mr-1">Variáveis:</span>
         {variables.map(v => (
@@ -126,18 +163,59 @@ const BadgeEditor = ({
           </button>
         ))}
       </div>
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={() => onChange(readText())}
-        onPaste={e => {
-          e.preventDefault();
-          document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
-        }}
-        className="w-full min-h-[130px] p-4 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all text-sm text-zinc-700 bg-white leading-relaxed"
-        style={{ whiteSpace: 'pre-wrap' }}
-      />
+
+      {/* Tabs editar / pré-visualizar */}
+      <div className="flex items-center gap-1 border-b border-zinc-100">
+        <button
+          type="button"
+          onClick={() => setShowPreview(false)}
+          className={`px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition-colors border-b-2 -mb-px ${!showPreview ? 'border-amber-400 text-amber-600' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
+        >
+          Editar
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowPreview(true)}
+          className={`px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1 ${showPreview ? 'border-amber-400 text-amber-600' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
+        >
+          <Eye size={11} /> Pré-visualizar
+        </button>
+      </div>
+
+      {/* Editor */}
+      {!showPreview && (
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={() => onChange(readText())}
+          onPaste={e => {
+            e.preventDefault();
+            document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+          }}
+          className="w-full min-h-[130px] p-4 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all text-sm text-zinc-700 bg-white leading-relaxed"
+          style={{ whiteSpace: 'pre-wrap' }}
+        />
+      )}
+
+      {/* Pré-visualização estilo WhatsApp */}
+      {showPreview && (
+        <div className="bg-[#e5ddd5] rounded-xl p-4 min-h-[130px]">
+          <div className="flex justify-end">
+            <div className="bg-[#dcf8c6] rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] shadow-sm">
+              <p
+                className="text-sm text-zinc-800 leading-relaxed"
+                style={{ whiteSpace: 'pre-wrap' }}
+                dangerouslySetInnerHTML={{ __html: renderPreview(value) }}
+              />
+              <p className="text-[10px] text-zinc-500 text-right mt-1.5">14:30 ✓✓</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-zinc-500 text-center mt-3 font-medium">
+            Pré-visualização com dados de exemplo
+          </p>
+        </div>
+      )}
     </div>
   );
 };
@@ -345,29 +423,29 @@ export const BotIntegration: React.FC = () => {
       <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6">
 
         {/* Stats rápidos */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
             title="Bot"
-            value={isConnected ? 'Ativo' : 'Inativo'}
+            value={isConnected ? 'Ativo' : isConnecting ? 'Conectando' : 'Inativo'}
             icon={isConnected ? Wifi : WifiOff}
-            color={isConnected ? 'success' : 'danger'}
-            description={phone || 'Nenhum número vinculado'}
+            color={isConnected ? 'success' : isConnecting ? 'warning' : 'danger'}
+            description={phone ? `+${phone.replace(/\D/g,'').replace(/^55/,'')}` : 'Nenhum número'}
             delay={0}
           />
           <StatCard
             title="Fila pendente"
             value={stats.queued}
             icon={Bell}
-            color="warning"
-            description="mensagens aguardando"
+            color={stats.queued > 0 ? 'warning' : 'success'}
+            description={stats.queued > 0 ? 'mensagens aguardando envio' : 'fila limpa'}
             delay={0.05}
           />
           <StatCard
-            title="Enviadas hoje"
+            title="Enviadas (24h)"
             value={stats.sent24h}
             icon={Zap}
             color="info"
-            description="nas últimas 24h"
+            description="mensagens enviadas hoje"
             delay={0.1}
           />
         </div>
@@ -502,6 +580,36 @@ export const BotIntegration: React.FC = () => {
 
           {/* ── Coluna direita: configurações ── */}
           <div className="xl:col-span-8 space-y-5">
+
+            {/* Legenda de variáveis */}
+            <div className="rounded-2xl border border-zinc-100 bg-zinc-50 p-4">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">Variáveis disponíveis nas mensagens</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { key: 'patient_name',      label: 'Nome Paciente',      desc: 'Ex: Maria Silva',            cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+                  { key: 'professional_name', label: 'Nome Profissional',  desc: 'Ex: Karen Gomes',            cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+                  { key: 'date',              label: 'Data',               desc: 'Ex: 03/06/2026',             cls: 'bg-sky-100 text-sky-700 border-sky-200' },
+                  { key: 'time',              label: 'Hora',               desc: 'Ex: 14:30',                  cls: 'bg-violet-100 text-violet-700 border-violet-200' },
+                  { key: 'service',           label: 'Serviço',            desc: 'Ex: Psicoterapia',           cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+                  { key: 'clinic_name',       label: 'Nome Clínica',       desc: 'Ex: Consultório Karen',      cls: 'bg-teal-100 text-teal-700 border-teal-200' },
+                  { key: 'session_info',      label: 'Sessão',             desc: 'Ex: Sessão 3 de 10',         cls: 'bg-purple-100 text-purple-700 border-purple-200' },
+                  { key: 'package_name',      label: 'Pacote',             desc: 'Ex: Pacote Mensal',          cls: 'bg-orange-100 text-orange-700 border-orange-200' },
+                  { key: 'amount',            label: 'Valor',              desc: 'Ex: 150,00 (só cobrança)',   cls: 'bg-rose-100 text-rose-700 border-rose-200' },
+                ].map(v => (
+                  <div key={v.key} className="group relative">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-default ${v.cls}`}>
+                      {`{${v.key}}`}
+                    </span>
+                    <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block z-10 bg-zinc-900 text-white text-[10px] font-medium rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-xl">
+                      <span className="font-black">{v.label}</span> — {v.desc}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-3 leading-relaxed">
+                Clique nas variáveis coloridas dentro dos editores abaixo para inseri-las na mensagem. Passe o mouse sobre cada variável para ver o exemplo.
+              </p>
+            </div>
 
             {/* Lembretes de Consulta */}
             <PanelCard
