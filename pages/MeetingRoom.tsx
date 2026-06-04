@@ -1559,6 +1559,18 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             if (!isGuest && !isCompanionMode) {
               requestHostRenegotiation("guest_request");
             }
+          } else if (evt.event_type === "guest_ready") {
+            // Guest conectou no WS e está pronto — Host reenvia offer
+            if (!isGuest && !isCompanionMode) {
+              console.log("Host: guest_ready recebido, reenviando offer...");
+              const pc = peerConnectionRef.current;
+              if (!pc || pc.signalingState === 'closed' || pc.connectionState === 'closed') {
+                // Sem PC ainda — cria um novo ciclo completo
+                hardResetHostConnection(200);
+              } else {
+                requestHostRenegotiation("guest_ready");
+              }
+            }
           } else if (evt.event_type === "session_ended") {
             if (isGuest) {
               setSessionEndedByHost(true);
@@ -1612,6 +1624,10 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       ws.onopen = () => {
         reconnectDelay = 1000;
         roomWsReadyRef.current = true;
+        // Guest avisa o Host que está pronto para receber o offer
+        if (isGuest) {
+          ws?.send(JSON.stringify({ type: 'event', event_type: 'guest_ready', payload: {} }));
+        }
       };
 
       ws.onmessage = (msgEvent) => {
