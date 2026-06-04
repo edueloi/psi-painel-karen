@@ -1378,15 +1378,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           return;
         }
         const processEvent = (evt: RoomEvent) => {
-          const signalingEvent =
-            evt.event_type.startsWith("webrtc_") ||
-            evt.event_type === "request_renegotiation";
-          const shouldUsePollingForSignaling = !roomWsReadyRef.current;
-
-          // Prefer WS for signaling when it is online, but keep polling as a
-          // real fallback. Without this, audio/video die whenever the proxy
-          // drops WS upgrades and HTTP remains healthy.
-          if (signalingEvent && !shouldUsePollingForSignaling) return;
+          // Polling processa todos os eventos — o lastEventId garante que
+          // eventos já recebidos via WS não são reprocessados (o WS avança o cursor).
           const payload = parsePayload(evt.payload_json);
           if (payload?.client_id && payload.client_id === clientIdRef.current)
             return;
