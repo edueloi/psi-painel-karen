@@ -1076,8 +1076,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     if (!assessmentId || assessmentDetails[assessmentId]) return;
     try {
       if (isGuest || !hasAuthToken) {
-        if (!hash) return;
-        const formData = await api.get<any>(`/forms/public/${hash}`);
+        // Tenta pelo hash primeiro, fallback por ID
+        const endpoint = hash
+          ? `/forms/public/${hash}`
+          : `/forms/public/by-id/${assessmentId}`;
+        const formData = await api.get<any>(endpoint);
         const mapped = normalizeForm(formData);
         setAssessmentDetails((prev) => ({ ...prev, [assessmentId]: mapped }));
       } else {

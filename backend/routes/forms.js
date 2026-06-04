@@ -256,6 +256,23 @@ router.get('/og/:hash', async (req, res) => {
   }
 });
 
+// GET /forms/public/by-id/:id — rota pública por ID (usada pela sala virtual)
+router.get('/public/by-id/:id', async (req, res) => {
+  try {
+    const [forms] = await db.query(
+      `SELECT f.id, f.title, f.description, f.fields, f.category, f.hash, f.is_global, f.tenant_id
+       FROM forms f
+       WHERE f.id = ?`,
+      [req.params.id]
+    );
+    if (forms.length === 0) return res.status(404).json({ error: 'Formulário não encontrado' });
+    const form = unpackForm(forms[0]);
+    res.json(form);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar formulário' });
+  }
+});
+
 // GET /forms/public/:hash
 router.get('/public/:hash', async (req, res) => {
   try {
