@@ -1614,6 +1614,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     let ws: WebSocket | null = null;
     let reconnectDelay = 1000;
     let destroyed = false;
+    let guestReadySent = false;
 
     const connect = () => {
       if (destroyed) return;
@@ -1624,8 +1625,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       ws.onopen = () => {
         reconnectDelay = 1000;
         roomWsReadyRef.current = true;
-        // Guest avisa o Host que está pronto para receber o offer
-        if (isGuest) {
+        // Guest avisa o Host apenas na primeira conexão
+        if (isGuest && !guestReadySent) {
+          guestReadySent = true;
           ws?.send(JSON.stringify({ type: 'event', event_type: 'guest_ready', payload: {} }));
         }
       };
@@ -1652,7 +1654,26 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
             lastEventIdRef.current = evt.id;
             setLastEventId(evt.id);
           }
-          processRoomEventRef.current?.(evt);
+          if (processRoomEventRef.current) {
+            processRoomEventRef.current(evt);
+          } else {
+            // processRoomEventRef ainda não está pronto — tenta de novo em até 2s
+            const isSignaling = evt.event_type.startsWith('webrtc_') || evt.event_type === 'request_renegotiation';
+            if (isSignaling) {
+              console.log(`WS: processador não pronto para "${evt.event_type}", aguardando...`);
+              const retryAt = Date.now() + 2000;
+              const retry = setInterval(() => {
+                if (processRoomEventRef.current) {
+                  clearInterval(retry);
+                  console.log(`WS: processando "${evt.event_type}" após espera`);
+                  processRoomEventRef.current(evt);
+                } else if (Date.now() > retryAt) {
+                  clearInterval(retry);
+                  console.warn(`WS: descartando "${evt.event_type}" após timeout`);
+                }
+              }, 100);
+            }
+          }
         }
       };
 
