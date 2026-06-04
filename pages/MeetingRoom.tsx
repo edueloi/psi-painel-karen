@@ -977,6 +977,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
   };
 
   const handleCancelAssessment = () => {
+    const cancelledId = activeAssessmentId;
     setActiveAssessmentId(null);
     setActiveAssessmentHash(null);
     setAssessmentStatus("idle");
@@ -984,6 +985,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     broadcastChannelRef.current?.postMessage({
       type: "CANCEL_ASSESSMENT",
     });
+    // Envia via API para notificar guest em outro dispositivo
+    if (id && cancelledId) {
+      api.post(`/virtual-rooms/${id}/assessments`, {
+        event_type: "cancel",
+        assessment_id: cancelledId,
+        payload: { client_id: clientIdRef.current },
+      }).catch(() => {});
+    }
   };
 
   const calculateHostResult = () => {
@@ -1739,11 +1748,14 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           if (evt.event_type === "start") {
             if (isGuest) {
               const formHash = payload?.form_hash || null;
-              setActiveAssessmentId(evt.assessment_id);
+              // Só reseta respostas se for uma avaliação diferente da atual
+              setActiveAssessmentId(prev => {
+                if (prev !== evt.assessment_id) setRemoteAnswers({});
+                return evt.assessment_id;
+              });
               setActiveAssessmentHash(formHash);
               setAssessmentStatus("active");
               setActiveSidePanel("assessments");
-              setRemoteAnswers({});
               loadAssessmentForm(evt.assessment_id, formHash);
             } else {
               setMessages((prev) => [
@@ -1816,6 +1828,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   isLocal: false,
                 },
               ]);
+            }
+          } else if (evt.event_type === "cancel") {
+            // Guest recebe cancel do host via polling (celular/outro dispositivo)
+            if (isGuest) {
+              setActiveAssessmentId(null);
+              setActiveAssessmentHash(null);
+              setAssessmentStatus("idle");
+              setRemoteAnswers({});
+              setActiveSidePanel("none");
             }
           }
         });
@@ -4085,7 +4106,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                     {/* Answers */}
                     {activeAssessmentForm && (
                       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                        {activeAssessmentForm.questions.map((question, idx) => {
+                        {(!activeAssessmentForm.questions || activeAssessmentForm.questions.length === 0) && (
+                          <div className="text-xs text-slate-400 text-center py-4">
+                            Este formulário não possui perguntas cadastradas.
+                          </div>
+                        )}
+                        {(activeAssessmentForm.questions || []).map((question, idx) => {
                           const answer = remoteAnswers[question.id];
                           const hasAnswer = answer !== undefined && answer !== null;
                           return (
@@ -4182,7 +4208,12 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
 
                         {/* Questions list */}
                         <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                          {activeAssessmentForm.questions.map((question, idx) => {
+                          {(!activeAssessmentForm.questions || activeAssessmentForm.questions.length === 0) && (
+                            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                              <div className="text-xs text-slate-400">Este formulário não possui perguntas cadastradas.</div>
+                            </div>
+                          )}
+                          {(activeAssessmentForm.questions || []).map((question, idx) => {
                             const answerValue = remoteAnswers[question.id]?.value ?? (question.type === "checkbox" ? [] : "");
                             const isDisabled = assessmentStatus === "completed";
                             const hasAnswer = question.type === "checkbox"
