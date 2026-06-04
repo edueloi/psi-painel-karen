@@ -1469,15 +1469,23 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
                     if (guestIceRestartTimer) { clearTimeout(guestIceRestartTimer); guestIceRestartTimer = null; }
                     if (guestIceCheckingTimeout) { clearTimeout(guestIceCheckingTimeout); guestIceCheckingTimeout = null; }
-                  } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                  } else if (pc.iceConnectionState === 'disconnected') {
+                    if (guestIceCheckingTimeout) { clearTimeout(guestIceCheckingTimeout); guestIceCheckingTimeout = null; }
+                    if (guestIceRestartTimer) clearTimeout(guestIceRestartTimer);
+                    // Aguarda mais — disconnected é temporário em redes móveis
+                    guestIceRestartTimer = setTimeout(() => {
+                      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                        console.log("Guest: solicitando renegociação ao host...");
+                        sendRoomEventRef.current?.('request_renegotiation', {});
+                      }
+                    }, 15000);
+                  } else if (pc.iceConnectionState === 'failed') {
                     if (guestIceCheckingTimeout) { clearTimeout(guestIceCheckingTimeout); guestIceCheckingTimeout = null; }
                     if (guestIceRestartTimer) clearTimeout(guestIceRestartTimer);
                     guestIceRestartTimer = setTimeout(() => {
-                      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                        console.log("Guest: solicitando renegociação com TURN ao host...");
-                        sendRoomEventRef.current?.('request_renegotiation', {});
-                      }
-                    }, 5000);
+                      console.log("Guest: ICE falhou, pedindo renegociação...");
+                      sendRoomEventRef.current?.('request_renegotiation', {});
+                    }, 8000);
                   }
                 };
                 pc.ontrack = (e) => {
@@ -2073,19 +2081,20 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
         } else if (pc.iceConnectionState === 'disconnected') {
           if (iceCheckingTimeout) { clearTimeout(iceCheckingTimeout); iceCheckingTimeout = null; }
+          // Aguarda mais tempo antes de resetar — ICE disconnected é temporário em redes móveis
           iceRestartTimer = setTimeout(() => {
             if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
               hardResetHostConnection(500);
             }
-          }, 5000);
+          }, 15000);
         } else if (pc.iceConnectionState === 'failed') {
           if (iceRestartTimer) clearTimeout(iceRestartTimer);
           if (iceCheckingTimeout) clearTimeout(iceCheckingTimeout);
-          iceRestartTimer = setTimeout(() => { hardResetHostConnection(500); }, 3000);
+          iceRestartTimer = setTimeout(() => { hardResetHostConnection(500); }, 8000);
         }
       };
       pc.onconnectionstatechange = () => {
-        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        if (['failed', 'closed'].includes(pc.connectionState)) {
           setRemoteStreamActive(false);
           resetRecordingSource("remote");
         }

@@ -123,7 +123,8 @@ function attachRoomWebSocket(httpServer) {
         // Persiste no map em memória (mesmo usado pelo polling HTTP)
         // guest_ready não precisa ser persistido — é apenas sinal WS pontual
         const skipPersist = event_type === 'guest_ready';
-        if (event_type === 'webrtc_offer') purgeWebrtcEvents(roomId);
+        // Novo offer/answer limpa sinalização anterior para evitar reprocessamento pelo polling
+        if (event_type === 'webrtc_offer' || event_type === 'webrtc_answer') purgeWebrtcEvents(roomId);
         let item = null;
         if (!skipPersist && _pushItem && _nextId && _eventsMap) {
           item = _pushItem(_eventsMap, roomId, {
