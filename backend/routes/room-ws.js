@@ -121,16 +121,18 @@ function attachRoomWebSocket(httpServer) {
         if (!event_type) return;
 
         // Persiste no map em memória (mesmo usado pelo polling HTTP)
+        // guest_ready não precisa ser persistido — é apenas sinal WS pontual
+        const skipPersist = event_type === 'guest_ready';
         if (event_type === 'webrtc_offer') purgeWebrtcEvents(roomId);
         let item = null;
-        if (_pushItem && _nextId && _eventsMap) {
+        if (!skipPersist && _pushItem && _nextId && _eventsMap) {
           item = _pushItem(_eventsMap, roomId, {
             id: _nextId(),
             event_type,
             payload_json: payload ? JSON.stringify(payload) : null,
             created_at: new Date().toISOString(),
           });
-        } else {
+        } else if (!skipPersist) {
           // Fallback se injectRoomState não foi chamado ainda
           item = {
             id: Date.now(),
@@ -140,12 +142,16 @@ function attachRoomWebSocket(httpServer) {
           };
         }
 
-        // Broadcast para outros na sala (não para quem enviou)
-        broadcast(roomId, { type: 'event', ...item }, ws);
-
-        // Confirma ao remetente com o ID gerado
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ack', id: item.id, event_type }));
+        if (skipPersist) {
+          // guest_ready: só broadcast direto via WS, sem persistir no eventsMap
+          broadcast(roomId, { type: 'event', id: Date.now(), event_type, payload_json: payload ? JSON.stringify(payload) : null, created_at: new Date().toISOString() }, ws);
+        } else {
+          // Broadcast para outros na sala (não para quem enviou)
+          broadcast(roomId, { type: 'event', ...item }, ws);
+          // Confirma ao remetente com o ID gerado
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ack', id: item.id, event_type }));
+          }
         }
       }
     });
