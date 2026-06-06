@@ -511,7 +511,11 @@ export const Dashboard: React.FC = () => {
           return null;
         }
 
-        const birthDate = new Date(dateStr);
+        // Parse local sem timezone: "1993-06-30" → dia 30, não dia 29 (UTC→BRT)
+        const parts = dateStr.split('T')[0].split('-');
+        const birthDate = parts.length === 3
+          ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+          : new Date(dateStr);
         if (Number.isNaN(birthDate.getTime())) {
           return null;
         }
@@ -1261,7 +1265,11 @@ export const Dashboard: React.FC = () => {
             ) : (
               <div className="space-y-3">
                 {birthdays.map(({ patient, next }) => {
-                  const birthDate = new Date(patient.birth_date || patient.birthDate || '');
+                  const bdStr = patient.birth_date || patient.birthDate || '';
+                  const bdParts = bdStr.split('T')[0].split('-');
+                  const birthDate = bdParts.length === 3
+                    ? new Date(Number(bdParts[0]), Number(bdParts[1]) - 1, Number(bdParts[2]))
+                    : new Date(bdStr);
                   const age = Number.isNaN(birthDate.getTime())
                     ? null
                     : now.getFullYear() - birthDate.getFullYear();
