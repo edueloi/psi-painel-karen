@@ -150,7 +150,10 @@ async function checkAppointmentReminders() {
     for (const apt of appointments) {
       const aptStart = new Date(apt.start_time);
       const diffMinutes = Math.round((aptStart.getTime() - now.getTime()) / 60000);
-      const expiresAt = new Date(aptStart.getTime() + 10 * 60000).toISOString().slice(0, 19).replace('T', ' ');
+      // Lembrete 1h: expira 30min após a consulta. Lembrete 24h: expira 2h após a consulta (bot pode ter ficado offline).
+      const expiresAt1h  = new Date(aptStart.getTime() + 30  * 60000).toISOString().slice(0, 19).replace('T', ' ');
+      const expiresAt24h = new Date(aptStart.getTime() + 120 * 60000).toISOString().slice(0, 19).replace('T', ' ');
+      const expiresAt = expiresAt1h; // padrão — substituído abaixo conforme o tipo
 
       // ══════════════════════════════════════════════════════════════════
       // --- A. EVENTO PESSOAL — lembrete ao profissional via Master Bot ---
@@ -177,13 +180,13 @@ async function checkAppointmentReminders() {
         }
 
         // 24h antes — somente se tiver responsável preenchido
-        if (diffMinutes > 1400 && diffMinutes <= 1460 && !apt.whatsapp_reminder_personal_24h_sent && responsavel) {
+        if (diffMinutes > 1380 && diffMinutes <= 1500 && !apt.whatsapp_reminder_personal_24h_sent && responsavel) {
           const msg = `📅 *${greeting}, ${apt.professional_name || 'Profissional'}!*\n\nLembrete de evento para amanhã:\n\n🗓️ *Evento:* ${eventTitle}\n📆 *Data:* ${dateStr}\n🕒 *Horário:* ${timeStr}${respLine}\n\n_⚠️ Mensagem automática._`;
           await notificationService.enqueue({
             tenant_id: masterTenantId,
             recipient_phone: apt.professional_phone,
             content: msg,
-            expires_at: expiresAt,
+            expires_at: expiresAt24h,
             metadata: { apt_id: apt.id, type: 'personal-event-24h' }
           });
           await db.query('UPDATE appointments SET whatsapp_reminder_personal_24h_sent = 1 WHERE id = ?', [apt.id]);
@@ -238,13 +241,13 @@ async function checkAppointmentReminders() {
             await db.query('UPDATE appointments SET whatsapp_reminder_1h_sent = 1 WHERE id = ?', [apt.id]);
             console.log(`[CRON-QUEUE Paciente 1h] ${apt.patient_name} | Tenant ${apt.tenant_id}`);
           }
-          if (diffMinutes > 1400 && diffMinutes <= 1460 && !apt.whatsapp_reminder_24h_sent && prefs.reminder_24h_enabled !== false) {
+          if (diffMinutes > 1380 && diffMinutes <= 1500 && !apt.whatsapp_reminder_24h_sent && prefs.reminder_24h_enabled !== false) {
             const msg = buildMsg(prefs.reminder_24h_msg, `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nConfirmamos sua consulta para amanhã ({date}) às {time}.`);
             await notificationService.enqueue({
               tenant_id: apt.tenant_id,
               recipient_phone: targetPhone,
               content: msg,
-              expires_at: expiresAt,
+              expires_at: expiresAt24h,
               metadata: { apt_id: apt.id, type: '24h-reminder-patient' }
             });
             await db.query('UPDATE appointments SET whatsapp_reminder_24h_sent = 1 WHERE id = ?', [apt.id]);

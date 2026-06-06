@@ -9,9 +9,16 @@ function jidToPhone(jid) {
 
 function normalizePhoneDigits(phone) {
   let clean = String(phone || '').replace(/\D/g, '');
-  if (clean.length === 10 || clean.length === 11) {
-    clean = `55${clean}`;
+
+  // Já tem código do país
+  if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
+    return clean;
   }
+  // Número brasileiro sem código: 10 dígitos (fixo) ou 11 dígitos (celular com 9)
+  if (clean.length === 10 || clean.length === 11) {
+    return `55${clean}`;
+  }
+  // 9 dígitos: celular sem DDD — não há como normalizar, retorna como está
   return clean;
 }
 
@@ -446,8 +453,8 @@ class WhatsAppManager {
   async sendReminder(tenantId, to, text) {
     const data = this.getTenantData(tenantId);
 
-    if (data.status !== 'connected' || !data.client) {
-      const msg = `⚠️ Tentativa de envio para o tenant ${tenantId} paralisada: bot ${data.status || 'desconectado'}.`;
+    if (data.status !== 'connected' || !data.sock) {
+      const msg = `⚠️ Bot tenant ${tenantId} não conectado (status: ${data.status || 'desconectado'}).`;
       console.warn(msg);
       return msg;
     }
@@ -455,14 +462,15 @@ class WhatsAppManager {
     try {
       const formattedTo = normalizeDestination(to);
       if (!formattedTo) {
+        console.warn(`[sendReminder] Número inválido ignorado: "${to}" (tenant ${tenantId})`);
         return 'Erro ao enviar via WhatsApp: destino inválido';
       }
 
-      console.log(`📤 Enviando via Baileys (tenant ${tenantId}) para: ${formattedTo}...`);
-      await data.client.sendText(formattedTo, text);
+      console.log(`📤 Enviando via Baileys (tenant ${tenantId}) para: ${formattedTo} (original: ${to})`);
+      await data.sock.sendMessage(formattedTo, { text: String(text || '') });
       return true;
     } catch (err) {
-      console.error(`❌ Erro Baileys tenant ${tenantId} -> ${to}:`, err.message);
+      console.error(`❌ Erro Baileys tenant ${tenantId} -> ${to} (${normalizeDestination(to)}):`, err.message);
       return `Erro ao enviar via WhatsApp: ${err.message}`;
     }
   }
