@@ -154,6 +154,43 @@ function htmlToContent(html: string): string {
   return parts.join('');
 }
 
+// ── Card compacto mobile (reutilizado no GridTable e na view de lista) ────────
+interface MobileTemplateCardProps {
+  template: MessageTemplate;
+  copiedId: string | null;
+  onSend: (t: MessageTemplate) => void;
+  onCopy: (t: MessageTemplate) => void;
+  onEdit: (t: MessageTemplate) => void;
+  onDelete: (t: MessageTemplate) => void;
+}
+
+const MobileTemplateCard: React.FC<MobileTemplateCardProps> = ({ template, copiedId, onSend, onCopy, onEdit, onDelete }) => (
+  <div className="flex flex-col gap-2.5 w-full">
+    <div className="flex items-start justify-between gap-2">
+      <div className="flex-1 min-w-0">
+        <span className={getCategoryClass(template.category)}>{template.category}</span>
+        <p className="font-bold text-zinc-800 text-sm mt-1.5 line-clamp-1">{template.title}</p>
+      </div>
+      {template.is_global === 1 && <span title="Template do sistema"><Sparkles size={13} className="text-amber-400 shrink-0 mt-1" /></span>}
+    </div>
+    <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed">{template.content.replace(/\{\{[^}]+\}\}/g, '…')}</p>
+    <div className="flex items-center gap-2 pt-1">
+      <Button variant="success" size="sm" radius="xl" leftIcon={<Send size={12} />} onClick={() => onSend(template)} className="flex-1 text-xs">
+        WhatsApp
+      </Button>
+      <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => onCopy(template)} title="Copiar">
+        {copiedId === template.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+      </Button>
+      <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => onEdit(template)} title="Editar">
+        <Edit3 size={13} />
+      </Button>
+      <Button variant="softDanger" size="sm" iconOnly radius="xl" onClick={() => onDelete(template)} title="Excluir">
+        <Trash2 size={13} />
+      </Button>
+    </div>
+  </div>
+);
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export const Messages: React.FC = () => {
   const { pushToast } = useToast();
@@ -627,11 +664,22 @@ export const Messages: React.FC = () => {
           </div>
         )}
 
-        {/* ── LISTA ── */}
+        {/* ── CARD RENDERER (reutilizado em mobile e na grid) ── */}
+        {/* ── LISTA (desktop only — mobile sempre usa cards) ── */}
         {!isLoading && viewMode === 'list' && (
           <GridTable<MessageTemplate>
             data={pagedTemplates}
             keyExtractor={(row) => row.id}
+            renderMobileItem={(row) => (
+              <MobileTemplateCard
+                template={row}
+                copiedId={copiedId}
+                onSend={handleOpenSendModal}
+                onCopy={handleCopy}
+                onEdit={handleOpenModal}
+                onDelete={handleDelete}
+              />
+            )}
             columns={[
               {
                 header: 'Categoria',
@@ -642,14 +690,14 @@ export const Messages: React.FC = () => {
                 header: 'Título',
                 render: (row) => (
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-800 text-sm">{row.title}</span>
-                    {row.is_global === 1 && <Sparkles size={12} className="text-amber-400 shrink-0" />}
+                    <span className="font-semibold text-zinc-800 text-sm">{row.title}</span>
+                    {row.is_global === 1 && <span title="Template do sistema"><Sparkles size={12} className="text-amber-400 shrink-0" /></span>}
                   </div>
                 ),
               },
               {
                 header: 'Conteúdo',
-                render: (row) => <p className="text-xs text-slate-500 truncate max-w-xs">{row.content}</p>,
+                render: (row) => <p className="text-xs text-zinc-500 truncate max-w-xs">{row.content}</p>,
               },
               {
                 header: 'Ações',
