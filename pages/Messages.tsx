@@ -695,7 +695,7 @@ export const Messages: React.FC = () => {
                     </h3>
                   </div>
                   {template.is_global === 1 && (
-                    <Sparkles size={13} className="text-amber-400 shrink-0 mt-0.5" title="Template do sistema" />
+                    <span title="Template do sistema"><Sparkles size={13} className="text-amber-400 shrink-0 mt-0.5" /></span>
                   )}
                 </div>
 
