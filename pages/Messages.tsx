@@ -69,16 +69,14 @@ function getCategoryClass(cat: string) {
   return `text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${CATEGORY_COLORS[cat] || 'bg-purple-50 text-purple-700 border-purple-200'}`;
 }
 
-// Converte {{var}} → HTML com badges coloridos
-function contentToHtml(content: string): string {
-  if (!content) return '';
+// Serializa uma linha (sem \n) em HTML com badges
+function lineToHtml(line: string): string {
   let result = '';
   let i = 0;
-  while (i < content.length) {
-    if (content[i] === '\n') { result += '<br>'; i++; continue; }
+  while (i < line.length) {
     let matched = false;
     for (const [tag, label] of Object.entries(VARIABLE_MAP)) {
-      if (content.startsWith(tag, i)) {
+      if (line.startsWith(tag, i)) {
         const cls = getBadgeClass(tag);
         result += `<span contenteditable="false" data-var="${tag}" class="${cls}">⬡ ${label}</span>`;
         i += tag.length;
@@ -87,7 +85,7 @@ function contentToHtml(content: string): string {
       }
     }
     if (!matched) {
-      const ch = content[i];
+      const ch = line[i];
       result += ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch;
       i++;
     }
@@ -95,29 +93,62 @@ function contentToHtml(content: string): string {
   return result;
 }
 
+// Converte {{var}} → HTML com badges coloridos, usando <div> por linha
+// (igual à estrutura interna que o contenteditable usa ao pressionar Enter)
+function contentToHtml(content: string): string {
+  if (!content) return '';
+  const lines = content.split('\n');
+  if (lines.length === 1) {
+    // Conteúdo de uma só linha: sem envolver em div para não alterar estrutura
+    return lineToHtml(lines[0]);
+  }
+  // Múltiplas linhas: cada uma vira um <div>; linha vazia vira <div><br></div>
+  return lines.map(l => {
+    const inner = lineToHtml(l);
+    return `<div>${inner || '<br>'}</div>`;
+  }).join('');
+}
+
 // Converte innerHTML → {{var}} template string
 function htmlToContent(html: string): string {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
-  const walk = (node: Node): string => {
+
+  // Serializa um nó para texto puro, preservando quebras de linha
+  const serialize = (node: Node): string => {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as Element;
-      if (el.tagName === 'BR') return '\n';
-      if (el.hasAttribute('data-var')) return el.getAttribute('data-var') || '';
-      // div/p gerados pelo contenteditable ao pressionar Enter
-      const inner = Array.from(el.childNodes).map(walk).join('');
-      if ((el.tagName === 'DIV' || el.tagName === 'P') && el.parentElement === tmp) {
-        // Cada div/p de primeiro nível = uma linha; adiciona \n antes (exceto o primeiro)
-        const siblings = Array.from(tmp.children);
-        const idx = siblings.indexOf(el);
-        return (idx > 0 ? '\n' : '') + inner;
-      }
-      return inner;
-    }
-    return '';
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const el = node as Element;
+    if (el.tagName === 'BR') return '\n';
+    if (el.hasAttribute('data-var')) return el.getAttribute('data-var') || '';
+    return Array.from(el.childNodes).map(serialize).join('');
   };
-  return walk(tmp);
+
+  // O contenteditable pode colocar texto solto no root OU envolver em div/p.
+  // Estratégia: percorre filhos diretos; cada div/p filho = uma linha separada por \n.
+  const parts: string[] = [];
+  let hasBlockChildren = false;
+
+  for (const child of Array.from(tmp.childNodes)) {
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      const el = child as Element;
+      if (el.tagName === 'DIV' || el.tagName === 'P') {
+        hasBlockChildren = true;
+        // Linha em branco: <div><br></div> → string vazia → \n vazio
+        const line = serialize(el).replace(/\n$/, ''); // remove \n de <br> final que o browser às vezes adiciona
+        parts.push(line);
+        continue;
+      }
+    }
+    // Nó de texto ou span/badge no root
+    parts.push(serialize(child));
+  }
+
+  if (hasBlockChildren) {
+    return parts.join('\n');
+  }
+  // Sem divs de bloco: texto puro com <br> como quebras
+  return parts.join('');
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -675,7 +706,7 @@ export const Messages: React.FC = () => {
 
                 {/* Content preview */}
                 <div className="mx-5 mb-4 flex-1 bg-slate-50 rounded-xl border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed line-clamp-4"
-                  dangerouslySetInnerHTML={{ __html: contentToHtml(template.content).replace(/<br>/g, ' ') }}
+                  dangerouslySetInnerHTML={{ __html: contentToHtml(template.content).replace(/<br\s*\/?>/gi, ' ').replace(/<\/div>/gi, ' ').replace(/<div>/gi, '') }}
                 />
 
                 {/* Actions */}

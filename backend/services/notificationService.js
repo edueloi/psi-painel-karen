@@ -142,15 +142,18 @@ class NotificationService {
           console.log(`[NotificationQueue] ✅ Enviado id=${item.id} tenant=${item.tenant_id}`);
         } else {
           const errorMsg = typeof result === 'string' ? result : 'Erro desconhecido no envio';
+          // Erro permanente (número sem WhatsApp / inválido): retry não resolve — falha imediata
+          // e a flag NÃO é liberada, senão o cron reenfileira em loop até a janela passar.
+          const isPermanent = /não possui WhatsApp|destino inválido/i.test(errorMsg);
           const newAttempts = item.attempts + 1;
-          const newStatus = newAttempts >= item.max_attempts ? 'error' : 'pending';
+          const newStatus = (isPermanent || newAttempts >= item.max_attempts) ? 'error' : 'pending';
           await db.query(
             'UPDATE notification_queue SET status = ?, attempts = ?, last_error = ? WHERE id = ?',
             [newStatus, newAttempts, errorMsg, item.id]
           );
           if (newStatus === 'error') {
             console.log(`[NotificationQueue] ❌ Falha definitiva id=${item.id} tenant=${item.tenant_id}: ${errorMsg}`);
-            await this._releaseAppointmentFlag(item);
+            if (!isPermanent) await this._releaseAppointmentFlag(item);
           }
         }
 
