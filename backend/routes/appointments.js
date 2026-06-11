@@ -607,11 +607,10 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
 
                         if (apptHHMM < schedStart || endHHMM > schedEnd) {
                             if (freq) {
-                                console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — fora do expediente ${schedStart}-${schedEnd}`);
-                                continue;
-                            }
-                            // Próprio profissional pode agendar fora do expediente (não bloqueia)
-                            if (!isOwnSchedule) {
+                                // Recorrência criada pelo admin: insere mesmo fora do expediente
+                                console.log(`[schedule] Recorrência fora do expediente ${dateStr} ${apptHHMM} — inserindo mesmo assim`);
+                            } else if (!isOwnSchedule) {
+                                // Próprio profissional pode agendar fora do expediente (não bloqueia)
                                 return res.status(422).json({
                                     error: 'outside_hours',
                                     message: `Horário fora do expediente. O profissional atende das ${schedStart} às ${schedEnd}.`,
@@ -629,11 +628,10 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                                     // Checagem de sobreposição: (InícioApt < FimBreak) AND (FimApt > InícioBreak)
                                     if (apptHHMM < bEnd && endHHMM > bStart) {
                                         if (freq) {
-                                            console.log(`[schedule] Pulando ${dateStr} ${apptHHMM} — sobrepõe intervalo ${bStart}-${bEnd}`);
-                                            continue;
-                                        }
-                                        // Próprio profissional pode agendar no intervalo (não bloqueia)
-                                        if (!isOwnSchedule) {
+                                            // Recorrência criada pelo admin: insere mesmo em horário de intervalo
+                                            console.log(`[schedule] Recorrência em intervalo ${dateStr} ${apptHHMM} (${bStart}-${bEnd}) — inserindo mesmo assim`);
+                                        } else if (!isOwnSchedule) {
+                                            // Próprio profissional pode agendar no intervalo (não bloqueia)
                                             return res.status(422).json({
                                                 error: 'break_time',
                                                 message: `Horário em período de intervalo (${bStart}–${bEnd}).`,
