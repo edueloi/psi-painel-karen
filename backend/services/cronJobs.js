@@ -118,7 +118,7 @@ async function checkAppointmentReminders() {
     // Busca agendamentos próximos (26h) — consultas E eventos pessoais
     const [appointments] = await db.query(`
        SELECT a.*,
-         p.name as patient_name, p.phone as patient_phone,
+         p.name as patient_name, COALESCE(NULLIF(TRIM(p.whatsapp), ''), p.phone) as patient_phone,
          u.name as professional_name, u.phone as professional_phone, u.email as professional_email,
          u.email_preferences,
          s.name as service_name,
@@ -205,7 +205,7 @@ async function checkAppointmentReminders() {
         const prefs       = typeof apt.whatsapp_preferences === 'string' ? JSON.parse(apt.whatsapp_preferences || '{}') : (apt.whatsapp_preferences || {});
         const targetPhone = apt.patient_phone;
         const hasPatient  = apt.patient_name && apt.patient_name.trim() && targetPhone
-                          && (apt.status === 'scheduled' || apt.status === 'rescheduled');
+                          && ['scheduled', 'rescheduled', 'confirmed'].includes(apt.status);
 
         if (hasPatient) {
           const timeStr = fmtTime(apt.start_time);
@@ -305,12 +305,13 @@ async function checkAppointmentReminders() {
     console.error('❌ Erro no job de lembrete profissional:', err.message);
   }
 }
-// Verifica se o horário atual está dentro de uma janela de ±3 minutos do horário alvo
-function isWithinWindow(now, targetTimeStr) {
+// Janela de disparo das tarefas diárias: do horário alvo até 2h depois.
+// A janela longa permite retry (a cada minuto) se o bot estiver offline ou o servidor reiniciar no horário alvo.
+function isWithinWindow(now, targetTimeStr, graceMinutes = 120) {
   const [h, m] = targetTimeStr.split(':').map(Number);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const targetMinutes = h * 60 + m;
-  return Math.abs(nowMinutes - targetMinutes) <= 3;
+  return nowMinutes >= targetMinutes && nowMinutes <= targetMinutes + graceMinutes;
 }
 
 // Cache para evitar disparo duplo no mesmo dia (key: `tenantId:type:date`)
@@ -335,60 +336,89 @@ async function checkDailyTasks() {
       const payTime = prefs.payment_time || "10:00";
 
       // 1. ANIVERSARIANTES
-      const bdayKey = `${t.id}:bday:${todayStr}`;
-      if (isWithinWindow(nowSP, bdayTime) && !_dailyFired.has(bdayKey)) {
-        _dailyFired.add(bdayKey);
+      // Chaves separadas: alerta/e-mail dispara uma vez por dia; o WhatsApp só é marcado
+      // como feito quando o bot está conectado e as mensagens entram na fila — se o bot
+      // estiver offline, tenta de novo a cada minuto dentro da janela.
+      const bdayAlertKey = `${t.id}:bday-alert:${todayStr}`;
+      const bdayWppKey   = `${t.id}:bday-wpp:${todayStr}`;
+      if (isWithinWindow(nowSP, bdayTime) && (!_dailyFired.has(bdayAlertKey) || !_dailyFired.has(bdayWppKey))) {
         const [patients] = await db.query(`
           SELECT id, name, birth_date, whatsapp, phone
           FROM patients
           WHERE tenant_id = ? AND MONTH(birth_date) = ? AND DAY(birth_date) = ? AND status = 'ativo'
         `, [t.id, month, day]);
 
-        if (patients.length > 0) {
+        if (patients.length === 0) {
+          _dailyFired.add(bdayAlertKey);
+          _dailyFired.add(bdayWppKey);
+        } else {
           // --- ALERTA SISTEMA E E-MAIL ---
-          const users = await getTenantUsers(t.id);
-          const html  = templates.birthdayReminder(patients);
-          const names = patients.map(p => p.name).filter(Boolean).join(', ');
+          if (!_dailyFired.has(bdayAlertKey)) {
+            _dailyFired.add(bdayAlertKey);
+            const users = await getTenantUsers(t.id);
+            const html  = templates.birthdayReminder(patients);
+            const names = patients.map(p => p.name).filter(Boolean).join(', ');
 
-          await db.query(
-            'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
-            [t.id, `🎂 ${patients.length} aniversariante(s) hoje`, `Paciente(s) fazendo aniversário hoje: ${names}.`, 'info', '/prontuarios']
-          ).catch(() => {});
+            await db.query(
+              'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
+              [t.id, `🎂 ${patients.length} aniversariante(s) hoje`, `Paciente(s) fazendo aniversário hoje: ${names}.`, 'info', '/prontuarios']
+            ).catch(() => {});
 
-          for (const user of users) {
-             const uprefs = getPrefs(user);
-             if (uprefs.enabled && uprefs.birthday_reminder) {
-               await sendMail(user.email, `🎂 ${patients.length} aniversariante(s) hoje!`, html);
-             }
+            for (const user of users) {
+               const uprefs = getPrefs(user);
+               if (uprefs.enabled && uprefs.birthday_reminder) {
+                 await sendMail(user.email, `🎂 ${patients.length} aniversariante(s) hoje!`, html);
+               }
+            }
           }
 
           // --- WHATSAPP (SÓ SE O BOT DA CLÍNICA ESTIVER CONECTADO - O MASTER NÃO MANDA PARA PACIENTES) ---
-          if (await isBotConnected(t.id) && t.id != masterTenantId && prefs.birthday_enabled !== false) {
-            for (const p of patients) {
-              const targetPhone = p.whatsapp || p.phone;
-              if (!targetPhone) continue;
-              
-              const defaultMsg = `🎂 *Feliz Aniversário!*\n\nOlá, *{patient_name}*!\nA equipe deseja a você um excelente dia repleto de alegrias e muita paz!`;
-              let msg = prefs.birthday_msg || defaultMsg;
-              msg = msg.replace(/\{patient_name\}/g, p.name || 'Paciente');
+          if (!_dailyFired.has(bdayWppKey)) {
+            if (t.id == masterTenantId || prefs.birthday_enabled === false) {
+              _dailyFired.add(bdayWppKey);
+            } else if (await isBotConnected(t.id)) {
+              _dailyFired.add(bdayWppKey);
+              for (const p of patients) {
+                const targetPhone = p.whatsapp || p.phone;
+                if (!targetPhone) continue;
 
-              await notificationService.enqueue({
-                tenant_id: t.id,
-                recipient_phone: targetPhone,
-                content: msg,
-                metadata: { patient_id: p.id, type: 'birthday' }
-              });
-              console.log(`[CRON-QUEUE Birthday] Agendado para Tenant ${t.id}: ${p.name}`);
+                // Dedup persistente (sobrevive a restart): já enfileirado hoje para este paciente?
+                const [dup] = await db.query(
+                  `SELECT id FROM notification_queue
+                   WHERE tenant_id = ? AND created_at >= ?
+                     AND status IN ('pending', 'sent')
+                     AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'birthday'
+                     AND JSON_EXTRACT(metadata, '$.patient_id') = ?
+                   LIMIT 1`,
+                  [t.id, `${todayStr} 00:00:00`, p.id]
+                );
+                if (dup.length > 0) continue;
+
+                const defaultMsg = `🎂 *Feliz Aniversário!*\n\nOlá, *{patient_name}*!\nA equipe deseja a você um excelente dia repleto de alegrias e muita paz!`;
+                let msg = prefs.birthday_msg || defaultMsg;
+                msg = msg.replace(/\{patient_name\}/g, p.name || 'Paciente');
+
+                await notificationService.enqueue({
+                  tenant_id: t.id,
+                  recipient_phone: targetPhone,
+                  content: msg,
+                  metadata: { patient_id: p.id, type: 'birthday' }
+                });
+                console.log(`[CRON-QUEUE Birthday] Agendado para Tenant ${t.id}: ${p.name}`);
+              }
             }
           }
         }
       }
 
       // 2. PAGAMENTOS VENCENDO HOJE
+      // Mesma lógica do aniversário: só marca como feito quando o bot está conectado.
       const payKey = `${t.id}:pay:${todayStr}`;
       if (isWithinWindow(nowSP, payTime) && !_dailyFired.has(payKey)) {
-        _dailyFired.add(payKey);
-        if (await isBotConnected(t.id) && t.id != masterTenantId && prefs.payment_enabled !== false) {
+        if (t.id == masterTenantId || prefs.payment_enabled === false) {
+          _dailyFired.add(payKey);
+        } else if (await isBotConnected(t.id)) {
+          _dailyFired.add(payKey);
           const [payments] = await db.query(`
             SELECT f.id, f.amount, p.name as patient_name, p.whatsapp, p.phone
             FROM financial_transactions f
@@ -399,6 +429,18 @@ async function checkDailyTasks() {
           for (const pay of payments) {
             const targetPhone = pay.whatsapp || pay.phone;
             if (!targetPhone) continue;
+
+            // Dedup persistente (sobrevive a restart): já enfileirado hoje para esta cobrança?
+            const [dup] = await db.query(
+              `SELECT id FROM notification_queue
+               WHERE tenant_id = ? AND created_at >= ?
+                 AND status IN ('pending', 'sent')
+                 AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'payment-reminder'
+                 AND JSON_EXTRACT(metadata, '$.payment_id') = ?
+               LIMIT 1`,
+              [t.id, `${todayStr} 00:00:00`, pay.id]
+            );
+            if (dup.length > 0) continue;
 
             const defaultMsg = `💰 *Lembrete de Pagamento*\n\nOlá, *{patient_name}*.\nLembramos que o vencimento da sua parcela no valor de R$ {amount} é hoje. Qualquer dúvida, estamos à disposição.`;
             let msg = prefs.payment_msg || defaultMsg;

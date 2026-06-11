@@ -7,6 +7,17 @@ const wppService = require('./whatsappService');
  */
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Mapeia o type do metadata para a coluna de tracking em appointments.
+// Quando uma mensagem morre na fila (erro definitivo/expirada), a flag é zerada
+// para o cron poder reenfileirar se o agendamento ainda estiver na janela de lembrete.
+const APPOINTMENT_FLAG_BY_TYPE = {
+  '1h-reminder-patient':   'whatsapp_reminder_1h_sent',
+  '24h-reminder-patient':  'whatsapp_reminder_24h_sent',
+  'reminder-professional': 'whatsapp_reminder_professional_sent',
+  'personal-event-1h':     'whatsapp_reminder_personal_1h_sent',
+  'personal-event-24h':    'whatsapp_reminder_personal_24h_sent',
+};
+
 class NotificationService {
   constructor() {
     this.isProcessing = false;
@@ -117,6 +128,7 @@ class NotificationService {
         if (item.expires_at && new Date(item.expires_at) < new Date()) {
           await db.query("UPDATE notification_queue SET status = 'canceled', last_error = 'Expirada' WHERE id = ?", [item.id]);
           console.log(`[NotificationQueue] Mensagem ${item.id} (tenant ${item.tenant_id}) expirada e cancelada.`);
+          await this._releaseAppointmentFlag(item);
           continue;
         }
 
@@ -138,6 +150,7 @@ class NotificationService {
           );
           if (newStatus === 'error') {
             console.log(`[NotificationQueue] ❌ Falha definitiva id=${item.id} tenant=${item.tenant_id}: ${errorMsg}`);
+            await this._releaseAppointmentFlag(item);
           }
         }
 
@@ -152,7 +165,26 @@ class NotificationService {
           'UPDATE notification_queue SET status = ?, attempts = ?, last_error = ? WHERE id = ?',
           [newStatus, newAttempts, err.message, item.id]
         );
+        if (newStatus === 'error') {
+          await this._releaseAppointmentFlag(item);
+        }
       }
+    }
+  }
+
+  /**
+   * Zera a flag de "já enviado" do agendamento quando a mensagem morre na fila.
+   * Assim o cron reenfileira automaticamente se ainda estiver dentro da janela do lembrete.
+   */
+  async _releaseAppointmentFlag(item) {
+    try {
+      const meta = typeof item.metadata === 'string' ? JSON.parse(item.metadata || '{}') : (item.metadata || {});
+      const column = APPOINTMENT_FLAG_BY_TYPE[meta.type];
+      if (!column || !meta.apt_id) return;
+      await db.query(`UPDATE appointments SET \`${column}\` = 0 WHERE id = ?`, [meta.apt_id]);
+      console.log(`[NotificationQueue] Flag ${column} liberada para reenvio (apt ${meta.apt_id}).`);
+    } catch (err) {
+      console.error(`[NotificationQueue] Erro ao liberar flag do item ${item.id}:`, err.message);
     }
   }
 }

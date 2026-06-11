@@ -22,6 +22,17 @@ function normalizePhoneDigits(phone) {
   return clean;
 }
 
+// Variantes BR do número: com e sem o 9º dígito.
+// Contatos antigos podem estar registrados no WhatsApp sem o 9 (ou o cadastro pode ter vindo sem ele).
+function brazilJidCandidates(digits) {
+  if (!digits.startsWith('55')) return [digits];
+  // 55 + DDD (2) + 9 dígitos = 13 → tenta também sem o 9
+  if (digits.length === 13 && digits[4] === '9') return [digits, digits.slice(0, 4) + digits.slice(5)];
+  // 55 + DDD (2) + 8 dígitos = 12 → tenta também com o 9
+  if (digits.length === 12) return [digits, digits.slice(0, 4) + '9' + digits.slice(4)];
+  return [digits];
+}
+
 function normalizeDestination(dest) {
   const raw = String(dest || '').trim();
   if (!raw) return null;
@@ -460,10 +471,28 @@ class WhatsAppManager {
     }
 
     try {
-      const formattedTo = normalizeDestination(to);
+      let formattedTo = normalizeDestination(to);
       if (!formattedTo) {
         console.warn(`[sendReminder] Número inválido ignorado: "${to}" (tenant ${tenantId})`);
         return 'Erro ao enviar via WhatsApp: destino inválido';
+      }
+
+      // Resolve o JID real registrado no WhatsApp (corrige 9º dígito e detecta número sem WhatsApp).
+      // Se a verificação falhar (timeout/erro do servidor), segue com o JID normalizado.
+      if (formattedTo.endsWith('@s.whatsapp.net')) {
+        try {
+          const digits = formattedTo.replace('@s.whatsapp.net', '');
+          const results = await data.sock.onWhatsApp(...brazilJidCandidates(digits));
+          const found = Array.isArray(results) ? results.find(r => r && r.exists && r.jid) : null;
+          if (found) {
+            formattedTo = found.jid;
+          } else if (Array.isArray(results)) {
+            console.warn(`[sendReminder] Número sem WhatsApp: "${to}" (tenant ${tenantId})`);
+            return `Erro ao enviar via WhatsApp: número ${to} não possui WhatsApp`;
+          }
+        } catch (verifyErr) {
+          console.warn(`[sendReminder] Falha ao verificar JID de "${to}" (tenant ${tenantId}): ${verifyErr.message} — enviando com JID normalizado.`);
+        }
       }
 
       console.log(`📤 Enviando via Baileys (tenant ${tenantId}) para: ${formattedTo} (original: ${to})`);
