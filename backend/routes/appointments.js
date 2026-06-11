@@ -665,6 +665,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                    AND a.professional_id = ?
                    AND a.status NOT IN ('cancelled', 'no_show')
                    AND a.end_time IS NOT NULL
+                   AND TIMESTAMPDIFF(SECOND, a.start_time, a.end_time) <= 86400
                    AND a.start_time < ?
                    AND a.end_time   > ?
                  ORDER BY a.start_time

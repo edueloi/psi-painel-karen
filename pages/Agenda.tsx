@@ -439,9 +439,11 @@ export const Agenda: React.FC = () => {
         setProfileData(profile || {});
 
         setAppointments(apts.map(a => {
-            // .replace(' ', 'T') faz o browser tratar como hora LOCAL (sem T é interpretado como UTC)
+            // Banco retorna start_time em UTC (ex: "2026-06-12 20:00:00"). Adicionamos 'Z' para
+            // que o browser interprete como UTC e converta corretamente para o fuso local.
             const rawStart = (a.start_time || a.appointment_date || '').replace(' ', 'T');
-            const start = new Date(rawStart);
+            const rawStartUtc = rawStart && !rawStart.endsWith('Z') && !rawStart.includes('+') ? rawStart + 'Z' : rawStart;
+            const start = new Date(rawStartUtc);
             // Clamp duration entre 5min e 480min (8h) para nunca gerar card gigante
             const dur = Math.min(Math.max(Number(a.duration_minutes) || 50, 5), 480);
             const end = new Date(start.getTime() + dur * 60000);
