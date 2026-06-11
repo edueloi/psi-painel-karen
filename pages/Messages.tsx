@@ -2,14 +2,17 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { MessageTemplate } from '../types';
 import { api } from '../services/api';
 import {
-  MessageCircle, Search, Plus, Edit3, Trash2, Send, Variable, Copy, Check,
-  Loader2, MessageSquare, Tag, Users, Sparkles, LayoutGrid, List, AlertTriangle,
-  ChevronLeft, ChevronRight
+  MessageCircle, Plus, Edit3, Trash2, Send, Variable, Copy, Check,
+  Loader2, MessageSquare, Tag, Users, Sparkles, AlertTriangle,
 } from 'lucide-react';
 import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper } from '../components/UI';
 import { Input } from '../components/UI/Input';
 import { GridTable } from '../components/UI/GridTable';
 import { Combobox } from '../components/UI/Combobox';
+import {
+  FilterLine, FilterLineSection, FilterLineItem,
+  FilterLineSearch, FilterLineViewToggle,
+} from '../components/UI/FilterLine';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -549,81 +552,80 @@ export const Messages: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
-        <PageHeader
-          icon={<MessageCircle />}
-          title="Mensagens Pré-definidas"
-          subtitle="Modelos inteligentes com variáveis dinâmicas"
-          iconGradient="from-sky-500 to-indigo-600"
-          containerClassName="mb-0"
-          actions={
-            <Button
-              variant="primary"
-              radius="xl"
-              leftIcon={<Plus size={16} />}
-              onClick={() => handleOpenModal()}
-              className="shadow-lg shadow-indigo-100"
-            >
-              Nova Mensagem
-            </Button>
-          }
-        />
+    <PageWrapper className="space-y-4 sm:space-y-6">
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6">
+      <PageHeader
+        icon={<MessageCircle />}
+        title="Mensagens Pré-definidas"
+        subtitle="Modelos inteligentes com variáveis dinâmicas"
+        iconGradient="from-sky-500 to-indigo-600"
+        containerClassName="mb-0"
+        actions={
+          <Button
+            variant="primary"
+            radius="xl"
+            leftIcon={<Plus size={16} />}
+            onClick={() => handleOpenModal()}
+          >
+            Nova Mensagem
+          </Button>
+        }
+      />
 
-        {/* ── SEARCH + CATEGORY TABS ── */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">
-          {/* Search + view toggle */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4">
+
+        {/* ── FILTROS ── */}
+        <FilterLine>
+          <FilterLineSection grow>
+            <FilterLineItem grow>
+              <FilterLineSearch
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={setSearchTerm}
                 placeholder="Buscar por título ou conteúdo..."
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
               />
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setViewMode('cards')}
-                title="Visualização em cards"
-                className={`p-2.5 rounded-xl border transition-all ${viewMode === 'cards' ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'}`}
-              >
-                <LayoutGrid size={16} />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                title="Visualização em lista"
-                className={`p-2.5 rounded-xl border transition-all ${viewMode === 'list' ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'}`}
-              >
-                <List size={16} />
-              </button>
-            </div>
-          </div>
+            </FilterLineItem>
+            <FilterLineItem fullOnMobile={false}>
+              <FilterLineViewToggle
+                value={viewMode}
+                onChange={setViewMode}
+                gridValue="cards"
+                listValue="list"
+              />
+            </FilterLineItem>
+          </FilterLineSection>
 
-          {/* Category tabs */}
-          <div className="flex gap-2 flex-wrap">
-            {['Todos', ...allCategories].map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-                  categoryFilter === cat
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200'
-                    : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                }`}
-              >
-                {cat}
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                  categoryFilter === cat ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                }`}>
-                  {catCounts[cat] || 0}
-                </span>
-              </button>
-            ))}
+          {/* Categorias — scroll horizontal no mobile */}
+          <FilterLineSection grow={false} wrap={false}>
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 w-full" style={{ scrollbarWidth: 'none' }}>
+              {['Todos', ...allCategories].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
+                    categoryFilter === cat
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-white text-zinc-500 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600'
+                  }`}
+                >
+                  {cat}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
+                    categoryFilter === cat ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-500'
+                  }`}>
+                    {catCounts[cat] || 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </FilterLineSection>
+        </FilterLine>
+
+        {/* ── LOADING ── */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <Loader2 size={36} className="animate-spin text-indigo-500 mb-3" />
+            <p className="text-sm font-medium">Carregando modelos...</p>
           </div>
-        </div>
+        )}
 
         {/* ── LISTA ── */}
         {!isLoading && viewMode === 'list' && (
@@ -633,7 +635,7 @@ export const Messages: React.FC = () => {
             columns={[
               {
                 header: 'Categoria',
-                headerClassName: 'w-32',
+                headerClassName: 'w-28',
                 render: (row) => <span className={getCategoryClass(row.category)}>{row.category}</span>,
               },
               {
@@ -651,7 +653,7 @@ export const Messages: React.FC = () => {
               },
               {
                 header: 'Ações',
-                headerClassName: 'w-48',
+                headerClassName: 'w-44',
                 render: (row) => (
                   <div className="flex items-center gap-1.5">
                     <Button variant="success" size="sm" radius="xl" leftIcon={<Send size={12} />} onClick={() => handleOpenSendModal(row)}>
@@ -675,81 +677,54 @@ export const Messages: React.FC = () => {
         )}
 
         {/* ── GRID DE CARDS ── */}
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-            <Loader2 size={40} className="animate-spin text-indigo-500 mb-4" />
-            <p className="text-sm font-medium">Carregando modelos...</p>
-          </div>
-        ) : viewMode === 'cards' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {!isLoading && viewMode === 'cards' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {pagedTemplates.map(template => (
               <div
                 key={template.id}
-                className="bg-white rounded-[24px] border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden group"
+                className="bg-white rounded-2xl border border-zinc-200 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col overflow-hidden"
               >
-                {/* Card header */}
-                <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3">
+                {/* Header do card */}
+                <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <span className={getCategoryClass(template.category)}>
                       {template.category}
                     </span>
-                    <h3 className="font-bold text-slate-800 mt-2 text-[15px] truncate" title={template.title}>
+                    <h3 className="font-bold text-zinc-800 mt-2 text-sm leading-snug line-clamp-1" title={template.title}>
                       {template.title}
                     </h3>
                   </div>
                   {template.is_global === 1 && (
-                    <span title="Template padrão do sistema">
-                      <Sparkles size={14} className="text-amber-400 shrink-0 mt-1" />
-                    </span>
+                    <Sparkles size={13} className="text-amber-400 shrink-0 mt-0.5" title="Template do sistema" />
                   )}
                 </div>
 
-                {/* Content preview */}
-                <div className="mx-5 mb-4 flex-1 bg-slate-50 rounded-xl border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed line-clamp-4"
+                {/* Preview do conteúdo */}
+                <div
+                  className="mx-4 mb-4 flex-1 bg-zinc-50 rounded-xl border border-zinc-100 px-3 py-2.5 text-xs text-zinc-500 leading-relaxed line-clamp-3"
                   dangerouslySetInnerHTML={{ __html: contentToHtml(template.content).replace(/<br\s*\/?>/gi, ' ').replace(/<\/div>/gi, ' ').replace(/<div>/gi, '') }}
                 />
 
-                {/* Actions */}
-                <div className="px-5 pb-5 flex items-center gap-2">
+                {/* Ações */}
+                <div className="px-4 pb-4 flex items-center gap-2">
                   <Button
                     variant="success"
                     size="sm"
                     radius="xl"
-                    leftIcon={<Send size={13} />}
+                    leftIcon={<Send size={12} />}
                     onClick={() => handleOpenSendModal(template)}
-                    className="flex-1"
+                    className="flex-1 text-xs"
                   >
                     WhatsApp
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    iconOnly
-                    radius="xl"
-                    onClick={() => handleCopy(template)}
-                    title="Copiar conteúdo"
-                  >
-                    {copiedId === template.id ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
+                  <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleCopy(template)} title="Copiar">
+                    {copiedId === template.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    iconOnly
-                    radius="xl"
-                    onClick={() => handleOpenModal(template)}
-                    title="Editar"
-                  >
-                    <Edit3 size={15} />
+                  <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleOpenModal(template)} title="Editar">
+                    <Edit3 size={13} />
                   </Button>
-                  <Button
-                    variant="softDanger"
-                    size="sm"
-                    iconOnly
-                    radius="xl"
-                    onClick={() => handleDelete(template)}
-                    title="Excluir"
-                  >
-                    <Trash2 size={15} />
+                  <Button variant="softDanger" size="sm" iconOnly radius="xl" onClick={() => handleDelete(template)} title="Excluir">
+                    <Trash2 size={13} />
                   </Button>
                 </div>
               </div>
@@ -757,12 +732,12 @@ export const Messages: React.FC = () => {
 
             {/* Empty state */}
             {filteredTemplates.length === 0 && (
-              <div className="col-span-full flex flex-col items-center justify-center py-24 bg-white rounded-[24px] border-2 border-dashed border-slate-200">
-                <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center mb-4">
-                  <MessageSquare size={28} className="text-slate-300" />
+              <div className="col-span-full flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-zinc-200">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-50 flex items-center justify-center mb-3">
+                  <MessageSquare size={24} className="text-zinc-300" />
                 </div>
-                <p className="font-bold text-slate-400 text-sm">Nenhum modelo encontrado</p>
-                <p className="text-xs text-slate-400 mt-1 mb-4">
+                <p className="font-bold text-zinc-400 text-sm">Nenhum modelo encontrado</p>
+                <p className="text-xs text-zinc-400 mt-1 mb-4">
                   {searchTerm ? 'Tente outra busca' : 'Crie o primeiro modelo para essa categoria'}
                 </p>
                 <Button variant="primary" size="sm" radius="xl" leftIcon={<Plus size={14} />} onClick={() => handleOpenModal()}>
@@ -771,90 +746,80 @@ export const Messages: React.FC = () => {
               </div>
             )}
 
-            {/* Add card */}
-            <button
-              onClick={() => handleOpenModal()}
-              className="border-2 border-dashed border-slate-200 hover:border-indigo-300 rounded-[24px] flex flex-col items-center justify-center gap-3 min-h-[200px] text-slate-400 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all group"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 group-hover:bg-indigo-100 flex items-center justify-center transition-colors">
-                <Plus size={24} />
-              </div>
-              <span className="text-sm font-bold">Nova Mensagem</span>
-            </button>
+            {/* Card nova mensagem */}
+            {filteredTemplates.length > 0 && (
+              <button
+                onClick={() => handleOpenModal()}
+                className="border-2 border-dashed border-zinc-200 hover:border-indigo-300 rounded-2xl flex flex-col items-center justify-center gap-2.5 min-h-[160px] text-zinc-400 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-zinc-100 group-hover:bg-indigo-100 flex items-center justify-center transition-colors">
+                  <Plus size={20} />
+                </div>
+                <span className="text-xs font-bold">Nova Mensagem</span>
+              </button>
+            )}
           </div>
-        ) : null}
+        )}
 
         {/* ── PAGINAÇÃO ── */}
         {!isLoading && filteredTemplates.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span>Itens por página:</span>
-              <select
-                value={itemsPerPage}
-                onChange={e => setItemsPerPage(Number(e.target.value))}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100"
-              >
-                {[5, 15, 30, 50, 100].map(limit => (
-                  <option key={limit} value={limit}>{limit}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-slate-500">
-                Página {currentPage} de {totalPages}
-              </span>
-              <div className="flex gap-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-white border border-zinc-200 rounded-2xl">
+            <p className="text-[11px] font-bold text-zinc-400 shrink-0">
+              {`${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, filteredTemplates.length)} de ${filteredTemplates.length}`}
+            </p>
+            <div className="flex items-center gap-1">
+              {[
+                { label: '«', action: () => setCurrentPage(1), disabled: currentPage === 1 },
+                { label: '‹', action: () => setCurrentPage(p => Math.max(1, p - 1)), disabled: currentPage === 1 },
+                { label: '›', action: () => setCurrentPage(p => Math.min(totalPages, p + 1)), disabled: currentPage === totalPages },
+                { label: '»', action: () => setCurrentPage(totalPages), disabled: currentPage === totalPages },
+              ].map((btn, i) => (
                 <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all font-bold"
+                  key={i}
+                  onClick={btn.action}
+                  disabled={btn.disabled}
+                  className="w-8 h-8 flex items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 text-sm font-black hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
-                  <ChevronLeft size={16} />
+                  {btn.label}
                 </button>
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all font-bold"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+              ))}
+              <span className="px-2 text-xs font-bold text-zinc-500">{currentPage}/{totalPages}</span>
             </div>
+            <select
+              value={itemsPerPage}
+              onChange={e => setItemsPerPage(Number(e.target.value))}
+              className="h-8 px-2 text-xs font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-400 transition-all cursor-pointer"
+            >
+              {[5, 15, 30, 50, 100].map(n => <option key={n} value={n}>{n} por pág.</option>)}
+            </select>
           </div>
         )}
       </div>
 
-      {/* MODAL CRIAR / EDITAR */}
+      {/* ── MODAL CRIAR / EDITAR ── */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={currentTemplate.id ? 'Editar Modelo' : 'Novo Modelo'}
+        title={currentTemplate.id ? 'Editar Modelo' : 'Nova Mensagem'}
         subtitle="Configure o texto e insira variáveis dinâmicas"
-        size="xl"
+        size="lg"
         footer={
           <ModalFooter>
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Descartar</Button>
-            <Button
-              variant="primary"
-              loading={isSaving}
-              iconLeft={<Check size={15} />}
-              onClick={handleSave}
-            >
+            <Button variant="primary" loading={isSaving} iconLeft={<Check size={15} />} onClick={handleSave}>
               Salvar Modelo
             </Button>
           </ModalFooter>
         }
       >
-        <div className="space-y-5">
-          {/* Título + Categoria */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Título *"
               value={currentTemplate.title || ''}
               onChange={e => setCurrentTemplate({ ...currentTemplate, title: e.target.value })}
               placeholder="Ex: Lembrete Padrão"
             />
-
             <div className="flex flex-col gap-1.5">
               <label className="ds-label">Categoria</label>
               {showNewCat ? (
@@ -875,7 +840,7 @@ export const Messages: React.FC = () => {
                     <Combobox
                       options={allCategories.map(c => ({ id: c, label: c }))}
                       value={currentTemplate.category || 'Lembrete'}
-                      onChange={(val) => setCurrentTemplate({ ...currentTemplate, category: String(val) })}
+                      onChange={val => setCurrentTemplate({ ...currentTemplate, category: String(val) })}
                       placeholder="Selecionar categoria..."
                     />
                   </div>
@@ -887,14 +852,12 @@ export const Messages: React.FC = () => {
             </div>
           </div>
 
-          {/* Editor de conteúdo */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="ds-label">Conteúdo *</label>
-              <span className="text-[11px] text-slate-400">Clique nas variáveis para inserir</span>
+              <span className="text-[11px] text-zinc-400">Toque para inserir variável</span>
             </div>
-
-            <div className="flex flex-wrap gap-1.5 p-3 mb-3 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="flex flex-wrap gap-1.5 p-3 mb-2 bg-zinc-50 rounded-xl border border-zinc-200">
               {AVAILABLE_VARIABLES.map(v => (
                 <button
                   key={v.tag}
@@ -907,7 +870,6 @@ export const Messages: React.FC = () => {
                 </button>
               ))}
             </div>
-
             <div
               ref={editorRef}
               contentEditable
@@ -918,205 +880,180 @@ export const Messages: React.FC = () => {
               }}
               onPaste={e => {
                 e.preventDefault();
-                const text = e.clipboardData.getData('text/plain');
-                document.execCommand('insertText', false, text);
+                document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
               }}
               data-placeholder="Digite o conteúdo da mensagem..."
-              className="w-full p-4 min-h-[9rem] rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all text-sm text-slate-700 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400"
+              className="w-full p-4 min-h-[8rem] rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all text-sm text-zinc-700 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400"
             />
-            <p className="text-[11px] text-slate-400 mt-1.5">
-              As variáveis serão substituídas pelos dados reais ao enviar.
-            </p>
+            <p className="text-[11px] text-zinc-400 mt-1.5">As variáveis serão substituídas pelos dados reais ao enviar.</p>
           </div>
         </div>
       </Modal>
 
-      {/* MODAL ENVIO WHATSAPP */}
+      {/* ── MODAL ENVIO WHATSAPP ── */}
       <Modal
         isOpen={isSendModalOpen}
         onClose={() => setIsSendModalOpen(false)}
         title="Enviar via WhatsApp"
-        subtitle={sendTemplate ? `Modelo: ${sendTemplate.title}` : undefined}
-        size="xl"
+        subtitle={sendTemplate?.title}
+        size="2xl"
         footer={
           <ModalFooter>
             <Button variant="ghost" onClick={() => setIsSendModalOpen(false)}>Cancelar</Button>
             {botStatus === 'connected' && (
               <Button
-                variant="primary"
-                iconLeft={<Send size={15} />}
+                iconLeft={<Send size={14} />}
                 onClick={handleSendBot}
                 loading={isSendingBot}
                 disabled={!selectedRecipientId}
-                className="bg-emerald-600 border-emerald-600 hover:bg-emerald-700"
+                className="bg-emerald-600 border-emerald-600 hover:bg-emerald-700 text-white"
               >
                 Enviar pelo Bot
               </Button>
             )}
-            <Button
-              variant="success"
-              iconLeft={<Send size={15} />}
-              onClick={handleSendManual}
-              disabled={!selectedRecipientId}
-            >
+            <Button variant="success" iconLeft={<Send size={14} />} onClick={handleSendManual} disabled={!selectedRecipientId}>
               Abrir WhatsApp
             </Button>
           </ModalFooter>
         }
       >
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-            {/* ── Lado esquerdo: destinatário ── */}
-            <div className="space-y-3">
-              {/* Status do bot */}
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${botStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : botStatus === 'disconnected' ? 'bg-rose-400' : 'bg-slate-300'}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Bot {botStatus === 'connected' ? 'conectado — envio automático disponível' : botStatus === 'disconnected' ? 'desconectado — apenas envio manual' : 'verificando...'}
-                </span>
-              </div>
-
-              {/* Tabs Profissional / Paciente */}
-              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-                {([
-                  { key: 'professional', label: 'Profissional', icon: <Users size={12}/> },
-                  { key: 'patient',      label: 'Paciente',     icon: <MessageSquare size={12}/> },
-                ] as const).map(tab => (
-                  <button
-                    key={tab.key}
-                    onClick={() => handleRecipientTabChange(tab.key)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
-                      recipientTab === tab.key
-                        ? 'bg-white text-indigo-600 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {tab.icon} {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Filtro status */}
-              <div className="flex gap-1.5">
-                {(['all', 'ativo', 'inativo'] as const).map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => { setRecipientStatusFilter(opt); setSelectedRecipientId(''); }}
-                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                      recipientStatusFilter === opt
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                    }`}
-                  >
-                    {opt === 'all' ? 'Todos' : opt === 'ativo' ? 'Ativos' : 'Inativos'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Combobox destinatário */}
-              {isRecipientsLoading ? (
-                <div className="flex items-center gap-2 py-3 text-slate-400 text-sm italic">
-                  <Loader2 size={16} className="animate-spin" /> Carregando...
-                </div>
-              ) : (
-                <Combobox
-                  label={recipientTab === 'professional' ? 'Selecionar profissional' : 'Selecionar paciente'}
-                  options={recipientOptions}
-                  value={selectedRecipientId}
-                  onChange={(id) => setSelectedRecipientId(String(id))}
-                  placeholder="Buscar por nome..."
-                  showSelectedBadge
-                  showResultCount
-                />
-              )}
-
-              {/* Card com dados do selecionado */}
-              {selectedRecipientId && (() => {
-                const r = allSendRecipients.find(x => String(x.id) === selectedRecipientId);
-                if (!r) return null;
-                const phone = normalizePhone(r.phone || r.whatsapp);
-                return (
-                  <div className="bg-slate-50 rounded-2xl border border-slate-200 px-4 py-3 space-y-0.5 animate-fadeIn">
-                    <p className="font-black text-slate-700 text-sm">{r.name || r.full_name}</p>
-                    <p className="text-xs text-slate-400 font-medium">{r.phone || r.whatsapp || 'Sem telefone'}</p>
-                    {r.email && <p className="text-xs text-slate-400">{r.email}</p>}
-                    {phone.length < 8 && (
-                      <p className="text-[10px] text-rose-500 font-black uppercase mt-1 flex items-center gap-1">
-                        <AlertTriangle size={10}/> Sem telefone válido no cadastro
-                      </p>
-                    )}
-                    {phone.length >= 8 && botStatus === 'connected' && (
-                      <p className="text-[10px] text-emerald-600 font-bold mt-1">Bot irá enviar para: +{phone}</p>
-                    )}
-                    {isLoadingAppointment && (
-                      <p className="text-[10px] text-indigo-500 font-bold mt-1 flex items-center gap-1">
-                        <Loader2 size={10} className="animate-spin"/> Buscando próximo agendamento...
-                      </p>
-                    )}
-                    {!isLoadingAppointment && recipientTab === 'patient' && sendMeta.appointmentDate && (
-                      <p className="text-[10px] text-sky-600 font-bold mt-1">
-                        Próx. agendamento: {formatDateBR(sendMeta.appointmentDate)}{sendMeta.appointmentTime ? ` às ${sendMeta.appointmentTime}` : ''}
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
+          {/* ── Col 1: Destinatário ── */}
+          <div className="space-y-3">
+            {/* Status bot */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200">
+              <div className={`w-2 h-2 rounded-full shrink-0 ${botStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : botStatus === 'disconnected' ? 'bg-rose-400' : 'bg-zinc-300'}`} />
+              <span className="text-[11px] font-semibold text-zinc-500">
+                {botStatus === 'connected' ? 'Bot conectado — envio automático disponível' : botStatus === 'disconnected' ? 'Bot desconectado — apenas envio manual' : 'Verificando conexão...'}
+              </span>
             </div>
 
-            {/* ── Lado direito: dados + preview ── */}
-            <div className="space-y-4">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">Dados da Mensagem</label>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'Data', type: 'date', key: 'appointmentDate' },
-                  { label: 'Horário', type: 'time', key: 'appointmentTime' },
-                  { label: 'Serviço', type: 'text', key: 'service', placeholder: 'Ex: Consulta' },
-                  { label: 'Valor (R$)', type: 'text', key: 'total', placeholder: 'Ex: 150,00' },
-                  { label: 'Profissional', type: 'text', key: 'professionalName', placeholder: 'Ex: Karen Gomes' },
-                  { label: 'Sessão', type: 'text', key: 'sessao', placeholder: 'Ex: Sessão 3 de 10' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">{f.label}</label>
-                    <input
-                      type={f.type}
-                      value={(sendMeta as any)[f.key]}
-                      onChange={e => setSendMeta({ ...sendMeta, [f.key]: e.target.value })}
-                      placeholder={(f as any).placeholder}
-                      className="w-full p-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
-                    />
-                  </div>
-                ))}
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Pacote</label>
-                  <input
-                    type="text"
-                    value={sendMeta.pacote}
-                    onChange={e => setSendMeta({ ...sendMeta, pacote: e.target.value })}
-                    placeholder="Ex: Pacote Mensal"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Nome da Clínica</label>
-                  <input
-                    type="text"
-                    value={sendMeta.clinic}
-                    onChange={e => setSendMeta({ ...sendMeta, clinic: e.target.value })}
-                    placeholder="Ex: PsiFlux"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
-                  />
-                </div>
-              </div>
+            {/* Tabs Profissional / Paciente */}
+            <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl">
+              {([
+                { key: 'professional', label: 'Profissional', icon: <Users size={13}/> },
+                { key: 'patient',      label: 'Paciente',     icon: <MessageSquare size={13}/> },
+              ] as const).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => handleRecipientTabChange(tab.key)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                    recipientTab === tab.key ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                  }`}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+            </div>
 
-              {/* Preview */}
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Preview</label>
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed min-h-[100px]">
-                  {previewMessage || (
-                    <span className="text-slate-400 italic font-medium text-xs">Selecione um destinatário para visualizar a mensagem.</span>
+            {/* Filtro status */}
+            <div className="flex gap-1.5">
+              {(['all', 'ativo', 'inativo'] as const).map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => { setRecipientStatusFilter(opt); setSelectedRecipientId(''); }}
+                  className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                    recipientStatusFilter === opt
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-zinc-500 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600'
+                  }`}
+                >
+                  {opt === 'all' ? 'Todos' : opt === 'ativo' ? 'Ativos' : 'Inativos'}
+                </button>
+              ))}
+            </div>
+
+            {/* Combobox */}
+            {isRecipientsLoading ? (
+              <div className="flex items-center gap-2 py-3 text-zinc-400 text-sm">
+                <Loader2 size={15} className="animate-spin" /> Carregando...
+              </div>
+            ) : (
+              <Combobox
+                label={recipientTab === 'professional' ? 'Selecionar profissional' : 'Selecionar paciente'}
+                options={recipientOptions}
+                value={selectedRecipientId}
+                onChange={id => setSelectedRecipientId(String(id))}
+                placeholder="Buscar por nome..."
+                showSelectedBadge
+                showResultCount
+              />
+            )}
+
+            {/* Card do selecionado */}
+            {selectedRecipientId && (() => {
+              const r = allSendRecipients.find(x => String(x.id) === selectedRecipientId);
+              if (!r) return null;
+              const phone = normalizePhone(r.phone || r.whatsapp);
+              return (
+                <div className="bg-zinc-50 rounded-xl border border-zinc-200 px-4 py-3 space-y-1">
+                  <p className="font-bold text-zinc-800 text-sm">{r.name || r.full_name}</p>
+                  <p className="text-xs text-zinc-400">{r.phone || r.whatsapp || 'Sem telefone'}</p>
+                  {r.email && <p className="text-xs text-zinc-400">{r.email}</p>}
+                  {phone.length < 8 && (
+                    <div className="flex items-center gap-1 text-rose-500 text-[11px] font-bold mt-1">
+                      <AlertTriangle size={11}/> Sem telefone válido no cadastro
+                    </div>
+                  )}
+                  {phone.length >= 8 && botStatus === 'connected' && (
+                    <p className="text-[11px] text-emerald-600 font-bold">Bot envia para: +{phone}</p>
+                  )}
+                  {isLoadingAppointment && (
+                    <div className="flex items-center gap-1 text-indigo-500 text-[11px] font-bold">
+                      <Loader2 size={10} className="animate-spin"/> Buscando agendamento...
+                    </div>
+                  )}
+                  {!isLoadingAppointment && recipientTab === 'patient' && sendMeta.appointmentDate && (
+                    <p className="text-[11px] text-sky-600 font-bold">
+                      Próx.: {formatDateBR(sendMeta.appointmentDate)}{sendMeta.appointmentTime ? ` às ${sendMeta.appointmentTime}` : ''}
+                    </p>
                   )}
                 </div>
+              );
+            })()}
+          </div>
+
+          {/* ── Col 2: Dados + Preview ── */}
+          <div className="space-y-3">
+            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Dados da Mensagem</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: 'Data',         type: 'date', key: 'appointmentDate' },
+                { label: 'Horário',      type: 'time', key: 'appointmentTime' },
+                { label: 'Serviço',      type: 'text', key: 'service',          placeholder: 'Ex: Consulta' },
+                { label: 'Valor (R$)',   type: 'text', key: 'total',             placeholder: 'Ex: 150,00' },
+                { label: 'Profissional', type: 'text', key: 'professionalName',  placeholder: 'Ex: Karen' },
+                { label: 'Sessão',       type: 'text', key: 'sessao',            placeholder: 'Ex: 3 de 10' },
+              ].map(f => (
+                <div key={f.key}>
+                  <label className="block text-[11px] font-semibold text-zinc-500 mb-1">{f.label}</label>
+                  <input
+                    type={f.type}
+                    value={(sendMeta as any)[f.key]}
+                    onChange={e => setSendMeta({ ...sendMeta, [f.key]: e.target.value })}
+                    placeholder={(f as any).placeholder}
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
+                  />
+                </div>
+              ))}
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-500 mb-1">Pacote</label>
+                <input type="text" value={sendMeta.pacote} onChange={e => setSendMeta({ ...sendMeta, pacote: e.target.value })} placeholder="Ex: Pacote Mensal" className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-500 mb-1">Clínica</label>
+                <input type="text" value={sendMeta.clinic} onChange={e => setSendMeta({ ...sendMeta, clinic: e.target.value })} placeholder="Ex: PsiFlux" className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" />
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div>
+              <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Preview</p>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed min-h-[80px]">
+                {previewMessage || (
+                  <span className="text-zinc-400 italic text-xs">Selecione um destinatário para visualizar.</span>
+                )}
               </div>
             </div>
           </div>
