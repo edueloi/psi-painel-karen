@@ -17,15 +17,17 @@ import { PageHeader } from '../components/UI/PageHeader';
 
 // ── Variáveis disponíveis ─────────────────────────────────────────────────────
 const AVAILABLE_VARIABLES = [
- { label: 'Saudação (auto)',    tag: '{{saudacao}}',         hint: 'Bom dia / Boa tarde / Boa noite conforme o horário' },
+  { label: 'Saudação (auto)',    tag: '{{saudacao}}',         hint: 'Bom dia / Boa tarde / Boa noite conforme o horário' },
   { label: 'Nome do Cliente',    tag: '{{nome_paciente}}',    hint: 'Nome completo do paciente' },
   { label: 'Primeiro Nome',      tag: '{{primeiro_nome}}',    hint: 'Somente o primeiro nome' },
-  { label: 'Data Agendamento',   tag: '{{data_agendamento}}', hint: 'Data da sessão' },
+  { label: 'Data Agendamento',   tag: '{{data_agendamento}}', hint: 'Data da sessão (DD/MM/AAAA)' },
   { label: 'Horário',            tag: '{{horario}}',          hint: 'Hora da sessão' },
   { label: 'Serviço',            tag: '{{servico}}',          hint: 'Tipo de serviço' },
   { label: 'Nome Profissional',  tag: '{{nome_profissional}}',hint: 'Profissional responsável' },
   { label: 'Valor Total',        tag: '{{valor_total}}',      hint: 'Valor cobrado' },
   { label: 'Nome da Clínica',    tag: '{{nome_clinica}}',     hint: 'Nome do consultório' },
+  { label: 'Sessão (ex: 2 de 10)', tag: '{{sessao}}',         hint: 'Número da sessão no pacote' },
+  { label: 'Pacote',             tag: '{{pacote}}',           hint: 'Nome do pacote contratado' },
 ];
 
 // Retorna a saudação correta com base na hora atual
@@ -46,6 +48,8 @@ const VARIABLE_COLORS: Record<string, string> = {
   '{{nome_profissional}}': 'bg-amber-100 text-amber-700 border-amber-300',
   '{{valor_total}}':       'bg-rose-100 text-rose-700 border-rose-300',
   '{{nome_clinica}}':      'bg-teal-100 text-teal-700 border-teal-300',
+  '{{sessao}}':            'bg-purple-100 text-purple-700 border-purple-300',
+  '{{pacote}}':            'bg-orange-100 text-orange-700 border-orange-300',
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -152,7 +156,10 @@ export const Messages: React.FC = () => {
     appointmentTime: '',
     service: '',
     total: '',
-    clinic: ''
+    clinic: '',
+    professionalName: '',
+    sessao: '',
+    pacote: '',
   });
 
   // Copia feedback
@@ -350,6 +357,13 @@ export const Messages: React.FC = () => {
   // ── Handlers Envio ────────────────────────────────────────────────────────────
   const normalizePhone = (v?: string) => (v || '').replace(/\D/g, '');
 
+  const formatDateBR = (iso: string) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    if (!y || !m || !d) return iso;
+    return `${d}/${m}/${y}`;
+  };
+
   const fillTemplate = (content: string, recipient: any) => {
     const fullName     = recipient?.name || recipient?.full_name || '';
     const primeiroNome = fullName.split(' ')[0] || fullName;
@@ -357,12 +371,14 @@ export const Messages: React.FC = () => {
       saudacao:          getSaudacao(),
       nome_paciente:     fullName,
       primeiro_nome:     primeiroNome,
-      data_agendamento:  sendMeta.appointmentDate,
+      data_agendamento:  formatDateBR(sendMeta.appointmentDate),
       horario:           sendMeta.appointmentTime,
       servico:           sendMeta.service,
-      nome_profissional: fullName,
+      nome_profissional: sendMeta.professionalName || fullName,
       valor_total:       sendMeta.total,
       nome_clinica:      sendMeta.clinic,
+      sessao:            sendMeta.sessao,
+      pacote:            sendMeta.pacote,
     };
     let result = content;
     Object.entries(data).forEach(([k, v]) => {
@@ -976,6 +992,8 @@ export const Messages: React.FC = () => {
                   { label: 'Horário', type: 'time', key: 'appointmentTime' },
                   { label: 'Serviço', type: 'text', key: 'service', placeholder: 'Ex: Consulta' },
                   { label: 'Valor (R$)', type: 'text', key: 'total', placeholder: 'Ex: 150,00' },
+                  { label: 'Profissional', type: 'text', key: 'professionalName', placeholder: 'Ex: Karen Gomes' },
+                  { label: 'Sessão', type: 'text', key: 'sessao', placeholder: 'Ex: Sessão 3 de 10' },
                 ].map(f => (
                   <div key={f.key}>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">{f.label}</label>
@@ -988,6 +1006,16 @@ export const Messages: React.FC = () => {
                     />
                   </div>
                 ))}
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Pacote</label>
+                  <input
+                    type="text"
+                    value={sendMeta.pacote}
+                    onChange={e => setSendMeta({ ...sendMeta, pacote: e.target.value })}
+                    placeholder="Ex: Pacote Mensal"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
+                  />
+                </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-slate-500 mb-1">Nome da Clínica</label>
                   <input
