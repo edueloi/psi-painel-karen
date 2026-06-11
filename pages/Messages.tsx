@@ -337,31 +337,60 @@ export const Messages: React.FC = () => {
     return counts;
   }, [templates]);
 
-  // Auto-preenche data/hora/serviço/profissional ao selecionar paciente
+  // Auto-preenche data/hora/serviço/profissional/sessão ao selecionar paciente
   useEffect(() => {
     if (!selectedRecipientId || recipientTab !== 'patient') return;
     const patient = patients.find(p => String(p.id) === selectedRecipientId);
     if (!patient) return;
 
     setIsLoadingAppointment(true);
-    const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    api.get<any[]>(`/appointments?patient_id=${patient.id}&start=${encodeURIComponent(nowIso)}`)
+    // Busca todos os agendamentos do paciente para calcular posição na série
+    api.get<any[]>(`/appointments?patient_id=${patient.id}`)
       .then(rows => {
-        const next = (rows || [])
-          .filter(a => a.status !== 'cancelled')
+        const all = (rows || []).filter(a => a.status !== 'cancelled');
+        const nowMs = Date.now();
+        const next = all
+          .filter(a => new Date(a.start_time).getTime() >= nowMs)
           .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0];
-        if (next) {
-          const dt = new Date(next.start_time);
-          const iso = dt.toISOString().split('T')[0];
-          const time = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
-          setSendMeta(prev => ({
-            ...prev,
-            appointmentDate: iso,
-            appointmentTime: time,
-            service: next.service_name || prev.service,
-            professionalName: next.professional_name || prev.professionalName,
-          }));
+        if (!next) return;
+
+        const dt = new Date(next.start_time);
+        const iso = dt.toISOString().split('T')[0];
+        const time = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+
+        // Calcula número da sessão na série (comanda_id ou recurrence_rule como agrupador)
+        let sessaoStr = '';
+        const groupKey = next.comanda_id
+          ? (a: any) => a.comanda_id === next.comanda_id
+          : next.recurrence_rule
+            ? (a: any) => a.recurrence_rule === next.recurrence_rule && a.professional_id === next.professional_id
+            : null;
+
+        if (groupKey) {
+          const serie = all
+            .filter(groupKey)
+            .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+          const idx = serie.findIndex(a => String(a.id) === String(next.id));
+          if (idx >= 0) {
+            // Total: count do recurrence_rule ou tamanho da série
+            let total = serie.length;
+            try {
+              const rule = typeof next.recurrence_rule === 'string'
+                ? JSON.parse(next.recurrence_rule) : next.recurrence_rule;
+              if (rule?.count && rule.count > total) total = rule.count;
+            } catch { /* usa serie.length */ }
+            sessaoStr = `${idx + 1} de ${total}`;
+          }
         }
+
+        setSendMeta(prev => ({
+          ...prev,
+          appointmentDate: iso,
+          appointmentTime: time,
+          service: next.service_name || prev.service,
+          professionalName: next.professional_name || prev.professionalName,
+          sessao: sessaoStr || prev.sessao,
+        }));
       })
       .catch(() => {})
       .finally(() => setIsLoadingAppointment(false));
