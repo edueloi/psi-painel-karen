@@ -105,7 +105,15 @@ function htmlToContent(html: string): string {
       const el = node as Element;
       if (el.tagName === 'BR') return '\n';
       if (el.hasAttribute('data-var')) return el.getAttribute('data-var') || '';
-      return Array.from(el.childNodes).map(walk).join('');
+      // div/p gerados pelo contenteditable ao pressionar Enter
+      const inner = Array.from(el.childNodes).map(walk).join('');
+      if ((el.tagName === 'DIV' || el.tagName === 'P') && el.parentElement === tmp) {
+        // Cada div/p de primeiro nível = uma linha; adiciona \n antes (exceto o primeiro)
+        const siblings = Array.from(tmp.children);
+        const idx = siblings.indexOf(el);
+        return (idx > 0 ? '\n' : '') + inner;
+      }
+      return inner;
     }
     return '';
   };
@@ -161,6 +169,8 @@ export const Messages: React.FC = () => {
     sessao: '',
     pacote: '',
   });
+
+  const [isLoadingAppointment, setIsLoadingAppointment] = useState(false);
 
   // Copia feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -255,6 +265,36 @@ export const Messages: React.FC = () => {
     templates.forEach(t => { counts[t.category] = (counts[t.category] || 0) + 1; });
     return counts;
   }, [templates]);
+
+  // Auto-preenche data/hora/serviço/profissional ao selecionar paciente
+  useEffect(() => {
+    if (!selectedRecipientId || recipientTab !== 'patient') return;
+    const patient = patients.find(p => String(p.id) === selectedRecipientId);
+    if (!patient) return;
+
+    setIsLoadingAppointment(true);
+    const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    api.get<any[]>(`/appointments?patient_id=${patient.id}&start=${encodeURIComponent(nowIso)}`)
+      .then(rows => {
+        const next = (rows || [])
+          .filter(a => a.status !== 'cancelled')
+          .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0];
+        if (next) {
+          const dt = new Date(next.start_time);
+          const iso = dt.toISOString().split('T')[0];
+          const time = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+          setSendMeta(prev => ({
+            ...prev,
+            appointmentDate: iso,
+            appointmentTime: time,
+            service: next.service_name || prev.service,
+            professionalName: next.professional_name || prev.professionalName,
+          }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsLoadingAppointment(false));
+  }, [selectedRecipientId, recipientTab, patients]);
 
   // ── Handlers Modal ────────────────────────────────────────────────────────────
   const handleOpenModal = (template?: MessageTemplate) => {
@@ -977,6 +1017,16 @@ export const Messages: React.FC = () => {
                     )}
                     {phone.length >= 8 && botStatus === 'connected' && (
                       <p className="text-[10px] text-emerald-600 font-bold mt-1">Bot irá enviar para: +{phone}</p>
+                    )}
+                    {isLoadingAppointment && (
+                      <p className="text-[10px] text-indigo-500 font-bold mt-1 flex items-center gap-1">
+                        <Loader2 size={10} className="animate-spin"/> Buscando próximo agendamento...
+                      </p>
+                    )}
+                    {!isLoadingAppointment && recipientTab === 'patient' && sendMeta.appointmentDate && (
+                      <p className="text-[10px] text-sky-600 font-bold mt-1">
+                        Próx. agendamento: {formatDateBR(sendMeta.appointmentDate)}{sendMeta.appointmentTime ? ` às ${sendMeta.appointmentTime}` : ''}
+                      </p>
                     )}
                   </div>
                 );
