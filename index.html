@@ -196,11 +196,6 @@
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-      /* Bloqueia rotação em landscape no celular */
-      @media screen and (orientation: landscape) and (max-width: 896px) {
-        html { transform: rotate(-90deg); transform-origin: left top; width: 100vh; height: 100vw; overflow-x: hidden; position: absolute; top: 100%; left: 0; }
-      }
-
       /* Smooth page transitions */
       * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
