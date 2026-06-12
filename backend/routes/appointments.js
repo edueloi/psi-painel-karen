@@ -866,9 +866,19 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
 // Helper: normaliza status do frontend para o ENUM do banco
 function normalizeStatus(s) {
   if (!s) return 'scheduled';
-  // Frontend manda 'no-show', banco espera 'no_show'
-  if (s === 'no-show') return 'no_show';
-  const valid = ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'];
+  const map = {
+    'no-show': 'no_show',
+    'agendado': 'scheduled',
+    'confirmado': 'confirmed',
+    'concluido': 'completed',
+    'concluído': 'completed',
+    'realizado': 'completed',
+    'cancelado': 'cancelled',
+    'falta': 'no_show',
+    'reagendado': 'rescheduled',
+  };
+  if (map[s]) return map[s];
+  const valid = ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show', 'rescheduled', 'falta_justificada'];
   return valid.includes(s) ? s : 'scheduled';
 }
 
@@ -1035,7 +1045,7 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
     );
 
     // Sync sessions_used if status changed
-    const CONSUMING = ['completed', 'no_show', 'confirmed', 'realizado'];
+    const CONSUMING = ['completed', 'no_show', 'confirmed', 'rescheduled', 'falta_justificada'];
     const prevStatus = existing[0].old_status;
     const oldComanda = existing[0].old_comanda;
 
