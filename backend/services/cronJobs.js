@@ -345,7 +345,7 @@ async function checkDailyTasks() {
         const [patients] = await db.query(`
           SELECT id, name, birth_date, whatsapp, phone
           FROM patients
-          WHERE tenant_id = ? AND MONTH(birth_date) = ? AND DAY(birth_date) = ? AND status = 'ativo'
+          WHERE tenant_id = ? AND MONTH(birth_date) = ? AND DAY(birth_date) = ? AND status IN ('ativo', 'active')
         `, [t.id, month, day]);
 
         if (patients.length === 0) {
