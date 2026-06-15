@@ -115,7 +115,7 @@ async function checkAppointmentReminders() {
     // Se o bot estiver desconectado, o processQueue vai falhar e retentar até expires_at.
     const masterBotConnected = !!masterTenantId;
 
-    // Busca agendamentos próximos (27h) — cobre janela de lembrete 24h (até 25h=1500min à frente)
+    // Busca agendamentos: próximas 2h (lembrete 1h) + dia seguinte inteiro (lembrete 24h)
     const [appointments] = await db.query(`
        SELECT a.*,
          p.name as patient_name, COALESCE(NULLIF(TRIM(p.whatsapp), ''), p.phone) as patient_phone,
@@ -133,15 +133,22 @@ async function checkAppointmentReminders() {
        LEFT JOIN services s ON s.id = a.service_id
        LEFT JOIN comandas c ON c.id = a.comanda_id
        LEFT JOIN tenants t ON t.id = a.tenant_id
-       WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-         AND a.start_time < DATE_ADD(NOW(), INTERVAL 27 HOUR)
-         AND a.status IN ('scheduled','confirmed','rescheduled')
+       WHERE a.status IN ('scheduled','confirmed','rescheduled')
          AND (
-           a.whatsapp_reminder_1h_sent = 0
-           OR a.whatsapp_reminder_24h_sent = 0
-           OR a.whatsapp_reminder_professional_sent = 0
-           OR COALESCE(a.whatsapp_reminder_personal_24h_sent, 0) = 0
-           OR COALESCE(a.whatsapp_reminder_personal_1h_sent,  0) = 0
+           -- lembrete 1h: próximas 2h
+           (a.whatsapp_reminder_1h_sent = 0 AND a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(NOW(), INTERVAL 2 HOUR))
+           OR
+           -- lembrete 24h: qualquer horário do dia seguinte (amanhã)
+           (a.whatsapp_reminder_24h_sent = 0 AND DATE(CONVERT_TZ(a.start_time, '+00:00', '-03:00')) = DATE(CONVERT_TZ(DATE_ADD(NOW(), INTERVAL 1 DAY), '+00:00', '-03:00')))
+           OR
+           -- lembrete profissional: próximas 2h
+           (a.whatsapp_reminder_professional_sent = 0 AND a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(NOW(), INTERVAL 2 HOUR))
+           OR
+           -- eventos pessoais 1h
+           (COALESCE(a.whatsapp_reminder_personal_1h_sent, 0) = 0 AND a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(NOW(), INTERVAL 2 HOUR))
+           OR
+           -- eventos pessoais 24h
+           (COALESCE(a.whatsapp_reminder_personal_24h_sent, 0) = 0 AND DATE(CONVERT_TZ(a.start_time, '+00:00', '-03:00')) = DATE(CONVERT_TZ(DATE_ADD(NOW(), INTERVAL 1 DAY), '+00:00', '-03:00')))
          )
     `);
 
@@ -179,8 +186,11 @@ async function checkAppointmentReminders() {
           console.log(`[CRON-QUEUE Evento Pessoal 1h] ${apt.professional_name}: "${eventTitle}"`);
         }
 
-        // 24h antes — somente se tiver responsável preenchido
-        if (diffMinutes > 1380 && diffMinutes <= 1500 && !apt.whatsapp_reminder_personal_24h_sent && responsavel) {
+        // 24h antes — consulta é amanhã, horário 8h-22h, somente se tiver responsável preenchido
+        const _aptDateSP = new Date(apt.start_time).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        const _tomorrowSP = new Date(now.getTime() + 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        const _hourSP = parseInt(now.toLocaleString('pt-BR', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }));
+        if (_aptDateSP === _tomorrowSP && _hourSP >= 8 && _hourSP < 22 && !apt.whatsapp_reminder_personal_24h_sent && responsavel) {
           const msg = `📅 *${greeting}, ${apt.professional_name || 'Profissional'}!*\n\nLembrete de evento para amanhã:\n\n🗓️ *Evento:* ${eventTitle}\n📆 *Data:* ${dateStr}\n🕒 *Horário:* ${timeStr}${respLine}\n\n_⚠️ Mensagem automática._`;
           await notificationService.enqueue({
             tenant_id: masterTenantId,
@@ -241,7 +251,13 @@ async function checkAppointmentReminders() {
             await db.query('UPDATE appointments SET whatsapp_reminder_1h_sent = 1 WHERE id = ?', [apt.id]);
             console.log(`[CRON-QUEUE Paciente 1h] ${apt.patient_name} | Tenant ${apt.tenant_id}`);
           }
-          if (diffMinutes > 1380 && diffMinutes <= 1500 && !apt.whatsapp_reminder_24h_sent && prefs.reminder_24h_enabled !== false) {
+          // Lembrete 24h: consulta é amanhã E horário atual entre 8h e 22h (SP)
+          const aptDateSP = new Date(apt.start_time).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+          const tomorrowSP = new Date(now.getTime() + 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+          const isConsultaTomorrow = aptDateSP === tomorrowSP;
+          const hourSP = parseInt(now.toLocaleString('pt-BR', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }));
+          const inSendWindow = hourSP >= 8 && hourSP < 22;
+          if (isConsultaTomorrow && inSendWindow && !apt.whatsapp_reminder_24h_sent && prefs.reminder_24h_enabled !== false) {
             const msg = buildMsg(prefs.reminder_24h_msg, `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nConfirmamos sua consulta para amanhã ({date}) às {time}.`);
             await notificationService.enqueue({
               tenant_id: apt.tenant_id,
