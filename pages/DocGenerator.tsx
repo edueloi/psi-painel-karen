@@ -28,7 +28,8 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
-import { Input, Select, Textarea } from '../components/UI/Input';
+import { Input, Textarea } from '../components/UI/Input';
+import { Combobox } from '../components/UI/Combobox';
 import { PageHeader } from '../components/UI/PageHeader';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
 
@@ -627,30 +628,30 @@ export const DocGenerator: React.FC = () => {
                 </div>
                 
                 <div className="space-y-4">
-                    <Select 
+                    <Combobox
                       label="Área de Atuação"
                       value={selectedArea}
-                      onChange={(e) => {
-                          setSelectedArea(e.target.value);
+                      onChange={(v) => {
+                          setSelectedArea(v as string);
                           setSelectedCategoryId('');
                           setSelectedTemplateId('');
                       }}
-                    >
-                        <option value="psicologia">Psicologia (CRP)</option>
-                        <option value="medicina">Medicina (CRM)</option>
-                        <option value="psicopedagogia">Psicopedagogia (ABPp)</option>
-                        <option value="enfermagem">Enfermagem (COREN)</option>
-                        <option value="fisioterapia">Fisioterapia (CREFITO)</option>
-                    </Select>
-                    
-                    <Select 
+                      options={[
+                        { value: 'psicologia', label: 'Psicologia (CRP)' },
+                        { value: 'medicina', label: 'Medicina (CRM)' },
+                        { value: 'psicopedagogia', label: 'Psicopedagogia (ABPp)' },
+                        { value: 'enfermagem', label: 'Enfermagem (COREN)' },
+                        { value: 'fisioterapia', label: 'Fisioterapia (CREFITO)' },
+                      ]}
+                    />
+
+                    <Combobox
                       label="Categoria"
-                      value={selectedCategoryId} 
-                      onChange={(e) => setSelectedCategoryId(e.target.value)}
-                    >
-                        <option value="">Todas as categorias</option>
-                        {filteredCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </Select>
+                      value={selectedCategoryId}
+                      onChange={(v) => setSelectedCategoryId(v as string)}
+                      placeholder="Todas as categorias"
+                      options={filteredCategories.map(c => ({ value: c.id, label: c.name }))}
+                    />
 
                     <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                         {filteredTemplates.length === 0 && (
@@ -709,21 +710,19 @@ export const DocGenerator: React.FC = () => {
                 </div>
 
                 <div className="space-y-5">
-                    <Select 
+                    <Combobox
                       label="Paciente"
-                      leftIcon={<User size={16} />}
                       value={selectedPatientId}
-                      onChange={(e) => {
-                          setSelectedPatientId(e.target.value);
-                          const p = patients.find(pt => String(pt.id) === e.target.value);
-                          if (p) {
-                              setPatientName(p.name || p.full_name || '');
-                          }
+                      onChange={(v) => {
+                          const val = v as string;
+                          setSelectedPatientId(val);
+                          const p = patients.find(pt => String(pt.id) === val);
+                          if (p) setPatientName(p.name || p.full_name || '');
                       }}
-                    >
-                        <option value="">Selecione um paciente...</option>
-                        {patients.map(p => <option key={p.id} value={String(p.id)}>{p.name || p.full_name}</option>)}
-                    </Select>
+                      placeholder="Selecione um paciente..."
+                      options={patients.map(p => ({ value: String(p.id), label: p.name || p.full_name || '' }))}
+                      icon={<User size={16} />}
+                    />
 
                     <Input 
                       label="Nome Manual/Extra"
@@ -1032,28 +1031,28 @@ export const DocGenerator: React.FC = () => {
                 placeholder="Ex: Laudo Psicológico" 
                 containerClassName="md:col-span-1"
               />
-              <Select 
-                label="Categoria" 
-                value={templateCategoryId} 
-                onChange={e => setTemplateCategoryId(e.target.value)}
-              >
-                <option value="">Sem Categoria</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-              <Select 
-                label="Tipo de Documento" 
-                value={templateDocType} 
-                onChange={e => setTemplateDocType(e.target.value)}
-              >
-                <option value="atestado">Atestado</option>
-                <option value="declaracao">Declaração</option>
-                <option value="encaminhamento">Encaminhamento</option>
-                <option value="recibo">Recibo</option>
-                <option value="prontuario">Prontuário</option>
-                <option value="ficha">Ficha de Anamnese</option>
-                <option value="laudo">Laudo</option>
-                <option value="outros">Outros</option>
-              </Select>
+              <Combobox
+                label="Categoria"
+                value={templateCategoryId}
+                onChange={v => setTemplateCategoryId(v as string)}
+                placeholder="Sem Categoria"
+                options={categories.map(c => ({ value: c.id, label: c.name }))}
+              />
+              <Combobox
+                label="Tipo de Documento"
+                value={templateDocType}
+                onChange={v => setTemplateDocType(v as string)}
+                options={[
+                  { value: 'atestado', label: 'Atestado' },
+                  { value: 'declaracao', label: 'Declaração' },
+                  { value: 'encaminhamento', label: 'Encaminhamento' },
+                  { value: 'recibo', label: 'Recibo' },
+                  { value: 'prontuario', label: 'Prontuário' },
+                  { value: 'ficha', label: 'Ficha de Anamnese' },
+                  { value: 'laudo', label: 'Laudo' },
+                  { value: 'outros', label: 'Outros' },
+                ]}
+              />
             </div>
 
             <div className="space-y-2">
