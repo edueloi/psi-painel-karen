@@ -7,6 +7,7 @@ import {
   Check, Send, Loader2, ExternalLink, Edit3, Save, Lock,
   Eye as EyeIcon, EyeOff, Shield, ChevronRight, Bell, FolderOpen, Download,
   ChevronLeft, Heart, Users,
+  Mail, Cake, Briefcase, Sparkles, Stethoscope, GraduationCap, Gem,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
 import { Input, Select, Textarea } from "../components/UI/Input";
@@ -145,6 +146,14 @@ const METHOD_LABELS: Record<string, string> = {
 const MODALITY_LABELS: Record<string, string> = {
   online: "Online (Vídeo)", presencial: "Presencial", geral: "Geral",
 };
+
+// Opções de repetição oferecidas ao paciente no portal
+const RECURRENCE_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Não repetir" },
+  { value: "WEEKLY", label: "Toda semana" },
+  { value: "BIWEEKLY", label: "Quinzenal" },
+  { value: "MONTHLY", label: "Todo mês" },
+];
 
 function fmtDate(iso: string, opts?: Intl.DateTimeFormatOptions) {
   if (!iso) return "—";
@@ -505,6 +514,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     time: "",
     modality: "online",
     notes: "",
+    recurrence_freq: "",   // "" = não repete
+    recurrence_count: 4,
   });
   const [slots, setSlots] = useState<{ time: string; available: boolean }[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -599,13 +610,19 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           time: schedForm.time,
           modality: schedForm.modality,
           notes: schedForm.notes,
+          recurrence_freq: schedForm.recurrence_freq || undefined,
+          recurrence_count: schedForm.recurrence_freq ? schedForm.recurrence_count : undefined,
         }),
       });
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao agendar.", "error"); return; }
-      showToast("Consulta agendada com sucesso!", "success");
+      const data = await res.json().catch(() => ({}));
+      showToast(
+        data.sessions > 1 ? `${data.sessions} sessões agendadas com sucesso!` : "Consulta agendada com sucesso!",
+        "success"
+      );
       setMode("list");
       setStep("calendar");
-      setSchedForm(f => ({ ...f, date: "", time: "" }));
+      setSchedForm(f => ({ ...f, date: "", time: "", recurrence_freq: "", recurrence_count: 4 }));
       onRefresh();
     } finally { setLoading(false); }
   };
@@ -720,6 +737,20 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               <p className="text-xs text-amber-600 mt-0.5">
                 {fmtDate(rescheduleAppt.start_date, { weekday: "short", day: "numeric", month: "short" })} às {fmtTime(rescheduleAppt.start_date)} será cancelada ao confirmar.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Profissional único — mostra com quem será a consulta */}
+        {professionals.length === 1 && selectedProf && (
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shrink-0 shadow-md shadow-indigo-500/20">
+              {selectedProf.name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Sua profissional</p>
+              <p className="text-sm font-black text-slate-800 truncate">{selectedProf.name}</p>
+              {selectedProf.specialty && <p className="text-xs text-slate-400 truncate">{selectedProf.specialty}</p>}
             </div>
           </div>
         )}
@@ -853,6 +884,48 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 ))}
               </div>
             </div>
+
+            {/* Repetição — só ao agendar (não no reagendamento) */}
+            {!isReschedule && (
+              <div>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Repetição</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {RECURRENCE_OPTIONS.map(opt => (
+                    <button key={opt.value} type="button"
+                      onClick={() => setSchedForm(f => ({ ...f, recurrence_freq: opt.value }))}
+                      className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                        schedForm.recurrence_freq === opt.value
+                          ? "bg-indigo-600 text-white border-indigo-500"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-200"
+                      }`}>
+                      {opt.value === "" ? <Calendar size={13} /> : <Clock size={13} />}
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {schedForm.recurrence_freq && (
+                  <div className="mt-2.5 flex items-center gap-2 bg-indigo-50/60 rounded-xl px-3 py-2.5 border border-indigo-100">
+                    <span className="text-xs font-bold text-slate-600">Quantas sessões?</span>
+                    <div className="flex items-center gap-1 ml-auto">
+                      {[2, 4, 8, 12].map(n => (
+                        <button key={n} type="button"
+                          onClick={() => setSchedForm(f => ({ ...f, recurrence_count: n }))}
+                          className={`w-8 h-8 rounded-lg text-xs font-black border transition-all ${
+                            schedForm.recurrence_count === n
+                              ? "bg-indigo-600 text-white border-indigo-500"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                          }`}>{n}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {schedForm.recurrence_freq && (
+                  <p className="text-[11px] text-slate-400 mt-1.5 px-1">
+                    Serão criadas {schedForm.recurrence_count} sessões a partir do dia/horário escolhido.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <Textarea label="Observações (opcional)" rows={2} placeholder="Ex.: prefiro câmera desligada..."
@@ -1327,6 +1400,44 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
     return `${d}/${m}/${y}`;
   };
 
+  const calcAge = (iso: string): number | null => {
+    if (!iso) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    const today = new Date();
+    let age = today.getFullYear() - y;
+    const beforeBirthday = today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d);
+    if (beforeBirthday) age--;
+    return age >= 0 && age < 130 ? age : null;
+  };
+  const age = calcAge(form.birth_date);
+
+  // Chip do hero (info rápida)
+  const HeroChip = ({ icon: Icon, children }: { icon: any; children: React.ReactNode }) => (
+    <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full pl-2.5 pr-3 py-1 text-[11px] font-bold text-white/95 border border-white/10">
+      <Icon size={12} className="text-white/80 shrink-0" />
+      <span className="truncate max-w-[140px]">{children}</span>
+    </span>
+  );
+
+  // Cabeçalho de seção com ícone
+  const SectionHead = ({ icon: Icon, label, action }: { icon: any; label: string; action?: React.ReactNode }) => (
+    <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="w-7 h-7 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+          <Icon size={14} className="text-indigo-600" />
+        </div>
+        <span className="text-xs font-black text-slate-600 uppercase tracking-wider truncate">{label}</span>
+      </div>
+      {action}
+    </div>
+  );
+
+  // Sub-cabeçalho dentro de uma seção (Básico / Endereço / etc.)
+  const SubLabel = ({ children }: { children: React.ReactNode }) => (
+    <p className="px-5 pt-4 pb-1 text-[10px] font-black text-indigo-400/80 uppercase tracking-widest">{children}</p>
+  );
+
   const addContact = () =>
     sf("emergency_contacts", [...form.emergency_contacts, { id: Date.now().toString(), name: "", phone: "", relationship: "" }]);
   const removeContact = (id: string) =>
@@ -1344,28 +1455,50 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 
   return (
     <div className="space-y-4 pb-6">
-      {/* Card avatar */}
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 text-white relative overflow-hidden">
-        <div className="absolute -right-4 -top-4 w-28 h-28 bg-white/5 rounded-full" />
-        <div className="flex items-center gap-4 relative">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl font-black shrink-0 shadow-lg">
-            {patient.full_name.charAt(0).toUpperCase()}
+      {/* ── HERO ── */}
+      <div className="relative rounded-[28px] overflow-hidden bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 shadow-xl shadow-indigo-500/20">
+        {/* brilhos decorativos */}
+        <div className="absolute -right-10 -top-12 w-44 h-44 bg-white/10 rounded-full blur-2xl" />
+        <div className="absolute -left-8 bottom-0 w-32 h-32 bg-fuchsia-400/20 rounded-full blur-2xl" />
+        <div className="absolute right-1/3 top-1/2 w-24 h-24 bg-white/5 rounded-full blur-xl" />
+
+        <div className="relative p-6 pt-7">
+          <div className="flex items-center gap-4">
+            {/* avatar com anel gradiente */}
+            <div className="shrink-0 rounded-3xl p-[3px] bg-gradient-to-br from-white/80 via-white/30 to-white/10 shadow-lg">
+              <div className="w-[68px] h-[68px] rounded-[20px] bg-white/15 backdrop-blur-md flex items-center justify-center text-[28px] font-black text-white">
+                {patient.full_name.charAt(0).toUpperCase()}
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="inline-flex items-center gap-1.5 bg-white/20 rounded-full px-2.5 py-0.5 mb-1.5">
+                <Sparkles size={10} className="text-white" />
+                <span className="text-[10px] font-black text-white uppercase tracking-wider">Meu Perfil</span>
+              </div>
+              <h2 className="text-[22px] font-black text-white leading-tight truncate">{patient.full_name}</h2>
+              {(patient.portal_email || patient.email) && (
+                <p className="text-white/70 text-sm mt-0.5 truncate flex items-center gap-1.5">
+                  <Mail size={12} className="shrink-0" />{patient.portal_email || patient.email}
+                </p>
+              )}
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-black leading-tight">{patient.full_name}</h2>
-            {(patient.portal_email || patient.email) && (
-              <p className="text-slate-400 text-sm mt-0.5">{patient.portal_email || patient.email}</p>
-            )}
-            {patient.company_name && <p className="text-slate-500 text-xs mt-0.5">{patient.company_name}</p>}
+
+          {/* chips de info rápida */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            {age !== null && <HeroChip icon={Cake}>{age} anos</HeroChip>}
+            {form.phone && <HeroChip icon={Phone}>{form.phone}</HeroChip>}
+            {form.city && <HeroChip icon={MapPin}>{[form.city, form.state].filter(Boolean).join("/")}</HeroChip>}
+            {form.health_plan && <HeroChip icon={Shield}>{form.health_plan}</HeroChip>}
+            {patient.company_name && <HeroChip icon={Briefcase}>{patient.company_name}</HeroChip>}
           </div>
         </div>
       </div>
 
       {/* ── DADOS PESSOAIS ── */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-          <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Dados Pessoais</span>
-          {!editing ? (
+        <SectionHead icon={User} label="Dados Pessoais" action={
+          !editing ? (
             <Button size="sm" variant="outline" iconLeft={<Edit3 size={12} />} onClick={() => setEditing(true)}>
               Editar
             </Button>
@@ -1379,8 +1512,8 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
                 {saving ? "Salvando..." : "Salvar"}
               </Button>
             </div>
-          )}
-        </div>
+          )
+        } />
 
         {editing ? (
           <div className="p-5 space-y-3">
@@ -1493,7 +1626,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
         ) : (
           /* ── MODO VISUALIZAÇÃO ── */
           <div>
-            <p className="px-5 pt-4 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Básico</p>
+            <SubLabel>Básico</SubLabel>
             <Field label="Nome completo" value={form.name} />
             <Field label="Email" value={form.email} />
             <Field label="WhatsApp / Telefone" value={form.phone} />
@@ -1506,7 +1639,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 
             {(form.street || form.city || form.address_zip) && (
               <>
-                <p className="px-5 pt-4 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Endereço</p>
+                <SubLabel>Endereço</SubLabel>
                 {form.address_zip && <Field label="CEP" value={form.address_zip} />}
                 {form.street && <Field label="Logradouro" value={[form.street, form.house_number].filter(Boolean).join(", ")} />}
                 {form.neighborhood && <Field label="Bairro" value={form.neighborhood} />}
@@ -1516,7 +1649,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 
             {(form.marital_status || form.education || form.profession || form.nationality) && (
               <>
-                <p className="px-5 pt-4 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Social</p>
+                <SubLabel>Social</SubLabel>
                 {form.marital_status && <Field label="Estado civil" value={MARITAL_OPTIONS.find(o => o.value === form.marital_status)?.label} />}
                 {form.education && <Field label="Escolaridade" value={EDUCATION_OPTIONS.find(o => o.value === form.education)?.label} />}
                 {form.profession && <Field label="Profissão" value={form.profession} />}
@@ -1526,7 +1659,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 
             {(form.has_children || form.spouse_name || form.emergency_contacts.length > 0) && (
               <>
-                <p className="px-5 pt-4 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Família</p>
+                <SubLabel>Família</SubLabel>
                 {form.has_children && (
                   <Field label="Filhos" value={`${form.children_count} total · ${form.minor_children_count} menor(es)`} />
                 )}
@@ -1548,17 +1681,19 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
       {/* Meu profissional */}
       {patient.professional_name && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-50">
-            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Meu Profissional</span>
-          </div>
-          <div className="px-5 py-4 flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-lg shrink-0">
+          <SectionHead icon={Stethoscope} label="Meu Profissional" />
+          <div className="px-5 py-4 flex items-center gap-3.5">
+            <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0 shadow-md shadow-indigo-500/25">
               {patient.professional_name.charAt(0)}
             </div>
-            <div className="min-w-0">
-              <p className="font-black text-slate-800">{patient.professional_name}</p>
-              {patient.specialty && <p className="text-sm text-slate-500">{patient.specialty}</p>}
-              {patient.crp && <p className="text-xs text-slate-400 mt-0.5">CRP {patient.crp}</p>}
+            <div className="min-w-0 flex-1">
+              <p className="font-black text-slate-800 leading-tight">{patient.professional_name}</p>
+              {patient.specialty && <p className="text-sm text-slate-500 mt-0.5">{patient.specialty}</p>}
+              {patient.crp && (
+                <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">
+                  <Gem size={9} /> CRP {patient.crp}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -1567,15 +1702,17 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
       {/* Segurança */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         <button onClick={() => setShowPassSection(v => !v)}
-          className="w-full px-5 py-4 flex items-center justify-between">
+          className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0">
-              <Lock size={16} className="text-indigo-600" />
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl flex items-center justify-center shrink-0">
+              <Shield size={17} className="text-indigo-600" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-black text-slate-700">Alterar senha</p>
-              <p className="text-xs text-slate-400">
-                {patient.portal_password_set ? "Senha definida" : "Senha não configurada"}
+              <p className="text-sm font-black text-slate-700">Segurança da conta</p>
+              <p className="text-xs text-slate-400 flex items-center gap-1">
+                {patient.portal_password_set
+                  ? <><CheckCircle size={11} className="text-emerald-500" /> Senha definida</>
+                  : <><AlertCircle size={11} className="text-amber-500" /> Senha não configurada</>}
               </p>
             </div>
           </div>
@@ -1618,9 +1755,10 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
       </div>
 
       {/* Sair */}
-      <Button variant="danger" className="w-full" iconLeft={<LogOut size={16} />} onClick={onLogout}>
-        Sair do Portal
-      </Button>
+      <button onClick={onLogout}
+        className="w-full mt-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors">
+        <LogOut size={16} /> Sair do Portal
+      </button>
     </div>
   );
 }

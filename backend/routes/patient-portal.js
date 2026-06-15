@@ -7,6 +7,24 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
+// ─── Fuso de Brasília (UTC-3) ─────────────────────────────────────────────────
+// O servidor roda em UTC. Para agendamentos do portal usamos o horário civil de
+// Brasília: construímos um Date que, ao ser salvo como string "YYYY-MM-DD HH:MM:SS",
+// represente o horário local do Brasil corretamente (sem o deslocamento de 3h).
+const BRT_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC-3
+
+// Monta a string "YYYY-MM-DD HH:MM:SS" para um horário civil de Brasília.
+function brtDateTimeStr(yyyy, mm, dd, h, min) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${yyyy}-${p(mm)}-${p(dd)} ${p(h)}:${p(min)}:00`;
+}
+
+// "Agora" em horário de Brasília, como objeto Date cujos getters (getHours etc.)
+// retornam o horário civil do Brasil.
+function nowBRT() {
+  return new Date(Date.now() - BRT_OFFSET_MS);
+}
+
 // ─── Auto-migrate: garante colunas do portal na tabela patients ──────────────
 let portalSchemaReady = false;
 async function ensurePortalPatientColumns() {
@@ -706,17 +724,25 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
       [profId, tenant_id, date]
     );
 
-    const now = new Date();
+    // "Agora" no horário civil de Brasília (para comparar com slots do dia escolhido).
+    const now = nowBRT();
+    const nowY = now.getUTCFullYear(), nowMo = now.getUTCMonth() + 1, nowD = now.getUTCDate();
+    const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const isToday = (yyyy === nowY && mm === nowMo && dd === nowD);
+
     const slots = baseSlots.map(t => {
-      const slotStart = new Date(yyyy, mm - 1, dd, Math.floor(t / 60), t % 60, 0);
-      const slotEnd   = new Date(slotStart.getTime() + duration * 60000);
+      // start_time é gravado como string de horário local do Brasil ("YYYY-MM-DD HH:MM:SS"),
+      // então comparamos em minutos diretamente.
+      const slotStartStr = brtDateTimeStr(yyyy, mm, dd, Math.floor(t / 60), t % 60);
+      const slotStartLocal = new Date(slotStartStr.replace(' ', 'T') + 'Z').getTime();
+      const slotEndLocal   = slotStartLocal + duration * 60000;
       const busy = occupied.some(apt => {
-        const aptStart = new Date(apt.start_time);
-        const aptEnd   = new Date(apt.end_time);
-        return slotStart < aptEnd && slotEnd > aptStart;
+        const aptStart = new Date(String(apt.start_time).replace(' ', 'T') + 'Z').getTime();
+        const aptEnd   = new Date(String(apt.end_time).replace(' ', 'T') + 'Z').getTime();
+        return slotStartLocal < aptEnd && slotEndLocal > aptStart;
       });
-      // Horários que já passaram (hoje) ficam indisponíveis
-      const isPast = slotStart <= now;
+      // Horários que já passaram hoje ficam indisponíveis (com 30min de antecedência mínima)
+      const isPast = isToday && t <= nowMinutes + 30;
       return { time: fmt(t), available: !busy && !isPast };
     });
 
@@ -727,11 +753,56 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
   }
 });
 
+// Frequências de recorrência suportadas pelo portal
+const PORTAL_RECURRENCE_FREQS = ['WEEKLY', 'TWICE_WEEKLY', 'THREE_WEEKLY', 'BIWEEKLY', 'MONTHLY'];
+
+// Gera as datas das ocorrências a partir da data-base (horário civil de Brasília).
+// Retorna array de { yyyy, mm, dd, h, min } — uma por sessão.
+function buildOccurrences({ yyyy, mm, dd, h, min, freq, count }) {
+  const occ = [];
+  // Base como UTC para fazer aritmética de calendário sem influência de fuso do servidor.
+  const base = new Date(Date.UTC(yyyy, mm - 1, dd, h, min, 0));
+  const total = freq ? Math.max(1, Math.min(parseInt(count) || 1, 52)) : 1;
+
+  for (let i = 0; i < total; i++) {
+    const d = new Date(base.getTime());
+    if (!freq || freq === 'NONE') {
+      if (i > 0) break;
+    } else if (freq === 'WEEKLY') {
+      d.setUTCDate(base.getUTCDate() + i * 7);
+    } else if (freq === 'BIWEEKLY') {
+      d.setUTCDate(base.getUTCDate() + i * 14);
+    } else if (freq === 'MONTHLY') {
+      d.setUTCMonth(base.getUTCMonth() + i);
+    } else if (freq === 'TWICE_WEEKLY') {
+      const weekIdx = Math.floor(i / 2);
+      const dayOffset = i % 2 === 0 ? 0 : 3;
+      d.setUTCDate(base.getUTCDate() + weekIdx * 7 + dayOffset);
+    } else if (freq === 'THREE_WEEKLY') {
+      const weekIdx = Math.floor(i / 3);
+      const dayOffsets = [0, 2, 4];
+      d.setUTCDate(base.getUTCDate() + weekIdx * 7 + dayOffsets[i % 3]);
+    } else {
+      if (i > 0) break;
+    }
+    occ.push({
+      yyyy: d.getUTCFullYear(), mm: d.getUTCMonth() + 1, dd: d.getUTCDate(),
+      h: d.getUTCHours(), min: d.getUTCMinutes(),
+    });
+  }
+  return occ;
+}
+
 // POST /patient-portal/appointments — agendar diretamente (se allow_self_schedule)
+// Suporta repetição (recurrence_freq + recurrence_count) e cria uma comanda/pacote
+// automaticamente, vinculando todas as sessões a ela. Nenhum valor é exposto/cobrado.
 router.post('/appointments', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
-    const { professional_id, date, time, modality, notes } = req.body;
+    const {
+      professional_id, date, time, modality, notes,
+      recurrence_freq, recurrence_count,
+    } = req.body;
     if (!professional_id || !date || !time)
       return res.status(400).json({ error: 'Profissional, data e horário são obrigatórios.' });
 
@@ -745,45 +816,99 @@ router.post('/appointments', portalAuth, async (req, res) => {
     if (!tokens[0] || !tokens[0].allow_self_schedule)
       return res.status(403).json({ error: 'Auto-agendamento não permitido.' });
 
-    // Busca dados do profissional
+    // Busca dados do profissional e do paciente (nome p/ descrição da comanda)
     const [profRows] = await db.query(
       `SELECT id, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
       [professional_id, tenant_id]
     );
     if (!profRows[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
-
     const duration = profRows[0].duration_minutes || 50;
+
+    const [patRows] = await db.query(
+      `SELECT name FROM patients WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [patient_id, tenant_id]
+    );
+    const patientName = patRows[0]?.name || 'Paciente';
+
     const [yyyy, mm, dd] = date.split('-').map(Number);
     const [h, min] = time.split(':').map(Number);
-    const startTime = new Date(yyyy, mm - 1, dd, h, min, 0);
-    const endTime   = new Date(startTime.getTime() + duration * 60000);
 
-    // Verifica conflito
-    const [conflict] = await db.query(
-      `SELECT id FROM appointments
-       WHERE professional_id = ? AND tenant_id = ?
-         AND status NOT IN ('cancelled')
-         AND start_time < ? AND end_time > ?`,
-      [professional_id, tenant_id,
-       endTime.toISOString().slice(0, 19).replace('T', ' '),
-       startTime.toISOString().slice(0, 19).replace('T', ' ')]
-    );
-    if (conflict.length > 0)
-      return res.status(409).json({ error: 'Este horário não está mais disponível.' });
+    // Normaliza recorrência
+    const freq = PORTAL_RECURRENCE_FREQS.includes(recurrence_freq) ? recurrence_freq : null;
+    const occurrences = buildOccurrences({ yyyy, mm, dd, h, min, freq, count: recurrence_count });
+    if (occurrences.length === 0)
+      return res.status(400).json({ error: 'Data inválida.' });
 
-    const startStr = startTime.toISOString().slice(0, 19).replace('T', ' ');
-    const endStr   = endTime.toISOString().slice(0, 19).replace('T', ' ');
+    // Verifica conflito de cada ocorrência antes de criar qualquer coisa
+    for (const o of occurrences) {
+      const sStr = brtDateTimeStr(o.yyyy, o.mm, o.dd, o.h, o.min);
+      const eMs = new Date(sStr.replace(' ', 'T') + 'Z').getTime() + duration * 60000;
+      const eStr = new Date(eMs).toISOString().slice(0, 19).replace('T', ' ');
+      const [conflict] = await db.query(
+        `SELECT id FROM appointments
+         WHERE professional_id = ? AND tenant_id = ?
+           AND status NOT IN ('cancelled')
+           AND start_time < ? AND end_time > ?`,
+        [professional_id, tenant_id, eStr, sStr]
+      );
+      if (conflict.length > 0)
+        return res.status(409).json({
+          error: occurrences.length > 1
+            ? `Conflito de horário em ${o.dd}/${o.mm}. Escolha outra data/horário ou reduza a repetição.`
+            : 'Este horário não está mais disponível.',
+        });
+    }
 
-    const [ins] = await db.query(
-      `INSERT INTO appointments
-       (tenant_id, patient_id, professional_id, start_time, end_time, duration_minutes,
-        status, modality, notes, type, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 'sessao', NOW(), NOW())`,
-      [tenant_id, patient_id, professional_id, startStr, endStr, duration,
-       modality || 'online', notes || null]
-    );
+    // Cria a comanda/pacote automaticamente (sem valor) e vincula todas as sessões.
+    const sessionsTotal = occurrences.length;
+    const description = sessionsTotal > 1
+      ? `Pacote de ${sessionsTotal} sessões — ${patientName}`
+      : `Consulta — ${patientName}`;
+    let comandaId = null;
+    try {
+      const firstStr = brtDateTimeStr(occurrences[0].yyyy, occurrences[0].mm, occurrences[0].dd, occurrences[0].h, occurrences[0].min);
+      const [comandaIns] = await db.query(
+        `INSERT INTO comandas
+         (tenant_id, patient_id, professional_id, description, total, total_net, discount,
+          sessions_total, sessions_used, status, start_date, duration_minutes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', ?, ?, NOW(), NOW())`,
+        [tenant_id, patient_id, professional_id, description, sessionsTotal, firstStr, duration]
+      );
+      comandaId = comandaIns.insertId;
+    } catch (e) {
+      // Se a tabela comandas não tiver alguma coluna, segue sem comanda (não bloqueia o agendamento)
+      console.error('[portal] falha ao criar comanda automática:', e.message);
+      comandaId = null;
+    }
 
-    res.json({ id: ins.insertId, status: 'scheduled', start_time: startStr, end_time: endStr });
+    const recurrenceRule = freq
+      ? JSON.stringify({ freq, count: sessionsTotal, source: 'portal' })
+      : null;
+
+    // Insere todas as ocorrências
+    const created = [];
+    for (const o of occurrences) {
+      const sStr = brtDateTimeStr(o.yyyy, o.mm, o.dd, o.h, o.min);
+      const eMs = new Date(sStr.replace(' ', 'T') + 'Z').getTime() + duration * 60000;
+      const eStr = new Date(eMs).toISOString().slice(0, 19).replace('T', ' ');
+      const [ins] = await db.query(
+        `INSERT INTO appointments
+         (tenant_id, patient_id, professional_id, start_time, end_time, duration_minutes,
+          status, modality, notes, type, comanda_id, recurrence_rule, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 'sessao', ?, ?, NOW(), NOW())`,
+        [tenant_id, patient_id, professional_id, sStr, eStr, duration,
+         modality || 'online', notes || null, comandaId, recurrenceRule]
+      );
+      created.push({ id: ins.insertId, start_time: sStr });
+    }
+
+    res.json({
+      ok: true,
+      status: 'scheduled',
+      comanda_id: comandaId,
+      sessions: created.length,
+      appointments: created,
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Erro ao agendar consulta.' });
