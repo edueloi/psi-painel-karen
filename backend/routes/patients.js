@@ -324,7 +324,7 @@ router.post('/', async (req, res) => {
   try {
     await withPatientSchema();
     const {
-      name, email, phone, phone2, birth_date, cpf, rg, gender,
+      name, email, phone, whatsapp, phone2, birth_date, cpf, rg, gender,
       marital_status, education, profession, nationality, naturality,
       has_children, children_count, minor_children_count,
       spouse_name, spouse_phone, family_contact, emergency_contact, emergency_contacts,
@@ -347,7 +347,7 @@ router.post('/', async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO patients (
-        tenant_id, name, email, phone, phone2, birth_date, cpf, rg, gender,
+        tenant_id, name, email, phone, whatsapp, phone2, birth_date, cpf, rg, gender,
         marital_status, education, profession, nationality, naturality,
         has_children, children_count, minor_children_count,
         spouse_name, spouse_phone, family_contact, emergency_contact, emergency_contacts,
@@ -356,9 +356,9 @@ router.post('/', async (req, res) => {
         responsible_phone, health_plan, diagnosis,
         is_payer, payer_name, payer_cpf, payer_phone,
         phone_country, phone2_country
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.user.tenant_id, name, email || null, phone || null, phone2 || null,
+        req.user.tenant_id, name, email || null, phone || null, whatsapp || phone || null, phone2 || null,
         birth_date || null, cpf || null, rg || null, gender || null,
         marital_status || null, education || null, profession || null,
         nationality || null, naturality || null,
@@ -388,7 +388,7 @@ router.put('/:id', async (req, res) => {
   try {
     await withPatientSchema();
     const {
-      name, email, phone, phone2, birth_date, cpf, rg, gender,
+      name, email, phone, whatsapp, phone2, birth_date, cpf, rg, gender,
       marital_status, education, profession, nationality, naturality,
       has_children, children_count, minor_children_count,
       spouse_name, spouse_phone, family_contact, emergency_contact, emergency_contacts,
@@ -416,6 +416,7 @@ router.put('/:id', async (req, res) => {
         name = COALESCE(?, name),
         email = COALESCE(?, email),
         phone = COALESCE(?, phone),
+        whatsapp = COALESCE(?, whatsapp),
         phone2 = COALESCE(?, phone2),
         birth_date = COALESCE(?, birth_date),
         cpf = COALESCE(?, cpf),
@@ -453,7 +454,7 @@ router.put('/:id', async (req, res) => {
         phone2_country = COALESCE(?, phone2_country)
       WHERE id = ? AND tenant_id = ?`,
       [
-        name ?? null, email ?? null, phone ?? null, phone2 ?? null, sanitizedBirthDate ?? null, cpf ?? null, rg ?? null, gender ?? null,
+        name ?? null, email ?? null, phone ?? null, (whatsapp ?? phone) || null, phone2 ?? null, sanitizedBirthDate ?? null, cpf ?? null, rg ?? null, gender ?? null,
         marital_status ?? null, education ?? null, profession ?? null, nationality ?? null, naturality ?? null,
         has_children !== undefined ? (has_children ? 1 : 0) : null,
         children_count ?? null, minor_children_count ?? null,

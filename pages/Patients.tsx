@@ -266,6 +266,7 @@ export const Patients: React.FC = () => {
         name: data.full_name,
         email: data.email || null,
         phone: prefixPhone(data.whatsapp || data.phone || null, phoneCountry),
+        whatsapp: prefixPhone(data.whatsapp || data.phone || null, phoneCountry),
         phone2: prefixPhone(data.phone2 || null, phone2Country),
         phone_country: phoneCountry,
         phone2_country: phone2Country,
