@@ -591,6 +591,14 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     setMonthLoading(false);
   }, []);
 
+  // A lista de profissionais chega de forma assíncrona (depois do useState inicial).
+  // Quando chegar, garante que há um profissional selecionado no formulário.
+  useEffect(() => {
+    if (!schedForm.professional_id && professionals.length > 0) {
+      setSchedForm(f => ({ ...f, professional_id: professionals[0].id.toString() }));
+    }
+  }, [professionals]);
+
   // Carrega mês inicial quando entra no fluxo de agendamento
   useEffect(() => {
     if ((mode === "schedule" || mode === "reschedule") && schedForm.professional_id) {
