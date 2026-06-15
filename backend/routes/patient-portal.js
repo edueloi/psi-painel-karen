@@ -639,28 +639,64 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
       return res.status(400).json({ error: 'Parâmetro date obrigatório (YYYY-MM-DD).' });
 
-    // Busca schedule do profissional
+    // Busca schedule + dias bloqueados do profissional
     const [users] = await db.query(
-      `SELECT id, name, schedule, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      `SELECT id, name, schedule, closed_dates, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
       [profId, tenant_id]
     );
     if (!users[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
 
-    let schedule = null;
-    try {
-      schedule = users[0].schedule
-        ? (typeof users[0].schedule === 'string' ? JSON.parse(users[0].schedule) : users[0].schedule)
-        : null;
-    } catch { schedule = null; }
+    const parseJson = (val) => {
+      if (!val) return null;
+      try { return typeof val === 'string' ? JSON.parse(val) : val; } catch { return null; }
+    };
+    const schedule = parseJson(users[0].schedule);
+    const closedDates = parseJson(users[0].closed_dates);
 
-    const DAY_KEYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    // Mapeia o dia da semana para a chave usada no schedule salvo pelo Perfil
+    // (array de { dayKey, active, start, end, breaks })
+    const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     // Calcula dia da semana sem problemas de timezone
     const [yyyy, mm, dd] = date.split('-').map(Number);
     const dayIndex = new Date(yyyy, mm - 1, dd).getDay();
     const dayKey = DAY_KEYS[dayIndex];
-    const allSlots = (schedule && Array.isArray(schedule[dayKey])) ? schedule[dayKey] : [];
 
-    if (allSlots.length === 0) return res.json({ slots: [], date, day_key: dayKey });
+    // Dia bloqueado (feriado/férias) → sem horários
+    const isClosed = Array.isArray(closedDates) && closedDates.some(c => c && c.date === date);
+    if (isClosed) return res.json({ slots: [], date, day_key: dayKey });
+
+    const dayConfig = Array.isArray(schedule)
+      ? schedule.find(d => d && d.dayKey === dayKey)
+      : null;
+
+    if (!dayConfig || !dayConfig.active || !dayConfig.start || !dayConfig.end)
+      return res.json({ slots: [], date, day_key: dayKey });
+
+    const toMin = (hhmm) => {
+      const [h, m] = String(hhmm).split(':').map(Number);
+      return h * 60 + (m || 0);
+    };
+    const fmt = (totalMin) =>
+      `${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
+
+    const dayStart = toMin(dayConfig.start);
+    const dayEnd   = toMin(dayConfig.end);
+    const breaks = Array.isArray(dayConfig.breaks)
+      ? dayConfig.breaks.filter(b => b && b.start && b.end).map(b => ({ start: toMin(b.start), end: toMin(b.end) }))
+      : [];
+
+    const duration = users[0].duration_minutes || 50;
+    const STEP = 60; // horários de 1 em 1 hora
+
+    // Gera os horários base do dia (início → fim), pulando intervalos
+    const baseSlots = [];
+    for (let t = dayStart; t + duration <= dayEnd; t += STEP) {
+      const slotEnd = t + duration;
+      const overlapsBreak = breaks.some(b => t < b.end && slotEnd > b.start);
+      if (!overlapsBreak) baseSlots.push(t);
+    }
+
+    if (baseSlots.length === 0) return res.json({ slots: [], date, day_key: dayKey, duration });
 
     // Busca appointments já ocupados nesse dia
     const [occupied] = await db.query(
@@ -670,18 +706,15 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
       [profId, tenant_id, date]
     );
 
-    const duration = users[0].duration_minutes || 50;
-
-    const slots = allSlots.map(slotTime => {
-      const [h, m] = slotTime.split(':').map(Number);
-      const slotStart = new Date(yyyy, mm - 1, dd, h, m, 0);
+    const slots = baseSlots.map(t => {
+      const slotStart = new Date(yyyy, mm - 1, dd, Math.floor(t / 60), t % 60, 0);
       const slotEnd   = new Date(slotStart.getTime() + duration * 60000);
       const busy = occupied.some(apt => {
         const aptStart = new Date(apt.start_time);
         const aptEnd   = new Date(apt.end_time);
         return slotStart < aptEnd && slotEnd > aptStart;
       });
-      return { time: slotTime, available: !busy };
+      return { time: fmt(t), available: !busy };
     });
 
     res.json({ slots, date, day_key: dayKey, duration });
