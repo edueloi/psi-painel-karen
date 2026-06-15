@@ -104,18 +104,40 @@ router.get('/queue', async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const isSuperAdmin = req.user.role === 'super_admin';
+    const { status, date } = req.query; // date format: YYYY-MM-DD
 
     let query = `
-      SELECT nq.* FROM notification_queue nq
+      SELECT nq.*,
+        COALESCE(p.name, p2.name) AS patient_name
+      FROM notification_queue nq
+      LEFT JOIN patients p
+        ON p.tenant_id = nq.tenant_id
+        AND (REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(p.phone,'(',''),')',''),' ',''),'-',''),'+','') = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nq.recipient_phone,'(',''),')',''),' ',''),'-',''),'+','')
+          OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(p.whatsapp,'(',''),')',''),' ',''),'-',''),'+','') = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nq.recipient_phone,'(',''),')',''),' ',''),'-',''),'+',''))
+      LEFT JOIN patients p2
+        ON p2.tenant_id = nq.tenant_id
+        AND p.id IS NULL
+        AND (REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(p2.phone,'(',''),')',''),' ',''),'-',''),'+','') LIKE CONCAT('%', RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nq.recipient_phone,'(',''),')',''),' ',''),'-',''),'+',''), 9))
+          OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(p2.whatsapp,'(',''),')',''),' ',''),'-',''),'+','') LIKE CONCAT('%', RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nq.recipient_phone,'(',''),')',''),' ',''),'-',''),'+',''), 9)))
     `;
     const params = [];
+    const where = [];
 
     if (!isSuperAdmin) {
-      query += ' WHERE nq.tenant_id = ?';
+      where.push('nq.tenant_id = ?');
       params.push(tenantId);
     }
+    if (status) {
+      where.push('nq.status = ?');
+      params.push(status);
+    }
+    if (date) {
+      where.push('DATE(CONVERT_TZ(nq.created_at, \'+00:00\', \'-03:00\')) = ?');
+      params.push(date);
+    }
 
-    query += ' ORDER BY nq.created_at DESC LIMIT 100';
+    if (where.length) query += ' WHERE ' + where.join(' AND ');
+    query += ' ORDER BY nq.created_at DESC LIMIT 200';
 
     const [rows] = await db.query(query, params);
     res.json(rows);

@@ -291,6 +291,8 @@ export const BotIntegration: React.FC = () => {
   const [queue, setQueue]                 = useState<any[]>([]);
   const [queueLoading, setQueueLoading]   = useState(false);
   const [selectedMsg, setSelectedMsg]     = useState<any | null>(null);
+  const [filterStatus, setFilterStatus]   = useState<string>('');
+  const [filterDate, setFilterDate]       = useState<string>('');
 
   const [prefs, setPrefs] = useState({
     reminder_24h_enabled: true,
@@ -305,10 +307,14 @@ export const BotIntegration: React.FC = () => {
     payment_msg: `💰 *Lembrete de Pagamento*\n\nOlá, *{patient_name}*.\nLembramos que o vencimento da sua parcela no valor de R$ {amount} é hoje.`,
   });
 
-  const fetchQueue = async () => {
+  const fetchQueue = async (status?: string, date?: string) => {
     setQueueLoading(true);
     try {
-      const data = await api.get<any[]>('/notifications/queue');
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      if (date) params.set('date', date);
+      const qs = params.toString();
+      const data = await api.get<any[]>(`/notifications/queue${qs ? '?' + qs : ''}`);
       setQueue(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[fetchQueue]', err);
@@ -723,11 +729,46 @@ export const BotIntegration: React.FC = () => {
           iconWrapClassName="bg-slate-50 border-slate-100"
           iconClassName="text-slate-500"
           action={
-            <Button variant="ghost" size="sm" onClick={fetchQueue} loading={queueLoading} className="gap-1.5 text-zinc-500">
+            <Button variant="ghost" size="sm" onClick={() => fetchQueue(filterStatus, filterDate)} loading={queueLoading} className="gap-1.5 text-zinc-500">
               <RefreshCw size={13} /> Atualizar
             </Button>
           }
         >
+          {/* Filtros */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <input
+              type="date"
+              value={filterDate}
+              onChange={e => { setFilterDate(e.target.value); fetchQueue(filterStatus, e.target.value); }}
+              className="text-xs border border-zinc-200 rounded-xl px-3 py-1.5 text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+            {(['', 'sent', 'pending', 'error', 'canceled'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => { setFilterStatus(s); fetchQueue(s, filterDate); }}
+                className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-all ${
+                  filterStatus === s
+                    ? s === 'sent'     ? 'bg-emerald-500 border-emerald-500 text-white'
+                    : s === 'error'    ? 'bg-red-500 border-red-500 text-white'
+                    : s === 'pending'  ? 'bg-amber-400 border-amber-400 text-white'
+                    : s === 'canceled' ? 'bg-zinc-400 border-zinc-400 text-white'
+                    : 'bg-indigo-600 border-indigo-600 text-white'
+                    : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300'
+                }`}
+              >
+                {s === '' ? 'Todos' : s === 'sent' ? 'Enviado' : s === 'pending' ? 'Pendente' : s === 'error' ? 'Erro' : 'Cancelado'}
+              </button>
+            ))}
+            {(filterDate || filterStatus) && (
+              <button
+                onClick={() => { setFilterDate(''); setFilterStatus(''); fetchQueue('', ''); }}
+                className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200 text-zinc-400 hover:text-zinc-600 flex items-center gap-1"
+              >
+                <X size={10} /> Limpar
+              </button>
+            )}
+          </div>
+
           {queueLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="animate-spin text-zinc-300" size={28} /></div>
           ) : queue.length === 0 ? (
