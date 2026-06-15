@@ -764,6 +764,19 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           </div>
         )}
 
+        {/* Nenhum profissional disponível */}
+        {professionals.length === 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+            <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-black text-amber-700">Profissional não disponível</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                Não encontramos um profissional vinculado à sua conta. Fale com a clínica.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Seletor de profissional */}
         {professionals.length > 1 && (
           <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">

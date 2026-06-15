@@ -633,16 +633,40 @@ router.post('/payments/:id/attachments', portalAuth, upload.array('files', 5), a
 
 // ─── PROFISSIONAIS DISPONÍVEIS ────────────────────────────────────────────────
 // GET /patient-portal/professionals
+// Regra: o paciente agenda com SEU profissional responsável. Se ele tem um
+// responsável definido, retorna apenas ele. Caso contrário, retorna todos os
+// profissionais ativos do consultório (admin/professional).
 router.get('/professionals', portalAuth, async (req, res) => {
   try {
-    const { tenant_id } = req.portalSession;
+    const { tenant_id, patient_id } = req.portalSession;
+    const PROF_ROLES = "('professional','admin','super_admin')";
+
+    // 1) Profissional responsável pelo paciente (preferência)
+    const [pat] = await db.query(
+      `SELECT responsible_professional_id FROM patients WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [patient_id, tenant_id]
+    );
+    const respId = pat[0]?.responsible_professional_id;
+
+    if (respId) {
+      const [resp] = await db.query(
+        `SELECT id, name, specialty, crp, avatar_url FROM users
+         WHERE id = ? AND tenant_id = ? AND (active = 1 OR active IS NULL) LIMIT 1`,
+        [respId, tenant_id]
+      );
+      if (resp.length > 0) return res.json(resp);
+    }
+
+    // 2) Fallback: todos os profissionais ativos do consultório
     const [rows] = await db.query(
       `SELECT id, name, specialty, crp, avatar_url FROM users
-       WHERE tenant_id = ? AND role = 'profissional' AND active = 1 ORDER BY name`,
+       WHERE tenant_id = ? AND role IN ${PROF_ROLES} AND (active = 1 OR active IS NULL)
+       ORDER BY name`,
       [tenant_id]
     );
     res.json(rows);
   } catch (e) {
+    console.error('[portal professionals]', e?.message || e);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });
