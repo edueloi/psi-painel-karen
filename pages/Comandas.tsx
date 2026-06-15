@@ -1509,27 +1509,6 @@ export const Comandas: React.FC = () => {
       />
 
       <main className="py-6">
-        {openComandasStats.count > 0 && (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <AlertTriangle className="h-6 w-6 text-amber-500" aria-hidden="true" />
-              </div>
-              <div className="ml-4">
-                <p className="text-base font-semibold text-amber-800">
-                  Atenção: Existem Comandas em Aberto!
-                </p>
-                <p className="mt-1 text-sm text-amber-700">
-                  Você possui{' '}
-                  <span className="font-bold">{openComandasStats.count}</span>{' '}
-                  comanda{openComandasStats.count > 1 ? 's' : ''} em aberto, totalizando{' '}
-                  <span className="font-bold">{formatCurrency(openComandasStats.totalPending)}</span>{' '}
-                  a receber. É importante fazer a gestão e finalização das mesmas.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         <StatGrid cols={3} className="mb-6">
           <StatCard title="Faturamento Total" value={formatCurrency(stats.total)} icon={FileText} color="info" />
