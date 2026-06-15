@@ -706,6 +706,7 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
       [profId, tenant_id, date]
     );
 
+    const now = new Date();
     const slots = baseSlots.map(t => {
       const slotStart = new Date(yyyy, mm - 1, dd, Math.floor(t / 60), t % 60, 0);
       const slotEnd   = new Date(slotStart.getTime() + duration * 60000);
@@ -714,7 +715,9 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
         const aptEnd   = new Date(apt.end_time);
         return slotStart < aptEnd && slotEnd > aptStart;
       });
-      return { time: fmt(t), available: !busy };
+      // Horários que já passaram (hoje) ficam indisponíveis
+      const isPast = slotStart <= now;
+      return { time: fmt(t), available: !busy && !isPast };
     });
 
     res.json({ slots, date, day_key: dayKey, duration });
