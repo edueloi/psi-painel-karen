@@ -310,8 +310,9 @@ export const BotIntegration: React.FC = () => {
     try {
       const data = await api.get<any[]>('/notifications/queue');
       setQueue(Array.isArray(data) ? data : []);
-    } catch {
-      // silencioso
+    } catch (err) {
+      console.error('[fetchQueue]', err);
+      setQueue([]);
     } finally {
       setQueueLoading(false);
     }

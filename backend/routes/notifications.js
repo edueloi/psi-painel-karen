@@ -105,13 +105,24 @@ router.get('/queue', async (req, res) => {
     const tenantId = req.user.tenant_id;
     const isSuperAdmin = req.user.role === 'super_admin';
 
+    // JOIN tenta patient_id do metadata (birthday) ou apt_id -> appointment -> patient (reminders)
     let query = `
       SELECT
         nq.*,
-        COALESCE(p.name, p.full_name) AS patient_name
+        COALESCE(
+          COALESCE(pb.name, pb.full_name),
+          COALESCE(pa.name, pa.full_name)
+        ) AS patient_name
       FROM notification_queue nq
-      LEFT JOIN patients p ON p.id = JSON_UNQUOTE(JSON_EXTRACT(nq.metadata, '$.patient_id'))
-        AND p.tenant_id = nq.tenant_id
+      LEFT JOIN patients pb
+        ON pb.id = JSON_UNQUOTE(JSON_EXTRACT(nq.metadata, '$.patient_id'))
+        AND pb.tenant_id = nq.tenant_id
+      LEFT JOIN appointments apt
+        ON apt.id = JSON_UNQUOTE(JSON_EXTRACT(nq.metadata, '$.apt_id'))
+        AND apt.tenant_id = nq.tenant_id
+      LEFT JOIN patients pa
+        ON pa.id = apt.patient_id
+        AND pa.tenant_id = nq.tenant_id
     `;
     const params = [];
 
@@ -125,7 +136,8 @@ router.get('/queue', async (req, res) => {
     const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: 'Erro ao buscar fila' });
+    console.error('[notifications/queue] Erro:', err.message);
+    res.status(500).json({ error: 'Erro ao buscar fila', details: err.message });
   }
 });
 
