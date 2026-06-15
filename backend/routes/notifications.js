@@ -105,24 +105,8 @@ router.get('/queue', async (req, res) => {
     const tenantId = req.user.tenant_id;
     const isSuperAdmin = req.user.role === 'super_admin';
 
-    // JOIN tenta patient_id do metadata (birthday) ou apt_id -> appointment -> patient (reminders)
     let query = `
-      SELECT
-        nq.*,
-        COALESCE(
-          COALESCE(pb.name, pb.full_name),
-          COALESCE(pa.name, pa.full_name)
-        ) AS patient_name
-      FROM notification_queue nq
-      LEFT JOIN patients pb
-        ON pb.id = JSON_UNQUOTE(JSON_EXTRACT(nq.metadata, '$.patient_id'))
-        AND pb.tenant_id = nq.tenant_id
-      LEFT JOIN appointments apt
-        ON apt.id = JSON_UNQUOTE(JSON_EXTRACT(nq.metadata, '$.apt_id'))
-        AND apt.tenant_id = nq.tenant_id
-      LEFT JOIN patients pa
-        ON pa.id = apt.patient_id
-        AND pa.tenant_id = nq.tenant_id
+      SELECT nq.* FROM notification_queue nq
     `;
     const params = [];
 
