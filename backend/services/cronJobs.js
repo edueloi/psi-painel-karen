@@ -115,7 +115,7 @@ async function checkAppointmentReminders() {
     // Se o bot estiver desconectado, o processQueue vai falhar e retentar até expires_at.
     const masterBotConnected = !!masterTenantId;
 
-    // Busca agendamentos próximos (26h) — consultas E eventos pessoais
+    // Busca agendamentos próximos (27h) — cobre janela de lembrete 24h (até 25h=1500min à frente)
     const [appointments] = await db.query(`
        SELECT a.*,
          p.name as patient_name, COALESCE(NULLIF(TRIM(p.whatsapp), ''), p.phone) as patient_phone,
@@ -134,7 +134,7 @@ async function checkAppointmentReminders() {
        LEFT JOIN comandas c ON c.id = a.comanda_id
        LEFT JOIN tenants t ON t.id = a.tenant_id
        WHERE a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-         AND a.start_time < DATE_ADD(NOW(), INTERVAL 26 HOUR)
+         AND a.start_time < DATE_ADD(NOW(), INTERVAL 27 HOUR)
          AND a.status IN ('scheduled','confirmed','rescheduled')
          AND (
            a.whatsapp_reminder_1h_sent = 0
